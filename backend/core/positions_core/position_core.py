@@ -2,10 +2,10 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from core.core_imports import log
-from positions.position_store import PositionStore
-from positions.position_enrichment_service import PositionEnrichmentService
-from positions.position_enrichment_service import validate_enriched_position
+from backend.core.core_imports import log
+from backend.core.positions_core.position_store import PositionStore
+from backend.core.positions_core.position_enrichment_service import PositionEnrichmentService
+from backend.core.positions_core.position_enrichment_service import validate_enriched_position
 from hedge_core.hedge_core import HedgeCore
 from calc_core.calc_services import CalcServices
 from datetime import datetime

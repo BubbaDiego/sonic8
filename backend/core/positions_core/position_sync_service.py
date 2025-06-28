@@ -6,12 +6,12 @@ import requests
 from rich.console import Console
 
 # Local imports
-from core.logging import log
-from core.constants import JUPITER_API_BASE
-from data.data_locker import DataLocker
-from positions.position_enrichment_service import PositionEnrichmentService
-from positions.position_core import PositionCore
-from calc_core.calculation_core import CalculationCore
+from backend.core.logging import log
+from backend.core.constants import JUPITER_API_BASE
+from backend.data.data_locker import DataLocker
+from backend.core.positions_core.position_enrichment_service import PositionEnrichmentService
+from backend.core.positions_core.position_core import PositionCore
+from backend.core.calc_core.calculation_core import CalculationCore
 
 console = Console()
 

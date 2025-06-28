@@ -3,11 +3,11 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from calc_core.calculation_core import CalculationCore
-from core.logging import log
-from core.constants import MOTHER_DB_PATH
-from data.data_locker import DataLocker
-from utils.fuzzy_wuzzy import fuzzy_match_key
-from calc_core.calculation_core import CalculationCore
+from backend.core.logging import log
+from backend.core.constants import MOTHER_DB_PATH
+from backend.data.data_locker import DataLocker
+from backend.utils.fuzzy_wuzzy import fuzzy_match_key
+from backend.core.calc_core.calculation_core import CalculationCore
 
 class PositionEnrichmentService:
     def __init__(self, data_locker=None):

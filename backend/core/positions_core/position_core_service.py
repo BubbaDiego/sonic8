@@ -5,9 +5,9 @@ from positions_core.position_enrichment_service import (
     PositionEnrichmentService,
     validate_enriched_position,
 )
-from positions.position_core import PositionCore
-from calc_core.calculation_core import CalculationCore
-from core.logging import log
+from backend.core.positions_core.position_core import PositionCore
+from backend.core.calc_core.calculation_core import CalculationCore
+from backend.core.logging import log
 
 class PositionCoreService:
     def __init__(self, data_locker):

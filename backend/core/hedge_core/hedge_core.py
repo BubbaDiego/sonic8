@@ -5,7 +5,7 @@ from typing import List, Optional
 from uuid import uuid4
 from datetime import datetime
 
-from data.models import Hedge
+from backend.models.hedge import Hedge
 from typing import TYPE_CHECKING
 
 # Avoid circular dependency with :mod:`positions.hedge_manager` when this module
@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 # until runtime or when type checking.
 if TYPE_CHECKING:  # pragma: no cover - used for type hints only
     from positions.hedge_manager import HedgeManager
-from core.core_imports import log
+from backend.core.core_imports import log
 
 class HedgeCore:
     """High level orchestration for hedge operations"""

@@ -10,7 +10,7 @@ import os
 
 from backend.data.data_locker import DataLocker
 from backend.core.positions_core.position_core_service import PositionCoreService
-from positions.position_sync_service import PositionSyncService
+from backend.core.positions_core.position_sync_service import PositionSyncService
 from monitor.monitor_utils import LedgerWriter
 from data.alert import AlertType, Condition
 from core.logging import log
