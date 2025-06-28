@@ -48,7 +48,7 @@ from backend.data.data_locker import DataLocker
 from backend.core.positions_core.position_core import PositionCore
 
 from backend.core.wallet_core.wallet_service import WalletService
-from backend.data.models import Wallet
+from backend.models.wallet import Wallet
 
 LAMPORTS_PER_SOL = 1_000_000_000
 
