@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from models.position import Position
 from data.data_locker import DataLocker
-from cores.positions_core.position_core import PositionCore
+from core.positions_core.position_core import PositionCore
 
 router = APIRouter(prefix="/positions", tags=["positions"])
 
