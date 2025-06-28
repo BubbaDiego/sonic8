@@ -1,4 +1,4 @@
-# cyclone/cyclone_portfolio_service.py
+ # cyclone/cyclone_portfolio_service.py
 
 import sys
 import os
