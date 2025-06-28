@@ -6,13 +6,13 @@ import Box from '@mui/material/Box';
 
 // project imports
 import LogoSection from '../LogoSection';
-import SearchSection from './SearchSection';
 import MobileSection from './MobileSection';
 import ProfileSection from './ProfileSection';
 import LocalizationSection from './LocalizationSection';
 import MegaMenuSection from './MegaMenuSection';
 import FullScreenSection from './FullScreenSection';
 import NotificationSection from './NotificationSection';
+import CycloneRunSection from './CycloneRunSection';
 
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import { MenuOrientation, ThemeMode } from 'config';
@@ -62,8 +62,6 @@ export default function Header() {
         )}
       </Box>
 
-      {/* header search */}
-      <SearchSection />
       <Box sx={{ flexGrow: 1 }} />
       <Box sx={{ flexGrow: 1 }} />
 
@@ -84,6 +82,9 @@ export default function Header() {
       <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
         <FullScreenSection />
       </Box>
+
+      {/* cyclone run */}
+      <CycloneRunSection />
 
       {/* profile */}
       <ProfileSection />
