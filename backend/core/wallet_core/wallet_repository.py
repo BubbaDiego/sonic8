@@ -7,9 +7,9 @@ import json
 import os
 from typing import List, Optional, Mapping
 
-from data.data_locker import DataLocker
-from wallets.wallet import Wallet
-from wallets.wallet_schema import WalletIn
+from backend.data.data_locker import DataLocker
+from backend.models.wallet import Wallet
+from backend.core.wallet_core.wallet_schema import WalletIn
 
 # 📁 Fallback JSON path (ensure file exists or can be written)
 # Default now points to the bundled Star Wars sample wallets for easier testing.
@@ -17,7 +17,7 @@ WALLETS_JSON_PATH = os.path.join(
     os.path.dirname(__file__), "test_wallets", "star_wars_wallets.json"
 )
 
-import core.core_imports as ci
+import backend.core.core_imports as ci
 
 
 class WalletRepository:

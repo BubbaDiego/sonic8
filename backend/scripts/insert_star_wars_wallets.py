@@ -7,8 +7,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 # Dynamically build the wallet path relative to the script
 wallet_json_path = os.path.join(os.path.dirname(__file__), '..', 'wallets', 'test_wallets', 'star_wars_wallets.json')
 
-from wallets.wallet_core import WalletCore
-from wallets.wallet import Wallet
+from backend.core.wallet_core import WalletCore
+from backend.data.models.wallet import Wallet
 
 def insert_star_wars_wallets() -> int:
     """Insert Star Wars wallets defined in ``wallet_json_path``."""

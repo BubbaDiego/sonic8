@@ -8,9 +8,9 @@
 
 import os
 from typing import List, Mapping
-from wallets.wallet_schema import WalletIn, WalletOut
-from wallets.wallet import Wallet
-from wallets.wallet_repository import WalletRepository
+from backend.core.wallet_core.wallet_schema import WalletIn, WalletOut
+from backend.models.wallet import Wallet
+from backend.core.wallet_core.wallet_repository import WalletRepository
 
 class WalletService:
     def __init__(self):

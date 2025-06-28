@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 
 
-from core.logging import log
+from backend.core.logging import log
 
 try:
     from solana.rpc.api import Client
@@ -41,14 +41,14 @@ except ImportError as e:  # pragma: no cover - optional dependency
     Confirmed = None
     TxOpts = object
 
-from wallets.blockchain_balance_service import BlockchainBalanceService
-from wallets.jupiter_service import JupiterService
-from wallets.jupiter_trigger_service import JupiterTriggerService
-from data.data_locker import DataLocker
-from positions.position_core import PositionCore
+#from wallets.blockchain_balance_service import BlockchainBalanceService
+#from wallets.jupiter_service import JupiterService
+#from wallets.jupiter_trigger_service import JupiterTriggerService
+from backend.data.data_locker import DataLocker
+from backend.core.positions_core.position_core import PositionCore
 
-from wallets.wallet_service import WalletService
-from wallets.wallet import Wallet
+from backend.core.wallet_core.wallet_service import WalletService
+from backend.data.models import Wallet
 
 LAMPORTS_PER_SOL = 1_000_000_000
 
