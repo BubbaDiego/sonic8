@@ -1,4 +1,5 @@
-import pytest, tempfile, os
+import pytest, tempfile, os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 from data.data_locker import DataLocker
 
 @pytest.fixture(scope="function")
