@@ -2,7 +2,7 @@
 
 import sqlite3
 import os
-from core.core_imports import log
+#from core.core_imports import log
 try:
     from system.death_nail_service import DeathNailService
 except ModuleNotFoundError:  # pragma: no cover - optional dependency

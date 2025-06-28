@@ -1,7 +1,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from positions.position_enrichment_service import (
+from positions_core.position_enrichment_service import (
     PositionEnrichmentService,
     validate_enriched_position,
 )
