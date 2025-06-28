@@ -44,6 +44,10 @@ sonic1/
 │   │   ├── database_service.py
 │   │   ├── xcom_service.py
 │   │   └── external_api_service.py
+│   ├── launch_pad.py
+│   ├── cli
+│   │   └── __init__.py
+
 │   ├── cli
 │   │   ├── __init__.py
 │   │   └── launch_pad.py
