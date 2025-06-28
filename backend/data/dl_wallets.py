@@ -1,4 +1,4 @@
-from core.core_imports import log
+from backend.core.core_imports import log
 import json
 # dl_wallets.py
 """
@@ -14,7 +14,7 @@ Dependencies:
 """
 
 
-from wallets.encryption import encrypt_key, decrypt_key
+from backend.core.wallet_core.encryption import encrypt_key, decrypt_key
 
 
 class DLWalletManager:

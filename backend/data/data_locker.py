@@ -21,7 +21,7 @@ from backend.data.database import DatabaseManager
 # from data.dl_alerts import DLAlertManager
 # from data.dl_prices import DLPriceManager
 from backend.data.dl_positions import DLPositionManager
-# from data.dl_wallets import DLWalletManager
+from backend.data.dl_wallets import DLWalletManager
 # from data.dl_brokers import DLBrokerManager
 # from data.dl_portfolio import DLPortfolioManager
 # from data.dl_system_data import DLSystemDataManager

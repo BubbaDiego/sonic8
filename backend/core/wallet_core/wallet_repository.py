@@ -1,0 +1,107 @@
+"""
+📁 Module: wallet_repository.py
+📌 Purpose: Handles wallet data persistence to DB and fallback to JSON backup.
+"""
+
+import json
+import os
+from typing import List, Optional, Mapping
+
+from data.data_locker import DataLocker
+from wallets.wallet import Wallet
+from wallets.wallet_schema import WalletIn
+
+# 📁 Fallback JSON path (ensure file exists or can be written)
+# Default now points to the bundled Star Wars sample wallets for easier testing.
+WALLETS_JSON_PATH = os.path.join(
+    os.path.dirname(__file__), "test_wallets", "star_wars_wallets.json"
+)
+
+import core.core_imports as ci
+
+
+class WalletRepository:
+    def __init__(self):
+        self.dl = DataLocker.get_instance(str(ci.MOTHER_DB_PATH))
+
+
+    # 🧾 Get all wallets from DB
+    def get_all_wallets(self) -> List[Wallet]:
+        rows = self.dl.read_wallets()
+        return [
+            Wallet(**{**row, "chrome_profile": row.get("chrome_profile", "Default")})
+            for row in rows
+        ]
+
+    # 🔍 Get a wallet by its unique name
+    def get_wallet_by_name(self, name: str) -> Optional[Wallet]:
+        row = self.dl.get_wallet_by_name(name)
+        if row:
+            data = {**row, "chrome_profile": row.get("chrome_profile", "Default")}
+            return Wallet(**data)
+        return None
+
+    # ➕ Insert new wallet into DB
+    def add_wallet(self, wallet: WalletIn) -> None:
+        """Persist ``wallet`` to the database."""
+
+        # ``WalletIn`` is a Pydantic model (or stub fallback) so we rely on
+        # its ``dict()`` method rather than ``dataclasses.asdict``.
+        self.dl.create_wallet(wallet.dict())
+
+    # 🗑️ Delete wallet by name
+    def delete_wallet(self, name: str) -> bool:
+        wallet = self.get_wallet_by_name(name)
+        if not wallet:
+            return False
+        self.dl.delete_positions_for_wallet(wallet.name)  # 🔥 Optional: delete linked positions
+        cursor = self.dl.db.get_cursor()
+        cursor.execute("DELETE FROM wallets WHERE name = ?", (name,))
+        self.dl.db.commit()
+        return True
+
+    # 🔁 Update wallet by name
+    def update_wallet(self, name: str, wallet: WalletIn) -> bool:
+        self.dl.update_wallet(name, wallet.dict())
+        return True
+
+    # 💾 Backup all wallets to JSON
+    def export_to_json(self, path: str = WALLETS_JSON_PATH) -> None:
+        wallets = self.get_all_wallets()
+        with open(path, "w") as f:
+            json.dump(
+                [
+                    {**w.__dict__, "chrome_profile": w.chrome_profile or "Default"}
+                    for w in wallets
+                ],
+                f,
+                indent=2,
+            )
+
+    # ♻️ Restore from wallets.json
+    def load_from_json(self, path: str = WALLETS_JSON_PATH) -> List[dict]:
+        """Return wallet mappings loaded from ``path``.
+
+        The JSON may be a list of wallet objects or a dictionary containing a
+        ``"wallets"`` key that stores the list.
+        """
+        if not os.path.exists(path):
+            return []
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        if isinstance(data, Mapping) and "wallets" in data:
+            data = data["wallets"]
+
+        if not isinstance(data, list):
+            return []
+
+        wallets: List[dict] = []
+        for item in data:
+            if isinstance(item, Mapping):
+                wallets.append(dict(item))
+        return wallets
+
+    def delete_all_wallets(self) -> None:
+        """Remove all wallets from the database."""
+        self.dl.wallets.delete_all_wallets()
