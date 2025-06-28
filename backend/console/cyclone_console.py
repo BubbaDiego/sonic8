@@ -1,5 +1,5 @@
 import asyncio
-from data.data_locker import DataLocker
+from backend.data.data_locker import DataLocker
 from cyclone.services.position_service import CyclonePositionService
 
 def run_console():
