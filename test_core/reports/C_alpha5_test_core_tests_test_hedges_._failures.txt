@@ -1,0 +1,2 @@
+Pattern: C:\alpha5\test_core\tests\test_hedges*.*
+Passed: 0 | Failed: 0 | Skipped: 0

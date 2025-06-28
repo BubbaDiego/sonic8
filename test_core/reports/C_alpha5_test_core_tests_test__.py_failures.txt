@@ -1,0 +1,610 @@
+Pattern: C:\alpha5\test_core\tests\test_*.py
+Passed: 201 | Failed: 55 | Skipped: 0
+
+## test_core/tests/test_alert_core_new.py::test_alert_processing
+test_core\tests\test_alert_core_new.py:38: in test_alert_processing
+    results, dummy = asyncio.run(run_flow())
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:691: in run_until_complete
+    return future.result()
+test_core\tests\test_alert_core_new.py:33: in run_flow
+    results = await core.process_alerts()
+alert_core\services\orchestration.py:73: in process_alerts
+    self.log_store.append(
+alert_core\infrastructure\stores.py:134: in append
+    conn.execute(
+E   sqlite3.IntegrityError: UNIQUE constraint failed: alert_log.id
+
+## test_core/tests/test_alerts_api.py::test_create_all_alerts
+test_core\tests\test_alerts_api.py:47: in test_create_all_alerts
+    assert len(alerts) == 1
+E   assert 0 == 1
+E    +  where 0 = len([])
+
+## test_core/tests/test_chat_gpt_bp_api.py::test_chat_post_returns_503_when_no_key
+test_core\tests\test_chat_gpt_bp_api.py:28: in test_chat_post_returns_503_when_no_key
+    module = load_module()
+test_core\tests\test_chat_gpt_bp_api.py:21: in load_module
+    spec.loader.exec_module(module)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\alpha5\\test_core\\gpt\\chat_gpt_bp.py'
+
+## test_core/tests/test_cyclone_config_fallback.py::test_cyclone_loads_json_when_db_missing
+test_core\tests\test_cyclone_config_fallback.py:30: in test_cyclone_loads_json_when_db_missing
+    monkeypatch.setattr(ce, "load_alert_thresholds_from_file", fake_loader)
+E   AttributeError: <module 'cyclone.cyclone_engine' from 'C:\\alpha5\\cyclone\\cyclone_engine.py'> has no attribute 'load_alert_thresholds_from_file'
+
+## test_core/tests/test_cyclone_trader_snapshot.py::test_run_cycle_logs_trader_snapshot
+test_core\tests\test_cyclone_trader_snapshot.py:49: in test_run_cycle_logs_trader_snapshot
+    assert len(rows) == 1
+E   AssertionError: assert 17 == 1
+E    +  where 17 = len([{'heat_index': 0.0, 'mood': 'calm', 'portfolio_value': 0.0, 'snapshot_id': 'ad0b084b-4e95-4370-b3d4-5810ece6d677', ...}, {'heat_index': 0.0, 'mood': 'calm', 'portfolio_value': 0.0, 'snapshot_id': '2baeec76-7cec-4eed-9874-b814d18512b0', ...}, {'heat_index': 0.0, 'mood': 'calm', 'portfolio_value': 0.0, 'snapshot_id': 'abb977c0-4819-4a61-842d-7b265506b747', ...}, {'heat_index': 0.0, 'mood': 'calm', 'portfolio_value': 0.0, 'snapshot_id': '88210474-105b-4e73-bc97-68c36e17b4dc', ...}, {'heat_index': 0.0, 'mood': 'calm', 'portfolio_value': 0.0, 'snapshot_id': 'c29b75cc-bc6f-41a2-8d10-6c4930e059b1', ...}, {'heat_index': 0.0, 'mood': 'calm', 'portfolio_value': 0.0, 'snapshot_id': '3b037f4f-e952-4254-8240-6510ff74c426', ...}, ...])
+
+## test_core/tests/test_dashboard_wallet_links.py::test_dash_page_handles_missing_wallet
+test_core\tests\test_dashboard_wallet_links.py:65: in test_dash_page_handles_missing_wallet
+    assert "ghost.jpg" in html
+E   assert 'ghost.jpg' in '{% extends "base.html" %}\n{% block title %}Sonic Dashboard{% endblock %}\n\n{% block extra_styles %}\n{{ super() }}\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_dashboard.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_header.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_themes.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_titles.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/positions_table_variants.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/liquidation_bars.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/dashboard_middle.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/dashboard_parallax.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/dashboard_toggle.css\') }}">\n{% endblock %}\n\n{% block content %}\n{% set title_text = \'Sonic\' %}\n{% set title_theme = \'dashboard\' %}\n{% set show_refresh_timer = true %}\n<div class="title-bar">\n  <div class="nav-left">\n    <a cl...e=\'js/positions_table_sort.js\') }}"></script>\n<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>\n<script>\n  window.graphData = {{ graph_data | default({}) | tojson }};\n  window.sizeData = {{ size_composition | default({}) | tojson }};\n  window.assetData = {{ asset_distribution | default({}) | tojson }};\n  window.walletData = {{ wallet_distribution | default({}) | tojson }};\n</script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_bottom.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_oracle.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/size_pie.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/asset_pie.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/wallet_pie.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/debug_outlines.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_parallax.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_toggle.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_refresh.js\') }}"></script>\n{% endblock %}\n'
+
+## test_core/tests/test_dashboard_wallet_links.py::test_dash_page_uses_wallet_profile
+test_core\tests\test_dashboard_wallet_links.py:108: in test_dash_page_uses_wallet_profile
+    assert "/launch/Profile1/ETH" in html
+E   assert '/launch/Profile1/ETH' in '{% extends "base.html" %}\n{% block title %}Sonic Dashboard{% endblock %}\n\n{% block extra_styles %}\n{{ super() }}\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_dashboard.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_header.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_themes.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_titles.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/positions_table_variants.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/liquidation_bars.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/dashboard_middle.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/dashboard_parallax.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/dashboard_toggle.css\') }}">\n{% endblock %}\n\n{% block content %}\n{% set title_text = \'Sonic\' %}\n{% set title_theme = \'dashboard\' %}\n{% set show_refresh_timer = true %}\n<div class="title-bar">\n  <div class="nav-left">\n    <a cl...e=\'js/positions_table_sort.js\') }}"></script>\n<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>\n<script>\n  window.graphData = {{ graph_data | default({}) | tojson }};\n  window.sizeData = {{ size_composition | default({}) | tojson }};\n  window.assetData = {{ asset_distribution | default({}) | tojson }};\n  window.walletData = {{ wallet_distribution | default({}) | tojson }};\n</script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_bottom.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_oracle.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/size_pie.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/asset_pie.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/wallet_pie.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/debug_outlines.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_parallax.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_toggle.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/dashboard_refresh.js\') }}"></script>\n{% endblock %}\n'
+
+## test_core/tests/test_gpt_bp_api.py::test_oracle_portfolio_reply
+test_core\tests\test_gpt_bp_api.py:135: in test_oracle_portfolio_reply
+    resp = client.get("/gpt/oracle/portfolio")
+test_core\tests\conftest.py:282: in get
+    return self.open(path, "GET", **kw)
+test_core\tests\conftest.py:277: in open
+    return _result_to_response(view(param))
+test_core\tests\conftest.py:231: in wrapper
+    return __func(*a, **k)
+gpt\gpt_bp.py:35: in oracle
+    strategy = request.args.get("strategy", "none")
+test_core\tests\conftest.py:324: in __getattr__
+    return getattr(flask_stub._request, name)
+E   AttributeError: 'types.SimpleNamespace' object has no attribute 'args'
+
+## test_core/tests/test_gpt_bp_api.py::test_oracle_positions_reply
+test_core\tests\test_gpt_bp_api.py:144: in test_oracle_positions_reply
+    resp = client.get("/gpt/oracle/positions")
+test_core\tests\conftest.py:282: in get
+    return self.open(path, "GET", **kw)
+test_core\tests\conftest.py:277: in open
+    return _result_to_response(view(param))
+test_core\tests\conftest.py:231: in wrapper
+    return __func(*a, **k)
+gpt\gpt_bp.py:35: in oracle
+    strategy = request.args.get("strategy", "none")
+test_core\tests\conftest.py:324: in __getattr__
+    return getattr(flask_stub._request, name)
+E   AttributeError: 'types.SimpleNamespace' object has no attribute 'args'
+
+## test_core/tests/test_gpt_bp_api.py::test_oracle_invalid_topic
+test_core\tests\test_gpt_bp_api.py:151: in test_oracle_invalid_topic
+    resp = client.get("/gpt/oracle/unknown")
+test_core\tests\conftest.py:282: in get
+    return self.open(path, "GET", **kw)
+test_core\tests\conftest.py:277: in open
+    return _result_to_response(view(param))
+test_core\tests\conftest.py:231: in wrapper
+    return __func(*a, **k)
+gpt\gpt_bp.py:35: in oracle
+    strategy = request.args.get("strategy", "none")
+test_core\tests\conftest.py:324: in __getattr__
+    return getattr(flask_stub._request, name)
+E   AttributeError: 'types.SimpleNamespace' object has no attribute 'args'
+
+## test_core/tests/test_gpt_bp_api.py::test_oracle_with_strategy
+test_core\tests\test_gpt_bp_api.py:160: in test_oracle_with_strategy
+    resp = client.get("/gpt/oracle/portfolio?strategy=test")
+test_core\tests\conftest.py:282: in get
+    return self.open(path, "GET", **kw)
+test_core\tests\conftest.py:277: in open
+    return _result_to_response(view(param))
+test_core\tests\conftest.py:231: in wrapper
+    return __func(*a, **k)
+gpt\gpt_bp.py:35: in oracle
+    strategy = request.args.get("strategy", "none")
+test_core\tests\conftest.py:324: in __getattr__
+    return getattr(flask_stub._request, name)
+E   AttributeError: 'types.SimpleNamespace' object has no attribute 'args'
+
+## test_core/tests/test_gpt_bp_api.py::test_oracle_positions_with_strategy
+test_core\tests\test_gpt_bp_api.py:169: in test_oracle_positions_with_strategy
+    resp = client.get("/gpt/oracle/positions?strategy=test")
+test_core\tests\conftest.py:282: in get
+    return self.open(path, "GET", **kw)
+test_core\tests\conftest.py:277: in open
+    return _result_to_response(view(param))
+test_core\tests\conftest.py:231: in wrapper
+    return __func(*a, **k)
+gpt\gpt_bp.py:35: in oracle
+    strategy = request.args.get("strategy", "none")
+test_core\tests\conftest.py:324: in __getattr__
+    return getattr(flask_stub._request, name)
+E   AttributeError: 'types.SimpleNamespace' object has no attribute 'args'
+
+## test_core/tests/test_gpt_bp_api.py::test_oracle_query_endpoint
+test_core\tests\test_gpt_bp_api.py:175: in test_oracle_query_endpoint
+    resp = client.get("/gpt/oracle/query?persona=test")
+test_core\tests\conftest.py:282: in get
+    return self.open(path, "GET", **kw)
+test_core\tests\conftest.py:279: in open
+    return _result_to_response(view())
+test_core\tests\conftest.py:231: in wrapper
+    return __func(*a, **k)
+gpt\gpt_bp.py:75: in oracle_query
+    persona_name = request.args.get('persona', '').strip()
+test_core\tests\conftest.py:324: in __getattr__
+    return getattr(flask_stub._request, name)
+E   AttributeError: 'types.SimpleNamespace' object has no attribute 'args'
+
+## test_core/tests/test_gpt_context_service.py::test_create_analysis_context
+test_core\tests\test_gpt_context_service.py:37: in test_create_analysis_context
+    mod = load_module()
+test_core\tests\test_gpt_context_service.py:23: in load_module
+    ctx_spec.loader.exec_module(ctx_mod)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\alpha5\\test_core\\gpt\\context_loader.py'
+
+## test_core/tests/test_gpt_context_service.py::test_create_portfolio_context
+test_core\tests\test_gpt_context_service.py:47: in test_create_portfolio_context
+    mod = load_module()
+test_core\tests\test_gpt_context_service.py:23: in load_module
+    ctx_spec.loader.exec_module(ctx_mod)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\alpha5\\test_core\\gpt\\context_loader.py'
+
+## test_core/tests/test_gpt_strategies.py::test_gptcore_ask_oracle_applies_strategy
+test_core\tests\test_gpt_strategies.py:100: in test_gptcore_ask_oracle_applies_strategy
+    GPTCore = setup_core(monkeypatch)
+test_core\tests\test_gpt_strategies.py:95: in setup_core
+    spec.loader.exec_module(gpt_core)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\alpha5\\test_core\\gpt\\gpt_core.py'
+
+## test_core/tests/test_gpt_strategies.py::test_gptcore_positions_default_heat_strategy
+test_core\tests\test_gpt_strategies.py:109: in test_gptcore_positions_default_heat_strategy
+    GPTCore = setup_core(monkeypatch)
+test_core\tests\test_gpt_strategies.py:95: in setup_core
+    spec.loader.exec_module(gpt_core)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\alpha5\\test_core\\gpt\\gpt_core.py'
+
+## test_core/tests/test_gpt_strategies.py::test_persona_application
+test_core\tests\test_gpt_strategies.py:140: in test_persona_application
+    GPTCore = setup_core(monkeypatch)
+test_core\tests\test_gpt_strategies.py:95: in setup_core
+    spec.loader.exec_module(gpt_core)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\alpha5\\test_core\\gpt\\gpt_core.py'
+
+## test_core/tests/test_inactive_wallet_services.py::test_position_sync_service_snapshot_ignores_inactive
+test_core\tests\test_inactive_wallet_services.py:101: in test_position_sync_service_snapshot_ignores_inactive
+    assert snap["total_value"] == 3
+E   KeyError: 'total_value'
+
+## test_core/tests/test_invalid_data_locker.py::test_data_locker_handles_invalid_path
+test_core\tests\test_invalid_data_locker.py:18: in test_data_locker_handles_invalid_path
+    assert dl.get_all_tables_as_dict() == {}
+E   AssertionError: assert {'alert_thres...ll}]}'}], ...} == {}
+E     
+E     Left contains 13 more items:
+E     [0m{[33m'[39;49;00m[33malert_thresholds[39;49;00m[33m'[39;49;00m: [{[33m'[39;49;00m[33malert_class[39;49;00m[33m'[39;49;00m: [33m'[39;49;00m[33mPosition[39;49;00m[33m'[39;49;00m,[90m[39;49;00m
+E                            [33m'[39;49;00m[33malert_type[39;49;00m[33m'[39;49;00m: [33m'[39;49;00m[33mTravelPercent[39;49;00m[33m'[39;49;00m,[90m[39;49;00m
+E                            [33m'[39;49;00m[33mcondition[39;49;00m[33m'[39;49;00m: [33m'[39;49;00m[33mABOVE[39;49;00m[33m'[39;49;00m,[90m[39;49;00m
+E                            [33m'[39;49;00m[...
+E     
+E     ...Full output truncated (286 lines hidden), use '-vv' to show
+
+## test_core/tests/test_monitor_heat_api.py::test_heat_api_valid_string
+test_core\tests\test_monitor_heat_api.py:33: in test_heat_api_valid_string
+    app = _load_app(monkeypatch, "70")
+test_core\tests\test_monitor_heat_api.py:27: in _load_app
+    mod = importlib.reload(importlib.import_module('sonic_app'))
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:131: in reload
+    _bootstrap._exec(spec, module)
+<frozen importlib._bootstrap>:866: in _exec
+    ???
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+sonic_app.py:182: in <module>
+    start_metric_streamer(socketio, app)
+learning_database\learning_bp.py:75: in start_metric_streamer
+    socketio.on_namespace(LearningNamespace("/learning"))
+learning_database\learning_bp.py:65: in __init__
+    super().__init__(namespace, **kwargs)
+E   TypeError: object.__init__() takes exactly one argument (the instance to initialize)
+
+## test_core/tests/test_monitor_heat_api.py::test_heat_api_valid_number
+test_core\tests\test_monitor_heat_api.py:38: in test_heat_api_valid_number
+    app = _load_app(monkeypatch, 55)
+test_core\tests\test_monitor_heat_api.py:27: in _load_app
+    mod = importlib.reload(importlib.import_module('sonic_app'))
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:131: in reload
+    _bootstrap._exec(spec, module)
+<frozen importlib._bootstrap>:866: in _exec
+    ???
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+sonic_app.py:182: in <module>
+    start_metric_streamer(socketio, app)
+learning_database\learning_bp.py:75: in start_metric_streamer
+    socketio.on_namespace(LearningNamespace("/learning"))
+learning_database\learning_bp.py:65: in __init__
+    super().__init__(namespace, **kwargs)
+E   TypeError: object.__init__() takes exactly one argument (the instance to initialize)
+
+## test_core/tests/test_monitor_heat_api.py::test_heat_api_invalid
+test_core\tests\test_monitor_heat_api.py:43: in test_heat_api_invalid
+    app = _load_app(monkeypatch, [1, 2])
+test_core\tests\test_monitor_heat_api.py:27: in _load_app
+    mod = importlib.reload(importlib.import_module('sonic_app'))
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:131: in reload
+    _bootstrap._exec(spec, module)
+<frozen importlib._bootstrap>:866: in _exec
+    ???
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+sonic_app.py:182: in <module>
+    start_metric_streamer(socketio, app)
+learning_database\learning_bp.py:75: in start_metric_streamer
+    socketio.on_namespace(LearningNamespace("/learning"))
+learning_database\learning_bp.py:65: in __init__
+    super().__init__(namespace, **kwargs)
+E   TypeError: object.__init__() takes exactly one argument (the instance to initialize)
+
+## test_core/tests/test_monitor_profit_total_api.py::test_profit_total_api
+test_core\tests\test_monitor_profit_total_api.py:38: in test_profit_total_api
+    app = _load_app(monkeypatch, [{'pnl_after_fees_usd': 10}, {'pnl_after_fees_usd': 5.5}])
+test_core\tests\test_monitor_profit_total_api.py:32: in _load_app
+    mod = importlib.reload(importlib.import_module('sonic_app'))
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:131: in reload
+    _bootstrap._exec(spec, module)
+<frozen importlib._bootstrap>:866: in _exec
+    ???
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+sonic_app.py:182: in <module>
+    start_metric_streamer(socketio, app)
+learning_database\learning_bp.py:75: in start_metric_streamer
+    socketio.on_namespace(LearningNamespace("/learning"))
+learning_database\learning_bp.py:65: in __init__
+    super().__init__(namespace, **kwargs)
+E   TypeError: object.__init__() takes exactly one argument (the instance to initialize)
+
+## test_core/tests/test_monitor_profit_total_api.py::test_profit_total_ignores_losses
+test_core\tests\test_monitor_profit_total_api.py:43: in test_profit_total_ignores_losses
+    app = _load_app(
+test_core\tests\test_monitor_profit_total_api.py:32: in _load_app
+    mod = importlib.reload(importlib.import_module('sonic_app'))
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:131: in reload
+    _bootstrap._exec(spec, module)
+<frozen importlib._bootstrap>:866: in _exec
+    ???
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+sonic_app.py:182: in <module>
+    start_metric_streamer(socketio, app)
+learning_database\learning_bp.py:75: in start_metric_streamer
+    socketio.on_namespace(LearningNamespace("/learning"))
+learning_database\learning_bp.py:65: in __init__
+    super().__init__(namespace, **kwargs)
+E   TypeError: object.__init__() takes exactly one argument (the instance to initialize)
+
+## test_core/tests/test_monitor_profit_total_api.py::test_profit_total_api_empty
+test_core\tests\test_monitor_profit_total_api.py:55: in test_profit_total_api_empty
+    app = _load_app(monkeypatch, [])
+test_core\tests\test_monitor_profit_total_api.py:32: in _load_app
+    mod = importlib.reload(importlib.import_module('sonic_app'))
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:131: in reload
+    _bootstrap._exec(spec, module)
+<frozen importlib._bootstrap>:866: in _exec
+    ???
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+sonic_app.py:182: in <module>
+    start_metric_streamer(socketio, app)
+learning_database\learning_bp.py:75: in start_metric_streamer
+    socketio.on_namespace(LearningNamespace("/learning"))
+learning_database\learning_bp.py:65: in __init__
+    super().__init__(namespace, **kwargs)
+E   TypeError: object.__init__() takes exactly one argument (the instance to initialize)
+
+## test_core/tests/test_monitor_travel_api.py::test_travel_api_valid_string
+test_core\tests\test_monitor_travel_api.py:33: in test_travel_api_valid_string
+    app = _load_app(monkeypatch, "-30")
+test_core\tests\test_monitor_travel_api.py:27: in _load_app
+    mod = importlib.reload(importlib.import_module('sonic_app'))
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:131: in reload
+    _bootstrap._exec(spec, module)
+<frozen importlib._bootstrap>:866: in _exec
+    ???
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+sonic_app.py:182: in <module>
+    start_metric_streamer(socketio, app)
+learning_database\learning_bp.py:75: in start_metric_streamer
+    socketio.on_namespace(LearningNamespace("/learning"))
+learning_database\learning_bp.py:65: in __init__
+    super().__init__(namespace, **kwargs)
+E   TypeError: object.__init__() takes exactly one argument (the instance to initialize)
+
+## test_core/tests/test_monitor_travel_api.py::test_travel_api_valid_number
+test_core\tests\test_monitor_travel_api.py:38: in test_travel_api_valid_number
+    app = _load_app(monkeypatch, -45)
+test_core\tests\test_monitor_travel_api.py:27: in _load_app
+    mod = importlib.reload(importlib.import_module('sonic_app'))
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:131: in reload
+    _bootstrap._exec(spec, module)
+<frozen importlib._bootstrap>:866: in _exec
+    ???
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+sonic_app.py:182: in <module>
+    start_metric_streamer(socketio, app)
+learning_database\learning_bp.py:75: in start_metric_streamer
+    socketio.on_namespace(LearningNamespace("/learning"))
+learning_database\learning_bp.py:65: in __init__
+    super().__init__(namespace, **kwargs)
+E   TypeError: object.__init__() takes exactly one argument (the instance to initialize)
+
+## test_core/tests/test_monitor_travel_api.py::test_travel_api_invalid
+test_core\tests\test_monitor_travel_api.py:43: in test_travel_api_invalid
+    app = _load_app(monkeypatch, [1, 2])
+test_core\tests\test_monitor_travel_api.py:27: in _load_app
+    mod = importlib.reload(importlib.import_module('sonic_app'))
+C:\Users\bubba\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:131: in reload
+    _bootstrap._exec(spec, module)
+<frozen importlib._bootstrap>:866: in _exec
+    ???
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+sonic_app.py:182: in <module>
+    start_metric_streamer(socketio, app)
+learning_database\learning_bp.py:75: in start_metric_streamer
+    socketio.on_namespace(LearningNamespace("/learning"))
+learning_database\learning_bp.py:65: in __init__
+    super().__init__(namespace, **kwargs)
+E   TypeError: object.__init__() takes exactly one argument (the instance to initialize)
+
+## test_core/tests/test_notification_routing.py::test_default_router_contains_notifiers
+test_core\tests\test_notification_routing.py:5: in test_default_router_contains_notifiers
+    router = default_router()
+E   TypeError: 'NotificationRouter' object is not callable
+
+## test_core/tests/test_operations_monitor.py::test_run_configuration_test_default_file
+test_core\tests\test_operations_monitor.py:83: in test_run_configuration_test_default_file
+    ss.StartUpService.ensure_alert_thresholds()
+E   AttributeError: 'types.SimpleNamespace' object has no attribute 'ensure_alert_thresholds'
+
+## test_core/tests/test_oracle_core_component.py::test_oracle_core_build_prompt
+test_core\tests\test_oracle_core_component.py:37: in test_oracle_core_build_prompt
+    mod = load_module()
+test_core\tests\test_oracle_core_component.py:24: in load_module
+    ods_spec.loader.exec_module(ods_mod)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\alpha5\\test_core\\oracle_core\\oracle_data_service.py'
+
+## test_core/tests/test_oracle_core_component.py::test_oracle_core_to_dict
+test_core\tests\test_oracle_core_component.py:69: in test_oracle_core_to_dict
+    mod = load_module()
+test_core\tests\test_oracle_core_component.py:24: in load_module
+    ods_spec.loader.exec_module(ods_mod)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\alpha5\\test_core\\oracle_core\\oracle_data_service.py'
+
+## test_core/tests/test_oracle_data_service.py::test_fetch_system_includes_new_fields
+test_core\tests\test_oracle_data_service.py:16: in test_fetch_system_includes_new_fields
+    mod = load_module()
+test_core\tests\test_oracle_data_service.py:11: in load_module
+    spec.loader.exec_module(module)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\alpha5\\test_core\\oracle_core\\oracle_data_service.py'
+
+## test_core/tests/test_oracle_monitor.py::test_oracle_ui_route
+test_core\tests\test_oracle_monitor.py:112: in test_oracle_ui_route
+    assert "Oracle Monitor UI" in html
+E   assert 'Oracle Monitor UI' in "<select id='persona'><option value='Connie'>Connie</option><option value='Nina'>Nina</option></select>"
+
+## test_core/tests/test_order_factory_api.py::test_engine_action_endpoint
+test_core\tests\test_order_factory_api.py:48: in test_engine_action_endpoint
+    assert resp.status_code == 200
+E   assert 400 == 200
+E    +  where 400 = <tests.conftest.DummyResponse object at 0x00000204EF5E0650>.status_code
+
+## test_core/tests/test_order_factory_api.py::test_sequence_endpoint
+test_core\tests\test_order_factory_api.py:59: in test_sequence_endpoint
+    assert resp.status_code == 200
+E   assert 400 == 200
+E    +  where 400 = <tests.conftest.DummyResponse object at 0x00000204EF6BC3E0>.status_code
+
+## test_core/tests/test_position_core_e2e.py::test_position_core_sync_records_snapshot
+test_core\tests\test_position_core_e2e.py:68: in test_position_core_sync_records_snapshot
+    assert result["success"] is True
+E   assert False is True
+
+## test_core/tests/test_position_sync_service.py::test_insert_and_update
+test_core\tests\test_position_sync_service.py:137: in test_insert_and_update
+    assert res1["imported"] == 1 and res1["updated"] == 0
+E   assert (0 == 1)
+
+## test_core/tests/test_position_sync_service.py::test_stale_handler_soft_close
+test_core\tests\test_position_sync_service.py:165: in test_stale_handler_soft_close
+    svc._handle_stale_positions(live_ids=set())
+positions\position_sync_service.py:314: in _handle_stale_positions
+    with self.dl.db.get_cursor() as cursor:
+E   TypeError: 'sqlite3.Cursor' object does not support the context manager protocol
+
+## test_core/tests/test_profit_badge_routes.py::test_badge_on_new_dashboard
+test_core\tests\test_profit_badge_routes.py:46: in test_badge_on_new_dashboard
+    resp = client.get("/dash")
+test_core\tests\conftest.py:282: in get
+    return self.open(path, "GET", **kw)
+test_core\tests\conftest.py:279: in open
+    return _result_to_response(view())
+test_core\tests\conftest.py:231: in wrapper
+    return __func(*a, **k)
+utils\route_decorators.py:17: in wrapper
+    result = func(*args, **kwargs)
+app\dashboard_bp.py:55: in dash_page
+    context = get_dashboard_context(current_app.data_locker, current_app.system_core)
+test_core\tests\conftest.py:331: in __getattr__
+    return getattr(flask_stub._current_app, name)
+E   AttributeError: 'DummyFlask' object has no attribute 'system_core'
+
+## test_core/tests/test_profit_badge_routes.py::test_badge_on_hedge_calculator
+test_core\tests\test_profit_badge_routes.py:58: in test_badge_on_hedge_calculator
+    assert "42" in html
+E   assert '42' in '{% extends "base.html" %}\n{% block title %}Hedge Modifiers{% endblock %}\n\n{% block extra_styles %}\n{{ super() }}\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_header.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/hedge_calculator.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_dashboard.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_themes.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_titles.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/custom_hedge_width.css\') }}">\n{% endblock %}\n\n{% block content %}\n{% set title_text = \'Hedge Modifiers\' %}\n<div class="title-bar">\n  <div class="nav-left">\n    <a class="nav-btn" href="/dash" title="Dashboard"><i data-feather="home"></i></a>\n    <a class="nav-btn" href="{{ url_for(\'positions.positions_center_page\') }}" title="Positions Center"><i data-feather="trending-up"></i></a>\n    <a class="nav-btn" href="/sonic_labs/hedge_labs" title="Hedge Labs"><i data-feather="folder"></i></a>\n    <a class="nav-btn" href="/trad...outputRow" class="row mb-4">\n  <div class="col-md-6 mb-3">\n    <div class="border rounded p-3 reduced-height position-details-section">\n      <h5 class="text-center">Long Position Output</h5>\n      <p id="longPnL">P&L: 0</p>\n    </div>\n  </div>\n  <div class="col-md-6 mb-3">\n    <div class="border rounded p-3 reduced-height position-details-section">\n      <h5 class="text-center">Short Position Output</h5>\n      <p id="shortPnL">P&L: 0</p>\n    </div>\n  </div>\n</div>\n\n<!-- Row 6: Recommendation Box -->\n<div id="recommendationRow" class="row mb-4">\n  <div class="col text-center">\n    <div class="recommendation-box">\n      <span id="recommendationText">Recommendation will appear here.</span>\n    </div>\n  </div>\n</div>\n<script src="{{ url_for(\'static\', filename=\'js/hedge_calculator_results.js\') }}"></script>\n\n    </div>\n  </div>\n</div>\n</div>\n<script>\n  window.longPositionsData = {{ long_positions | tojson }};\n  window.shortPositionsData = {{ short_positions | tojson }};\n</script>\n\n{% block extra_scripts %}\n{{ super() }}\n<script src="{{ url_for(\'static\', filename=\'js/sonic_theme_toggle.js\') }}"></script>\n{% endblock %}\n\n{% endblock %}\n\n'
+
+## test_core/tests/test_profit_badge_routes.py::test_badge_on_alert_status
+test_core\tests\test_profit_badge_routes.py:65: in test_badge_on_alert_status
+    assert "42" in html
+E   assert '42' in '{% extends "base.html" %}\n\n{% block title %}Alert Status{% endblock %}\n\n{% block extra_styles %}\n{{ super() }}\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_dashboard.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_header.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_themes.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/sonic_titles.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/dashboard_middle.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/liquidation_bars.css\') }}">\n<link rel="stylesheet" href="{{ url_for(\'static\', filename=\'css/alert_status.css\') }}">\n{% endblock %}\n\n{% block content %}\n{% set title_text = \'Alert Status\' %}\n<div class="title-bar">\n  <div class="nav-left">\n    <a class="nav-btn" href="/dash" title="Dashboard"><i data-feather="home"></i></a>\n    <a class="nav-btn" href="{{ url_for(\'positions.positions_center_page\') }}" title="Positions Center"><i data-feather="trending-up"></i></a>\n    <a class="nav-btn" href="/sonic_labs/hedge_labs" t...ild(row);\n      const alertId = row.getAttribute(\'data-alert-id\');\n      const bar = barsContainer.querySelector(`[data-alert-id="${alertId}"]`);\n      if (bar) barsContainer.appendChild(bar);\n    });\n    syncRowHeights();\n    headers.forEach((th, i) => {\n      th.classList.remove("sorted-asc", "sorted-desc");\n      th.querySelector(".sort-indicator").textContent = "";\n      if (i === colIndex) {\n        th.classList.add(dir === "asc" ? "sorted-asc" : "sorted-desc");\n        th.querySelector(".sort-indicator").textContent = dir === "asc" ? "▲" : "▼";\n      }\n    });\n  }\n\n  headers.forEach((th, i) => {\n    th.addEventListener("click", function() {\n      let dir = "desc";\n      if (currentSort.col === i && currentSort.dir === "desc") dir = "asc";\n      currentSort = { col: i, dir };\n      sortTable(i, dir);\n    });\n  });\n\n  sortTable(currentSort.col, currentSort.dir);\n  window.addEventListener(\'resize\', syncRowHeights);\n  syncRowHeights();\n});\n</script>\n<script src="{{ url_for(\'static\', filename=\'js/sonic_theme_toggle.js\') }}"></script>\n<script src="{{ url_for(\'static\', filename=\'js/alert_status_actions.js\') }}"></script>\n{% endblock %}\n'
+
+## test_core/tests/test_run_glob.py::test_run_glob_filters_virtual_envs
+C:\alpha5\test_core\tests\test_run_glob.py:33: in test_run_glob_filters_virtual_envs
+    assert captured == [Path("sub/test_valid.py")]
+E   AssertionError: assert [WindowsPath(...t_ignore.py')] == [WindowsPath(...st_valid.py')]
+E     
+E     At index 0 diff: [0mWindowsPath([33m'[39;49;00m[33m.venv/test_ignore.py[39;49;00m[33m'[39;49;00m)[90m[39;49;00m != [0mWindowsPath([33m'[39;49;00m[33msub/test_valid.py[39;49;00m[33m'[39;49;00m)[90m[39;49;00m
+E     Left contains 3 more items, first extra item: [0mWindowsPath([33m'[39;49;00m[33msite-packages/test_ignore.py[39;49;00m[33m'[39;49;00m)[90m[39;49;00m
+E     
+E     Full diff:
+E     [0m[90m [39;49;00m [[90m[39;49;00m
+E     [92m+     WindowsPath('.venv/test_ignore.py'),[39;49;00m[90m[39;49;00m...
+E     
+E     ...Full output truncated (4 lines hidden), use '-vv' to show
+
+## test_core/tests/test_run_glob.py::test_run_files_filters_non_py
+test_core\tests\test_run_glob.py:75: in test_run_files_filters_non_py
+    assert len(captured_args) > 0 and str(tmp_path / "bad.pyc") not in captured_args
+E   AssertionError: assert (9 > 0 and 'C:\\Users\\bubba\\AppData\\Local\\Temp\\pytest-of-bubba\\pytest-317\\test_run_files_filters_non_py0\\bad.pyc' not in ['C:\\Users\\bubba\\AppData\\Local\\Temp\\pytest-of-bubba\\pytest-317\\test_run_files_filters_non_py0\\good.py', 'C:\\Users\\bubba\\AppData\\Local\\Temp\\pytest-of-bubba\\pytest-317\\test_run_files_filters_non_py0\\bad.pyc', 'C:\\Users\\bubba\\AppData\\Local\\Temp\\pytest-of-bubba\\pytest-317\\test_run_files_filters_non_py0\\__pycache__\\cache.py', '-vv', '-s', '-p', ...])
+E    +  where 9 = len(['C:\\Users\\bubba\\AppData\\Local\\Temp\\pytest-of-bubba\\pytest-317\\test_run_files_filters_non_py0\\good.py', 'C:\\Users\\bubba\\AppData\\Local\\Temp\\pytest-of-bubba\\pytest-317\\test_run_files_filters_non_py0\\bad.pyc', 'C:\\Users\\bubba\\AppData\\Local\\Temp\\pytest-of-bubba\\pytest-317\\test_run_files_filters_non_py0\\__pycache__\\cache.py', '-vv', '-s', '-p', ...])
+E    +  and   'C:\\Users\\bubba\\AppData\\Local\\Temp\\pytest-of-bubba\\pytest-317\\test_run_files_filters_non_py0\\bad.pyc' = str((WindowsPath('C:/Users/bubba/AppData/Local/Temp/pytest-of-bubba/pytest-317/test_run_files_filters_non_py0') / 'bad.pyc'))
+
+## test_core/tests/test_run_glob.py::test_run_files_writes_failure_file
+C:\alpha5\test_core\tests\test_run_glob.py:107: in test_run_files_writes_failure_file
+    assert failure_path.exists()
+E   AssertionError: assert False
+E    +  where False = exists()
+E    +    where exists = WindowsPath('C:/Users/bubba/AppData/Local/Temp/pytest-of-bubba/pytest-317/test_run_files_writes_failure_0/failures.txt').exists
+
+## test_core/tests/test_run_glob.py::test_run_files_clears_failure_file
+C:\alpha5\test_core\tests\test_run_glob.py:144: in test_run_files_clears_failure_file
+    assert not (tmp_path / "failures.txt").exists()
+E   AssertionError: assert not True
+E    +  where True = exists()
+E    +    where exists = (WindowsPath('C:/Users/bubba/AppData/Local/Temp/pytest-of-bubba/pytest-317/test_run_files_clears_failure_0') / 'failures.txt').exists
+
+## test_core/tests/test_run_glob.py::test_run_files_html_plugin_disabled_by_default
+test_core\tests\test_run_glob.py:185: in test_run_files_html_plugin_disabled_by_default
+    assert tc.last_results["failed"] == 0
+E   KeyError: 'failed'
+
+## test_core/tests/test_sonic_header_sleep.py::test_sleep_icon_when_monitor_inactive
+test_core\tests\test_sonic_header_sleep.py:27: in test_sleep_icon_when_monitor_inactive
+    with sync_playwright() as pw:
+E   TypeError: 'NoneType' object does not support the context manager protocol
+
+## test_core/tests/test_sonic_header_toggle.py::test_badge_toggles
+test_core\tests\test_sonic_header_toggle.py:41: in test_badge_toggles
+    with sync_playwright() as pw:
+E   TypeError: 'NoneType' object does not support the context manager protocol
+
+## test_core/tests/test_transaction_service.py::test_transaction_reconstruction
+test_core\tests\test_transaction_service.py:34: in test_transaction_reconstruction
+    txs = svc.reconstruct_transactions()
+positions\position_core.py:167: in reconstruct_transactions
+    delta_val = curr.get("value", 0) - prev.get("value", 0)
+E   TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'
+
+## test_core/tests/test_wallet_core_balance.py::test_load_wallets_uses_positions_balance
+test_core\tests\test_wallet_core_balance.py:94: in test_load_wallets_uses_positions_balance
+    assert wallets[0].balance == 10
+E   AssertionError: assert 0.0 == 10
+E    +  where 0.0 = Wallet(name='BobaVault', public_address='9DXTA7dnFjEKVq6d5v7X79C35VzuFUhZUi5PRceKLYNa', balance=0.0, tags=[], is_active=True, type=WalletType.PERSONAL).balance
+
+## test_core/tests/test_wallet_import_passphrase.py::test_import_wallets_from_json_with_passphrase
+test_core\tests\test_wallet_import_passphrase.py:50: in test_import_wallets_from_json_with_passphrase
+    assert lando.private_address is None
+E   AssertionError: assert 'fence trouble tennis tortoise fortune token quantum measure guard oven bind correct' is None
+E    +  where 'fence trouble tennis tortoise fortune token quantum measure guard oven bind correct' = Wallet(name='LandoVault', public_address='89YeqPcCey8h9Vzg9nCdzw1gCixA2nLg9jKgCtw2b9CZ', balance=0.0, tags=[], is_active=True, type=WalletType.PERSONAL).private_address
+
+## test_core/tests/test_wallets.py::test_create_wallet_encrypted
+test_core\tests\test_wallets.py:67: in test_create_wallet_encrypted
+    assert row is not None
+E   assert None is not None
+
+## test_core/tests/test_wallets.py::test_list_wallet_plaintext_private_key
+test_core\tests\test_wallets.py:88: in test_list_wallet_plaintext_private_key
+    assert "plain" in names
+E   AssertionError: assert 'plain' in ['BobaVault', 'C3P0Vault', 'JabbaVault', 'LandoVault', 'LeiaVault', 'LukeVault', ...]

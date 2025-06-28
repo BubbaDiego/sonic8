@@ -1,0 +1,8 @@
+{
+    "repo_root": "/alpha5",
+    "venv_path": "/alpha5/.venv",
+    "pytest_path": "/alpha5/test_core/tests",
+    "failures_path": "/alpha5/test_core/failures",
+    "reports_path": "/alpha5/test_core/reports",
+    "logging_level": "INFO"
+}
