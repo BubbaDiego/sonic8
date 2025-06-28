@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
+from backend.console.cyclone_console import run_console
 
 ROOT_DIR = Path(__file__).parent.resolve()
 BACKEND_DIR = ROOT_DIR / "backend"
@@ -88,6 +89,7 @@ def main():
         console.print("3️⃣  Launch [bold]Full Stack[/] (Frontend + Backend)")
         console.print("4️⃣  Verify Database")
         console.print("5️⃣  Run Unit Tests")
+        console.print("6️⃣  Cyclone Console")
         console.print("0️⃣  Exit")
         choice = input("→ ").strip()
 
@@ -101,6 +103,8 @@ def main():
             verify_database()
         elif choice == "5":
             run_tests()
+        elif choice == "6":
+            run_console()
         elif choice == "0":
             console.print("[bold green]Exiting...[/]")
             break
