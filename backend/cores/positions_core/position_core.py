@@ -3,9 +3,9 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.core_imports import log
-from positions.position_store import PositionStore
-from positions.position_enrichment_service import PositionEnrichmentService
-from positions.position_enrichment_service import validate_enriched_position
+from .position_store import PositionStore
+from .position_enrichment_service import PositionEnrichmentService
+from .position_enrichment_service import validate_enriched_position
 from hedge_core.hedge_core import HedgeCore
 from calc_core.calc_services import CalcServices
 from datetime import datetime
@@ -64,7 +64,7 @@ class PositionCore:
         Legacy passthrough for console + engine.
         Uses PositionSyncService under the hood.
         """
-        from positions.position_sync_service import PositionSyncService
+        from .position_sync_service import PositionSyncService
         sync_service = PositionSyncService(self.dl)
         return sync_service.run_full_jupiter_sync(source=source)
 
