@@ -177,8 +177,9 @@ const UtilsShadow = Loadable(lazy(() => import('views/utilities/Shadow')));
 const UtilsAnimation = Loadable(lazy(() => import('views/utilities/Animation')));
 const UtilsGrid = Loadable(lazy(() => import('views/utilities/Grid')));
 
-// sample page routing
 const SamplePage = Loadable(lazy(() => import('views/sample-page')));
+// cyclone routing
+const CycloneRun = Loadable(lazy(() => import('views/cyclone/Run')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -709,6 +710,10 @@ const MainRoutes = {
     {
       path: '/sample-page',
       element: <SamplePage />
+    },
+    {
+      path: '/cyclone/run',
+      element: <CycloneRun />
     },
     {
       path: '/dashboard/default',
