@@ -40,7 +40,10 @@ from core.constants import (
 )
 
 from core.core_imports import log
-from system.death_nail_service import DeathNailService
+try:
+    from system.death_nail_service import DeathNailService
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    DeathNailService = None
 from datetime import datetime
 
 
@@ -547,7 +550,7 @@ class DataLocker:
         count = cursor.execute("SELECT COUNT(*) FROM alert_thresholds").fetchone()[0]
         if count == 0:
             try:
-                from data.threshold_seeder import AlertThresholdSeeder
+                # from data.threshold_seeder import AlertThresholdSeeder
                 seeder = AlertThresholdSeeder(self.db)
                 created, updated = seeder.seed_all()
                 log.debug(
@@ -588,7 +591,7 @@ class DataLocker:
                 return
 
             from data.models import AlertThreshold
-            from data.dl_thresholds import DLThresholdManager
+            # from data.dl_thresholds import DLThresholdManager
             from uuid import uuid4
             from datetime import datetime, timezone
 
