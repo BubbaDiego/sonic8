@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 // routes
 import AuthenticationRoutes from './AuthenticationRoutes';
@@ -15,7 +15,13 @@ const PagesLanding = Loadable(lazy(() => import('views/pages/landing')));
 // ==============================|| ROUTING RENDER ||============================== //
 
 const router = createBrowserRouter(
-  [{ path: '/', element: <PagesLanding /> }, AuthenticationRoutes, LoginRoutes, SimpleRoutes, MainRoutes],
+  [
+    { path: '/', element: <Navigate to="/dashboard/analytics" replace /> },
+    AuthenticationRoutes,
+    LoginRoutes,
+    SimpleRoutes,
+    MainRoutes
+  ],
   {
     basename: import.meta.env.VITE_APP_BASE_NAME
   }
