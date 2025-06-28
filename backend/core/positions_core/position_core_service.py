@@ -5,7 +5,7 @@ from positions_core.position_enrichment_service import (
     PositionEnrichmentService,
     validate_enriched_position,
 )
-from positions.position_core import PositionCore
+from positions_core.position_core import PositionCore
 from calc_core.calculation_core import CalculationCore
 from core.logging import log
 

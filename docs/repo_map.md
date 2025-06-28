@@ -14,7 +14,7 @@ sonic1/
 │   │   ├── position.py
 │   │   ├── hedge.py
 │   │   └── wallet.py
-│   ├── cores
+│   ├── core
 │   │   ├── __init__.py
 │   │   ├── cyclone_core
 │   │   │   ├── __init__.py
