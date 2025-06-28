@@ -14,7 +14,7 @@ import os
 from uuid import uuid4
 from datetime import datetime
 import sqlite3
-from core.core_imports import log
+from backend.core.core_imports import log
 
 
 class DLPositionManager:

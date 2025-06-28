@@ -3,8 +3,8 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import json
 from datetime import datetime
-from core.logging import log
-from calc_core.calc_services import CalcServices
+from backend.core.logging import log
+from backend.core.calc_core.calc_services import CalcServices
 import sqlite3
 
 
