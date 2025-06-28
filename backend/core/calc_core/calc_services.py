@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from typing import Optional, List
-#from core.logging import log
+from core.logging import log
 from datetime import datetime
 import sqlite3
 

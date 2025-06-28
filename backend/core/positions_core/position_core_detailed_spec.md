@@ -121,7 +121,7 @@ Snapshots summarize all positions into aggregate metrics and store them using `D
 
 ```python
 44 def update_positions_from_jupiter(self, source="console"):
-49     from positions.position_sync_service import PositionSyncService
+49     from core.positions_core.position_sync_service import PositionSyncService
 50     sync_service = PositionSyncService(self.dl)
 51     return sync_service.run_full_jupiter_sync(source=source)
 ```

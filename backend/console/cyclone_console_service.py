@@ -3,7 +3,7 @@ import os
 from cyclone_engine import Cyclone
 from data.data_locker import DataLocker
 # Import HedgeManager from the actual implementation location
-from positions.hedge_manager import HedgeManager
+from positions_core.hedge_manager import HedgeManager
 from core.logging import log
 from cyclone.cyclone_position_service import CyclonePositionService
 from cyclone.cyclone_portfolio_service import CyclonePortfolioService

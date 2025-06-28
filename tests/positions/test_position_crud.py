@@ -1,6 +1,6 @@
 # tests/positions/test_crud.py
 from uuid import uuid4
-from cores.positions_core.position_core import PositionCore
+from core.positions_core.position_core import PositionCore
 
 def test_insert_and_fetch(dl_tmp):
     core = PositionCore(dl_tmp)
