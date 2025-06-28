@@ -17,7 +17,7 @@ import json
 import sqlite3
 from pathlib import Path
 from collections.abc import Mapping
-from data.database import DatabaseManager
+from backend.data.database import DatabaseManager
 # from data.dl_alerts import DLAlertManager
 # from data.dl_prices import DLPriceManager
 from data.dl_positions import DLPositionManager
