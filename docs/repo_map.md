@@ -1,4 +1,58 @@
 sonic1/
+├── backend
+│   ├── app.py
+│   ├── routes
+│   │   └── api.py
+│   ├── controllers
+│   │   ├── __init__.py
+│   │   ├── cyclone_controller.py
+│   │   ├── monitor_controller.py
+│   │   └── logic.py
+│   ├── models
+│   │   ├── __init__.py
+│   │   ├── alert.py
+│   │   ├── position.py
+│   │   ├── hedge.py
+│   │   └── wallet.py
+│   ├── cores
+│   │   ├── __init__.py
+│   │   ├── cyclone_core
+│   │   │   ├── __init__.py
+│   │   │   ├── cyclone_engine.py
+│   │   │   ├── cyclone_core_spec.md
+│   │   │   └── cyclone_services.py
+│   │   ├── alert_core
+│   │   │   ├── __init__.py
+│   │   │   └── alert_services.py
+│   │   ├── calc_core
+│   │   │   ├── __init__.py
+│   │   │   └── calculation_services.py
+│   │   ├── hedge_core
+│   │   │   ├── __init__.py
+│   │   │   └── hedge_services.py
+│   │   ├── oracle_core
+│   │   │   ├── __init__.py
+│   │   │   └── oracle_services.py
+│   │   ├── wallet_core
+│   │   │   ├── __init__.py
+│   │   │   └── wallet_services.py
+│   │   └── positions_core
+│   │       ├── __init__.py
+│   │       └── position_services.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   ├── database_service.py
+│   │   ├── xcom_service.py
+│   │   └── external_api_service.py
+│   ├── launch_pad.py
+│   ├── cli
+│   │   └── __init__.py
+│   └── config
+│       ├── __init__.py
+│       ├── config_loader.py
+│       ├── active_traders.json
+│       ├── alert_thresholds.json
+│       └── sonic_config.json
 └── frontend
     ├── .env
     ├── .env.qa
