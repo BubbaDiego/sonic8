@@ -9,7 +9,7 @@ three main parts:
 
 ## Getting started
 
-To run the backend locally:
+To run the backend locally:[app.py](backend/app.py)
 
 ```bash
 python backend/app.py
