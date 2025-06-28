@@ -18,17 +18,17 @@ import sqlite3
 from pathlib import Path
 from collections.abc import Mapping
 from data.database import DatabaseManager
-from data.dl_alerts import DLAlertManager
-from data.dl_prices import DLPriceManager
+# from data.dl_alerts import DLAlertManager
+# from data.dl_prices import DLPriceManager
 from data.dl_positions import DLPositionManager
-from data.dl_wallets import DLWalletManager
-from data.dl_brokers import DLBrokerManager
-from data.dl_portfolio import DLPortfolioManager
-from data.dl_system_data import DLSystemDataManager
-from data.dl_monitor_ledger import DLMonitorLedgerManager
-from data.dl_modifiers import DLModifierManager
-from data.dl_hedges import DLHedgeManager
-from data.dl_traders import DLTraderManager
+# from data.dl_wallets import DLWalletManager
+# from data.dl_brokers import DLBrokerManager
+# from data.dl_portfolio import DLPortfolioManager
+# from data.dl_system_data import DLSystemDataManager
+# from data.dl_monitor_ledger import DLMonitorLedgerManager
+# from data.dl_modifiers import DLModifierManager
+# from data.dl_hedges import DLHedgeManager
+# from data.dl_traders import DLTraderManager
 
 from core.constants import (
     SONIC_SAUCE_PATH,
@@ -82,26 +82,26 @@ class DataLocker:
         if not isinstance(self.db, DatabaseManager):
             raise TypeError("db must be a DatabaseManager instance")
 
-        self.alerts = DLAlertManager(self.db)
-        self.prices = DLPriceManager(self.db)
+        # self.alerts = DLAlertManager(self.db)
+        # self.prices = DLPriceManager(self.db)
         self.positions = DLPositionManager(self.db)
-        self.hedges = DLHedgeManager(self.db)
-        self.wallets = DLWalletManager(self.db)
-        self.brokers = DLBrokerManager(self.db)
-        self.portfolio = DLPortfolioManager(self.db)
-        self.traders = DLTraderManager(self.db)
-        self.system = DLSystemDataManager(self.db)
-        self.ledger = DLMonitorLedgerManager(self.db)
-        self.modifiers = DLModifierManager(self.db)
+        # self.hedges = DLHedgeManager(self.db)
+        # self.wallets = DLWalletManager(self.db)
+        # self.brokers = DLBrokerManager(self.db)
+        # self.portfolio = DLPortfolioManager(self.db)
+        # self.traders = DLTraderManager(self.db)
+        # self.system = DLSystemDataManager(self.db)
+        # self.ledger = DLMonitorLedgerManager(self.db)
+        # self.modifiers = DLModifierManager(self.db)
 
         try:
             self.initialize_database()
-            self._seed_modifiers_if_empty()
-            self._seed_wallets_if_empty()
-            self._seed_alerts_if_empty()
-            self._seed_thresholds_if_empty()
-            self._ensure_travel_percent_threshold()
-            self._seed_alert_config_if_empty()
+            # self._seed_modifiers_if_empty()
+            # self._seed_wallets_if_empty()
+            # self._seed_alerts_if_empty()
+            # self._seed_thresholds_if_empty()
+            # self._ensure_travel_percent_threshold()
+            # self._seed_alert_config_if_empty()
 
         except Exception as e:
             log.error(f"❌ DataLocker setup failed: {e}", source="DataLocker")
