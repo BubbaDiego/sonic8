@@ -3,7 +3,7 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from positions.position_enrichment_service import validate_enriched_position
+from .position_enrichment_service import validate_enriched_position
 from core.core_imports import log
 from uuid import uuid4
 from datetime import datetime

@@ -1,3 +1,5 @@
+"""Compatibility exports for modules expecting ``core.core_imports``."""
+
 from .constants import (
     BASE_DIR,
     MOTHER_DB_PATH,
