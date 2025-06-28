@@ -9,8 +9,8 @@ from rich.console import Console
 from core.logging import log
 from core.constants import JUPITER_API_BASE
 from data.data_locker import DataLocker
-from positions.position_enrichment_service import PositionEnrichmentService
-from positions.position_core import PositionCore
+from positions_core.position_enrichment_service import PositionEnrichmentService
+from positions_core.position_core import PositionCore
 from calc_core.calculation_core import CalculationCore
 
 console = Console()
@@ -83,7 +83,7 @@ class PositionSyncService:
         delegated to :pyfunc:`_handle_stale_positions` for clarity.
         """
 
-        from positions.hedge_manager import HedgeManager
+        from positions_core.hedge_manager import HedgeManager
         from data.dl_monitor_ledger import DLMonitorLedgerManager
 
         log.start_timer("position_update")
