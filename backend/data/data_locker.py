@@ -89,7 +89,7 @@ class DataLocker:
         # self.prices = DLPriceManager(self.db)
         self.positions = DLPositionManager(self.db)
         # self.hedges = DLHedgeManager(self.db)
-        # self.wallets = DLWalletManager(self.db)
+        self.wallets = DLWalletManager(self.db)
         # self.brokers = DLBrokerManager(self.db)
         # self.portfolio = DLPortfolioManager(self.db)
         # self.traders = DLTraderManager(self.db)
