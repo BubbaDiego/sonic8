@@ -47,6 +47,10 @@ sonic1/
 │   ├── launch_pad.py
 │   ├── cli
 │   │   └── __init__.py
+
+│   ├── cli
+│   │   ├── __init__.py
+│   │   └── launch_pad.py
 │   └── config
 │       ├── __init__.py
 │       ├── config_loader.py
