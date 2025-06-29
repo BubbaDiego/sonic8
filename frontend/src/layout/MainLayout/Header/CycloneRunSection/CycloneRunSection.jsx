@@ -8,6 +8,8 @@ import Box from '@mui/material/Box';
 // project imports
 import { ThemeMode } from 'config';
 import { runFullCycle, runPositionUpdate, runPriceUpdate, deleteAllData } from 'api/cyclone';
+import { useDispatch } from 'store';
+import { openSnackbar } from 'store/slices/snackbar';
 
 // assets
 import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-react';
@@ -16,6 +18,7 @@ import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-rea
 
 export default function CycloneRunSection() {
   const theme = useTheme();
+  const dispatch = useDispatch();
 
   const handlePriceUpdate = async () => {
     try {
@@ -62,6 +65,118 @@ export default function CycloneRunSection() {
       bgcolor: 'primary.main',
       color: 'primary.light'
     }
+  };
+
+  const handlePriceUpdate = () => {
+    runPriceUpdate()
+      .then(() =>
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Price Update Success',
+            variant: 'alert',
+            alert: { color: 'success' },
+            close: false
+          })
+        )
+      )
+      .catch((error) => {
+        console.error(error);
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Price Update Error',
+            variant: 'alert',
+            alert: { color: 'error' },
+            close: false,
+            severity: 'error'
+          })
+        );
+      });
+  };
+
+  const handlePositionUpdate = () => {
+    runPositionUpdate()
+      .then(() =>
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Position Update Success',
+            variant: 'alert',
+            alert: { color: 'success' },
+            close: false
+          })
+        )
+      )
+      .catch((error) => {
+        console.error(error);
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Position Update Error',
+            variant: 'alert',
+            alert: { color: 'error' },
+            close: false,
+            severity: 'error'
+          })
+        );
+      });
+  };
+
+  const handleDelete = () => {
+    deleteAllData()
+      .then(() =>
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Data Delete Success',
+            variant: 'alert',
+            alert: { color: 'success' },
+            close: false
+          })
+        )
+      )
+      .catch((error) => {
+        console.error(error);
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Data Delete Error',
+            variant: 'alert',
+            alert: { color: 'error' },
+            close: false,
+            severity: 'error'
+          })
+        );
+      });
+  };
+
+  const handleFullCycle = () => {
+    runFullCycle()
+      .then(() =>
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Full Cycle Success',
+            variant: 'alert',
+            alert: { color: 'success' },
+            close: false
+          })
+        )
+      )
+      .catch((error) => {
+        console.error(error);
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Full Cycle Error',
+            variant: 'alert',
+            alert: { color: 'error' },
+            close: false,
+            severity: 'error'
+          })
+        );
+      });
   };
 
   return (
