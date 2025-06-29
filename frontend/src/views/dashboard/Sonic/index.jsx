@@ -5,8 +5,8 @@ import Typography from '@mui/material/Typography';
 
 // project imports
 import ValueToCollateralChartCard from './ValueToCollateralChartCard';
-import TotalRevenueCard from './TotalRevenueCard';
 import LatestCustomerTableCard from './LatestCustomerTableCard';
+import PortfolioTableCard from './PortfolioTableCard';
 import { ThemeMode } from 'config';
 import MainCard from 'ui-component/cards/MainCard';
 import RevenueCard from 'ui-component/cards/RevenueCard';
@@ -15,7 +15,7 @@ import UserCountCard from 'ui-component/cards/UserCountCard';
 import { gridSpacing } from 'store/constant';
 
 // assets
-import { IconShare, IconAccessPoint, IconCircles, IconCreditCard } from '@tabler/icons-react';
+import { IconShare } from '@tabler/icons-react';
 import MonetizationOnTwoToneIcon from '@mui/icons-material/MonetizationOnTwoTone';
 import AccountCircleTwoTone from '@mui/icons-material/AccountCircleTwoTone';
 import DescriptionTwoToneIcon from '@mui/icons-material/DescriptionTwoTone';
@@ -61,6 +61,9 @@ export default function Sonic() {
           <Grid size={12}>
             <LatestCustomerTableCard title="Latest Customers" />
           </Grid>
+          <Grid size={12}>
+            <PortfolioTableCard />
+          </Grid>
         </Grid>
       </Grid>
       <Grid size={{ xs: 12, lg: 4, md: 6 }}>
@@ -97,9 +100,6 @@ export default function Sonic() {
                 </Grid>
               </Grid>
             </MainCard>
-          </Grid>
-          <Grid size={12}>
-            <TotalRevenueCard title="Total Revenue" />
           </Grid>
           <Grid size={12}>
             <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
