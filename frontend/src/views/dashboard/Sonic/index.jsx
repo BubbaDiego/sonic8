@@ -5,6 +5,7 @@ import Grid from '@mui/material/Grid';
 import ValueToCollateralChartCard from './ValueToCollateralChartCard';
 import PortfolioTableCard from './PortfolioTableCard';
 import TotalValueCard from 'ui-component/cards/TotalValueCard';
+import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 
 import { gridSpacing } from 'store/constant';
@@ -41,6 +42,9 @@ export default function Sonic() {
               iconPrimary={MonetizationOnTwoToneIcon}
               color="secondary.main"
             />
+          </Grid>
+          <Grid size={12}>
+            <TotalLeverageDarkCard isLoading={false} />
           </Grid>
           <Grid size={12}>
             <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
