@@ -379,7 +379,7 @@ sonic1/
     │   │   ├── useLocalStorage.js
     │   │   ├── useMenuCollapse.js
     │   │   └── useScriptRef.js
-    │   ├── index.jsx
+    │   ├── header.jsx
     │   ├── layout
     │   │   ├── Customization
     │   │   │   ├── BorderRadius.jsx
@@ -391,52 +391,52 @@ sonic1/
     │   │   │   ├── PresetColor.jsx
     │   │   │   ├── SidebarDrawer.jsx
     │   │   │   ├── ThemeMode.jsx
-    │   │   │   └── index.jsx
+    │   │   │   └── header.jsx
     │   │   ├── MainLayout
     │   │   │   ├── Footer.jsx
     │   │   │   ├── Header
     │   │   │   │   ├── FullScreenSection
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── LocalizationSection
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── MegaMenuSection
     │   │   │   │   │   ├── Banner.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── MobileSection
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── NotificationSection
     │   │   │   │   │   ├── NotificationList.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── ProfileSection
     │   │   │   │   │   ├── UpgradePlanCard.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── SearchSection
-    │   │   │   │   │   └── index.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── HorizontalBar.jsx
     │   │   │   ├── LogoSection
-    │   │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── MainContentStyled.js
     │   │   │   ├── MenuList
     │   │   │   │   ├── NavCollapse
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── NavGroup
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── NavItem
-    │   │   │   │   │   └── index.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── Sidebar
     │   │   │   │   ├── MenuCard
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── MiniDrawerStyled.jsx
-    │   │   │   │   └── index.jsx
-    │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
+    │   │   │   └── header.jsx
     │   │   ├── MinimalLayout
-    │   │   │   └── index.jsx
+    │   │   │   └── header.jsx
     │   │   ├── NavMotion.jsx
     │   │   ├── NavigationScroll.jsx
     │   │   └── SimpleLayout
-    │   │       └── index.jsx
+    │   │       └── header.jsx
     │   ├── menu-items
     │   │   ├── application.js
     │   │   ├── dashboard.js
@@ -453,7 +453,7 @@ sonic1/
     │   │   ├── GTag.jsx
     │   │   ├── MicrosoftClarity.jsx
     │   │   ├── Notify.jsx
-    │   │   └── index.jsx
+    │   │   └── header.jsx
     │   ├── reportWebVitals.js
     │   ├── routes
     │   │   ├── AuthenticationRoutes.jsx
@@ -461,7 +461,7 @@ sonic1/
     │   │   ├── LoginRoutes.jsx
     │   │   ├── MainRoutes.jsx
     │   │   ├── SimpleRoutes.jsx
-    │   │   └── index.jsx
+    │   │   └── header.jsx
     │   ├── serviceWorker.jsx
     │   ├── store
     │   │   ├── accountReducer.js
@@ -482,7 +482,7 @@ sonic1/
     │   │       └── user.js
     │   ├── themes
     │   │   ├── compStyleOverride.jsx
-    │   │   ├── index.jsx
+    │   │   ├── header.jsx
     │   │   ├── overrides
     │   │   │   ├── Chip.jsx
     │   │   │   └── index.js
@@ -531,9 +531,9 @@ sonic1/
     │   │   │   ├── Post
     │   │   │   │   ├── Comment
     │   │   │   │   │   ├── Reply
-    │   │   │   │   │   │   └── index.jsx
-    │   │   │   │   │   └── index.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   │   │   └── header.jsx
+    │   │   │   │   │   └── header.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── ProductCard.jsx
     │   │   │   ├── ProductReview.jsx
     │   │   │   ├── ReportCard.jsx
@@ -582,7 +582,7 @@ sonic1/
     │   │   │       ├── PreventDuplicate.jsx
     │   │   │       ├── SnackBarAction.jsx
     │   │   │       ├── TransitionBar.jsx
-    │   │   │       └── index.jsx
+    │   │   │       └── header.jsx
     │   │   └── third-party
     │   │       ├── Notistack.jsx
     │   │       ├── ReactQuill.jsx
@@ -619,27 +619,27 @@ sonic1/
     │   │   │   ├── blog
     │   │   │   │   ├── AddNewBlog
     │   │   │   │   │   ├── AddNewForm.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Dashboard
     │   │   │   │   │   ├── AnalyticsBarChart.jsx
     │   │   │   │   │   ├── RecentBlogList.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Details
     │   │   │   │   │   ├── BlogCommonCard.jsx
     │   │   │   │   │   ├── BlogDetailsCard.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── EditBlog
     │   │   │   │   │   ├── EditForm.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── GeneralSettings
     │   │   │   │   │   ├── Articles.jsx
     │   │   │   │   │   ├── Drafts.jsx
     │   │   │   │   │   ├── GeneralSetting.jsx
     │   │   │   │   │   ├── YourLibrary.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── List
     │   │   │   │   │   ├── BlogCommonCard.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── chart-data
     │   │   │   │   │   └── analytics-bar-charts.jsx
     │   │   │   │   └── data
@@ -649,7 +649,7 @@ sonic1/
     │   │   │   │   ├── CalendarStyled.jsx
     │   │   │   │   ├── ColorPalette.jsx
     │   │   │   │   ├── Toolbar.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── chat
     │   │   │   │   ├── AvatarStatus.jsx
     │   │   │   │   ├── ChartHistory.jsx
@@ -657,12 +657,12 @@ sonic1/
     │   │   │   │   ├── UserAvatar.jsx
     │   │   │   │   ├── UserDetails.jsx
     │   │   │   │   ├── UserList.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── contact
     │   │   │   │   ├── Card
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── List
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── UserDetails.jsx
     │   │   │   │   └── UserEdit.jsx
     │   │   │   ├── crm
@@ -671,9 +671,9 @@ sonic1/
     │   │   │   │   │   │   ├── Filter.jsx
     │   │   │   │   │   │   ├── HistoryTableBody.jsx
     │   │   │   │   │   │   ├── HistoryTableHeader.jsx
-    │   │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   │   └── header.jsx
     │   │   │   │   │   ├── ContactCard
-    │   │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   │   └── header.jsx
     │   │   │   │   │   ├── ContactList
     │   │   │   │   │   │   ├── AddContactDialog.jsx
     │   │   │   │   │   │   ├── AddContactDialogContent.jsx
@@ -681,12 +681,12 @@ sonic1/
     │   │   │   │   │   │   ├── ContactTableHeader.jsx
     │   │   │   │   │   │   ├── Filter.jsx
     │   │   │   │   │   │   ├── NewMessage.jsx
-    │   │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   │   └── header.jsx
     │   │   │   │   │   └── RemindersFollowUp
     │   │   │   │   │       ├── Filter.jsx
     │   │   │   │   │       ├── FollowupTableBody.jsx
     │   │   │   │   │       ├── FollowupTableHeader.jsx
-    │   │   │   │   │       └── index.jsx
+    │   │   │   │   │       └── header.jsx
     │   │   │   │   ├── LeadManagement
     │   │   │   │   │   ├── LeadList
     │   │   │   │   │   │   ├── AddLeadDialog.jsx
@@ -698,52 +698,52 @@ sonic1/
     │   │   │   │   │   │   ├── LeadTableBody.jsx
     │   │   │   │   │   │   ├── LeadTableHeader.jsx
     │   │   │   │   │   │   ├── NewMessage.jsx
-    │   │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   │   └── header.jsx
     │   │   │   │   │   └── Overview
     │   │   │   │   │       ├── LeadCards.jsx
     │   │   │   │   │       ├── LeadSource.jsx
     │   │   │   │   │       ├── LeadSummary.jsx
     │   │   │   │   │       ├── SalesPerformance.jsx
     │   │   │   │   │       ├── UpcomingTask.jsx
-    │   │   │   │   │       └── index.jsx
+    │   │   │   │   │       └── header.jsx
     │   │   │   │   └── SalesManagement
     │   │   │   │       ├── Earning
     │   │   │   │       │   ├── EarningHeader.jsx
     │   │   │   │       │   ├── EarningTable.jsx
     │   │   │   │       │   ├── Filter.jsx
     │   │   │   │       │   ├── Overview.jsx
-    │   │   │   │       │   └── index.jsx
+    │   │   │   │       │   └── header.jsx
     │   │   │   │       ├── Refund
     │   │   │   │       │   ├── Filter.jsx
     │   │   │   │       │   ├── Overview.jsx
     │   │   │   │       │   ├── RefundHeader.jsx
     │   │   │   │       │   ├── RefundTable.jsx
-    │   │   │   │       │   └── index.jsx
+    │   │   │   │       │   └── header.jsx
     │   │   │   │       └── Statement
     │   │   │   │           ├── Filter.jsx
     │   │   │   │           ├── OverView.jsx
     │   │   │   │           ├── StatementHeader.jsx
     │   │   │   │           ├── StatementTable.jsx
-    │   │   │   │           └── index.jsx
+    │   │   │   │           └── header.jsx
     │   │   │   ├── customer
     │   │   │   │   ├── CreateInvoice
     │   │   │   │   │   ├── AddItemPage.jsx
     │   │   │   │   │   ├── ProductsPage.jsx
     │   │   │   │   │   ├── TotalCard.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── CustomerList.jsx
     │   │   │   │   ├── OrderDetails
     │   │   │   │   │   ├── Details.jsx
     │   │   │   │   │   ├── Invoice.jsx
     │   │   │   │   │   ├── Status.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── OrderList.jsx
     │   │   │   │   ├── Product
     │   │   │   │   │   ├── ProductAdd.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   └── ProductReview
     │   │   │   │       ├── ReviewEdit.jsx
-    │   │   │   │       └── index.jsx
+    │   │   │   │       └── header.jsx
     │   │   │   ├── e-commerce
     │   │   │   │   ├── Checkout
     │   │   │   │   │   ├── AddAddress.jsx
@@ -760,7 +760,7 @@ sonic1/
     │   │   │   │   │   ├── PaymentCard.jsx
     │   │   │   │   │   ├── PaymentOptions.js
     │   │   │   │   │   ├── PaymentSelect.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── ColorOptions.js
     │   │   │   │   ├── ProductDetails
     │   │   │   │   │   ├── ProductDescription.jsx
@@ -769,7 +769,7 @@ sonic1/
     │   │   │   │   │   ├── ProductReview.jsx
     │   │   │   │   │   ├── RelatedProducts.jsx
     │   │   │   │   │   ├── Specification.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── ProductList.jsx
     │   │   │   │   └── Products
     │   │   │   │       ├── Colors.jsx
@@ -777,7 +777,7 @@ sonic1/
     │   │   │   │       ├── ProductFilter.jsx
     │   │   │   │       ├── ProductFilterView.jsx
     │   │   │   │       ├── SortOptions.js
-    │   │   │   │       └── index.jsx
+    │   │   │   │       └── header.jsx
     │   │   │   ├── invoice
     │   │   │   │   ├── Client
     │   │   │   │   │   ├── AddClient
@@ -785,38 +785,38 @@ sonic1/
     │   │   │   │   │   │   ├── ContactDetail.jsx
     │   │   │   │   │   │   ├── OtherDetail.jsx
     │   │   │   │   │   │   ├── PersonalInformation.jsx
-    │   │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   │   └── header.jsx
     │   │   │   │   │   └── ClientList
     │   │   │   │   │       ├── ClientDetails.jsx
     │   │   │   │   │       ├── ClientDrawer.jsx
     │   │   │   │   │       ├── ClientFilter.jsx
     │   │   │   │   │       ├── ClientTable.jsx
     │   │   │   │   │       ├── ClientTableHeader.jsx
-    │   │   │   │   │       └── index.jsx
+    │   │   │   │   │       └── header.jsx
     │   │   │   │   ├── Create
     │   │   │   │   │   ├── AmountCard.jsx
     │   │   │   │   │   ├── ClientInfo.jsx
     │   │   │   │   │   ├── ItemList.jsx
     │   │   │   │   │   ├── SelectItem.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Dashboard
     │   │   │   │   │   ├── ClientInsights.jsx
     │   │   │   │   │   ├── QuickAdd.jsx
     │   │   │   │   │   ├── RecentActivity.jsx
     │   │   │   │   │   ├── RevenueBarChart.jsx
     │   │   │   │   │   ├── SupportHelp.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Details
     │   │   │   │   │   ├── DetailsTab.jsx
     │   │   │   │   │   ├── InvoiceTab.jsx
     │   │   │   │   │   ├── StatusTab.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Edit
     │   │   │   │   │   ├── AmountCard.jsx
     │   │   │   │   │   ├── ClientInfo.jsx
     │   │   │   │   │   ├── ItemList.jsx
     │   │   │   │   │   ├── SelectItem.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Items
     │   │   │   │   │   ├── AddItem.jsx
     │   │   │   │   │   └── ItemList
@@ -825,27 +825,27 @@ sonic1/
     │   │   │   │   │       ├── ItemFilter.jsx
     │   │   │   │   │       ├── ItemTable.jsx
     │   │   │   │   │       ├── ItemTableHeader.jsx
-    │   │   │   │   │       └── index.jsx
+    │   │   │   │   │       └── header.jsx
     │   │   │   │   ├── List
     │   │   │   │   │   ├── InvoiceFilter.jsx
     │   │   │   │   │   ├── InvoiceTable.jsx
     │   │   │   │   │   ├── InvoiceTableHeader.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Payment
     │   │   │   │   │   ├── AddPayment
     │   │   │   │   │   │   ├── PaymentTable.jsx
-    │   │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   │   └── header.jsx
     │   │   │   │   │   ├── PaymentDetails
     │   │   │   │   │   │   ├── PaymentTable.jsx
-    │   │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   │   └── header.jsx
     │   │   │   │   │   └── PaymentList
     │   │   │   │   │       ├── Overview.jsx
     │   │   │   │   │       ├── PaymentFilter.jsx
     │   │   │   │   │       ├── PaymentTable.jsx
     │   │   │   │   │       ├── PaymentTableHeader.jsx
-    │   │   │   │   │       └── index.jsx
+    │   │   │   │   │       └── header.jsx
     │   │   │   │   └── chart-data
-    │   │   │   │       ├── index.jsx
+    │   │   │   │       ├── header.jsx
     │   │   │   │       ├── invoice-chart-1.jsx
     │   │   │   │       ├── invoice-chart-2.jsx
     │   │   │   │       ├── invoice-chart-3.jsx
@@ -861,7 +861,7 @@ sonic1/
     │   │   │   │   │   ├── Items.jsx
     │   │   │   │   │   ├── StoryComment.jsx
     │   │   │   │   │   ├── UserStory.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Board
     │   │   │   │   │   ├── AddColumn.jsx
     │   │   │   │   │   ├── AddItem.jsx
@@ -874,8 +874,8 @@ sonic1/
     │   │   │   │   │   ├── ItemComment.jsx
     │   │   │   │   │   ├── ItemDetails.jsx
     │   │   │   │   │   ├── Items.jsx
-    │   │   │   │   │   └── index.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── mail
     │   │   │   │   ├── ComposeDialog.jsx
     │   │   │   │   ├── MailDetails.jsx
@@ -883,35 +883,35 @@ sonic1/
     │   │   │   │   ├── MailEmpty.jsx
     │   │   │   │   ├── MailList.jsx
     │   │   │   │   ├── MailListHeader.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── map
-    │   │   │   │   ├── index.jsx
+    │   │   │   │   ├── header.jsx
     │   │   │   │   └── maps
     │   │   │   │       ├── GeoJSONAnimation.jsx
     │   │   │   │       ├── HighlightByFilter.jsx
     │   │   │   │       ├── MarkersPopups.jsx
     │   │   │   │       ├── change-theme
     │   │   │   │       │   ├── control-panel.jsx
-    │   │   │   │       │   └── index.jsx
+    │   │   │   │       │   └── header.jsx
     │   │   │   │       ├── clusters-map
-    │   │   │   │       │   ├── index.jsx
+    │   │   │   │       │   ├── header.jsx
     │   │   │   │       │   └── layers.js
     │   │   │   │       ├── draggable-marker
     │   │   │   │       │   ├── control-panel.jsx
-    │   │   │   │       │   └── index.jsx
+    │   │   │   │       │   └── header.jsx
     │   │   │   │       ├── heatmap
     │   │   │   │       │   ├── control-panel.jsx
-    │   │   │   │       │   ├── index.jsx
+    │   │   │   │       │   ├── header.jsx
     │   │   │   │       │   └── map-style.js
     │   │   │   │       ├── interaction-map
     │   │   │   │       │   ├── control-panel.jsx
-    │   │   │   │       │   └── index.jsx
+    │   │   │   │       │   └── header.jsx
     │   │   │   │       ├── side-by-side
     │   │   │   │       │   ├── control-panel.jsx
-    │   │   │   │       │   └── index.jsx
+    │   │   │   │       │   └── header.jsx
     │   │   │   │       └── viewport-animation
     │   │   │   │           ├── control-panel.jsx
-    │   │   │   │           └── index.jsx
+    │   │   │   │           └── header.jsx
     │   │   │   └── users
     │   │   │       ├── account-profile
     │   │   │       │   ├── Profile1
@@ -920,19 +920,19 @@ sonic1/
     │   │   │       │   │   ├── PersonalAccount.jsx
     │   │   │       │   │   ├── Profile.jsx
     │   │   │       │   │   ├── Settings.jsx
-    │   │   │       │   │   └── index.jsx
+    │   │   │       │   │   └── header.jsx
     │   │   │       │   ├── Profile2
     │   │   │       │   │   ├── Billing.jsx
     │   │   │       │   │   ├── ChangePassword.jsx
     │   │   │       │   │   ├── Payment.jsx
     │   │   │       │   │   ├── UserProfile.jsx
-    │   │   │       │   │   └── index.jsx
+    │   │   │       │   │   └── header.jsx
     │   │   │       │   └── Profile3
     │   │   │       │       ├── Billing.jsx
     │   │   │       │       ├── Notifications.jsx
     │   │   │       │       ├── Profile.jsx
     │   │   │       │       ├── Security.jsx
-    │   │   │       │       └── index.jsx
+    │   │   │       │       └── header.jsx
     │   │   │       ├── card
     │   │   │       │   ├── CardStyle1.jsx
     │   │   │       │   ├── CardStyle2.jsx
@@ -940,17 +940,17 @@ sonic1/
     │   │   │       ├── list
     │   │   │       │   ├── Style1
     │   │   │       │   │   ├── UserList.jsx
-    │   │   │       │   │   └── index.jsx
+    │   │   │       │   │   └── header.jsx
     │   │   │       │   └── Style2
     │   │   │       │       ├── UserList.jsx
-    │   │   │       │       └── index.jsx
+    │   │   │       │       └── header.jsx
     │   │   │       └── social-profile
     │   │   │           ├── Followers.jsx
     │   │   │           ├── FriendRequest.jsx
     │   │   │           ├── Friends.jsx
     │   │   │           ├── Gallery.jsx
     │   │   │           ├── Profile.jsx
-    │   │   │           └── index.jsx
+    │   │   │           └── header.jsx
     │   │   ├── dashboard
     │   │   │   ├── Analytics
     │   │   │   │   ├── LatestCustomerTableCard.jsx
@@ -958,7 +958,7 @@ sonic1/
     │   │   │   │   ├── TotalRevenueCard.jsx
     │   │   │   │   ├── chart-data
     │   │   │   │   │   └── market-share-area-chart.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   └── Default
     │   │   │       ├── BajajAreaChartCard.jsx
     │   │   │       ├── EarningCard.jsx
@@ -970,7 +970,7 @@ sonic1/
     │   │   │       │   ├── total-growth-bar-chart.jsx
     │   │   │       │   ├── total-order-month-line-chart.jsx
     │   │   │       │   └── total-order-year-line-chart.jsx
-    │   │   │       └── index.jsx
+    │   │   │       └── header.jsx
     │   │   ├── forms
     │   │   │   ├── chart
     │   │   │   │   ├── Apexchart
@@ -982,14 +982,14 @@ sonic1/
     │   │   │   │   │   ├── ApexPieChart.jsx
     │   │   │   │   │   ├── ApexPolarChart.jsx
     │   │   │   │   │   ├── ApexRedialChart.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   └── OrgChart
     │   │   │   │       ├── Card.jsx
     │   │   │   │       ├── DataCard.jsx
     │   │   │   │       ├── LinkedIn.jsx
     │   │   │   │       ├── MeetIcon.jsx
     │   │   │   │       ├── SkypeIcon.jsx
-    │   │   │   │       └── index.jsx
+    │   │   │   │       └── header.jsx
     │   │   │   ├── components
     │   │   │   │   ├── AutoComplete.jsx
     │   │   │   │   ├── Button.jsx
@@ -999,7 +999,7 @@ sonic1/
     │   │   │   │   │   ├── LandscapeDateTime.jsx
     │   │   │   │   │   ├── ViewRendererDateTime.jsx
     │   │   │   │   │   ├── ViewsDateTimePicker.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Radio.jsx
     │   │   │   │   ├── Slider
     │   │   │   │   │   ├── BasicSlider.jsx
@@ -1009,14 +1009,14 @@ sonic1/
     │   │   │   │   │   ├── StepSlider.jsx
     │   │   │   │   │   ├── VerticalSlider.jsx
     │   │   │   │   │   ├── VolumeSlider.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Switch.jsx
     │   │   │   │   └── TextField.jsx
     │   │   │   ├── data-grid
     │   │   │   │   ├── ColumnGroups
     │   │   │   │   │   ├── BasicColumnGroup.jsx
     │   │   │   │   │   ├── CustomColumnGroup.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── ColumnMenu
     │   │   │   │   │   ├── AddMenuItem.jsx
     │   │   │   │   │   ├── ColumnMenu.jsx
@@ -1025,17 +1025,17 @@ sonic1/
     │   │   │   │   │   ├── HideMenuItem.jsx
     │   │   │   │   │   ├── OverrideMenu.jsx
     │   │   │   │   │   ├── ReorderingMenu.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── ColumnVirtualization
     │   │   │   │   │   ├── Virtualization.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── ColumnVisibility
     │   │   │   │   │   ├── ControlledVisibility.jsx
     │   │   │   │   │   ├── InitializeColumnVisibility.jsx
     │   │   │   │   │   ├── VisibilityPanel.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── DataGridBasic
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── InLineEditing
     │   │   │   │   │   ├── AutoStop.jsx
     │   │   │   │   │   ├── ConfirmationSave.jsx
@@ -1049,17 +1049,17 @@ sonic1/
     │   │   │   │   │   ├── ParserSetter.jsx
     │   │   │   │   │   ├── ServerValidation.jsx
     │   │   │   │   │   ├── Validation.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── QuickFilter
     │   │   │   │   │   ├── CustomFilter.jsx
     │   │   │   │   │   ├── ExcludeHiddenColumns.jsx
     │   │   │   │   │   ├── Initialize.jsx
     │   │   │   │   │   ├── ParsingValues.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   └── SaveRestoreState
     │   │   │   │       ├── InitialState.jsx
     │   │   │   │       ├── UseGridSelector.jsx
-    │   │   │   │       └── index.jsx
+    │   │   │   │       └── header.jsx
     │   │   │   ├── forms-validation
     │   │   │   │   ├── AutocompleteForms.jsx
     │   │   │   │   ├── CheckboxForms.jsx
@@ -1067,19 +1067,19 @@ sonic1/
     │   │   │   │   ├── LoginForms.jsx
     │   │   │   │   ├── RadioGroupForms.jsx
     │   │   │   │   ├── SelectForms.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── forms-wizard
     │   │   │   │   ├── BasicWizard
     │   │   │   │   │   ├── AddressForm.jsx
     │   │   │   │   │   ├── PaymentForm.jsx
     │   │   │   │   │   ├── Review.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── ValidationWizard
     │   │   │   │   │   ├── AddressForm.jsx
     │   │   │   │   │   ├── PaymentForm.jsx
     │   │   │   │   │   ├── Review.jsx
-    │   │   │   │   │   └── index.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── layouts
     │   │   │   │   ├── ActionBar.jsx
     │   │   │   │   ├── Layouts.jsx
@@ -1094,7 +1094,7 @@ sonic1/
     │   │   │   │   ├── Modal
     │   │   │   │   │   ├── ServerModal.jsx
     │   │   │   │   │   ├── SimpleModal.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── Recaptcha.jsx
     │   │   │   │   └── Tooltip.jsx
     │   │   │   └── tables
@@ -1166,7 +1166,7 @@ sonic1/
     │   │   │   │       └── AuthResetPassword.jsx
     │   │   │   ├── contact-us
     │   │   │   │   ├── ContactCard.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── landing
     │   │   │   │   ├── Animation.jsx
     │   │   │   │   ├── CardData.js
@@ -1182,13 +1182,13 @@ sonic1/
     │   │   │   │   ├── PreBuildDashBoard.jsx
     │   │   │   │   ├── RtlInfoSection.jsx
     │   │   │   │   ├── StartupProjectSection.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── maintenance
     │   │   │   │   ├── ComingSoon
     │   │   │   │   │   ├── ComingSoon1
     │   │   │   │   │   │   ├── MailerSubscriber.jsx
     │   │   │   │   │   │   ├── Slider.jsx
-    │   │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   │   └── header.jsx
     │   │   │   │   │   └── ComingSoon2.jsx
     │   │   │   │   ├── Error.jsx
     │   │   │   │   ├── Error500.jsx
@@ -1200,7 +1200,7 @@ sonic1/
     │   │   │       ├── Faqs.jsx
     │   │   │       └── PrivacyPolicy.jsx
     │   │   ├── sample-page
-    │   │   │   └── index.jsx
+    │   │   │   └── header.jsx
     │   │   ├── ui-elements
     │   │   │   ├── advance
     │   │   │   │   ├── UIAlert.jsx
@@ -1216,7 +1216,7 @@ sonic1/
     │   │   │   │   │   ├── ResponsiveDialog.jsx
     │   │   │   │   │   ├── ScrollDialog.jsx
     │   │   │   │   │   ├── SimpleDialog.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── UIPagination.jsx
     │   │   │   │   ├── UIProgress.jsx
     │   │   │   │   ├── UIRating
@@ -1225,14 +1225,14 @@ sonic1/
     │   │   │   │   │   ├── HoverRating.jsx
     │   │   │   │   │   ├── SimpleRating.jsx
     │   │   │   │   │   ├── SizeRating.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── UISkeleton.jsx
     │   │   │   │   ├── UISnackbar.jsx
     │   │   │   │   ├── UISpeeddial
     │   │   │   │   │   ├── OpenIconSpeedDial.jsx
     │   │   │   │   │   ├── SimpleSpeedDials.jsx
     │   │   │   │   │   ├── SpeedDialTooltipOpen.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── UITimeline
     │   │   │   │   │   ├── AlternateTimeline.jsx
     │   │   │   │   │   ├── BasicTimeline.jsx
@@ -1241,7 +1241,7 @@ sonic1/
     │   │   │   │   │   ├── OppositeContentTimeline.jsx
     │   │   │   │   │   ├── OutlinedTimeline.jsx
     │   │   │   │   │   ├── RightAlignedTimeline.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   ├── UIToggleButton
     │   │   │   │   │   ├── CustomizedDividers.jsx
     │   │   │   │   │   ├── ExclusiveToggleButtons.jsx
@@ -1250,7 +1250,7 @@ sonic1/
     │   │   │   │   │   ├── ToggleButtonSizes.jsx
     │   │   │   │   │   ├── ToggleButtonsMultiple.jsx
     │   │   │   │   │   ├── VerticalToggleButtons.jsx
-    │   │   │   │   │   └── index.jsx
+    │   │   │   │   │   └── header.jsx
     │   │   │   │   └── UITreeview
     │   │   │   │       ├── ControlledTreeView.jsx
     │   │   │   │       ├── CustomizedTreeView.jsx
@@ -1258,7 +1258,7 @@ sonic1/
     │   │   │   │       ├── GmailTreeView.jsx
     │   │   │   │       ├── MultiSelectTreeView.jsx
     │   │   │   │       ├── RecursiveTreeView.jsx
-    │   │   │   │       └── index.jsx
+    │   │   │   │       └── header.jsx
     │   │   │   └── basic
     │   │   │       ├── UIAccordion.jsx
     │   │   │       ├── UIAvatar.jsx
@@ -1275,14 +1275,14 @@ sonic1/
     │   │   │       │   ├── SelectedListItem.jsx
     │   │   │       │   ├── SimpleList.jsx
     │   │   │       │   ├── VirtualizedList.jsx
-    │   │   │       │   └── index.jsx
+    │   │   │       │   └── header.jsx
     │   │   │       └── UITabs
     │   │   │           ├── ColorTabs.jsx
     │   │   │           ├── DisabledTabs.jsx
     │   │   │           ├── IconTabs.jsx
     │   │   │           ├── SimpleTabs.jsx
     │   │   │           ├── VerticalTabs.jsx
-    │   │   │           └── index.jsx
+    │   │   │           └── header.jsx
     │   │   ├── utilities
     │   │   │   ├── Animation.jsx
     │   │   │   ├── Color.jsx
@@ -1295,7 +1295,7 @@ sonic1/
     │   │   │   │   ├── MultipleBreakPoints.jsx
     │   │   │   │   ├── NestedGrid.jsx
     │   │   │   │   ├── SpacingGrid.jsx
-    │   │   │   │   └── index.jsx
+    │   │   │   │   └── header.jsx
     │   │   │   ├── Shadow.jsx
     │   │   │   └── Typography.jsx
     │   │   └── widget
@@ -1306,7 +1306,7 @@ sonic1/
     │   │       │   ├── SatisfactionChartCard.jsx
     │   │       │   ├── chart-data
     │   │       │   │   ├── conversions-chart.jsx
-    │   │       │   │   ├── index.jsx
+    │   │       │   │   ├── header.jsx
     │   │       │   │   ├── market-sale-chart.jsx
     │   │       │   │   ├── percentage-chart.jsx
     │   │       │   │   ├── revenue-chart.jsx
@@ -1324,7 +1324,7 @@ sonic1/
     │   │       │   │   ├── total-value-graph-1.jsx
     │   │       │   │   ├── total-value-graph-2.jsx
     │   │       │   │   └── total-value-graph-3.jsx
-    │   │       │   └── index.jsx
+    │   │       │   └── header.jsx
     │   │       ├── Data
     │   │       │   ├── ActiveTickets.jsx
     │   │       │   ├── ApplicationSales.jsx
@@ -1344,13 +1344,13 @@ sonic1/
     │   │       │   ├── TotalRevenue.jsx
     │   │       │   ├── TrafficSources.jsx
     │   │       │   ├── UserActivity.jsx
-    │   │       │   └── index.jsx
+    │   │       │   └── header.jsx
     │   │       └── Statistics
     │   │           ├── CustomerSatisfactionCard.jsx
     │   │           ├── IconGridCard.jsx
     │   │           ├── ProjectTaskCard.jsx
     │   │           ├── WeatherCard.jsx
-    │   │           └── index.jsx
+    │   │           └── header.jsx
     │   └── vite-env.d.js
     ├── vite.config.mjs
     └── yarn.lock

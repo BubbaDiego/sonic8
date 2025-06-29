@@ -11,7 +11,7 @@ import Box from '@mui/material/Box';
 
 // project imports
 import Footer from './Footer';
-import Header from './Header';
+import Header from './Header/header';
 import Sidebar from './Sidebar';
 import HorizontalBar from './HorizontalBar';
 import MainContentStyled from './MainContentStyled';

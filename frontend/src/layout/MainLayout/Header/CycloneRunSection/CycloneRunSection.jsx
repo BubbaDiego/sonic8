@@ -9,7 +9,7 @@ import Box from '@mui/material/Box';
 import { ThemeMode } from 'config';
 
 // assets
-import { IconRefresh, IconUpdate, IconTrash, IconTornado } from '@tabler/icons-react';
+import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-react';
 
 // ==============================|| HEADER CONTENT - CYCLONE RUN ||============================== //
 
@@ -41,7 +41,7 @@ export default function CycloneRunSection() {
         </Tooltip>
         <Tooltip title="Position Update">
           <Avatar variant="rounded" sx={avatarSX}>
-            <IconUpdate size="20px" />
+            <IconEdit size="20px" />
           </Avatar>
         </Tooltip>
         <Tooltip title="Delete">
