@@ -1,0 +1,14 @@
+{
+  "name": "Chewie",
+  "profile": "Loyal",
+  "avatar": "/static/images/chewie_icon.jpg",
+  "strategy_weights": {
+    "dynamic_hedging": 0.5,
+    "profit_management": 0.5
+  },
+  "moods": {
+    "high_heat": "roaring"
+  },
+  "description": "Fierce warrior with a heart of gold.",
+  "color": "#a0522d"
+}

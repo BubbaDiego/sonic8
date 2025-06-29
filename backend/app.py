@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routes.positions_api import router as positions_router
-from backend.routes.portfolio_api import router as portfolio_router
-from backend.routes.cyclone_api import router as cyclone_router
+from routes.positions_api import router as positions_router
+from routes.portfolio_api import router as portfolio_router
+from routes.cyclone_api import router as cyclone_router
 
 app = FastAPI(title="Sonic1 API")
 
@@ -25,4 +25,4 @@ async def status():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.app:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=5000, reload=True)

@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from ..infrastructure.stores import AlertLogStore
-from data.alert import AlertLog
+#from ..infrastructure.stores import AlertLogStore
+#from backend.data.alert import AlertLog
 from datetime import datetime
 
 

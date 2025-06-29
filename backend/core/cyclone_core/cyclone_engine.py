@@ -7,12 +7,12 @@ from datetime import datetime
 from uuid import uuid4
 import traceback  # PATCH: for full stack info
 
-from data.data_locker import DataLocker
-from core.constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
-from alert_core.config.loader import load_thresholds
-from core.logging import log, configure_console_log
-from trader_core.trader_loader import TraderLoader
-from learning_database.learning_event_logger import log_learning_event
+from backend.data.data_locker import DataLocker
+from backend.core.constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
+from backend.core.alert_core.config.loader import load_thresholds
+from backend.core.logging import log, configure_console_log
+from backend.core.trader_core.trader_loader import TraderLoader
+from backend.core.learning_database.learning_event_logger import log_learning_event
 import json
 
 # PATCH: Import SystemCore for death screams
