@@ -4,7 +4,18 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+try:
+    from pydantic import BaseModel
+    if not hasattr(BaseModel, "__fields__"):
+        raise ImportError("stub")
+except Exception:  # pragma: no cover - optional dependency
+    class BaseModel:
+        def __init__(self, **data):
+            for k, v in data.items():
+                setattr(self, k, v)
+
+        def dict(self) -> dict:  # type: ignore[override]
+            return self.__dict__
 
 class Condition(str, Enum):
     ABOVE = "ABOVE"

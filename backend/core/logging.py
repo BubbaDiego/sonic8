@@ -89,12 +89,20 @@ class SimpleLogger:
     def txt(self, *_: Any, **__: Any) -> None:
         pass
 
+
+    # Compatibility helpers -------------------------------------------------
+    def route(self, msg: str, source: str | None = None, **_: Any) -> None:
+        """Alias used by some modules to log routing info."""
+        self.info(msg, source=source)
+
     def print_dashboard_link(
         self, host: str = "127.0.0.1", port: int = 5001, route: str = "/dashboard"
     ) -> None:
-        """Log a simple dashboard URL using :meth:`info`."""
+        """Print a simple dashboard URL."""
         url = f"http://{host}:{port}{route}"
+
         self.info(f"🌐 Sonic Dashboard: {url}")
+
 
     # ------------------------------------------------------------------
     # Internal helpers
