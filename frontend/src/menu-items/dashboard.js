@@ -34,6 +34,14 @@ const dashboard = {
       breadcrumbs: false
     },
     {
+      id: 'sonic',
+      title: 'sonic',
+      type: 'item',
+      url: '/dashboard/sonic',
+      icon: icons.IconDeviceAnalytics,
+      breadcrumbs: false
+    },
+    {
       id: 'invoice1',
       title: 'invoice',
       icon: icons.IconFileInvoice,
