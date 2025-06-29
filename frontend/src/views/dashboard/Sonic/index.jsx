@@ -5,6 +5,12 @@ import Grid from '@mui/material/Grid';
 import ValueToCollateralChartCard from './ValueToCollateralChartCard';
 import PortfolioTableCard from './PortfolioTableCard';
 import TotalValueCard from 'ui-component/cards/TotalValueCard';
+import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
+import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
+import TotalSizeDarkCard from 'ui-component/cards/TotalSizeDarkCard';
+import TotalSizeLightCard from 'ui-component/cards/TotalSizeLightCard';
+import useConfig from 'hooks/useConfig';
+import { ThemeMode } from 'config';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 
 import { gridSpacing } from 'store/constant';
@@ -17,7 +23,10 @@ import DescriptionTwoToneIcon from '@mui/icons-material/DescriptionTwoTone';
 // ==============================|| SONIC DASHBOARD ||============================== //
 
 export default function Sonic() {
+  const { mode } = useConfig();
 
+  const LeverageCard = mode === ThemeMode.DARK ? TotalLeverageDarkCard : TotalLeverageLightCard;
+  const SizeCard = mode === ThemeMode.DARK ? TotalSizeDarkCard : TotalSizeLightCard;
 
   return (
     <Grid container spacing={gridSpacing}>
@@ -41,6 +50,13 @@ export default function Sonic() {
               iconPrimary={MonetizationOnTwoToneIcon}
               color="secondary.main"
             />
+          </Grid>
+          <Grid size={12}>
+            <LeverageCard isLoading={false} />
+          </Grid>
+          {/* display the portfolio size just below the leverage card */}
+          <Grid size={12}>
+            <SizeCard isLoading={false} />
           </Grid>
           <Grid size={12}>
             <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
