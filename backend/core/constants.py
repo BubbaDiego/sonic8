@@ -7,7 +7,7 @@ ALERT_THRESHOLDS_PATH = BASE_DIR / "config" / "alert_thresholds.json"
 CONFIG_DIR = BASE_DIR / "config"
 LOG_DIR = BASE_DIR / "logs"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-JUPITER_API_BASE = "https://api.example.com"
+JUPITER_API_BASE = "https://perps-api.jup.ag"
 
 __all__ = [
     "BASE_DIR",

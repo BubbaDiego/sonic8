@@ -2,6 +2,12 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from dotenv import load_dotenv
+load_dotenv()  # Explicitly load from .env file
+import os
+
+JUPITER_API_BASE = os.getenv("JUPITER_API_BASE", "https://perps-api.jup.ag")
+
 
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -22,7 +28,7 @@ print("👁 Viewer using DB path:", os.path.abspath(MOTHER_DB_PATH))
 def validate_position_service_source():
     """Helper for debugging where PositionCore is loaded from."""
     import inspect
-    from positions.position_core import PositionCore
+    from backend.core.positions_core.position_core import PositionCore
 
     print("📂 [Validator] PositionCore loaded from:", inspect.getfile(PositionCore))
     print(
@@ -49,7 +55,7 @@ class CyclonePositionService:
     async def enrich_positions(self):
         log.info("✨ Starting Position Enrichment", source="CyclonePosition")
         try:
-            from positions.position_core import PositionCore
+            from backend.core.positions_core.position_core import PositionCore
             core = PositionCore(self.dl)
             enriched = await core.enrich_positions()
             count = len(enriched)
