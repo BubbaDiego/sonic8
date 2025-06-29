@@ -4,7 +4,7 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 
 // project imports
-import MarketShareAreaChartCard from './MarketShareAreaChartCard';
+import ValueToCollateralChartCard from './ValueToCollateralChartCard';
 import TotalRevenueCard from './TotalRevenueCard';
 import LatestCustomerTableCard from './LatestCustomerTableCard';
 import { ThemeMode } from 'config';
@@ -38,7 +38,7 @@ export default function Sonic() {
       <Grid size={{ xs: 12, lg: 8, md: 6 }}>
         <Grid container spacing={gridSpacing}>
           <Grid size={12}>
-            <MarketShareAreaChartCard />
+            <ValueToCollateralChartCard />
           </Grid>
           <Grid size={{ xs: 12, lg: 6 }}>
             <RevenueCard
@@ -91,53 +91,6 @@ export default function Sonic() {
                       </Typography>
                       <Typography variant="subtitle2" align="center">
                         SHARES
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </Grid>
-                <Grid sx={blockSX} size={{ xs: 12, sm: 6 }}>
-                  <Grid container spacing={1} sx={{ alignItems: 'center', justifyContent: { xs: 'space-between', sm: 'center' } }}>
-                    <Grid>
-                      <IconAccessPoint stroke={1.5} />
-                    </Grid>
-                    <Grid size={{ sm: 'grow' }}>
-                      <Typography variant="h5" align="center">
-                        600
-                      </Typography>
-                      <Typography variant="subtitle2" align="center">
-                        NETWORK
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </Grid>
-              </Grid>
-              <Grid container spacing={0} sx={{ alignItems: 'center' }}>
-                <Grid sx={blockSX} size={{ xs: 12, sm: 6 }}>
-                  <Grid container spacing={1} sx={{ alignItems: 'center', justifyContent: { xs: 'space-between', sm: 'center' } }}>
-                    <Grid>
-                      <IconCircles stroke={1.5} />
-                    </Grid>
-                    <Grid size={{ sm: 'grow' }}>
-                      <Typography variant="h5" align="center">
-                        3550
-                      </Typography>
-                      <Typography variant="subtitle2" align="center">
-                        RETURNS
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </Grid>
-                <Grid sx={blockSX} size={{ xs: 12, sm: 6 }}>
-                  <Grid container spacing={1} sx={{ alignItems: 'center', justifyContent: { xs: 'space-between', sm: 'center' } }}>
-                    <Grid>
-                      <IconCreditCard stroke={1.5} />
-                    </Grid>
-                    <Grid size={{ sm: 'grow' }}>
-                      <Typography variant="h5" align="center">
-                        100%
-                      </Typography>
-                      <Typography variant="subtitle2" align="center">
-                        ORDER
                       </Typography>
                     </Grid>
                   </Grid>

@@ -6,8 +6,8 @@ from backend.core.core_imports import log
 from backend.core.positions_core.position_store import PositionStore
 from backend.core.positions_core.position_enrichment_service import PositionEnrichmentService
 from backend.core.positions_core.position_enrichment_service import validate_enriched_position
-from hedge_core.hedge_core import HedgeCore
-from calc_core.calc_services import CalcServices
+from backend.core.hedge_core.hedge_core import HedgeCore
+from backend.core.calc_core.calc_services import CalcServices
 from datetime import datetime
 import uuid
 
