@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from trader_core.trader import Trader
+from backend.core.trader_core.trader import Trader
 
 
 class TraderStore:

@@ -13,7 +13,7 @@ import json
 from backend.core.trader_core.trader import Trader
 from backend.core.trader_core.mood_engine import evaluate_mood
 from backend.core.trader_core.trader_store import TraderStore
-from backend.utils import iso_utc_now
+from backend.utils.time_utils import iso_utc_now
 
 StrategyManager = importlib.import_module("oracle_core.strategy_manager").StrategyManager
 PersonaManager = importlib.import_module("oracle_core.persona_manager").PersonaManager
