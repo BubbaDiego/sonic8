@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..domain.models import Alert, AlertLevel, Condition
+from data.alert import Alert, AlertLevel, Condition
 
 
 class AlertEvaluationService:

@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import List
 
-from ..domain.models import Alert, AlertLog, AlertLevel
+from data.alert import Alert, AlertLog, AlertLevel
 
 
 class _DBAdapter:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ...domain.models import NotificationType
+from data.alert import NotificationType
 from .base import BaseNotifier
 from .sms import SMSNotifier
 from .windows_toast import WindowsToastNotifier
