@@ -3,14 +3,12 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 
-from backend.core.monitor_core.price_monitor.price_sync_service import PriceSyncService
-from data.data_locker import DataLocker
-from monitor.base_monitor import BaseMonitor
-from monitor.monitor_service import MonitorService
-from core.constants import MOTHER_DB_PATH
-
-from datetime import datetime, timezone
-from core.logging import log
+from backend.core.market_core.price_sync_service import PriceSyncService
+from backend.data.data_locker import DataLocker
+from backend.core.monitor_core.base_monitor import BaseMonitor
+from backend.core.monitor_core.monitor_service import MonitorService
+from backend.core.constants import MOTHER_DB_PATH
+from backend.core.logging import log
 
 
 class PriceMonitor(BaseMonitor):

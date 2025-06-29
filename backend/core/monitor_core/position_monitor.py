@@ -1,12 +1,12 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from monitor.base_monitor import BaseMonitor
-from data.data_locker import DataLocker
-from positions.position_core import PositionCore
-from core.constants import MOTHER_DB_PATH
+from backend.core.monitor_core.base_monitor import BaseMonitor
+from backend.data.data_locker import DataLocker
+from backend.core.positions_core.position_core import PositionCore
+from backend.core.constants import MOTHER_DB_PATH
 from datetime import datetime, timezone
-from core.logging import log
+from backend.core.logging import log
 
 class PositionMonitor(BaseMonitor):
     """

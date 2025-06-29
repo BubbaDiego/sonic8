@@ -2,9 +2,9 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from core.logging import log
-from monitor.monitor_service import MonitorService
-from data.dl_monitor_ledger import DLMonitorLedgerManager
+from backend.core.logging import log
+from backend.core.monitor_core.monitor_service import MonitorService
+from backend.data.dl_monitor_ledger import DLMonitorLedgerManager
 from datetime import datetime, timezone
 
 

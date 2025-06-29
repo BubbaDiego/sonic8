@@ -5,7 +5,7 @@ import requests
 import os
 import glob
 from datetime import datetime
-from core.core_imports import log
+from backend.core.core_imports import log
 
 class MonitorService:
     def fetch_prices(self):

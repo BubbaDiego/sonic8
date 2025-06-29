@@ -13,12 +13,12 @@ import time
 import glob
 from pathlib import Path
 
-from monitor.base_monitor import BaseMonitor
-from data.data_locker import DataLocker
-from core.logging import log
-from core.constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
+from backend.core.monitor_core.base_monitor import BaseMonitor
+from backend.data.data_locker import DataLocker
+from backend.core.logging import log
+from backend.core.constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
 from config.config_loader import load_config
-from utils.schema_validation_service import SchemaValidationService
+from backend.utils.schema_validation_service import SchemaValidationService
 from jsonschema import validate
 
 
