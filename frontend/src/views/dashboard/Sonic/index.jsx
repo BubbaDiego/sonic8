@@ -1,14 +1,9 @@
 // material-ui
-import { useTheme } from '@mui/material/styles';
 import Grid from '@mui/material/Grid';
-import Typography from '@mui/material/Typography';
 
 // project imports
 import ValueToCollateralChartCard from './ValueToCollateralChartCard';
-import LatestCustomerTableCard from './LatestCustomerTableCard';
 import PortfolioTableCard from './PortfolioTableCard';
-import { ThemeMode } from 'config';
-import RevenueCard from 'ui-component/cards/RevenueCard';
 import TotalValueCard from 'ui-component/cards/TotalValueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 
@@ -22,7 +17,6 @@ import DescriptionTwoToneIcon from '@mui/icons-material/DescriptionTwoTone';
 // ==============================|| SONIC DASHBOARD ||============================== //
 
 export default function Sonic() {
-  const theme = useTheme();
 
 
   return (
@@ -31,27 +25,6 @@ export default function Sonic() {
         <Grid container spacing={gridSpacing}>
           <Grid size={12}>
             <ValueToCollateralChartCard />
-          </Grid>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <RevenueCard
-              primary="Revenue"
-              secondary="$42,562"
-              content="$50,032 Last Month"
-              iconPrimary={MonetizationOnTwoToneIcon}
-              color="secondary.main"
-            />
-          </Grid>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <RevenueCard
-              primary="Orders Received"
-              secondary="486"
-              content="20% Increase"
-              iconPrimary={AccountCircleTwoTone}
-              color="primary.main"
-            />
-          </Grid>
-          <Grid size={12}>
-            <LatestCustomerTableCard title="Latest Customers" />
           </Grid>
           <Grid size={12}>
             <PortfolioTableCard />
