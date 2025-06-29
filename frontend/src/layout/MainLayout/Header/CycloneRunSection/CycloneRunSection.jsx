@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 
 // project imports
 import { ThemeMode } from 'config';
+import { runFullCycle, runPositionUpdate, runPriceUpdate, deleteAllData } from 'api/cyclone';
 
 // assets
 import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-react';
@@ -35,22 +36,22 @@ export default function CycloneRunSection() {
     <Box sx={{ ml: 2 }}>
       <Stack direction="row" spacing={1}>
         <Tooltip title="Price Update">
-          <Avatar variant="rounded" sx={avatarSX}>
+          <Avatar variant="rounded" sx={avatarSX} onClick={() => runPriceUpdate().catch(console.error)}>
             <IconRefresh size="20px" />
           </Avatar>
         </Tooltip>
         <Tooltip title="Position Update">
-          <Avatar variant="rounded" sx={avatarSX}>
+          <Avatar variant="rounded" sx={avatarSX} onClick={() => runPositionUpdate().catch(console.error)}>
             <IconEdit size="20px" />
           </Avatar>
         </Tooltip>
         <Tooltip title="Delete">
-          <Avatar variant="rounded" sx={avatarSX}>
+          <Avatar variant="rounded" sx={avatarSX} onClick={() => deleteAllData().catch(console.error)}>
             <IconTrash size="20px" />
           </Avatar>
         </Tooltip>
         <Tooltip title="Full Cyclone">
-          <Avatar variant="rounded" sx={avatarSX}>
+          <Avatar variant="rounded" sx={avatarSX} onClick={() => runFullCycle().catch(console.error)}>
             <IconTornado size="20px" />
           </Avatar>
         </Tooltip>

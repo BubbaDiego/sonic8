@@ -15,6 +15,22 @@ To run the backend locally:[app.py](backend/app.py)
 python backend/app.py
 ```
 
+The backend expects several JSON configuration files under
+`backend/config/`. The repo includes empty placeholders for most of them,
+but if any are missing create the following files:
+
+```
+backend/config/active_traders.json
+backend/config/alert_thresholds.json
+backend/config/sonic_config.json
+backend/config/sonic_sauce.json
+backend/config/comm_config.json
+backend/config/theme_config.json
+```
+
+`sonic_sauce.json` must contain at least the keys `hedge_modifiers` and
+`heat_modifiers` as required by the backend's `JsonManager`.
+
 To start the frontend:
 
 ```bash
