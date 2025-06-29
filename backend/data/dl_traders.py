@@ -11,7 +11,7 @@ convenience:
 
 import json
 
-from utils import iso_utc_now, normalize_iso_timestamp
+from utils.time_utils import iso_utc_now, normalize_iso_timestamp
 
 import os
 from datetime import datetime

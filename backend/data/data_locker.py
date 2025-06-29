@@ -18,17 +18,37 @@ import sqlite3
 from pathlib import Path
 from collections.abc import Mapping
 from backend.data.database import DatabaseManager
-# from data.dl_alerts import DLAlertManager
-# from data.dl_prices import DLPriceManager
+from backend.data.dl_alerts import DLAlertManager
+from backend.data.dl_prices import DLPriceManager
 from backend.data.dl_positions import DLPositionManager
 from backend.data.dl_wallets import DLWalletManager
-# from data.dl_brokers import DLBrokerManager
 from backend.data.dl_portfolio import DLPortfolioManager
-# from data.dl_system_data import DLSystemDataManager
-# from data.dl_monitor_ledger import DLMonitorLedgerManager
-# from data.dl_modifiers import DLModifierManager
-# from data.dl_hedges import DLHedgeManager
-# from data.dl_traders import DLTraderManager
+try:  # pragma: no cover - optional dependency
+    from backend.data.dl_system_data import DLSystemDataManager
+except ModuleNotFoundError:
+    DLSystemDataManager = None
+
+from backend.data.dl_monitor_ledger import DLMonitorLedgerManager
+from backend.data.dl_modifiers import DLModifierManager
+try:  # pragma: no cover - optional dependency
+    from backend.data.dl_hedges import DLHedgeManager
+except ModuleNotFoundError:
+    DLHedgeManager = None
+try:  # pragma: no cover - optional dependency
+    from backend.data.dl_traders import DLTraderManager
+except ModuleNotFoundError:
+    DLTraderManager = None
+
+# Optional managers for thresholds
+try:  # pragma: no cover - optional dependency
+    from backend.data.dl_thresholds import DLThresholdManager
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    DLThresholdManager = None
+
+try:  # pragma: no cover - optional dependency
+    from backend.data.threshold_seeder import AlertThresholdSeeder
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    AlertThresholdSeeder = None
 
 # Corrected explicitly absolute import
 from backend.core.constants import (
@@ -85,26 +105,36 @@ class DataLocker:
         if not isinstance(self.db, DatabaseManager):
             raise TypeError("db must be a DatabaseManager instance")
 
-        # self.alerts = DLAlertManager(self.db)
-        # self.prices = DLPriceManager(self.db)
+        self.alerts = DLAlertManager(self.db)
+        self.prices = DLPriceManager(self.db)
         self.positions = DLPositionManager(self.db)
-        # self.hedges = DLHedgeManager(self.db)
+        self.hedges = DLHedgeManager(self.db) if DLHedgeManager else None
         self.wallets = DLWalletManager(self.db)
-        # self.brokers = DLBrokerManager(self.db)
         self.portfolio = DLPortfolioManager(self.db)
-        # self.traders = DLTraderManager(self.db)
-        # self.system = DLSystemDataManager(self.db)
-        # self.ledger = DLMonitorLedgerManager(self.db)
-        # self.modifiers = DLModifierManager(self.db)
+        if DLTraderManager:
+            try:
+                self.traders = DLTraderManager(self.db)
+            except Exception as e:
+                log.error(
+                    f"Failed to initialize DLTraderManager: {e}",
+                    source="DataLocker",
+                )
+                self.traders = None
+        else:
+            self.traders = None
+        self.system = DLSystemDataManager(self.db) if DLSystemDataManager else None
+        self.ledger = DLMonitorLedgerManager(self.db)
+        self.modifiers = DLModifierManager(self.db)
 
         try:
             self.initialize_database()
             self._seed_modifiers_if_empty()
-            # self._seed_wallets_if_empty()
-            # self._seed_alerts_if_empty()
-            # self._seed_thresholds_if_empty()
-            # self._ensure_travel_percent_threshold()
-            # self._seed_alert_config_if_empty()
+            self._seed_wallets_if_empty()
+            self._seed_alerts_if_empty()
+            self._seed_thresholds_if_empty()
+            self._ensure_travel_percent_threshold()
+            if self.system is not None:
+                self._seed_alert_config_if_empty()
 
         except Exception as e:
             log.error(f"❌ DataLocker setup failed: {e}", source="DataLocker")
@@ -380,12 +410,13 @@ class DataLocker:
         return self.prices.get_latest_price(asset_type)
 
     def set_last_update_times(self, updates: dict):
-        self.system.set_last_update_times(updates)
+        if self.system is not None:
+            self.system.set_last_update_times(updates)
 
     def get_last_update_times(self) -> dict:
         """Return last update times for positions and prices as a dict."""
         try:
-            return self.system.get_last_update_times().to_dict()
+            return self.system.get_last_update_times().to_dict() if self.system is not None else {}
         except Exception:
             return {}
 
@@ -549,8 +580,13 @@ class DataLocker:
             return
         count = cursor.execute("SELECT COUNT(*) FROM alert_thresholds").fetchone()[0]
         if count == 0:
+            if AlertThresholdSeeder is None:
+                log.warning(
+                    "⚠️ AlertThresholdSeeder not available; skipping threshold seed",
+                    source="DataLocker",
+                )
+                return
             try:
-                # from data.threshold_seeder import AlertThresholdSeeder
                 seeder = AlertThresholdSeeder(self.db)
                 created, updated = seeder.seed_all()
                 log.debug(
@@ -591,7 +627,6 @@ class DataLocker:
                 return
 
             from data.models import AlertThreshold
-            # from data.dl_thresholds import DLThresholdManager
             from uuid import uuid4
             from datetime import datetime, timezone
 
@@ -610,7 +645,13 @@ class DataLocker:
                 medium_notify="Email,SMS",
                 high_notify="Email,SMS,Voice",
             )
-            DLThresholdManager(self.db).insert(threshold)
+            if DLThresholdManager is not None:
+                DLThresholdManager(self.db).insert(threshold)
+            else:  # pragma: no cover - optional dependency
+                log.warning(
+                    "⚠️ DLThresholdManager not available; skipping TravelPercent seed",
+                    source="DataLocker",
+                )
             log.debug(
                 "TravelPercent threshold seeded by ensure", source="DataLocker"
             )
@@ -662,6 +703,12 @@ class DataLocker:
 
     def _seed_alert_config_if_empty(self):
         """Seed global alert configuration from alert_thresholds.json if missing."""
+        if self.system is None:
+            log.warning(
+                "⚠️ System data manager unavailable; skipping alert config seed",
+                source="DataLocker",
+            )
+            return
         try:
             current = self.system.get_var("alert_thresholds")
             if current:
@@ -697,9 +744,10 @@ class DataLocker:
             for table in tables:
                 datasets[table] = self.db.fetch_all(table)
             try:
-                hedge_rows = [vars(h) for h in self.hedges.get_hedges()]
-                if hedge_rows:
-                    datasets["hedges"] = hedge_rows
+                if self.hedges is not None:
+                    hedge_rows = [vars(h) for h in self.hedges.get_hedges()]
+                    if hedge_rows:
+                        datasets["hedges"] = hedge_rows
             except Exception as e:  # pragma: no cover - optional enrichment
                 log.error(f"❌ Failed to gather hedges: {e}", source="DataLocker")
             return datasets
