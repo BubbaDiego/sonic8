@@ -14,6 +14,7 @@ import useConfig from 'hooks/useConfig';
 import { ThemeMode } from 'config';
 
 import UserCountCard from 'ui-component/cards/UserCountCard';
+import SizeHedgeChartCard from './SizeHedgeChartCard';
 
 import { gridSpacing } from 'store/constant';
 
@@ -60,6 +61,9 @@ export default function Sonic() {
           {/* display the portfolio size just below the leverage card */}
           <Grid size={12}>
             <SizeCard isLoading={false} />
+          </Grid>
+          <Grid size={12}>
+            <SizeHedgeChartCard />
           </Grid>
           <Grid size={12}>
             <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
