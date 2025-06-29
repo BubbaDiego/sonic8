@@ -62,9 +62,9 @@ class WalletCore:
         self.client = Client(rpc_endpoint) if Client else None
         # Instantiate BlockchainBalanceService regardless of solana availability
         # so ``load_wallets`` can gracefully attempt balance lookups.
-        self.balance_service = BlockchainBalanceService()
-        self.jupiter = JupiterService() if Client else None
-        self.jupiter_trigger = JupiterTriggerService() if Client else None
+#        self.balance_service = BlockchainBalanceService()
+   #     self.jupiter = JupiterService() if Client else None
+ #       self.jupiter_trigger = JupiterTriggerService() if Client else None
         log.debug(
             f"WalletCore initialized with RPC {rpc_endpoint}" + (" (stubbed)" if Client is None else ""),
             source="WalletCore",

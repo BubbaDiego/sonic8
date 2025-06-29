@@ -2,16 +2,17 @@ import json
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-# Dynamically build the wallet path relative to the script
-wallet_json_path = os.path.join(os.path.dirname(__file__), '..', 'wallets', 'test_wallets', 'star_wars_wallets.json')
+wallet_json_path = os.path.abspath(os.path.join(
+    os.path.dirname(__file__), '..', 'core', 'wallet_core', 'test_wallets', 'star_wars_wallets.json'
+))
 
 from backend.core.wallet_core import WalletCore
 from backend.models.wallet import Wallet
 
 def insert_star_wars_wallets() -> int:
-    """Insert Star Wars wallets defined in ``wallet_json_path``."""
+    """Insert Star Wars wallets defined in `wallet_json_path`."""
     try:
         with open(wallet_json_path, 'r') as file:
             data = json.load(file)
@@ -41,7 +42,6 @@ def insert_star_wars_wallets() -> int:
 
     print("✅ Wallet insertion completed.")
     return inserted
-
 
 if __name__ == "__main__":
     insert_star_wars_wallets()
