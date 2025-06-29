@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from alert_core.services.enrichment import AlertEnrichmentService
-from alert_core.domain.models import Condition, NotificationType
+from data.alert import Condition, NotificationType
 from types import SimpleNamespace
 
 
