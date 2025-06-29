@@ -20,38 +20,6 @@ export default function CycloneRunSection() {
   const theme = useTheme();
   const dispatch = useDispatch();
 
-  const handlePriceUpdate = async () => {
-    try {
-      await runPriceUpdate();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handlePositionUpdate = async () => {
-    try {
-      await runPositionUpdate();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleDeleteAllData = async () => {
-    try {
-      await deleteAllData();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleFullCycle = async () => {
-    try {
-      await runFullCycle();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const avatarSX = {
     ...theme.typography.commonAvatar,
     ...theme.typography.mediumAvatar,
@@ -123,7 +91,7 @@ export default function CycloneRunSection() {
       });
   };
 
-  const handleDelete = () => {
+  const handleDeleteAllData = () => {
     deleteAllData()
       .then(() =>
         dispatch(
