@@ -8,8 +8,8 @@ router = APIRouter(prefix="/cyclone", tags=["cyclone"])
 cyclone = Cyclone()
 
 
-def _run(coro):
-    asyncio.run(coro)
+async def _run(coro):
+    await coro
 
 
 @router.post("/run", status_code=202)
