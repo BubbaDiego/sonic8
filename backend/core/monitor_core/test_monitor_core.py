@@ -2,7 +2,7 @@ import sys
 import os
 
 # Make sure this is at the TOP for path resolution!
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from core.logging import log
 from monitor.monitor_core import MonitorCore

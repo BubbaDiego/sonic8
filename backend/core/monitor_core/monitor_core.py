@@ -1,7 +1,7 @@
 import sys
 import os
 from typing import Optional
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from core.logging import log
 
 # Import your monitor classes here
