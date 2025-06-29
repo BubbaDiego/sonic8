@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.positions_api import router as positions_router
 from routes.portfolio_api import router as portfolio_router
+from routes.cyclone_api import router as cyclone_router
 
 app = FastAPI(title="Sonic1 API")
 
@@ -16,6 +17,7 @@ app.add_middleware(
 
 app.include_router(positions_router)
 app.include_router(portfolio_router)
+app.include_router(cyclone_router)
 
 @app.get("/api/status")
 async def status():
