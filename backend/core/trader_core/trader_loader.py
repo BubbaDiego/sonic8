@@ -1,7 +1,7 @@
 """Utility to build Trader objects from live data."""
 
 from typing import Optional
-from utils import iso_utc_now
+from backend.utils.time_utils import iso_utc_now
 
 import importlib
 
@@ -9,8 +9,8 @@ StrategyManager = importlib.import_module("oracle_core.strategy_manager").Strate
 PersonaManager = importlib.import_module("oracle_core.persona_manager").PersonaManager
 OracleDataService = importlib.import_module("oracle_core.oracle_data_service").OracleDataService
 CalcServices = importlib.import_module("calc_core.calc_services").CalcServices
-from trader_core.trader import Trader
-from trader_core.mood_engine import evaluate_mood
+from backend.core.trader_core.trader import Trader
+from backend.core.trader_core.mood_engine import evaluate_mood
 
 
 class TraderLoader:
