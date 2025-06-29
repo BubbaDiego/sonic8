@@ -58,7 +58,7 @@ def launch_frontend():
 
 def launch_backend():
     console.log("🚀 Launching FastAPI backend...")
-    run_background([PYTHON_EXEC, "app.py"], BACKEND_DIR)
+    run_background([PYTHON_EXEC, "-m", "backend.app"], ROOT_DIR)
     wait_and_open("http://localhost:5000/docs")
     console.log("[green]Backend running at http://localhost:5000[/]")
 

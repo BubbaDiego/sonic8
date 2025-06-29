@@ -1,0 +1,14 @@
+{
+  "name": "Yoda",
+  "profile": "Wise",
+  "avatar": "/static/images/yoda_icon.jpg",
+  "strategy_weights": {
+    "dynamic_hedging": 0.3,
+    "profit_management": 0.7
+  },
+  "moods": {
+    "high_heat": "calm"
+  },
+  "description": "Old master guiding portfolios with patience and insight.",
+  "color": "#00ff00"
+}

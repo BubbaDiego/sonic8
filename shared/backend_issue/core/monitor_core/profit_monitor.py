@@ -1,0 +1,112 @@
+from monitor.base_monitor import BaseMonitor
+from data.data_locker import DataLocker
+from positions.position_core import PositionCore
+from xcom.xcom_core import XComCore
+from core.constants import MOTHER_DB_PATH
+from core.logging import log
+from alert_core.threshold_service import ThresholdService
+from datetime import datetime, timezone
+
+class ProfitMonitor(BaseMonitor):
+    # Legacy attribute for backward compatibility
+    snooze_until = None
+
+    def __init__(self):
+        super().__init__(name="profit_monitor")
+        self.dl = DataLocker(MOTHER_DB_PATH)
+        self.position_core = PositionCore(self.dl)
+        self.xcom_core = XComCore(self.dl.system)
+        self.threshold_service = ThresholdService(self.dl.db)
+
+    def should_notify(self):
+        value = self.dl.system.get_var('snooze_until')
+        snooze_until = None
+        if isinstance(value, str):
+            try:
+                snooze_until = datetime.fromisoformat(value)
+            except Exception:
+                snooze_until = None
+
+        if not snooze_until:
+            snooze_until = self.__class__.snooze_until
+
+        if snooze_until and snooze_until.tzinfo is None:
+            snooze_until = snooze_until.replace(tzinfo=timezone.utc)
+
+        now = datetime.now(timezone.utc)
+        return not (snooze_until and now < snooze_until)
+
+    def _do_work(self):
+        positions = self.position_core.get_active_positions()
+        total_profit = sum(
+            max(float(pos.get('pnl_after_fees_usd', 0)), 0.0) for pos in positions
+        )
+        max_profit = 0.0
+        for p in positions:
+            try:
+                profit = float(p.get('pnl_after_fees_usd', 0))
+            except Exception:
+                profit = 0.0
+            if profit > max_profit:
+                max_profit = profit
+
+        portfolio_th = self.threshold_service.get_thresholds(
+            "TotalProfit", "Portfolio", "ABOVE"
+        )
+        single_th = self.threshold_service.get_thresholds(
+            "Profit", "Position", "ABOVE"
+        )
+
+        badge_limit = single_th.low if single_th else 0.0
+        portfolio_limit = portfolio_th.high if portfolio_th else 50.0
+        single_limit = single_th.high if single_th else 25.0
+
+        badge_value = f"{max_profit:.2f}" if max_profit > badge_limit else None
+        self._update_profit_badge(badge_value)
+
+        single_hit = max_profit >= single_limit
+        portfolio_hit = total_profit >= portfolio_limit
+
+        if single_hit or portfolio_hit:
+            alert_msg = f"💰 Total profit is ${total_profit:.2f}."
+            notification_result = None
+            if self.should_notify():
+                notification_result = self.xcom_core.send_notification(
+                    level="HIGH",
+                    subject="Profit Ready to Harvest",
+                    body=alert_msg,
+                    initiator="ProfitMonitor",
+                )
+                log.success(
+                    f"Profit alert sent: ${total_profit:.2f}.", source="ProfitMonitor"
+                )
+                self._set_silenced(False)
+            else:
+                log.info("Profit alert suppressed by snooze", source="ProfitMonitor")
+                self._set_silenced(True)
+            return {
+                "alert_triggered": True,
+                "total_profit": total_profit,
+                "notification_result": notification_result,
+            }
+
+        log.info(
+            f"No profit alert sent. Current profit: ${total_profit:.2f}.",
+            source="ProfitMonitor",
+        )
+        self._set_silenced(False)
+        return {
+            "alert_triggered": False,
+            "total_profit": total_profit,
+        }
+
+    def _update_profit_badge(self, badge_value):
+        # Persist the badge value to align UI state
+        self.dl.system.set_var('profit_badge_value', badge_value)
+
+    def _set_silenced(self, state: bool) -> None:
+        """Persist whether a profit alert was suppressed."""
+        try:
+            self.dl.system.set_var("profit_alert_silenced", bool(state))
+        except Exception:
+            pass

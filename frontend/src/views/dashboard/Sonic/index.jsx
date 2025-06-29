@@ -14,6 +14,7 @@ import TotalSizeLightCard from 'ui-component/cards/TotalSizeLightCard';
 import useConfig from 'hooks/useConfig';
 import { ThemeMode } from 'config';
 import UserCountCard from 'ui-component/cards/UserCountCard';
+import SizeHedgeChartCard from './SizeHedgeChartCard';
 
 import { gridSpacing } from 'store/constant';
 
@@ -28,7 +29,9 @@ export default function Sonic() {
   const { mode } = useConfig();
 
   const LeverageCard = mode === ThemeMode.DARK ? TotalLeverageDarkCard : TotalLeverageLightCard;
+
   const HeatIndexCard = mode === ThemeMode.DARK ? TotalHeatIndexDarkCard : TotalHeatIndexLightCard;
+
   const SizeCard = mode === ThemeMode.DARK ? TotalSizeDarkCard : TotalSizeLightCard;
 
   return (
@@ -36,10 +39,10 @@ export default function Sonic() {
       <Grid size={{ xs: 12, lg: 8, md: 6 }}>
         <Grid container spacing={gridSpacing}>
           <Grid size={12}>
-            <ValueToCollateralChartCard />
+            <PortfolioTableCard />
           </Grid>
           <Grid size={12}>
-            <PortfolioTableCard />
+            <ValueToCollateralChartCard />
           </Grid>
         </Grid>
       </Grid>
@@ -55,17 +58,26 @@ export default function Sonic() {
             />
           </Grid>
           <Grid size={12}>
+
             <LeverageCard isLoading={false} />
           </Grid>
           {/* show heat index between leverage and size */}
           <Grid size={12}>
             <HeatIndexCard isLoading={false} />
           </Grid>
+            <LeverageCard isLoading={false} />
+          </Grid>
+
           {/* display the portfolio size just below the leverage card */}
           <Grid size={12}>
             <SizeCard isLoading={false} />
           </Grid>
           <Grid size={12}>
+
+            <SizeHedgeChartCard />
+          </Grid>
+          <Grid size={12}>
+
             <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
           </Grid>
           <Grid size={12}>

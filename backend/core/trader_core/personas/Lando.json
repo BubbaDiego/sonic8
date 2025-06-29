@@ -1,0 +1,14 @@
+{
+  "name": "Lando",
+  "profile": "Opportunistic",
+  "avatar": "/static/images/lando_icon.jpg",
+  "strategy_weights": {
+    "dynamic_hedging": 0.6,
+    "profit_management": 0.4
+  },
+  "moods": {
+    "high_heat": "charming"
+  },
+  "description": "Smuggler turned trader looking for the next big score.",
+  "color": "#8A9CD6FF"
+}

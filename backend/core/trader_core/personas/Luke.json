@@ -1,0 +1,14 @@
+{
+  "name": "Luke",
+  "profile": "Heroic",
+  "avatar": "/static/images/luke_icon.jpg",
+  "strategy_weights": {
+    "dynamic_hedging": 0.6,
+    "profit_management": 0.4
+  },
+  "moods": {
+    "high_heat": "determined"
+  },
+  "description": "Young Jedi striving to restore balance.",
+  "color": "#F8FAFCFF"
+}

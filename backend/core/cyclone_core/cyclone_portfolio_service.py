@@ -5,11 +5,11 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from datetime import datetime
 from uuid import uuid4
-from data.data_locker import DataLocker
-from data.alert import AlertType, Condition
-from alert_core.utils import log_alert_summary
-from core.core_imports import MOTHER_DB_PATH
-from core.logging import log
+from backend.data.data_locker import DataLocker
+from backend.models.alert import AlertType, Condition
+from backend.core.alert_core.utils import log_alert_summary
+from backend.core.core_imports import MOTHER_DB_PATH
+from backend.core.logging import log
 
 
 class CyclonePortfolioService:
