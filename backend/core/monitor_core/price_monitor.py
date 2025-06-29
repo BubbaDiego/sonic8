@@ -3,7 +3,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 
-from prices.price_sync_service import PriceSyncService
+from backend.core.monitor_core.price_monitor.price_sync_service import PriceSyncService
 from data.data_locker import DataLocker
 from monitor.base_monitor import BaseMonitor
 from monitor.monitor_service import MonitorService

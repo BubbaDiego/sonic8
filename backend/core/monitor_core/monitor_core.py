@@ -5,16 +5,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from core.logging import log
 
 # Import your monitor classes here
-from monitor.price_monitor import PriceMonitor
-from monitor.position_monitor import PositionMonitor
-from monitor.operations_monitor import OperationsMonitor
-from monitor.xcom_monitor import XComMonitor
-from monitor.twilio_monitor import TwilioMonitor
-from monitor.profit_monitor import ProfitMonitor  # Added ProfitMonitor
-from monitor.risk_monitor import RiskMonitor
-from monitor.oracle_monitor.oracle_monitor import OracleMonitor
-
-from monitor.monitor_registry import MonitorRegistry
+from backend.core.monitor_core.price_monitor import PriceMonitor
+from backend.core.monitor_core.position_monitor import PositionMonitor
+from backend.core.monitor_core.operations_monitor import OperationsMonitor
+from backend.core.monitor_core.xcom_monitor import XComMonitor
+from backend.core.monitor_core.twilio_monitor import TwilioMonitor
+from backend.core.monitor_core.profit_monitor import ProfitMonitor  # Added ProfitMonitor
+from backend.core.monitor_core.risk_monitor import RiskMonitor
+from backend.core.monitor_core.oracle_monitor.oracle_monitor import OracleMonitor
+from backend.core.monitor_core.monitor_registry import MonitorRegistry
 
 class MonitorCore:
     """Central controller for all registered monitors."""

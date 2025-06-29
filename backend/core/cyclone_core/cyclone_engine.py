@@ -12,22 +12,22 @@ from backend.core.constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
 from backend.core.alert_core.config.loader import load_thresholds
 from backend.core.logging import log, configure_console_log
 from backend.core.trader_core.trader_loader import TraderLoader
-from backend.core.learning_database.learning_event_logger import log_learning_event
+from backend.data.learning_database.learning_event_logger import log_learning_event
 import json
 
 # PATCH: Import SystemCore for death screams
-from system.system_core import SystemCore
+#from backend.core.system.system_core import SystemCore
 
 # Cores and Services
-from cyclone.cyclone_alert_service import CycloneAlertService
-from monitor.monitor_core import MonitorCore
-from positions.position_core import PositionCore
-from positions.position_core_service import PositionCoreService
-from prices.price_sync_service import PriceSyncService
-from cyclone.cyclone_maintenance_service import CycloneMaintenanceService
-from cyclone.cyclone_wallet_service import CycloneWalletService
-from data.dl_monitor_ledger import DLMonitorLedgerManager
-from hedge_core.hedge_core import HedgeCore
+from backend.core.cyclone_core.cyclone_alert_service import CycloneAlertService
+from backend.core.monitor_core.monitor_core import MonitorCore
+from backend.core.postions_core.position_core import PositionCore
+from backend.core.positions_core.position_core_service import PositionCoreService
+from backend.core.prices_core.price_sync_service import PriceSyncService
+from backend.core.cyclone_core.cyclone_maintenance_service import CycloneMaintenanceService
+from backend.core.cyclone_core.cyclone_wallet_service import CycloneWalletService
+from backend.data.dl_monitor_ledger import DLMonitorLedgerManager
+from backend.core.hedge_core.hedge_core import HedgeCore
 
 
 global_data_locker = DataLocker(str(MOTHER_DB_PATH))  # There can be only one
