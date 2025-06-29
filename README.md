@@ -9,10 +9,11 @@ three main parts:
 
 ## Getting started
 
-To run the backend locally:[app.py](backend/app.py)
+To run the backend locally install the requirements and then start the server:
 
 ```bash
-python backend/app.py
+pip install -r requirements.txt
+uvicorn backend.app:app --app-dir backend --host 0.0.0.0 --port 5000 --reload
 ```
 
 The backend expects several JSON configuration files under
