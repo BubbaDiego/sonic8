@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
+  Avatar,
   Table,
   TableBody,
   TableContainer,
@@ -83,10 +83,10 @@ const PortfolioTableCard = () => {
         <Table sx={{ minWidth: 320 }} aria-label="portfolio positions table">
           <TableHead>
             <TableRow>
-              {['asset_type', 'size', 'value', 'collateral'].map((col) => (
+              {['wallet_name', 'asset_type', 'size', 'value', 'collateral'].map((col) => (
                 <StyledTableCell key={col}>
                   <TableSortLabel active={orderBy === col} direction={orderBy === col ? order : 'asc'} onClick={() => handleSort(col)}>
-                    {col.charAt(0).toUpperCase() + col.slice(1)}
+                    {col === 'wallet_name' ? 'Wallet' : col.charAt(0).toUpperCase() + col.slice(1)}
                   </TableSortLabel>
                 </StyledTableCell>
               ))}
@@ -95,6 +95,16 @@ const PortfolioTableCard = () => {
           <TableBody>
             {positions.map((position) => (
               <StyledTableRow hover key={position.id}>
+                <StyledTableCell>
+                  <Avatar
+                    src={`/static/images/${(position.wallet_name || 'unknown')
+                      .replace(/\s+/g, '')
+                      .replace(/vault$/i, '')
+                      .toLowerCase()}_icon.jpg`}
+                    alt={position.wallet_name}
+                    sx={{ width: 24, height: 24 }}
+                  />
+                </StyledTableCell>
                 <StyledTableCell>{position.asset_type}</StyledTableCell>
                 <StyledTableCell>{position.size}</StyledTableCell>
                 <StyledTableCell>
@@ -106,8 +116,9 @@ const PortfolioTableCard = () => {
               </StyledTableRow>
             ))}
             <StyledTableRow>
-              <StyledTableCell sx={{ fontWeight: 700 }}>Totals</StyledTableCell>
-              <StyledTableCell></StyledTableCell>
+              <StyledTableCell sx={{ fontWeight: 700 }} colSpan={2}>
+                Totals
+              </StyledTableCell>
               <StyledTableCell sx={{ fontWeight: 700 }}>
                 ${Number(totals.value).toLocaleString()}
               </StyledTableCell>
