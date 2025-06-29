@@ -23,7 +23,7 @@ from backend.data.database import DatabaseManager
 from backend.data.dl_positions import DLPositionManager
 from backend.data.dl_wallets import DLWalletManager
 # from data.dl_brokers import DLBrokerManager
-# from data.dl_portfolio import DLPortfolioManager
+from backend.data.dl_portfolio import DLPortfolioManager
 # from data.dl_system_data import DLSystemDataManager
 # from data.dl_monitor_ledger import DLMonitorLedgerManager
 # from data.dl_modifiers import DLModifierManager
@@ -91,7 +91,7 @@ class DataLocker:
         # self.hedges = DLHedgeManager(self.db)
         self.wallets = DLWalletManager(self.db)
         # self.brokers = DLBrokerManager(self.db)
-        # self.portfolio = DLPortfolioManager(self.db)
+        self.portfolio = DLPortfolioManager(self.db)
         # self.traders = DLTraderManager(self.db)
         # self.system = DLSystemDataManager(self.db)
         # self.ledger = DLMonitorLedgerManager(self.db)
