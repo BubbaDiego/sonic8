@@ -37,7 +37,7 @@ To start the frontend:
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run start
 ```
 
 Feel free to explore each directory for more details.
