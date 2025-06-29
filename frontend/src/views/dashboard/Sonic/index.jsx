@@ -60,9 +60,6 @@ export default function Sonic() {
           {/* display the portfolio size just below the leverage card */}
           <Grid size={12}>
             <SizeCard isLoading={false} />
-
-            <TotalLeverageDarkCard isLoading={false} />
-
           </Grid>
           <Grid size={12}>
             <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
