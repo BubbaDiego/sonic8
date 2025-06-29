@@ -13,19 +13,20 @@ import Chart from 'react-apexcharts';
 import { ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
 import MainCard from 'ui-component/cards/MainCard';
+import axios from 'utils/axios';
 
 // canned data for initial UI
 const initialChartData = {
   series: [
-    { name: 'Total Value', data: [10000, 15000, 20000, 18000, 22000, 26000, 30000] },
-    { name: 'Total Collateral', data: [8000, 12000, 16000, 14000, 18000, 21000, 25000] }
+    { name: 'Total Value', data: [0] },
+    { name: 'Total Collateral', data: [0] }
   ],
   options: {
     chart: { type: 'area', height: 350 },
     colors: ['#4caf50', '#ff9800'],
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth' },
-    xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
+    xaxis: { categories: ['Totals'] },
     tooltip: { theme: 'light' }
   }
 };
@@ -36,6 +37,30 @@ export default function ValueToCollateralChartCard() {
   const theme = useTheme();
   const { mode } = useConfig();
   const [chartConfig, setChartConfig] = useState(initialChartData);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const response = await axios.get('/positions');
+        const data = response.data || [];
+        const totalValue = data.reduce((sum, p) => sum + parseFloat(p.value || 0), 0);
+        const totalCollateral = data.reduce(
+          (sum, p) => sum + parseFloat(p.collateral || 0),
+          0
+        );
+        setChartConfig((prev) => ({
+          ...prev,
+          series: [
+            { name: 'Total Value', data: [totalValue] },
+            { name: 'Total Collateral', data: [totalCollateral] }
+          ]
+        }));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    loadData();
+  }, []);
 
   useEffect(() => {
     setChartConfig((prev) => ({
