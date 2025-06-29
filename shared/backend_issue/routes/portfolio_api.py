@@ -1,0 +1,39 @@
+from fastapi import APIRouter, Depends, HTTPException
+from data.data_locker import DataLocker
+
+router = APIRouter(prefix="/portfolio", tags=["portfolio"])
+
+
+def _dl() -> DataLocker:
+    return DataLocker.get_instance()
+
+
+@router.get("/", response_model=list[dict])
+def list_portfolio_history(dl: DataLocker = Depends(_dl)):
+    return dl.get_portfolio_history()
+
+
+@router.get("/latest", response_model=dict)
+def get_latest_snapshot(dl: DataLocker = Depends(_dl)):
+    return dl.portfolio.get_latest_snapshot()
+
+
+@router.post("/", status_code=201)
+def add_portfolio_entry(entry: dict, dl: DataLocker = Depends(_dl)):
+    try:
+        dl.add_portfolio_entry(entry)
+    except Exception as exc:  # pragma: no cover - safety
+        raise HTTPException(500, "Insert failed") from exc
+    return {"status": "created"}
+
+
+@router.put("/{entry_id}")
+def update_portfolio_entry(entry_id: str, fields: dict, dl: DataLocker = Depends(_dl)):
+    dl.update_portfolio_entry(entry_id, fields)
+    return {"status": "updated"}
+
+
+@router.delete("/{entry_id}")
+def delete_portfolio_entry(entry_id: str, dl: DataLocker = Depends(_dl)):
+    dl.delete_portfolio_entry(entry_id)
+    return {"status": "deleted"}
