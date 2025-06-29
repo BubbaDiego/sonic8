@@ -36,10 +36,10 @@ export default function Sonic() {
       <Grid size={{ xs: 12, lg: 8, md: 6 }}>
         <Grid container spacing={gridSpacing}>
           <Grid size={12}>
-            <ValueToCollateralChartCard />
+            <PortfolioTableCard />
           </Grid>
           <Grid size={12}>
-            <PortfolioTableCard />
+            <ValueToCollateralChartCard />
           </Grid>
         </Grid>
       </Grid>
