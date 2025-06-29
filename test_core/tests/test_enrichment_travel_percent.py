@@ -3,7 +3,7 @@ import pytest
 from datetime import datetime
 
 from alert_core.services.enrichment import AlertEnrichmentService
-from alert_core.domain.models import Condition, NotificationType
+from data.alert import Condition, NotificationType
 from types import SimpleNamespace
 
 

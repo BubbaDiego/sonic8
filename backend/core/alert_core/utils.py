@@ -1,6 +1,10 @@
 from core.locker_factory import get_locker
 from core.logging import log
-from data.alert import AlertType, NotificationType, Condition as AlertCondition
+from data.alert import (
+    AlertType,
+    NotificationType,
+    Condition as AlertCondition,
+)
 
 
 # --- Normalization helpers -------------------------------------------------

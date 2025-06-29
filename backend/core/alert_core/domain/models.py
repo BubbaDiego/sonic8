@@ -4,6 +4,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
 
+from data.alert import AlertType, NotificationType, Condition
+
 from pydantic import BaseModel
 
 
@@ -14,14 +16,6 @@ class AlertLevel(str, Enum):
     HIGH = "High"
 
 
-class Condition(str, Enum):
-    ABOVE = "ABOVE"
-    BELOW = "BELOW"
-
-
-class NotificationType(str, Enum):
-    SMS = "SMS"
-    WINDOWS = "WINDOWS"
 
 
 class Alert(BaseModel):

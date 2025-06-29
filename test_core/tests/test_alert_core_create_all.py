@@ -2,7 +2,8 @@ import asyncio
 from datetime import datetime
 
 from alert_core import AlertCore
-from alert_core.domain.models import Condition, NotificationType, AlertLevel
+from alert_core.domain.models import AlertLevel
+from data.alert import Condition, NotificationType
 from alert_core.infrastructure.stores import AlertStore, _DBAdapter
 import alert_core.infrastructure.stores as stores
 from types import SimpleNamespace

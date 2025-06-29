@@ -3,7 +3,8 @@ from datetime import datetime
 
 from alert_core.services.enrichment import AlertEnrichmentService
 from alert_core.services.evaluation import AlertEvaluationService
-from alert_core.domain.models import Condition, NotificationType, AlertLevel
+from alert_core.domain.models import AlertLevel
+from data.alert import Condition, NotificationType
 from types import SimpleNamespace
 
 

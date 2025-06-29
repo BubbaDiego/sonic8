@@ -4,7 +4,8 @@ from datetime import datetime
 from alert_core import AlertCore
 from alert_core.infrastructure.stores import AlertLogStore, _DBAdapter, AlertStore
 import alert_core.infrastructure.stores as stores
-from alert_core.domain.models import Condition, NotificationType, AlertLevel
+from alert_core.domain.models import AlertLevel
+from data.alert import Condition, NotificationType
 from types import SimpleNamespace
 
 
