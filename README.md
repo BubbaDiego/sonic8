@@ -40,3 +40,15 @@ npm run dev
 ```
 
 Feel free to explore each directory for more details.
+
+## Debugging frontend connectivity
+
+If the frontend UI does not show data, verify the backend API by running the
+script `backend/scripts/api_breakpoint_test.py` while the server is up:
+
+```bash
+python backend/scripts/api_breakpoint_test.py
+```
+
+The script pings a couple of API endpoints and reports status codes to help
+locate where the data flow is breaking.
