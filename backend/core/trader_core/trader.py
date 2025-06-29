@@ -25,8 +25,6 @@ class Trader:
     hedges: List[Dict] = field(default_factory=list)
     performance_score: int = 0
     heat_index: float = 0.0
-    born_on: str = ""
-    initial_collateral: float = 0.0
 
     def __repr__(self) -> str:
         return (
