@@ -9,6 +9,7 @@ from .constants import (
     JUPITER_API_BASE,
 )
 from .logging import log, configure_console_log
+from .locker_factory import get_locker
 
 __all__ = [
     "BASE_DIR",
@@ -21,4 +22,5 @@ __all__ = [
     "JUPITER_API_BASE",
     "log",
     "configure_console_log",
+    "get_locker",
 ]
