@@ -1,9 +1,9 @@
 """LearningDataLocker – isolated SQLite DB for telemetry."""
 import os
 from typing import Optional
-from core.core_imports import log
-from data.database import DatabaseManager
-from data.data_locker import DataLocker
+from backend.core.core_imports import log
+from backend.data.database import DatabaseManager
+from backend.data.data_locker import DataLocker
 
 DEFAULT_PATH = os.getenv("LEARNING_DB_PATH") or os.path.expanduser("~/.app/learning.db")
 
