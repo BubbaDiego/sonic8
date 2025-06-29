@@ -16,7 +16,7 @@ const PagesLanding = Loadable(lazy(() => import('views/pages/landing')));
 
 const router = createBrowserRouter(
   [
-    { path: '/', element: <Navigate to="/dashboard/analytics" replace /> },
+    { path: '/', element: <Navigate to="/dashboard/sonic" replace /> },
     AuthenticationRoutes,
     LoginRoutes,
     SimpleRoutes,
