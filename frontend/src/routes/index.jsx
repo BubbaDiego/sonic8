@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 // routes
 import AuthenticationRoutes from './AuthenticationRoutes';
+import LoginRoutes from './LoginRoutes';
 import MainRoutes from './MainRoutes';
 import SimpleRoutes from './SimpleRoutes';
 
@@ -17,6 +18,7 @@ const router = createBrowserRouter(
   [
     { path: '/', element: <Navigate to="/dashboard/analytics" replace /> },
     AuthenticationRoutes,
+    LoginRoutes,
     SimpleRoutes,
     MainRoutes
   ],
