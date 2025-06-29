@@ -2,7 +2,7 @@ from datetime import datetime
 
 from alert_core.infrastructure.stores import AlertLogStore, _DBAdapter
 from types import SimpleNamespace
-import alert_core.domain.models as models
+import data.alert as models
 import alert_core.infrastructure.stores as stores
 
 

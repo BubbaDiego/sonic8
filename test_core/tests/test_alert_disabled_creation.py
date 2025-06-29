@@ -2,8 +2,7 @@ from datetime import datetime
 
 from alert_core.infrastructure.stores import AlertStore, _DBAdapter
 import alert_core.infrastructure.stores as stores
-from alert_core.domain.models import AlertLevel
-from data.alert import Condition, NotificationType
+from data.alert import Condition, NotificationType, AlertLevel
 from types import SimpleNamespace
 
 

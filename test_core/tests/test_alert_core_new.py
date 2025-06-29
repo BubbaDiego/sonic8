@@ -2,8 +2,7 @@ import asyncio
 from datetime import datetime
 
 from alert_core import AlertCore
-from alert_core.domain.models import Alert, AlertLevel
-from data.alert import Condition, NotificationType
+from data.alert import Condition, NotificationType, Alert, AlertLevel
 
 
 class DummyNotifier:

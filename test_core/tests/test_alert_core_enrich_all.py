@@ -8,8 +8,7 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from alert_core import AlertCore
-from alert_core.domain.models import Alert, AlertLevel
-from data.alert import Condition, NotificationType
+from data.alert import Condition, NotificationType, Alert, AlertLevel
 
 
 @pytest.mark.asyncio

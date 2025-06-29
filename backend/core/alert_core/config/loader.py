@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from ..infrastructure.stores import AlertLogStore
-from ..domain.models import AlertLog
+from data.alert import AlertLog
 from datetime import datetime
 
 

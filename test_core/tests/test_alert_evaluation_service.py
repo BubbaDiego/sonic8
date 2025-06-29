@@ -1,6 +1,5 @@
 from alert_core.services.evaluation import AlertEvaluationService
-from alert_core.domain.models import AlertLevel
-from data.alert import Condition
+from data.alert import Condition, AlertLevel
 from types import SimpleNamespace
 from datetime import datetime
 
