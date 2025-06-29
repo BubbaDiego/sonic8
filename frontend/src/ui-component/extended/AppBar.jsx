@@ -25,7 +25,7 @@ import { ThemeMode } from 'config';
 import Logo from 'ui-component/Logo';
 
 // assets
-import { IconBook, IconCreditCard, IconDashboard, IconHome2 } from '@tabler/icons-react';
+import { IconBook, IconCreditCard, IconHome2 } from '@tabler/icons-react';
 import MenuIcon from '@mui/icons-material/Menu';
 
 function ElevationScroll({ children, window }) {
@@ -69,9 +69,6 @@ export default function AppBar({ ...others }) {
               <Button color="inherit" component={Link} href="#">
                 Home
               </Button>
-              <Button color="inherit" component={RouterLink} to="/login" target="_blank">
-                Dashboard
-              </Button>
               <Button color="inherit" component={Link} href="https://codedthemes.gitbook.io/berry" target="_blank">
                 Documentation
               </Button>
@@ -93,14 +90,6 @@ export default function AppBar({ ...others }) {
                             <IconHome2 />
                           </ListItemIcon>
                           <ListItemText primary="Home" />
-                        </ListItemButton>
-                      </Link>
-                      <Link sx={{ textDecoration: 'none' }} href="/login" target="_blank">
-                        <ListItemButton component="a">
-                          <ListItemIcon>
-                            <IconDashboard />
-                          </ListItemIcon>
-                          <ListItemText primary="Dashboard" />
                         </ListItemButton>
                       </Link>
                       <Link sx={{ textDecoration: 'none' }} href="https://codedthemes.gitbook.io/berry" target="_blank">
