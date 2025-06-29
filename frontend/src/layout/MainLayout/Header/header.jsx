@@ -9,6 +9,7 @@ import LogoSection from '../LogoSection';
 import MobileSection from './MobileSection';
 import ProfileSection from './ProfileSection';
 import LocalizationSection from './LocalizationSection';
+import ThemeToggleSection from './ThemeToggleSection';
 import MegaMenuSection from './MegaMenuSection';
 import FullScreenSection from './FullScreenSection';
 import NotificationSection from './NotificationSection';
@@ -74,6 +75,9 @@ export default function Header() {
       <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
         <LocalizationSection />
       </Box>
+
+      {/* theme mode toggle */}
+      <ThemeToggleSection />
 
       {/* notification */}
       <NotificationSection />
