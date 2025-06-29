@@ -2,11 +2,11 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from monitor.base_monitor import BaseMonitor
-from data.data_locker import DataLocker
-from xcom.xcom_core import XComCore
-from core.constants import MOTHER_DB_PATH
-from core.logging import log
+from backend.core.monitor_core.base_monitor import BaseMonitor
+from backend.data.data_locker import DataLocker
+from backend.core.xcom_core.xcom_core import XComCore
+from backend.core.constants import MOTHER_DB_PATH
+from backend.core.logging import log
 
 
 class XComMonitor(BaseMonitor):
