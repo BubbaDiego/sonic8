@@ -9,7 +9,10 @@ Description:
     :class:`~positions.hedge_manager.HedgeManager`.
 """
 
-from positions.hedge_manager import HedgeManager
+try:
+    from positions.hedge_manager import HedgeManager
+except ModuleNotFoundError:  # pragma: no cover - fallback to new path
+    from core.positions_core.hedge_manager import HedgeManager
 from core.core_imports import log
 
 
