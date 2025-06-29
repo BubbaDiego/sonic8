@@ -11,6 +11,7 @@ import { loader as productsLoader, productLoader } from 'api/products';
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')));
 const DashboardAnalytics = Loadable(lazy(() => import('views/dashboard/Analytics')));
+const DashboardSonic = Loadable(lazy(() => import('views/dashboard/Sonic')));
 
 // widget routing
 const WidgetStatistics = Loadable(lazy(() => import('views/widget/Statistics')));
@@ -722,6 +723,10 @@ const MainRoutes = {
     {
       path: '/dashboard/analytics',
       element: <DashboardAnalytics />
+    },
+    {
+      path: '/dashboard/sonic',
+      element: <DashboardSonic />
     },
     {
       path: '/dashboard/invoice',
