@@ -99,7 +99,7 @@ class DataLocker:
 
         try:
             self.initialize_database()
-            # self._seed_modifiers_if_empty()
+            self._seed_modifiers_if_empty()
             # self._seed_wallets_if_empty()
             # self._seed_alerts_if_empty()
             # self._seed_thresholds_if_empty()
