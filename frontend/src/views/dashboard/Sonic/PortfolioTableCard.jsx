@@ -3,16 +3,37 @@ import {
   Box,
   Table,
   TableBody,
-  TableCell,
   TableContainer,
   TableHead,
-  TableRow,
   TableSortLabel,
   Paper,
-  Typography
+  Typography,
+  TableCell,
+  TableRow
 } from '@mui/material';
+import { styled } from '@mui/material/styles';
+import { tableCellClasses } from '@mui/material/TableCell';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axios';
+
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+  [`&.${tableCellClasses.head}`]: {
+    backgroundColor: theme.palette.common.black,
+    color: theme.palette.common.white
+  },
+  [`&.${tableCellClasses.body}`]: {
+    fontSize: 14
+  }
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+  '&:nth-of-type(odd)': {
+    backgroundColor: theme.palette.action.hover
+  },
+  '&:last-of-type td, &:last-of-type th': {
+    border: 0
+  }
+}));
 
 const PortfolioTableCard = () => {
   const [positions, setPositions] = useState([]);
@@ -59,37 +80,41 @@ const PortfolioTableCard = () => {
         Portfolio Positions
       </Typography>
       <TableContainer component={Paper}>
-        <Table>
+        <Table sx={{ minWidth: 320 }} aria-label="portfolio positions table">
           <TableHead>
             <TableRow>
               {['asset_type', 'size', 'value', 'collateral'].map((col) => (
-                <TableCell key={col}>
+                <StyledTableCell key={col}>
                   <TableSortLabel active={orderBy === col} direction={orderBy === col ? order : 'asc'} onClick={() => handleSort(col)}>
                     {col.charAt(0).toUpperCase() + col.slice(1)}
                   </TableSortLabel>
-                </TableCell>
+                </StyledTableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
             {positions.map((position) => (
-              <TableRow key={position.id}>
-                <TableCell>{position.asset_type}</TableCell>
-                <TableCell>{position.size}</TableCell>
-                <TableCell>${Number(position.value || 0).toLocaleString()}</TableCell>
-                <TableCell>${Number(position.collateral || 0).toLocaleString()}</TableCell>
-              </TableRow>
+              <StyledTableRow hover key={position.id}>
+                <StyledTableCell>{position.asset_type}</StyledTableCell>
+                <StyledTableCell>{position.size}</StyledTableCell>
+                <StyledTableCell>
+                  ${Number(position.value || 0).toLocaleString()}
+                </StyledTableCell>
+                <StyledTableCell>
+                  ${Number(position.collateral || 0).toLocaleString()}
+                </StyledTableCell>
+              </StyledTableRow>
             ))}
-            <TableRow>
-              <TableCell sx={{ fontWeight: 700 }}>Totals</TableCell>
-              <TableCell></TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>
+            <StyledTableRow>
+              <StyledTableCell sx={{ fontWeight: 700 }}>Totals</StyledTableCell>
+              <StyledTableCell></StyledTableCell>
+              <StyledTableCell sx={{ fontWeight: 700 }}>
                 ${Number(totals.value).toLocaleString()}
-              </TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>
+              </StyledTableCell>
+              <StyledTableCell sx={{ fontWeight: 700 }}>
                 ${Number(totals.collateral).toLocaleString()}
-              </TableCell>
-            </TableRow>
+              </StyledTableCell>
+            </StyledTableRow>
           </TableBody>
         </Table>
       </TableContainer>
