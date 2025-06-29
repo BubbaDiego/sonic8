@@ -1,7 +1,7 @@
 # dl_prices.py
 from uuid import uuid4
 from datetime import datetime
-from core.core_imports import log
+from backend.core.core_imports import log
 
 class DLPriceManager:
     def __init__(self, db):

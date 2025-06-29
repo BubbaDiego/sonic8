@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from core.logging import log
+from backend.core.logging import log
 
 class DLModifierManager:
     def __init__(self, db):

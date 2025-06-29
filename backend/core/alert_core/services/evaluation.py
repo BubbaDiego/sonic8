@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from data.alert import Alert, AlertLevel, Condition
+from backend.models.alert import Alert, AlertLevel, Condition
 
 
 class AlertEvaluationService:

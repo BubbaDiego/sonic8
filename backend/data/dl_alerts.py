@@ -1,4 +1,4 @@
-from core.core_imports import log
+from backend.core.core_imports import log
 # dl_alerts.py
 """
 Author: BubbaDiego

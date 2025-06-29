@@ -18,9 +18,9 @@ from backend.data.data_locker import DataLocker
 from backend.core.positions_core.position_core_service import PositionCoreService
 from backend.core.positions_core.position_sync_service import PositionSyncService
 #from backend.core.monitor_core.monitor_utils import LedgerWriter
-from backend.data.alert import AlertType, Condition
+from backend.models.alert import AlertType, Condition
 from backend.core.logging import log
-from backend.core.alert_core.alert_core.utils import log_alert_summary
+from backend.core.alert_core.utils import log_alert_summary
 from backend.core.constants import MOTHER_DB_PATH
 
 print("👁 Viewer using DB path:", os.path.abspath(MOTHER_DB_PATH))

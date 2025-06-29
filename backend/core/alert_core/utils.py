@@ -1,6 +1,6 @@
 from core.locker_factory import get_locker
 from core.logging import log
-from data.alert import (
+from backend.models.alert import (
     AlertType,
     NotificationType,
     Condition as AlertCondition,

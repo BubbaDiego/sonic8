@@ -2,7 +2,7 @@ import sqlite3
 import json
 import uuid
 from datetime import datetime, timezone
-from core.logging import log
+from backend.core.logging import log
 
 class DLMonitorLedgerManager:
     def __init__(self, db):
