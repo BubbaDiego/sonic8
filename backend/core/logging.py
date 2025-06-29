@@ -52,6 +52,10 @@ class SimpleLogger:
         banner_msg = f"==== {msg} ===="
         self._logger.info(self._format(banner_msg, source))
 
+    def route(self, msg: str, source: str | None = None, **_: Any) -> None:
+        """Log a route access message using :meth:`info`."""
+        self._logger.info(self._format(msg, source))
+
     # ------------------------------------------------------------------
     # Timer helpers
     # ------------------------------------------------------------------
@@ -85,6 +89,7 @@ class SimpleLogger:
     def txt(self, *_: Any, **__: Any) -> None:
         pass
 
+
     # Compatibility helpers -------------------------------------------------
     def route(self, msg: str, source: str | None = None, **_: Any) -> None:
         """Alias used by some modules to log routing info."""
@@ -95,7 +100,9 @@ class SimpleLogger:
     ) -> None:
         """Print a simple dashboard URL."""
         url = f"http://{host}:{port}{route}"
-        self.info(f"Dashboard available at {url}")
+
+        self.info(f"🌐 Sonic Dashboard: {url}")
+
 
     # ------------------------------------------------------------------
     # Internal helpers
