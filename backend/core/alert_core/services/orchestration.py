@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List
 
-from ..domain.models import Alert, AlertLog
+from data.alert import Alert, AlertLog
 from ..infrastructure.stores import AlertStore, AlertLogStore
 from ..infrastructure.notifiers import default_router
 from .enrichment import AlertEnrichmentService
