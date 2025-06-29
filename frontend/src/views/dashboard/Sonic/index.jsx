@@ -8,14 +8,13 @@ import ValueToCollateralChartCard from './ValueToCollateralChartCard';
 import LatestCustomerTableCard from './LatestCustomerTableCard';
 import PortfolioTableCard from './PortfolioTableCard';
 import { ThemeMode } from 'config';
-import MainCard from 'ui-component/cards/MainCard';
 import RevenueCard from 'ui-component/cards/RevenueCard';
+import TotalValueCard from 'ui-component/cards/TotalValueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 
 import { gridSpacing } from 'store/constant';
 
 // assets
-import { IconShare } from '@tabler/icons-react';
 import MonetizationOnTwoToneIcon from '@mui/icons-material/MonetizationOnTwoTone';
 import AccountCircleTwoTone from '@mui/icons-material/AccountCircleTwoTone';
 import DescriptionTwoToneIcon from '@mui/icons-material/DescriptionTwoTone';
@@ -25,13 +24,6 @@ import DescriptionTwoToneIcon from '@mui/icons-material/DescriptionTwoTone';
 export default function Sonic() {
   const theme = useTheme();
 
-  const blockSX = {
-    p: 2.5,
-    borderLeft: '1px solid ',
-    borderBottom: '1px solid ',
-    borderLeftColor: theme.palette.mode === ThemeMode.DARK ? 'dark.main' : 'grey.200',
-    borderBottomColor: theme.palette.mode === ThemeMode.DARK ? 'dark.main' : 'grey.200'
-  };
 
   return (
     <Grid container spacing={gridSpacing}>
@@ -69,37 +61,13 @@ export default function Sonic() {
       <Grid size={{ xs: 12, lg: 4, md: 6 }}>
         <Grid container spacing={gridSpacing}>
           <Grid size={12}>
-            <MainCard
-              content={false}
-              sx={{
-                '& svg': {
-                  width: 50,
-                  height: 50,
-                  color: 'secondary.main',
-                  borderRadius: '14px',
-                  p: 1.25,
-                  bgcolor: theme.palette.mode === ThemeMode.DARK ? 'background.default' : 'primary.light'
-                }
-              }}
-            >
-              <Grid container spacing={0} sx={{ alignItems: 'center' }}>
-                <Grid sx={blockSX} size={{ xs: 12, sm: 6 }}>
-                  <Grid container spacing={1} sx={{ alignItems: 'center', justifyContent: { xs: 'space-between', sm: 'center' } }}>
-                    <Grid>
-                      <IconShare stroke={1.5} />
-                    </Grid>
-                    <Grid size={{ sm: 'grow' }}>
-                      <Typography variant="h5" align="center">
-                        1000
-                      </Typography>
-                      <Typography variant="subtitle2" align="center">
-                        SHARES
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </Grid>
-              </Grid>
-            </MainCard>
+            <TotalValueCard
+              primary="Total Value"
+              secondary="$0"
+              content="1000 Shares"
+              iconPrimary={MonetizationOnTwoToneIcon}
+              color="secondary.main"
+            />
           </Grid>
           <Grid size={12}>
             <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
