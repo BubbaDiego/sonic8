@@ -17,6 +17,38 @@ import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-rea
 export default function CycloneRunSection() {
   const theme = useTheme();
 
+  const handlePriceUpdate = async () => {
+    try {
+      await runPriceUpdate();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handlePositionUpdate = async () => {
+    try {
+      await runPositionUpdate();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    try {
+      await deleteAllData();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleFullCycle = async () => {
+    try {
+      await runFullCycle();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const avatarSX = {
     ...theme.typography.commonAvatar,
     ...theme.typography.mediumAvatar,
@@ -36,22 +68,22 @@ export default function CycloneRunSection() {
     <Box sx={{ ml: 2 }}>
       <Stack direction="row" spacing={1}>
         <Tooltip title="Price Update">
-          <Avatar variant="rounded" sx={avatarSX} onClick={() => runPriceUpdate().catch(console.error)}>
+          <Avatar variant="rounded" sx={avatarSX} onClick={handlePriceUpdate}>
             <IconRefresh size="20px" />
           </Avatar>
         </Tooltip>
         <Tooltip title="Position Update">
-          <Avatar variant="rounded" sx={avatarSX} onClick={() => runPositionUpdate().catch(console.error)}>
+          <Avatar variant="rounded" sx={avatarSX} onClick={handlePositionUpdate}>
             <IconEdit size="20px" />
           </Avatar>
         </Tooltip>
         <Tooltip title="Delete">
-          <Avatar variant="rounded" sx={avatarSX} onClick={() => deleteAllData().catch(console.error)}>
+          <Avatar variant="rounded" sx={avatarSX} onClick={handleDeleteAllData}>
             <IconTrash size="20px" />
           </Avatar>
         </Tooltip>
         <Tooltip title="Full Cyclone">
-          <Avatar variant="rounded" sx={avatarSX} onClick={() => runFullCycle().catch(console.error)}>
+          <Avatar variant="rounded" sx={avatarSX} onClick={handleFullCycle}>
             <IconTornado size="20px" />
           </Avatar>
         </Tooltip>
