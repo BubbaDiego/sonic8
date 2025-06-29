@@ -13,6 +13,9 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from backend.console.cyclone_console import run_console
+from backend.core.wallet_core import WalletService
+
+wallet_service = WalletService()
 
 ROOT_DIR = Path(__file__).parent.resolve()
 BACKEND_DIR = ROOT_DIR / "backend"
@@ -79,6 +82,53 @@ def run_tests():
     subprocess.call([PYTHON_EXEC, "-m", "pytest", "-q"])
 
 
+def wallet_menu():
+    """Simple wallet CRUD interface."""
+    while True:
+        clear_screen()
+        banner()
+        console.print("[bold magenta]Wallet Manager[/bold magenta]")
+        console.print("1) View wallets")
+        console.print("2) Insert Star Wars wallets")
+        console.print("3) Delete wallet")
+        console.print("4) Delete ALL wallets")
+        console.print("0) Back")
+        ch = input("→ ").strip()
+
+        if ch == "1":
+            wallets = wallet_service.list_wallets()
+            if not wallets:
+                console.print("[yellow]No wallets found.[/]")
+            else:
+                for w in wallets:
+                    console.print(f"- {w.name} ({w.public_address}) balance={w.balance}")
+            input("\nPress ENTER to continue...")
+        elif ch == "2":
+            count = wallet_service.import_wallets_from_json()
+            console.print(f"[green]Imported {count} wallets.[/]")
+            input("\nPress ENTER to continue...")
+        elif ch == "3":
+            name = input("Wallet name to delete: ").strip()
+            if name:
+                try:
+                    wallet_service.delete_wallet(name)
+                    console.print(f"[green]Deleted {name}.[/]")
+                except Exception as e:
+                    console.print(f"[red]Delete failed: {e}[/]")
+            input("\nPress ENTER to continue...")
+        elif ch == "4":
+            confirm = input("Delete ALL wallets? (y/N): ").strip().lower()
+            if confirm == "y":
+                wallet_service.delete_all_wallets()
+                console.print("[green]All wallets deleted.[/]")
+            input("\nPress ENTER to continue...")
+        elif ch == "0":
+            break
+        else:
+            console.print("[bold red]Invalid selection.[/]")
+            input("\nPress ENTER to continue...")
+
+
 # Main menu loop
 def main():
     while True:
@@ -89,7 +139,8 @@ def main():
         console.print("3️⃣  Launch [bold]Full Stack[/] (Frontend + Backend)")
         console.print("4️⃣  Verify Database")
         console.print("5️⃣  Run Unit Tests")
-        console.print("6️⃣  Cyclone Console")
+        console.print("6️⃣  Wallet Manager")
+        console.print("7️⃣  Cyclone Console")
         console.print("0️⃣  Exit")
         choice = input("→ ").strip()
 
@@ -104,6 +155,8 @@ def main():
         elif choice == "5":
             run_tests()
         elif choice == "6":
+            wallet_menu()
+        elif choice == "7":
             run_console()
         elif choice == "0":
             console.print("[bold green]Exiting...[/]")
