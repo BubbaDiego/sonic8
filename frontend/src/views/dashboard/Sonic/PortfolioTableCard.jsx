@@ -45,17 +45,15 @@ const PortfolioTableCard = () => {
     async function loadPositions() {
       try {
         const response = await axios.get('/positions');
-        const data = response.data || [];
+        const data = Array.isArray(response.data) ? response.data : [];
         setPositions(data);
         const totalValue = data.reduce((sum, p) => sum + parseFloat(p.value || 0), 0);
-        const totalCollateral = data.reduce(
-          (sum, p) => sum + parseFloat(p.collateral || 0),
-          0
-        );
+        const totalCollateral = data.reduce((sum, p) => sum + parseFloat(p.collateral || 0), 0);
         setTotals({ value: totalValue, collateral: totalCollateral });
       } catch (e) {
-        // API failure is non-fatal for UI
         console.error(e);
+        setPositions([]);
+        setTotals({ value: 0, collateral: 0 });
       }
     }
     loadPositions();
@@ -93,7 +91,7 @@ const PortfolioTableCard = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {positions.map((position) => (
+            {positions.length > 0 ? positions.map((position) => (
               <StyledTableRow hover key={position.id}>
                 <StyledTableCell>
                   <Avatar
@@ -114,7 +112,11 @@ const PortfolioTableCard = () => {
                   ${Number(position.collateral || 0).toLocaleString()}
                 </StyledTableCell>
               </StyledTableRow>
-            ))}
+            )) : (
+              <StyledTableRow>
+                <StyledTableCell colSpan={5}>No data available</StyledTableCell>
+              </StyledTableRow>
+            )}
             <StyledTableRow>
               <StyledTableCell sx={{ fontWeight: 700 }} colSpan={2}>
                 Totals
