@@ -4,7 +4,7 @@ from routes.positions_api import router as positions_router
 from routes.portfolio_api import router as portfolio_router
 from routes.cyclone_api import router as cyclone_router
 
-app = FastAPI(title="Sonic1 API")
+app = FastAPI(title="Sonic API")
 
 # Configure CORS
 app.add_middleware(

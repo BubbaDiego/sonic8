@@ -23,7 +23,7 @@ If `rich` is absent the logger falls back to plain ANSI.
 ```python
 from console_logger import ConsoleLogger as Log
 
-Log.set_level("DEBUG")           # or use ENV:  LOG_LEVEL=DEBUG python app.py
+Log.set_level("DEBUG")           # or use ENV:  LOG_LEVEL=DEBUG python sonic_backend_app.py
 Log.success("Service started")
 
 Log.add_sink(lambda ev: open("app.log","a").write(json.dumps(ev)+"\n"))

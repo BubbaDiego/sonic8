@@ -9,6 +9,8 @@ import webbrowser
 import time
 import sys
 import os
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
@@ -54,11 +56,9 @@ def launch_frontend():
 
 
 
-
-
 def launch_backend():
     console.log("🚀 Launching FastAPI backend...")
-    run_background([PYTHON_EXEC, "-m", "backend.app"], ROOT_DIR)
+    run_background(f"{PYTHON_EXEC} -m uvicorn backend.app:app --reload --port 5000", ROOT_DIR)
     wait_and_open("http://localhost:5000/docs")
     console.log("[green]Backend running at http://localhost:5000[/]")
 
