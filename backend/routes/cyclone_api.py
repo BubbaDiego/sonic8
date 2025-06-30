@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks
 import asyncio
 
-from core.cyclone_core.cyclone_engine import Cyclone
+from backend.core.cyclone_core.cyclone_engine import Cyclone
 
 router = APIRouter(prefix="/cyclone", tags=["cyclone"])
 

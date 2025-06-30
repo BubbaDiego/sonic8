@@ -29,62 +29,52 @@ export default function Sonic() {
   const { mode } = useConfig();
 
   const LeverageCard = mode === ThemeMode.DARK ? TotalLeverageDarkCard : TotalLeverageLightCard;
-
   const HeatIndexCard = mode === ThemeMode.DARK ? TotalHeatIndexDarkCard : TotalHeatIndexLightCard;
-
   const SizeCard = mode === ThemeMode.DARK ? TotalSizeDarkCard : TotalSizeLightCard;
 
   return (
-    <Grid container spacing={gridSpacing}>
-      <Grid size={{ xs: 12, lg: 8, md: 6 }}>
-        <Grid container spacing={gridSpacing}>
-          <Grid size={12}>
-            <PortfolioTableCard />
-          </Grid>
-          <Grid size={12}>
-            <ValueToCollateralChartCard />
-          </Grid>
-        </Grid>
-      </Grid>
-      <Grid size={{ xs: 12, lg: 4, md: 6 }}>
-        <Grid container spacing={gridSpacing}>
-          <Grid size={12}>
-            <TotalValueCard
-              primary="Total Value"
-              secondary="$0"
-              content="1000 Shares"
-              iconPrimary={MonetizationOnTwoToneIcon}
-              color="secondary.main"
-            />
-          </Grid>
-          <Grid size={12}>
+   <Grid container spacing={gridSpacing}>
+  <Grid item xs={12} lg={8} md={8}>
+    <PortfolioTableCard />
+  </Grid>
 
-            <LeverageCard isLoading={false} />
-          </Grid>
-          {/* show heat index between leverage and size */}
-          <Grid size={12}>
-            <HeatIndexCard isLoading={false} />
-          </Grid>
-            <LeverageCard isLoading={false} />
-          </Grid>
+  <Grid item xs={12} lg={4} md={4}>
+    <ValueToCollateralChartCard />
+  </Grid>
 
-          {/* display the portfolio size just below the leverage card */}
-          <Grid size={12}>
-            <SizeCard isLoading={false} />
-          </Grid>
-          <Grid size={12}>
+  <Grid item xs={12} md={4}>
+    <TotalValueCard
+      primary="Total Value"
+      secondary="$0"
+      content="1000 Shares"
+      iconPrimary={MonetizationOnTwoToneIcon}
+      color="secondary.main"
+    />
+  </Grid>
 
-            <SizeHedgeChartCard />
-          </Grid>
-          <Grid size={12}>
+  <Grid item xs={12} md={4}>
+    <LeverageCard isLoading={false} />
+  </Grid>
 
-            <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
-          </Grid>
-          <Grid size={12}>
-            <UserCountCard primary="Daily page view" secondary="1K" iconPrimary={DescriptionTwoToneIcon} color="primary.main" />
-          </Grid>
-        </Grid>
-      </Grid>
-    </Grid>
-  );
+  <Grid item xs={12} md={4}>
+    <HeatIndexCard isLoading={false} />
+  </Grid>
+
+  <Grid item xs={12} md={4}>
+    <SizeCard isLoading={false} />
+  </Grid>
+
+  <Grid item xs={12} md={8}>
+    <SizeHedgeChartCard />
+  </Grid>
+
+  <Grid item xs={12} md={4}>
+    <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
+  </Grid>
+
+  <Grid item xs={12} md={4}>
+    <UserCountCard primary="Daily page view" secondary="1K" iconPrimary={DescriptionTwoToneIcon} color="primary.main" />
+  </Grid>
+</Grid>
+
 }

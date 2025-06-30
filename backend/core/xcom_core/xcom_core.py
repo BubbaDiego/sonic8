@@ -4,13 +4,13 @@ import os
 import json
 from datetime import datetime
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from xcom.xcom_config_service import XComConfigService
-from xcom.email_service import EmailService
-from xcom.sms_service import SMSService
-from xcom.voice_service import VoiceService
-from xcom.sound_service import SoundService
-from data.data_locker import DataLocker
-from core.logging import log
+from backend.core.xcom_core.xcom_config_service import XComConfigService
+from backend.core.xcom_core.email_service import EmailService
+from backend.core.xcom_core.sms_service import SMSService
+from backend.core.xcom_core.voice_service import VoiceService
+from backend.core.xcom_core.sound_service import SoundService
+from backend.data.data_locker import DataLocker
+from backend.core.logging import log
 
 class XComCore:
     def __init__(self, dl_sys_data_manager):

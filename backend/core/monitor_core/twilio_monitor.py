@@ -2,11 +2,11 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from monitor.base_monitor import BaseMonitor
-from data.data_locker import DataLocker
-from xcom.xcom_config_service import XComConfigService
-from xcom.check_twilio_heartbeat_service import CheckTwilioHeartbeatService
-from core.constants import MOTHER_DB_PATH
+from backend.core.monitor_core.base_monitor import BaseMonitor
+from backend.data.data_locker import DataLocker
+from backend.core.xcom_core.xcom_config_service import XComConfigService
+from backend.core.xcom_core.check_twilio_heartbeat_service import CheckTwilioHeartbeatService
+from backend.core.constants import MOTHER_DB_PATH
 
 
 class TwilioMonitor(BaseMonitor):

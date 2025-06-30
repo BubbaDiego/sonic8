@@ -4,7 +4,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import smtplib, ssl
 from email.mime.text import MIMEText
-from core.logging import log
+from backend.core.logging import log
 
 class EmailService:
     def __init__(self, config: dict):

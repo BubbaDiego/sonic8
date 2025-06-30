@@ -1,7 +1,7 @@
 from uuid import uuid4
-from data.models import AlertThreshold
-from data.dl_thresholds import DLThresholdManager
-from core.logging import log
+from backend.models.alert import AlertThreshold
+from backend.data.dl_thresholds import DLThresholdManager
+from backend.core.logging import log
 
 
 class ThresholdService:

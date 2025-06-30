@@ -8,7 +8,7 @@ import requests  # noqa: F401  # retained for backward compatibility
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
 
-from core.logging import log
+from backend.core.logging import log
 try:
     from flask import current_app, has_app_context
 except Exception:  # pragma: no cover - optional dependency

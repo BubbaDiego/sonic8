@@ -21,9 +21,9 @@ import json
 # Cores and Services
 from backend.core.cyclone_core.cyclone_alert_service import CycloneAlertService
 from backend.core.monitor_core.monitor_core import MonitorCore
-from backend.core.postions_core.position_core import PositionCore
+from backend.core.positions_core.position_core import PositionCore
 from backend.core.positions_core.position_core_service import PositionCoreService
-from backend.core.prices_core.price_sync_service import PriceSyncService
+from backend.core.market_core.price_sync_service import PriceSyncService
 from backend.core.cyclone_core.cyclone_maintenance_service import CycloneMaintenanceService
 from backend.core.cyclone_core.cyclone_wallet_service import CycloneWalletService
 from backend.data.dl_monitor_ledger import DLMonitorLedgerManager
@@ -87,9 +87,9 @@ class Cyclone:
         self.price_sync = PriceSyncService(self.data_locker)
 
         # PATCH: Create a system_core instance for death screams
-        self.system_core = SystemCore(self.data_locker)
+       # self.system_core = SystemCore(self.data_locker)
 
-        self.config = self.data_locker.system.get_var("alert_thresholds")
+        self.config = "" #self.data_locker.system.get_var("alert_thresholds")
         if not self.config:
             log.warning(
                 "⚠️ alert_thresholds missing from DB. Loading from JSON...",
