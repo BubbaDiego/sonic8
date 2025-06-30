@@ -58,9 +58,13 @@ def launch_frontend():
 
 def launch_backend():
     console.log("🚀 Launching FastAPI backend...")
-    run_background(f"{PYTHON_EXEC} -m uvicorn backend.sonic_backend_app:app --reload --port 5000", ROOT_DIR)
+    run_background(
+        f"{PYTHON_EXEC} -m uvicorn sonic_backend_app:app --reload --port 5000",
+        BACKEND_DIR  # explicitly backend directory
+    )
     wait_and_open("http://localhost:5000/docs")
     console.log("[green]Backend running at http://localhost:5000[/]")
+
 
 
 def launch_full_stack():
