@@ -482,54 +482,54 @@ sonic1/
 │   │   │   │   ├── PresetColor.jsx
 │   │   │   │   ├── SidebarDrawer.jsx
 │   │   │   │   ├── ThemeMode.jsx
-│   │   │   │   └── index.jsx
+│   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   ├── MainLayout
 │   │   │   │   ├── Header
 │   │   │   │   │   ├── CycloneRunSection
 │   │   │   │   │   │   └── CycloneRunSection.jsx
 │   │   │   │   │   ├── FullScreenSection
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── LocalizationSection
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── MegaMenuSection
 │   │   │   │   │   │   ├── Banner.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── MobileSection
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── NotificationSection
 │   │   │   │   │   │   ├── NotificationList.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── ProfileSection
 │   │   │   │   │   │   ├── UpgradePlanCard.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── SearchSection
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── ThemeToggleSection
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   └── header.jsx
 │   │   │   │   ├── LogoSection
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── MenuList
 │   │   │   │   │   ├── NavCollapse
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── NavGroup
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── NavItem
-│   │   │   │   │   │   └── index.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── Sidebar
 │   │   │   │   │   ├── MenuCard
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── MiniDrawerStyled.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── Footer.jsx
 │   │   │   │   ├── HorizontalBar.jsx
 │   │   │   │   ├── MainContentStyled.js
-│   │   │   │   └── index.jsx
+│   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   ├── MinimalLayout
-│   │   │   │   └── index.jsx
+│   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   ├── SimpleLayout
-│   │   │   │   └── index.jsx
+│   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   ├── NavMotion.jsx
 │   │   │   └── NavigationScroll.jsx
 │   │   ├── menu-items
@@ -548,14 +548,14 @@ sonic1/
 │   │   │   ├── GTag.jsx
 │   │   │   ├── MicrosoftClarity.jsx
 │   │   │   ├── Notify.jsx
-│   │   │   └── index.jsx
+│   │   │   └── index_sonic_dashboard.jsx
 │   │   ├── routes
 │   │   │   ├── AuthenticationRoutes.jsx
 │   │   │   ├── ErrorBoundary.jsx
 │   │   │   ├── LoginRoutes.jsx
 │   │   │   ├── MainRoutes.jsx
 │   │   │   ├── SimpleRoutes.jsx
-│   │   │   └── index.jsx
+│   │   │   └── index_sonic_dashboard.jsx
 │   │   ├── store
 │   │   │   ├── slices
 │   │   │   │   ├── calendar.js
@@ -578,7 +578,7 @@ sonic1/
 │   │   │   │   ├── Chip.jsx
 │   │   │   │   └── index.js
 │   │   │   ├── compStyleOverride.jsx
-│   │   │   ├── index.jsx
+│   │   │   ├── index_sonic_dashboard.jsx
 │   │   │   ├── palette.jsx
 │   │   │   ├── shadows.jsx
 │   │   │   └── typography.jsx
@@ -600,9 +600,9 @@ sonic1/
 │   │   │   │   ├── Post
 │   │   │   │   │   ├── Comment
 │   │   │   │   │   │   ├── Reply
-│   │   │   │   │   │   │   └── index.jsx
-│   │   │   │   │   │   └── index.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── Skeleton
 │   │   │   │   │   ├── EarningCard.jsx
 │   │   │   │   │   ├── ImagePlaceholder.jsx
@@ -667,7 +667,7 @@ sonic1/
 │   │   │   │   │   ├── PreventDuplicate.jsx
 │   │   │   │   │   ├── SnackBarAction.jsx
 │   │   │   │   │   ├── TransitionBar.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── Accordion.jsx
 │   │   │   │   ├── AnimateButton.jsx
 │   │   │   │   ├── AppBar.jsx
@@ -717,27 +717,27 @@ sonic1/
 │   │   │   │   ├── blog
 │   │   │   │   │   ├── AddNewBlog
 │   │   │   │   │   │   ├── AddNewForm.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Dashboard
 │   │   │   │   │   │   ├── AnalyticsBarChart.jsx
 │   │   │   │   │   │   ├── RecentBlogList.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Details
 │   │   │   │   │   │   ├── BlogCommonCard.jsx
 │   │   │   │   │   │   ├── BlogDetailsCard.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── EditBlog
 │   │   │   │   │   │   ├── EditForm.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── GeneralSettings
 │   │   │   │   │   │   ├── Articles.jsx
 │   │   │   │   │   │   ├── Drafts.jsx
 │   │   │   │   │   │   ├── GeneralSetting.jsx
 │   │   │   │   │   │   ├── YourLibrary.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── List
 │   │   │   │   │   │   ├── BlogCommonCard.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── chart-data
 │   │   │   │   │   │   └── analytics-bar-charts.jsx
 │   │   │   │   │   └── data
@@ -747,7 +747,7 @@ sonic1/
 │   │   │   │   │   ├── CalendarStyled.jsx
 │   │   │   │   │   ├── ColorPalette.jsx
 │   │   │   │   │   ├── Toolbar.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── chat
 │   │   │   │   │   ├── AvatarStatus.jsx
 │   │   │   │   │   ├── ChartHistory.jsx
@@ -755,12 +755,12 @@ sonic1/
 │   │   │   │   │   ├── UserAvatar.jsx
 │   │   │   │   │   ├── UserDetails.jsx
 │   │   │   │   │   ├── UserList.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── contact
 │   │   │   │   │   ├── Card
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── List
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── UserDetails.jsx
 │   │   │   │   │   └── UserEdit.jsx
 │   │   │   │   ├── crm
@@ -769,9 +769,9 @@ sonic1/
 │   │   │   │   │   │   │   ├── Filter.jsx
 │   │   │   │   │   │   │   ├── HistoryTableBody.jsx
 │   │   │   │   │   │   │   ├── HistoryTableHeader.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   ├── ContactCard
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   ├── ContactList
 │   │   │   │   │   │   │   ├── AddContactDialog.jsx
 │   │   │   │   │   │   │   ├── AddContactDialogContent.jsx
@@ -779,12 +779,12 @@ sonic1/
 │   │   │   │   │   │   │   ├── ContactTableHeader.jsx
 │   │   │   │   │   │   │   ├── Filter.jsx
 │   │   │   │   │   │   │   ├── NewMessage.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   └── RemindersFollowUp
 │   │   │   │   │   │       ├── Filter.jsx
 │   │   │   │   │   │       ├── FollowupTableBody.jsx
 │   │   │   │   │   │       ├── FollowupTableHeader.jsx
-│   │   │   │   │   │       └── index.jsx
+│   │   │   │   │   │       └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── LeadManagement
 │   │   │   │   │   │   ├── LeadList
 │   │   │   │   │   │   │   ├── AddLeadDialog.jsx
@@ -796,50 +796,50 @@ sonic1/
 │   │   │   │   │   │   │   ├── LeadTableBody.jsx
 │   │   │   │   │   │   │   ├── LeadTableHeader.jsx
 │   │   │   │   │   │   │   ├── NewMessage.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   └── Overview
 │   │   │   │   │   │       ├── LeadCards.jsx
 │   │   │   │   │   │       ├── LeadSource.jsx
 │   │   │   │   │   │       ├── LeadSummary.jsx
 │   │   │   │   │   │       ├── SalesPerformance.jsx
 │   │   │   │   │   │       ├── UpcomingTask.jsx
-│   │   │   │   │   │       └── index.jsx
+│   │   │   │   │   │       └── index_sonic_dashboard.jsx
 │   │   │   │   │   └── SalesManagement
 │   │   │   │   │       ├── Earning
 │   │   │   │   │       │   ├── EarningHeader.jsx
 │   │   │   │   │       │   ├── EarningTable.jsx
 │   │   │   │   │       │   ├── Filter.jsx
 │   │   │   │   │       │   ├── Overview.jsx
-│   │   │   │   │       │   └── index.jsx
+│   │   │   │   │       │   └── index_sonic_dashboard.jsx
 │   │   │   │   │       ├── Refund
 │   │   │   │   │       │   ├── Filter.jsx
 │   │   │   │   │       │   ├── Overview.jsx
 │   │   │   │   │       │   ├── RefundHeader.jsx
 │   │   │   │   │       │   ├── RefundTable.jsx
-│   │   │   │   │       │   └── index.jsx
+│   │   │   │   │       │   └── index_sonic_dashboard.jsx
 │   │   │   │   │       └── Statement
 │   │   │   │   │           ├── Filter.jsx
 │   │   │   │   │           ├── OverView.jsx
 │   │   │   │   │           ├── StatementHeader.jsx
 │   │   │   │   │           ├── StatementTable.jsx
-│   │   │   │   │           └── index.jsx
+│   │   │   │   │           └── index_sonic_dashboard.jsx
 │   │   │   │   ├── customer
 │   │   │   │   │   ├── CreateInvoice
 │   │   │   │   │   │   ├── AddItemPage.jsx
 │   │   │   │   │   │   ├── ProductsPage.jsx
 │   │   │   │   │   │   ├── TotalCard.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── OrderDetails
 │   │   │   │   │   │   ├── Details.jsx
 │   │   │   │   │   │   ├── Invoice.jsx
 │   │   │   │   │   │   ├── Status.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Product
 │   │   │   │   │   │   ├── ProductAdd.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── ProductReview
 │   │   │   │   │   │   ├── ReviewEdit.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── CustomerList.jsx
 │   │   │   │   │   └── OrderList.jsx
 │   │   │   │   ├── e-commerce
@@ -858,7 +858,7 @@ sonic1/
 │   │   │   │   │   │   ├── PaymentCard.jsx
 │   │   │   │   │   │   ├── PaymentOptions.js
 │   │   │   │   │   │   ├── PaymentSelect.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── ProductDetails
 │   │   │   │   │   │   ├── ProductDescription.jsx
 │   │   │   │   │   │   ├── ProductImages.jsx
@@ -866,14 +866,14 @@ sonic1/
 │   │   │   │   │   │   ├── ProductReview.jsx
 │   │   │   │   │   │   ├── RelatedProducts.jsx
 │   │   │   │   │   │   ├── Specification.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Products
 │   │   │   │   │   │   ├── Colors.jsx
 │   │   │   │   │   │   ├── ProductEmpty.jsx
 │   │   │   │   │   │   ├── ProductFilter.jsx
 │   │   │   │   │   │   ├── ProductFilterView.jsx
 │   │   │   │   │   │   ├── SortOptions.js
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── ColorOptions.js
 │   │   │   │   │   └── ProductList.jsx
 │   │   │   │   ├── invoice
@@ -883,38 +883,38 @@ sonic1/
 │   │   │   │   │   │   │   ├── ContactDetail.jsx
 │   │   │   │   │   │   │   ├── OtherDetail.jsx
 │   │   │   │   │   │   │   ├── PersonalInformation.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   └── ClientList
 │   │   │   │   │   │       ├── ClientDetails.jsx
 │   │   │   │   │   │       ├── ClientDrawer.jsx
 │   │   │   │   │   │       ├── ClientFilter.jsx
 │   │   │   │   │   │       ├── ClientTable.jsx
 │   │   │   │   │   │       ├── ClientTableHeader.jsx
-│   │   │   │   │   │       └── index.jsx
+│   │   │   │   │   │       └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Create
 │   │   │   │   │   │   ├── AmountCard.jsx
 │   │   │   │   │   │   ├── ClientInfo.jsx
 │   │   │   │   │   │   ├── ItemList.jsx
 │   │   │   │   │   │   ├── SelectItem.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Dashboard
 │   │   │   │   │   │   ├── ClientInsights.jsx
 │   │   │   │   │   │   ├── QuickAdd.jsx
 │   │   │   │   │   │   ├── RecentActivity.jsx
 │   │   │   │   │   │   ├── RevenueBarChart.jsx
 │   │   │   │   │   │   ├── SupportHelp.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Details
 │   │   │   │   │   │   ├── DetailsTab.jsx
 │   │   │   │   │   │   ├── InvoiceTab.jsx
 │   │   │   │   │   │   ├── StatusTab.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Edit
 │   │   │   │   │   │   ├── AmountCard.jsx
 │   │   │   │   │   │   ├── ClientInfo.jsx
 │   │   │   │   │   │   ├── ItemList.jsx
 │   │   │   │   │   │   ├── SelectItem.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Items
 │   │   │   │   │   │   ├── ItemList
 │   │   │   │   │   │   │   ├── ItemDetails.jsx
@@ -922,28 +922,28 @@ sonic1/
 │   │   │   │   │   │   │   ├── ItemFilter.jsx
 │   │   │   │   │   │   │   ├── ItemTable.jsx
 │   │   │   │   │   │   │   ├── ItemTableHeader.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   └── AddItem.jsx
 │   │   │   │   │   ├── List
 │   │   │   │   │   │   ├── InvoiceFilter.jsx
 │   │   │   │   │   │   ├── InvoiceTable.jsx
 │   │   │   │   │   │   ├── InvoiceTableHeader.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Payment
 │   │   │   │   │   │   ├── AddPayment
 │   │   │   │   │   │   │   ├── PaymentTable.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   ├── PaymentDetails
 │   │   │   │   │   │   │   ├── PaymentTable.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   └── PaymentList
 │   │   │   │   │   │       ├── Overview.jsx
 │   │   │   │   │   │       ├── PaymentFilter.jsx
 │   │   │   │   │   │       ├── PaymentTable.jsx
 │   │   │   │   │   │       ├── PaymentTableHeader.jsx
-│   │   │   │   │   │       └── index.jsx
+│   │   │   │   │   │       └── index_sonic_dashboard.jsx
 │   │   │   │   │   └── chart-data
-│   │   │   │   │       ├── index.jsx
+│   │   │   │   │       ├── index_sonic_dashboard.jsx
 │   │   │   │   │       ├── invoice-chart-1.jsx
 │   │   │   │   │       ├── invoice-chart-2.jsx
 │   │   │   │   │       ├── invoice-chart-3.jsx
@@ -959,7 +959,7 @@ sonic1/
 │   │   │   │   │   │   ├── Items.jsx
 │   │   │   │   │   │   ├── StoryComment.jsx
 │   │   │   │   │   │   ├── UserStory.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Board
 │   │   │   │   │   │   ├── AddColumn.jsx
 │   │   │   │   │   │   ├── AddItem.jsx
@@ -972,8 +972,8 @@ sonic1/
 │   │   │   │   │   │   ├── ItemComment.jsx
 │   │   │   │   │   │   ├── ItemDetails.jsx
 │   │   │   │   │   │   ├── Items.jsx
-│   │   │   │   │   │   └── index.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── mail
 │   │   │   │   │   ├── ComposeDialog.jsx
 │   │   │   │   │   ├── MailDetails.jsx
@@ -981,35 +981,35 @@ sonic1/
 │   │   │   │   │   ├── MailEmpty.jsx
 │   │   │   │   │   ├── MailList.jsx
 │   │   │   │   │   ├── MailListHeader.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── map
 │   │   │   │   │   ├── maps
 │   │   │   │   │   │   ├── change-theme
 │   │   │   │   │   │   │   ├── control-panel.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   ├── clusters-map
-│   │   │   │   │   │   │   ├── index.jsx
+│   │   │   │   │   │   │   ├── index_sonic_dashboard.jsx
 │   │   │   │   │   │   │   └── layers.js
 │   │   │   │   │   │   ├── draggable-marker
 │   │   │   │   │   │   │   ├── control-panel.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   ├── heatmap
 │   │   │   │   │   │   │   ├── control-panel.jsx
-│   │   │   │   │   │   │   ├── index.jsx
+│   │   │   │   │   │   │   ├── index_sonic_dashboard.jsx
 │   │   │   │   │   │   │   └── map-style.js
 │   │   │   │   │   │   ├── interaction-map
 │   │   │   │   │   │   │   ├── control-panel.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   ├── side-by-side
 │   │   │   │   │   │   │   ├── control-panel.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   ├── viewport-animation
 │   │   │   │   │   │   │   ├── control-panel.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   ├── GeoJSONAnimation.jsx
 │   │   │   │   │   │   ├── HighlightByFilter.jsx
 │   │   │   │   │   │   └── MarkersPopups.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   └── users
 │   │   │   │       ├── account-profile
 │   │   │   │       │   ├── Profile1
@@ -1018,19 +1018,19 @@ sonic1/
 │   │   │   │       │   │   ├── PersonalAccount.jsx
 │   │   │   │       │   │   ├── Profile.jsx
 │   │   │   │       │   │   ├── Settings.jsx
-│   │   │   │       │   │   └── index.jsx
+│   │   │   │       │   │   └── index_sonic_dashboard.jsx
 │   │   │   │       │   ├── Profile2
 │   │   │   │       │   │   ├── Billing.jsx
 │   │   │   │       │   │   ├── ChangePassword.jsx
 │   │   │   │       │   │   ├── Payment.jsx
 │   │   │   │       │   │   ├── UserProfile.jsx
-│   │   │   │       │   │   └── index.jsx
+│   │   │   │       │   │   └── index_sonic_dashboard.jsx
 │   │   │   │       │   └── Profile3
 │   │   │   │       │       ├── Billing.jsx
 │   │   │   │       │       ├── Notifications.jsx
 │   │   │   │       │       ├── Profile.jsx
 │   │   │   │       │       ├── Security.jsx
-│   │   │   │       │       └── index.jsx
+│   │   │   │       │       └── index_sonic_dashboard.jsx
 │   │   │   │       ├── card
 │   │   │   │       │   ├── CardStyle1.jsx
 │   │   │   │       │   ├── CardStyle2.jsx
@@ -1038,17 +1038,17 @@ sonic1/
 │   │   │   │       ├── list
 │   │   │   │       │   ├── Style1
 │   │   │   │       │   │   ├── UserList.jsx
-│   │   │   │       │   │   └── index.jsx
+│   │   │   │       │   │   └── index_sonic_dashboard.jsx
 │   │   │   │       │   └── Style2
 │   │   │   │       │       ├── UserList.jsx
-│   │   │   │       │       └── index.jsx
+│   │   │   │       │       └── index_sonic_dashboard.jsx
 │   │   │   │       └── social-profile
 │   │   │   │           ├── Followers.jsx
 │   │   │   │           ├── FriendRequest.jsx
 │   │   │   │           ├── Friends.jsx
 │   │   │   │           ├── Gallery.jsx
 │   │   │   │           ├── Profile.jsx
-│   │   │   │           └── index.jsx
+│   │   │   │           └── index_sonic_dashboard.jsx
 │   │   │   ├── cyclone
 │   │   │   │   └── Run.jsx
 │   │   │   ├── dashboard
@@ -1058,7 +1058,7 @@ sonic1/
 │   │   │   │   │   ├── LatestCustomerTableCard.jsx
 │   │   │   │   │   ├── MarketShareAreaChartCard.jsx
 │   │   │   │   │   ├── TotalRevenueCard.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── Default
 │   │   │   │   │   ├── chart-data
 │   │   │   │   │   │   ├── bajaj-area-chart.jsx
@@ -1070,7 +1070,7 @@ sonic1/
 │   │   │   │   │   ├── PopularCard.jsx
 │   │   │   │   │   ├── TotalGrowthBarChart.jsx
 │   │   │   │   │   ├── TotalOrderLineChartCard.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   └── Sonic
 │   │   │   │       ├── chart-data
 │   │   │   │       │   └── market-share-area-chart.jsx
@@ -1079,7 +1079,7 @@ sonic1/
 │   │   │   │       ├── SizeHedgeChartCard.jsx
 │   │   │   │       ├── TotalRevenueCard.jsx
 │   │   │   │       ├── ValueToCollateralChartCard.jsx
-│   │   │   │       └── index.jsx
+│   │   │   │       └── index_sonic_dashboard.jsx
 │   │   │   ├── forms
 │   │   │   │   ├── chart
 │   │   │   │   │   ├── Apexchart
@@ -1091,21 +1091,21 @@ sonic1/
 │   │   │   │   │   │   ├── ApexPieChart.jsx
 │   │   │   │   │   │   ├── ApexPolarChart.jsx
 │   │   │   │   │   │   ├── ApexRedialChart.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   └── OrgChart
 │   │   │   │   │       ├── Card.jsx
 │   │   │   │   │       ├── DataCard.jsx
 │   │   │   │   │       ├── LinkedIn.jsx
 │   │   │   │   │       ├── MeetIcon.jsx
 │   │   │   │   │       ├── SkypeIcon.jsx
-│   │   │   │   │       └── index.jsx
+│   │   │   │   │       └── index_sonic_dashboard.jsx
 │   │   │   │   ├── components
 │   │   │   │   │   ├── DateTime
 │   │   │   │   │   │   ├── CustomDateTime.jsx
 │   │   │   │   │   │   ├── LandscapeDateTime.jsx
 │   │   │   │   │   │   ├── ViewRendererDateTime.jsx
 │   │   │   │   │   │   ├── ViewsDateTimePicker.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── Slider
 │   │   │   │   │   │   ├── BasicSlider.jsx
 │   │   │   │   │   │   ├── DisableSlider.jsx
@@ -1114,7 +1114,7 @@ sonic1/
 │   │   │   │   │   │   ├── StepSlider.jsx
 │   │   │   │   │   │   ├── VerticalSlider.jsx
 │   │   │   │   │   │   ├── VolumeSlider.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── AutoComplete.jsx
 │   │   │   │   │   ├── Button.jsx
 │   │   │   │   │   ├── Checkbox.jsx
@@ -1125,7 +1125,7 @@ sonic1/
 │   │   │   │   │   ├── ColumnGroups
 │   │   │   │   │   │   ├── BasicColumnGroup.jsx
 │   │   │   │   │   │   ├── CustomColumnGroup.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── ColumnMenu
 │   │   │   │   │   │   ├── AddMenuItem.jsx
 │   │   │   │   │   │   ├── ColumnMenu.jsx
@@ -1134,17 +1134,17 @@ sonic1/
 │   │   │   │   │   │   ├── HideMenuItem.jsx
 │   │   │   │   │   │   ├── OverrideMenu.jsx
 │   │   │   │   │   │   ├── ReorderingMenu.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── ColumnVirtualization
 │   │   │   │   │   │   ├── Virtualization.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── ColumnVisibility
 │   │   │   │   │   │   ├── ControlledVisibility.jsx
 │   │   │   │   │   │   ├── InitializeColumnVisibility.jsx
 │   │   │   │   │   │   ├── VisibilityPanel.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── DataGridBasic
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── InLineEditing
 │   │   │   │   │   │   ├── AutoStop.jsx
 │   │   │   │   │   │   ├── ConfirmationSave.jsx
@@ -1158,17 +1158,17 @@ sonic1/
 │   │   │   │   │   │   ├── ParserSetter.jsx
 │   │   │   │   │   │   ├── ServerValidation.jsx
 │   │   │   │   │   │   ├── Validation.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── QuickFilter
 │   │   │   │   │   │   ├── CustomFilter.jsx
 │   │   │   │   │   │   ├── ExcludeHiddenColumns.jsx
 │   │   │   │   │   │   ├── Initialize.jsx
 │   │   │   │   │   │   ├── ParsingValues.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   └── SaveRestoreState
 │   │   │   │   │       ├── InitialState.jsx
 │   │   │   │   │       ├── UseGridSelector.jsx
-│   │   │   │   │       └── index.jsx
+│   │   │   │   │       └── index_sonic_dashboard.jsx
 │   │   │   │   ├── forms-validation
 │   │   │   │   │   ├── AutocompleteForms.jsx
 │   │   │   │   │   ├── CheckboxForms.jsx
@@ -1176,19 +1176,19 @@ sonic1/
 │   │   │   │   │   ├── LoginForms.jsx
 │   │   │   │   │   ├── RadioGroupForms.jsx
 │   │   │   │   │   ├── SelectForms.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── forms-wizard
 │   │   │   │   │   ├── BasicWizard
 │   │   │   │   │   │   ├── AddressForm.jsx
 │   │   │   │   │   │   ├── PaymentForm.jsx
 │   │   │   │   │   │   ├── Review.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── ValidationWizard
 │   │   │   │   │   │   ├── AddressForm.jsx
 │   │   │   │   │   │   ├── PaymentForm.jsx
 │   │   │   │   │   │   ├── Review.jsx
-│   │   │   │   │   │   └── index.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── layouts
 │   │   │   │   │   ├── ActionBar.jsx
 │   │   │   │   │   ├── Layouts.jsx
@@ -1198,7 +1198,7 @@ sonic1/
 │   │   │   │   │   ├── Modal
 │   │   │   │   │   │   ├── ServerModal.jsx
 │   │   │   │   │   │   ├── SimpleModal.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── AutoComplete.jsx
 │   │   │   │   │   ├── Clipboard.jsx
 │   │   │   │   │   ├── Dropzone.jsx
@@ -1275,7 +1275,7 @@ sonic1/
 │   │   │   │   │   └── ViewOnlyAlert.jsx
 │   │   │   │   ├── contact-us
 │   │   │   │   │   ├── ContactCard.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── landing
 │   │   │   │   │   ├── Animation.jsx
 │   │   │   │   │   ├── CardData.js
@@ -1291,13 +1291,13 @@ sonic1/
 │   │   │   │   │   ├── PreBuildDashBoard.jsx
 │   │   │   │   │   ├── RtlInfoSection.jsx
 │   │   │   │   │   ├── StartupProjectSection.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── maintenance
 │   │   │   │   │   ├── ComingSoon
 │   │   │   │   │   │   ├── ComingSoon1
 │   │   │   │   │   │   │   ├── MailerSubscriber.jsx
 │   │   │   │   │   │   │   ├── Slider.jsx
-│   │   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   │   └── ComingSoon2.jsx
 │   │   │   │   │   ├── Error.jsx
 │   │   │   │   │   ├── Error500.jsx
@@ -1309,7 +1309,7 @@ sonic1/
 │   │   │   │       ├── Faqs.jsx
 │   │   │   │       └── PrivacyPolicy.jsx
 │   │   │   ├── sample-page
-│   │   │   │   └── index.jsx
+│   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   ├── ui-elements
 │   │   │   │   ├── advance
 │   │   │   │   │   ├── UIDialog
@@ -1324,19 +1324,19 @@ sonic1/
 │   │   │   │   │   │   ├── ResponsiveDialog.jsx
 │   │   │   │   │   │   ├── ScrollDialog.jsx
 │   │   │   │   │   │   ├── SimpleDialog.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── UIRating
 │   │   │   │   │   │   ├── CustomizedRatings.jsx
 │   │   │   │   │   │   ├── HalfRating.jsx
 │   │   │   │   │   │   ├── HoverRating.jsx
 │   │   │   │   │   │   ├── SimpleRating.jsx
 │   │   │   │   │   │   ├── SizeRating.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── UISpeeddial
 │   │   │   │   │   │   ├── OpenIconSpeedDial.jsx
 │   │   │   │   │   │   ├── SimpleSpeedDials.jsx
 │   │   │   │   │   │   ├── SpeedDialTooltipOpen.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── UITimeline
 │   │   │   │   │   │   ├── AlternateTimeline.jsx
 │   │   │   │   │   │   ├── BasicTimeline.jsx
@@ -1345,7 +1345,7 @@ sonic1/
 │   │   │   │   │   │   ├── OppositeContentTimeline.jsx
 │   │   │   │   │   │   ├── OutlinedTimeline.jsx
 │   │   │   │   │   │   ├── RightAlignedTimeline.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── UIToggleButton
 │   │   │   │   │   │   ├── CustomizedDividers.jsx
 │   │   │   │   │   │   ├── ExclusiveToggleButtons.jsx
@@ -1354,7 +1354,7 @@ sonic1/
 │   │   │   │   │   │   ├── ToggleButtonSizes.jsx
 │   │   │   │   │   │   ├── ToggleButtonsMultiple.jsx
 │   │   │   │   │   │   ├── VerticalToggleButtons.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── UITreeview
 │   │   │   │   │   │   ├── ControlledTreeView.jsx
 │   │   │   │   │   │   ├── CustomizedTreeView.jsx
@@ -1362,7 +1362,7 @@ sonic1/
 │   │   │   │   │   │   ├── GmailTreeView.jsx
 │   │   │   │   │   │   ├── MultiSelectTreeView.jsx
 │   │   │   │   │   │   ├── RecursiveTreeView.jsx
-│   │   │   │   │   │   └── index.jsx
+│   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── UIAlert.jsx
 │   │   │   │   │   ├── UIPagination.jsx
 │   │   │   │   │   ├── UIProgress.jsx
@@ -1378,14 +1378,14 @@ sonic1/
 │   │   │   │       │   ├── SelectedListItem.jsx
 │   │   │   │       │   ├── SimpleList.jsx
 │   │   │   │       │   ├── VirtualizedList.jsx
-│   │   │   │       │   └── index.jsx
+│   │   │   │       │   └── index_sonic_dashboard.jsx
 │   │   │   │       ├── UITabs
 │   │   │   │       │   ├── ColorTabs.jsx
 │   │   │   │       │   ├── DisabledTabs.jsx
 │   │   │   │       │   ├── IconTabs.jsx
 │   │   │   │       │   ├── SimpleTabs.jsx
 │   │   │   │       │   ├── VerticalTabs.jsx
-│   │   │   │       │   └── index.jsx
+│   │   │   │       │   └── index_sonic_dashboard.jsx
 │   │   │   │       ├── UIAccordion.jsx
 │   │   │   │       ├── UIAvatar.jsx
 │   │   │   │       ├── UIBadges.jsx
@@ -1402,7 +1402,7 @@ sonic1/
 │   │   │   │   │   ├── MultipleBreakPoints.jsx
 │   │   │   │   │   ├── NestedGrid.jsx
 │   │   │   │   │   ├── SpacingGrid.jsx
-│   │   │   │   │   └── index.jsx
+│   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── Animation.jsx
 │   │   │   │   ├── Color.jsx
 │   │   │   │   ├── Shadow.jsx
@@ -1411,7 +1411,7 @@ sonic1/
 │   │   │       ├── Chart
 │   │   │       │   ├── chart-data
 │   │   │       │   │   ├── conversions-chart.jsx
-│   │   │       │   │   ├── index.jsx
+│   │   │       │   │   ├── index_sonic_dashboard.jsx
 │   │   │       │   │   ├── market-sale-chart.jsx
 │   │   │       │   │   ├── percentage-chart.jsx
 │   │   │       │   │   ├── revenue-chart.jsx
@@ -1433,7 +1433,7 @@ sonic1/
 │   │   │       │   ├── MarketSaleChartCard.jsx
 │   │   │       │   ├── RevenueChartCard.jsx
 │   │   │       │   ├── SatisfactionChartCard.jsx
-│   │   │       │   └── index.jsx
+│   │   │       │   └── index_sonic_dashboard.jsx
 │   │   │       ├── Data
 │   │   │       │   ├── ActiveTickets.jsx
 │   │   │       │   ├── ApplicationSales.jsx
@@ -1453,16 +1453,16 @@ sonic1/
 │   │   │       │   ├── TotalRevenue.jsx
 │   │   │       │   ├── TrafficSources.jsx
 │   │   │       │   ├── UserActivity.jsx
-│   │   │       │   └── index.jsx
+│   │   │       │   └── index_sonic_dashboard.jsx
 │   │   │       └── Statistics
 │   │   │           ├── CustomerSatisfactionCard.jsx
 │   │   │           ├── IconGridCard.jsx
 │   │   │           ├── ProjectTaskCard.jsx
 │   │   │           ├── WeatherCard.jsx
-│   │   │           └── index.jsx
+│   │   │           └── index_sonic_dashboard.jsx
 │   │   ├── App.jsx
 │   │   ├── config.js
-│   │   ├── index.jsx
+│   │   ├── index_sonic_dashboard.jsx
 │   │   ├── reportWebVitals.js
 │   │   ├── serviceWorker.jsx
 │   │   └── vite-env.d.js
