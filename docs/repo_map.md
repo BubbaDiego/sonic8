@@ -1460,7 +1460,7 @@ sonic1/
 │   │   │           ├── ProjectTaskCard.jsx
 │   │   │           ├── WeatherCard.jsx
 │   │   │           └── index_sonic_dashboard.jsx
-│   │   ├── App.jsx
+│   │   ├── SonicReactApp.jsx
 │   │   ├── config.js
 │   │   ├── index_sonic_dashboard.jsx
 │   │   ├── reportWebVitals.js

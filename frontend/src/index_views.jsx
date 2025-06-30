@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 
 // project imports
-import App from 'App';
+import SonicReactApp from 'frontend/src/SonicReactApp';
 import { store, persister } from 'store';
 import * as serviceWorker from 'serviceWorker';
 import reportWebVitals from 'reportWebVitals';
@@ -44,7 +44,7 @@ root.render(
   <Provider store={store}>
     <PersistGate loading={null} persistor={persister}>
       <ConfigProvider>
-        <App />
+        <SonicReactApp />
       </ConfigProvider>
     </PersistGate>
   </Provider>

@@ -5,7 +5,7 @@ from app.alerts_bp import alerts_bp
 from core.core_imports import log
 from data.data_locker import DataLocker
 
-# Setup the Flask Test App
+# Setup the Flask Test SonicReactApp
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(DataLocker, "_seed_modifiers_if_empty", lambda self: None)

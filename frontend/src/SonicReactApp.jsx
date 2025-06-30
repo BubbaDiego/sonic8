@@ -22,7 +22,7 @@ import { JWTProvider as AuthProvider } from 'contexts/JWTContext';
 
 // ==============================|| APP ||============================== //
 
-export default function App() {
+export default function SonicReactApp() {
   return (
     <>
       <ThemeCustomization>
