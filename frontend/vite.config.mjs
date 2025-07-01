@@ -13,8 +13,7 @@ export default defineConfig(({ mode }) => {
     server: {
       open: true,
       port: PORT,
-      host: true,
-      historyApiFallback: true
+      host: true
     },
     build: {
       chunkSizeWarningLimit: 1600
