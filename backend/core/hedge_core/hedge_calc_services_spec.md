@@ -1,8 +1,9 @@
 # 📐 HedgeCalcServices Specification
 
-> Version: `v1.0`
+> Version: `v1.1`
 > Author: `CoreOps 🥷`
 > Scope: Delta and gamma hedging calculations for opposing positions.
+> Provides hedge metrics to Cyclone Engine and Monitor Core via DataLocker services.
 
 `HedgeCalcServices` is a calculation utility supporting delta and gamma hedging workflows. It evaluates paired long and short positions, measures imbalance, and suggests rebalancing actions.
 

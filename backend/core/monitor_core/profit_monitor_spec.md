@@ -1,8 +1,9 @@
 📈 Profit Monitor Specification
-Version: v1.0
+Version: v1.1
 Author: CoreOps 🥷
 Scope: Profit monitoring, UI integration, and notifications
 System: Cyclone Engine, Monitor Core, XCom, Front-end Title Bar
+Architecture: Runs each cycle within Cyclone 2025 and records events to DataLocker.
 
 🔖 Overview
 The ProfitMonitor component monitors accumulated profit across active positions. When accumulated profit exceeds a predefined threshold (currently $50), the system:
@@ -167,7 +168,9 @@ Ensure the following files are checked in and available:
 
  frontend/templates/sonic_header.html
 
- frontend/static/css/sonic_header.css
+frontend/static/css/sonic_header.css
 
- frontend/static/js/sonic_header.js
+frontend/static/js/sonic_header.js
+ 
+DataLocker tables store profit snapshots and drive threshold checks each cycle.
 

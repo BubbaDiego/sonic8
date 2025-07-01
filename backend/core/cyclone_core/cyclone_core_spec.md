@@ -1,8 +1,9 @@
 # 🌪️ Cyclone Core Specification
 
-> Version: `v1.0`
+> Version: `v1.1`
 > Author: `CoreOps 🥷`
 > Scope: Orchestration engine for market updates, position enrichment, alert creation, hedge linkage, and reporting.
+> Central hub in the 2025 architecture, coordinating flows between DataLocker, Wallet, Trader and Monitor cores.
 
 ---
 
@@ -57,6 +58,7 @@ Each method logs progress with emojis and delegates to the appropriate service o
 - **AlertCore** – all alert creation and evaluation flows.
 - **PositionCore** – position synchronization and enrichment.
 - **MonitorCore** – optional monitoring callbacks during `run_cycle`.
+- **WalletCore**, **TraderCore** and **XCom** are invoked for wallet actions, persona updates and notifications respectively.
 - **Flask API** – `cyclone_bp.py` exposes HTTP endpoints that call into the same run methods.
 - **Console** – `cyclone_console` offers an interactive menu using the `rich` library.
 

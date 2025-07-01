@@ -1,8 +1,9 @@
 # 📡 XCom Core Specification
 
-> Version: `v1.1`
+> Version: `v1.2`
 > Author: `CoreOps 🥷`
 > Scope: Notification system for email, SMS, voice and sound alerts.
+> Serves as the messaging backbone in the Cyclone 2025 architecture, triggered by Monitor and Wallet cores.
 
 ---
 
@@ -71,6 +72,7 @@ so that `XComCore` has immediate access to required credentials such as
 - `operations_console.py` uses XComCore for manual operations and testing.
 - `DeathNailService` now handles fatal errors locally; XCom escalation is
   disabled to avoid voice calls.
+- Wallet and Trader cores publish events via XCom during Cyclone cycles.
 
 ### ✅ Design Notes
 - Logging goes through `core.logging` with success or error emojis.

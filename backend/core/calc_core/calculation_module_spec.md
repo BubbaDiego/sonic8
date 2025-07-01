@@ -1,8 +1,9 @@
 # 🧮 Calculation Core Specification
 
-> Version: `v1.0`
+> Version: `v1.1`
 > Author: `CoreOps 🥷`
 > Scope: Risk metric calculations, aggregation utilities, and hedge grouping.
+> Works with Cyclone Engine 2025 and DataLocker to provide metrics used by Trader and Monitor cores.
 
 ---
 
@@ -62,6 +63,7 @@ Highlights
 🧩 Integrations
 - `PositionCore` uses `CalculationCore` for enrichment and portfolio snapshots.
 - `Cyclone` engine can trigger `HedgeManager.find_hedges()` during risk evaluation cycles.
+- Results feed back into XCom notifications and persist via DataLocker.
 
 ✅ Design Notes
 - Calculations are logged via `ConsoleLogger` for transparency.

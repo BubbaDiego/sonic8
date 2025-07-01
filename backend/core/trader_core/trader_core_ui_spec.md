@@ -1,8 +1,9 @@
 # 🎨 Trader Core UI Specification
 
-> Version: v1.0
+> Version: v1.1
 > Author: CoreOps 🥷
 > Scope: Overview of pages and assets used to manage Trader personas.
+> Interfaces with the 2025 Cyclone architecture for real-time persona editing and notifications.
 
 ---
 

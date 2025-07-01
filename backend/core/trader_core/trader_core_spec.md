@@ -1,8 +1,9 @@
 # 🧠 Trader Core Specification
 
-> Version: `v1.3`
+> Version: `v1.4`
 > Author: `CoreOps 🧠`
 > Scope: Build, persist, and manage Trader personas tied to portfolio strategy and mood evaluation.
+> Now integrates with Cyclone Engine 2025 for persona updates and notifies XCom of important events.
 
 ---
 

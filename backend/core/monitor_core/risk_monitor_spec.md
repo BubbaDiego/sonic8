@@ -1,8 +1,9 @@
 📈 Risk Monitor Specification
-Version: v1.1
+Version: v1.2
 Author: CoreOps 🥷
 Scope: Risk monitoring, UI integration and notifications
 System: Cyclone Engine, Monitor Core, XCom, Front-end Title Bar
+Architecture: Operates under Cyclone 2025; persists findings via DataLocker.
 
 🔖 Overview
 The `RiskMonitor` component observes active positions to detect when a
