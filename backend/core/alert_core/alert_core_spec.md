@@ -1,8 +1,9 @@
 # 🚨 Alert Core Specification
 
-> Version: `v1.0`
+> Version: `v1.1`
 > Author: `CoreOps 🥷`
 > Scope: Alert orchestration, enrichment, evaluation and notification.
+> Integrates with Cyclone Engine 2025 for event processing using DataLocker and dispatches alerts through XCom.
 
 ---
 
@@ -94,5 +95,6 @@ Helper functions to normalize enum inputs, resolve wallet metadata and load defa
 - `twilio` (optional) for SMS notifications
 - `win10toast` (optional) for Windows toast notifications
 - Internal packages: `core.locker_factory`, `core.logging`, `data` models and managers, `notifications.twilio_sms_sender`
+- Integrates with Cyclone Engine via `DataLocker` and sends alerts through `XCom`
 
 ---

@@ -1,8 +1,9 @@
 # 🌿 Hedge Core Specification
 
-> Version: `v1.0`
+> Version: `v1.1`
 > Author: `CoreOps 🥷`
 > Scope: Grouping and managing hedges derived from position data.
+> Interfaces with Cyclone Engine and Monitor Core via DataLocker for consistent hedge state.
 
 ---
 
@@ -34,6 +35,7 @@ HedgeCore(data_locker)
 2. `build_hedges()` groups positions by `hedge_buddy_id`, aggregates sizes and heat indices, and returns a list of `Hedge` objects. 【F:hedge_core/hedge_core.py†L43-L89】
 3. `link_hedges()` iterates positions grouped by `(wallet_name, asset_type)` and assigns a UUID when both long and short types are present. 【F:hedge_core/hedge_core.py†L91-L118】
 4. `unlink_hedges()` performs a bulk SQL update to remove links. 【F:hedge_core/hedge_core.py†L121-L129】
+5. Results are persisted via `DataLocker` and summary notifications are emitted through `XCom`.
 
 ### ✅ Design Notes
 - All logging is handled through the shared logger injected via `core.core_imports`. 【F:hedge_core/hedge_core.py†L24-L129】

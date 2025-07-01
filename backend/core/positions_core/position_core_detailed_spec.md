@@ -1,8 +1,12 @@
 # Position Core Detailed Specification
 
+> Version: `v1.0`
+> Author: `CoreOps 🥷`
+
 ## Overview
 
 The `PositionCore` module orchestrates position management, enrichment, synchronization, and snapshotting. It relies on the `DataLocker` data layer for persistent storage and shared services.  This specification documents the behavior of `PositionCore`, its interaction with subordinate services (`PositionStore`, `PositionEnrichmentService`, `PositionSyncService`, and `HedgeManager`), and the responsibilities of the data layer components it uses.
+It now participates in Cyclone Engine 2025 cycles and feeds data to Monitor, Hedge and Trader cores.
 
 ## Module Relationships
 
@@ -212,6 +216,7 @@ Creating a position via `PositionCore.create_position()` proceeds as follows:
 3. The enriched dictionary is passed to `PositionStore.insert()`.
 4. `PositionStore` calls `DLPositionManager.create_position()` which ensures defaults, sanitizes fields against the schema, constructs the SQL insert, and commits to SQLite.
 5. Success is logged at each stage via the centralized logger.
+6. The updated state is persisted via `DataLocker` and key metrics are broadcast to `MonitorCore` using `XCom`.
 
 ## Snapshot Lifecycle
 

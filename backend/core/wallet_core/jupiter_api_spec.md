@@ -1,11 +1,13 @@
 # Jupiter API Spec
 
 Author: BubbaDiego
-Date: 2025-05-24
+Date: 2025-06-30
+Version: v1.0
 
 ## Overview
 
 Managing collateral on Solana typically involves building and signing transactions that call on-chain program instructions. Using Python, you can leverage libraries like Solana-Py (the official Solana Python SDK) or AnchorPy (for Anchor framework programs) to compose and send these transactions. Below we outline approaches and examples for adding/removing collateral to an existing position, including swapping assets via Jupiter aggregator and calling deposit/withdraw instructions on lending/margin protocols.
+This spec reflects the redesigned 2025 architecture where WalletCore operations are invoked by Cyclone Engine and results recorded in DataLocker.
 
 ### Python Tools and SDKs for Solana Transactions
 - **Solana-Py** – A low-level Python SDK to construct transactions, create instructions, and interact with the Solana RPC API.

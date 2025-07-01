@@ -1,8 +1,9 @@
 # 🔮 Oracle Core Specification
 
-> Version: `v1.1`
+> Version: `v1.2`
 > Author: `CoreOps 🥷`
 > Scope: Strategy-aware topic aggregator for GPT queries.
+> Coordinates queries across Cyclone Engine, Trader Core and DataLocker using the new 2025 architecture.
 
 ---
 

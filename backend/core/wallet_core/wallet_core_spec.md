@@ -1,8 +1,9 @@
 # 💼 Wallet Core Specification
 
-> Version: `v1.0`
+> Version: `v1.1`
 > Author: `CoreOps 🥷`
 > Scope: WalletCore orchestrator and supporting wallet services.
+> Operates under Cyclone Engine 2025 using DataLocker for persistence and XCom for transaction alerts.
 
 ---
 

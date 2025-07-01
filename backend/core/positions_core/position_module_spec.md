@@ -1,9 +1,10 @@
 # 💾 Position Module Specification
 
-> Version: `v1.0`  
+> Version: `v1.1`
 > Author: `CoreOps 🥷`  
 > Scope: PositionCore + Enrichment + Sync + Hedge + Store  
 > System: Cyclone Console + Engine + DL Layer
+> Works under the 2025 architecture with Monitor, Hedge and Trader cores interconnected via DataLocker and XCom.
 
 ---
 
