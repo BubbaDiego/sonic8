@@ -32,6 +32,10 @@ export default defineConfig(({ mode }) => {
       }
     },
     base: API_URL,
-    plugins: [react(), jsconfigPaths()]
+    plugins: [react(), jsconfigPaths()],
+    test: {
+      environment: 'jsdom',
+      setupFiles: './src/setupTests.js'
+    }
   };
 });
