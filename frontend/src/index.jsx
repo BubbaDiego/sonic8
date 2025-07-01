@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 
 // project imports
-import SonicReactApp from 'frontend/src/SonicReactApp';
+import SonicReactApp from './SonicReactApp';
 import { store, persister } from 'store';
 import * as serviceWorker from 'serviceWorker';
 import reportWebVitals from 'reportWebVitals';
