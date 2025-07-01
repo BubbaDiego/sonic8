@@ -11,7 +11,7 @@ frontend/
 ├── .yarnrc.yml
 ├── eslint.config.mjs
 ├── favicon.svg
-├── index_vite.html
+├── index.html
 ├── jsconfig.json
 ├── jsconfig.node.json
 ├── package-lock.json
@@ -28,7 +28,7 @@ frontend/
 │   ├── contexts/
 │   ├── data/
 │   ├── hooks/
-│   ├── index_sonic.jsx
+│   ├── index.jsx
 │   ├── layout/
 │   ├── menu-items/
 │   ├── metrics/
@@ -71,7 +71,7 @@ frontend/
 - **.yarnrc.yml** – Yarn configuration file.
 - **eslint.config.mjs** – ESLint setup for linting the React codebase.
 - **favicon.svg** – Default browser tab icon.
-- **index_vite.html** – Entry HTML page used by Vite.
+- **index.html** – Entry HTML page used by Vite.
 - **jsconfig.json** / **jsconfig.node.json** – Editor settings for path resolution.
 - **package.json** / **package-lock.json** – NPM dependencies and lock file.
 - **vite.config.mjs** – Vite build and dev server configuration.
@@ -89,7 +89,7 @@ frontend/
 - **contexts/** – React context providers for authentication and configuration (Auth0, Firebase, JWT, etc.).
 - **data/** – Static location data and other seeding information.
 - **hooks/** – Reusable React hooks like `useAuth` and `useConfig`.
-- **index_sonic.jsx** – Vite entry point rendering `SonicReactApp`.
+- **index.jsx** – Vite entry point rendering `SonicReactApp`.
 - **layout/** – Layout components including main dashboard, minimal and simple page shells.
 - **menu-items/** – Definitions used to build the sidebar navigation menu.
 - **metrics/** – Components for analytics tags and notifications.
