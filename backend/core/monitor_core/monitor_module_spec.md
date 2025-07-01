@@ -1,8 +1,9 @@
 # 🛰️ Monitor Core Specification
 
-> Version: `v1.2`
+> Version: `v1.3`
 > Author: `CoreOps 🥷`
 > Scope: Monitor orchestrator and supporting monitors.
+> Runs within Cyclone Engine cycles, persisting output to DataLocker and routing notifications through XCom.
 
 ---
 
