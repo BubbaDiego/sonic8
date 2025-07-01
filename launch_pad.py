@@ -16,6 +16,9 @@ from rich.console import Console
 from rich.panel import Panel
 from backend.console.cyclone_console import run_console
 from backend.core.wallet_core import WalletService
+from backend.data.data_locker import DataLocker
+from backend.core.constants import MOTHER_DB_PATH
+from core.logging import log, configure_console_log
 
 wallet_service = WalletService()
 
@@ -86,6 +89,20 @@ def run_tests():
     subprocess.call([PYTHON_EXEC, "-m", "pytest", "-q"])
 
 
+def launch_sonic_web():
+    """Start the Flask dashboard and open the home page."""
+    subprocess.Popen([PYTHON_EXEC, "sonic_app.py"])
+    log.print_dashboard_link()
+    wait_and_open("http://127.0.0.1:5000", secs=1)
+
+
+def launch_trader_cards():
+    """Start the Flask dashboard and open the trader cards route."""
+    subprocess.Popen([PYTHON_EXEC, "sonic_app.py"])
+    log.print_dashboard_link()
+    wait_and_open("http://127.0.0.1:5000/trader/cards", secs=1)
+
+
 def wallet_menu():
     """Simple wallet CRUD interface."""
     while True:
@@ -131,6 +148,37 @@ def wallet_menu():
         else:
             console.print("[bold red]Invalid selection.[/]")
             input("\nPress ENTER to continue...")
+
+
+def operations_menu(db_path: str = str(MOTHER_DB_PATH)):
+    """Menu for basic DataLocker operations."""
+    locker = DataLocker(db_path)
+    while True:
+        clear_screen()
+        banner()
+        console.print("[bold magenta]Operations[/bold magenta]")
+        console.print("1) Initialize database")
+        console.print("2) Verify database")
+        console.print("3) Recover database")
+        console.print("b) Back")
+
+        choice = input("→ ").strip().lower()
+        if choice == "1":
+            locker.initialize_database()
+            locker._seed_modifiers_if_empty()
+            locker._seed_wallets_if_empty()
+            locker._seed_thresholds_if_empty()
+            locker._seed_alerts_if_empty()
+        elif choice == "2":
+            verify_database()
+        elif choice == "3":
+            locker.db.recover_database()
+        elif choice in {"b", "0"}:
+            locker.close()
+            break
+        else:
+            console.print("[bold red]Invalid selection.[/]")
+        input("")
 
 
 # Main menu loop

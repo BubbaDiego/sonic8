@@ -34,23 +34,28 @@ sys.modules["scripts.verify_all_tables_exist"].verify_all_tables_exist = lambda:
 sys.modules.setdefault("monitor.sonic_monitor", types.ModuleType("monitor.sonic_monitor"))
 
 try:
-    import launch_pad
+    import launch_pad as lp_mod
 except Exception:
     pytest.skip("launch_pad module unavailable", allow_module_level=True)
 
 
-def _run_launch(func, monkeypatch):
+@pytest.fixture
+def launch_pad_module():
+    return importlib.reload(lp_mod)
+
+
+def _run_launch(module, func, monkeypatch):
 
     urls = []
     popen_cmds = []
-    data_locker_mod = types.ModuleType("data.data_locker")
+    data_locker_mod = types.ModuleType("backend.data.data_locker")
     data_locker_mod.DataLocker = object
-    monkeypatch.setitem(sys.modules, "data.data_locker", data_locker_mod)
+    monkeypatch.setitem(sys.modules, "backend.data.data_locker", data_locker_mod)
     monkeypatch.setattr(builtins, "input", lambda _: "")
-    monkeypatch.setattr(lp_mod.time, "sleep", lambda _: None)
-    monkeypatch.setattr(lp_mod.webbrowser, "open", lambda url: urls.append(url))
-    monkeypatch.setattr(lp_mod.subprocess, "Popen", lambda args: popen_cmds.append(args))
-    monkeypatch.setattr(lp_mod.log, "print_dashboard_link", lambda *a, **k: None)
+    monkeypatch.setattr(module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(module.webbrowser, "open", lambda url: urls.append(url))
+    monkeypatch.setattr(module.subprocess, "Popen", lambda args: popen_cmds.append(args))
+    monkeypatch.setattr(module.log, "print_dashboard_link", lambda *a, **k: None)
     func()
     return urls, popen_cmds
 
