@@ -77,7 +77,14 @@ class TestCoreRunner:
         conf = self.root / "tests" / "conftest.py"
         if not conf.exists():
             return
-        spec = importlib.util.spec_from_file_location("test_core.conftest", conf)
+        # Use a unique module name to avoid ImportPathMismatch errors when the
+        # repository also includes ``test_core/conftest.py``.  Pytest requires
+        # the actual filename ``conftest.py`` but the module name can be
+        # arbitrary.  Importing under a different name keeps both files loaded
+        # without conflicts.
+        spec = importlib.util.spec_from_file_location(
+            "test_core.tests_bootstrap", conf
+        )
         if spec and spec.loader:
             module = importlib.util.module_from_spec(spec)
             sys.modules.setdefault(spec.name, module)
