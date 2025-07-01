@@ -16,9 +16,11 @@ from rich.console import Console
 from rich.panel import Panel
 from backend.console.cyclone_console import run_console
 from backend.core.wallet_core import WalletService
+from test_core import TestCoreRunner, formatter
 from backend.data.data_locker import DataLocker
 from backend.core.constants import MOTHER_DB_PATH
 from core.logging import log, configure_console_log
+
 
 wallet_service = WalletService()
 
@@ -86,7 +88,8 @@ def verify_database():
 
 def run_tests():
     console.log("🚨 Running tests...")
-    subprocess.call([PYTHON_EXEC, "-m", "pytest", "-q"])
+    results = TestCoreRunner().run()
+    console.print(formatter.render_summary(results))
 
 
 def launch_sonic_web():
