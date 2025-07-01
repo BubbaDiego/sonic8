@@ -16,6 +16,7 @@ from rich.console import Console
 from rich.panel import Panel
 from backend.console.cyclone_console import run_console
 from backend.core.wallet_core import WalletService
+from test_core import TestCoreRunner, formatter
 
 wallet_service = WalletService()
 
@@ -83,7 +84,8 @@ def verify_database():
 
 def run_tests():
     console.log("🚨 Running tests...")
-    subprocess.call([PYTHON_EXEC, "-m", "pytest", "-q"])
+    results = TestCoreRunner().run()
+    console.print(formatter.render_summary(results))
 
 
 def wallet_menu():
