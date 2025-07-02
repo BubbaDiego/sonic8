@@ -13,7 +13,10 @@ export default defineConfig(({ mode }) => {
     server: {
       open: true,
       port: PORT,
-      host: true
+      host: true,
+      hmr: {
+        overlay: false
+      }
     },
     build: {
       chunkSizeWarningLimit: 1600
