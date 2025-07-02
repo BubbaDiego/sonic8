@@ -47,9 +47,9 @@ The FastAPI application is defined in `backend/sonic_backend_app.py`. It registe
 ```python
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes.positions_api import router as positions_router
-from routes.portfolio_api import router as portfolio_router
-from routes.cyclone_api import router as cyclone_router
+from backend.routes.positions_api import router as positions_router
+from backend.routes.portfolio_api import router as portfolio_router
+from backend.routes.cyclone_api import router as cyclone_router
 
 app = FastAPI(title="Sonic API")
 
