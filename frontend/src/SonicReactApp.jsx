@@ -11,7 +11,6 @@ import Snackbar from 'ui-component/extended/Snackbar';
 import Notistack from 'ui-component/third-party/Notistack';
 import Metrics from 'metrics';
 
-import ThemeCustomization from 'themes';
 
 // auth provider
 import { JWTProvider as AuthProvider } from 'contexts/JWTContext';
@@ -25,22 +24,20 @@ import { JWTProvider as AuthProvider } from 'contexts/JWTContext';
 export default function SonicReactApp() {
   return (
     <>
-      <ThemeCustomization>
-        <RTLLayout>
-          <Locales>
-            <NavigationScroll>
-              <AuthProvider>
-                <>
-                  <Notistack>
-                    <RouterProvider router={router} />
-                    <Snackbar />
-                  </Notistack>
-                </>
-              </AuthProvider>
-            </NavigationScroll>
-          </Locales>
-        </RTLLayout>
-      </ThemeCustomization>
+      <RTLLayout>
+        <Locales>
+          <NavigationScroll>
+            <AuthProvider>
+              <>
+                <Notistack>
+                  <RouterProvider router={router} />
+                  <Snackbar />
+                </Notistack>
+              </>
+            </AuthProvider>
+          </NavigationScroll>
+        </Locales>
+      </RTLLayout>
       <Metrics />
     </>
   );

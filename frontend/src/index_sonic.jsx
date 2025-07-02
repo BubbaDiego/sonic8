@@ -10,6 +10,7 @@ import { store, persister } from 'store';
 import * as serviceWorker from 'serviceWorker';
 import reportWebVitals from 'reportWebVitals';
 import { ConfigProvider } from 'contexts/ConfigContext';
+import ThemeCustomization from 'themes';
 
 // style + assets
 import 'assets/scss/style.scss';
@@ -41,13 +42,15 @@ import '@fontsource/poppins/700.css';
 const container = document.getElementById('root');
 const root = createRoot(container);
 root.render(
-  <Provider store={store}>
-    <PersistGate loading={null} persistor={persister}>
-      <ConfigProvider>
-        <SonicReactApp />
-      </ConfigProvider>
-    </PersistGate>
-  </Provider>
+  <ThemeCustomization>
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persister}>
+        <ConfigProvider>
+          <SonicReactApp />
+        </ConfigProvider>
+      </PersistGate>
+    </Provider>
+  </ThemeCustomization>
 );
 
 // If you want your app to work offline and load faster, you can change
