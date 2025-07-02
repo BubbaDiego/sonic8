@@ -124,13 +124,13 @@ def _prepare_sonic_env(monkeypatch):
     monkeypatch.setenv('LEARNING_DB_PATH', '/tmp/learning.db')
 
     bp_modules = {
-        'app.positions_bp': 'positions_bp',
+        'backend.routes.positions_api': 'router',
         'app.alerts_bp': 'alerts_bp',
         'app.prices_bp': 'prices_bp',
         'app.dashboard_bp': 'dashboard_bp',
-        'portfolio.portfolio_bp': 'portfolio_bp',
+        'backend.routes.portfolio_api': 'router',
         'sonic_labs.sonic_labs_bp': 'sonic_labs_bp',
-        'cyclone.cyclone_bp': 'cyclone_bp',
+        'backend.routes.cyclone_api': 'router',
         'routes.theme_routes': 'theme_bp',
         'app.system_bp': 'system_bp',
         'settings.settings_bp': 'settings_bp',
