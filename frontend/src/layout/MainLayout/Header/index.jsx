@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import LogoSection from '../LogoSection';
 import ProfileSection from './ProfileSection';
 import FullScreenSection from './FullScreenSection';
+import ThemeModeSection from './ThemeModeSection';
 import NotificationSection from './NotificationSection';
 import CycloneRunSection from './CycloneRunSection';
 
@@ -72,6 +73,9 @@ export default function Header() {
       <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
         <FullScreenSection />
       </Box>
+
+      {/* theme mode toggler */}
+      <ThemeModeSection />
 
       {/* profile */}
       <ProfileSection />
