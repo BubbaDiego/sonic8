@@ -14,7 +14,6 @@ import { ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axios';
-w
 // canned data for initial UI
 const initialChartData = {
   series: [
