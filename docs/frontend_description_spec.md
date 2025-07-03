@@ -28,7 +28,7 @@ frontend/
 │   ├── contexts/
 │   ├── data/
 │   ├── hooks/
-│   ├── index.jsx
+│   ├── index_sonic.jsx
 │   ├── layout/
 │   ├── menu-items/
 │   ├── metrics/
@@ -89,7 +89,7 @@ frontend/
 - **contexts/** – React context providers for authentication and configuration (Auth0, Firebase, JWT, etc.).
 - **data/** – Static location data and other seeding information.
 - **hooks/** – Reusable React hooks like `useAuth` and `useConfig`.
-- **index.jsx** – Vite entry point rendering `SonicReactApp`.
+- **index_sonic.jsx** – Vite entry point rendering `SonicReactApp`.
 - **layout/** – Layout components including main dashboard, minimal and simple page shells.
 - **menu-items/** – Definitions used to build the sidebar navigation menu.
 - **metrics/** – Components for analytics tags and notifications.
