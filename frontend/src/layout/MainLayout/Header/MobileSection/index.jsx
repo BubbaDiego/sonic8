@@ -10,6 +10,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Box from '@mui/material/Box';
 
 // project imports
+import LocalizationSection from '../LocalizationSection';
 import Transitions from 'ui-component/extended/Transitions';
 
 // assets
@@ -83,6 +84,7 @@ export default function MobileSection() {
                 {open && (
                   <AppBar color="inherit">
                     <Toolbar sx={{ py: 2.75 }}>
+                      <LocalizationSection />
                     </Toolbar>
                   </AppBar>
                 )}

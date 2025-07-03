@@ -217,7 +217,7 @@ export default function PreBuildDashBoard() {
                 link="/dashboard/blog"
               />
               <Items title="Calender" image={theme.palette.mode === ThemeMode.DARK ? SliderDark2 : SliderLight2} link="/apps/calendar" />
-              <Items title="Chat SonicReactApp" image={theme.palette.mode === ThemeMode.DARK ? SliderDark3 : SliderLight3} link="/apps/chat" />
+              <Items title="Chat App" image={theme.palette.mode === ThemeMode.DARK ? SliderDark3 : SliderLight3} link="/apps/chat" />
               <Items
                 title="User Contacts"
                 image={theme.palette.mode === ThemeMode.DARK ? SliderDark4 : SliderLight4}

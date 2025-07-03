@@ -18,14 +18,6 @@ const dashboard = {
   type: 'group',
   children: [
     {
-      id: 'sonic',
-      title: 'sonic',
-      type: 'item',
-      url: '/dashboard/sonic',
-      icon: icons.IconDeviceAnalytics,
-      breadcrumbs: false
-    },
-    {
       id: 'default',
       title: 'default',
       type: 'item',

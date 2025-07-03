@@ -1,3 +1,10 @@
+import sys
+import os
+
+# Adds the parent of 'backend' to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.positions_api import router as positions_router

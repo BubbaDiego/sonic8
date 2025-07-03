@@ -11,7 +11,6 @@ import { loader as productsLoader, productLoader } from 'api/products';
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')));
 const DashboardAnalytics = Loadable(lazy(() => import('views/dashboard/Analytics')));
-const DashboardSonic = Loadable(lazy(() => import('views/dashboard/Sonic')));
 
 // widget routing
 const WidgetStatistics = Loadable(lazy(() => import('views/widget/Statistics')));
@@ -178,9 +177,8 @@ const UtilsShadow = Loadable(lazy(() => import('views/utilities/Shadow')));
 const UtilsAnimation = Loadable(lazy(() => import('views/utilities/Animation')));
 const UtilsGrid = Loadable(lazy(() => import('views/utilities/Grid')));
 
+// sample page routing
 const SamplePage = Loadable(lazy(() => import('views/sample-page')));
-// cyclone routing
-const CycloneRun = Loadable(lazy(() => import('views/cyclone/Run')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -713,20 +711,12 @@ const MainRoutes = {
       element: <SamplePage />
     },
     {
-      path: '/cyclone/run',
-      element: <CycloneRun />
-    },
-    {
       path: '/dashboard/default',
       element: <DashboardDefault />
     },
     {
       path: '/dashboard/analytics',
       element: <DashboardAnalytics />
-    },
-    {
-      path: '/dashboard/sonic',
-      element: <DashboardSonic />
     },
     {
       path: '/dashboard/invoice',
