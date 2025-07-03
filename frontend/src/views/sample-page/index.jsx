@@ -1,13 +1,17 @@
 // material-ui
+
 import Grid from '@mui/material/Grid';
 import { useTheme } from '@mui/material/styles';
 import { IconCurrencyDollar } from '@tabler/icons-react';
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
-
 import { ThemeMode } from 'config';
 import TotalValueCard from 'ui-component/cards/TotalValueCard';
 import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
+import Typography from '@mui/material/Typography';
+import Grid from '@mui/material/Grid';
+import { IconCurrencyDollar } from '@tabler/icons-react';
+
 
 // project imports
 import MainCard from 'ui-component/cards/MainCard';

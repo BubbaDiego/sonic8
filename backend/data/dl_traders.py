@@ -11,12 +11,12 @@ convenience:
 
 import json
 
-from utils.time_utils import iso_utc_now, normalize_iso_timestamp
+from backend.utils.time_utils import iso_utc_now, normalize_iso_timestamp
 
 import os
 from datetime import datetime
-from core.core_imports import log
-from core.constants import CONFIG_DIR
+from backend.core.core_imports import log
+from backend.core.constants import CONFIG_DIR
 
 ACTIVE_TRADERS_JSON_PATH = CONFIG_DIR / "active_traders.json"
 
