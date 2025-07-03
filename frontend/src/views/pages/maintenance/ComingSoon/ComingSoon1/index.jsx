@@ -180,7 +180,7 @@ export default function ComingSoon1() {
           <CardMedia
             component="img"
             src={theme.palette.mode === ThemeMode.DARK ? logoDark : logo}
-            alt="Berry"
+            alt="Sonic"
             sx={{
               position: themeDirection === ThemeDirection.RTL ? 'relative' : 'initial',
               top: themeDirection === ThemeDirection.RTL ? 30 : 'initial',
@@ -374,7 +374,7 @@ export default function ComingSoon1() {
                               <CardMedia
                                 component="img"
                                 src={theme.palette.mode === ThemeMode.DARK ? companyDarkLogo : companyLightLogo}
-                                alt="Berry"
+                                alt="Sonic"
                                 sx={{ display: 'initial' }}
                               />
                             </Grid>
