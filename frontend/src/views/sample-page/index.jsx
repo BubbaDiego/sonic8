@@ -1,5 +1,9 @@
 // material-ui
 import Typography from '@mui/material/Typography';
+import Grid from '@mui/material/Grid';
+import { IconCurrencyDollar } from '@tabler/icons-react';
+
+import TotalValueCard from 'ui-component/cards/TotalValueCard';
 
 // project imports
 import MainCard from 'ui-component/cards/MainCard';
@@ -9,12 +13,17 @@ import MainCard from 'ui-component/cards/MainCard';
 export default function SamplePage() {
   return (
     <MainCard title="Sample Card">
-      <Typography variant="body2">
-        Lorem ipsum dolor sit amen, consenter nipissing eli, sed do elusion tempos incident ut laborers et doolie magna alissa. Ut enif ad
-        minim venice, quin nostrum exercitation illampu laborings nisi ut liquid ex ea commons construal. Duos aube grue dolor in
-        reprehended in voltage veil esse colum doolie eu fujian bulla parian. Exceptive sin ocean cuspidate non president, sunk in culpa qui
-        officiate descent molls anim id est labours.
-      </Typography>
+      <Grid container>
+        <Grid item xs={3}>
+          <TotalValueCard
+            primary="Total Value"
+            secondary="$500,000"
+            content="Yearly revenue"
+            iconPrimary={IconCurrencyDollar}
+            color="primary.main"
+          />
+        </Grid>
+      </Grid>
     </MainCard>
   );
 }
