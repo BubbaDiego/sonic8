@@ -128,7 +128,7 @@ Comment/uncomment `AuthGuard` in `src/routes/MainRoutes.jsx` to disable/enable a
 ### Configuration
 
 Edit global settings in `src/config.ts`:
-
+[cyclone_core](../backend/core/cyclone_core)
 - layout
 - fontFamily
 - borderRadius
