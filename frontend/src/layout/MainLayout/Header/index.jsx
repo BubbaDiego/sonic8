@@ -13,6 +13,7 @@ import LocalizationSection from './LocalizationSection';
 import MegaMenuSection from './MegaMenuSection';
 import FullScreenSection from './FullScreenSection';
 import NotificationSection from './NotificationSection';
+import CycloneRunSection from './CycloneRunSection';
 
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import { MenuOrientation, ThemeMode } from 'config';
@@ -79,6 +80,9 @@ export default function Header() {
 
       {/* notification */}
       <NotificationSection />
+
+      {/* cyclone run */}
+      <CycloneRunSection />
 
       {/* full sceen toggler */}
       <Box sx={{ display: { xs: 'none', lg: 'block' } }}>

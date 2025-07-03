@@ -1,4 +1,5 @@
 // material-ui
+
 import Grid from '@mui/material/Grid';
 import { useTheme } from '@mui/material/styles';
 import { IconCurrencyDollar } from '@tabler/icons-react';
@@ -9,8 +10,11 @@ import TotalValueCard from 'ui-component/cards/TotalValueCard';
 import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
 
-// This sample demonstrates a TotalValueCard with a themed Total Leverage card
-// that toggles between light and dark variants based on the current theme.
+import Typography from '@mui/material/Typography';
+import Grid from '@mui/material/Grid';
+import { IconCurrencyDollar } from '@tabler/icons-react';
+
+
 
 // project imports
 import MainCard from 'ui-component/cards/MainCard';
