@@ -135,7 +135,7 @@ All cores rely on `DataLocker` for persistence and share common logging utilitie
 
 ## Frontend Architecture
 
-The React application is located under `frontend/` and documented in `docs/frontend_description_spec.md`.
+The React application is located under `frontend/` and documented in `docs/frontend_repo_map.md and docs/frontend_file_description.md`.
 The Vite entry point mounts the Redux provider and root component:
 
 ```javascript
