@@ -46,6 +46,13 @@ default. You can change this by editing `frontend/vite.config.mjs` and setting
 
 Feel free to explore each directory for more details.
 
+## Frontend UI Guide
+See [docs/berry_react_guide.md](docs/berry_react_guide.md) for details on the React codebase:
+- Overview of the `src/` folder structure.
+- State management with context and Redux.
+- Supported authentication methods (JWT, Firebase, Auth0, AWS Cognito).
+- Routing and theme customization options.
+
 ## Debugging frontend connectivity
 
 If the frontend UI does not show data, verify the backend API by running the
