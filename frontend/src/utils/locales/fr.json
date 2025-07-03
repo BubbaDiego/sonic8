@@ -86,7 +86,7 @@
   "mask": "Masquer",
   "clipboard": "Presse-papiers",
   "recaptcha": "reCaptcha",
-  "editor": "Éditeur",
+  "wysiwug-editor": "Éditeur Wysiwyg",
   "modal": "Modale",
   "tooltip": "Info-bulle",
   "dropzone": "Zone de largage",

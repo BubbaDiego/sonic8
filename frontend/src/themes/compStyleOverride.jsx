@@ -167,20 +167,6 @@ export default function componentStyleOverrides(theme, borderRadius, outlinedFil
         }
       }
     },
-    MuiPickersTextField: {
-      styleOverrides: {
-        root: {
-          borderRadius: `${borderRadius}px`,
-          '& .MuiPickersOutlinedInput-root': {
-            borderRadius: `${borderRadius}px`
-          },
-          background: outlinedFilled ? bgColor : 'transparent',
-          '& .MuiPickersInputBase-sectionsContainer': {
-            fontWeight: 500
-          }
-        }
-      }
-    },
     MuiSlider: {
       styleOverrides: {
         root: {

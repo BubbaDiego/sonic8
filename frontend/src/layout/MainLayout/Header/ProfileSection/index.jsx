@@ -240,7 +240,7 @@ export default function ProfileSection() {
                         <ListItemButton
                           sx={{ borderRadius: `${borderRadius}px` }}
                           selected={selectedIndex === 0}
-                          onClick={(event) => handleListItemClick(event, 0, '/apps/user/account-profile/profile1')}
+                          onClick={(event) => handleListItemClick(event, 0)}
                         >
                           <ListItemIcon>
                             <IconSettings stroke={1.5} size="20px" />
@@ -256,7 +256,7 @@ export default function ProfileSection() {
                         <ListItemButton
                           sx={{ borderRadius: `${borderRadius}px` }}
                           selected={selectedIndex === 1}
-                          onClick={(event) => handleListItemClick(event, 1, '/apps/user/social-profile/posts')}
+                          onClick={(event) => handleListItemClick(event, 1)}
                         >
                           <ListItemIcon>
                             <IconUser stroke={1.5} size="20px" />

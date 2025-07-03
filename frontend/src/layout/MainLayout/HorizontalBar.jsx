@@ -9,8 +9,8 @@ import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 
 // project imports
-import MenuList from './MenuList';
 import { ThemeMode } from 'config';
+import MenuList from './MenuList';
 import useConfig from 'hooks/useConfig';
 
 function ElevationScroll({ children, window }) {

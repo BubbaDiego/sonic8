@@ -3,11 +3,12 @@
 // assets
 import { IconBrandChrome } from '@tabler/icons-react';
 
-// ==============================|| MENU ITEMS - SAMPLE PAGE ||============================== //
-
 const icons = {
   IconBrandChrome
 };
+
+// ==============================|| MENU ITEMS - SAMPLE PAGE ||============================== //
+
 const samplePage = {
   id: 'sample-page',
   title: 'sample-page',

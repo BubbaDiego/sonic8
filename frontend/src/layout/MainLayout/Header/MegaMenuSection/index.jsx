@@ -1,6 +1,5 @@
 import PropTypes from 'prop-types';
 import { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -57,80 +56,22 @@ const linkList = [
     id: 'user-quick',
     label: 'User Quick',
     children: [
-      {
-        link: '/apps/user/social-profile/posts',
-        label: 'Social Profile'
-      },
-      {
-        link: '/apps/user/account-profile/profile1',
-        label: 'Account Profile'
-      },
-      {
-        link: '/apps/user/card/card1',
-        label: 'User Cards'
-      },
-      {
-        link: '/apps/user/list/list2',
-        label: 'User List'
-      },
-      {
-        link: '/apps/contact/c-card',
-        label: 'Contact'
-      }
+      { label: 'Social Profile' },
+      { label: 'Account Profile' },
+      { label: 'User Cards' },
+      { label: 'User List' },
+      { label: 'Contact' }
     ]
   },
   {
     id: 'application',
     label: 'Applications',
-    children: [
-      {
-        link: '/apps/chat',
-        label: 'Chat'
-      },
-      {
-        link: '/apps/kanban/board',
-        label: 'Kanban'
-      },
-      {
-        link: '/apps/mail',
-        label: 'Mail'
-      },
-      {
-        link: '/apps/calendar',
-        label: 'Calendar'
-      },
-      {
-        link: '/apps/e-commerce/products',
-        label: 'E-commerce'
-      }
-    ]
+    children: [{ label: 'Chat' }, { label: 'Kanban' }, { label: 'Mail' }, { label: 'Calendar' }, { label: 'E-commerce' }]
   },
   {
     id: 'primitives',
     label: 'Primitives',
-    children: [
-      {
-        link: '/utils/util-color',
-        label: 'Colors'
-      },
-      {
-        link: '/utils/util-typography',
-        label: 'Typography'
-      },
-      {
-        link: '/utils/util-shadow',
-        label: 'Shadows'
-      },
-      {
-        link: 'https://tabler-icons.io/',
-        label: 'Icons',
-        target: '_blank'
-      },
-      {
-        link: '/basic/accordion',
-        label: 'Elements'
-      }
-    ]
+    children: [{ label: 'Colors' }, { label: 'Typography' }, { label: 'Shadows' }, { label: 'Icons' }, { label: 'Elements' }]
   }
 ];
 
@@ -237,12 +178,7 @@ export default function MegaMenuSection() {
                                 }
                               >
                                 {links.children.map((items, index) => (
-                                  <ListItemButton
-                                    component={Link}
-                                    to={items.link}
-                                    key={index}
-                                    {...(items.target && { target: items.target })}
-                                  >
+                                  <ListItemButton key={index}>
                                     <ListItemIcon>
                                       <FiberManualRecordIcon sx={{ fontSize: '0.5rem' }} />
                                     </ListItemIcon>

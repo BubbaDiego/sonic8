@@ -6,9 +6,7 @@
 @use 'slick-carousel/slick/slick.css';
 @use 'slick-carousel/slick/slick-theme.css';
 
-/* yet-another-react-lightbox */
 @use './yet-another-react-lightbox.scss';
-
 @use 'react-responsive-carousel/lib/styles/carousel.min.css';
 @use './scrollbar.scss';
 
@@ -302,14 +300,6 @@ html[dir='rtl'] {
       padding-left: unset;
       padding-right: 16px;
     }
-  }
-
-  .apexcharts-tooltip {
-    direction: rtl;
-  }
-
-  .apexcharts-tooltip-series-group {
-    justify-content: flex-start;
   }
 
   .apexcharts-tooltip .apexcharts-tooltip-marker {

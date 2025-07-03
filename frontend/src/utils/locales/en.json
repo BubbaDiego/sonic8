@@ -84,7 +84,7 @@
   "mask": "Mask",
   "clipboard": "Clipboard",
   "recaptcha": "reCaptcha",
-  "editor": "Editor",
+  "wysiwug-editor": "Wysiwug Editor",
   "modal": "Modal",
   "tooltip": "Tooltip",
   "dropzone": "Dropzone",

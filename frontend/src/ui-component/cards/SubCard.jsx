@@ -57,7 +57,7 @@ export default function SubCard({
 }
 
 SubCard.propTypes = {
-  children: PropTypes.oneOfType([PropTypes.node, PropTypes.any, PropTypes.string]),
+  children: PropTypes.oneOfType([PropTypes.any, PropTypes.node, PropTypes.string]),
   className: PropTypes.string,
   content: PropTypes.bool,
   contentClass: PropTypes.string,
