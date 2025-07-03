@@ -12,6 +12,7 @@ import ProfileSection from './ProfileSection';
 import LocalizationSection from './LocalizationSection';
 import MegaMenuSection from './MegaMenuSection';
 import FullScreenSection from './FullScreenSection';
+import ThemeModeSection from './ThemeModeSection';
 import NotificationSection from './NotificationSection';
 import CycloneRunSection from './CycloneRunSection';
 
@@ -88,6 +89,9 @@ export default function Header() {
       <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
         <FullScreenSection />
       </Box>
+
+      {/* theme mode toggler */}
+      <ThemeModeSection />
 
       {/* profile */}
       <ProfileSection />
