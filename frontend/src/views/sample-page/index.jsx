@@ -9,6 +9,8 @@ import { ThemeMode } from 'config';
 import TotalValueCard from 'ui-component/cards/TotalValueCard';
 import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
+import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
+
 
 // project imports
 import MainCard from 'ui-component/cards/MainCard';
@@ -38,6 +40,11 @@ export default function SamplePage() {
             <TotalLeverageLightCard icon={<TableChartOutlinedIcon fontSize="inherit" />} />
           )}
         </Grid>
+
+        <Grid item xs={6}>
+          <ValueToCollateralChartCard />
+        </Grid>
+
       </Grid>
     </MainCard>
   );
