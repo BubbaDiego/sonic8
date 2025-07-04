@@ -1,10 +1,13 @@
+from backend.models.portfolio import PortfolioSnapshot
+
+
 class OracleDataService:
     """Provide data for the GPT Oracle context."""
 
     def __init__(self, data_locker):
         self.dl = data_locker
 
-    def fetch_portfolio(self):
+    def fetch_portfolio(self) -> PortfolioSnapshot | None:
         return self.dl.portfolio.get_latest_snapshot()
 
     def fetch_alerts(self):

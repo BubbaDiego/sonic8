@@ -1,7 +1,8 @@
 import pytest
-from positions.position_core import PositionCore
+from backend.core.positions_core.position_core import PositionCore
 from data.data_locker import DataLocker
-from calc_core.calc_services import CalcServices
+from backend.core.calc_core.calc_services import CalcServices
+from backend.models.portfolio import PortfolioSnapshot
 
 
 def test_totals_exclude_inactive(tmp_path):
@@ -38,7 +39,8 @@ def test_totals_exclude_inactive(tmp_path):
     core.record_snapshot()
     snap = dl.portfolio.get_latest_snapshot()
 
-    assert snap["total_value"] == active_pos["value"]
-    assert snap["total_size"] == active_pos["size"]
-    assert snap["total_collateral"] == active_pos["collateral"]
+    assert isinstance(snap, PortfolioSnapshot)
+    assert snap.total_value == active_pos["value"]
+    assert snap.total_size == active_pos["size"]
+    assert snap.total_collateral == active_pos["collateral"]
 

@@ -5,9 +5,10 @@ import types
 import core.constants as const
 import core.core_imports as ci
 from data.data_locker import DataLocker
-from positions.position_core_service import PositionCoreService
-from positions.position_sync_service import PositionSyncService
-from wallets.wallet_core import WalletCore
+from backend.core.positions_core.position_core_service import PositionCoreService
+from backend.core.positions_core.position_sync_service import PositionSyncService
+from backend.core.wallet_core.wallet_core import WalletCore
+from backend.models.portfolio import PortfolioSnapshot
 
 SEED_PATCHES = [
     "_seed_modifiers_if_empty",
@@ -71,7 +72,8 @@ def test_position_core_service_snapshot_ignores_inactive(tmp_path, monkeypatch):
     svc = PositionCoreService(dl)
     svc.record_positions_snapshot()
     snap = dl.portfolio.get_latest_snapshot()
-    assert snap["total_value"] == 5
+    assert isinstance(snap, PortfolioSnapshot)
+    assert snap.total_value == 5
 
 
 def test_position_sync_service_snapshot_ignores_inactive(tmp_path, monkeypatch):
@@ -83,7 +85,7 @@ def test_position_sync_service_snapshot_ignores_inactive(tmp_path, monkeypatch):
     dl.positions.create_position({"id": "p2", "wallet_name": "inactive", "value": 7, "status": "ACTIVE"})
 
     monkeypatch.setattr(PositionSyncService, "update_jupiter_positions", lambda self: {"imported": 0, "updated": 0, "skipped": 0, "errors": 0})
-    import positions.position_sync_service as svc_module
+    import backend.core.positions_core.position_sync_service as svc_module
     hedge_mod = types.ModuleType("positions.hedge_manager")
     hedge_mod.HedgeManager = DummyHM
     monkeypatch.setitem(sys.modules, "positions.hedge_manager", hedge_mod)
@@ -98,7 +100,8 @@ def test_position_sync_service_snapshot_ignores_inactive(tmp_path, monkeypatch):
     service = PositionSyncService(dl)
     service.run_full_jupiter_sync()
     snap = dl.portfolio.get_latest_snapshot()
-    assert snap["total_value"] == 3
+    assert isinstance(snap, PortfolioSnapshot)
+    assert snap.total_value == 3
 
 
 def test_wallet_core_balance_ignores_inactive(tmp_path, monkeypatch):

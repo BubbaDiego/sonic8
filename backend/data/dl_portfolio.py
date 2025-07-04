@@ -14,39 +14,59 @@ Dependencies:
 from uuid import uuid4
 from datetime import datetime
 from backend.core.core_imports import log
+from backend.models.portfolio import PortfolioSnapshot
 
 class DLPortfolioManager:
     def __init__(self, db):
         self.db = db
         log.debug("DLPortfolioManager initialized.", source="DLPortfolioManager")
 
-    def record_snapshot(self, totals: dict):
+    def record_snapshot(self, totals: "PortfolioSnapshot | dict"):
         try:
             cursor = self.db.get_cursor()
             if cursor is None:
                 log.error("DB unavailable for portfolio snapshot", source="DLPortfolioManager")
                 return
-            cursor.execute("""
+
+            if isinstance(totals, PortfolioSnapshot):
+                if hasattr(totals, "model_dump"):
+                    data = totals.model_dump()
+                elif hasattr(totals, "dict"):
+                    data = totals.dict()
+                else:
+                    data = totals.__dict__
+            else:
+                data = dict(totals)
+
+            data.setdefault("id", str(uuid4()))
+            if isinstance(data.get("snapshot_time"), datetime):
+                data["snapshot_time"] = data["snapshot_time"].isoformat()
+            data.setdefault("snapshot_time", datetime.now().isoformat())
+
+            cursor.execute(
+                """
                 INSERT INTO positions_totals_history (
                     id, snapshot_time, total_size, total_value,
                     total_collateral, avg_leverage, avg_travel_percent, avg_heat_index
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(uuid4()),
-                datetime.now().isoformat(),
-                totals.get("total_size", 0.0),
-                totals.get("total_value", 0.0),
-                totals.get("total_collateral", 0.0),
-                totals.get("avg_leverage", 0.0),
-                totals.get("avg_travel_percent", 0.0),
-                totals.get("avg_heat_index", 0.0)
-            ))
+                """,
+                (
+                    data.get("id"),
+                    data.get("snapshot_time"),
+                    data.get("total_size", 0.0),
+                    data.get("total_value", 0.0),
+                    data.get("total_collateral", 0.0),
+                    data.get("avg_leverage", 0.0),
+                    data.get("avg_travel_percent", 0.0),
+                    data.get("avg_heat_index", 0.0),
+                ),
+            )
             self.db.commit()
             log.success("Portfolio snapshot recorded", source="DLPortfolioManager")
         except Exception as e:
             log.error(f"Failed to record portfolio snapshot: {e}", source="DLPortfolioManager")
 
-    def get_snapshots(self) -> list:
+    def get_snapshots(self) -> list[PortfolioSnapshot]:
         try:
             cursor = self.db.get_cursor()
             if cursor is None:
@@ -55,25 +75,25 @@ class DLPortfolioManager:
             cursor.execute("SELECT * FROM positions_totals_history ORDER BY snapshot_time ASC")
             rows = cursor.fetchall()
             log.debug(f"Retrieved {len(rows)} portfolio snapshots", source="DLPortfolioManager")
-            return [dict(row) for row in rows]
+            return [PortfolioSnapshot(**dict(row)) for row in rows]
         except Exception as e:
             log.error(f"Failed to fetch portfolio snapshots: {e}", source="DLPortfolioManager")
             return []
 
-    def get_latest_snapshot(self) -> dict:
+    def get_latest_snapshot(self) -> PortfolioSnapshot | None:
         try:
             cursor = self.db.get_cursor()
             if cursor is None:
                 log.error("DB unavailable while fetching latest snapshot", source="DLPortfolioManager")
-                return {}
+                return None
             cursor.execute("SELECT * FROM positions_totals_history ORDER BY snapshot_time DESC LIMIT 1")
             row = cursor.fetchone()
             if row:
                 log.debug("Latest portfolio snapshot retrieved", source="DLPortfolioManager")
-            return dict(row) if row else {}
+            return PortfolioSnapshot(**dict(row)) if row else None
         except Exception as e:
             log.error(f"Failed to fetch latest snapshot: {e}", source="DLPortfolioManager")
-            return {}
+            return None
     def add_entry(self, entry: dict):
         """Insert a manual portfolio entry into positions_totals_history."""
         try:

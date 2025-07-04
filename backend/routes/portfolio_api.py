@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from data.data_locker import DataLocker
+from backend.models.portfolio import PortfolioSnapshot
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -8,12 +9,12 @@ def _dl() -> DataLocker:
     return DataLocker.get_instance()
 
 
-@router.get("/", response_model=list[dict])
+@router.get("/", response_model=list[PortfolioSnapshot])
 def list_portfolio_history(dl: DataLocker = Depends(_dl)):
     return dl.get_portfolio_history()
 
 
-@router.get("/latest", response_model=dict)
+@router.get("/latest", response_model=PortfolioSnapshot | None)
 def get_latest_snapshot(dl: DataLocker = Depends(_dl)):
     return dl.portfolio.get_latest_snapshot()
 
