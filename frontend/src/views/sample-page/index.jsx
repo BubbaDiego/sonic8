@@ -11,6 +11,8 @@ import TotalHeatIndexDarkCard from 'ui-component/cards/TotalHeatIndexDarkCard';
 import TotalHeatIndexLightCard from 'ui-component/cards/TotalHeatIndexLightCard';
 import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
+import TotalSizeDarkCard from 'ui-component/cards/TotalSizeDarkCard';
+import TotalSizeLightCard from 'ui-component/cards/TotalSizeLightCard';
 // Chart card component implemented at:
 // src/ui-component/cards/charts/ValueToCollateralChartCard.jsx
 import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
@@ -77,6 +79,13 @@ export default function SamplePage() {
             <TotalLeverageDarkCard />
           ) : (
             <TotalLeverageLightCard icon={<TableChartOutlinedIcon fontSize="inherit" />} />
+          )}
+        </Grid>
+        <Grid item>
+          {isDark ? (
+            <TotalSizeDarkCard />
+          ) : (
+            <TotalSizeLightCard icon={<TableChartOutlinedIcon fontSize="inherit" />} />
           )}
         </Grid>
       </Grid>
