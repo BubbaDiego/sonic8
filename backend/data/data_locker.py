@@ -13,16 +13,8 @@ Dependencies:
 """
 
 import os
-import sys
 import json
 import sqlite3
-
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-
-
-from pathlib import Path
 from collections.abc import Mapping
 from backend.data.database import DatabaseManager
 from backend.data.dl_alerts import DLAlertManager
