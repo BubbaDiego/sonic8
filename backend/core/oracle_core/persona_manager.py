@@ -3,7 +3,7 @@ import os
 
 from typing import Dict, Iterable, Optional
 
-from backend.utils.console_logger import ConsoleLogger as log
+from backend.core.logging import log
 
 
 

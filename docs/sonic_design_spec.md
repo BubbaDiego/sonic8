@@ -129,7 +129,10 @@ MonitorCore(registry: MonitorRegistry | None = None)
 - **oracle_core** – wrappers around external price/oracle services.
 - **xcom_core** – lightweight notification dispatch.
 
-All cores rely on `DataLocker` for persistence and share common logging utilities.
+All cores rely on `DataLocker` for persistence and use the
+[`ConsoleLogger`](../backend/utils/console_logger.py) for structured logging.
+See [CONSOLE_LOGGER_SPEC.md](../backend/utils/CONSOLE_LOGGER_SPEC.md) for
+configuration options.
 
 ---
 
