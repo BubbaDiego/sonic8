@@ -85,11 +85,6 @@ export default function ValueToCollateralChartCard() {
               <Typography variant="h3">Portfolio Value vs Collateral</Typography>
             </Grid>
           </Grid>
-          <Grid sx={{ gridColumn: 'span 12' }}>
-            <Typography sx={{ mt: -1, fontWeight: 400 }} color="inherit" variant="h5">
-              Weekly comparison of portfolio metrics
-            </Typography>
-          </Grid>
         </Grid>
       </Box>
       <Chart {...chartConfig} />
