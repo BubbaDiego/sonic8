@@ -15,7 +15,7 @@ from flask import (
 from backend.utils.time_utils import iso_utc_now, normalize_iso_timestamp
 import random
 from trader_core.persona_avatars import AVATARS
-from backend.utils.console_logger import ConsoleLogger as log
+from backend.core.logging import log
 from backend.core.trader_core.mood_engine import evaluate_mood
 from calc_core.calc_services import CalcServices
 from oracle_core.persona_manager import PersonaManager
