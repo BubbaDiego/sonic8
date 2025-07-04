@@ -1,14 +1,16 @@
 import React from 'react';
 
+// material-ui
+import Avatar from '@mui/material/Avatar';
+
 // ==============================|| CUSTOM LOGO COMPONENT ||============================== //
 
 const Logo = () => (
-    <img
+    <Avatar
         src="/static/images/logo.png"
         alt="Sonic"
         title="Sonic"
-        width="100"
-        style={{ objectFit: 'contain' }}
+        sx={{ width: 100, height: 100 }}
     />
 );
 
