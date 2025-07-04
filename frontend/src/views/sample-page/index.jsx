@@ -11,6 +11,7 @@ import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
 import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
 import { useGetLatestPortfolio } from 'api/portfolio';
+import { useGetPositions } from 'api/positions';
 
 
 // project imports
@@ -22,7 +23,14 @@ export default function SamplePage() {
   const theme = useTheme();
   const isDark = theme.palette.mode === ThemeMode.DARK;
   const { portfolio } = useGetLatestPortfolio();
-  const totalValue = `$${Number(portfolio?.total_value || 0).toLocaleString()}`;
+  const shouldFetchPositions = portfolio == null;
+  const { positions = [] } = useGetPositions(shouldFetchPositions);
+  const fallbackTotal = positions.reduce(
+    (sum, p) => sum + parseFloat(p.value || 0),
+    0
+  );
+  const totalValueNumber = portfolio?.total_value ?? fallbackTotal;
+  const totalValue = `$${Number(totalValueNumber || 0).toLocaleString()}`;
 
   return (
     <MainCard title="Sample Card">
