@@ -25,21 +25,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from backend.core.logging import log
 
-try:
-    from solana.rpc.api import Client
-    from solana.transaction import Transaction
-    from solana.keypair import Keypair
-    from solders.pubkey import Pubkey
-    from solana.rpc.commitment import Confirmed
-    from solana.rpc.types import TxOpts
-except ImportError as e:  # pragma: no cover - optional dependency
-    log.warning("Failed to import solana/solders: %s", e)
-    Client = None
-    Transaction = object
-    Keypair = object
-    Pubkey = object
-    Confirmed = None
-    TxOpts = object
+#try:
+  #  from solana.rpc.api import Client
+  ##  from solana.transaction import Transaction
+   # from solana.keypair import Keypair
+  #  from solders.pubkey import Pubkey
+  #  from solana.rpc.commitment import Confirmed
+  #  from solana.rpc.types import TxOpts
+#except ImportError as e:  # pragma: no cover - optional dependency
+ #   log.warning("Failed to import solana/solders: %s", e)
+ #   Client = None
+   # Transaction = object
+  #  Keypair = object
+  #  Pubkey = object
+   # Confirmed = None
+  #  TxOpts = object
 
 #from wallets.blockchain_balance_service import BlockchainBalanceService
 #from wallets.jupiter_service import JupiterService
