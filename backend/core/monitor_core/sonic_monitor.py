@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime, timezone
-from cyclone.cyclone_engine import Cyclone
+from backend.core.cyclone_core.cyclone_engine import Cyclone
 
 from data.data_locker import DataLocker
 from core.constants import MOTHER_DB_PATH
@@ -87,7 +87,7 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
 def main():
     loop_counter = 0
 
-    from monitor.monitor_core import MonitorCore
+    from backend.core.monitor_core.monitor_core import MonitorCore
 
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
