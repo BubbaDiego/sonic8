@@ -5,6 +5,7 @@ import core.constants as const
 import core.core_imports as ci
 from wallets.wallet_core import WalletCore
 from wallets.wallet_service import WalletService
+from backend.core.positions_core.position_core import PositionCore
 
 SEED_PATCHES = [
     "_seed_modifiers_if_empty",
@@ -164,4 +165,29 @@ def test_initialize_database_adds_value_column(tmp_path, monkeypatch):
     monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls, db_path=str(db_path): dl))
 
     assert wc.fetch_positions_balance("w1") == 5
+
+
+def test_create_position_refreshes_balance(tmp_path, monkeypatch):
+    db = setup_db(tmp_path, monkeypatch)
+    dl = init_locker(db)
+    dl.create_wallet({"name": "w1", "public_address": "x", "private_address": ""})
+
+    monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls, db_path=str(db): dl))
+
+    core = PositionCore(dl)
+    core.create_position({"wallet_name": "w1", "value": 4, "status": "ACTIVE"})
+    assert dl.get_wallet_by_name("w1")["balance"] == 4
+
+
+def test_delete_position_refreshes_balance(tmp_path, monkeypatch):
+    db = setup_db(tmp_path, monkeypatch)
+    dl = init_locker(db)
+    dl.create_wallet({"name": "w1", "public_address": "x", "private_address": ""})
+    core = PositionCore(dl)
+    core.create_position({"id": "p1", "wallet_name": "w1", "value": 5, "status": "ACTIVE"})
+
+    monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls, db_path=str(db): dl))
+
+    core.delete_position("p1")
+    assert dl.get_wallet_by_name("w1")["balance"] == 0
 

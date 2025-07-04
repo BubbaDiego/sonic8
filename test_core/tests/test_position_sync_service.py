@@ -75,12 +75,24 @@ class _FakePositionsFacade:
 class _FakeDataLocker(SimpleNamespace):
     def __init__(self):
         db = _FakeDB()
+        wallet = {"is_active": True, "public_address": "WALLET_A", "name": "Wallet-A", "balance": 0.0}
+
+        def read_wallets():
+            return [wallet]
+
+        def get_wallet_by_name(name):
+            return wallet if name == wallet["name"] else None
+
+        def update_wallet(name, data):
+            if name == wallet["name"]:
+                wallet.update(data)
+
         super().__init__(
             db=db,
             positions=_FakePositionsFacade(db),
-            read_wallets=lambda: [
-                {"is_active": True, "public_address": "WALLET_A", "name": "Wallet‑A"}
-            ],
+            read_wallets=read_wallets,
+            get_wallet_by_name=get_wallet_by_name,
+            update_wallet=update_wallet,
             system=SimpleNamespace(
                 set_last_update_times=lambda *a, **k: None
             ),
@@ -218,3 +230,35 @@ def test_upsert_triggers_hedge_update(monkeypatch):
 
     assert inserted is True
     assert called["update"] is True
+
+
+def test_upsert_updates_wallet_balance(monkeypatch):
+    dl = _FakeDataLocker()
+    svc = PositionSyncService(dl)
+
+    cursor = svc.dl.db.get_cursor()
+    cursor.execute("PRAGMA table_info(positions)")
+    db_columns = {row[1] for row in cursor.fetchall()}
+
+    pos = {
+        "id": "w1p1",
+        "asset_type": "BTC",
+        "position_type": "LONG",
+        "entry_price": 1.0,
+        "liquidation_price": 0.5,
+        "collateral": 1.0,
+        "size": 0.1,
+        "leverage": 1.0,
+        "value": 2.5,
+        "last_updated": datetime.now().isoformat(),
+        "wallet_name": "Wallet-A",
+        "pnl_after_fees_usd": 0.0,
+        "travel_percent": 0.0,
+        "current_price": 0.0,
+        "heat_index": 0.0,
+        "current_heat_index": 0.0,
+        "liquidation_distance": 0.0,
+    }
+
+    svc._upsert_position(pos, db_columns)
+    assert dl.get_wallet_by_name("Wallet-A")["balance"] == 2.5

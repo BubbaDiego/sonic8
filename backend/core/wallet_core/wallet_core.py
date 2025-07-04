@@ -126,6 +126,28 @@ class WalletCore:
             log.error(f"Failed to fetch positions balance for {wallet_id}: {e}", source="WalletCore")
             return None
 
+    def refresh_wallet_balance(self, wallet_id: str) -> bool:
+        """Recalculate and persist balance for a single wallet."""
+        try:
+            dl = DataLocker.get_instance()
+        except Exception as exc:  # pragma: no cover - best effort
+            log.error(f"Failed to obtain DataLocker: {exc}", source="WalletCore")
+            return False
+
+        bal = self.fetch_positions_balance(wallet_id)
+        if bal is None:
+            return False
+        wallet = dl.get_wallet_by_name(wallet_id)
+        if not wallet:
+            return False
+        try:
+            wallet["balance"] = bal
+            dl.update_wallet(wallet_id, wallet)
+            return True
+        except Exception as exc:  # pragma: no cover - database errors
+            log.error(f"Failed to refresh balance for {wallet_id}: {exc}", source="WalletCore")
+            return False
+
     def refresh_wallet_balances(self) -> int:
         """Recalculate wallet balances from active positions and persist to the DB.
 
