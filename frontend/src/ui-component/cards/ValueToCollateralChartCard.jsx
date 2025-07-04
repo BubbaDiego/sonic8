@@ -46,7 +46,7 @@ export default function ValueToCollateralChartCard() {
   useEffect(() => {
     async function loadData() {
       try {
-        const response = await axios.get('/positions');
+        const response = await axios.get('/positions/');
         const data = response.data || [];
         const totalValue = data.reduce((sum, p) => sum + parseFloat(p.value || 0), 0);
         const totalCollateral = data.reduce(
