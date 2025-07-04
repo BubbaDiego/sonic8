@@ -3,7 +3,12 @@ import pytest
 from flask import Flask, render_template
 
 from app.dashboard_bp import dashboard_bp
-from app.alerts_bp import alerts_bp
+from flask import Blueprint
+alerts_bp = Blueprint('alerts', __name__)
+
+@alerts_bp.route('/status_page')
+def _status_page():
+    return render_template("alerts/alert_status.html", alerts=[])
 from app.system_bp import system_bp
 from dashboard import dashboard_service
 
@@ -20,7 +25,6 @@ def client(monkeypatch):
     app.register_blueprint(system_bp, url_prefix="/system")
 
     # Simplify heavy view logic
-    app.view_functions["alerts.alert_status_page"] = lambda: render_template("alerts/alert_status.html", alerts=[])
     app.view_functions["system.hedge_calculator_page"] = lambda: render_template(
         "hedges/hedge_modifiers.html",
         theme={},

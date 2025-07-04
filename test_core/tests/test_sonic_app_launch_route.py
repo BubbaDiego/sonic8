@@ -125,7 +125,6 @@ def _prepare_sonic_env(monkeypatch):
 
     bp_modules = {
         'backend.routes.positions_api': 'router',
-        'app.alerts_bp': 'alerts_bp',
         'app.prices_bp': 'prices_bp',
         'app.dashboard_bp': 'dashboard_bp',
         'backend.routes.portfolio_api': 'router',
