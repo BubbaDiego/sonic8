@@ -32,6 +32,17 @@ export default function OverviewPage() {
       ? positions.reduce((sum, p) => sum + parseFloat(p.heat_index || 0) * (parseFloat(p.size || 1) || 1), 0) /
         positions.reduce((sum, p) => sum + (parseFloat(p.size || 1) || 1), 0)
       : 0);
+  const fallbackSize = positions.reduce((s, p) => s + parseFloat(p.size || 0), 0);
+  const fallbackLeverage =
+    positions.length
+      ?
+          positions.reduce(
+            (s, p) => s + parseFloat(p.leverage || 0) * parseFloat(p.size || 1),
+            0
+          ) / fallbackSize
+      : 0;
+  const totalSizeNumber = portfolio?.total_size ?? fallbackSize;
+  const leverageNumber = portfolio?.avg_leverage ?? fallbackLeverage;
 
   return (
     <Grid container spacing={2}>
@@ -65,17 +76,17 @@ export default function OverviewPage() {
             )}
           </Grid>
           <Grid item>
-            {isDark ? (
-              <TotalLeverageDarkCard />
+          {isDark ? (
+              <TotalLeverageDarkCard value={leverageNumber} />
             ) : (
-              <TotalLeverageLightCard icon={<TableChartOutlinedIcon fontSize="inherit" />} />
+              <TotalLeverageLightCard value={leverageNumber} icon={<TableChartOutlinedIcon fontSize="inherit" />} />
             )}
           </Grid>
           <Grid item>
             {isDark ? (
-              <TotalSizeDarkCard />
+              <TotalSizeDarkCard value={totalSizeNumber} />
             ) : (
-              <TotalSizeLightCard icon={<TableChartOutlinedIcon fontSize="inherit" />} />
+              <TotalSizeLightCard value={totalSizeNumber} icon={<TableChartOutlinedIcon fontSize="inherit" />} />
             )}
           </Grid>
         </Grid>
