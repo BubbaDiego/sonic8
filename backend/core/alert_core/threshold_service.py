@@ -1,5 +1,5 @@
 from uuid import uuid4
-from backend.models.alert import AlertThreshold
+from backend.models.alert_thresholds import AlertThreshold
 from backend.data.dl_thresholds import DLThresholdManager
 from backend.core.logging import log
 
