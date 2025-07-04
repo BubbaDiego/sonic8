@@ -47,11 +47,17 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
   }
 }));
 
-export default function TotalLeverageDarkCard({ isLoading }) {
+export default function TotalLeverageDarkCard({ isLoading, value }) {
   const theme = useTheme();
-  const [leverage, setLeverage] = useState('0');
+  const [leverage, setLeverage] = useState(
+    value !== undefined && value !== null ? parseFloat(value).toFixed(2) : '0'
+  );
 
   useEffect(() => {
+    if (value !== undefined && value !== null) {
+      setLeverage(parseFloat(value).toFixed(2));
+      return;
+    }
     async function loadData() {
       try {
         const response = await axios.get('/portfolio/latest');
@@ -63,7 +69,7 @@ export default function TotalLeverageDarkCard({ isLoading }) {
       }
     }
     loadData();
-  }, []);
+  }, [value]);
 
   return (
     <>
@@ -113,4 +119,7 @@ export default function TotalLeverageDarkCard({ isLoading }) {
   );
 }
 
-TotalLeverageDarkCard.propTypes = { isLoading: PropTypes.bool };
+TotalLeverageDarkCard.propTypes = {
+  isLoading: PropTypes.bool,
+  value: PropTypes.number
+};

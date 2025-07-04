@@ -43,11 +43,17 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
   }
 }));
 
-export default function TotalLeverageLightCard({ isLoading, icon, label = 'Total Leverage' }) {
+export default function TotalLeverageLightCard({ isLoading, icon, label = 'Total Leverage', value }) {
   const theme = useTheme();
-  const [leverage, setLeverage] = useState('0');
+  const [leverage, setLeverage] = useState(
+    value !== undefined && value !== null ? parseFloat(value).toFixed(2) : '0'
+  );
 
   useEffect(() => {
+    if (value !== undefined && value !== null) {
+      setLeverage(parseFloat(value).toFixed(2));
+      return;
+    }
     async function loadData() {
       try {
         const response = await axios.get('/portfolio/latest');
@@ -59,7 +65,7 @@ export default function TotalLeverageLightCard({ isLoading, icon, label = 'Total
       }
     }
     loadData();
-  }, []);
+  }, [value]);
 
   return (
     <>
@@ -106,4 +112,9 @@ export default function TotalLeverageLightCard({ isLoading, icon, label = 'Total
   );
 }
 
-TotalLeverageLightCard.propTypes = { isLoading: PropTypes.bool, icon: PropTypes.node, label: PropTypes.string };
+TotalLeverageLightCard.propTypes = {
+  isLoading: PropTypes.bool,
+  icon: PropTypes.node,
+  label: PropTypes.string,
+  value: PropTypes.number
+};

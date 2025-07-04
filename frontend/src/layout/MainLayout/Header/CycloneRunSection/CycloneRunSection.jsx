@@ -41,11 +41,13 @@ export default function CycloneRunSection() {
   const handlePriceUpdate = () => {
     runPriceUpdate()
       .then(() => {
+
         setTimeout(() => {
           refreshLatestPortfolio();
           refreshPortfolioHistory();
           refreshPositions();
         }, REFRESH_DELAY_MS);
+
         dispatch(
           openSnackbar({
             open: true,
@@ -74,11 +76,13 @@ export default function CycloneRunSection() {
   const handlePositionUpdate = () => {
     runPositionUpdate()
       .then(() => {
+
         setTimeout(() => {
           refreshLatestPortfolio();
           refreshPortfolioHistory();
           refreshPositions();
         }, REFRESH_DELAY_MS);
+
         dispatch(
           openSnackbar({
             open: true,
@@ -107,11 +111,13 @@ export default function CycloneRunSection() {
   const handleDeleteAllData = () => {
     deleteAllData()
       .then(() => {
+
         setTimeout(() => {
           refreshLatestPortfolio();
           refreshPortfolioHistory();
           refreshPositions();
         }, REFRESH_DELAY_MS);
+
         dispatch(
           openSnackbar({
             open: true,
@@ -140,11 +146,13 @@ export default function CycloneRunSection() {
   const handleFullCycle = () => {
     runFullCycle()
       .then(() => {
+
         setTimeout(() => {
           refreshLatestPortfolio();
           refreshPortfolioHistory();
           refreshPositions();
         }, REFRESH_DELAY_MS);
+
         dispatch(
           openSnackbar({
             open: true,

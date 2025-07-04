@@ -47,11 +47,21 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
   }
 }));
 
-export default function TotalSizeDarkCard({ isLoading }) {
+export default function TotalSizeDarkCard({ isLoading, value }) {
   const theme = useTheme();
-  const [size, setSize] = useState('0');
+  const [size, setSize] = useState(
+    value !== undefined && value !== null
+      ? `${(parseFloat(value) / 1000).toFixed(1)}k`
+      : '0'
+  );
 
   useEffect(() => {
+    if (value !== undefined && value !== null) {
+      const num = parseFloat(value);
+      const val = `${(num / 1000).toFixed(1)}k`;
+      setSize(val);
+      return;
+    }
     async function loadData() {
       try {
         const response = await axios.get('/portfolio/latest');
@@ -64,7 +74,7 @@ export default function TotalSizeDarkCard({ isLoading }) {
       }
     }
     loadData();
-  }, []);
+  }, [value]);
 
   return (
     <>
@@ -114,4 +124,7 @@ export default function TotalSizeDarkCard({ isLoading }) {
   );
 }
 
-TotalSizeDarkCard.propTypes = { isLoading: PropTypes.bool };
+TotalSizeDarkCard.propTypes = {
+  isLoading: PropTypes.bool,
+  value: PropTypes.number
+};
