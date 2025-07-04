@@ -9,7 +9,8 @@ import {
   Paper,
   Typography,
   TableCell,
-  TableRow
+  TableRow,
+  Box
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { tableCellClasses } from '@mui/material/TableCell';
@@ -83,7 +84,7 @@ const PositionTableCard = () => {
         <Table sx={{ minWidth: 320 }} aria-label="portfolio positions table">
           <TableHead>
             <TableRow>
-              {['wallet_name', 'asset_type', 'size', 'value', 'collateral'].map((col) => (
+              {['wallet_name', 'asset_type', 'position_type', 'size', 'value', 'collateral'].map((col) => (
                 <StyledTableCell key={col}>
                   <TableSortLabel active={orderBy === col} direction={orderBy === col ? order : 'asc'} onClick={() => handleSort(col)}>
                     {col === 'wallet_name' ? 'Wallet' : col.charAt(0).toUpperCase() + col.slice(1)}
@@ -105,7 +106,22 @@ const PositionTableCard = () => {
                     sx={{ width: 24, height: 24 }}
                   />
                 </StyledTableCell>
-                <StyledTableCell>{position.asset_type}</StyledTableCell>
+                <StyledTableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Avatar
+                      src={`/static/images/${(position.asset_type || 'unknown')
+                        .toLowerCase()}_logo.png`}
+                      alt={position.asset_type}
+                      sx={{ width: 24, height: 24, mr: 1 }}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/static/images/unknown.png';
+                      }}
+                    />
+                    {position.asset_type}
+                  </Box>
+                </StyledTableCell>
+                <StyledTableCell>{position.position_type}</StyledTableCell>
                 <StyledTableCell>{position.size}</StyledTableCell>
                 <StyledTableCell>
                   ${Number(position.value || 0).toLocaleString()}
@@ -116,7 +132,7 @@ const PositionTableCard = () => {
               </StyledTableRow>
             ))}
             <StyledTableRow>
-              <StyledTableCell sx={{ fontWeight: 700 }} colSpan={2}>
+              <StyledTableCell sx={{ fontWeight: 700 }} colSpan={3}>
                 Totals
               </StyledTableCell>
               <StyledTableCell sx={{ fontWeight: 700 }}>
