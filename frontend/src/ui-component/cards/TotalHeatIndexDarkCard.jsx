@@ -47,11 +47,15 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
   }
 }));
 
-export default function TotalHeatIndexDarkCard({ isLoading }) {
+export default function TotalHeatIndexDarkCard({ isLoading, value }) {
   const theme = useTheme();
   const [heatIndex, setHeatIndex] = useState('0');
 
   useEffect(() => {
+    if (value !== undefined) {
+      setHeatIndex(parseFloat(value).toFixed(2));
+      return;
+    }
     async function loadData() {
       try {
         const response = await axios.get('/portfolio/latest');
@@ -63,7 +67,7 @@ export default function TotalHeatIndexDarkCard({ isLoading }) {
       }
     }
     loadData();
-  }, []);
+  }, [value]);
 
   return (
     <>
@@ -113,4 +117,4 @@ export default function TotalHeatIndexDarkCard({ isLoading }) {
   );
 }
 
-TotalHeatIndexDarkCard.propTypes = { isLoading: PropTypes.bool };
+TotalHeatIndexDarkCard.propTypes = { isLoading: PropTypes.bool, value: PropTypes.any };
