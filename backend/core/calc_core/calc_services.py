@@ -20,6 +20,22 @@ class CalcServices:
             "collateralWeight": 0.1
         }
 
+    def _as_dict(self, pos):
+        """Return ``pos`` as a plain ``dict``."""
+        if isinstance(pos, dict):
+            return pos
+        if hasattr(pos, "model_dump"):
+            try:
+                return pos.model_dump()
+            except Exception:
+                pass
+        if hasattr(pos, "dict"):
+            try:
+                return pos.dict()
+            except Exception:
+                pass
+        return vars(pos)
+
     def calculate_composite_risk_index(self, position: dict) -> Optional[float]:
         try:
             entry_price = float(position.get("entry_price", 0.0))
@@ -217,8 +233,9 @@ class CalcServices:
         total_weighted = 0.0
         total_size = 0.0
         for pos in positions:
-            hi = float(pos.get("heat_index") or 0.0)
-            size = float(pos.get("size") or 1.0)
+            data = self._as_dict(pos)
+            hi = float(data.get("heat_index") or 0.0)
+            size = float(data.get("size") or 1.0)
             if size == 0:
                 size = 1.0
             total_weighted += hi * size
@@ -234,11 +251,12 @@ class CalcServices:
         weighted_leverage_sum = weighted_travel_percent_sum = 0.0
 
         for pos in positions:
-            size = float(pos.get("size") or 0.0)
-            value = float(pos.get("value") or 0.0)
-            collateral = float(pos.get("collateral") or 0.0)
-            leverage = float(pos.get("leverage") or 0.0)
-            travel_percent = float(pos.get("travel_percent") or 0.0)
+            data = self._as_dict(pos)
+            size = float(data.get("size") or 0.0)
+            value = float(data.get("value") or 0.0)
+            collateral = float(data.get("collateral") or 0.0)
+            leverage = float(data.get("leverage") or 0.0)
+            travel_percent = float(data.get("travel_percent") or 0.0)
 
             total_size += size
             total_value += value
