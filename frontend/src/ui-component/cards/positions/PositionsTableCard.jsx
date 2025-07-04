@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Avatar,
   Table,
@@ -14,7 +14,7 @@ import {
 import { styled } from '@mui/material/styles';
 import { tableCellClasses } from '@mui/material/TableCell';
 import MainCard from 'ui-component/cards/MainCard';
-import axios from 'utils/axios';
+import { useGetPositions } from 'api/positions';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   [`&.${tableCellClasses.head}`]: {
@@ -35,43 +35,32 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   }
 }));
 
-const PortfolioTableCard = () => {
-  const [positions, setPositions] = useState([]);
-  const [totals, setTotals] = useState({ value: 0, collateral: 0 });
+const PositionsTableCard = () => {
+  const { positions = [] } = useGetPositions();
   const [orderBy, setOrderBy] = useState('asset_type');
   const [order, setOrder] = useState('asc');
 
-  useEffect(() => {
-    async function loadPositions() {
-      try {
-        const response = await axios.get('/positions');
-        const data = response.data || [];
-        setPositions(data);
-        const totalValue = data.reduce((sum, p) => sum + parseFloat(p.value || 0), 0);
-        const totalCollateral = data.reduce(
-          (sum, p) => sum + parseFloat(p.collateral || 0),
-          0
-        );
-        setTotals({ value: totalValue, collateral: totalCollateral });
-      } catch (e) {
-        // API failure is non-fatal for UI
-        console.error(e);
+  const sorted = useMemo(() => {
+    return [...positions].sort((a, b) => {
+      const aVal = a[orderBy];
+      const bVal = b[orderBy];
+      if (order === 'asc') {
+        return aVal < bVal ? -1 : 1;
       }
-    }
-    loadPositions();
-  }, []);
+      return bVal < aVal ? -1 : 1;
+    });
+  }, [positions, order, orderBy]);
+
+  const totals = useMemo(() => {
+    const totalValue = positions.reduce((sum, p) => sum + parseFloat(p.value || 0), 0);
+    const totalCollateral = positions.reduce((sum, p) => sum + parseFloat(p.collateral || 0), 0);
+    return { value: totalValue, collateral: totalCollateral };
+  }, [positions]);
 
   const handleSort = (property) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
-
-    setPositions((prevPositions) =>
-      [...prevPositions].sort((a, b) => {
-        if (isAsc) return b[property] < a[property] ? -1 : 1;
-        return a[property] < b[property] ? -1 : 1;
-      })
-    );
   };
 
   return (
@@ -85,7 +74,11 @@ const PortfolioTableCard = () => {
             <TableRow>
               {['wallet_name', 'asset_type', 'size', 'value', 'collateral'].map((col) => (
                 <StyledTableCell key={col}>
-                  <TableSortLabel active={orderBy === col} direction={orderBy === col ? order : 'asc'} onClick={() => handleSort(col)}>
+                  <TableSortLabel
+                    active={orderBy === col}
+                    direction={orderBy === col ? order : 'asc'}
+                    onClick={() => handleSort(col)}
+                  >
                     {col === 'wallet_name' ? 'Wallet' : col.charAt(0).toUpperCase() + col.slice(1)}
                   </TableSortLabel>
                 </StyledTableCell>
@@ -93,7 +86,7 @@ const PortfolioTableCard = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {positions.map((position) => (
+            {sorted.map((position) => (
               <StyledTableRow hover key={position.id}>
                 <StyledTableCell>
                   <Avatar
@@ -133,4 +126,5 @@ const PortfolioTableCard = () => {
   );
 };
 
-export default PortfolioTableCard;
+export default PositionsTableCard;
+
