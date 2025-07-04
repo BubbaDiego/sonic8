@@ -15,6 +15,7 @@ from uuid import uuid4
 from datetime import datetime
 import sqlite3
 from backend.core.core_imports import log
+from backend.models.position import PositionDB
 
 
 class DLPositionManager:
@@ -22,13 +23,20 @@ class DLPositionManager:
         self.db = db
         log.debug("DLPositionManager initialized.", source="DLPositionManager")
 
-    def create_position(self, position: dict):
+    def create_position(self, position):
+        """Insert a new position. ``position`` can be a ``PositionDB`` or ``dict``."""
         from datetime import datetime
         import os
         import json
         import traceback
 
         try:
+            if not isinstance(position, dict):
+                position = (
+                    position.model_dump()
+                    if hasattr(position, "model_dump")
+                    else position.dict()
+                )
             # ✅ Default injection — retain logic
             position.setdefault("id", str(uuid4()))
             position.setdefault("asset_type", "UNKNOWN")
@@ -128,10 +136,8 @@ class DLPositionManager:
                     return []
                 raise
             rows = cursor.fetchall()
-            log.debug(
-                f"Fetched {len(rows)} positions", source="DLPositionManager"
-            )
-            return [dict(row) for row in rows]
+            log.debug(f"Fetched {len(rows)} positions", source="DLPositionManager")
+            return [PositionDB(**dict(row)) for row in rows]
         except Exception as e:
             err_msg = str(e)
             if "malformed" in err_msg or "file is not a database" in err_msg:
@@ -264,8 +270,15 @@ class DLPositionManager:
         )""")
         db.commit()
 
-    def insert_position(self, position: dict):
+    def insert_position(self, position):
+        """Helper used in tests to insert a row without defaults."""
         try:
+            if not isinstance(position, dict):
+                position = (
+                    position.model_dump()
+                    if hasattr(position, "model_dump")
+                    else position.dict()
+                )
             cursor = self.db.get_cursor()
             if cursor is None:
                 log.error("DB unavailable for test position insert", source="DLPositionManager")
@@ -295,7 +308,7 @@ class DLPositionManager:
             cursor.execute("SELECT * FROM positions WHERE status = 'ACTIVE'")
             rows = cursor.fetchall()
             log.debug(f"🔎 Found {len(rows)} active positions", source="DLPositionManager")
-            return [dict(row) for row in rows]
+            return [PositionDB(**dict(row)) for row in rows]
         except Exception as e:
             log.error(f"❌ Failed to fetch active positions: {e}", source="DLPositionManager")
             return []
@@ -316,7 +329,7 @@ class DLPositionManager:
                 f"🔎 Found {len(rows)} active positions for {wallet_name}",
                 source="DLPositionManager",
             )
-            return [dict(row) for row in rows]
+            return [PositionDB(**dict(row)) for row in rows]
         except Exception as e:
             log.error(
                 f"❌ Failed to fetch active positions for {wallet_name}: {e}",
@@ -332,7 +345,7 @@ class DLPositionManager:
                 return None
             cursor.execute("SELECT * FROM positions WHERE id = ?", (pos_id,))
             row = cursor.fetchone()
-            return dict(row) if row else None
+            return PositionDB(**dict(row)) if row else None
         except Exception as e:
             log.error(f"❌ Failed to fetch position {pos_id}: {e}", source="DLPositionManager")
             return None

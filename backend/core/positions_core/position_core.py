@@ -10,6 +10,7 @@ from backend.core.hedge_core.hedge_core import HedgeCore
 from backend.core.calc_core.calc_services import CalcServices
 from datetime import datetime
 import uuid
+from backend.models.position import PositionDB
 
 class PositionCore:
     def __init__(self, data_locker):
@@ -33,15 +34,21 @@ class PositionCore:
             filtered = [
                 p
                 for p in positions
-                if (p.get("wallet_name") or p.get("wallet")) not in inactive
+                if getattr(p, "wallet_name", getattr(p, "wallet", None)) not in inactive
             ]
             return filtered
         except Exception:
             return positions
 
-    def create_position(self, pos: dict):
-        enriched = self.enricher.enrich(pos)
-        inserted = self.store.insert(enriched)
+    def create_position(self, pos):
+        """Enrich and insert a position. ``pos`` may be ``dict`` or ``PositionDB``."""
+        if isinstance(pos, PositionDB):
+            pos_data = pos.model_dump() if hasattr(pos, "model_dump") else pos.dict()
+        else:
+            pos_data = pos
+        enriched = self.enricher.enrich(pos_data)
+        obj = PositionDB(**enriched)
+        inserted = self.store.insert(obj)
         if inserted:
             try:
                 HedgeCore(self.dl).update_hedges()

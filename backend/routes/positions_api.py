@@ -1,6 +1,6 @@
 # backend/routes/positions_api.py
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from models.position import Position
+from models.position import Position, PositionDB
 from data.data_locker import DataLocker
 from core.positions_core.position_core import PositionCore
 from services.position_service import CyclonePositionService
@@ -10,13 +10,13 @@ router = APIRouter(prefix="/positions", tags=["positions"])
 def _dl():
     return DataLocker.get_instance()  # uses mother DB path
 
-@router.get("/", response_model=list[dict])
+@router.get("/", response_model=list[PositionDB])
 def list_positions(dl: DataLocker = Depends(_dl)):
     return PositionCore(dl).get_all_positions()
 
 @router.post("/", status_code=201)
-def create_position(pos: Position, dl: DataLocker = Depends(_dl)):
-    ok = PositionCore(dl).create_position(pos.dict())
+def create_position(pos: PositionDB, dl: DataLocker = Depends(_dl)):
+    ok = PositionCore(dl).create_position(pos)
     if not ok:
         raise HTTPException(500, "Insert failed")
     return {"status": "created"}
