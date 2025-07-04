@@ -18,6 +18,7 @@ from backend.core.cyclone_core.cyclone_position_service import CyclonePositionSe
 from backend.core.cyclone_core.cyclone_portfolio_service import CyclonePortfolioService
 from backend.core.cyclone_core.cyclone_alert_service import CycloneAlertService
 from backend.core.cyclone_core.cyclone_hedge_service import CycloneHedgeService
+from backend.core.cyclone_core.cyclone_report_generator import generate_cycle_report
 
 class CycloneConsoleService:
     def __init__(self, cyclone_instance):
@@ -69,13 +70,12 @@ class CycloneConsoleService:
             elif choice == "9":
                 print("Generating cycle report...")
                 try:
-                     #from cyclone_report_generator import generate_cycle_report
                     generate_cycle_report()  # External report generator
-                    self.cyclone.u_logger.log_cyclone(
+                    self.cyclone.log_cyclone(
                         operation_type="Cycle Report Generated",
                         primary_text="Cycle report generated successfully",
                         source="Cyclone",
-                        file="cyclone_engine.py"
+                        file="cyclone_engine.py",
                     )
                 except Exception as e:
                     self.cyclone.logger.error(f"Cycle report generation failed: {e}", exc_info=True)
