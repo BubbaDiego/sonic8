@@ -1,0 +1,179 @@
+.title-bar {
+  padding: 10px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #5ab2ff, #7873f5);
+  color: white;
+  font-family: 'Poppins', sans-serif;
+  position: relative;
+  width: 100%;
+}
+
+.nav-left {
+  display: flex;
+  gap: 8px;
+}
+
+.nav-btn {
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: rgba(255,255,255,0.9);
+  min-width: 220px;
+  border-radius: 5px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  z-index: 1;
+  top: 100%;
+  right: 0;
+}
+
+.dropdown-content a {
+  color: #333;
+  padding: 8px 12px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 5px;
+  transition: background-color 0.2s;
+}
+
+.dropdown-content a:hover {
+  background-color: rgba(255,255,255,0.7);
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.badge-group {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Slightly enlarge just the value text within badges */
+.badge span {
+  font-size: 0.9rem;
+}
+
+.profit-badge {
+  background-color: rgba(40,167,69,0.7);
+}
+
+.heat-badge {
+  background-color: rgba(220,53,69,0.7);
+}
+
+
+.profit-badge img,
+.heat-badge img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.timer-badge {
+  background-color: rgba(0,123,255,0.7);
+}
+
+.snooze-timer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 12px;
+}
+
+.snooze-timer span {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.nav-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.silence-icon {
+  display: none;
+  margin: 0 4px;
+  font-size: 1.2rem;
+  animation: bounceIcon 1s infinite;
+}
+
+@keyframes bounceIcon {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+/* Explicit sizing fixes badge flicker and resizing issues */
+.badge {
+  width: 100px;            /* explicit badge width */
+  height: 30px;            /* explicit badge height */
+  padding: 4px;
+  overflow: hidden;        /* prevent overflow resizing */
+  display: flex;           /* stable flexbox alignment */
+  align-items: center;
+  justify-content: center;
+}
+
+.badge canvas {
+  width: 80px !important;  /* fixed canvas size */
+  height: 24px !important;
+}
+
+.badge span {
+  display: inline-block;
+  width: 40px;             /* explicit size prevents dynamic resizing */
+  text-align: center;      /* center value clearly */
+}
+
+/* Ensure badge-group maintains a consistent layout */
+.badge-group {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+

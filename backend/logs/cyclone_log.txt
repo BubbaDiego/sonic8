@@ -1,0 +1,1046 @@
+{"ts": "2025\u201107\u201104 04:25:09", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:09", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:09", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:10", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:11", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:12", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:25:13", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:25:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 04:25:55", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:25:55", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 04:29:55", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:29:55", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:14", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:15", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:16", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:17", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:17", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:17", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:31:17", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:17", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:17", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:31:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 04:34:15", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:34:15", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:34", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:34", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:34", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:34", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:34", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:35", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:35", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:35", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:35", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:45:35", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:35", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:36", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:45:37", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:10", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:11", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:12", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:13", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:13", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:46:13", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:46:32", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:30", "level": "INFO", "level_no": 20, "message": "Starting Position Updates", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:30", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:50:30", "level": "INFO", "level_no": 20, "message": "Starting full Jupiter sync...", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:30", "level": "INFO", "level_no": 20, "message": "Step 1/6: Retrieve and upsert positions", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:30", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating positions from Jupiter\u2026", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:30", "level": "INFO", "level_no": 20, "message": "\ud83d\udd0d Loaded 11 active wallets for sync", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:30", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca BobaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:30", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca C3P0Vault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:30", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca JabbaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LandoVault \u2192 2 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:31", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:31", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.41", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:31", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:31", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.41", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LeiaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LukeVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca PalpatineVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca R2D2Vault \u2192 1 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.41", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca VaderVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca YodaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f Skipping  \u2013 missing address", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Jupiter Sync Result \u2192 Imported: 3, Updated: 0, Skipped: 0, Errors: 0", "source": "SyncSummary", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "ERROR", "level_no": 40, "message": "\u274c run_full_jupiter_sync failed: Hedge() takes no arguments", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "SUCCESS", "level_no": 25, "message": "Timer 'position_update' completed in 2.80s", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "WARNING", "level_no": 30, "message": "No timer started for label 'position_update'", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 04:50:32", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\ude90 Position updates completed", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 04:52:02", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:52:02", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:05", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:05", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:05", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:05", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:05", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:05", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:05", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:05", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:07", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:54:08", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:54:11", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:54:11", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:13", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:14", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:15", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:16", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:16", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:16", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:59:16", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:16", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:16", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:59:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:59:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 04:59:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 04:59:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:15", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:15", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:15", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:16", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:17", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:08:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:08:23", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:08:23", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:38", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:38", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:38", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:38", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:38", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:38", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:38", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:38", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:38", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:39", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:12:40", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:41", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:41", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:41", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:41", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:41", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:12:41", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:41", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:12:41", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:15:05", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:08", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:08", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:08", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:15:08", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:08", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:15:08", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:16:18", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:18", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:19", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:20", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:21", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:22", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:16:22", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:22", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:16:22", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:16:25", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:16:25", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:47", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:48", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:49", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:49", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:49", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:49", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:49", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:49", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:49", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:49", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:49", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:50", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:57:59", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:59", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:59", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:59", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:59", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:57:59", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:57:59", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f Starting Clear All Data", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All alerts deleted", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All alerts cleared", "source": "SystemMaintenanceService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "WARNING", "level_no": 30, "message": "\ud83e\uddf9 All price entries cleared.", "source": "DLPriceManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All prices cleared", "source": "SystemMaintenanceService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All positions got fucked", "source": "DLPositionManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 Portfolio history cleared", "source": "DLPortfolioManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: profit_badge_value", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All positions cleared", "source": "SystemMaintenanceService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: profit_badge_value", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Full system wipe complete.", "source": "SystemMaintenanceService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:18", "level": "SUCCESS", "level_no": 25, "message": "All alerts, prices, and positions have been deleted.", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:20", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 0 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:28", "level": "INFO", "level_no": 20, "message": "Starting Position Updates", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:28", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:28", "level": "INFO", "level_no": 20, "message": "Starting full Jupiter sync...", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:28", "level": "INFO", "level_no": 20, "message": "Step 1/6: Retrieve and upsert positions", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:28", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating positions from Jupiter\u2026", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:28", "level": "INFO", "level_no": 20, "message": "\ud83d\udd0d Loaded 11 active wallets for sync", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:28", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca BobaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca C3P0Vault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca JabbaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LandoVault \u2192 2 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "Alert created: alert-sample-1", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 0 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 0 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 0}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 0 hedge(s) from 1 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:29", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 1 hedge(s) from 2 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:30", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LeiaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:30", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LukeVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:30", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca PalpatineVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:30", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:30", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 2 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca R2D2Vault \u2192 1 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 1 hedge(s) from 3 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca VaderVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca YodaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f Skipping  \u2013 missing address", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Jupiter Sync Result \u2192 Imported: 3, Updated: 0, Skipped: 0, Errors: 0", "source": "SyncSummary", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\ud83c\udf10 HedgeManager created 1 hedges", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "Calculating totals from positions", "source": "calculate_totals", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "Totals calculated", "source": "calculate_totals", "payload": {"total_size": 16168.51, "total_value": 708.4, "total_collateral": 907.97, "avg_leverage": 18.27508161852886, "avg_travel_percent": -21.685063556882128, "avg_heat_index": 21.916167364834486}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "Portfolio snapshot recorded", "source": "DLPortfolioManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\ud83d\udcc4 Sync report saved to: C:\\sonic2\\reports\\sync_report_20250704_055831.html", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83e\uddf9 Removed old report: sync_report_20250703_212156.html", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Sync complete: 3 imported, 0 updated, 0 skipped, 0 errors, 1 hedges", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for position_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "Timer 'position_update' completed in 3.04s", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "WARNING", "level_no": 30, "message": "No timer started for label 'position_update'", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:31", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\ude90 Position updates completed", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:43", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: update_operations", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:43", "level": "INFO", "level_no": 20, "message": "Starting Operations Monitor via MonitorCore", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:43", "level": "INFO", "level_no": 20, "message": "Running monitor: operations_monitor", "source": "MonitorCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:43", "level": "INFO", "level_no": 20, "message": "\u2705 [ConfigLoader] Loading config from: C:\\sonic2\\backend\\config\\alert_thresholds.json", "source": "ConfigLoader", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:43", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Validating alert thresholds configuration...", "source": "operations_monitor", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:43", "level": "INFO", "level_no": 20, "message": "\u2705 [ConfigLoader] Loading config from: C:\\sonic2\\backend\\config\\alert_thresholds.json", "source": "ConfigLoader", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:43", "level": "SUCCESS", "level_no": 25, "message": "Alert thresholds configuration valid.", "source": "operations_monitor", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:43", "level": "WARNING", "level_no": 30, "message": "Skipping POST tests, pattern not found: C:\\sonic2\\backend\\core\\test_core\\tests\\test_*.py", "source": "operations_monitor", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:43", "level": "INFO", "level_no": 20, "message": "\ud83d\udd0c Checking API status", "source": "operations_monitor", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:45", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:45", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "ChatGPT API reachable", "source": "operations_monitor", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "ERROR", "level_no": 40, "message": "Twilio check failed: No module named 'xcom'", "source": "operations_monitor", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for xcom_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for operations_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for operations_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "operations_monitor completed successfully.", "source": "operations_monitor", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "Monitor 'operations_monitor' completed successfully.", "source": "MonitorCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: market_updates", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "Starting Market Updates", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "Initiating sync workflow...", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "Inserted price for BTC", "source": "DLPriceManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\ud83d\udcbe Saved BTC = $108,771.0000", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "Inserted price for ETH", "source": "DLPriceManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\ud83d\udcbe Saved ETH = $2,549.5300", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "Inserted price for SOL", "source": "DLPriceManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\ud83d\udcbe Saved SOL = $150.2500", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Price sync complete", "source": "PriceSyncService", "payload": {"count": 3, "assets": ["BTC", "ETH", "SOL"]}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for price_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\ud83e\uddfe Price ledger updated", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "\ud83d\udcc8 Prices updated successfully \u2705", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: position_updates", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "Starting Position Updates", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "Starting full Jupiter sync...", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "Step 1/6: Retrieve and upsert positions", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating positions from Jupiter\u2026", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:50", "level": "INFO", "level_no": 20, "message": "\ud83d\udd0d Loaded 11 active wallets for sync", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca BobaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca C3P0Vault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca JabbaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LandoVault \u2192 2 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.25", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 1 hedge(s) from 3 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.25", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:51", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 1 hedge(s) from 3 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LeiaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LukeVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca PalpatineVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca R2D2Vault \u2192 1 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.25", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:52", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 1 hedge(s) from 3 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca VaderVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca YodaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f Skipping  \u2013 missing address", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Jupiter Sync Result \u2192 Imported: 3, Updated: 0, Skipped: 0, Errors: 0", "source": "SyncSummary", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "\ud83c\udf10 HedgeManager created 1 hedges", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "Calculating totals from positions", "source": "calculate_totals", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "Totals calculated", "source": "calculate_totals", "payload": {"total_size": 16168.51, "total_value": 708.44, "total_collateral": 907.97, "avg_leverage": 18.27508161852886, "avg_travel_percent": -22.194270019253064, "avg_heat_index": 21.578040697627674}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "Portfolio snapshot recorded", "source": "DLPortfolioManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "\ud83d\udcc4 Sync report saved to: C:\\sonic2\\reports\\sync_report_20250704_055853.html", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83e\uddf9 Removed old report: sync_report_20250703_212601.html", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Sync complete: 3 imported, 0 updated, 0 skipped, 0 errors, 1 hedges", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for position_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "Timer 'position_update' completed in 2.63s", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "WARNING", "level_no": 30, "message": "No timer started for label 'position_update'", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\ude90 Position updates completed", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: check_jupiter_for_updates", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "Checking Jupiter/Positions via MonitorCore", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "Running monitor: position_monitor", "source": "MonitorCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Starting position sync", "source": "PositionMonitor", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "Starting full Jupiter sync...", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "Step 1/6: Retrieve and upsert positions", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating positions from Jupiter\u2026", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83d\udd0d Loaded 11 active wallets for sync", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:53", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca BobaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca C3P0Vault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca JabbaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LandoVault \u2192 2 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.25", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 1 hedge(s) from 3 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.25", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:54", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 1 hedge(s) from 3 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LeiaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LukeVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:55", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca PalpatineVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca R2D2Vault \u2192 1 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.25", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 1 hedge(s) from 3 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca VaderVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca YodaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f Skipping  \u2013 missing address", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Jupiter Sync Result \u2192 Imported: 3, Updated: 0, Skipped: 0, Errors: 0", "source": "SyncSummary", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\ud83c\udf10 HedgeManager created 1 hedges", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "Calculating totals from positions", "source": "calculate_totals", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Totals calculated", "source": "calculate_totals", "payload": {"total_size": 16168.51, "total_value": 708.4, "total_collateral": 907.97, "avg_leverage": 18.27508161852886, "avg_travel_percent": -22.194270019253064, "avg_heat_index": 21.578040697627674}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Portfolio snapshot recorded", "source": "DLPortfolioManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\ud83d\udcc4 Sync report saved to: C:\\sonic2\\reports\\sync_report_20250704_055856.html", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83e\uddf9 Removed old report: sync_report_20250704_034422.html", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Sync complete: 3 imported, 0 updated, 0 skipped, 0 errors, 1 hedges", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for position_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Timer 'position_update' completed in 3.12s", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for position_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "position_monitor completed successfully.", "source": "position_monitor", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Monitor 'position_monitor' completed successfully.", "source": "MonitorCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: prune_stale_positions", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "No stale positions to prune", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: enrich_positions", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.25", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Position [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] passed all enrichment checks", "source": "EnrichmentValidator", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.25", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Position [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] passed all enrichment checks", "source": "EnrichmentValidator", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83c\udf10 Market price injected for SOL: 150.25", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Position [4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX] passed all enrichment checks", "source": "EnrichmentValidator", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Position enrichment complete", "source": "PositionCore", "payload": {"enriched": 3, "failed": 0}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Position enrichment complete", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: aggregate_positions", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "Starting aggregation on positions", "source": "aggregate_positions_and_update", "payload": {"count": 3}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Updated DB for position", "source": "aggregate_positions_and_update", "payload": {"id": "FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM", "heat_index": 32.64}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Updated DB for position", "source": "aggregate_positions_and_update", "payload": {"id": "2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN", "heat_index": 5.0}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Updated DB for position", "source": "aggregate_positions_and_update", "payload": {"id": "4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX", "heat_index": 5.0}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Timer 'aggregate_positions_and_update' completed in 0.07s", "source": "aggregate_positions_and_update", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Position aggregation complete", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: enrich_alerts", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udd2c Enriching 1 alerts", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched 1 alerts", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Alert enrichment complete", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: update_evaluated_value", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "ERROR", "level_no": 40, "message": "\ud83d\udca3 Failed to evaluate alert alert-sample-1: 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Evaluated and updated 0 alerts", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Evaluated alert values updated", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: create_market_alerts", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: create_portfolio_alerts", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Creating portfolio alerts", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Alert created: da69d5eb-9d89-4050-a606-9c18f4ffa35e", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Portfolio | \ud83c\udff7 Type: TotalValue | \ud83c\udfaf Trigger: 50000", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Alert created: 1b3e5a46-70f3-4943-a7be-3b8b7e6e69a0", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Portfolio | \ud83c\udff7 Type: TotalSize | \ud83c\udfaf Trigger: 1.0", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Alert created: fed0a262-ee5d-40f6-8bca-d1b4d8dfbfc4", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Portfolio | \ud83c\udff7 Type: AvgLeverage | \ud83c\udfaf Trigger: 2.0", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Alert created: 1dc4070d-d579-44dd-934b-506679ec9740", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Portfolio | \ud83c\udff7 Type: AvgTravelPercent | \ud83c\udfaf Trigger: 10.0", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Alert created: 18b42b05-c80e-48ad-8f38-fff59295dda0", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Portfolio | \ud83c\udff7 Type: ValueToCollateralRatio | \ud83c\udfaf Trigger: 1.2", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Alert created: a7b4476a-f581-4816-a864-97dbb15d94d7", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Portfolio | \ud83c\udff7 Type: TotalHeat | \ud83c\udfaf Trigger: 25.0", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Created 6 portfolio alerts", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: create_position_alerts", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:56", "level": "SUCCESS", "level_no": 25, "message": "Alert created: c90123bd-56cd-4fc3-9db3-483307fe8b8e", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Position | \ud83c\udff7 Type: HeatIndex | \ud83c\udfaf Trigger: 50", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Alert created: HeatIndex for pos FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM", "source": "AlertDebug", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "Alert created: c87d0086-a34c-4cd2-a9cd-cdf22c616e40", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Position | \ud83c\udff7 Type: Profit | \ud83c\udfaf Trigger: 1000", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Alert created: Profit for pos FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM", "source": "AlertDebug", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "Alert created: cd999d45-8c44-46a7-a798-3575fe89a190", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Position | \ud83c\udff7 Type: HeatIndex | \ud83c\udfaf Trigger: 50", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Alert created: HeatIndex for pos 2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN", "source": "AlertDebug", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "Alert created: 11e4a05b-8e7c-4a44-bc5a-69a7b9eeebcd", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Position | \ud83c\udff7 Type: Profit | \ud83c\udfaf Trigger: 1000", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Alert created: Profit for pos 2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN", "source": "AlertDebug", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "Alert created: c352d099-4be7-488f-87a5-6c3d63e7e65d", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Position | \ud83c\udff7 Type: HeatIndex | \ud83c\udfaf Trigger: 50", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Alert created: HeatIndex for pos 4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX", "source": "AlertDebug", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "Alert created: f9c03cac-1e46-49f6-ac85-4aaceffe3545", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Alert Created \u2192 \ud83e\udded Class: Position | \ud83c\udff7 Type: Profit | \ud83c\udfaf Trigger: 1000", "source": "CreateAlert", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Alert created: Profit for pos 4tCx2tQUZtLbLEAC1YdXbrEGim4EmYJaaKEQgNCMKaVX", "source": "AlertDebug", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\ud83d\udcca Position Alert Summary", "source": "AlertDebug", "payload": {"alerts_created": 6, "positions": 3}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: create_global_alerts", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: evaluate_alerts", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert da69d5eb-9d89-4050-a606-9c18f4ffa35e \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert 1b3e5a46-70f3-4943-a7be-3b8b7e6e69a0 \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert fed0a262-ee5d-40f6-8bca-d1b4d8dfbfc4 \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert 1dc4070d-d579-44dd-934b-506679ec9740 \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert 18b42b05-c80e-48ad-8f38-fff59295dda0 \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert a7b4476a-f581-4816-a864-97dbb15d94d7 \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert c90123bd-56cd-4fc3-9db3-483307fe8b8e \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert c87d0086-a34c-4cd2-a9cd-cdf22c616e40 \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert cd999d45-8c44-46a7-a798-3575fe89a190 \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert 11e4a05b-8e7c-4a44-bc5a-69a7b9eeebcd \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert c352d099-4be7-488f-87a5-6c3d63e7e65d \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert f9c03cac-1e46-49f6-ac85-4aaceffe3545 \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\u274c Error evaluating alert alert-sample-1 \u2014 'dict' object has no attribute 'evaluated_value'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "Timer 'alert_evaluation' completed in 0.04s", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca Evaluation Summary \u2192 Total: 13, Evaluated: 0, Skipped: 0, Failed: 13", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: cleanse_ids", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83e\uddf9 Running cleanse_ids: clearing stale alerts", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "ERROR", "level_no": 40, "message": "\ud83d\udca5 Failed to clear inactive alerts: 'DLAlertManager' object has no attribute 'clear_inactive_alerts'", "source": "CycloneAlertService", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Alert IDs cleansed", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: link_hedges", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\u25b6\ufe0f Running step: update_hedges", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Linked 1 hedge group(s)", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "Hedge build complete: 1 hedges found.", "source": "HedgeCore", "payload": {"hedge_count": 1}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Built 1 hedge(s) from 3 positions", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 05:58:57", "level": "SUCCESS", "level_no": 25, "message": "\u2705 learning.db schema ready", "source": "LearningDataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:32", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:32", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:32", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:32", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:32", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:32", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:32", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:33", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:34", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f alert_thresholds missing from DB. Loading from JSON...", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: alert_thresholds", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 07:01:35", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 07:01:38", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 07:01:38", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 3 positions", "source": "PositionStore", "payload": {}}
