@@ -90,6 +90,9 @@ Environment variables recognised by the logger:
 | `LOG_JSON`      | Legacy alias for `LOG_FORMAT=json`    | `1`     |
 | `LOG_NO_EMOJI`  | Strip emoji from console output       | `1`     |
 
+Cyclone operations are also recorded to `logs/cyclone_log.txt`. The
+`/cyclone/cyclone_logs` API endpoint returns the last few lines of this file.
+
 See [CONSOLE_LOGGER_SPEC.md](backend/utils/CONSOLE_LOGGER_SPEC.md) for the full
 specification.
 

@@ -11,9 +11,10 @@ from backend.data.data_locker import DataLocker
 from backend.core.constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
 from backend.core.alert_core.config.loader import load_thresholds
 from backend.core.logging import log, configure_console_log
+from core.constants import CYCLONE_LOG_FILE
+import json
 from backend.core.trader_core.trader_loader import TraderLoader
 from backend.data.learning_database.learning_event_logger import log_learning_event
-import json
 
 # PATCH: Import SystemCore for death screams
 #from backend.core.system.system_core import SystemCore
@@ -70,6 +71,17 @@ def configure_cyclone_console_log(debug: bool = False):
 
     log.enable_group("cyclone_core")
     log.init_status()
+
+    # Persist cyclone events to a log file
+    if not getattr(configure_cyclone_console_log, "_sink_added", False):
+        CYCLONE_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+        def _file_sink(event: dict) -> None:
+            with open(CYCLONE_LOG_FILE, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(event) + "\n")
+
+        log.add_sink(_file_sink)
+        configure_cyclone_console_log._sink_added = True
 
 
 class Cyclone:
