@@ -4,8 +4,8 @@ import os
 # NOTE: CycloneConsoleService is designed for interactive use.  Expose a helper
 # function ``run_cyclone_console`` so callers don't need to manually construct a
 # ``Cyclone`` instance.
-from cyclone_engine import Cyclone
-from data.data_locker import DataLocker
+from backend.core.cyclone_core.cyclone_engine import Cyclone
+from backend.data.data_locker import DataLocker
 
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.data.data_locker import DataLocker
