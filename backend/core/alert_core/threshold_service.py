@@ -55,5 +55,22 @@ class ThresholdService:
             log.error(f"\N{CROSS MARK} Failed to list thresholds: {e}", source="ThresholdService")
             return []
 
+    def load_config(self) -> dict:
+        """Return the full threshold configuration."""
+        try:
+            return self.repo.load_config()
+        except Exception as e:  # pragma: no cover - file access unexpected
+            log.error(f"Failed to load threshold config: {e}", source="ThresholdService")
+            return {}
+
+    def replace_config(self, config: dict) -> bool:
+        """Replace all thresholds and cooldowns."""
+        try:
+            self.repo.replace_config(config)
+            return True
+        except Exception as e:  # pragma: no cover - unexpected
+            log.error(f"Failed to replace config: {e}", source="ThresholdService")
+            return False
+
 
 __all__ = ["ThresholdService"]

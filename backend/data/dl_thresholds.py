@@ -197,3 +197,45 @@ class DLThresholdManager:
 
         self.export_to_json()
         return count
+
+    def load_config(self, path: str = ALERT_THRESHOLDS_JSON_PATH) -> dict:
+        """Return the full threshold configuration JSON."""
+        if not os.path.exists(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:  # pragma: no cover - unexpected
+            log.error(f"Failed reading config: {e}", source="DLThresholdManager")
+            return {}
+
+    def replace_config(self, config: dict, path: str = ALERT_THRESHOLDS_JSON_PATH) -> int:
+        """Replace thresholds and cooldowns with ``config`` data."""
+        thresholds = config.get("thresholds", [])
+        incoming_ids = {t.get("id") for t in thresholds if t.get("id")}
+        existing_ids = {t.id for t in self.get_all()}
+
+        for obsolete in existing_ids - incoming_ids:
+            self.delete(obsolete)
+
+        count = 0
+        for item in thresholds:
+            tid = item.get("id")
+            if not tid:
+                continue
+            if self.get_by_id(tid):
+                self.update(tid, item)
+            else:
+                self.insert(AlertThreshold(**item))
+            count += 1
+
+        base = self.load_config(path)
+        base["thresholds"] = thresholds
+        if "cooldowns" in config:
+            base["cooldowns"] = config["cooldowns"]
+        base.setdefault("alert_ranges", {})
+        base.setdefault("notifications", {})
+        base["source"] = "api"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(base, f, indent=2)
+        return count

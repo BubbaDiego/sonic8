@@ -20,6 +20,21 @@ def list_thresholds(service: ThresholdService = Depends(_service)):
     return service.list_all_thresholds()
 
 
+@router.get("/bulk", response_model=dict)
+def get_bulk(service: ThresholdService = Depends(_service)):
+    """Return the entire thresholds configuration."""
+    return service.load_config()
+
+
+@router.put("/bulk")
+def replace_bulk(config: dict, service: ThresholdService = Depends(_service)):
+    """Replace all thresholds and cooldowns."""
+    ok = service.replace_config(config)
+    if not ok:
+        raise HTTPException(500, "Bulk update failed")
+    return {"status": "updated"}
+
+
 @router.get("/{threshold_id}", response_model=AlertThreshold | None)
 def get_threshold(threshold_id: str, service: ThresholdService = Depends(_service)):
     return service.repo.get_by_id(threshold_id)
