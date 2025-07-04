@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import MainCard from 'ui-component/cards/MainCard';
 import { Grid, Button } from '@mui/material';
-import { wallets as mockWallets } from 'data/wallets';
 import WalletTable from 'ui-component/wallet/WalletTable';
 import WalletFormModal from 'ui-component/wallet/WalletFormModal';
 import CollateralPanel from 'ui-component/wallet/CollateralPanel';
+import {
+  useGetWallets,
+  createWallet,
+  updateWallet,
+  deleteWallet,
+  refreshWallets
+} from 'api/wallets';
 
 const WalletManager = () => {
-  const [wallets, setWallets] = useState(mockWallets);
+  const { wallets = [] } = useGetWallets();
   const [modalOpen, setModalOpen] = useState(false);
   const [editWallet, setEditWallet] = useState(null);
 
@@ -21,18 +27,18 @@ const WalletManager = () => {
     setModalOpen(true);
   };
 
-  const handleSave = (w) => {
-    setWallets((prev)=>{
-      const idx = prev.findIndex(p=>p.name===w.name);
-      if(idx>-1){
-        const cp=[...prev]; cp[idx]=w; return cp;
-      }
-      return [...prev, w];
-    });
+  const handleSave = async (w) => {
+    if (editWallet) {
+      await updateWallet(editWallet.name, w);
+    } else {
+      await createWallet(w);
+    }
+    refreshWallets();
   };
 
-  const handleDelete = (name) => {
-    setWallets((prev)=> prev.filter(p=>p.name!==name));
+  const handleDelete = async (name) => {
+    await deleteWallet(name);
+    refreshWallets();
   };
 
   return (
