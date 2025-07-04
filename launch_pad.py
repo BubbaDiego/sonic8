@@ -17,6 +17,7 @@ from rich.panel import Panel
 from backend.console.cyclone_console_service import run_cyclone_console
 from backend.core.wallet_core import WalletService
 from test_core import TestCoreRunner, formatter
+from test_core import get_console_ui
 from backend.data.data_locker import DataLocker
 from backend.core.constants import MOTHER_DB_PATH
 from core.logging import log, configure_console_log
@@ -90,6 +91,12 @@ def run_tests():
     console.log("🚨 Running tests...")
     results = TestCoreRunner().run()
     console.print(formatter.render_summary(results))
+
+
+def run_test_console():
+    """Launch the interactive test console UI."""
+    TestConsoleUI = get_console_ui()
+    TestConsoleUI().start()
 
 
 def launch_sonic_web():
@@ -196,6 +203,7 @@ def main():
         console.print("5️⃣  Run Unit Tests")
         console.print("6️⃣  Wallet Manager")
         console.print("7️⃣  Cyclone Console")
+        console.print("8️⃣  Test Console UI")
         console.print("0️⃣  Exit")
         choice = input("→ ").strip()
 
@@ -213,6 +221,8 @@ def main():
             wallet_menu()
         elif choice == "7":
             run_cyclone_console()
+        elif choice == "8":
+            run_test_console()
         elif choice == "0":
             console.print("[bold green]Exiting...[/]")
             break
