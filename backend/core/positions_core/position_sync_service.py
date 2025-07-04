@@ -317,6 +317,11 @@ class PositionSyncService:
                 HedgeCore(self.dl).update_hedges()
             except Exception as e:  # pragma: no cover - just log
                 log.error(f"Failed to update hedges after upsert: {e}", source="PositionSyncService")
+            try:
+                from backend.core.wallet_core.wallet_core import WalletCore
+                WalletCore().refresh_wallet_balance(position_data.get("wallet_name"))
+            except Exception as e:  # pragma: no cover - just log
+                log.error(f"Failed to refresh wallet balance: {e}", source="PositionSyncService")
 
             # Determine if it was an insert or update
             return cursor.rowcount == 1
