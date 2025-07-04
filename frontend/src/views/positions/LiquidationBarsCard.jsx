@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Link } from '@mui/material';
+import { Box, Typography, Link, Paper, TableContainer } from '@mui/material';
 import MainCard from 'ui-component/cards/MainCard';
 import LiquidationBars from 'ui-component/liquidation/LiquidationBars';
 import { liquidationPositions } from 'data/liquidationPositions';
@@ -21,9 +21,11 @@ const LiquidationBarsCard = () => (
     </Typography>
 
     {/* —— content —— */}
-    <Box sx={{ width: '100%' }}>
-      <LiquidationBars positions={liquidationPositions} />
-    </Box>
+    <TableContainer component={Paper} sx={{ minWidth: 320 }}>
+      <Box sx={{ width: '100%', p: 1 }}>
+        <LiquidationBars positions={liquidationPositions} />
+      </Box>
+    </TableContainer>
   </MainCard>
 );
 
