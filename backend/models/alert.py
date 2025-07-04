@@ -24,6 +24,8 @@ class Condition(str, Enum):
 class NotificationType(str, Enum):
     SMS = "SMS"
     WINDOWS = "WINDOWS"
+    EMAIL = "EMAIL"
+    PHONECALL = "PHONECALL"
 
 class AlertType(str, Enum):
     PriceThreshold = "PriceThreshold"
