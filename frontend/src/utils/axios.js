@@ -1,42 +1,41 @@
 /**
- * axios setup to use mock service
+ * Axios instance with sensible defaults.
+ * The baseURL is driven by VITE_APP_API_URL, falling back to localhost.
  */
-
 import axios from 'axios';
 
-const axiosServices = axios.create({ baseURL: import.meta.env.VITE_APP_API_URL || 'http://localhost:3010/' });
+const axiosServices = axios.create({
+  baseURL: import.meta.env.VITE_APP_API_URL || 'http://localhost:5000'
+});
 
-// ==============================|| AXIOS - FOR MOCK SERVICES ||============================== //
-
+// ==============================|| Request Interceptor ||============================== //
 axiosServices.interceptors.request.use(
-  async (config) => {
-    const accessToken = localStorage.getItem('serviceToken');
-    if (accessToken) {
-      config.headers['Authorization'] = `Bearer ${accessToken}`;
+  (config) => {
+    const token = localStorage.getItem('serviceToken');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
+// ==============================|| Response Interceptor ||============================== //
 axiosServices.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response.status === 401 && !window.location.href.includes('/login')) {
+    if (error.response?.status === 401 && !window.location.href.includes('/login')) {
       window.location.pathname = '/login';
     }
-    return Promise.reject((error.response && error.response.data) || 'Wrong Services');
+    return Promise.reject(error.response?.data || 'Service error');
   }
 );
 
 export default axiosServices;
 
+// --- Helper for SWR / React‑Query etc. ---
 export async function fetcher(args) {
   const [url, config] = Array.isArray(args) ? args : [args];
-
   const res = await axiosServices.get(url, { ...config });
-
   return res.data;
 }

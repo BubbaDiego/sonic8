@@ -2,19 +2,29 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import jsconfigPaths from 'vite-jsconfig-paths';
 
+// ==============================|| Vite Config (patched) ||============================== //
 export default defineConfig(({ mode }) => {
-  // depending on your application, base can also be "/"
   const env = loadEnv(mode, process.cwd(), '');
-  const API_URL = `${env.VITE_APP_BASE_NAME}`;
+
+  // Sub‑folder where the built site will live, or '/' for root.
+  const BASE_NAME = env.VITE_APP_BASE_NAME || '/';
+  // FastAPI host that the dev server should proxy to.
+  const API_URL = env.VITE_APP_API_URL || 'http://localhost:5000';
   const PORT = 3000;
 
   return {
     server: {
-      // this ensures that the browser opens upon server start
       open: true,
-      // this sets a default port to 3000
       port: PORT,
-      host: true
+      host: true,
+      proxy: {
+        // Forward every request that starts with /cyclone to the backend
+        '/cyclone': {
+          target: API_URL,
+          changeOrigin: true,
+          secure: false
+        }
+      }
     },
     build: {
       chunkSizeWarningLimit: 1600
@@ -28,23 +38,10 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        // { find: '', replacement: path.resolve(__dirname, 'src') },
-        // {
-        //   find: /^~(.+)/,
-        //   replacement: path.join(process.cwd(), 'node_modules/$1')
-        // },
-        // {
-        //   find: /^src(.+)/,
-        //   replacement: path.join(process.cwd(), 'src/$1')
-        // }
-        // {
-        //   find: 'assets',
-        //   replacement: path.join(process.cwd(), 'src/assets')
-        // },
         '@tabler/icons-react': '@tabler/icons-react/dist/esm/icons/index.mjs'
       }
     },
-    base: API_URL,
+    base: BASE_NAME,
     plugins: [react(), jsconfigPaths()]
   };
 });
