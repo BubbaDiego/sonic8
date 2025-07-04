@@ -46,19 +46,23 @@ export default function ValueToCollateralChartCard() {
   useEffect(() => {
     async function loadData() {
       try {
-        const response = await axios.get('/positions/');
+        const response = await axios.get('/portfolio/');
         const data = response.data || [];
-        const totalValue = data.reduce((sum, p) => sum + parseFloat(p.value || 0), 0);
-        const totalCollateral = data.reduce(
-          (sum, p) => sum + parseFloat(p.collateral || 0),
-          0
+        const valueSeries = data.map((d) => parseFloat(d.total_value || 0));
+        const collateralSeries = data.map((d) => parseFloat(d.total_collateral || 0));
+        const categories = data.map((d) =>
+          new Date(d.snapshot_time).toLocaleDateString()
         );
         setChartConfig((prev) => ({
           ...prev,
           series: [
-            { name: 'Total Value', data: [totalValue] },
-            { name: 'Total Collateral', data: [totalCollateral] }
-          ]
+            { name: 'Total Value', data: valueSeries },
+            { name: 'Total Collateral', data: collateralSeries }
+          ],
+          options: {
+            ...prev.options,
+            xaxis: { categories }
+          }
         }));
       } catch (e) {
         console.error(e);
