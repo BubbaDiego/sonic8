@@ -9,6 +9,7 @@ from data.data_locker import DataLocker
 
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.data.data_locker import DataLocker
+from backend.core.locker_factory import get_locker
 
 # Import HedgeManager from the actual implementation location
 from backend.core.positions_core.hedge_manager import HedgeManager
