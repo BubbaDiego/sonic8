@@ -7,12 +7,13 @@ from backend.core.positions_core.position_enrichment_service import validate_enr
 from backend.core.core_imports import log
 from uuid import uuid4
 from datetime import datetime
+from backend.models.position import PositionDB
 
 class PositionStore:
     def __init__(self, data_locker):
         self.dl = data_locker
 
-    def get_all(self) -> list:
+    def get_all(self) -> list[PositionDB]:
         try:
             rows = self.dl.positions.get_all_positions()
             log.success(f"✅ Loaded {len(rows)} positions", source="PositionStore")
@@ -24,26 +25,29 @@ class PositionStore:
     def get_all_positions(self):
         return self.get_all()
 
-    def get_active_positions(self) -> list:
+    def get_active_positions(self) -> list[PositionDB]:
         try:
-            cursor = self.dl.db.get_cursor()  # ✅ FIXED: Use DataLocker’s db
-            cursor.execute("SELECT * FROM positions WHERE status = 'ACTIVE'")
-            rows = cursor.fetchall()
+            rows = self.dl.positions.get_active_positions()
             log.debug(f"📊 Pulled {len(rows)} ACTIVE positions", source="PositionStore")
-            return [dict(row) for row in rows]
+            return rows
         except Exception as e:
             log.error(f"❌ Failed to get active positions: {e}", source="PositionStore")
             return []
 
-    def get_by_id(self, pos_id: str) -> dict:
+    def get_by_id(self, pos_id: str) -> PositionDB | None:
         return self.dl.positions.get_position_by_id(pos_id)
 
-    def insert(self, position: dict) -> bool:
+    def insert(self, position) -> bool:
         try:
-            position.setdefault("id", str(uuid4()))
-            position.setdefault("last_updated", datetime.now().isoformat())
-            self.dl.positions.create_position(position)
-            log.success(f"📝 Inserted position {position['id']}", source="PositionStore")
+            if isinstance(position, PositionDB):
+                pos_dict = position
+            else:
+                pos_dict = PositionDB(**position)
+            pos_dict.id = pos_dict.id or str(uuid4())
+            if not getattr(pos_dict, "last_updated", None):
+                pos_dict.last_updated = datetime.now().isoformat()
+            self.dl.positions.create_position(pos_dict)
+            log.success(f"📝 Inserted position {pos_dict.id}", source="PositionStore")
             return True
         except Exception as e:
             log.error(f"❌ Insert failed: {e}", source="PositionStore")

@@ -2,6 +2,7 @@ import pytest
 from data.data_locker import DataLocker
 from positions.position_core import PositionCore
 from backend.core.hedge_core.hedge_core import HedgeCore
+from backend.models.position import PositionDB
 
 
 def _patch_seeding(monkeypatch):
@@ -12,17 +13,17 @@ def _patch_seeding(monkeypatch):
 
 
 def build_pos(id="p1"):
-    return {
-        "id": id,
-        "asset_type": "BTC",
-        "position_type": "LONG",
-        "entry_price": 100.0,
-        "current_price": 110.0,
-        "liquidation_price": 50.0,
-        "collateral": 10.0,
-        "size": 0.5,
-        "wallet_name": "test",
-    }
+    return PositionDB(
+        id=id,
+        asset_type="BTC",
+        position_type="LONG",
+        entry_price=100.0,
+        current_price=110.0,
+        liquidation_price=50.0,
+        collateral=10.0,
+        size=0.5,
+        wallet_name="test",
+    )
 
 
 def test_create_position_enriches(tmp_path, monkeypatch):
@@ -35,8 +36,8 @@ def test_create_position_enriches(tmp_path, monkeypatch):
     rows = dl.positions.get_all_positions()
     assert len(rows) == 1
     stored = rows[0]
-    assert stored["leverage"] > 0
-    assert stored["travel_percent"] != 0
+    assert stored.leverage > 0
+    assert stored.travel_percent != 0
     dl.db.close()
 
 
@@ -46,11 +47,11 @@ def test_create_position_persists_collateral(tmp_path, monkeypatch):
     core = PositionCore(dl)
 
     pos = build_pos("c")
-    pos["collateral"] = 12.34
+    pos.collateral = 12.34
     core.create_position(pos)
 
-    stored = dl.positions.get_position_by_id(pos["id"])
-    assert stored["collateral"] == 12.34
+    stored = dl.positions.get_position_by_id(pos.id)
+    assert stored.collateral == 12.34
     dl.db.close()
 
 
@@ -65,7 +66,7 @@ def test_delete_and_clear_positions(tmp_path, monkeypatch):
 
     core.delete_position("a")
     rows = dl.positions.get_all_positions()
-    assert len(rows) == 1 and rows[0]["id"] == "b"
+    assert len(rows) == 1 and rows[0].id == "b"
 
     core.clear_all_positions()
     assert dl.positions.get_all_positions() == []
