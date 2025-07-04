@@ -3,13 +3,12 @@ import { useMemo } from 'react';
 import { fetcher } from 'utils/axios';
 
 const endpoints = {
-  key: 'api/portfolio',
   latest: '/portfolio/latest'
 };
 
 export function useGetLatestPortfolio() {
   const { data, isLoading, error, isValidating } = useSWR(
-    endpoints.key + endpoints.latest,
+    endpoints.latest,
     fetcher,
     {
       revalidateIfStale: false,
