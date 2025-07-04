@@ -10,7 +10,7 @@ const Logo = () => (
         src="/static/images/logo.png"
         alt="Sonic"
         title="Sonic"
-        sx={{ width: 100, height: 100 }}
+        sx={{ width: 40, height: 40 }}
     />
 );
 
