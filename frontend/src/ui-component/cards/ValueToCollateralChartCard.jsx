@@ -27,7 +27,12 @@ const initialChartData = {
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth' },
     xaxis: { categories: ['Totals'] },
-    tooltip: { theme: 'light' }
+    tooltip: { theme: 'light' },
+    yaxis: {
+      labels: {
+        formatter: (value) => Math.round(value)
+      }
+    }
   }
 };
 
