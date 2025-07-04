@@ -56,15 +56,23 @@ class CalcServices:
             risk_index = self.apply_minimum_risk_floor(risk_index, 5.0)
             risk_index = min(risk_index, 75.0)  # Cap to desired upper limit
 
-            log.debug("Calculated composite risk index", "calculate_composite_risk_index", {
-                "position_id": position.get("id"),
-                "risk_index": risk_index,
-                "weights": self.weights
-            })
+            log.debug(
+                "Calculated composite risk index",
+                source="calculate_composite_risk_index",
+                payload={
+                    "position_id": position.get("id"),
+                    "risk_index": risk_index,
+                    "weights": self.weights,
+                },
+            )
 
             return round(risk_index, 2)
         except Exception as e:
-            log.error(f"Risk index calculation failed: {e}", "calculate_composite_risk_index", position)
+            log.error(
+                f"Risk index calculation failed: {e}",
+                source="calculate_composite_risk_index",
+                payload=position,
+            )
             return None
 
     def calculate_value(self, position: dict) -> float:
@@ -88,10 +96,17 @@ class CalcServices:
 
             value = collateral + pnl
             value = round(value, 2)
-            log.debug("Calculated value", "calculate_value", {"value": value})
+            log.debug(
+                "Calculated value",
+                source="calculate_value",
+                payload={"value": value},
+            )
             return value
         except Exception as e:
-            log.error(f"Failed to calculate value: {e}", "calculate_value")
+            log.error(
+                f"Failed to calculate value: {e}",
+                source="calculate_value",
+            )
             return 0.0
 
     def calculate_profit(self, position: dict) -> float:
@@ -100,20 +115,34 @@ class CalcServices:
             value = self.calculate_value(position)
             collateral = float(position.get("collateral") or 0.0)
             profit = value - collateral
-            log.debug("Calculated profit", "calculate_profit", {"profit": profit})
+            log.debug(
+                "Calculated profit",
+                source="calculate_profit",
+                payload={"profit": profit},
+            )
             return round(profit, 2)
         except Exception as e:
-            log.error(f"Failed to calculate profit: {e}", "calculate_profit")
+            log.error(
+                f"Failed to calculate profit: {e}",
+                source="calculate_profit",
+            )
             return 0.0
 
     def calculate_leverage(self, size: float, collateral: float) -> float:
         leverage = round(size / collateral, 2) if size > 0 and collateral > 0 else 0.0
-        log.debug("Calculated leverage", "calculate_leverage", {"leverage": leverage})
+        log.debug(
+            "Calculated leverage",
+            source="calculate_leverage",
+            payload={"leverage": leverage},
+        )
         return leverage
 
     def calculate_travel_percent(self, position_type: str, entry_price: float, current_price: float, liquidation_price: float) -> float:
         if entry_price <= 0 or liquidation_price <= 0:
-            log.warning("Invalid price parameters in travel percent", "calculate_travel_percent")
+            log.warning(
+                "Invalid price parameters in travel percent",
+                source="calculate_travel_percent",
+            )
             return 0.0
 
         ptype = position_type.strip().upper()
@@ -135,16 +164,30 @@ class CalcServices:
                     profit_target = entry_price - (liquidation_price - entry_price)
                     result = ((entry_price - current_price) / (entry_price - profit_target)) * 100
             else:
-                log.warning(f"Unknown position type {position_type}", "calculate_travel_percent")
+                log.warning(
+                    f"Unknown position type {position_type}",
+                    source="calculate_travel_percent",
+                )
         except Exception as e:
-            log.error(f"Failed to calculate travel percent: {e}", "calculate_travel_percent")
+            log.error(
+                f"Failed to calculate travel percent: {e}",
+                source="calculate_travel_percent",
+            )
 
-        log.debug("Travel percent calculated", "calculate_travel_percent", {"result": result})
+        log.debug(
+            "Travel percent calculated",
+            source="calculate_travel_percent",
+            payload={"result": result},
+        )
         return result
 
     def calculate_liquid_distance(self, current_price: float, liquidation_price: float) -> float:
         distance = round(abs(liquidation_price - current_price), 2)
-        log.debug("Calculated liquidation distance", "calculate_liquid_distance", {"distance": distance})
+        log.debug(
+            "Calculated liquidation distance",
+            source="calculate_liquid_distance",
+            payload={"distance": distance},
+        )
         return distance
 
     def calculate_heat_index(self, position: dict) -> Optional[float]:
@@ -155,10 +198,18 @@ class CalcServices:
             if collateral <= 0:
                 return None
             hi = (size * leverage) / collateral
-            log.debug("Heat index calculated", "calculate_heat_index", {"heat_index": hi})
+            log.debug(
+                "Heat index calculated",
+                source="calculate_heat_index",
+                payload={"heat_index": hi},
+            )
             return round(hi, 2)
         except Exception as e:
-            log.error(f"Failed to calculate heat index: {e}", "calculate_heat_index", position)
+            log.error(
+                f"Failed to calculate heat index: {e}",
+                source="calculate_heat_index",
+                payload=position,
+            )
             return None
 
     def calculate_weighted_heat_index(self, positions: List[dict]) -> float:
@@ -175,7 +226,10 @@ class CalcServices:
         return total_weighted / total_size if total_size > 0 else 0.0
 
     def calculate_totals(self, positions: List[dict]) -> dict:
-        log.info("Calculating totals from positions", "calculate_totals")
+        log.info(
+            "Calculating totals from positions",
+            source="calculate_totals",
+        )
         total_size = total_value = total_collateral = 0.0
         weighted_leverage_sum = weighted_travel_percent_sum = 0.0
 
@@ -205,7 +259,11 @@ class CalcServices:
             "avg_heat_index": avg_heat_index
         }
 
-        log.success("Totals calculated", "calculate_totals", totals)
+        log.success(
+            "Totals calculated",
+            source="calculate_totals",
+            payload=totals,
+        )
         return totals
 
     def apply_minimum_risk_floor(self, risk_index: float, floor: float = 5.0) -> float:
