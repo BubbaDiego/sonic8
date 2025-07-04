@@ -1,20 +1,14 @@
-// This is example of menu item without group for horizontal layout. There will be no children.
-
-// assets
 import { IconBrandChrome } from '@tabler/icons-react';
 
-const icons = {
-  IconBrandChrome
-};
-
-// ==============================|| MENU ITEMS - SAMPLE PAGE ||============================== //
+const icons = { IconBrandChrome };
 
 const samplePage = {
   id: 'sample-page',
-  title: 'sample-page',
+  title: 'Sample Page',
+  type: 'item',
+  url: '/sample-page',
   icon: icons.IconBrandChrome,
-  type: 'group',
-  url: '/sample-page'
+  breadcrumbs: false
 };
 
 export default samplePage;

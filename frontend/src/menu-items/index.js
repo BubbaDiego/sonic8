@@ -1,12 +1,22 @@
 import samplePage from './sample-page';
-import pages from './pages';
 import positions from './positions';
-
-// ==============================|| MENU ITEMS ||============================== //
+import walletManager from './wallet-manager';
+import pages from './pages';
 
 const menuItems = {
-  items: [samplePage, positions, pages]
+  items: [
+    {
+      id: 'main-pages',
+      title: 'Main Pages',
+      type: 'group',
+      children: [
+        samplePage,
+        positions,
+        walletManager
+      ]
+    },
+    pages
+  ]
 };
 
 export default menuItems;
-

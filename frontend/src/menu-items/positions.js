@@ -1,11 +1,10 @@
-// assets
 import { IconTable } from '@tabler/icons-react';
 
 const icons = { IconTable };
 
 const positions = {
   id: 'positions',
-  title: 'positions',
+  title: 'Positions',
   type: 'item',
   url: '/positions',
   icon: icons.IconTable,
@@ -13,4 +12,3 @@ const positions = {
 };
 
 export default positions;
-
