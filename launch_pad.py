@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 🚀 Sonic1 Launch Pad (FastAPI & React/Vite)
-Simplified console for debugging the new FastAPI backend and Berry frontend.
+Simplified console for debugging the new FastAPI backend and Sonic frontend.
 """
 
 import subprocess
@@ -54,9 +54,9 @@ def wait_and_open(url, secs=3):
 
 # Actions
 def launch_frontend():
-    console.log("🚀 Launching Berry/Vite frontend...")
+    console.log("🚀 Launching Sonic/Vite frontend...")
     run_background("npm run start", FRONTEND_DIR)
-    wait_and_open("http://localhost:3000")  # corrected port to match actual Berry/Vite setup
+    wait_and_open("http://localhost:3000")  # corrected port to match actual Sonic/Vite setup
     console.log("[green]Frontend running at http://localhost:3000[/]")
 
 
@@ -189,7 +189,7 @@ def main():
     while True:
         clear_screen()
         banner()
-        console.print("1️⃣  Launch [bold]Frontend[/] (Berry/Vite)")
+        console.print("1️⃣  Launch [bold]Frontend[/] (Sonic/Vite)")
         console.print("2️⃣  Launch [bold]Backend[/] (FastAPI)")
         console.print("3️⃣  Launch [bold]Full Stack[/] (Frontend + Backend)")
         console.print("4️⃣  Verify Database")

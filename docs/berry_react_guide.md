@@ -1,4 +1,4 @@
-# 🛠️ Berry React UI Documentation
+# 🛠️ Sonic React UI Documentation
 
 ---
 
@@ -193,7 +193,7 @@ Each component extends standard MUI functionality with additional properties.
 
 ## 📦 Dependencies
 
-Berry includes essential dependencies preloaded in `package.json`, simplifying project setup. Dependencies include various MUI libraries, React utilities, form handlers, and more. Development dependencies ensure efficient workflow and code quality management.
+Sonic includes essential dependencies preloaded in `package.json`, simplifying project setup. Dependencies include various MUI libraries, React utilities, form handlers, and more. Development dependencies ensure efficient workflow and code quality management.
 
 ---
 
