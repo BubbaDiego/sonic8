@@ -282,7 +282,13 @@ class Cyclone:
     async def run_prune_stale_positions(self):
         """Remove positions that have missed multiple update cycles."""
         positions = self.data_locker.positions.get_all_positions()
-        stale_list = [p for p in positions if p.get("stale", 0) >= 2]
+        stale_list = []
+        for p in positions:
+            stale_val = getattr(p, "stale", None)
+            if stale_val is None and isinstance(p, dict):
+                stale_val = p.get("stale", 0)
+            if (stale_val or 0) >= 2:
+                stale_list.append(p)
         if not stale_list:
             log.info("No stale positions to prune", source="Cyclone")
             return 0
@@ -291,10 +297,16 @@ class Cyclone:
         pruned = 0
         for pos in stale_list:
             try:
-                await asyncio.to_thread(service.delete_position_and_cleanup, pos["id"])
+                pos_id = getattr(pos, "id", None)
+                if pos_id is None and isinstance(pos, dict):
+                    pos_id = pos.get("id")
+                await asyncio.to_thread(service.delete_position_and_cleanup, pos_id)
                 pruned += 1
             except Exception as ex:  # pragma: no cover - unlikely failure
-                log.error(f"Failed to prune {pos['id']}: {ex}", source="Cyclone")
+                err_id = getattr(pos, "id", None)
+                if err_id is None and isinstance(pos, dict):
+                    err_id = pos.get("id")
+                log.error(f"Failed to prune {err_id}: {ex}", source="Cyclone")
 
         log.success(f"🗑 Pruned {pruned} stale positions", source="Cyclone")
         return pruned
