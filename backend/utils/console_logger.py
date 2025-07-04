@@ -408,6 +408,18 @@ class ConsoleLogger:
         hijacked_logger.setLevel(logging.INFO)
         cls.info(f"🕵️ Logger '{target_logger_name}' hijacked.", source="LoggerControl")
 
+
+    # ------------------------------------------------------------------
+    # Compatibility helper
+    # ------------------------------------------------------------------
+    @classmethod
+    def print_dashboard_link(
+        cls, host: str = "127.0.0.1", port: int = 5001, route: str = "/dashboard"
+    ) -> None:
+        """Log a simple dashboard URL using :meth:`info`."""
+        url = f"http://{host}:{port}{route}"
+        cls.info(f"🌐 Sonic Dashboard: {url}", source="Logger")
+
     # ------------------------ Convenience helpers -----------------------
 
     @classmethod
@@ -420,6 +432,7 @@ class ConsoleLogger:
         """Log a simple dashboard URL."""
         url = f"http://{host}:{port}{route}"
         cls.info(f"🌐 Sonic Dashboard: {url}")
+
 
     # ------------------- Convenience functional aliases -------------------
 
