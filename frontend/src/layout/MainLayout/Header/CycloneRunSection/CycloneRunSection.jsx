@@ -116,7 +116,7 @@ export default function CycloneRunSection() {
           refreshLatestPortfolio();
           refreshPortfolioHistory();
           refreshPositions();
-        }, REFRESH_DELAY_MS);
+        }, 1000);
 
         dispatch(
           openSnackbar({
