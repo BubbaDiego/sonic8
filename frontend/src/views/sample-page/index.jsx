@@ -13,6 +13,7 @@ import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
 import TotalSizeDarkCard from 'ui-component/cards/TotalSizeDarkCard';
 import TotalSizeLightCard from 'ui-component/cards/TotalSizeLightCard';
+import PositionsTableCard from 'ui-component/cards/positions/PositionsTableCard';
 // Chart card component implemented at:
 // src/ui-component/cards/charts/ValueToCollateralChartCard.jsx
 import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
@@ -88,6 +89,9 @@ export default function SamplePage() {
             <TotalSizeLightCard icon={<TableChartOutlinedIcon fontSize="inherit" />} />
           )}
         </Grid>
+      </Grid>
+      <Grid item xs={12} sx={{ mt: 2 }}>
+        <PositionsTableCard />
       </Grid>
     </Grid>
   );
