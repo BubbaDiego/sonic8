@@ -21,6 +21,7 @@ import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-rea
 export default function CycloneRunSection() {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const REFRESH_DELAY_MS = 6000;
 
   const avatarSX = {
     ...theme.typography.commonAvatar,
@@ -40,9 +41,13 @@ export default function CycloneRunSection() {
   const handlePriceUpdate = () => {
     runPriceUpdate()
       .then(() => {
-        refreshLatestPortfolio();
-        refreshPortfolioHistory();
-        refreshPositions();
+
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+        }, REFRESH_DELAY_MS);
+
         dispatch(
           openSnackbar({
             open: true,
@@ -71,9 +76,13 @@ export default function CycloneRunSection() {
   const handlePositionUpdate = () => {
     runPositionUpdate()
       .then(() => {
-        refreshLatestPortfolio();
-        refreshPortfolioHistory();
-        refreshPositions();
+
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+        }, REFRESH_DELAY_MS);
+
         dispatch(
           openSnackbar({
             open: true,
@@ -102,9 +111,13 @@ export default function CycloneRunSection() {
   const handleDeleteAllData = () => {
     deleteAllData()
       .then(() => {
-        refreshLatestPortfolio();
-        refreshPortfolioHistory();
-        refreshPositions();
+
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+        }, REFRESH_DELAY_MS);
+
         dispatch(
           openSnackbar({
             open: true,
@@ -133,9 +146,13 @@ export default function CycloneRunSection() {
   const handleFullCycle = () => {
     runFullCycle()
       .then(() => {
-        refreshLatestPortfolio();
-        refreshPortfolioHistory();
-        refreshPositions();
+
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+        }, REFRESH_DELAY_MS);
+
         dispatch(
           openSnackbar({
             open: true,
