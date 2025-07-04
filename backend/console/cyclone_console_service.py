@@ -18,6 +18,11 @@ class CycloneConsoleService:
         self.alert_service = CycloneAlertService(cyclone_instance.data_locker)
         self.hedge_service = CycloneHedgeService(cyclone_instance.data_locker)
 
+    def run(self):
+        """Backward compatible entry point."""
+        self.run_console()
+
+
     def run_console(self):
         while True:
             print("\n=== Cyclone Interactive Console ===")
