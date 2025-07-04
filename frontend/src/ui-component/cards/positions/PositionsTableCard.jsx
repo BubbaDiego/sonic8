@@ -53,9 +53,44 @@ const PositionsTableCard = () => {
   }, [positions, order, orderBy]);
 
   const totals = useMemo(() => {
-    const totalValue = positions.reduce((sum, p) => sum + parseFloat(p.value || 0), 0);
-    const totalCollateral = positions.reduce((sum, p) => sum + parseFloat(p.collateral || 0), 0);
-    return { value: totalValue, collateral: totalCollateral };
+    let totalSize = 0;
+    let totalValue = 0;
+    let totalCollateral = 0;
+    let weightedTravel = 0;
+    let weightedLiqDist = 0;
+    let weightedHeat = 0;
+    let totalWeight = 0;
+
+    positions.forEach((p) => {
+      const size = parseFloat(p.size || 0);
+      const value = parseFloat(p.value || 0);
+      const collateral = parseFloat(p.collateral || 0);
+      const travel = parseFloat(p.travel_percent || 0);
+      const liq = parseFloat(p.liquidation_distance || 0);
+      const heat = parseFloat(p.heat_index || 0);
+
+      totalSize += size;
+      totalValue += value;
+      totalCollateral += collateral;
+      const weight = size || 1;
+      weightedTravel += travel * weight;
+      weightedLiqDist += liq * weight;
+      weightedHeat += heat * weight;
+      totalWeight += weight;
+    });
+
+    const avgTravel = totalWeight ? weightedTravel / totalWeight : 0;
+    const avgLiqDist = totalWeight ? weightedLiqDist / totalWeight : 0;
+    const avgHeat = totalWeight ? weightedHeat / totalWeight : 0;
+
+    return {
+      size: totalSize,
+      value: totalValue,
+      collateral: totalCollateral,
+      travel: avgTravel,
+      liqDist: avgLiqDist,
+      heat: avgHeat
+    };
   }, [positions]);
 
   const handleSort = (property) => {
@@ -142,14 +177,26 @@ const PositionsTableCard = () => {
               </StyledTableRow>
             ))}
             <StyledTableRow>
-              <StyledTableCell sx={{ fontWeight: 700 }} colSpan={7}>
-                Totals
+              <StyledTableCell sx={{ fontWeight: 700 }}>Totals</StyledTableCell>
+              <StyledTableCell />
+              <StyledTableCell />
+              <StyledTableCell sx={{ fontWeight: 700 }}>
+                {Number(totals.size).toLocaleString()}
               </StyledTableCell>
               <StyledTableCell sx={{ fontWeight: 700 }}>
                 ${Number(totals.value).toLocaleString()}
               </StyledTableCell>
               <StyledTableCell sx={{ fontWeight: 700 }}>
                 ${Number(totals.collateral).toLocaleString()}
+              </StyledTableCell>
+              <StyledTableCell sx={{ fontWeight: 700 }}>
+                {`${Number(totals.travel).toFixed(2)}%`}
+              </StyledTableCell>
+              <StyledTableCell sx={{ fontWeight: 700 }}>
+                {Number(totals.liqDist).toFixed(2)}
+              </StyledTableCell>
+              <StyledTableCell sx={{ fontWeight: 700 }}>
+                {Number(totals.heat).toFixed(2)}
               </StyledTableCell>
             </StyledTableRow>
           </TableBody>
