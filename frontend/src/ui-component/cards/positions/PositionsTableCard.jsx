@@ -9,7 +9,8 @@ import {
   Paper,
   Typography,
   TableCell,
-  TableRow
+  TableRow,
+  Box
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { tableCellClasses } from '@mui/material/TableCell';
@@ -75,6 +76,7 @@ const PositionsTableCard = () => {
               {[
                 'wallet_name',
                 'asset_type',
+                'position_type',
                 'size',
                 'value',
                 'collateral',
@@ -111,7 +113,22 @@ const PositionsTableCard = () => {
                     sx={{ width: 24, height: 24 }}
                   />
                 </StyledTableCell>
-                <StyledTableCell>{position.asset_type}</StyledTableCell>
+                <StyledTableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Avatar
+                      src={`/static/images/${(position.asset_type || 'unknown')
+                        .toLowerCase()}_logo.png`}
+                      alt={position.asset_type}
+                      sx={{ width: 24, height: 24, mr: 1 }}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/static/images/unknown.png';
+                      }}
+                    />
+                    {position.asset_type}
+                  </Box>
+                </StyledTableCell>
+                <StyledTableCell>{position.position_type}</StyledTableCell>
                 <StyledTableCell>{position.size}</StyledTableCell>
                 <StyledTableCell>
                   ${Number(position.value || 0).toLocaleString()}
@@ -125,7 +142,7 @@ const PositionsTableCard = () => {
               </StyledTableRow>
             ))}
             <StyledTableRow>
-              <StyledTableCell sx={{ fontWeight: 700 }} colSpan={6}>
+              <StyledTableCell sx={{ fontWeight: 700 }} colSpan={7}>
                 Totals
               </StyledTableCell>
               <StyledTableCell sx={{ fontWeight: 700 }}>
