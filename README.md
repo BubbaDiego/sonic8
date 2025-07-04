@@ -64,3 +64,31 @@ python backend/scripts/api_breakpoint_test.py
 
 The script pings a couple of API endpoints and reports status codes to help
 locate where the data flow is breaking.
+
+## Logging
+
+Backend modules use the `ConsoleLogger` from
+[`backend/utils/console_logger.py`](backend/utils/console_logger.py) for
+structured console output.  It can be configured programmatically or via
+environment variables.
+
+```python
+from console_logger import ConsoleLogger as Log
+
+Log.set_level("DEBUG")           # or: LOG_LEVEL=DEBUG python sonic_backend_app.py
+Log.success("Service started")
+
+Log.add_sink(lambda ev: open("app.log", "a").write(json.dumps(ev) + "\n"))
+```
+
+Environment variables recognised by the logger:
+
+| Variable        | Purpose                               | Example |
+|-----------------|---------------------------------------|---------|
+| `LOG_LEVEL`     | Default minimum level                 | `INFO`  |
+| `LOG_FORMAT`    | Set to `json` for JSON-only output    | `json`  |
+| `LOG_JSON`      | Legacy alias for `LOG_FORMAT=json`    | `1`     |
+| `LOG_NO_EMOJI`  | Strip emoji from console output       | `1`     |
+
+See [CONSOLE_LOGGER_SPEC.md](backend/utils/CONSOLE_LOGGER_SPEC.md) for the full
+specification.
