@@ -19,59 +19,8 @@ class CycloneConsoleService:
         self.hedge_service = CycloneHedgeService(cyclone_instance.data_locker)
 
     def run(self):
-        while True:
-            print("\n=== Cyclone Interactive Console ===")
-            print("1) 🌀 Run Full Cycle")
-            print("2) 🗑️ Delete All Data")
-            print("3) 💰 Prices")
-            print("4) 📊 Positions")
-            print("5) 🔔 Alerts")
-            print("6) 🛡 Hedge")
-            print("7) 🧹 Clear IDs")
-            print("8) 💼 Wallets")
-            print("9) 📝 Generate Cycle Report")
-            print("10) ❌ Exit")
-            choice = input("Enter your choice (1-10): ").strip()
-
-            if choice == "1":
-                print("Running full cycle (all steps)...")
-                asyncio.run(self.cyclone.run_cycle())
-                print("Full cycle completed.")
-            elif choice == "2":
-                self.cyclone.run_delete_all_data()
-            elif choice == "3":
-                self.run_prices_menu()
-            elif choice == "4":
-                self.run_positions_menu()
-            elif choice == "5":
-                self.run_alerts_menu()
-            elif choice == "6":
-                self.run_hedges_menu()
-            elif choice == "7":
-                print("Clearing stale IDs...")
-                asyncio.run(self.cyclone.run_cleanse_ids())
-            elif choice == "8":
-                self.run_wallets_menu()
-            elif choice == "9":
-                print("Generating cycle report...")
-                try:
-                    #from cyclone_report_generator import generate_cycle_report
-                    generate_cycle_report()
-                    self.cyclone.u_logger.log_cyclone(
-                        operation_type="Cycle Report Generated",
-                        primary_text="Cycle report generated successfully",
-                        source="Cyclone",
-                        file="cyclone_engine.py"
-                    )
-                    print("Cycle report generated.")
-                except Exception as e:
-                    self.cyclone.logger.error(f"Cycle report generation failed: {e}", exc_info=True)
-                    print(f"Cycle report generation failed: {e}")
-            elif choice == "10":
-                print("Exiting console mode.")
-                break
-            else:
-                print("Invalid choice, please try again.")
+        """Backward compatible entry point."""
+        self.run_console()
 
     def run_console(self):
         while True:
@@ -101,7 +50,7 @@ class CycloneConsoleService:
             elif choice == "5":
                 self.run_alerts_menu()
             elif choice == "6":
-                self.cyclone.run_hedges_menu()
+                self.run_hedges_menu()
             elif choice == "7":
                 print("Clearing stale IDs...")
                 asyncio.run(self.cyclone.run_cleanse_ids())
