@@ -507,6 +507,10 @@ class DataLocker:
         """Delete a portfolio history entry."""
         self.portfolio.delete_entry(entry_id)
 
+    def clear_portfolio_history(self):
+        """Remove all records from the portfolio history table."""
+        self.portfolio.clear_snapshots()
+
     def _seed_modifiers_if_empty(self):
         """Seed modifiers table from sonic_sauce.json if empty."""
         cursor = self.db.get_cursor()

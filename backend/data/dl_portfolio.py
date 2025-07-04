@@ -181,3 +181,16 @@ class DLPortfolioManager:
             log.info(f"Portfolio entry deleted: {entry_id}", source="DLPortfolioManager")
         except Exception as e:
             log.error(f"Failed to delete portfolio entry {entry_id}: {e}", source="DLPortfolioManager")
+
+    def clear_snapshots(self):
+        """Remove all portfolio snapshot rows."""
+        try:
+            cursor = self.db.get_cursor()
+            if cursor is None:
+                log.error("DB unavailable, cannot clear portfolio history", source="DLPortfolioManager")
+                return
+            cursor.execute("DELETE FROM positions_totals_history")
+            self.db.commit()
+            log.success("🧹 Portfolio history cleared", source="DLPortfolioManager")
+        except Exception as e:  # pragma: no cover - defensive
+            log.error(f"Failed to clear portfolio history: {e}", source="DLPortfolioManager")

@@ -92,3 +92,11 @@ Environment variables recognised by the logger:
 
 See [CONSOLE_LOGGER_SPEC.md](backend/utils/CONSOLE_LOGGER_SPEC.md) for the full
 specification.
+
+## Maintenance operations
+
+`CycloneMaintenanceService` provides helpers for wiping stored data during tests
+or when resetting the environment. Calling `clear_positions()` now also removes
+all records from the `positions_totals_history` table so portfolio charts start
+fresh. Running `clear_all_tables()` includes this cleanup in addition to
+clearing alerts and prices.
