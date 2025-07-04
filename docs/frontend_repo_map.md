@@ -168,7 +168,7 @@ frontend/
     ├── menu-items/
         ├── index.js
         ├── pages.js
-        ├── sample-page.js
+        ├── overview.js
     ├── reportWebVitals.js
     ├── routes/
         ├── AuthenticationRoutes.jsx
@@ -351,7 +351,7 @@ frontend/
                 ├── Error.jsx
                 ├── Error500.jsx
                 ├── UnderConstruction.jsx
-        ├── sample-page/
+        ├── overview/
             ├── index.jsx
     ├── vite-env.d.js
 ├── vite.config.mjs

@@ -1,9 +1,10 @@
 import { lazy } from 'react';
+import { Navigate } from 'react-router-dom';
 import MainLayout from 'layout/MainLayout';
 import Loadable from 'ui-component/Loadable';
 
 // existing imports
-const SamplePage = Loadable(lazy(() => import('views/sample-page')));
+const OverviewPage = Loadable(lazy(() => import('views/overview')));
 const PositionsPage = Loadable(lazy(() => import('views/positions')));
 
 // new import
@@ -16,8 +17,12 @@ const MainRoutes = {
   element: <MainLayout />,
   children: [
     {
-      path: '/sample-page',
-      element: <SamplePage />
+      index: true,
+      element: <Navigate to="/overview" />
+    },
+    {
+      path: '/overview',
+      element: <OverviewPage />
     },
     {
       path: '/positions',

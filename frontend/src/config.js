@@ -1,4 +1,4 @@
-export const DASHBOARD_PATH = '/sample-page';
+export const DASHBOARD_PATH = '/overview';
 export const HORIZONTAL_MAX_ITEM = 7;
 
 export let MenuOrientation;

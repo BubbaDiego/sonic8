@@ -540,7 +540,7 @@ sonic1/
 │   │   │   ├── index.js
 │   │   │   ├── other.js
 │   │   │   ├── pages.js
-│   │   │   ├── sample-page.js
+│   │   │   ├── overview.js
 │   │   │   ├── support.jsx
 │   │   │   ├── utilities.js
 │   │   │   └── widget.js
@@ -1308,7 +1308,7 @@ sonic1/
 │   │   │   │   └── saas-pages
 │   │   │   │       ├── Faqs.jsx
 │   │   │   │       └── PrivacyPolicy.jsx
-│   │   │   ├── sample-page
+│   │   │   ├── overview
 │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   ├── ui-elements
 │   │   │   │   ├── advance

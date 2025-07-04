@@ -41,5 +41,5 @@ The notes below summarize the purpose of key files and directories under `fronte
   - **route-guard/** – Higher order components enforcing auth/guest access.
 - **views/** – Page level React components organized by domain.
   - **pages/** – Authentication and maintenance pages.
-  - **sample-page/** – Blank page template for new routes.
+  - **overview/** – Blank page template for new routes.
 - **vite-env.d.js** – Type declarations for Vite tooling.

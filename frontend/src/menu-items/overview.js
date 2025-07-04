@@ -2,13 +2,13 @@ import { IconBrandChrome } from '@tabler/icons-react';
 
 const icons = { IconBrandChrome };
 
-const samplePage = {
-  id: 'sample-page',
-  title: 'Sample Page',
+const overview = {
+  id: 'overview',
+  title: 'Overview',
   type: 'item',
-  url: '/sample-page',
+  url: '/overview',
   icon: icons.IconBrandChrome,
   breadcrumbs: false
 };
 
-export default samplePage;
+export default overview;
