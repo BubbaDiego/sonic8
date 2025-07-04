@@ -124,6 +124,18 @@ class Cyclone:
 
         log.banner("🌀  🌪️ CYCLONE ENGINE STARTUP 🌪️ 🌀")
 
+    def log_cyclone(
+        self,
+        *,
+        operation_type: str,
+        primary_text: str,
+        source: str = "Cyclone",
+        file: str = "cyclone_engine.py",
+    ) -> None:
+        """Record a console event related to Cyclone operations."""
+        payload = {"operation_type": operation_type, "file": file}
+        log.info(primary_text, source=source, payload=payload)
+
     async def run_market_updates(self):
         log.info("Starting Market Updates", source="Cyclone")
         try:
