@@ -58,8 +58,8 @@ See [docs/berry_react_guide.md](docs/berry_react_guide.md) for details on the Re
 The positions view contains a **Liquidation Bars** card that summarizes
 liquidation risk for the tracked wallets. When you visit `/positions` and switch
 to the liquidation view, this card renders a row of bar graphs for each
-position. Until the backend exposes an API, it pulls placeholder data from
-`src/data/liquidationPositions.js`.
+position. It now fetches data from the same `/positions/` API endpoint used by
+the positions table, so both views display consistent information.
 
 ## Debugging frontend connectivity
 
