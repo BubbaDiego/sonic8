@@ -1,4 +1,4 @@
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { useMemo } from 'react';
 import { fetcher } from 'utils/axios';
 
@@ -29,4 +29,8 @@ export function useGetPositions(enabled = true) {
   );
 
   return memoized;
+}
+
+export function refreshPositions() {
+  return mutate(endpoints.list);
 }

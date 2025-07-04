@@ -8,6 +8,8 @@ import Box from '@mui/material/Box';
 // project imports
 import { ThemeMode } from 'config';
 import { runFullCycle, runPositionUpdate, runPriceUpdate, deleteAllData } from 'api/cyclone';
+import { refreshPositions } from 'api/positions';
+import { refreshLatestPortfolio, refreshPortfolioHistory } from 'api/portfolio';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/slices/snackbar';
 
@@ -37,7 +39,10 @@ export default function CycloneRunSection() {
 
   const handlePriceUpdate = () => {
     runPriceUpdate()
-      .then(() =>
+      .then(() => {
+        refreshLatestPortfolio();
+        refreshPortfolioHistory();
+        refreshPositions();
         dispatch(
           openSnackbar({
             open: true,
@@ -46,8 +51,8 @@ export default function CycloneRunSection() {
             alert: { color: 'success' },
             close: false
           })
-        )
-      )
+        );
+      })
       .catch((error) => {
         console.error(error);
         dispatch(
@@ -65,7 +70,10 @@ export default function CycloneRunSection() {
 
   const handlePositionUpdate = () => {
     runPositionUpdate()
-      .then(() =>
+      .then(() => {
+        refreshLatestPortfolio();
+        refreshPortfolioHistory();
+        refreshPositions();
         dispatch(
           openSnackbar({
             open: true,
@@ -74,8 +82,8 @@ export default function CycloneRunSection() {
             alert: { color: 'success' },
             close: false
           })
-        )
-      )
+        );
+      })
       .catch((error) => {
         console.error(error);
         dispatch(
@@ -93,7 +101,10 @@ export default function CycloneRunSection() {
 
   const handleDeleteAllData = () => {
     deleteAllData()
-      .then(() =>
+      .then(() => {
+        refreshLatestPortfolio();
+        refreshPortfolioHistory();
+        refreshPositions();
         dispatch(
           openSnackbar({
             open: true,
@@ -102,8 +113,8 @@ export default function CycloneRunSection() {
             alert: { color: 'success' },
             close: false
           })
-        )
-      )
+        );
+      })
       .catch((error) => {
         console.error(error);
         dispatch(
@@ -121,7 +132,10 @@ export default function CycloneRunSection() {
 
   const handleFullCycle = () => {
     runFullCycle()
-      .then(() =>
+      .then(() => {
+        refreshLatestPortfolio();
+        refreshPortfolioHistory();
+        refreshPositions();
         dispatch(
           openSnackbar({
             open: true,
@@ -130,8 +144,8 @@ export default function CycloneRunSection() {
             alert: { color: 'success' },
             close: false
           })
-        )
-      )
+        );
+      })
       .catch((error) => {
         console.error(error);
         dispatch(
