@@ -6,12 +6,16 @@ const endpoints = {
   list: '/positions/'
 };
 
-export function useGetPositions() {
-  const { data, isLoading, error, isValidating } = useSWR(endpoints.list, fetcher, {
-    revalidateIfStale: false,
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false
-  });
+export function useGetPositions(enabled = true) {
+  const { data, isLoading, error, isValidating } = useSWR(
+    enabled ? endpoints.list : null,
+    fetcher,
+    {
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false
+    }
+  );
 
   const memoized = useMemo(
     () => ({
