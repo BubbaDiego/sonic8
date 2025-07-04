@@ -6,7 +6,7 @@ import { liquidationPositions } from 'data/liquidationPositions';
 
 const LiquidationBarsCard = () => (
   <MainCard>
-    {/* —— header identical to PortfolioTableCard —— */}
+    {/* —— header identical to PositionTableCard —— */}
     <Typography variant="h4" sx={{ mb: 2 }}>
       <Link
         href="/positions"

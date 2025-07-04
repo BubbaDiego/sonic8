@@ -220,7 +220,7 @@ frontend/
             ├── HoverSocialCard.jsx
             ├── IconNumberCard.jsx
             ├── MainCard.jsx
-            ├── PortfolioTableCard.jsx
+            ├── PositionTableCard.jsx
             ├── ProductCard.jsx
             ├── ProductReview.jsx
             ├── ReportCard.jsx
@@ -255,7 +255,7 @@ frontend/
             ├── charts/
                 ├── ValueToCollateralChartCard.jsx
             ├── positions/
-                ├── PortfolioTableCard.jsx
+                ├── PositionTableCard.jsx
         ├── extended/
             ├── Accordion.jsx
             ├── AnimateButton.jsx

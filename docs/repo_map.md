@@ -1075,7 +1075,7 @@ sonic1/
 │   │   │   │       ├── chart-data
 │   │   │   │       │   └── market-share-area-chart.jsx
 │   │   │   │       ├── LatestCustomerTableCard.jsx
-│   │   │   │       ├── PortfolioTableCard.jsx
+│   │   │   │       ├── PositionTableCard.jsx
 │   │   │   │       ├── SizeHedgeChartCard.jsx
 │   │   │   │       ├── TotalRevenueCard.jsx
 │   │   │   │       ├── ValueToCollateralChartCard.jsx

@@ -35,7 +35,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   }
 }));
 
-const PortfolioTableCard = () => {
+const PositionTableCard = () => {
   const [positions, setPositions] = useState([]);
   const [totals, setTotals] = useState({ value: 0, collateral: 0 });
   const [orderBy, setOrderBy] = useState('asset_type');
@@ -133,4 +133,4 @@ const PortfolioTableCard = () => {
   );
 };
 
-export default PortfolioTableCard;
+export default PositionTableCard;

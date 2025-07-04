@@ -5062,3 +5062,81 @@
 {"ts": "2025\u201107\u201104 10:19:56", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
 {"ts": "2025\u201107\u201104 10:19:56", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
 {"ts": "2025\u201107\u201104 10:19:56", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for sonic_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 10:22:59", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 10:22:59", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 2 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f Starting Clear All Data", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All alerts deleted", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All alerts cleared", "source": "SystemMaintenanceService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "WARNING", "level_no": 30, "message": "\ud83e\uddf9 All price entries cleared.", "source": "DLPriceManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All prices cleared", "source": "SystemMaintenanceService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All positions got fucked", "source": "DLPositionManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 Portfolio history cleared", "source": "DLPortfolioManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: profit_badge_value", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddf9 All positions cleared", "source": "SystemMaintenanceService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "\u2705 System var set: profit_badge_value", "source": "DLSystemDataManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Full system wipe complete.", "source": "SystemMaintenanceService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:00", "level": "SUCCESS", "level_no": 25, "message": "All alerts, prices, and positions have been deleted.", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:03", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 10:23:03", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 0 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:05", "level": "INFO", "level_no": 20, "message": "Starting Position Updates", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:05", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 10:23:05", "level": "INFO", "level_no": 20, "message": "Starting full Jupiter sync...", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:05", "level": "INFO", "level_no": 20, "message": "Step 1/6: Retrieve and upsert positions", "source": "position_sync_service", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:05", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating positions from Jupiter\u2026", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:05", "level": "INFO", "level_no": 20, "message": "\ud83d\udd0d Loaded 9 active wallets for sync", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:05", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca BobaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca C3P0Vault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LandoVault \u2192 2 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [FUm2ZbGaQ84Au4q4jUzrKQnMnLk2nQeaUgybTRPCSiEM] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "SUCCESS", "level_no": 25, "message": "Alert created: alert-sample-1", "source": "DLAlertManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "ERROR", "level_no": 40, "message": "\u274c Hedge update failed: 'PositionDB' object has no attribute 'get'", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "ERROR", "level_no": 40, "message": "Failed to refresh wallet balance: 'ModuleNotFoundError' object has no attribute 'startswith'", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\n\ud83d\udce5 Enriching position [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] \u2014 Asset: SOL", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Enriched [2Aee4iw2yyk1tUS9oGs6jWCdCU7ups4ydxWZHFiFS8fN] complete", "source": "Enrichment", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udd04 Updating hedges", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "ERROR", "level_no": 40, "message": "\u274c Hedge update failed: 'PositionDB' object has no attribute 'get'", "source": "HedgeCore", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "ERROR", "level_no": 40, "message": "Failed to refresh wallet balance: 'ModuleNotFoundError' object has no attribute 'startswith'", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:06", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LeiaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca LukeVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca PalpatineVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca VaderVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 2 positions", "source": "PositionStore", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udcca YodaVault \u2192 0 Jupiter positions", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "WARNING", "level_no": 30, "message": "\u26a0\ufe0f Skipping  \u2013 missing address", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udce6 Jupiter Sync Result \u2192 Imported: 2, Updated: 0, Skipped: 0, Errors: 0", "source": "SyncSummary", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "INFO", "level_no": 20, "message": "Ensuring 'traders' table exists...", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Trader table ready", "source": "DLTraderManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "INFO", "level_no": 20, "message": "\ud83d\udd27 Initializing database schema...", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "INFO", "level_no": 20, "message": "\u2705 Table creation complete.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "INFO", "level_no": 20, "message": "\u2705 Database initialization finished.", "source": "DataLocker", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "ERROR", "level_no": 40, "message": "\u274c run_full_jupiter_sync failed: 'PositionDB' object has no attribute 'get'", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "SUCCESS", "level_no": 25, "message": "Timer 'position_update' completed in 2.68s", "source": "PositionSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "WARNING", "level_no": 30, "message": "No timer started for label 'position_update'", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:07", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\ude90 Position updates completed", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "INFO", "level_no": 20, "message": "Starting Market Updates", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "INFO", "level_no": 20, "message": "Initiating sync workflow...", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "SUCCESS", "level_no": 25, "message": "Inserted price for BTC", "source": "DLPriceManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "INFO", "level_no": 20, "message": "\ud83d\udcbe Saved BTC = $107,831.0000", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "SUCCESS", "level_no": 25, "message": "Inserted price for ETH", "source": "DLPriceManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "INFO", "level_no": 20, "message": "\ud83d\udcbe Saved ETH = $2,491.5400", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "SUCCESS", "level_no": 25, "message": "Inserted price for SOL", "source": "DLPriceManager", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "INFO", "level_no": 20, "message": "\ud83d\udcbe Saved SOL = $146.0800", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Price sync complete", "source": "PriceSyncService", "payload": {"count": 3, "assets": ["BTC", "ETH", "SOL"]}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "SUCCESS", "level_no": 25, "message": "\ud83e\uddfe Ledger written to DB for price_monitor", "source": "DLMonitorLedger", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "INFO", "level_no": 20, "message": "\ud83e\uddfe Price ledger updated", "source": "PriceSyncService", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:23", "level": "SUCCESS", "level_no": 25, "message": "\ud83d\udcc8 Prices updated successfully \u2705", "source": "Cyclone", "payload": {}}
+{"ts": "2025\u201107\u201104 10:23:25", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Modifiers loaded into CalcServices", "source": "CalculationCore", "payload": {"distanceWeight": 0.6, "leverageWeight": 0.3, "collateralWeight": 0.1}}
+{"ts": "2025\u201107\u201104 10:23:25", "level": "SUCCESS", "level_no": 25, "message": "\u2705 Loaded 2 positions", "source": "PositionStore", "payload": {}}
