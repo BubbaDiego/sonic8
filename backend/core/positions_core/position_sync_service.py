@@ -12,6 +12,7 @@ from backend.data.data_locker import DataLocker
 from backend.core.positions_core.position_enrichment_service import PositionEnrichmentService
 from backend.core.positions_core.position_core import PositionCore
 from backend.core.calc_core.calculation_core import CalculationCore
+from backend.core.hedge_core.hedge_core import HedgeCore
 
 console = Console()
 
@@ -312,6 +313,10 @@ class PositionSyncService:
 
             cursor.execute(sql, {k: position_data[k] for k in valid_fields})
             self.dl.db.commit()
+            try:
+                HedgeCore(self.dl).update_hedges()
+            except Exception as e:  # pragma: no cover - just log
+                log.error(f"Failed to update hedges after upsert: {e}", source="PositionSyncService")
 
             # Determine if it was an insert or update
             return cursor.rowcount == 1
