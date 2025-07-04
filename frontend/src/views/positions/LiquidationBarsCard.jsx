@@ -1,22 +1,29 @@
 import React from 'react';
+import { Box, Typography, Link } from '@mui/material';
 import MainCard from 'ui-component/cards/MainCard';
 import LiquidationBars from 'ui-component/liquidation/LiquidationBars';
 import { liquidationPositions } from 'data/liquidationPositions';
-import { Typography, Link } from '@mui/material';
 
 const LiquidationBarsCard = () => (
-  <MainCard
-    content={false}
-    title={
-      <span className="section-title">
-        <Link href="/positions" underline="hover" onClick={() => localStorage.setItem('pc-view','liquidation')}>Liquidation Bars</Link>
-        <span className="oracle-icon" data-topic="alerts" title="Ask the Oracle">🔮</span>
+  <MainCard>
+    {/* —— header identical to PortfolioTableCard —— */}
+    <Typography variant="h4" sx={{ mb: 2 }}>
+      <Link
+        href="/positions"
+        underline="hover"
+        onClick={() => localStorage.setItem('pc-view', 'liquidation')}
+      >
+        Liquidation Bars
+      </Link>{' '}
+      <span className="oracle-icon" data-topic="alerts" title="Ask the Oracle">
+        🔮
       </span>
-    }
-  >
-    <div style={{ padding: '1rem' }}>
+    </Typography>
+
+    {/* —— content —— */}
+    <Box sx={{ width: '100%' }}>
       <LiquidationBars positions={liquidationPositions} />
-    </div>
+    </Box>
   </MainCard>
 );
 
