@@ -32,29 +32,71 @@ class SimpleLogger:
     # ------------------------------------------------------------------
     # Basic logging methods
     # ------------------------------------------------------------------
-    def debug(self, msg: str, source: str | None = None, **_: Any) -> None:
-        self._logger.debug(self._format(msg, source))
+    def debug(
+        self,
+        msg: str,
+        source: str | None = None,
+        payload: Any | None = None,
+        **_: Any,
+    ) -> None:
+        self._logger.debug(self._format(msg, source, payload))
 
-    def info(self, msg: str, source: str | None = None, **_: Any) -> None:
-        self._logger.info(self._format(msg, source))
+    def info(
+        self,
+        msg: str,
+        source: str | None = None,
+        payload: Any | None = None,
+        **_: Any,
+    ) -> None:
+        self._logger.info(self._format(msg, source, payload))
 
-    def warning(self, msg: str, source: str | None = None, **_: Any) -> None:
-        self._logger.warning(self._format(msg, source))
+    def warning(
+        self,
+        msg: str,
+        source: str | None = None,
+        payload: Any | None = None,
+        **_: Any,
+    ) -> None:
+        self._logger.warning(self._format(msg, source, payload))
 
-    def error(self, msg: str, source: str | None = None, **_: Any) -> None:
-        self._logger.error(self._format(msg, source))
+    def error(
+        self,
+        msg: str,
+        source: str | None = None,
+        payload: Any | None = None,
+        **_: Any,
+    ) -> None:
+        self._logger.error(self._format(msg, source, payload))
 
     # Convenience aliases ------------------------------------------------
-    def success(self, msg: str, source: str | None = None, **_: Any) -> None:
-        self._logger.info(self._format(msg, source))
+    def success(
+        self,
+        msg: str,
+        source: str | None = None,
+        payload: Any | None = None,
+        **_: Any,
+    ) -> None:
+        self._logger.info(self._format(msg, source, payload))
 
-    def banner(self, msg: str, source: str | None = None, **_: Any) -> None:
+    def banner(
+        self,
+        msg: str,
+        source: str | None = None,
+        payload: Any | None = None,
+        **_: Any,
+    ) -> None:
         banner_msg = f"==== {msg} ===="
-        self._logger.info(self._format(banner_msg, source))
+        self._logger.info(self._format(banner_msg, source, payload))
 
-    def route(self, msg: str, source: str | None = None, **_: Any) -> None:
+    def route(
+        self,
+        msg: str,
+        source: str | None = None,
+        payload: Any | None = None,
+        **_: Any,
+    ) -> None:
         """Log a route access message using :meth:`info`."""
-        self._logger.info(self._format(msg, source))
+        self._logger.info(self._format(msg, source, payload))
 
     # ------------------------------------------------------------------
     # Timer helpers
@@ -91,10 +133,6 @@ class SimpleLogger:
 
 
     # Compatibility helpers -------------------------------------------------
-    def route(self, msg: str, source: str | None = None, **_: Any) -> None:
-        """Alias used by some modules to log routing info."""
-        self.info(msg, source=source)
-
     def print_dashboard_link(
         self, host: str = "127.0.0.1", port: int = 5001, route: str = "/dashboard"
     ) -> None:
@@ -107,8 +145,11 @@ class SimpleLogger:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-    def _format(self, msg: str, source: str | None) -> str:
-        return f"[{source}] {msg}" if source else msg
+    def _format(self, msg: str, source: str | None, payload: Any | None = None) -> str:
+        base = f"[{source}] {msg}" if source else msg
+        if payload is not None:
+            base = f"{base} {payload}"
+        return base
 
 
 # Public API ---------------------------------------------------------------
