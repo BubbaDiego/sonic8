@@ -5,7 +5,7 @@ Module: DLHedgeManager
 Description:
     Provides retrieval of hedge data from the database. This manager
     queries positions that have a ``hedge_buddy_id`` set and converts
-    them into :class:`~data.models.Hedge` objects using
+    them into :class:`~backend.models.hedge.Hedge` objects using
     :class:`~positions.hedge_manager.HedgeManager`.
 """
 
@@ -13,6 +13,7 @@ try:
     from positions.hedge_manager import HedgeManager
 except ModuleNotFoundError:  # pragma: no cover - fallback to new path
     from core.positions_core.hedge_manager import HedgeManager
+from backend.models.hedge import Hedge
 from core.core_imports import log
 
 
@@ -21,7 +22,7 @@ class DLHedgeManager:
         self.db = db
         log.debug("DLHedgeManager initialized.", source="DLHedgeManager")
 
-    def get_hedges(self) -> list:
+    def get_hedges(self) -> list[Hedge]:
         """Return a list of :class:`Hedge` objects from existing positions."""
         try:
             cursor = self.db.get_cursor()
