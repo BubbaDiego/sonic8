@@ -56,7 +56,8 @@ export default function TotalSizeDarkCard({ isLoading }) {
       try {
         const response = await axios.get('/portfolio/latest');
         const data = response.data || {};
-        const val = parseFloat(data.total_size || 0).toFixed(2);
+        const num = parseFloat(data.total_size || 0);
+        const val = `${(num / 1000).toFixed(1)}k`;
         setSize(val);
       } catch (e) {
         console.error(e);
