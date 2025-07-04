@@ -11,6 +11,8 @@ import TotalHeatIndexDarkCard from 'ui-component/cards/TotalHeatIndexDarkCard';
 import TotalHeatIndexLightCard from 'ui-component/cards/TotalHeatIndexLightCard';
 import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
+// Chart card component implemented at:
+// src/ui-component/cards/charts/ValueToCollateralChartCard.jsx
 import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
 import { useGetLatestPortfolio } from 'api/portfolio';
 import { useGetPositions } from 'api/positions';
