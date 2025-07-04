@@ -6,6 +6,7 @@ const Logo = () => (
     <img
         src="/static/images/logo.png"
         alt="Sonic"
+        title="Sonic"
         width="100"
         style={{ objectFit: 'contain' }}
     />
