@@ -46,6 +46,8 @@ default. You can change this by editing `frontend/vite.config.mjs` and setting
 
 Feel free to explore each directory for more details.
 
+See [docs/alert_thresholds_api.md](docs/alert_thresholds_api.md) for the alert thresholds API.
+
 ## Frontend UI Guide
 See [docs/berry_react_guide.md](docs/berry_react_guide.md) for details on the React codebase:
 - Overview of the `src/` folder structure.
