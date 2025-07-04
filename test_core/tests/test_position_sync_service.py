@@ -6,6 +6,7 @@ import json
 import pytest
 
 from positions.position_sync_service import PositionSyncService
+from backend.core.hedge_core.hedge_core import HedgeCore
 
 
 # -------------------------------------------------------------------------#
@@ -176,3 +177,44 @@ def test_heat_index_calculated_on_insert(svc):
     cur.execute("SELECT heat_index FROM positions WHERE id='pos_1'")
     value = cur.fetchone()[0]
     assert value is not None and value > 0
+
+
+def test_upsert_triggers_hedge_update(monkeypatch):
+    dl = _FakeDataLocker()
+    svc = PositionSyncService(dl)
+
+    cursor = svc.dl.db.get_cursor()
+    cursor.execute("PRAGMA table_info(positions)")
+    db_columns = {row[1] for row in cursor.fetchall()}
+
+    called = {"update": False}
+    monkeypatch.setattr(
+        HedgeCore,
+        "update_hedges",
+        lambda self: called.__setitem__("update", True),
+    )
+
+    pos = {
+        "id": "u1",
+        "asset_type": "BTC",
+        "position_type": "LONG",
+        "entry_price": 1.0,
+        "liquidation_price": 0.5,
+        "collateral": 1.0,
+        "size": 0.1,
+        "leverage": 1.0,
+        "value": 1.0,
+        "last_updated": datetime.now().isoformat(),
+        "wallet_name": "w",
+        "pnl_after_fees_usd": 0.0,
+        "travel_percent": 0.0,
+        "current_price": 0.0,
+        "heat_index": 0.0,
+        "current_heat_index": 0.0,
+        "liquidation_distance": 0.0,
+    }
+
+    inserted = svc._upsert_position(pos, db_columns)
+
+    assert inserted is True
+    assert called["update"] is True

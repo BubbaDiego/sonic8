@@ -41,7 +41,13 @@ class PositionCore:
 
     def create_position(self, pos: dict):
         enriched = self.enricher.enrich(pos)
-        return self.store.insert(enriched)
+        inserted = self.store.insert(enriched)
+        if inserted:
+            try:
+                HedgeCore(self.dl).update_hedges()
+            except Exception as e:  # pragma: no cover - just log
+                log.error(f"Failed to update hedges after insert: {e}", source="PositionCore")
+        return inserted
 
     def delete_position(self, pos_id: str):
         return self.store.delete(pos_id)
