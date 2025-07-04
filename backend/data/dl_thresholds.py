@@ -3,7 +3,7 @@ import os
 from backend.core.core_imports import log
 from backend.core.constants import CONFIG_DIR
 from datetime import datetime, timezone
-from backend.models.alert import AlertThreshold
+from backend.models.alert_thresholds import AlertThreshold
 from uuid import uuid4
 from datetime import datetime
 import json
