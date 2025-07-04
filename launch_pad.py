@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
-from backend.console.cyclone_console import run_console
+from backend.console.cyclone_console_service import run_cyclone_console
 from backend.core.wallet_core import WalletService
 from test_core import TestCoreRunner, formatter
 from backend.data.data_locker import DataLocker
@@ -212,7 +212,7 @@ def main():
         elif choice == "6":
             wallet_menu()
         elif choice == "7":
-            run_console()
+            run_cyclone_console()
         elif choice == "0":
             console.print("[bold green]Exiting...[/]")
             break

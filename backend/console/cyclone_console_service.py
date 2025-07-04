@@ -1,5 +1,8 @@
 import asyncio
 import os
+# NOTE: CycloneConsoleService is designed for interactive use.  Expose a helper
+# function ``run_cyclone_console`` so callers don't need to manually construct a
+# ``Cyclone`` instance.
 from cyclone_engine import Cyclone
 from data.data_locker import DataLocker
 # Import HedgeManager from the actual implementation location
@@ -436,6 +439,13 @@ class CycloneConsoleService:
     def view_alerts_backend(self):
         alerts = self.cyclone.data_locker.alerts.get_all_alerts()
         self.paginate_items(alerts, self.view_alert_details, title="Alert Definitions")
+
+
+def run_cyclone_console(poll_interval: int = 60) -> None:
+    """Launch :class:`CycloneConsoleService` with a fresh ``Cyclone`` instance."""
+    cyclone = Cyclone(poll_interval=poll_interval)
+    service = CycloneConsoleService(cyclone)
+    service.run_console()
 
 
 if __name__ == "__main__":
