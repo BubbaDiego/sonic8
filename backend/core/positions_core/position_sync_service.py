@@ -43,6 +43,7 @@ class PositionSyncService:
 
     def __init__(self, data_locker: "DataLocker"):
         self.dl = data_locker
+        self.enricher = PositionEnrichmentService(data_locker)
 
     # ---------------------------------------------------------------------#
     #                         Networking helpers                           #
@@ -259,7 +260,7 @@ class PositionSyncService:
                     console.print(
                         f"[yellow]{pos_id} {raw_pos['asset_type']} {raw_pos['position_type']} size={raw_pos['size']} coll={raw_pos['collateral']}[/yellow]"
                     )
-                    is_insert = self._upsert_position(raw_pos, db_columns)
+                    is_insert = self._upsert_position(self.enricher.enrich(raw_pos), db_columns)
                     if is_insert:
                         imported += 1
                     else:
