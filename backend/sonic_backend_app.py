@@ -11,6 +11,10 @@ from backend.routes.positions_api import router as positions_router
 from backend.routes.portfolio_api import router as portfolio_router
 from backend.routes.cyclone_api import router as cyclone_router
 from backend.routes.wallet_api import router as wallet_router
+from backend.routes.alert_thresholds_api import (
+    router as threshold_router,
+    alerts_router,
+)
 
 app = FastAPI(title="Sonic API")
 
@@ -27,6 +31,8 @@ app.include_router(positions_router)
 app.include_router(portfolio_router)
 app.include_router(cyclone_router)
 app.include_router(wallet_router)
+app.include_router(threshold_router)
+app.include_router(alerts_router)
 
 @app.get("/api/status")
 async def status():
