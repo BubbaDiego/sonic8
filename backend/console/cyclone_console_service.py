@@ -1,14 +1,14 @@
 import asyncio
 import os
-from cyclone_engine import Cyclone
-from data.data_locker import DataLocker
+from backend.core.cyclone_core.cyclone_engine import Cyclone
+from backend.data.data_locker import DataLocker
 # Import HedgeManager from the actual implementation location
-from positions_core.hedge_manager import HedgeManager
-from core.logging import log
-from cyclone.cyclone_position_service import CyclonePositionService
-from cyclone.cyclone_portfolio_service import CyclonePortfolioService
-from cyclone.cyclone_alert_service import CycloneAlertService
-from cyclone.cyclone_hedge_service import CycloneHedgeService
+from backend.core.positions_core.hedge_manager import HedgeManager
+from backend.core.logging import log
+from backend.core.cyclone_core.cyclone_position_service import CyclonePositionService
+from backend.core.cyclone_core.cyclone_portfolio_service import CyclonePortfolioService
+from backend.core.cyclone_core.cyclone_alert_service import CycloneAlertService
+from backend.core.cyclone_core.cyclone_hedge_service import CycloneHedgeService
 
 class CycloneConsoleService:
     def __init__(self, cyclone_instance):
@@ -384,9 +384,9 @@ class CycloneConsoleService:
 
 
 if __name__ == "__main__":
-    from cyclone_engine import Cyclone
+    from backend.core.cyclone_core.cyclone_engine import Cyclone
 
-    from core.locker_factory import get_locker
+    from backend.core.locker_factory import get_locker
     cyclone = Cyclone(poll_interval=60)
     helper = CycloneConsoleService(cyclone)
     helper.run_console()
