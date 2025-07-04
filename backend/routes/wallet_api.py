@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.models.wallet import Wallet
 from data.data_locker import DataLocker
+from backend.core.wallet_core.wallet_core import WalletCore
 
 router = APIRouter(prefix="/wallets", tags=["wallets"])
 
@@ -11,6 +12,10 @@ def _dl() -> DataLocker:
 
 @router.get("/", response_model=list[dict])
 def list_wallets(dl: DataLocker = Depends(_dl)):
+    try:
+        WalletCore().refresh_wallet_balances()
+    except Exception:  # pragma: no cover - best effort
+        pass
     return dl.read_wallets()
 
 
