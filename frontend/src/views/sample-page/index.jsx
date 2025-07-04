@@ -32,6 +32,21 @@ export default function SamplePage() {
   );
   const totalValueNumber = portfolio?.total_value ?? fallbackTotal;
   const totalValue = `$${Number(totalValueNumber || 0).toLocaleString()}`;
+  const heatIndexNumber =
+    portfolio?.avg_heat_index ??
+    (positions.length
+      ? positions.reduce(
+          (sum, p) =>
+            sum +
+            parseFloat(p.heat_index || 0) *
+              (parseFloat(p.size || 1) || 1),
+          0
+        ) /
+        positions.reduce(
+          (sum, p) => sum + (parseFloat(p.size || 1) || 1),
+          0
+        )
+      : 0);
 
   return (
     <Grid container spacing={2} columns={12}>
@@ -50,9 +65,9 @@ export default function SamplePage() {
         </Grid>
         <Grid item>
           {isDark ? (
-            <TotalHeatIndexDarkCard />
+            <TotalHeatIndexDarkCard value={heatIndexNumber} />
           ) : (
-            <TotalHeatIndexLightCard icon={<TableChartOutlinedIcon fontSize="inherit" />} />
+            <TotalHeatIndexLightCard value={heatIndexNumber} icon={<TableChartOutlinedIcon fontSize="inherit" />} />
           )}
         </Grid>
         <Grid item>
