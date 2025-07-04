@@ -3,12 +3,11 @@ import { useMemo } from 'react';
 import { fetcher } from 'utils/axios';
 
 const endpoints = {
-  key: 'api/positions',
   list: '/positions/'
 };
 
 export function useGetPositions() {
-  const { data, isLoading, error, isValidating } = useSWR(endpoints.key + endpoints.list, fetcher, {
+  const { data, isLoading, error, isValidating } = useSWR(endpoints.list, fetcher, {
     revalidateIfStale: false,
     revalidateOnFocus: false,
     revalidateOnReconnect: false
