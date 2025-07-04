@@ -1,6 +1,7 @@
 from typing import Dict
 
 from .oracle_data_service import OracleDataService
+from backend.models.portfolio import PortfolioSnapshot
 
 
 class PortfolioTopicHandler:
@@ -14,4 +15,11 @@ class PortfolioTopicHandler:
 
     def get_context(self) -> Dict:
         snapshot = self.data_service.fetch_portfolio()
+        if isinstance(snapshot, PortfolioSnapshot):
+            if hasattr(snapshot, "model_dump"):
+                snapshot = snapshot.model_dump()
+            elif hasattr(snapshot, "dict"):
+                snapshot = snapshot.dict()
+            else:
+                snapshot = snapshot.__dict__
         return {self.output_key: snapshot}

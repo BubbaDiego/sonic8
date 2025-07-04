@@ -2,8 +2,9 @@ import os
 import core.constants as const
 import core.core_imports as ci
 from data.data_locker import DataLocker
-from positions.position_core import PositionCore
-from calc_core.calc_services import CalcServices
+from backend.core.positions_core.position_core import PositionCore
+from backend.core.calc_core.calc_services import CalcServices
+from backend.models.portfolio import PortfolioSnapshot
 
 SEED_PATCHES = [
     "_seed_modifiers_if_empty",
@@ -45,6 +46,7 @@ def test_inactive_wallet_positions_excluded(tmp_path, monkeypatch):
 
     core.record_snapshot()
     snap = dl.portfolio.get_latest_snapshot()
-    assert snap["total_value"] == 5
+    assert isinstance(snap, PortfolioSnapshot)
+    assert snap.total_value == 5
 
 

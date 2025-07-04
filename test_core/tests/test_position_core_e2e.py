@@ -9,8 +9,9 @@ requests_stub = types.ModuleType("requests")
 sys.modules.setdefault("requests", requests_stub)
 
 from data.data_locker import DataLocker
-from positions.position_core import PositionCore
-from positions.position_sync_service import PositionSyncService
+from backend.core.positions_core.position_core import PositionCore
+from backend.core.positions_core.position_sync_service import PositionSyncService
+from backend.models.portfolio import PortfolioSnapshot
 
 
 def build_test_position(id=None):
@@ -55,7 +56,7 @@ def test_position_core_sync_records_snapshot(dl, monkeypatch):
     core.create_position(build_test_position())
     assert len(core.get_all_positions()) == 1
 
-    assert dl.portfolio.get_latest_snapshot() == {}
+    assert dl.portfolio.get_latest_snapshot() is None
 
     monkeypatch.setattr(
         PositionSyncService,
@@ -68,5 +69,5 @@ def test_position_core_sync_records_snapshot(dl, monkeypatch):
     assert result["success"] is True
     assert result["imported"] == 0
     snapshot = dl.portfolio.get_latest_snapshot()
-    assert snapshot != {}
+    assert isinstance(snapshot, PortfolioSnapshot)
 

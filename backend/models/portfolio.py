@@ -1,6 +1,20 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+try:
+    from pydantic import BaseModel, Field
+    if not hasattr(BaseModel, "__fields__"):
+        raise ImportError("stub")
+except Exception:  # pragma: no cover - optional dependency or stub detected
+    class BaseModel:
+        def __init__(self, **data):
+            for k, v in data.items():
+                setattr(self, k, v)
+
+        def dict(self) -> dict:  # type: ignore[override]
+            return self.__dict__
+
+    def Field(default=None, **_):  # type: ignore
+        return default
 from uuid import uuid4
 
 class PortfolioSnapshot(BaseModel):

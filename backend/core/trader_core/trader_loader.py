@@ -8,6 +8,7 @@ import importlib
 StrategyManager = importlib.import_module("oracle_core.strategy_manager").StrategyManager
 PersonaManager = importlib.import_module("oracle_core.persona_manager").PersonaManager
 OracleDataService = importlib.import_module("oracle_core.oracle_data_service").OracleDataService
+PortfolioSnapshot = importlib.import_module("backend.models.portfolio").PortfolioSnapshot
 CalcServices = importlib.import_module("calc_core.calc_services").CalcServices
 from backend.core.trader_core.trader import Trader
 from backend.core.trader_core.mood_engine import evaluate_mood
@@ -38,7 +39,16 @@ class TraderLoader:
                 positions = pm.get_active_positions_by_wallet(wallet_name) or []
             else:
                 positions = pm.get_all_positions() or []
-        portfolio = self.data_service.fetch_portfolio() or {}
+        raw_snapshot = self.data_service.fetch_portfolio()
+        if isinstance(raw_snapshot, PortfolioSnapshot):
+            if hasattr(raw_snapshot, "model_dump"):
+                portfolio = raw_snapshot.model_dump()
+            elif hasattr(raw_snapshot, "dict"):
+                portfolio = raw_snapshot.dict()
+            else:
+                portfolio = raw_snapshot.__dict__
+        else:
+            portfolio = raw_snapshot or {}
         calc = CalcServices()
         avg_heat = calc.calculate_weighted_heat_index(positions)
         mood = evaluate_mood(avg_heat, getattr(persona, "moods", {}))
