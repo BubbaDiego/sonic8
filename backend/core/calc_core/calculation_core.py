@@ -52,7 +52,11 @@ class CalculationCore:
 
     def aggregate_positions_and_update(self, positions: list, db_path: str) -> list:
         log.start_timer("aggregate_positions_and_update")
-        log.info("Starting aggregation on positions", "aggregate_positions_and_update", {"count": len(positions)})
+        log.info(
+            "Starting aggregation on positions",
+            source="aggregate_positions_and_update",
+            payload={"count": len(positions)},
+        )
 
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -62,7 +66,11 @@ class CalculationCore:
         for pos in positions:
             pos_id = pos.get("id", "UNKNOWN")
             try:
-                log.debug(f"Aggregating position {pos_id}", "aggregate_positions_and_update", pos)
+                log.debug(
+                    f"Aggregating position {pos_id}",
+                    source="aggregate_positions_and_update",
+                    payload=pos,
+                )
 
                 position_type = (pos.get("position_type") or "LONG").upper()
                 entry_price = float(pos.get("entry_price", 0.0))
@@ -101,14 +109,24 @@ class CalculationCore:
                 set_clause = ", ".join(f"{k} = ?" for k in update_map.keys())
                 params = list(update_map.values()) + [pos_id]
                 cursor.execute(f"UPDATE positions SET {set_clause} WHERE id = ?", params)
-                log.success("Updated DB for position", "aggregate_positions_and_update", {"id": pos_id, "heat_index": heat_index})
+                log.success(
+                    "Updated DB for position",
+                    source="aggregate_positions_and_update",
+                    payload={"id": pos_id, "heat_index": heat_index},
+                )
 
             except Exception as e:
-                log.error(f"Error processing position {pos_id}: {e}", "aggregate_positions_and_update")
+                log.error(
+                    f"Error processing position {pos_id}: {e}",
+                    source="aggregate_positions_and_update",
+                )
 
         conn.commit()
         conn.close()
-        log.end_timer("aggregate_positions_and_update", "aggregate_positions_and_update")
+        log.end_timer(
+            "aggregate_positions_and_update",
+            source="aggregate_positions_and_update",
+        )
         return positions
 
     def set_modifier(self, key: str, value: float):
