@@ -2,7 +2,8 @@ import asyncio
 import os
 from flask import Blueprint, jsonify, render_template, current_app
 # Access the shared Cyclone instance attached to the Flask app
-from core.core_imports import BASE_DIR, log
+from core.core_imports import log
+from core.constants import CYCLONE_LOG_FILE
 from threading import Thread
 import inspect
 
@@ -140,10 +141,9 @@ def clear_alerts():
 @cyclone_bp.route("/cyclone_logs", methods=["GET"])
 def api_cyclone_logs():
     try:
-        log_file = os.path.join(BASE_DIR, "monitor", "operations_log.txt")
-        if not os.path.exists(log_file):
+        if not CYCLONE_LOG_FILE.exists():
             return jsonify({"logs": []})
-        with open(log_file, "r", encoding="utf-8") as f:
+        with CYCLONE_LOG_FILE.open("r", encoding="utf-8") as f:
             lines = f.readlines()
         last_lines = lines[-50:]
         cleaned = [line.rstrip("\n") for line in last_lines]
