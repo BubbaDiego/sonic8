@@ -7,6 +7,8 @@ import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 
 import { ThemeMode } from 'config';
 import TotalValueCard from 'ui-component/cards/TotalValueCard';
+import TotalHeatIndexDarkCard from 'ui-component/cards/TotalHeatIndexDarkCard';
+import TotalHeatIndexLightCard from 'ui-component/cards/TotalHeatIndexLightCard';
 import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
 import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
@@ -15,7 +17,6 @@ import { useGetPositions } from 'api/positions';
 
 
 // project imports
-import MainCard from 'ui-component/cards/MainCard';
 
 // ==============================|| SAMPLE PAGE ||============================== //
 
@@ -33,9 +34,12 @@ export default function SamplePage() {
   const totalValue = `$${Number(totalValueNumber || 0).toLocaleString()}`;
 
   return (
-    <MainCard title="Sample Card">
-      <Grid container spacing={2} columns={12}>
-        <Grid sx={{ gridColumn: 'span 3' }}>
+    <Grid container spacing={2} columns={12}>
+      <Grid item xs={12} md={9} sx={{ gridColumn: { md: 'span 9' } }}>
+        <ValueToCollateralChartCard />
+      </Grid>
+      <Grid item xs={12} md={3} container spacing={2} direction="column" sx={{ gridColumn: { md: 'span 3' } }}>
+        <Grid item>
           <TotalValueCard
             primary="Total Value"
             secondary={totalValue}
@@ -44,19 +48,21 @@ export default function SamplePage() {
             color="primary.main"
           />
         </Grid>
-        <Grid sx={{ gridColumn: 'span 3' }}>
+        <Grid item>
+          {isDark ? (
+            <TotalHeatIndexDarkCard />
+          ) : (
+            <TotalHeatIndexLightCard icon={<TableChartOutlinedIcon fontSize="inherit" />} />
+          )}
+        </Grid>
+        <Grid item>
           {isDark ? (
             <TotalLeverageDarkCard />
           ) : (
             <TotalLeverageLightCard icon={<TableChartOutlinedIcon fontSize="inherit" />} />
           )}
         </Grid>
-
-        <Grid sx={{ gridColumn: 'span 6' }}>
-          <ValueToCollateralChartCard />
-        </Grid>
-
       </Grid>
-    </MainCard>
+    </Grid>
   );
 }
