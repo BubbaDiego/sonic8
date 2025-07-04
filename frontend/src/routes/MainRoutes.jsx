@@ -7,7 +7,7 @@ const SamplePage = Loadable(lazy(() => import('views/sample-page')));
 const PositionsPage = Loadable(lazy(() => import('views/positions')));
 
 // new import
-const WalletManagerPage = Loadable(lazy(() => import('views/wallet-manager')));
+const WalletManagerPage = Loadable(lazy(() => import('views/wallet/WalletManager')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
