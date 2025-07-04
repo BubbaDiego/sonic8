@@ -10,6 +10,7 @@ import TotalValueCard from 'ui-component/cards/TotalValueCard';
 import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
 import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
 import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
+import { useGetLatestPortfolio } from 'api/portfolio';
 
 
 // project imports
@@ -20,6 +21,8 @@ import MainCard from 'ui-component/cards/MainCard';
 export default function SamplePage() {
   const theme = useTheme();
   const isDark = theme.palette.mode === ThemeMode.DARK;
+  const { portfolio } = useGetLatestPortfolio();
+  const totalValue = `$${Number(portfolio?.total_value || 0).toLocaleString()}`;
 
   return (
     <MainCard title="Sample Card">
@@ -27,7 +30,7 @@ export default function SamplePage() {
         <Grid sx={{ gridColumn: 'span 3' }}>
           <TotalValueCard
             primary="Total Value"
-            secondary="$500,000"
+            secondary={totalValue}
             content="Yearly revenue"
             iconPrimary={IconCurrencyDollar}
             color="primary.main"
