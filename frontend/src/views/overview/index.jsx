@@ -16,9 +16,9 @@ import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollate
 import { useGetLatestPortfolio } from 'api/portfolio';
 import { useGetPositions } from 'api/positions';
 
-// ==============================|| SAMPLE PAGE ||============================== //
+// ==============================|| OVERVIEW PAGE ||============================ //
 
-export default function SamplePage() {
+export default function OverviewPage() {
   const theme = useTheme();
   const isDark = theme.palette.mode === ThemeMode.DARK;
   const { portfolio } = useGetLatestPortfolio();

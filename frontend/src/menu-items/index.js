@@ -1,4 +1,4 @@
-import samplePage from './sample-page';
+import overview from './overview';
 import positions from './positions';
 import walletManager from './wallet-manager';
 import pages from './pages';
@@ -10,7 +10,7 @@ const menuItems = {
       title: 'Main Pages',
       type: 'group',
       children: [
-        samplePage,
+        overview,
         positions,
         walletManager
       ]

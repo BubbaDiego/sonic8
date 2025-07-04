@@ -169,7 +169,7 @@ export default Logo;
 
 ## 🌱 Get Started with Seed
 
-The Seed version provides a basic structure with minimal files, dependencies, and a sample page to help start projects quickly. Add components from the full version by copying files and resolving paths.
+The Seed version provides a basic structure with minimal files, dependencies, and an overview page to help start projects quickly. Add components from the full version by copying files and resolving paths.
 
 ---
 
