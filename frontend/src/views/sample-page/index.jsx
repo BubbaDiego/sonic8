@@ -23,8 +23,8 @@ export default function SamplePage() {
 
   return (
     <MainCard title="Sample Card">
-      <Grid container spacing={2}>
-        <Grid item xs={3}>
+      <Grid container spacing={2} columns={12}>
+        <Grid sx={{ gridColumn: 'span 3' }}>
           <TotalValueCard
             primary="Total Value"
             secondary="$500,000"
@@ -33,7 +33,7 @@ export default function SamplePage() {
             color="primary.main"
           />
         </Grid>
-        <Grid item xs={3}>
+        <Grid sx={{ gridColumn: 'span 3' }}>
           {isDark ? (
             <TotalLeverageDarkCard />
           ) : (
@@ -41,7 +41,7 @@ export default function SamplePage() {
           )}
         </Grid>
 
-        <Grid item xs={6}>
+        <Grid sx={{ gridColumn: 'span 6' }}>
           <ValueToCollateralChartCard />
         </Grid>
 

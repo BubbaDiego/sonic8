@@ -75,13 +75,13 @@ export default function ValueToCollateralChartCard() {
   return (
     <MainCard content={false}>
       <Box sx={{ p: 3 }}>
-        <Grid container direction="column" spacing={3}>
+        <Grid container direction="column" spacing={3} columns={12}>
           <Grid container spacing={1} sx={{ alignItems: 'center' }}>
             <Grid>
               <Typography variant="h3">Portfolio Value vs Collateral</Typography>
             </Grid>
           </Grid>
-          <Grid item xs={12}>
+          <Grid sx={{ gridColumn: 'span 12' }}>
             <Typography sx={{ mt: -1, fontWeight: 400 }} color="inherit" variant="h5">
               Weekly comparison of portfolio metrics
             </Typography>
