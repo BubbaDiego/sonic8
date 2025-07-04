@@ -72,14 +72,27 @@ const PositionsTableCard = () => {
         <Table sx={{ minWidth: 320 }} aria-label="portfolio positions table">
           <TableHead>
             <TableRow>
-              {['wallet_name', 'asset_type', 'size', 'value', 'collateral'].map((col) => (
+              {[
+                'wallet_name',
+                'asset_type',
+                'size',
+                'value',
+                'collateral',
+                'travel_percent',
+                'liquidation_distance',
+                'heat_index'
+              ].map((col) => (
                 <StyledTableCell key={col}>
                   <TableSortLabel
                     active={orderBy === col}
                     direction={orderBy === col ? order : 'asc'}
                     onClick={() => handleSort(col)}
                   >
-                    {col === 'wallet_name' ? 'Wallet' : col.charAt(0).toUpperCase() + col.slice(1)}
+                    {col === 'wallet_name'
+                      ? 'Wallet'
+                      : col
+                          .replace(/_/g, ' ')
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}
                   </TableSortLabel>
                 </StyledTableCell>
               ))}
@@ -106,10 +119,13 @@ const PositionsTableCard = () => {
                 <StyledTableCell>
                   ${Number(position.collateral || 0).toLocaleString()}
                 </StyledTableCell>
+                <StyledTableCell>{`${Number(position.travel_percent || 0).toFixed(2)}%`}</StyledTableCell>
+                <StyledTableCell>{Number(position.liquidation_distance || 0).toFixed(2)}</StyledTableCell>
+                <StyledTableCell>{Number(position.heat_index || 0).toFixed(2)}</StyledTableCell>
               </StyledTableRow>
             ))}
             <StyledTableRow>
-              <StyledTableCell sx={{ fontWeight: 700 }} colSpan={2}>
+              <StyledTableCell sx={{ fontWeight: 700 }} colSpan={6}>
                 Totals
               </StyledTableCell>
               <StyledTableCell sx={{ fontWeight: 700 }}>
