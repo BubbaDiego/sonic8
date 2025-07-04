@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.positions_api import router as positions_router
 from backend.routes.portfolio_api import router as portfolio_router
 from backend.routes.cyclone_api import router as cyclone_router
+from backend.routes.wallet_api import router as wallet_router
 
 app = FastAPI(title="Sonic API")
 
@@ -25,6 +26,7 @@ app.add_middleware(
 app.include_router(positions_router)
 app.include_router(portfolio_router)
 app.include_router(cyclone_router)
+app.include_router(wallet_router)
 
 @app.get("/api/status")
 async def status():
