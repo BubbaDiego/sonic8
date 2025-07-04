@@ -1,4 +1,4 @@
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { useMemo } from 'react';
 import { fetcher } from 'utils/axios';
 
@@ -54,4 +54,12 @@ export function useGetPortfolioHistory() {
   );
 
   return memoized;
+}
+
+export function refreshLatestPortfolio() {
+  return mutate(endpoints.latest);
+}
+
+export function refreshPortfolioHistory() {
+  return mutate(endpoints.history);
 }

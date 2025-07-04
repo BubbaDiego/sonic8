@@ -8,6 +8,8 @@ import Box from '@mui/material/Box';
 // project imports
 import { ThemeMode } from 'config';
 import { runFullCycle, runPositionUpdate, runPriceUpdate, deleteAllData } from 'api/cyclone';
+import { refreshPositions } from 'api/positions';
+import { refreshLatestPortfolio, refreshPortfolioHistory } from 'api/portfolio';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/slices/snackbar';
 
@@ -19,6 +21,7 @@ import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-rea
 export default function CycloneRunSection() {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const REFRESH_DELAY_MS = 6000;
 
   const avatarSX = {
     ...theme.typography.commonAvatar,
@@ -37,7 +40,12 @@ export default function CycloneRunSection() {
 
   const handlePriceUpdate = () => {
     runPriceUpdate()
-      .then(() =>
+      .then(() => {
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+        }, REFRESH_DELAY_MS);
         dispatch(
           openSnackbar({
             open: true,
@@ -46,8 +54,8 @@ export default function CycloneRunSection() {
             alert: { color: 'success' },
             close: false
           })
-        )
-      )
+        );
+      })
       .catch((error) => {
         console.error(error);
         dispatch(
@@ -65,7 +73,12 @@ export default function CycloneRunSection() {
 
   const handlePositionUpdate = () => {
     runPositionUpdate()
-      .then(() =>
+      .then(() => {
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+        }, REFRESH_DELAY_MS);
         dispatch(
           openSnackbar({
             open: true,
@@ -74,8 +87,8 @@ export default function CycloneRunSection() {
             alert: { color: 'success' },
             close: false
           })
-        )
-      )
+        );
+      })
       .catch((error) => {
         console.error(error);
         dispatch(
@@ -93,7 +106,12 @@ export default function CycloneRunSection() {
 
   const handleDeleteAllData = () => {
     deleteAllData()
-      .then(() =>
+      .then(() => {
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+        }, REFRESH_DELAY_MS);
         dispatch(
           openSnackbar({
             open: true,
@@ -102,8 +120,8 @@ export default function CycloneRunSection() {
             alert: { color: 'success' },
             close: false
           })
-        )
-      )
+        );
+      })
       .catch((error) => {
         console.error(error);
         dispatch(
@@ -121,7 +139,12 @@ export default function CycloneRunSection() {
 
   const handleFullCycle = () => {
     runFullCycle()
-      .then(() =>
+      .then(() => {
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+        }, REFRESH_DELAY_MS);
         dispatch(
           openSnackbar({
             open: true,
@@ -130,8 +153,8 @@ export default function CycloneRunSection() {
             alert: { color: 'success' },
             close: false
           })
-        )
-      )
+        );
+      })
       .catch((error) => {
         console.error(error);
         dispatch(
