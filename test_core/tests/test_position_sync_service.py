@@ -37,6 +37,9 @@ class _FakeDB:
                     pnl_after_fees_usd REAL,
                     travel_percent REAL,
                     current_price REAL,
+                    heat_index REAL,
+                    current_heat_index REAL,
+                    liquidation_distance REAL,
                     stale INTEGER DEFAULT 0,
                     status TEXT DEFAULT 'ACTIVE'
                 )"""
@@ -166,3 +169,10 @@ def test_stale_handler_soft_close(svc):
 
     cur.execute("SELECT status FROM positions WHERE id='pos_stale'")
     assert cur.fetchone()[0] == "STALE_CLOSED"
+
+def test_heat_index_calculated_on_insert(svc):
+    svc.update_jupiter_positions()
+    cur = svc.dl.db.get_cursor()
+    cur.execute("SELECT heat_index FROM positions WHERE id='pos_1'")
+    value = cur.fetchone()[0]
+    assert value is not None and value > 0
