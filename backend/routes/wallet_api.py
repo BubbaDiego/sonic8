@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.models.wallet import Wallet
 from data.data_locker import DataLocker
-from backend.core.wallet_core.wallet_core import WalletCore
+from backend.core.wallet_core import WalletCore
 
 router = APIRouter(prefix="/wallets", tags=["wallets"])
 
