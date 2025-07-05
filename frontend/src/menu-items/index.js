@@ -1,6 +1,7 @@
 import overview from './overview';
 import positions from './positions';
 import walletManager from './wallet-manager';
+import alertThresholds from './alert-thresholds';
 import pages from './pages';
 
 const menuItems = {
@@ -12,7 +13,8 @@ const menuItems = {
       children: [
         overview,
         positions,
-        walletManager
+        walletManager,
+        alertThresholds
       ]
     },
     pages
