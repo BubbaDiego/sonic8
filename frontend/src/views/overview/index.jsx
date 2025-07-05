@@ -60,8 +60,11 @@ export default function OverviewPage() {
         </Grid>
       </Grid>
 
-      {/* ──────── Right column ──────── */}
-      <Grid size={{ xs: 12, md: 4 }}>
+      {/* ──────── Sticky Status Rail (right) ──────── */}
+      <Grid
+        size={{ xs: 12, md: 4 }}
+        sx={{ alignSelf: { md: 'flex-start' } }}   // guarantees the rail starts at top
+      >
         <StatusRail
           totalValue={totalValue}
           heatIndex={heatIndexNumber}
