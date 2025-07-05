@@ -1,6 +1,10 @@
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 from uuid import uuid4
 from backend.models.alert import Alert, AlertType, Condition
 from backend.core.alert_core.utils import log_alert_summary, normalize_alert_fields

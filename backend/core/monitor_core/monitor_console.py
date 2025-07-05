@@ -4,10 +4,12 @@ import sys
 import os
 import subprocess
 from datetime import datetime
+from pathlib import Path
 
 # Project path bootstrap
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-sys.path.insert(0, PROJECT_ROOT)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from monitor_core import MonitorCore
 from monitor_registry import MonitorRegistry

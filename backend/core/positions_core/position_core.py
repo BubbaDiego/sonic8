@@ -1,7 +1,11 @@
 # positions/position_core.py
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 from backend.core.core_imports import log
 from backend.core.positions_core.position_store import PositionStore
 from backend.core.positions_core.position_enrichment_service import PositionEnrichmentService
