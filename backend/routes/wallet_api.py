@@ -12,10 +12,7 @@ def _dl() -> DataLocker:
 
 @router.get("/", response_model=list[dict])
 def list_wallets(dl: DataLocker = Depends(_dl)):
-    try:
-        WalletCore().refresh_wallet_balances()
-    except Exception:  # pragma: no cover - best effort
-        pass
+    """Return wallets without forcing a balance refresh."""
     return dl.read_wallets()
 
 
