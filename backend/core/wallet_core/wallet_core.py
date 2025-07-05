@@ -25,21 +25,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from backend.core.logging import log
 
-#try:
-  #  from solana.rpc.api import Client
-  ##  from solana.transaction import Transaction
-   # from solana.keypair import Keypair
-  #  from solders.pubkey import Pubkey
-  #  from solana.rpc.commitment import Confirmed
-  #  from solana.rpc.types import TxOpts
-#except ImportError as e:  # pragma: no cover - optional dependency
- #   log.warning("Failed to import solana/solders: %s", e)
- #   Client = None
-   # Transaction = object
-  #  Keypair = object
-  #  Pubkey = object
-   # Confirmed = None
-  #  TxOpts = object
+try:  # optional dependency
+    from solana.rpc.api import Client
+    from solana.transaction import Transaction
+    from solana.keypair import Keypair
+    from solders.pubkey import Pubkey
+    from solana.rpc.commitment import Confirmed
+    from solana.rpc.types import TxOpts
+except Exception as e:  # pragma: no cover - gracefully handle missing deps
+    log.warning("Failed to import solana/solders: %s", e, source="WalletCore")
+    Client = None  # type: ignore
+    Transaction = object  # type: ignore
+    Keypair = object  # type: ignore
+    Pubkey = object  # type: ignore
+    Confirmed = None  # type: ignore
+    TxOpts = object  # type: ignore
 
 #from wallets.blockchain_balance_service import BlockchainBalanceService
 #from wallets.jupiter_service import JupiterService
@@ -63,8 +63,8 @@ class WalletCore:
         # Instantiate BlockchainBalanceService regardless of solana availability
         # so ``load_wallets`` can gracefully attempt balance lookups.
 #        self.balance_service = BlockchainBalanceService()
-   #     self.jupiter = JupiterService() if Client else None
- #       self.jupiter_trigger = JupiterTriggerService() if Client else None
+        self.jupiter = None
+        self.jupiter_trigger = None
         log.debug(
             f"WalletCore initialized with RPC {rpc_endpoint}" + (" (stubbed)" if Client is None else ""),
             source="WalletCore",
