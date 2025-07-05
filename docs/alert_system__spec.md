@@ -161,6 +161,7 @@ sonic1/
 │   │   ├── new_tree_protocol.py
 │   │   ├── populate_learning_db.py
 │   │   ├── recover_database.py
+│   │   ├── seed_alert_thresholds.py
 │   │   ├── scan_imports.py
 │   │   ├── send_sms_demo.py
 │   │   ├── setup_test_env.py
