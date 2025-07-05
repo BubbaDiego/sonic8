@@ -1,4 +1,4 @@
-import Grid from '@mui/material/Grid';
+import Grid from 'components/AppGrid';
 import { useTheme } from '@mui/material/styles';
 import { useEffect } from 'react';
 import { IconCurrencyDollar } from '@tabler/icons-react';
@@ -16,6 +16,7 @@ import PositionsTableCard from 'ui-component/cards/positions/PositionsTableCard'
 import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
 import { useGetLatestPortfolio, refreshLatestPortfolio } from 'api/portfolio';
 import { useGetPositions, refreshPositions } from 'api/positions';
+import { gridSpacing } from 'store/constant';
 
 // ==============================|| OVERVIEW PAGE ||============================ //
 
@@ -53,21 +54,23 @@ export default function OverviewPage() {
   const leverageNumber = portfolio?.avg_leverage ?? fallbackLeverage;
 
   return (
-    <Grid container spacing={2}>
-      <Grid item xs={12} md={9}>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
+    <Grid container spacing={gridSpacing}>
+      {/* ──────── Left column ──────── */}
+      <Grid size={{ xs: 12, md: 8 }}>
+        <Grid container spacing={gridSpacing}>
+          <Grid size={12}>
             <PositionsTableCard />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <ValueToCollateralChartCard />
           </Grid>
         </Grid>
       </Grid>
 
-      <Grid item xs={12} md={3}>
-        <Grid container spacing={2} direction="column">
-          <Grid item>
+      {/* ──────── Right column ──────── */}
+      <Grid size={{ xs: 12, md: 4 }}>
+        <Grid container spacing={gridSpacing} direction="column">
+          <Grid size="grow">
             <TotalValueCard
               primary="Total Value"
               secondary={totalValue}
@@ -76,21 +79,21 @@ export default function OverviewPage() {
               color="primary.main"
             />
           </Grid>
-          <Grid item>
+          <Grid size="grow">
             {isDark ? (
               <TotalHeatIndexDarkCard value={heatIndexNumber} />
             ) : (
               <TotalHeatIndexLightCard value={heatIndexNumber} icon={<TableChartOutlinedIcon fontSize="inherit" />} />
             )}
           </Grid>
-          <Grid item>
-          {isDark ? (
+          <Grid size="grow">
+            {isDark ? (
               <TotalLeverageDarkCard value={leverageNumber} />
             ) : (
               <TotalLeverageLightCard value={leverageNumber} icon={<TableChartOutlinedIcon fontSize="inherit" />} />
             )}
           </Grid>
-          <Grid item>
+          <Grid size="grow">
             {isDark ? (
               <TotalSizeDarkCard value={totalSizeNumber} />
             ) : (
