@@ -74,6 +74,33 @@ class DLAlertManager:
         self.db.commit()
         log.info(f"Deleted alert {alert_id}", source="DLAlertManager")
 
+    def update_alert(self, alert) -> bool:
+        """Persist updated alert fields back to the database."""
+        try:
+            if not isinstance(alert, dict):
+                alert = (
+                    alert.model_dump() if hasattr(alert, "model_dump") else alert.dict()
+                )
+
+            cursor = self.db.get_cursor()
+            if cursor is None:
+                log.error("DB unavailable for alert update", source="DLAlertManager")
+                return False
+
+            fields = {k: v for k, v in alert.items() if k != "id"}
+            if not fields:
+                return True
+
+            set_clause = ", ".join(f"{k} = :{k}" for k in fields)
+            params = {**fields, "id": alert["id"]}
+            cursor.execute(f"UPDATE alerts SET {set_clause} WHERE id = :id", params)
+            self.db.commit()
+            log.info(f"Alert updated: {alert['id']}", source="DLAlertManager")
+            return True
+        except Exception as e:
+            log.error(f"Failed to update alert {alert.get('id')}: {e}", source="DLAlertManager")
+            return False
+
     def get_all_alerts(self) -> list:
         """
         Retrieves all alert records from the database.
@@ -122,4 +149,42 @@ class DLAlertManager:
             log.error(
                 f"Failed to clear inactive alerts: {e}", source="DLAlertManager"
             )
+
+
+    def update_alert(self, alert):
+        """Update alert fields in the database."""
+        try:
+            data = alert.dict() if hasattr(alert, "dict") else alert
+            alert_id = data.get("id")
+            if not alert_id:
+                log.error("Missing alert id for update", source="DLAlertManager")
+                return
+
+            cursor = self.db.get_cursor()
+            if cursor is None:
+                log.error("DB unavailable while updating alert", source="DLAlertManager")
+                return
+
+            cursor.execute(
+                """
+                UPDATE alerts SET
+                    level = :level,
+                    evaluated_value = :evaluated_value,
+                    last_triggered = :last_triggered,
+                    status = :status
+                WHERE id = :id
+                """,
+                {
+                    "level": data.get("level"),
+                    "evaluated_value": data.get("evaluated_value"),
+                    "last_triggered": data.get("last_triggered"),
+                    "status": data.get("status"),
+                    "id": alert_id,
+                },
+            )
+            self.db.commit()
+            log.info(f"Alert updated: {alert_id}", source="DLAlertManager")
+        except Exception as e:
+            log.error(f"Failed to update alert {data.get('id', '')}: {e}", source="DLAlertManager")
+
 
