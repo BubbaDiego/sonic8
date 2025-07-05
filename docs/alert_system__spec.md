@@ -1528,3 +1528,15 @@ sonic1/
 - **src/views/** – Page level components including forms, charts and authentication views.
 - **index.html / vite.config.mjs** – Vite app entry HTML and build configuration.
 
+## Recent updates
+
+- Wallet icons now appear in the portfolio table and asset icons show next to the
+  asset type in the positions table. The images live under
+  `frontend/static/images` and are loaded automatically based on the wallet or
+  token name.
+- The **Alert Thresholds** page includes an **Add Threshold** dialog used to add a
+  new threshold. The dialog collects the alert type, metric key and low/medium/high
+  values before persisting the record through the backend API.
+- Running `scripts/initialize_database.py --seed-thresholds` populates default
+  ranges for **Liquidation Distance** and **Profit** using `AlertThresholdSeeder`.
+
