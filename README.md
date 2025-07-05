@@ -63,6 +63,15 @@ to the liquidation view, this card renders a row of bar graphs for each
 position. It now fetches data from the same `/positions/` API endpoint used by
 the positions table, so both views display consistent information.
 
+## Icons and thresholds
+
+- Portfolio and positions tables now display wallet and asset icons from
+  `frontend/static/images`.
+- The **Alert Thresholds** page features an **Add Threshold** dialog for creating
+  new records.
+- Running `python backend/scripts/initialize_database.py --seed-thresholds`
+  seeds default ranges for **Liquidation Distance** and **Profit** alerts.
+
 ## Debugging frontend connectivity
 
 If the frontend UI does not show data, verify the backend API by running the
