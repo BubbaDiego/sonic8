@@ -4,29 +4,32 @@ import MainCard from 'ui-component/cards/MainCard';
 import ThresholdTable from 'ui-component/thresholds/ThresholdTable';
 import CooldownTable from 'ui-component/thresholds/CooldownTable';
 import { useDispatch, useSelector } from 'store';
-import {
-  fetchThresholds,
-  persistThresholds,
-  setThreshold,
-  setCooldown
-} from 'store/slices/alertThresholds';
+import { fetchThresholds, persistThresholds, setThresholds } from 'store/slices/alertThresholds';
 
 export default function AlertThresholdsPage() {
   const dispatch = useDispatch();
-  const { thresholds, cooldowns } = useSelector((state) => state.alertThresholds);
+  const { data } = useSelector((state) => state.thresholds);
+  const thresholds = data?.thresholds || [];
+  const cooldowns = data?.cooldowns || {};
 
   useEffect(() => {
     dispatch(fetchThresholds());
   }, [dispatch]);
 
-  const handleThresholdChange = (id, field, value) =>
-    dispatch(setThreshold({ id, field, value }));
+  const handleThresholdChange = (id, field, value) => {
+    const updated = thresholds.map((t) =>
+      t.id === id ? { ...t, [field]: value } : t
+    );
+    dispatch(setThresholds({ thresholds: updated, cooldowns }));
+  };
 
-  const handleCooldownChange = (field, value) =>
-    dispatch(setCooldown({ field, value }));
+  const handleCooldownChange = (field, value) => {
+    const updated = { ...cooldowns, [field]: value };
+    dispatch(setThresholds({ thresholds, cooldowns: updated }));
+  };
 
   const handleSave = () => {
-    dispatch(persistThresholds());
+    dispatch(persistThresholds({ thresholds, cooldowns }));
   };
 
   return (
