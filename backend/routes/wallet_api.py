@@ -44,3 +44,13 @@ def delete_wallet(name: str, dl: DataLocker = Depends(_dl)):
     except Exception as exc:  # pragma: no cover - safety
         raise HTTPException(500, "Delete failed") from exc
     return {"status": "deleted"}
+
+
+@router.post("/star_wars", status_code=201)
+def insert_star_wars_wallets_route(dl: DataLocker = Depends(_dl)):
+    """Insert sample Star Wars wallets via helper script."""
+    try:
+        count = WalletCore().insert_star_wars_wallets()
+    except Exception as exc:  # pragma: no cover - safety
+        raise HTTPException(500, "Insert failed") from exc
+    return {"status": "inserted", "count": count}

@@ -45,3 +45,16 @@ def test_wallet_crud_flow(tmp_path, monkeypatch):
 
     resp = client.get("/wallets/")
     assert resp.json() == []
+
+
+def test_insert_star_wars_wallets(tmp_path, monkeypatch):
+    client, dl = _setup_client(tmp_path, monkeypatch)
+
+    resp = client.post("/wallets/star_wars")
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data.get("count", 0) > 0
+
+    resp = client.get("/wallets/")
+    assert resp.status_code == 200
+    assert len(resp.json()) == data["count"]
