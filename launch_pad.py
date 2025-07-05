@@ -75,8 +75,15 @@ def launch_full_stack():
 
 def launch_sonic_monitor():
     console.log("📡 Launching Sonic Monitor...")
-    subprocess.Popen([PYTHON_EXEC, "sonic_monitor.py"], cwd=BACKEND_DIR / "core" / "monitor_core")
+    run_background([PYTHON_EXEC, "sonic_monitor.py"], BACKEND_DIR / "core" / "monitor_core")
     console.log("[green]Sonic Monitor started in background.[/]")
+
+def launch_sonic_apps():
+    """Launch backend, frontend and monitor together."""
+    launch_backend()
+    launch_frontend()
+    launch_sonic_monitor()
+    console.log("[green]Sonic Apps running with monitor in background.[/]")
 
 def verify_database():
     script = ROOT_DIR / "scripts" / "verify_all_tables_exist.py"
@@ -180,11 +187,12 @@ def main():
         console.print("2️⃣  Launch [bold]Backend[/] (FastAPI)")
         console.print("3️⃣  Launch [bold]Full Stack[/] (Frontend + Backend)")
         console.print("4️⃣  Start [bold]Sonic Monitor[/]")
-        console.print("5️⃣  Verify Database")
-        console.print("6️⃣  Run Unit Tests")
-        console.print("7️⃣  Wallet Manager")
-        console.print("8️⃣  Cyclone Console")
-        console.print("9️⃣  Test Console UI")
+        console.print("5️⃣  Sonic Apps (FastApi + React) w/ Sonic Monitor")
+        console.print("6️⃣  Verify Database")
+        console.print("7️⃣  Run Unit Tests")
+        console.print("8️⃣  Wallet Manager")
+        console.print("9️⃣  Cyclone Console")
+        console.print("🔟  Test Console UI")
         console.print("0️⃣  Exit")
         choice = input("→ ").strip()
 
@@ -197,14 +205,16 @@ def main():
         elif choice == "4":
             launch_sonic_monitor()
         elif choice == "5":
-            verify_database()
+            launch_sonic_apps()
         elif choice == "6":
-            run_tests()
+            verify_database()
         elif choice == "7":
-            wallet_menu()
+            run_tests()
         elif choice == "8":
-            run_cyclone_console()
+            wallet_menu()
         elif choice == "9":
+            run_cyclone_console()
+        elif choice == "10":
             run_test_console()
         elif choice == "0":
             console.print("[bold green]Exiting...[/]")
