@@ -62,6 +62,10 @@ export default function Header() {
       </Box>
 
       <Box sx={{ flexGrow: 1 }} />
+
+      {/* profit & risk badges */}
+      <ProfitRiskHeaderBadges />
+
       <Box sx={{ flexGrow: 1 }} />
 
       {/* notification */}
