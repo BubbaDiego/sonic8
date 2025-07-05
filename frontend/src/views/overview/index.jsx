@@ -1,5 +1,6 @@
 import Grid from '@mui/material/Grid';
 import { useTheme } from '@mui/material/styles';
+import { useEffect } from 'react';
 import { IconCurrencyDollar } from '@tabler/icons-react';
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 
@@ -13,8 +14,8 @@ import TotalSizeDarkCard from 'ui-component/cards/TotalSizeDarkCard';
 import TotalSizeLightCard from 'ui-component/cards/TotalSizeLightCard';
 import PositionsTableCard from 'ui-component/cards/positions/PositionsTableCard';
 import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
-import { useGetLatestPortfolio } from 'api/portfolio';
-import { useGetPositions } from 'api/positions';
+import { useGetLatestPortfolio, refreshLatestPortfolio } from 'api/portfolio';
+import { useGetPositions, refreshPositions } from 'api/positions';
 
 // ==============================|| OVERVIEW PAGE ||============================ //
 
@@ -24,6 +25,13 @@ export default function OverviewPage() {
   const { portfolio } = useGetLatestPortfolio();
   const shouldFetchPositions = portfolio == null;
   const { positions = [] } = useGetPositions(shouldFetchPositions);
+  useEffect(() => {
+    const id = setInterval(() => {
+      refreshLatestPortfolio();
+      refreshPositions();
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
   const fallbackTotal = positions.reduce((sum, p) => sum + parseFloat(p.value || 0), 0);
   const totalValueNumber = portfolio?.total_value ?? fallbackTotal;
   const totalValue = `$${Number(totalValueNumber || 0).toLocaleString()}`;
