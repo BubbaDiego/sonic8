@@ -9,7 +9,8 @@ import alertThresholdsReducer from './slices/alertThresholds';
 
 const reducer = combineReducers({
   snackbar: snackbarReducer,
-  alertThresholds: alertThresholdsReducer
+  thresholds: alertThresholdsReducer
+
 });
 
 export default reducer;
