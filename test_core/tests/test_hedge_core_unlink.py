@@ -4,7 +4,7 @@ import sys, os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from hedge_core.hedge_core import HedgeCore
+from backend.core.hedge_core.hedge_core import HedgeCore
 from data.data_locker import DataLocker
 from backend.models.position import PositionDB
 

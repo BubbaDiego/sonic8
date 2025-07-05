@@ -3,7 +3,10 @@ import axios from 'utils/axios';
 import { createThreshold as apiCreateThreshold } from 'api/alertThresholds';
 
 const initialState = {
-  rows: [],
+  data: {
+    thresholds: [],
+    cooldowns: {}
+  },
   loading: false,
   error: null
 };
@@ -11,7 +14,7 @@ const initialState = {
 export const fetchThresholds = createAsyncThunk(
   'thresholds/fetch',
   async () => {
-    const response = await axios.get('/alert_thresholds/');
+    const response = await axios.get('/alert_thresholds/bulk');
     return response.data;
   }
 );
@@ -38,7 +41,7 @@ const alertThresholds = createSlice({
   initialState,
   reducers: {
     setThresholds(state, action) {
-      state.rows = action.payload;
+      state.data = action.payload;
     }
   },
   extraReducers: (builder) => {
@@ -49,7 +52,7 @@ const alertThresholds = createSlice({
       })
       .addCase(fetchThresholds.fulfilled, (state, action) => {
         state.loading = false;
-        state.rows = action.payload;
+        state.data = action.payload;
       })
       .addCase(fetchThresholds.rejected, (state, action) => {
         state.loading = false;
@@ -67,7 +70,7 @@ const alertThresholds = createSlice({
         state.error = action.error.message;
       })
       .addCase(createThreshold.fulfilled, (state, action) => {
-        state.rows.push(action.payload);
+        state.data.thresholds.push(action.payload);
       });
   }
 });
