@@ -74,6 +74,33 @@ class DLAlertManager:
         self.db.commit()
         log.info(f"Deleted alert {alert_id}", source="DLAlertManager")
 
+    def update_alert(self, alert) -> bool:
+        """Persist updated alert fields back to the database."""
+        try:
+            if not isinstance(alert, dict):
+                alert = (
+                    alert.model_dump() if hasattr(alert, "model_dump") else alert.dict()
+                )
+
+            cursor = self.db.get_cursor()
+            if cursor is None:
+                log.error("DB unavailable for alert update", source="DLAlertManager")
+                return False
+
+            fields = {k: v for k, v in alert.items() if k != "id"}
+            if not fields:
+                return True
+
+            set_clause = ", ".join(f"{k} = :{k}" for k in fields)
+            params = {**fields, "id": alert["id"]}
+            cursor.execute(f"UPDATE alerts SET {set_clause} WHERE id = :id", params)
+            self.db.commit()
+            log.info(f"Alert updated: {alert['id']}", source="DLAlertManager")
+            return True
+        except Exception as e:
+            log.error(f"Failed to update alert {alert.get('id')}: {e}", source="DLAlertManager")
+            return False
+
     def get_all_alerts(self) -> list:
         """
         Retrieves all alert records from the database.

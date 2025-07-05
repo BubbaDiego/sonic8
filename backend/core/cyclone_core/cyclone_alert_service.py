@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from uuid import uuid4
-from backend.models.alert import AlertType, Condition
+from backend.models.alert import Alert, AlertType, Condition
 from backend.core.alert_core.utils import log_alert_summary, normalize_alert_fields
 from datetime import datetime
 from backend.core.alert_core.services.enrichment import AlertEnrichmentService
@@ -227,7 +227,8 @@ class CycloneAlertService:
                     continue
 
                 normalized = normalize_alert_fields(alert)
-                result = self.evaluation_service.evaluate(normalized)
+                alert_obj = Alert(**normalized) if isinstance(normalized, dict) else normalized
+                result = self.evaluation_service.evaluate(alert_obj)
 
                 self.data_locker.alerts.update_alert(result)
                 logger.success(
@@ -252,7 +253,8 @@ class CycloneAlertService:
         for alert in alerts:
             try:
                 normalized = normalize_alert_fields(alert)
-                evaluated = self.evaluation_service.evaluate(normalized)
+                alert_obj = Alert(**normalized) if isinstance(normalized, dict) else normalized
+                evaluated = self.evaluation_service.evaluate(alert_obj)
                 self.data_locker.alerts.update_alert(evaluated)
                 updated += 1
             except Exception as e:
