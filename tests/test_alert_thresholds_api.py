@@ -66,3 +66,32 @@ def test_put_bulk_replaces(tmp_path, monkeypatch):
     all_thr = mgr.get_all()
     assert len(all_thr) == 1
     assert all_thr[0].id == "t1"
+
+
+def test_post_threshold_creates_row(tmp_path, monkeypatch):
+    client, dl, _ = _setup(tmp_path, monkeypatch)
+    mgr = dl_thresholds.DLThresholdManager(dl.db)
+
+    payload = {
+        "id": "ld1",
+        "alert_type": "LiquidationDistance",
+        "alert_class": "Position",
+        "metric_key": "liquidation_distance",
+        "condition": "BELOW",
+        "low": 1.0,
+        "medium": 2.0,
+        "high": 3.0,
+        "enabled": True,
+        "last_modified": "2020-01-01T00:00:00+00:00",
+        "low_notify": "",
+        "medium_notify": "",
+        "high_notify": "",
+    }
+
+    resp = client.post("/alert_thresholds/", json=payload)
+    assert resp.status_code == 201
+    assert resp.json() == payload
+
+    row = mgr.get_by_id("ld1")
+    assert row is not None
+    assert row.to_dict() == payload
