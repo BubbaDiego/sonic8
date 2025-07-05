@@ -150,6 +150,7 @@ class DLAlertManager:
                 f"Failed to clear inactive alerts: {e}", source="DLAlertManager"
             )
 
+
     def update_alert(self, alert):
         """Update alert fields in the database."""
         try:
@@ -185,4 +186,5 @@ class DLAlertManager:
             log.info(f"Alert updated: {alert_id}", source="DLAlertManager")
         except Exception as e:
             log.error(f"Failed to update alert {data.get('id', '')}: {e}", source="DLAlertManager")
+
 
