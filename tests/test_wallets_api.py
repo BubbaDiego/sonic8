@@ -47,6 +47,18 @@ def test_wallet_crud_flow(tmp_path, monkeypatch):
     assert resp.json() == []
 
 
+def test_wallet_balance_preserved(tmp_path, monkeypatch):
+    client, dl = _setup_client(tmp_path, monkeypatch)
+
+    wallet = {"name": "Test", "public_address": "abc", "balance": 123.45}
+    resp = client.post("/wallets/", json=wallet)
+    assert resp.status_code == 201
+
+    resp = client.get("/wallets/")
+    data = next(w for w in resp.json() if w["name"] == "Test")
+    assert data["balance"] == 123.45
+
+
 def test_insert_star_wars_wallets(tmp_path, monkeypatch):
     client, dl = _setup_client(tmp_path, monkeypatch)
 
