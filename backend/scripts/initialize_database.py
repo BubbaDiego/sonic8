@@ -22,12 +22,13 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from core.constants import MOTHER_DB_PATH, BASE_DIR
 from core.core_imports import configure_console_log
 from data.data_locker import DataLocker
 from data.reset_database import reset_database
-from data.threshold_seeder import AlertThresholdSeeder
+from seed_alert_thresholds import seed_thresholds as seed_default_thresholds
 from typing import List, Optional
 
 
@@ -57,9 +58,7 @@ def seed_wallets(locker: DataLocker) -> None:
 
 def seed_thresholds(locker: DataLocker) -> None:
     """Populate default alert thresholds."""
-    seeder = AlertThresholdSeeder(locker.db)
-    created, updated = seeder.seed_all()
-    print(f"✅ Thresholds seeded → {created} created, {updated} updated")
+    seed_default_thresholds(locker)
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
