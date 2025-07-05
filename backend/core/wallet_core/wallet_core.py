@@ -32,6 +32,7 @@ try:  # optional dependency
     from solders.pubkey import Pubkey
     from solana.rpc.commitment import Confirmed
     from solana.rpc.types import TxOpts
+
 except Exception as e:  # pragma: no cover - gracefully handle missing deps
     log.warning("Failed to import solana/solders: %s", e, source="WalletCore")
     Client = None  # type: ignore
@@ -40,6 +41,7 @@ except Exception as e:  # pragma: no cover - gracefully handle missing deps
     Pubkey = object  # type: ignore
     Confirmed = None  # type: ignore
     TxOpts = object  # type: ignore
+
 
 #from wallets.blockchain_balance_service import BlockchainBalanceService
 #from wallets.jupiter_service import JupiterService
