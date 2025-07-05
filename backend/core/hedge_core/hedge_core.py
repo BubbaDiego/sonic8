@@ -49,9 +49,12 @@ class HedgeCore:
         if positions is None:
             positions = self.dl.positions.get_all_positions()
 
+        def _get(obj, field, default=None):
+            return getattr(obj, field, default) if not isinstance(obj, dict) else obj.get(field, default)
+
         hedge_groups = {}
         for pos in positions:
-            hedge_id = pos.get("hedge_buddy_id")
+            hedge_id = _get(pos, "hedge_buddy_id")
             if hedge_id:
                 hedge_groups.setdefault(hedge_id, []).append(pos)
 
@@ -61,13 +64,13 @@ class HedgeCore:
                 continue
             # Use the hedge_buddy_id as the Hedge ID so lookups remain stable
             hedge = Hedge(id=str(key))
-            hedge.positions = [p.get("id") for p in group]
+            hedge.positions = [_get(p, "id") for p in group]
 
             total_long = total_short = long_heat = short_heat = 0.0
             for p in group:
-                ptype = str(p.get("position_type", "")).lower()
-                size = float(p.get("size", 0))
-                heat_index = float(p.get("heat_index") or 0.0)
+                ptype = str(_get(p, "position_type", "")).lower()
+                size = float(_get(p, "size", 0))
+                heat_index = float(_get(p, "heat_index") or 0.0)
                 if ptype == "long":
                     total_long += size
                     long_heat += heat_index
@@ -96,31 +99,38 @@ class HedgeCore:
     def link_hedges(self) -> List[list]:
         """Scan positions and assign hedge IDs for qualifying groups."""
         positions = self.dl.positions.get_all_positions()
+
+        def _get(obj, field, default=None):
+            return getattr(obj, field, default) if not isinstance(obj, dict) else obj.get(field, default)
+
         groups = {}
         for pos in positions:
-            wallet = pos.get("wallet_name")
-            asset = pos.get("asset_type")
+            wallet = _get(pos, "wallet_name")
+            asset = _get(pos, "asset_type")
             if wallet and asset:
                 key = (wallet.strip(), asset.strip())
                 groups.setdefault(key, []).append(pos)
 
         hedged_groups = []
         for key, pos_list in groups.items():
-            types = [pos.get("position_type", "").strip().lower() for pos in pos_list]
+            types = [str(_get(pos, "position_type", "")).strip().lower() for pos in pos_list]
             if "long" in types and "short" in types:
-                existing_ids = {p.get("hedge_buddy_id") for p in pos_list if p.get("hedge_buddy_id")}
+                existing_ids = {_get(p, "hedge_buddy_id") for p in pos_list if _get(p, "hedge_buddy_id")}
                 hedge_id = existing_ids.pop() if len(existing_ids) == 1 else str(uuid4())
 
                 for pos in pos_list:
-                    if pos.get("hedge_buddy_id") != hedge_id:
+                    if _get(pos, "hedge_buddy_id") != hedge_id:
                         cursor = self.dl.db.get_cursor()
                         cursor.execute(
                             "UPDATE positions SET hedge_buddy_id = ? WHERE id = ?",
-                            (hedge_id, pos["id"])
+                            (hedge_id, _get(pos, "id"))
                         )
                         self.dl.db.commit()
                         cursor.close()
-                        pos["hedge_buddy_id"] = hedge_id
+                        if isinstance(pos, dict):
+                            pos["hedge_buddy_id"] = hedge_id
+                        else:
+                            setattr(pos, "hedge_buddy_id", hedge_id)
 
                 hedged_groups.append(pos_list)
 
