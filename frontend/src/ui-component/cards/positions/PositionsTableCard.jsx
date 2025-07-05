@@ -3,15 +3,14 @@ import {
   Avatar,
   Table,
   TableBody,
-  TableContainer,
   TableHead,
   TableSortLabel,
-  Paper,
   Typography,
   TableCell,
   TableRow,
   Box
 } from '@mui/material';
+import FullWidthPaper from 'ui-component/cards/FullWidthPaper';
 import { styled } from '@mui/material/styles';
 import { tableCellClasses } from '@mui/material/TableCell';
 import MainCard from 'ui-component/cards/MainCard';
@@ -104,7 +103,7 @@ const PositionsTableCard = () => {
       <Typography variant="h4" sx={{ mb: 2 }}>
         Portfolio Positions
       </Typography>
-      <TableContainer component={Paper}>
+      <FullWidthPaper>
         <Table sx={{ minWidth: 320 }} aria-label="portfolio positions table">
           <TableHead>
             <TableRow>
@@ -201,7 +200,7 @@ const PositionsTableCard = () => {
             </StyledTableRow>
           </TableBody>
         </Table>
-      </TableContainer>
+      </FullWidthPaper>
     </MainCard>
   );
 };
