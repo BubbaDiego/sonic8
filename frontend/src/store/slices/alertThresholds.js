@@ -24,6 +24,7 @@ export const persistThresholds = createAsyncThunk(
 );
 
 const alertThresholds = createSlice({
+
   name: 'thresholds',
   initialState,
   reducers: {
@@ -61,4 +62,5 @@ const alertThresholds = createSlice({
 });
 
 export const { setThresholds } = alertThresholds.actions;
+
 export default alertThresholds.reducer;
