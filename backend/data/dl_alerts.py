@@ -65,6 +65,31 @@ class DLAlertManager:
             log.warning(f"No alert found with ID {alert_id}", source="DLAlertManager")
         return dict(row) if row else {}
 
+    def find_alert(
+        self, alert_type: str, alert_class: str, position_reference_id: str | None
+    ) -> dict | None:
+        """Return the alert matching the given criteria if it exists."""
+        cursor = self.db.get_cursor()
+        if cursor is None:
+            log.error("DB unavailable while searching for alert", source="DLAlertManager")
+            return None
+        try:
+            if position_reference_id is None:
+                cursor.execute(
+                    "SELECT * FROM alerts WHERE alert_type = ? AND alert_class = ? AND position_reference_id IS NULL",
+                    (alert_type, alert_class),
+                )
+            else:
+                cursor.execute(
+                    "SELECT * FROM alerts WHERE alert_type = ? AND alert_class = ? AND position_reference_id = ?",
+                    (alert_type, alert_class, position_reference_id),
+                )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        except Exception as e:
+            log.error(f"Failed to lookup alert: {e}", source="DLAlertManager")
+            return None
+
     def delete_alert(self, alert_id: str) -> None:
         cursor = self.db.get_cursor()
         if cursor is None:

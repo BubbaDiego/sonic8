@@ -85,11 +85,24 @@ class CycloneAlertService:
 
                 for alert in alerts:
                     try:
-                        self.data_locker.alerts.create_alert(alert)
-                        log_alert_summary(alert)
-                        logger.success(f"✅ Alert created: {alert['alert_type']} for pos {pos['id']}",
-                                       source="AlertDebug")
-                        created += 1
+                        existing = self.data_locker.alerts.find_alert(
+                            alert["alert_type"], alert["alert_class"], alert.get("position_reference_id")
+                        )
+                        if existing:
+                            alert["id"] = existing["id"]
+                            self.data_locker.alerts.update_alert(alert)
+                            logger.debug(
+                                f"🔄 Updated alert {existing['id']} for pos {pos['id']}",
+                                source="AlertDebug",
+                            )
+                        else:
+                            self.data_locker.alerts.create_alert(alert)
+                            log_alert_summary(alert)
+                            logger.success(
+                                f"✅ Alert created: {alert['alert_type']} for pos {pos['id']}",
+                                source="AlertDebug",
+                            )
+                            created += 1
                     except Exception as e:
                         logger.error(f"❌ Failed to create alert for {pos['id']}: {e}", source="AlertDebug")
 
@@ -148,9 +161,19 @@ class CycloneAlertService:
                     "position_type": "N/A"
                 }
 
-                self.data_locker.alerts.create_alert(alert)
-                log_alert_summary(alert)
-                created += 1
+                existing = self.data_locker.alerts.find_alert(
+                    alert["alert_type"], alert["alert_class"], None
+                )
+                if existing:
+                    alert["id"] = existing["id"]
+                    self.data_locker.alerts.update_alert(alert)
+                    logger.debug(
+                        f"🔄 Updated portfolio alert {existing['id']}", source="CycloneAlertService"
+                    )
+                else:
+                    self.data_locker.alerts.create_alert(alert)
+                    log_alert_summary(alert)
+                    created += 1
 
             except Exception as e:
                 logger.error(f"💥 Failed to create alert for {metric_desc}: {e}", source="CycloneAlertService")
