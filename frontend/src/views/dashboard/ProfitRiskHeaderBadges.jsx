@@ -2,17 +2,8 @@
 import { Stack, Typography, Avatar, Box, Tooltip } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-
-// canned demo data
-const profitLeader = {
-  walletIcon: 'https://cryptologos.cc/logos/solana-sol-logo.png',
-  profit: 1234.56
-};
-
-const highestRisk = {
-  walletIcon: 'https://cryptologos.cc/logos/ethereum-eth-logo.png',
-  travelPercent: -42.8
-};
+import { useEffect, useMemo } from 'react';
+import { useGetPositions, refreshPositions } from 'api/positions';
 
 const badgeStyle = {
   display: 'flex',
@@ -26,29 +17,60 @@ const badgeStyle = {
 };
 
 export default function ProfitRiskHeaderBadges() {
+  const { positions = [] } = useGetPositions();
+
+  useEffect(() => {
+    const id = setInterval(() => refreshPositions(), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const profitLeader = useMemo(() => {
+    let leader = null;
+    for (const p of positions) {
+      const profit = parseFloat(p.pnl_after_fees_usd ?? 0);
+      if (leader === null || profit > leader.profit) {
+        leader = { walletIcon: p.wallet_image, profit };
+      }
+    }
+    return leader;
+  }, [positions]);
+
+  const highestRisk = useMemo(() => {
+    let riskiest = null;
+    for (const p of positions) {
+      const travel = parseFloat(p.travel_percent ?? 0);
+      if (riskiest === null || travel < riskiest.travelPercent) {
+        riskiest = { walletIcon: p.wallet_image, travelPercent: travel };
+      }
+    }
+    return riskiest;
+  }, [positions]);
+
   return (
     <Stack direction="row" spacing={1}>
-      {/* profit badge */}
-      <Tooltip title="Most Profitable Position">
-        <Box sx={{ ...badgeStyle, borderLeft: '4px solid', borderColor: 'success.main' }}>
-          <Avatar src={profitLeader.walletIcon} sx={{ width: 24, height: 24, mr: 0.5 }} />
-          <Typography variant="subtitle2" color="success.main" sx={{ fontWeight: 'bold' }}>
-            ${profitLeader.profit.toFixed(2)}
-          </Typography>
-          <TrendingUpIcon sx={{ color: 'success.main', ml: 0.5, fontSize: 20 }} />
-        </Box>
-      </Tooltip>
+      {profitLeader && (
+        <Tooltip title="Most Profitable Position">
+          <Box sx={{ ...badgeStyle, borderLeft: '4px solid', borderColor: 'success.main' }}>
+            <Avatar src={profitLeader.walletIcon} sx={{ width: 24, height: 24, mr: 0.5 }} />
+            <Typography variant="subtitle2" color="success.main" sx={{ fontWeight: 'bold' }}>
+              ${profitLeader.profit.toFixed(2)}
+            </Typography>
+            <TrendingUpIcon sx={{ color: 'success.main', ml: 0.5, fontSize: 20 }} />
+          </Box>
+        </Tooltip>
+      )}
 
-      {/* risk badge */}
-      <Tooltip title="Riskiest Position">
-        <Box sx={{ ...badgeStyle, borderLeft: '4px solid', borderColor: 'error.main' }}>
-          <Avatar src={highestRisk.walletIcon} sx={{ width: 24, height: 24, mr: 0.5 }} />
-          <Typography variant="subtitle2" color="error.main" sx={{ fontWeight: 'bold' }}>
-            {highestRisk.travelPercent.toFixed(1)}%
-          </Typography>
-          <WarningAmberIcon sx={{ color: 'error.main', ml: 0.5, fontSize: 20 }} />
-        </Box>
-      </Tooltip>
+      {highestRisk && (
+        <Tooltip title="Riskiest Position">
+          <Box sx={{ ...badgeStyle, borderLeft: '4px solid', borderColor: 'error.main' }}>
+            <Avatar src={highestRisk.walletIcon} sx={{ width: 24, height: 24, mr: 0.5 }} />
+            <Typography variant="subtitle2" color="error.main" sx={{ fontWeight: 'bold' }}>
+              {highestRisk.travelPercent.toFixed(1)}%
+            </Typography>
+            <WarningAmberIcon sx={{ color: 'error.main', ml: 0.5, fontSize: 20 }} />
+          </Box>
+        </Tooltip>
+      )}
     </Stack>
   );
 }
