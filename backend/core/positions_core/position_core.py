@@ -18,6 +18,35 @@ class PositionCore:
         self.store = PositionStore(data_locker)
         self.enricher = PositionEnrichmentService(data_locker)
 
+    @staticmethod
+    def reconcile_wallet_balances(dl, wallets: set[str] | None = None) -> int:
+        """Recalculate balances for the specified wallets.
+
+        Parameters
+        ----------
+        dl
+            DataLocker instance used to access wallets and positions.
+        wallets
+            Optional set of wallet names to refresh. If ``None`` all active
+            wallets are recalculated.
+
+        Returns
+        -------
+        int
+            Number of wallets successfully updated.
+        """
+
+        from backend.core.wallet_core import WalletCore
+
+        wc = WalletCore()
+        if wallets:
+            updated = 0
+            for w in wallets:
+                if wc.refresh_wallet_balance(w):
+                    updated += 1
+            return updated
+        return wc.refresh_wallet_balances()
+
     def get_all_positions(self):
         return self.store.get_all_positions()
 
@@ -55,8 +84,7 @@ class PositionCore:
             except Exception as e:  # pragma: no cover - just log
                 log.error(f"Failed to update hedges after insert: {e}", source="PositionCore")
             try:
-                from backend.core.wallet_core import WalletCore
-                WalletCore().refresh_wallet_balance(obj.wallet_name)
+                self.reconcile_wallet_balances(self.dl, {obj.wallet_name})
             except Exception as e:  # pragma: no cover - just log
                 log.error(f"Failed to refresh wallet balance: {e}", source="PositionCore")
         return inserted
@@ -72,8 +100,7 @@ class PositionCore:
         deleted = self.store.delete(pos_id)
         if deleted and wallet:
             try:
-                from backend.core.wallet_core import WalletCore
-                WalletCore().refresh_wallet_balance(wallet)
+                self.reconcile_wallet_balances(self.dl, {wallet})
             except Exception as e:  # pragma: no cover - just log
                 log.error(f"Failed to refresh wallet balance: {e}", source="PositionCore")
         return deleted

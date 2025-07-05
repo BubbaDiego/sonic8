@@ -142,6 +142,12 @@ class PositionSyncService:
             console.print("[cyan]Step 5/6: Build sync report[/cyan]")
             self._write_report(now, sync_result, hedges)
 
+            refreshed = PositionCore.reconcile_wallet_balances(self.dl)
+            log.success(
+                f"🧮 Re-calculated balances for {refreshed} wallets",
+                source="PositionSyncService",
+            )
+
             # -------- 6) Ledger entry & timing ------------------------- #
             console.print("[cyan]Step 6/6: Write ledger entry and finish[/cyan]")
             sync_result.update(success=True, hedges=len(hedges), timestamp=now.isoformat())
@@ -317,11 +323,6 @@ class PositionSyncService:
                 HedgeCore(self.dl).update_hedges()
             except Exception as e:  # pragma: no cover - just log
                 log.error(f"Failed to update hedges after upsert: {e}", source="PositionSyncService")
-            try:
-                from backend.core.wallet_core import WalletCore
-                WalletCore().refresh_wallet_balance(position_data.get("wallet_name"))
-            except Exception as e:  # pragma: no cover - just log
-                log.error(f"Failed to refresh wallet balance: {e}", source="PositionSyncService")
 
             # Determine if it was an insert or update
             return cursor.rowcount == 1
@@ -354,7 +355,7 @@ class PositionSyncService:
             raise RuntimeError("DB cursor unavailable")
 
         try:
-            cursor.execute("SELECT id, stale, status FROM positions WHERE status = 'ACTIVE'")
+            cursor.execute("SELECT id, wallet_name, stale, status FROM positions WHERE status = 'ACTIVE'")
             rows = cursor.fetchall()
             all_active_ids = {row[0] if isinstance(row, tuple) else row["id"] for row in rows}
 
@@ -373,11 +374,19 @@ class PositionSyncService:
                 "UPDATE positions SET status = 'STALE_CLOSED' "
                 "WHERE stale >= ? AND status = 'ACTIVE'", (self.STALE_THRESHOLD,)
             )
+            closed = cursor.rowcount
             self.dl.db.commit()
+
+            wallet_names = {
+                (row[1] if isinstance(row, tuple) else row["wallet_name"])
+                for row in rows
+                if (row[0] if isinstance(row, tuple) else row["id"]) in newly_stale
+            }
+            PositionCore.reconcile_wallet_balances(self.dl, wallet_names)
 
             log.info(
                 f"🕑 Marked {len(newly_stale)} positions as stale (+1). "
-                f"Closed any ≥{self.STALE_THRESHOLD} hits.",
+                f"Closed {closed} ≥{self.STALE_THRESHOLD} hits.",
                 source="StaleHandler",
             )
         finally:
