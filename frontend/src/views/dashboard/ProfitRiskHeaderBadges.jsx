@@ -5,6 +5,23 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useEffect, useMemo } from 'react';
 import { useGetPositions, refreshPositions } from 'api/positions';
 
+function resolveWalletIcon(path) {
+  if (!path) {
+    return '/static/images/unknown_wallet.jpg';
+  }
+  const cleaned = String(path).replace(/^\/+/, '');
+  if (cleaned.startsWith('http')) {
+    return cleaned;
+  }
+  if (cleaned.startsWith('static/')) {
+    return '/' + cleaned;
+  }
+  if (!cleaned.startsWith('images/')) {
+    return '/static/images/' + cleaned;
+  }
+  return '/static/' + cleaned;
+}
+
 const badgeStyle = {
   display: 'flex',
   alignItems: 'center',
@@ -29,7 +46,7 @@ export default function ProfitRiskHeaderBadges() {
     for (const p of positions) {
       const profit = parseFloat(p.pnl_after_fees_usd ?? 0);
       if (leader === null || profit > leader.profit) {
-        leader = { walletIcon: p.wallet_image, profit };
+        leader = { walletIcon: resolveWalletIcon(p.wallet_image), profit };
       }
     }
     return leader;
@@ -40,7 +57,7 @@ export default function ProfitRiskHeaderBadges() {
     for (const p of positions) {
       const travel = parseFloat(p.travel_percent ?? 0);
       if (riskiest === null || travel < riskiest.travelPercent) {
-        riskiest = { walletIcon: p.wallet_image, travelPercent: travel };
+        riskiest = { walletIcon: resolveWalletIcon(p.wallet_image), travelPercent: travel };
       }
     }
     return riskiest;
