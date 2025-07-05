@@ -1,17 +1,10 @@
 import Grid from 'components/AppGrid';
 import { useTheme } from '@mui/material/styles';
 import { useEffect } from 'react';
-import { IconCurrencyDollar } from '@tabler/icons-react';
-import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 
 import { ThemeMode } from 'config';
-import TotalValueCard from 'ui-component/cards/TotalValueCard';
-import TotalHeatIndexDarkCard from 'ui-component/cards/TotalHeatIndexDarkCard';
-import TotalHeatIndexLightCard from 'ui-component/cards/TotalHeatIndexLightCard';
-import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
-import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
-import TotalSizeDarkCard from 'ui-component/cards/TotalSizeDarkCard';
-import TotalSizeLightCard from 'ui-component/cards/TotalSizeLightCard';
+
+import StatusRail from 'ui-component/rails/StatusRail';
 import PositionsTableCard from 'ui-component/cards/positions/PositionsTableCard';
 import ValueToCollateralChartCard from 'ui-component/cards/charts/ValueToCollateralChartCard';
 import { useGetLatestPortfolio, refreshLatestPortfolio } from 'api/portfolio';
@@ -69,38 +62,13 @@ export default function OverviewPage() {
 
       {/* ──────── Right column ──────── */}
       <Grid size={{ xs: 12, md: 4 }}>
-        <Grid container spacing={gridSpacing} direction="column">
-          <Grid size="grow">
-            <TotalValueCard
-              primary="Total Value"
-              secondary={totalValue}
-              content="Yearly revenue"
-              iconPrimary={IconCurrencyDollar}
-              color="primary.main"
-            />
-          </Grid>
-          <Grid size="grow">
-            {isDark ? (
-              <TotalHeatIndexDarkCard value={heatIndexNumber} />
-            ) : (
-              <TotalHeatIndexLightCard value={heatIndexNumber} icon={<TableChartOutlinedIcon fontSize="inherit" />} />
-            )}
-          </Grid>
-          <Grid size="grow">
-            {isDark ? (
-              <TotalLeverageDarkCard value={leverageNumber} />
-            ) : (
-              <TotalLeverageLightCard value={leverageNumber} icon={<TableChartOutlinedIcon fontSize="inherit" />} />
-            )}
-          </Grid>
-          <Grid size="grow">
-            {isDark ? (
-              <TotalSizeDarkCard value={totalSizeNumber} />
-            ) : (
-              <TotalSizeLightCard value={totalSizeNumber} icon={<TableChartOutlinedIcon fontSize="inherit" />} />
-            )}
-          </Grid>
-        </Grid>
+        <StatusRail
+          totalValue={totalValue}
+          heatIndex={heatIndexNumber}
+          leverage={leverageNumber}
+          totalSize={totalSizeNumber}
+          isDark={isDark}
+        />
       </Grid>
     </Grid>
   );
