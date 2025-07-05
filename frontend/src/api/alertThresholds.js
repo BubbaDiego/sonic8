@@ -14,3 +14,8 @@ export async function saveAllThresholds(config) {
   const res = await axios.put(endpoints.bulk, config);
   return res.data;
 }
+
+export async function createThreshold(payload) {
+  const res = await axios.post(endpoints.list, payload);
+  return res.data;
+}

@@ -1,8 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'utils/axios';
+import { createThreshold as apiCreateThreshold } from 'api/alertThresholds';
 
 const initialState = {
-  data: {},
+  rows: [],
   loading: false,
   error: null
 };
@@ -10,7 +11,7 @@ const initialState = {
 export const fetchThresholds = createAsyncThunk(
   'thresholds/fetch',
   async () => {
-    const response = await axios.get('/alert_thresholds/bulk');
+    const response = await axios.get('/alert_thresholds/');
     return response.data;
   }
 );
@@ -23,13 +24,21 @@ export const persistThresholds = createAsyncThunk(
   }
 );
 
+export const createThreshold = createAsyncThunk(
+  'thresholds/create',
+  async (payload) => {
+    const res = await apiCreateThreshold(payload);
+    return res;
+  }
+);
+
 const alertThresholds = createSlice({
 
   name: 'thresholds',
   initialState,
   reducers: {
     setThresholds(state, action) {
-      state.data = action.payload;
+      state.rows = action.payload;
     }
   },
   extraReducers: (builder) => {
@@ -40,7 +49,7 @@ const alertThresholds = createSlice({
       })
       .addCase(fetchThresholds.fulfilled, (state, action) => {
         state.loading = false;
-        state.data = action.payload;
+        state.rows = action.payload;
       })
       .addCase(fetchThresholds.rejected, (state, action) => {
         state.loading = false;
@@ -50,13 +59,15 @@ const alertThresholds = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(persistThresholds.fulfilled, (state, action) => {
+      .addCase(persistThresholds.fulfilled, (state) => {
         state.loading = false;
-        state.data = action.payload;
       })
       .addCase(persistThresholds.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+      })
+      .addCase(createThreshold.fulfilled, (state, action) => {
+        state.rows.push(action.payload);
       });
   }
 });
