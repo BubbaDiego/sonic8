@@ -70,6 +70,14 @@ const pages = {
           target: true
         }
       ]
+    },
+    {
+      id: 'alert-thresholds',
+      title: 'Alert Thresholds',
+      type: 'item',
+      url: '/alert-thresholds',
+      icon: icons.IconBellRinging,
+      breadcrumbs: false
     }
   ]
 };

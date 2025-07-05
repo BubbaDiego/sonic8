@@ -1,5 +1,6 @@
 import overview from './overview';
 import positions from './positions';
+import alertThresholds from './alert-thresholds';
 import walletManager from './wallet-manager';
 import alertThresholds from './alert-thresholds';
 import pages from './pages';
