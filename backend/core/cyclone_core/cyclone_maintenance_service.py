@@ -21,15 +21,22 @@ class CycloneMaintenanceService:
             log.error(f"❌ Failed to clear prices: {e}", source="SystemMaintenanceService")
 
     def clear_positions(self):
-        """Remove all positions and portfolio history."""
+        """Remove all open positions. Portfolio history is preserved."""
         try:
             self.dl.positions.clear_positions()
-            self.dl.clear_portfolio_history()
             # Reset the profit badge so UI state matches cleared data
             self.dl.system.set_var("profit_badge_value", None)
             log.success("🧹 All positions cleared", source="SystemMaintenanceService")
         except Exception as e:
             log.error(f"❌ Failed to clear positions: {e}", source="SystemMaintenanceService")
+
+    def clear_portfolio_history(self):
+        """Remove all portfolio snapshot rows."""
+        try:
+            self.dl.clear_portfolio_history()
+            log.success("🧹 Portfolio history cleared", source="SystemMaintenanceService")
+        except Exception as e:
+            log.error(f"❌ Failed to clear portfolio history: {e}", source="SystemMaintenanceService")
 
     def clear_wallets(self):
         try:
@@ -43,7 +50,6 @@ class CycloneMaintenanceService:
             "alerts": False,
             "prices": False,
             "positions": False,
-            "portfolio_history": False,
             # "wallets": False  # Add if needed
         }
 
@@ -62,7 +68,6 @@ class CycloneMaintenanceService:
         try:
             self.clear_positions()
             success["positions"] = True
-            success["portfolio_history"] = True
         except Exception as e:
             log.error(f"❌ Positions clear failed: {e}", source="SystemMaintenanceService")
 

@@ -109,7 +109,7 @@ specification.
 ## Maintenance operations
 
 `CycloneMaintenanceService` provides helpers for wiping stored data during tests
-or when resetting the environment. Calling `clear_positions()` now also removes
-all records from the `positions_totals_history` table so portfolio charts start
-fresh. Running `clear_all_tables()` includes this cleanup in addition to
-clearing alerts and prices.
+or when resetting the environment. `clear_positions()` only removes open
+positions and leaves the `positions_totals_history` table intact. Use
+`clear_portfolio_history()` if you also want to wipe these snapshots. Running
+`clear_all_tables()` clears alerts, prices and positions.
