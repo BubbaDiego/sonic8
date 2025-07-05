@@ -64,44 +64,45 @@ class CalculationCore:
         db_columns = set(row[1] for row in cursor.fetchall())
 
         for pos in positions:
-            pos_id = pos.get("id", "UNKNOWN")
+            data = self.calc_services._as_dict(pos)
+            pos_id = data.get("id", "UNKNOWN")
             try:
                 log.debug(
                     f"Aggregating position {pos_id}",
                     source="aggregate_positions_and_update",
-                    payload=pos,
+                    payload=data,
                 )
 
-                position_type = (pos.get("position_type") or "LONG").upper()
-                entry_price = float(pos.get("entry_price", 0.0))
-                current_price = float(pos.get("current_price", 0.0))
-                liquidation_price = float(pos.get("liquidation_price", 0.0))
-                collateral = float(pos.get("collateral", 0.0))
-                size = float(pos.get("size", 0.0))
+                position_type = (data.get("position_type") or "LONG").upper()
+                entry_price = float(data.get("entry_price", 0.0))
+                current_price = float(data.get("current_price", 0.0))
+                liquidation_price = float(data.get("liquidation_price", 0.0))
+                collateral = float(data.get("collateral", 0.0))
+                size = float(data.get("size", 0.0))
 
-                pos["entry_price"] = entry_price
-                pos["current_price"] = current_price
-                pos["liquidation_price"] = liquidation_price
-                pos["collateral"] = collateral
-                pos["size"] = size
+                data["entry_price"] = entry_price
+                data["current_price"] = current_price
+                data["liquidation_price"] = liquidation_price
+                data["collateral"] = collateral
+                data["size"] = size
 
-                pos["travel_percent"] = self.calc_services.calculate_travel_percent(
+                data["travel_percent"] = self.calc_services.calculate_travel_percent(
                     position_type, entry_price, current_price, liquidation_price
                 )
-                pos["liquidation_distance"] = self.calc_services.calculate_liquid_distance(current_price, liquidation_price)
+                data["liquidation_distance"] = self.calc_services.calculate_liquid_distance(current_price, liquidation_price)
 
-                pos["value"] = self.calc_services.calculate_value(pos)
-                pos["pnl_after_fees_usd"] = self.calc_services.calculate_profit(pos)
-                pos.setdefault("leverage", round(size / collateral, 2) if collateral > 0 else 0.0)
-                heat_index = self.calc_services.calculate_composite_risk_index(pos) or 0.0
-                pos["heat_index"] = pos["current_heat_index"] = heat_index
+                data["value"] = self.calc_services.calculate_value(data)
+                data["pnl_after_fees_usd"] = self.calc_services.calculate_profit(data)
+                data.setdefault("leverage", round(size / collateral, 2) if collateral > 0 else 0.0)
+                heat_index = self.calc_services.calculate_composite_risk_index(data) or 0.0
+                data["heat_index"] = data["current_heat_index"] = heat_index
 
                 update_map = {}
                 for key in db_columns:
                     if key == "id":
                         continue
-                    if key in pos:
-                        update_map[key] = pos[key]
+                    if key in data:
+                        update_map[key] = data[key]
 
                 if not update_map:
                     continue
