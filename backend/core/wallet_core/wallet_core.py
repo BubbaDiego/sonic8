@@ -118,9 +118,10 @@ class WalletCore:
             positions = PositionCore(dl).get_active_positions()
             total = 0.0
             for pos in positions:
-                if str(pos.get("wallet_name")) == str(wallet_id):
+                data = pos.dict() if hasattr(pos, "dict") else pos
+                if str(data.get("wallet_name")) == str(wallet_id):
                     try:
-                        total += float(pos.get("value") or 0.0)
+                        total += float(data.get("value") or 0.0)
                     except Exception:
                         continue
             return round(total, 2)
