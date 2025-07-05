@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import MainCard from 'ui-component/cards/MainCard';
-import { Grid, Button } from '@mui/material';
+import { Grid, Button, IconButton, Avatar, Stack } from '@mui/material';
 import WalletTable from 'ui-component/wallet/WalletTable';
 import WalletFormModal from 'ui-component/wallet/WalletFormModal';
 import CollateralPanel from 'ui-component/wallet/CollateralPanel';
@@ -9,7 +9,8 @@ import {
   createWallet,
   updateWallet,
   deleteWallet,
-  refreshWallets
+  refreshWallets,
+  insertStarWarsWallets
 } from 'api/wallets';
 
 const WalletManager = () => {
@@ -41,8 +42,23 @@ const WalletManager = () => {
     refreshWallets();
   };
 
+  const handleStarWars = async () => {
+    await insertStarWarsWallets();
+    refreshWallets();
+  };
+
   return (
-    <MainCard title="💼 Wallet Manager" secondary={<Button onClick={handleAdd} variant="contained">Add</Button>}>
+    <MainCard
+      title="💼 Wallet Manager"
+      secondary={
+        <Stack direction="row" spacing={1}>
+          <Button onClick={handleAdd} variant="contained">Add</Button>
+          <IconButton onClick={handleStarWars} size="large">
+            <Avatar src="/static/images/yoda_icon.jpg" sx={{ width: 32, height: 32 }} />
+          </IconButton>
+        </Stack>
+      }
+    >
       <Grid container spacing={2}>
         <Grid item xs={12}>
           <WalletTable rows={wallets} onEdit={handleEdit} onDelete={handleDelete}/>

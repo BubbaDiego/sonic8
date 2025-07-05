@@ -4,7 +4,8 @@ import axios, { fetcher } from 'utils/axios';
 import { mutate } from 'swr';
 
 const endpoints = {
-  list: '/wallets/'
+  list: '/wallets/',
+  starWars: '/wallets/star_wars'
 };
 
 export function useGetWallets(enabled = true) {
@@ -44,6 +45,11 @@ export async function updateWallet(name, wallet) {
 
 export async function deleteWallet(name) {
   const res = await axios.delete(`${endpoints.list}${encodeURIComponent(name)}`);
+  return res.data;
+}
+
+export async function insertStarWarsWallets() {
+  const res = await axios.post(endpoints.starWars);
   return res.data;
 }
 
