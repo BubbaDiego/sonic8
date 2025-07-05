@@ -28,6 +28,7 @@ class PositionCoreService:
     def update_position_and_alert(self, pos):
         try:
             self.dl.positions.create_position(pos)
+            PositionCore.reconcile_wallet_balances(self.dl, {pos.get("wallet_name")})
             log.success(f"✅ Updated position: {pos.get('id')}", source="PositionCoreService")
         except Exception as e:
             log.error(f"❌ update_position_and_alert failed: {e}", source="PositionCoreService")
