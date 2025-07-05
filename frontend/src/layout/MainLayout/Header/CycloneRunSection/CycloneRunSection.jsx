@@ -21,7 +21,7 @@ import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-rea
 export default function CycloneRunSection() {
   const theme = useTheme();
   const dispatch = useDispatch();
-  const REFRESH_DELAY_MS = 6000;
+  const REFRESH_DELAY_MS = 5000;
 
   const avatarSX = {
     ...theme.typography.commonAvatar,
