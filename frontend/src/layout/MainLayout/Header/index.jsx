@@ -11,6 +11,7 @@ import FullScreenSection from './FullScreenSection';
 import ThemeModeSection from './ThemeModeSection';
 import NotificationSection from './NotificationSection';
 import CycloneRunSection from './CycloneRunSection';
+import ProfitRiskHeaderBadges from 'views/dashboard/ProfitRiskHeaderBadges';
 
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import { MenuOrientation, ThemeMode } from 'config';
@@ -68,6 +69,9 @@ export default function Header() {
 
       {/* cyclone run */}
       <CycloneRunSection />
+
+      {/* profit & risk badges */}
+      <ProfitRiskHeaderBadges />
 
       {/* full sceen toggler */}
       <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
