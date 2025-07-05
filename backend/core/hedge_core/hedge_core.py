@@ -28,7 +28,11 @@ class HedgeCore:
             from positions.hedge_manager import HedgeManager as _HedgeManager
             # Ensure hedge_buddy_id values are up-to-date
             _HedgeManager.find_hedges()
-            raw_positions = [dict(p) for p in self.dl.read_positions()]
+            raw_positions = [
+                p.model_dump() if hasattr(p, "model_dump") else
+                p.dict() if hasattr(p, "dict") else dict(p)
+                for p in self.dl.read_positions()
+            ]
             hedge_manager = _HedgeManager(raw_positions)
             hedges = hedge_manager.get_hedges()
             log.success(
