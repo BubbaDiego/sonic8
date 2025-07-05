@@ -4,7 +4,8 @@ from cyclone.cyclone_maintenance_service import CycloneMaintenanceService
 from backend.models.portfolio import PortfolioSnapshot
 
 
-def test_clear_positions_resets_portfolio(dl_tmp):
+def test_clear_positions_keeps_portfolio_history(dl_tmp):
+    """Positions are removed but portfolio snapshots remain."""
     # record a snapshot so the table is not empty
     snap = PortfolioSnapshot(
         total_size=1.0,
@@ -17,7 +18,11 @@ def test_clear_positions_resets_portfolio(dl_tmp):
     dl_tmp.portfolio.record_snapshot(snap)
     assert dl_tmp.portfolio.get_snapshots()  # sanity check
 
+    before = dl_tmp.portfolio.get_snapshots()
+
     maint = CycloneMaintenanceService(dl_tmp)
     maint.clear_positions()
 
-    assert dl_tmp.portfolio.get_snapshots() == []
+    after = dl_tmp.portfolio.get_snapshots()
+    assert len(after) == len(before) == 1
+    assert after[0].id == before[0].id
