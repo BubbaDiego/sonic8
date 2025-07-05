@@ -102,3 +102,24 @@ class DLAlertManager:
     def delete_all_alerts(self):
         return self.clear_all_alerts()
 
+    def clear_inactive_alerts(self) -> None:
+        """Remove all alerts whose status is not ``'Active'``."""
+        try:
+            cursor = self.db.get_cursor()
+            if cursor is None:
+                log.error(
+                    "DB unavailable, cannot clear inactive alerts",
+                    source="DLAlertManager",
+                )
+                return
+            cursor.execute(
+                "DELETE FROM alerts WHERE status IS NULL OR status != ?",
+                ("Active",),
+            )
+            self.db.commit()
+            log.success("🧹 Inactive alerts cleared", source="DLAlertManager")
+        except Exception as e:  # pragma: no cover - defensive
+            log.error(
+                f"Failed to clear inactive alerts: {e}", source="DLAlertManager"
+            )
+
