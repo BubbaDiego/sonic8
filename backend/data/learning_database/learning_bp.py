@@ -175,7 +175,7 @@ def trader_performance():
 def reconstruct_transactions_api():
     """Rebuild transaction_events table from position_events."""
     try:
-        from positions.position_core import TransactionService
+        from backend.core.positions_core.position_core import TransactionService
 
         locker = LearningDataLocker.get_instance()
         service = TransactionService(locker)

@@ -123,7 +123,9 @@ class PositionCore:
         Legacy passthrough for console + engine.
         Uses PositionSyncService under the hood.
         """
-        from positions.position_sync_service import PositionSyncService
+        from backend.core.positions_core.position_sync_service import (
+            PositionSyncService,
+        )
         sync_service = PositionSyncService(self.dl)
         return sync_service.run_full_jupiter_sync(source=source)
 
