@@ -342,6 +342,17 @@ class DataLocker:
             except Exception as e:
                 log.error(f"❌ Failed creating table {name}: {e}", source="DataLocker")
 
+        # Ensure uniqueness for alert definition fields
+        try:
+            cursor.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS alert_unique_idx
+                    ON alerts(alert_type, alert_class, position_reference_id)
+                """
+            )
+        except Exception as e:
+            log.error(f"❌ Failed creating alert_unique_idx: {e}", source="DataLocker")
+
         log.info("✅ Table creation complete.", source="DataLocker")
 
         # --- Automatic schema migrations ---
