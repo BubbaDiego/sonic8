@@ -34,7 +34,7 @@ try:  # optional dependency
     from solana.rpc.types import TxOpts
 
 except Exception as e:  # pragma: no cover - gracefully handle missing deps
-    log.warning("Failed to import solana/solders: %s", e, source="WalletCore")
+    log.warning(f"Failed to import solana/solders: {e}", source="WalletCore")
     Client = None  # type: ignore
     Transaction = object  # type: ignore
     Keypair = object  # type: ignore
