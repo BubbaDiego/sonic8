@@ -104,7 +104,7 @@ def view_database_contents():
         print("❌ Invalid selection.")
 
 def reconstruct_transactions_cli():
-    from positions.position_core import TransactionService
+    from backend.core.positions_core.position_core import TransactionService
     service = TransactionService(locker)
     service.reconstruct_transactions()
 

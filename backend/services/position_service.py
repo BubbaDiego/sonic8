@@ -16,12 +16,14 @@ class CyclonePositionService:
     # Public helpers wired to API & console                              #
     # ------------------------------------------------------------------ #
     def update_positions_from_jupiter(self):
-        from positions.position_sync_service import PositionSyncService
+        from backend.core.positions_core.position_sync_service import (
+            PositionSyncService,
+        )
         log.info("🚀 Running Jupiter sync", source="CyclonePosition")
         PositionSyncService(self.dl).run_full_jupiter_sync(source="api")
 
     async def enrich_positions(self):
-        from positions.position_core import PositionCore
+        from backend.core.positions_core.position_core import PositionCore
         log.info("🧠 Enriching positions", source="CyclonePosition")
         await PositionCore(self.dl).enrich_positions()
 

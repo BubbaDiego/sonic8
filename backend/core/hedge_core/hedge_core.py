@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 # is imported. HedgeManager is only needed inside methods, so defer the import
 # until runtime or when type checking.
 if TYPE_CHECKING:  # pragma: no cover - used for type hints only
-    from positions.hedge_manager import HedgeManager
+    from backend.core.positions_core.hedge_manager import HedgeManager
 from backend.core.core_imports import log
 
 class HedgeCore:
@@ -25,7 +25,7 @@ class HedgeCore:
         """Build Hedge objects from current positions"""
         log.info("🔄 Updating hedges", source="HedgeCore")
         try:
-            from positions.hedge_manager import HedgeManager as _HedgeManager
+            from backend.core.positions_core.hedge_manager import HedgeManager as _HedgeManager
             # Ensure hedge_buddy_id values are up-to-date
             _HedgeManager.find_hedges()
             raw_positions = [

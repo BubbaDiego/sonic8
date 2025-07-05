@@ -85,7 +85,7 @@ class PositionSyncService:
         delegated to :pyfunc:`_handle_stale_positions` for clarity.
         """
 
-        from positions.hedge_manager import HedgeManager
+        from backend.core.positions_core.hedge_manager import HedgeManager
         from data.dl_monitor_ledger import DLMonitorLedgerManager
 
         log.start_timer("position_update")

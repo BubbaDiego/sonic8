@@ -12,9 +12,9 @@ Description:
 try:
     from positions.hedge_manager import HedgeManager
 except ModuleNotFoundError:  # pragma: no cover - fallback to new path
-    from core.positions_core.hedge_manager import HedgeManager
+    from backend.core.positions_core.hedge_manager import HedgeManager
 from backend.models.hedge import Hedge
-from core.core_imports import log
+from backend.core.core_imports import log
 
 
 class DLHedgeManager:
