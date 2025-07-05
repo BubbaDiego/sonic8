@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import useSWR from 'swr';
 import { Box, Button, Stack, Tab, Tabs, Switch, FormControlLabel } from '@mui/material';
+import AddThresholdDialog from './AddThresholdDialog';
 import axios, { fetcher } from 'utils/axios';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/slices/snackbar';
@@ -9,12 +10,21 @@ import ThresholdsTable from './ThresholdsTable';
 export default function ThresholdsPage() {
   const dispatch = useDispatch();
   const [tab, setTab] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [monitorEnabled, setMonitorEnabled] = useState(true);
   const { data: thresholds = [], mutate } = useSWR('/alert_thresholds/', fetcher);
 
   const updateRow = useCallback(
     async (row) => {
       await axios.put(`/alert_thresholds/${row.id}`, row);
+      mutate();
+    },
+    [mutate]
+  );
+
+  const handleCreated = useCallback(
+    (row) => {
+      mutate((prev = []) => [...prev, row], false);
       mutate();
     },
     [mutate]
@@ -116,6 +126,9 @@ export default function ThresholdsPage() {
         <Button variant="contained" onClick={handleSave} data-testid="save-btn">
           Save
         </Button>
+        <Button variant="contained" onClick={() => setDialogOpen(true)}>
+          + Add Threshold
+        </Button>
         <Button component="label" variant="outlined">
           Import
           <input hidden type="file" accept="application/json" onChange={handleImport} />
@@ -142,6 +155,11 @@ export default function ThresholdsPage() {
           />
         </Box>
       )}
+      <AddThresholdDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onCreated={handleCreated}
+      />
     </Box>
   );
 }

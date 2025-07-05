@@ -10,6 +10,10 @@ import {
   IconRoute
 } from '@tabler/icons-react';
 
+// Simple emoji components for metrics without tabler icons
+const LiquidationDistanceIcon = () => <>📉</>;
+const ProfitEmojiIcon = () => <>💰</>;
+
 // Map alert types to tabler icon components
 export const typeIcons = {
   PriceThreshold: IconCurrencyDollar,
@@ -23,7 +27,9 @@ export const typeIcons = {
   AvgLeverage: IconPercentage,
   AvgTravelPercent: IconRoute,
   ValueToCollateralRatio: IconPercentage,
-  TotalHeat: IconTemperature
+  TotalHeat: IconTemperature,
+  liquidationdistance: LiquidationDistanceIcon,
+  profit: ProfitEmojiIcon
 };
 
 export default typeIcons;
