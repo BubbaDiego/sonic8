@@ -7,7 +7,7 @@ import core.core_imports as ci
 from data.data_locker import DataLocker
 from backend.core.positions_core.position_core_service import PositionCoreService
 from backend.core.positions_core.position_sync_service import PositionSyncService
-from backend.core.wallet_core.wallet_core import WalletCore
+from backend.core.wallet_core import WalletCore
 from backend.models.portfolio import PortfolioSnapshot
 
 SEED_PATCHES = [

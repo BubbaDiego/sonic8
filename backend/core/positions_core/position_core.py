@@ -55,7 +55,7 @@ class PositionCore:
             except Exception as e:  # pragma: no cover - just log
                 log.error(f"Failed to update hedges after insert: {e}", source="PositionCore")
             try:
-                from backend.core.wallet_core.wallet_core import WalletCore
+                from backend.core.wallet_core import WalletCore
                 WalletCore().refresh_wallet_balance(obj.wallet_name)
             except Exception as e:  # pragma: no cover - just log
                 log.error(f"Failed to refresh wallet balance: {e}", source="PositionCore")
@@ -72,7 +72,7 @@ class PositionCore:
         deleted = self.store.delete(pos_id)
         if deleted and wallet:
             try:
-                from backend.core.wallet_core.wallet_core import WalletCore
+                from backend.core.wallet_core import WalletCore
                 WalletCore().refresh_wallet_balance(wallet)
             except Exception as e:  # pragma: no cover - just log
                 log.error(f"Failed to refresh wallet balance: {e}", source="PositionCore")
