@@ -7,9 +7,8 @@ import Loadable from 'ui-component/Loadable';
 const OverviewPage = Loadable(lazy(() => import('views/overview')));
 const PositionsPage = Loadable(lazy(() => import('views/positions')));
 const ThresholdsPage = Loadable(lazy(() => import('views/alert-thresholds')));
-
-// new import
 const WalletManagerPage = Loadable(lazy(() => import('views/wallet/WalletManager')));
+const AlertThresholdsPage = Loadable(lazy(() => import('views/alertThresholds')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -36,6 +35,10 @@ const MainRoutes = {
     {
       path: '/wallet-manager',
       element: <WalletManagerPage />
+    },
+    {
+      path: '/alert-thresholds',
+      element: <AlertThresholdsPage />
     }
   ]
 };
