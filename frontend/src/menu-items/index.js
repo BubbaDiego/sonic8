@@ -1,5 +1,6 @@
 import overview from './overview';
 import analytics from './analytics';
+import dashboardDefault from './dashboard-default';
 import positions from './positions';
 import alertThresholds from './alert-thresholds';
 import walletManager from './wallet-manager';
@@ -15,6 +16,7 @@ const menuItems = {
       children: [
         overview,
         analytics,
+        dashboardDefault,
         positions,
         walletManager,
         alertThresholds,
