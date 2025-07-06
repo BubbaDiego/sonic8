@@ -38,10 +38,15 @@ class PriceSyncService:
 
             asset_list = []
             for asset, price in prices.items():
-                self.dl.insert_or_update_price(asset, price, source=source)
+                if asset == "SP500":
+                    self.dl.insert_or_update_price("SP500", price, source=source)
+                else:
+                    self.dl.insert_or_update_price(asset, price, source=source)
                 log.info(f"💾 Saved {asset} = ${price:,.4f}", source="PriceSyncService")
                 try:
-                    from learning_database.learning_event_logger import log_learning_event
+                    from backend.data.learning_database.learning_event_logger import (
+                        log_learning_event,
+                    )
 
                     payload = {
                         "asset_type": asset,

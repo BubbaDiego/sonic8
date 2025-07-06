@@ -1,7 +1,7 @@
 import importlib
 
 from data.data_locker import DataLocker
-from prices.price_sync_service import PriceSyncService
+from backend.core.market_core.price_sync_service import PriceSyncService
 
 
 def _setup_datalocker(tmp_path, monkeypatch):
@@ -16,7 +16,7 @@ def _setup_datalocker(tmp_path, monkeypatch):
 def test_price_tick_logged(monkeypatch, tmp_path):
     learning_db = tmp_path / "learning.db"
     monkeypatch.setenv("LEARNING_DB_PATH", str(learning_db))
-    import learning_database.learning_event_logger as logger
+    import backend.data.learning_database.learning_event_logger as logger
     logger = importlib.reload(logger)
 
     dl = _setup_datalocker(tmp_path, monkeypatch)
@@ -32,3 +32,19 @@ def test_price_tick_logged(monkeypatch, tmp_path):
     assert rows[0]["price"] == 1.0
     dl.db.close()
     ldl.db.close()
+
+
+def test_sp500_price_saved(monkeypatch, tmp_path):
+    dl = _setup_datalocker(tmp_path, monkeypatch)
+    svc = PriceSyncService(dl)
+    monkeypatch.setattr(
+        svc.service,
+        "fetch_prices",
+        lambda: {"BTC": 1.0, "SP500": 4000.0},
+    )
+
+    svc.run_full_price_sync(source="test")
+
+    row = dl.get_latest_price("SP500")
+    assert row and row["current_price"] == 4000.0
+    dl.db.close()

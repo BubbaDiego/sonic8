@@ -8,6 +8,20 @@ from datetime import datetime
 from backend.core.core_imports import log
 
 class MonitorService:
+    def fetch_sp500_index(self):
+        """Fetch the current S&P 500 index price using Yahoo Finance."""
+        url = "https://query1.finance.yahoo.com/v7/finance/quote"
+        params = {"symbols": "^GSPC"}
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            quote = data.get("quoteResponse", {}).get("result", [{}])[0]
+            return quote.get("regularMarketPrice")
+        except Exception as e:
+            log.error(f"[SP500Fetch] failed: {e}")
+            return None
+
     def fetch_prices(self):
         url = "https://api.coingecko.com/api/v3/simple/price"
         params = {"ids": "bitcoin,ethereum,solana", "vs_currencies": "usd"}
@@ -19,6 +33,7 @@ class MonitorService:
                 "BTC": data.get("bitcoin", {}).get("usd"),
                 "ETH": data.get("ethereum", {}).get("usd"),
                 "SOL": data.get("solana", {}).get("usd"),
+                "SP500": self.fetch_sp500_index(),
             }
         except Exception as e:
             log.error(f"[PriceFetch] failed: {e}")
