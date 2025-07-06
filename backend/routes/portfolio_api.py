@@ -20,9 +20,14 @@ def get_latest_snapshot(dl: DataLocker = Depends(_dl)):
 
 
 @router.post("/", status_code=201)
-def add_portfolio_entry(entry: dict, dl: DataLocker = Depends(_dl)):
+def add_portfolio_entry(entry: PortfolioSnapshot, dl: DataLocker = Depends(_dl)):
+    """Insert a portfolio history entry using the PortfolioSnapshot model."""
     try:
-        dl.add_portfolio_entry(entry)
+        if hasattr(entry, "model_dump"):
+            data = entry.model_dump()
+        else:
+            data = entry.dict()
+        dl.add_portfolio_entry(data)
     except Exception as exc:  # pragma: no cover - safety
         raise HTTPException(500, "Insert failed") from exc
     return {"status": "created"}
