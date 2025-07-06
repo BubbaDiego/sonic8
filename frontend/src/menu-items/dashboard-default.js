@@ -2,7 +2,9 @@ import { IconDashboard } from '@tabler/icons-react';
 const icons = { IconDashboard };
 const dashboardDefault = {
   id: 'dashboard-default',
-  title: 'Default Dashboard',
+
+  title: 'Default',
+
   type: 'item',
   url: '/dashboard/default',
   icon: icons.IconDashboard,
