@@ -3,6 +3,11 @@ import json
 import uuid
 from datetime import datetime, timezone
 from backend.core.logging import log
+from backend.models.monitor_status import (
+    MonitorStatus,
+    MonitorType,
+    MonitorHealth,
+)
 
 class DLMonitorLedgerManager:
     def __init__(self, db):
@@ -99,4 +104,28 @@ class DLMonitorLedgerManager:
         except Exception as e:
             log.error(f"🧨 Failed to parse timestamp for {monitor_name}: {e}", source="DLMonitorLedger")
             return {"last_timestamp": None, "age_seconds": 9999}
+
+    def get_monitor_status_summary(self) -> MonitorStatus:
+        """Return a MonitorStatus snapshot for key monitors."""
+
+        summary = MonitorStatus()
+
+        monitor_map = {
+            "sonic_monitor": MonitorType.SONIC,
+            "price_monitor": MonitorType.PRICE,
+            "position_monitor": MonitorType.POSITIONS,
+            "xcom_monitor": MonitorType.XCOM,
+        }
+
+        for name, mtype in monitor_map.items():
+            info = self.get_status(name)
+            status_str = str(info.get("status", "")).lower()
+            health = (
+                MonitorHealth.HEALTHY
+                if status_str == "success"
+                else MonitorHealth.ERROR
+            )
+            summary.update_monitor(mtype, health, metadata=info)
+
+        return summary
 
