@@ -11,13 +11,16 @@ def test_record_and_fetch_snapshot(dl_tmp):
         avg_leverage=1.5,
         avg_travel_percent=0.1,
         avg_heat_index=0.2,
+        market_average_sp500=100.0,
     )
     mgr.record_snapshot(snap)
     latest = mgr.get_latest_snapshot()
     assert isinstance(latest, PortfolioSnapshot)
     assert latest.total_value == snap.total_value
+    assert latest.market_average_sp500 == 100.0
     all_snaps = mgr.get_snapshots()
     assert len(all_snaps) == 1
     assert isinstance(all_snaps[0], PortfolioSnapshot)
     assert all_snaps[0].total_size == snap.total_size
+    assert all_snaps[0].market_average_sp500 == 100.0
 

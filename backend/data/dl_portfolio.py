@@ -47,8 +47,9 @@ class DLPortfolioManager:
                 """
                 INSERT INTO positions_totals_history (
                     id, snapshot_time, total_size, total_value,
-                    total_collateral, avg_leverage, avg_travel_percent, avg_heat_index
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    total_collateral, avg_leverage, avg_travel_percent, avg_heat_index,
+                    market_average_sp500
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data.get("id"),
@@ -59,6 +60,7 @@ class DLPortfolioManager:
                     data.get("avg_leverage", 0.0),
                     data.get("avg_travel_percent", 0.0),
                     data.get("avg_heat_index", 0.0),
+                    data.get("market_average_sp500", 0.0),
                 ),
             )
             self.db.commit()
@@ -109,9 +111,11 @@ class DLPortfolioManager:
                 """
                 INSERT INTO positions_totals_history (
                     id, snapshot_time, total_size, total_value,
-                    total_collateral, avg_leverage, avg_travel_percent, avg_heat_index
+                    total_collateral, avg_leverage, avg_travel_percent, avg_heat_index,
+                    market_average_sp500
                 ) VALUES (:id, :snapshot_time, :total_size, :total_value,
-                          :total_collateral, :avg_leverage, :avg_travel_percent, :avg_heat_index)
+                          :total_collateral, :avg_leverage, :avg_travel_percent, :avg_heat_index,
+                          :market_average_sp500)
                 """,
                 {
                     "id": entry["id"],
@@ -122,6 +126,7 @@ class DLPortfolioManager:
                     "avg_leverage": entry.get("avg_leverage", 0.0),
                     "avg_travel_percent": entry.get("avg_travel_percent", 0.0),
                     "avg_heat_index": entry.get("avg_heat_index", 0.0),
+                    "market_average_sp500": entry.get("market_average_sp500", 0.0),
                 },
             )
             self.db.commit()
