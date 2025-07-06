@@ -3,7 +3,7 @@ import Grid from '@mui/material/Grid';
 import MonitorSummaryCard from './MonitorSummaryCard';
 
 // project imports
-import MarketShareAreaChartCard from './MarketShareAreaChartCard';
+import MarketShareAreaChartCard from './PerformanceGraphCard';
 import TotalRevenueCard from './TotalRevenueCard';
 import LatestCustomerTableCard from './LatestCustomerTableCard';
 import RevenueCard from 'ui-component/cards/RevenueCard';

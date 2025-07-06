@@ -1,25 +1,15 @@
+// PerformanceGraphCard.jsx
 import { useEffect, useState } from 'react';
-
-// material-ui
 import { alpha, useTheme } from '@mui/material/styles';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-
-// third party
 import Chart from 'react-apexcharts';
-
-// project imports
-import chartData from './chart-data/market-share-area-chart';
+import MainCard from 'ui-component/cards/MainCard';
 import { ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
-import MainCard from 'ui-component/cards/MainCard';
-
-// assets
-import { IconBrandFacebook, IconBrandYoutube, IconBrandTwitter } from '@tabler/icons-react';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-
-// ===========================|| DASHBOARD ANALYTICS - PerformanceGraphCard CARD ||=========================== //
+import chartData from './chart-data/market-share-area-chart';
+import { IconCoin, IconPigMoney, IconChartAreaLine } from '@tabler/icons-react';
 
 export default function PerformanceGraphCard() {
   const theme = useTheme();
@@ -39,95 +29,68 @@ export default function PerformanceGraphCard() {
         tooltip: { theme: mode }
       }
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, theme.palette]);
+
+  const iconSX = {
+    width: 40,
+    height: 40,
+    color: 'secondary.main',
+    borderRadius: '12px',
+    padding: 1,
+    bgcolor: mode === ThemeMode.DARK ? 'background.default' : 'primary.light'
+  };
 
   return (
     <MainCard content={false}>
       <Box sx={{ p: 3 }}>
         <Grid container direction="column" spacing={3}>
-          <Grid container spacing={1} sx={{ alignItems: 'center' }}>
-            <Grid>
-              <Typography variant="h3">Market Share</Typography>
-            </Grid>
-            <Grid size="grow" />
-            <Grid>
-              <TrendingDownIcon color="error" sx={{ mb: -0.5 }} />
-            </Grid>
-            <Grid>
-              <Typography variant="h3">27, 695.65</Typography>
+          <Grid container spacing={1} alignItems="center">
+            <Grid item>
+              <Typography variant="h3">Performance Overview</Typography>
             </Grid>
           </Grid>
-          <Grid size={12}>
-            <Typography sx={{ mt: -2.5, fontWeight: 400 }} color="inherit" variant="h5">
-              Department wise monthly sales report
+          <Grid item xs={12}>
+            <Typography variant="h5" sx={{ mt: -2.5, fontWeight: 400 }}>
+              Key Metrics Comparison
             </Typography>
           </Grid>
-          <Grid container spacing={3} sx={{ alignItems: 'center' }}>
-            <Grid>
-              <Grid container spacing={1} sx={{ alignItems: 'center' }}>
-                <Grid>
-                  <Typography
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      color: 'secondary.main',
-                      borderRadius: '12px',
-                      padding: 1,
-                      bgcolor: mode === ThemeMode.DARK ? 'background.default' : 'secondary.light'
-                    }}
-                  >
-                    <IconBrandFacebook stroke={1.5} />
+          <Grid container spacing={3} alignItems="center">
+            <Grid item>
+              <Grid container spacing={1} alignItems="center">
+                <Grid item>
+                  <Typography sx={iconSX}>
+                    <IconCoin stroke={1.5} />
                   </Typography>
                 </Grid>
-                <Grid size={{ sm: 'grow' }}>
-                  <Typography variant="h4">+ 45.36%</Typography>
+                <Grid item xs>
+                  <Typography variant="h4">Value</Typography>
                 </Grid>
               </Grid>
             </Grid>
-            <Grid>
-              <Grid container spacing={1} sx={{ alignItems: 'center' }}>
-                <Grid>
-                  <Typography
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      color: 'primary.main',
-                      borderRadius: '12px',
-                      padding: 1,
-                      bgcolor: mode === ThemeMode.DARK ? 'background.default' : 'primary.light'
-                    }}
-                  >
-                    <IconBrandTwitter stroke={1.5} />
+            <Grid item>
+              <Grid container spacing={1} alignItems="center">
+                <Grid item>
+                  <Typography sx={iconSX}>
+                    <IconPigMoney stroke={1.5} />
                   </Typography>
                 </Grid>
-                <Grid size={{ sm: 'grow' }}>
-                  <Typography variant="h4">- 50.69%</Typography>
+                <Grid item xs>
+                  <Typography variant="h4">Collateral</Typography>
                 </Grid>
               </Grid>
             </Grid>
-            <Grid>
-              <Grid container spacing={1} sx={{ alignItems: 'center' }}>
-                <Grid>
-                  <Typography
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      color: 'error.main',
-                      borderRadius: '12px',
-                      padding: 1,
-                      bgcolor: mode === ThemeMode.DARK ? 'background.default' : alpha(theme.palette.error.light, 0.25)
-                    }}
-                  >
-                    <IconBrandYoutube stroke={2} />
+            <Grid item>
+              <Grid container spacing={1} alignItems="center">
+                <Grid item>
+                  <Typography sx={iconSX}>
+                    <IconChartAreaLine stroke={1.5} />
                   </Typography>
                 </Grid>
-                <Grid size={{ sm: 'grow' }}>
-                  <Typography variant="h4">+ 16.85%</Typography>
+                <Grid item xs>
+                  <Typography variant="h4">SP500</Typography>
                 </Grid>
               </Grid>
             </Grid>
-            <Grid size="grow" />
           </Grid>
         </Grid>
       </Box>

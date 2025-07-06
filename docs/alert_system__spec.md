@@ -1064,7 +1064,7 @@ sonic1/
 │   │   │   │   │   ├── chart-data
 │   │   │   │   │   │   └── market-share-area-chart.jsx
 │   │   │   │   │   ├── LatestCustomerTableCard.jsx
-│   │   │   │   │   ├── MarketShareAreaChartCard.jsx
+│   │   │   │   │   ├── PerformanceGraphCard.jsx
 │   │   │   │   │   ├── TotalRevenueCard.jsx
 │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── Default
