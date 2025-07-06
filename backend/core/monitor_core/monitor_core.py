@@ -21,6 +21,7 @@ from backend.core.monitor_core.profit_monitor import ProfitMonitor  # Added Prof
 from backend.core.monitor_core.risk_monitor import RiskMonitor
 #from backend.core.monitor_core.oracle_monitor.oracle_monitor import OracleMonitor
 from backend.core.monitor_core.monitor_registry import MonitorRegistry
+from backend.core.locker_factory import get_locker
 
 class MonitorCore:
     """Central controller for all registered monitors."""
@@ -79,3 +80,4 @@ class MonitorCore:
         dl = DataLocker.get_instance()
         ledger = DLMonitorLedgerManager(dl.db)
         return ledger.get_monitor_status_summary()
+
