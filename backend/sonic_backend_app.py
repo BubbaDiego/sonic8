@@ -15,6 +15,7 @@ from backend.routes.alert_thresholds_api import (
     router as threshold_router,
     alerts_router,
 )
+from backend.routes.monitor_status_api import router as monitor_status_router
 
 app = FastAPI(title="Sonic API")
 
@@ -32,6 +33,7 @@ app.include_router(portfolio_router)
 app.include_router(cyclone_router)
 app.include_router(wallet_router)
 app.include_router(threshold_router)
+app.include_router(monitor_status_router)
 app.include_router(alerts_router)
 
 @app.get("/api/status")
