@@ -7,6 +7,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 from core.logging import log
+from backend.models.monitor_status import MonitorStatus
+from backend.data.dl_monitor_ledger import DLMonitorLedgerManager
+from data.data_locker import DataLocker
 
 # Import your monitor classes here
 from backend.core.monitor_core.price_monitor import PriceMonitor
@@ -72,8 +75,9 @@ class MonitorCore:
         else:
             log.warning(f"Monitor '{name}' not found.", source="MonitorCore")
 
-    def get_status_snapshot(self):
-        """Return the current monitor health summary."""
+    def get_status_snapshot(self) -> MonitorStatus:
+        """Return current monitor health snapshot from the ledger."""
+        dl = DataLocker.get_instance()
+        ledger = DLMonitorLedgerManager(dl.db)
+        return ledger.get_monitor_status_summary()
 
-        dl = get_locker()
-        return dl.ledger.get_monitor_status_summary()

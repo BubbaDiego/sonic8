@@ -5,7 +5,23 @@
 from datetime import datetime
 from enum import Enum
 from typing import Dict, Optional
-from pydantic import BaseModel, Field
+try:
+    from pydantic import BaseModel, Field
+    if not hasattr(BaseModel, "__fields__"):
+        raise ImportError("stub")
+except Exception:  # pragma: no cover - optional dependency or stub detected
+    class BaseModel:  # type: ignore
+        def __init__(self, **data):
+            for k, v in data.items():
+                setattr(self, k, v)
+
+        def dict(self) -> dict:  # type: ignore[override]
+            return self.__dict__
+
+    def Field(default=None, default_factory=None, **_):  # type: ignore
+        if default_factory is not None:
+            return default_factory()
+        return default
 
 class MonitorType(str, Enum):
     SONIC = "Sonic Monitoring"

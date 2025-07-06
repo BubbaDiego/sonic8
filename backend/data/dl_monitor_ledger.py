@@ -3,6 +3,13 @@ import json
 import uuid
 from datetime import datetime, timezone
 from backend.core.logging import log
+from backend.models.monitor_status import (
+    MonitorStatus,
+    MonitorType,
+    MonitorHealth,
+    MonitorDetail,
+
+)
 
 class DLMonitorLedgerManager:
     def __init__(self, db):
@@ -100,22 +107,103 @@ class DLMonitorLedgerManager:
             log.error(f"🧨 Failed to parse timestamp for {monitor_name}: {e}", source="DLMonitorLedger")
             return {"last_timestamp": None, "age_seconds": 9999}
 
-    def get_monitor_status_summary(self) -> dict:
-        """Return the status details for all monitors in the ledger."""
 
-        cursor = self.db.get_cursor()
-        if not cursor:
-            log.error(
-                "❌ DB unavailable, cannot fetch monitor status summary",
-                source="DLMonitorLedger",
+
+    def get_monitor_status_summary(self) -> MonitorStatus:
+
+        """Return a MonitorStatus populated with the latest ledger info."""
+        summary = MonitorStatus()
+        mapping = {
+
+
+        """Return a MonitorStatus snapshot for key monitors."""
+
+        summary = MonitorStatus()
+
+        monitor_map = {
+
+
+            "sonic_monitor": MonitorType.SONIC,
+            "price_monitor": MonitorType.PRICE,
+            "position_monitor": MonitorType.POSITIONS,
+            "xcom_monitor": MonitorType.XCOM,
+        }
+
+        for name, mtype in mapping.items():
+            status_data = self.get_status(name)
+            ts_raw = status_data.get("last_timestamp")
+            ts = None
+            if ts_raw:
+                if ts_raw.endswith("Z"):
+                    ts_raw = ts_raw.replace("Z", "+00:00")
+                try:
+                    ts = datetime.fromisoformat(ts_raw)
+                except Exception:
+                    ts = None
+
+            if ts is None:
+                health = MonitorHealth.OFFLINE
+            else:
+                status_str = (status_data.get("status") or "").lower()
+                if status_str == "success":
+                    health = MonitorHealth.HEALTHY
+                elif status_str == "error":
+                    health = MonitorHealth.ERROR
+                else:
+                    health = MonitorHealth.WARNING
+
+            summary.monitors[mtype] = MonitorDetail(
+                status=health,
+                last_updated=ts,
+                metadata={},
             )
-            return {}
 
-        cursor.execute("SELECT DISTINCT monitor_name FROM monitor_ledger")
-        names = [row[0] for row in cursor.fetchall()]
-        summary = {}
-        for name in names:
-            summary[name] = self.get_status(name)
+        for name, mtype in monitor_map.items():
+            info = self.get_status(name)
+            status_str = str(info.get("status", "")).lower()
+            health = (
+                MonitorHealth.HEALTHY
+                if status_str == "success"
+                else MonitorHealth.ERROR
+            )
+            summary.update_monitor(mtype, health, metadata=info)
+
+        for name, mtype in name_map.items():
+            entry = self.get_last_entry(name)
+            if not entry:
+                continue
+
+            status_str = (entry.get("status") or "").strip()
+            metadata = entry.get("metadata")
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
+
+            health = MonitorHealth.WARNING
+            status_lower = status_str.lower()
+            if status_lower == "success":
+                health = MonitorHealth.HEALTHY
+            elif status_lower in {"error", "failed"}:
+                health = MonitorHealth.ERROR
+
+            summary.update_monitor(mtype, health, metadata)
+
+            ts = entry.get("timestamp")
+            if ts:
+                try:
+                    if ts.endswith("Z"):
+                        ts = ts.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(ts)
+                    summary.monitors[mtype].last_updated = dt
+                except Exception as exc:  # pragma: no cover - log parse issues
+                    log.error(
+                        f"🧨 Failed to parse timestamp for {name}: {exc}",
+                        source="DLMonitorLedger",
+                    )
+
+
 
         return summary
 
