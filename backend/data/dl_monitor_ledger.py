@@ -8,7 +8,6 @@ from backend.models.monitor_status import (
     MonitorType,
     MonitorHealth,
     MonitorDetail,
-
 )
 
 class DLMonitorLedgerManager:
@@ -107,28 +106,15 @@ class DLMonitorLedgerManager:
             log.error(f"🧨 Failed to parse timestamp for {monitor_name}: {e}", source="DLMonitorLedger")
             return {"last_timestamp": None, "age_seconds": 9999}
 
-
-
     def get_monitor_status_summary(self) -> MonitorStatus:
-
         """Return a MonitorStatus populated with the latest ledger info."""
         summary = MonitorStatus()
         mapping = {
-
-
-        """Return a MonitorStatus snapshot for key monitors."""
-
-        summary = MonitorStatus()
-
-        monitor_map = {
-
-
             "sonic_monitor": MonitorType.SONIC,
             "price_monitor": MonitorType.PRICE,
             "position_monitor": MonitorType.POSITIONS,
             "xcom_monitor": MonitorType.XCOM,
         }
-
         for name, mtype in mapping.items():
             status_data = self.get_status(name)
             ts_raw = status_data.get("last_timestamp")
@@ -157,53 +143,5 @@ class DLMonitorLedgerManager:
                 last_updated=ts,
                 metadata={},
             )
-
-        for name, mtype in monitor_map.items():
-            info = self.get_status(name)
-            status_str = str(info.get("status", "")).lower()
-            health = (
-                MonitorHealth.HEALTHY
-                if status_str == "success"
-                else MonitorHealth.ERROR
-            )
-            summary.update_monitor(mtype, health, metadata=info)
-
-        for name, mtype in name_map.items():
-            entry = self.get_last_entry(name)
-            if not entry:
-                continue
-
-            status_str = (entry.get("status") or "").strip()
-            metadata = entry.get("metadata")
-            if isinstance(metadata, str):
-                try:
-                    metadata = json.loads(metadata)
-                except Exception:
-                    metadata = {}
-
-            health = MonitorHealth.WARNING
-            status_lower = status_str.lower()
-            if status_lower == "success":
-                health = MonitorHealth.HEALTHY
-            elif status_lower in {"error", "failed"}:
-                health = MonitorHealth.ERROR
-
-            summary.update_monitor(mtype, health, metadata)
-
-            ts = entry.get("timestamp")
-            if ts:
-                try:
-                    if ts.endswith("Z"):
-                        ts = ts.replace("Z", "+00:00")
-                    dt = datetime.fromisoformat(ts)
-                    summary.monitors[mtype].last_updated = dt
-                except Exception as exc:  # pragma: no cover - log parse issues
-                    log.error(
-                        f"🧨 Failed to parse timestamp for {name}: {exc}",
-                        source="DLMonitorLedger",
-                    )
-
-
-
         return summary
 
