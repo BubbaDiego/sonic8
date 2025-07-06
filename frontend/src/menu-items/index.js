@@ -1,4 +1,5 @@
 import overview from './overview';
+import analytics from './analytics';
 import positions from './positions';
 import alertThresholds from './alert-thresholds';
 import walletManager from './wallet-manager';
@@ -13,6 +14,7 @@ const menuItems = {
       type: 'group',
       children: [
         overview,
+        analytics,
         positions,
         walletManager,
         alertThresholds,
