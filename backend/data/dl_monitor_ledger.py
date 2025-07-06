@@ -100,3 +100,22 @@ class DLMonitorLedgerManager:
             log.error(f"🧨 Failed to parse timestamp for {monitor_name}: {e}", source="DLMonitorLedger")
             return {"last_timestamp": None, "age_seconds": 9999}
 
+    def get_monitor_status_summary(self) -> dict:
+        """Return the status details for all monitors in the ledger."""
+
+        cursor = self.db.get_cursor()
+        if not cursor:
+            log.error(
+                "❌ DB unavailable, cannot fetch monitor status summary",
+                source="DLMonitorLedger",
+            )
+            return {}
+
+        cursor.execute("SELECT DISTINCT monitor_name FROM monitor_ledger")
+        names = [row[0] for row in cursor.fetchall()]
+        summary = {}
+        for name in names:
+            summary[name] = self.get_status(name)
+
+        return summary
+

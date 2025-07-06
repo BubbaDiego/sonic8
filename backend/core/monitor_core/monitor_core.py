@@ -18,6 +18,7 @@ from backend.core.monitor_core.profit_monitor import ProfitMonitor  # Added Prof
 from backend.core.monitor_core.risk_monitor import RiskMonitor
 #from backend.core.monitor_core.oracle_monitor.oracle_monitor import OracleMonitor
 from backend.core.monitor_core.monitor_registry import MonitorRegistry
+from backend.core.locker_factory import get_locker
 
 class MonitorCore:
     """Central controller for all registered monitors."""
@@ -70,3 +71,9 @@ class MonitorCore:
                 log.error(f"Monitor '{name}' failed: {e}", source="MonitorCore")
         else:
             log.warning(f"Monitor '{name}' not found.", source="MonitorCore")
+
+    def get_status_snapshot(self):
+        """Return the current monitor health summary."""
+
+        dl = get_locker()
+        return dl.ledger.get_monitor_status_summary()
