@@ -63,17 +63,17 @@ class WalletCore:
 
     def __init__(self, rpc_endpoint: str = "https://api.mainnet-beta.solana.com"):
         self.service = WalletService()
-        self.rpc_endpoint = rpc_endpoint
-        self.client = Client(rpc_endpoint) if Client else None
+       # self.rpc_endpoint = rpc_endpoint
+      #  self.client = Client(rpc_endpoint) if Client else None
         # Instantiate BlockchainBalanceService regardless of solana availability
         # so ``load_wallets`` can gracefully attempt balance lookups.
 #        self.balance_service = BlockchainBalanceService()
         self.jupiter = None
         self.jupiter_trigger = None
-        log.debug(
-            f"WalletCore initialized with RPC {rpc_endpoint}" + (" (stubbed)" if Client is None else ""),
-            source="WalletCore",
-        )
+      #  log.debug(
+    #        f"WalletCore initialized with RPC {rpc_endpoint}" + (" (stubbed)" if Client is None else ""),
+   #         source="WalletCore",
+    #    )
 
     # ------------------------------------------------------------------
     # Data access helpers

@@ -74,9 +74,6 @@ export default function Header() {
       {/* cyclone run */}
       <CycloneRunSection />
 
-      {/* profit & risk badges */}
-      <ProfitRiskHeaderBadges />
-
       {/* full sceen toggler */}
       <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
         <FullScreenSection />

@@ -39,14 +39,17 @@ const MainRoutes = {
       element: <AlertThresholdsPage />
     },
     {
+
       path: '/dashboard/analytics',
       element: <DashboardAnalytics />
     },
     {
+
       path: '/dashboard/default',
       element: <DashboardDefault />
     },
     {
+
       path: '/sonic-labs',
       element: <SonicLabsPage />
     }
