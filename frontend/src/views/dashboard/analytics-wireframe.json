@@ -1,0 +1,21 @@
+{
+  "spacing": 3,
+  "sections": [
+    {
+      "id": "top",
+      "size": 12,
+      "bg": "primary.light",
+      "slots": [
+        { "id": "hero", "size": 12, "bg": "secondary.light" }
+      ]
+    },
+    {
+      "id": "body",
+      "size": 12,
+      "slots": [
+        { "id": "mainA",    "size": { "xs": 12, "md": 8 }, "bg": "secondary.light" },
+        { "id": "sidebarB", "size": { "xs": 12, "md": 4 }, "bg": "warning.light"  }
+      ]
+    }
+  ]
+}

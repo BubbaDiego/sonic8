@@ -2,6 +2,11 @@ import { lazy } from 'react';
 import { Navigate } from 'react-router-dom';
 import MainLayout from 'layout/MainLayout';
 import Loadable from 'ui-component/Loadable';
+import DashboardGrid   from 'components/dashboard-grid/DashboardGrid';
+import analyticsLayout from 'views/dashboard/analytics-wireframe.json';
+
+
+
 
 // project imports
 const OverviewPage = Loadable(lazy(() => import('views/overview')));
@@ -47,6 +52,10 @@ const MainRoutes = {
 
       path: '/dashboard/default',
       element: <DashboardDefault />
+    },
+    {
+      path: '/dashboards/analytics-wire',
+      element: <DashboardGrid layout={analyticsLayout} wireframe />
     },
     {
 
