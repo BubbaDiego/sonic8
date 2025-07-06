@@ -42,7 +42,7 @@ MonitorCore(registry: MonitorRegistry | None = None)
 
 ### 🧩 Monitor Implementations
 - **BaseMonitor** – provides `run_cycle()` wrapper that records results in the database ledger.
-- **PriceMonitor** – fetches BTC/ETH/SOL prices via `MonitorService`.
+- **PriceMonitor** – fetches BTC/ETH/SOL prices and the S&P 500 index via `MonitorService`.
 - **PositionMonitor** – syncs positions from Jupiter and logs summary metrics.
 - **OperationsMonitor** – runs POST tests on startup and stores results. The
 
