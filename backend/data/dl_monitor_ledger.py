@@ -3,6 +3,11 @@ import json
 import uuid
 from datetime import datetime, timezone
 from backend.core.logging import log
+from backend.models.monitor_status import (
+    MonitorStatus,
+    MonitorType,
+    MonitorHealth,
+)
 
 class DLMonitorLedgerManager:
     def __init__(self, db):
@@ -99,4 +104,53 @@ class DLMonitorLedgerManager:
         except Exception as e:
             log.error(f"🧨 Failed to parse timestamp for {monitor_name}: {e}", source="DLMonitorLedger")
             return {"last_timestamp": None, "age_seconds": 9999}
+
+    def get_monitor_status_summary(self) -> MonitorStatus:
+        """Return a consolidated MonitorStatus based on ledger entries."""
+
+        summary = MonitorStatus()
+
+        name_map = {
+            "sonic_monitor": MonitorType.SONIC,
+            "price_monitor": MonitorType.PRICE,
+            "position_monitor": MonitorType.POSITIONS,
+            "xcom_monitor": MonitorType.XCOM,
+        }
+
+        for name, mtype in name_map.items():
+            entry = self.get_last_entry(name)
+            if not entry:
+                continue
+
+            status_str = (entry.get("status") or "").strip()
+            metadata = entry.get("metadata")
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
+
+            health = MonitorHealth.WARNING
+            status_lower = status_str.lower()
+            if status_lower == "success":
+                health = MonitorHealth.HEALTHY
+            elif status_lower in {"error", "failed"}:
+                health = MonitorHealth.ERROR
+
+            summary.update_monitor(mtype, health, metadata)
+
+            ts = entry.get("timestamp")
+            if ts:
+                try:
+                    if ts.endswith("Z"):
+                        ts = ts.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(ts)
+                    summary.monitors[mtype].last_updated = dt
+                except Exception as exc:  # pragma: no cover - log parse issues
+                    log.error(
+                        f"🧨 Failed to parse timestamp for {name}: {exc}",
+                        source="DLMonitorLedger",
+                    )
+
+        return summary
 
