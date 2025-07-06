@@ -3,6 +3,12 @@ import json
 import uuid
 from datetime import datetime, timezone
 from backend.core.logging import log
+from backend.models.monitor_status import (
+    MonitorStatus,
+    MonitorType,
+    MonitorHealth,
+    MonitorDetail,
+)
 
 class DLMonitorLedgerManager:
     def __init__(self, db):
@@ -99,4 +105,43 @@ class DLMonitorLedgerManager:
         except Exception as e:
             log.error(f"🧨 Failed to parse timestamp for {monitor_name}: {e}", source="DLMonitorLedger")
             return {"last_timestamp": None, "age_seconds": 9999}
+
+    def get_monitor_status_summary(self) -> MonitorStatus:
+        """Return a MonitorStatus populated with the latest ledger info."""
+        summary = MonitorStatus()
+        mapping = {
+            "sonic_monitor": MonitorType.SONIC,
+            "price_monitor": MonitorType.PRICE,
+            "position_monitor": MonitorType.POSITIONS,
+            "xcom_monitor": MonitorType.XCOM,
+        }
+        for name, mtype in mapping.items():
+            status_data = self.get_status(name)
+            ts_raw = status_data.get("last_timestamp")
+            ts = None
+            if ts_raw:
+                if ts_raw.endswith("Z"):
+                    ts_raw = ts_raw.replace("Z", "+00:00")
+                try:
+                    ts = datetime.fromisoformat(ts_raw)
+                except Exception:
+                    ts = None
+
+            if ts is None:
+                health = MonitorHealth.OFFLINE
+            else:
+                status_str = (status_data.get("status") or "").lower()
+                if status_str == "success":
+                    health = MonitorHealth.HEALTHY
+                elif status_str == "error":
+                    health = MonitorHealth.ERROR
+                else:
+                    health = MonitorHealth.WARNING
+
+            summary.monitors[mtype] = MonitorDetail(
+                status=health,
+                last_updated=ts,
+                metadata={},
+            )
+        return summary
 
