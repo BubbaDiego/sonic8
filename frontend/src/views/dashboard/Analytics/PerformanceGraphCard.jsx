@@ -1,6 +1,6 @@
 // PerformanceGraphCard.jsx
 import { useEffect, useState } from 'react';
-import { alpha, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -9,12 +9,14 @@ import MainCard from 'ui-component/cards/MainCard';
 import { ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
 import chartData from './chart-data/market-share-area-chart';
+import { useGetPortfolioHistory } from 'api/portfolio';
 import { IconCoin, IconPigMoney, IconChartAreaLine } from '@tabler/icons-react';
 
 export default function PerformanceGraphCard() {
   const theme = useTheme();
   const { mode } = useConfig();
   const [chartConfig, setChartConfig] = useState(chartData);
+  const { history = [], historyLoading } = useGetPortfolioHistory();
 
   const secondaryMain = theme.palette.secondary.main;
   const errorMain = theme.palette.error.main;
@@ -30,6 +32,31 @@ export default function PerformanceGraphCard() {
       }
     }));
   }, [mode, theme.palette]);
+
+  useEffect(() => {
+    if (historyLoading) {
+      return;
+    }
+    const categories = history.map((d) =>
+      new Date(d.snapshot_time).toLocaleDateString()
+    );
+    const valueSeries = history.map((d) => parseFloat(d.total_value || 0));
+    const collateralSeries = history.map((d) => parseFloat(d.total_collateral || 0));
+    const sp500Series = history.map((d) => parseFloat(d.market_average_sp500 || 0));
+
+    setChartConfig((prevState) => ({
+      ...prevState,
+      series: [
+        { name: 'Value', data: valueSeries },
+        { name: 'Collateral', data: collateralSeries },
+        { name: 'SP500', data: sp500Series }
+      ],
+      options: {
+        ...prevState.options,
+        xaxis: { ...prevState.options.xaxis, categories }
+      }
+    }));
+  }, [history, historyLoading]);
 
   const iconSX = {
     width: 40,
