@@ -1,32 +1,26 @@
+// src/components/AppGrid.jsx
 import Grid from '@mui/material/Grid';
+import { useTheme } from '@mui/material/styles';
 
-export default function AppGrid({ size = 'grow', ...rest }) {
-  // 1. Extract breakpoints or single value
-  const translate = (val) => {
-    if (val === 'grow') return { xs: true, sx: { flexGrow: 1, flexBasis: 0 } };
-    if (typeof val === 'number') return { xs: val };
-    if (typeof val === 'object') {
-      return Object.fromEntries(
-        Object.entries(val).map(([bp, v]) =>
-          v === 'grow' ? [bp, true] : [bp, v]
-        )
-      );
-    }
-    return {};
-  };
+function makeSpan(n) {
+  return { gridColumn: `span ${n}` };        // <-- fixed
+}
 
-  const { xs, sm, md, lg, xl, sx: growSx } = translate(size);
+export default function AppGrid({ size = 'grow', sx, ...rest }) {
+  const theme = useTheme();
+  let style = {};
 
-  return (
-    <Grid
-      item
-      xs={xs}
-      sm={sm}
-      md={md}
-      lg={lg}
-      xl={xl}
-      sx={growSx}
-      {...rest}
-    />
-  );
+  if (size === 'grow') {
+    style = { gridColumn: '1 / -1' };
+  } else if (typeof size === 'number') {
+    style = makeSpan(size);
+  } else if (typeof size === 'object') {
+    style = {};
+    Object.entries(size).forEach(([bp, v]) => {
+      style[theme.breakpoints.up(bp)] =
+        v === 'grow' ? { gridColumn: '1 / -1' } : makeSpan(v);
+    });
+  }
+
+  return <Grid sx={{ ...style, ...sx }} {...rest} />;
 }

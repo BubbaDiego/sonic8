@@ -1,16 +1,10 @@
-import { useEffect, useState } from 'react';
+// src/components/dashboard-grid/GridSection.jsx
+import PropTypes from 'prop-types';
+import Grid from 'components/AppGrid';      // ⬅ keeps the size‑prop shim
+import GridSlot from './GridSlot';
+import { widgetRegistry } from './registerWidget';   // static import — simplest
 
 export default function GridSection({ section, wireframe }) {
-  const [widgetRegistry, setWidgetRegistry] = useState(null);
-
-  useEffect(() => {
-    import('./registerWidget').then((module) => {
-      setWidgetRegistry(module.widgetRegistry);
-    });
-  }, []);
-
-  if (!widgetRegistry) return null; // or a loader component
-
   const { size, slots, bg = wireframe ? 'primary.light' : 'transparent' } = section;
 
   return (
@@ -28,3 +22,8 @@ export default function GridSection({ section, wireframe }) {
     </Grid>
   );
 }
+
+GridSection.propTypes = {
+  section : PropTypes.object.isRequired,
+  wireframe : PropTypes.bool
+};
