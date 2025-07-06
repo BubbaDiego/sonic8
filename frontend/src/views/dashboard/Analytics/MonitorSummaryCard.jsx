@@ -5,7 +5,7 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import MainCard from 'ui-component/cards/MainCard';
 import { ThemeMode } from 'config';
-import { IconShare, IconAccessPoint, IconCircles, IconCreditCard } from '@tabler/icons-react';
+import { IconShieldCheck, IconPlanet, IconSatellite, IconCurrencyDollar } from '@tabler/icons-react';
 
 import { useGetMonitorStatus, refreshMonitorStatus } from 'api/monitorStatus';
 
@@ -27,10 +27,17 @@ export default function MonitorSummaryCard() {
   };
 
   const iconMap = {
-    'Sonic Monitoring': IconShare,
-    'Price Monitoring': IconAccessPoint,
-    'Positions Monitoring': IconCircles,
-    'XCom Communication': IconCreditCard
+    'Sonic Monitoring': IconShieldCheck,
+    'Price Monitoring': IconCurrencyDollar,
+    'Positions Monitoring': IconPlanet,
+    'XCom Communication': IconSatellite
+  };
+
+  const shortNameMap = {
+    'Sonic Monitoring': 'Sonic',
+    'Price Monitoring': 'Price',
+    'Positions Monitoring': 'Positions',
+    'XCom Communication': 'XCom'
   };
 
   const entries = Object.entries(monitorStatus?.monitors || {});
@@ -62,22 +69,29 @@ export default function MonitorSummaryCard() {
       {rows.map((row, idx) => (
         <Grid key={idx} container spacing={0} sx={{ alignItems: 'center' }}>
           {row.map(([name, detail]) => {
-            const Icon = iconMap[name] || IconShare;
+            const Icon = iconMap[name] || IconShieldCheck;
             const color = statusColor(detail.status);
             const date = detail.last_updated ? new Date(detail.last_updated) : null;
             return (
-              <Grid key={name} className={`status-card monitor-style ${color}`} sx={blockSX} size={{ xs: 12, sm: 6 }}>
+              <Grid
+                key={name}
+                className={`status-card monitor-style ${color}`}
+                sx={blockSX}
+                item
+                xs={12}
+                sm={6}
+              >
                 <Grid container spacing={1} sx={{ alignItems: 'center', justifyContent: { xs: 'space-between', sm: 'center' } }}>
-                  <Grid className="icon">
+                  <Grid item className="icon">
                     <Icon stroke={1.5} />
                   </Grid>
-                  <Grid size={{ sm: 'grow' }}>
+                  <Grid item xs>
                     <Typography className="label" align="center">
-                      {name}
+                      {shortNameMap[name] || name}
                     </Typography>
                     <Typography className="value" align="center">
                       <span className="monitor-time">{date ? date.toLocaleTimeString() : 'Never'}</span>
-                      {date && <span className="monitor-date">{date.toLocaleDateString()}</span>}
+                      {date && <span className="monitor-date"> {date.toLocaleDateString()}</span>}
                     </Typography>
                     <Grid container spacing={1} justifyContent="center" sx={{ mt: 0.5, flexWrap: 'nowrap' }}>
                       <span className={`led-dot ${color}`} />
@@ -89,9 +103,9 @@ export default function MonitorSummaryCard() {
                 </Grid>
               </Grid>
             );
-          })
+          })}
         </Grid>
-      ))
+      ))}
     </MainCard>
   );
 }

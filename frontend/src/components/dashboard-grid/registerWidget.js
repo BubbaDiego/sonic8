@@ -1,5 +1,5 @@
-import MarketShareAreaChartCard from 'views/dashboard/Analytics/MarketShareAreaChartCard';
-import LatestCustomerTableCard  from 'views/dashboard/Analytics/LatestCustomerTableCard';
+import MarketShareAreaChartCard from 'views/dashboard/Analytics/PerformanceGraphCard';
+import LatestCustomerTableCard  from 'views/dashboard/Analytics/PositionListCard';
 import RevenueCard              from 'ui-component/cards/RevenueCard';
 import TotalRevenueCard         from 'views/dashboard/Analytics/TotalRevenueCard';
 

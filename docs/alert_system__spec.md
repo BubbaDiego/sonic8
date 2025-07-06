@@ -1063,7 +1063,7 @@ sonic1/
 │   │   │   │   ├── Analytics
 │   │   │   │   │   ├── chart-data
 │   │   │   │   │   │   └── market-share-area-chart.jsx
-│   │   │   │   │   ├── LatestCustomerTableCard.jsx
+│   │   │   │   │   ├── PositionListCard.jsx
 │   │   │   │   │   ├── PerformanceGraphCard.jsx
 │   │   │   │   │   ├── TotalRevenueCard.jsx
 │   │   │   │   │   └── index_sonic_dashboard.jsx
@@ -1082,7 +1082,7 @@ sonic1/
 │   │   │   │   └── Sonic
 │   │   │   │       ├── chart-data
 │   │   │   │       │   └── market-share-area-chart.jsx
-│   │   │   │       ├── LatestCustomerTableCard.jsx
+│   │   │   │       ├── PositionListCard.jsx
 │   │   │   │       ├── PositionTableCard.jsx
 │   │   │   │       ├── SizeHedgeChartCard.jsx
 │   │   │   │       ├── TotalRevenueCard.jsx

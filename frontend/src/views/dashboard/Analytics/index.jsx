@@ -5,7 +5,7 @@ import MonitorSummaryCard from './MonitorSummaryCard';
 // project imports
 import MarketShareAreaChartCard from './PerformanceGraphCard';
 import TotalRevenueCard from './TotalRevenueCard';
-import LatestCustomerTableCard from './LatestCustomerTableCard';
+import PositionListCard from './PositionListCard';
 import RevenueCard from 'ui-component/cards/RevenueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 
@@ -46,7 +46,7 @@ export default function Analytics() {
             />
           </Grid>
           <Grid size={12}>
-            <LatestCustomerTableCard title="Latest Customers" />
+            <PositionListCard title="Latest Customers" />
           </Grid>
         </Grid>
       </Grid>
