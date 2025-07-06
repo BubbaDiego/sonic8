@@ -15,15 +15,14 @@ import { gridSpacing } from 'store/constant';
 export default function StatusRail({
   totalValue, heatIndex, leverage, totalSize, isDark
 }) {
-  // Stick to top on any breakpoint ≥ md; normal flow on mobile.
   return (
     <Grid
       container
       spacing={gridSpacing}
       direction="column"
-      sx={{ position: { md: 'sticky' }, top: { md: 0 } }}
+      sx={{ position: 'sticky', top: 0 }}
     >
-      <Grid size={{ xs: 12 }}>
+      <Grid size={12}>
         <TotalValueCard
           primary="Total Value"
           secondary={totalValue}
@@ -33,7 +32,7 @@ export default function StatusRail({
         />
       </Grid>
 
-      <Grid size={{ xs: 12 }}>
+      <Grid size={12}>
         {isDark
           ? <TotalHeatIndexDarkCard value={heatIndex} />
           : (
@@ -44,7 +43,7 @@ export default function StatusRail({
           )}
       </Grid>
 
-      <Grid size={{ xs: 12 }}>
+      <Grid size={12}>
         {isDark
           ? <TotalLeverageDarkCard value={leverage} />
           : (
@@ -55,7 +54,7 @@ export default function StatusRail({
           )}
       </Grid>
 
-      <Grid size={{ xs: 12 }}>
+      <Grid size={12}>
         {isDark
           ? <TotalSizeDarkCard value={totalSize} />
           : (

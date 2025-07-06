@@ -23,7 +23,7 @@ DataLocker
  ├─ DLSystemDataManager       → stores system vars (update times, theme, etc.)
  └─ other managers (alerts, prices, wallets, …)
 ```
-
+[position_module_spec.md](position_module_spec.md)
 `PositionCore` receives a `DataLocker` instance at construction and passes it to all sub‑components. Because `DataLocker` holds an open connection to the SQLite database, all position operations ultimately go through `DLPositionManager`.
 
 ## DataLocker Schema
