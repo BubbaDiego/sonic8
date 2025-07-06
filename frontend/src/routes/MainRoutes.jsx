@@ -9,6 +9,7 @@ const PositionsPage = Loadable(lazy(() => import('views/positions')));
 const WalletManagerPage = Loadable(lazy(() => import('views/wallet/WalletManager')));
 const AlertThresholdsPage = Loadable(lazy(() => import('views/alertThresholds')));
 const SonicLabsPage = Loadable(lazy(() => import('views/sonicLabs')));
+const DashboardAnalytics = Loadable(lazy(() => import('views/dashboard/Analytics')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -35,6 +36,10 @@ const MainRoutes = {
     {
       path: '/alert-thresholds',
       element: <AlertThresholdsPage />
+    },
+    {
+      path: '/dashboard/analytics',
+      element: <DashboardAnalytics />
     },
     {
       path: '/sonic-labs',
