@@ -106,16 +106,29 @@ class DLMonitorLedgerManager:
             return {"last_timestamp": None, "age_seconds": 9999}
 
     def get_monitor_status_summary(self) -> MonitorStatus:
-        """Return a consolidated MonitorStatus based on ledger entries."""
+
+        """Return a MonitorStatus snapshot for key monitors."""
 
         summary = MonitorStatus()
 
-        name_map = {
+        monitor_map = {
+
             "sonic_monitor": MonitorType.SONIC,
             "price_monitor": MonitorType.PRICE,
             "position_monitor": MonitorType.POSITIONS,
             "xcom_monitor": MonitorType.XCOM,
         }
+
+
+        for name, mtype in monitor_map.items():
+            info = self.get_status(name)
+            status_str = str(info.get("status", "")).lower()
+            health = (
+                MonitorHealth.HEALTHY
+                if status_str == "success"
+                else MonitorHealth.ERROR
+            )
+            summary.update_monitor(mtype, health, metadata=info)
 
         for name, mtype in name_map.items():
             entry = self.get_last_entry(name)
@@ -151,6 +164,7 @@ class DLMonitorLedgerManager:
                         f"🧨 Failed to parse timestamp for {name}: {exc}",
                         source="DLMonitorLedger",
                     )
+
 
         return summary
 

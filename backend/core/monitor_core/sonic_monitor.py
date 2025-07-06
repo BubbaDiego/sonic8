@@ -128,6 +128,12 @@ def main():
             except Exception as exc:
                 logging.exception("SonicMonitor cycle failure")
                 write_ledger("Error", {"error": str(exc)})
+            finally:
+                try:
+                    status = dl.ledger.get_monitor_status_summary()
+                    logging.debug("Monitor status summary: %s", status.json())
+                except Exception:
+                    logging.exception("Failed to update monitor status summary")
 
             elapsed = time.time() - start_time
             sleep_time = max(interval - elapsed, 0)
