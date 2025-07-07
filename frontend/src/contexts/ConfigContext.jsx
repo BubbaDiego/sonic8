@@ -114,7 +114,7 @@ function ConfigProvider({ children }) {
   };
 
   return (
-    <ConfigContext
+    <ConfigContext.Provider
       value={{
         ...config,
         onChangeMenuOrientation,
@@ -131,7 +131,7 @@ function ConfigProvider({ children }) {
       }}
     >
       {children}
-    </ConfigContext>
+    </ConfigContext.Provider>
   );
 }
 

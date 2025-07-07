@@ -88,7 +88,9 @@ function Auth0ContextProvider({ children }) {
     updateProfile
   };
 
-  return <Auth0Context value={contextValue}>{children}</Auth0Context>;
+  return (
+    <Auth0Context.Provider value={contextValue}>{children}</Auth0Context.Provider>
+  );
 }
 
 export default Auth0Context;

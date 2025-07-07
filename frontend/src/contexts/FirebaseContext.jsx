@@ -92,7 +92,7 @@ export function FirebaseProvider({ children }) {
   }
 
   return (
-    <FirebaseContext
+    <FirebaseContext.Provider
       value={{
         ...state,
         firebaseRegister,
@@ -106,7 +106,7 @@ export function FirebaseProvider({ children }) {
       }}
     >
       {children}
-    </FirebaseContext>
+    </FirebaseContext.Provider>
   );
 }
 

@@ -215,7 +215,7 @@ export function AWSCognitoProvider({ children }) {
   }
 
   return (
-    <AWSCognitoContext
+    <AWSCognitoContext.Provider
       value={{
         ...state,
         login,
@@ -229,7 +229,7 @@ export function AWSCognitoProvider({ children }) {
       }}
     >
       {children}
-    </AWSCognitoContext>
+    </AWSCognitoContext.Provider>
   );
 }
 
