@@ -1,5 +1,5 @@
 // PositionListCard.jsx (updated to Positions data with liquidation distance and travel percent)
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import Button from '@mui/material/Button';
 import CardActions from '@mui/material/CardActions';
@@ -10,6 +10,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TableSortLabel from '@mui/material/TableSortLabel';
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axios';
@@ -18,6 +19,8 @@ import Box from '@mui/material/Box';
 
 export default function PositionListCard({ title }) {
   const [positions, setPositions] = useState([]);
+  const [orderBy, setOrderBy] = useState('wallet_name');
+  const [order, setOrder] = useState('asc');
 
   useEffect(() => {
     async function loadPositions() {
@@ -31,6 +34,26 @@ export default function PositionListCard({ title }) {
     loadPositions();
   }, []);
 
+  const sortedPositions = useMemo(() => {
+    return [...positions].sort((a, b) => {
+      const aVal = a[orderBy];
+      const bVal = b[orderBy];
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return order === 'asc' ? -1 : 1;
+      if (bVal == null) return order === 'asc' ? 1 : -1;
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return order === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return order === 'asc' ? (aVal < bVal ? -1 : 1) : bVal < aVal ? -1 : 1;
+    });
+  }, [positions, order, orderBy]);
+
+  const handleSort = (property) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
   return (
     <MainCard title={title} content={false}>
       <PerfectScrollbar style={{ height: 345, padding: 0 }}>
@@ -38,20 +61,71 @@ export default function PositionListCard({ title }) {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ pl: 3 }}>Wallet</TableCell>
-                <TableCell>Asset Type</TableCell>
-                <TableCell>Position Type</TableCell>
-                <TableCell align="right">Value</TableCell>
-                <TableCell align="right">Liquidation Distance</TableCell>
-                <TableCell align="right" sx={{ pr: 3 }}>Travel Percent</TableCell>
+                <TableCell sx={{ pl: 3 }}>
+                  <TableSortLabel
+                    active={orderBy === 'wallet_name'}
+                    direction={orderBy === 'wallet_name' ? order : 'asc'}
+                    onClick={() => handleSort('wallet_name')}
+                  >
+                    Wallet
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={orderBy === 'asset_type'}
+                    direction={orderBy === 'asset_type' ? order : 'asc'}
+                    onClick={() => handleSort('asset_type')}
+                  >
+                    Asset Type
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={orderBy === 'position_type'}
+                    direction={orderBy === 'position_type' ? order : 'asc'}
+                    onClick={() => handleSort('position_type')}
+                  >
+                    Position Type
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="right">
+                  <TableSortLabel
+                    active={orderBy === 'value'}
+                    direction={orderBy === 'value' ? order : 'asc'}
+                    onClick={() => handleSort('value')}
+                  >
+                    Value
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="right">
+                  <TableSortLabel
+                    active={orderBy === 'liquidation_distance'}
+                    direction={orderBy === 'liquidation_distance' ? order : 'asc'}
+                    onClick={() => handleSort('liquidation_distance')}
+                  >
+                    Liquidation Distance
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="right" sx={{ pr: 3 }}>
+                  <TableSortLabel
+                    active={orderBy === 'travel_percent'}
+                    direction={orderBy === 'travel_percent' ? order : 'asc'}
+                    onClick={() => handleSort('travel_percent')}
+                  >
+                    Travel Percent
+                  </TableSortLabel>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {positions.map((position) => (
+              {sortedPositions.map((position) => (
                 <TableRow hover key={position.id}>
                   <TableCell sx={{ pl: 3 }}>
                     <Avatar
-                      src={`/static/images/${(position.wallet_name || 'unknown').replace(/\s+/g, '').replace(/vault$/i, '').toLowerCase()}_icon.jpg`}
+                      src={`/static/images/${(position.wallet_name || 'unknown')
+                        .replace(/\s+/g, '')
+                        .replace(/vault$/i, '')
+                        .toLowerCase()}_icon.jpg`}
                       alt={position.wallet_name}
                       sx={{ width: 30, height: 30 }}
                     />
