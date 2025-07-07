@@ -23,7 +23,22 @@ export default function MonitorSummaryCard() {
     borderLeft: '1px solid ',
     borderBottom: '1px solid ',
     borderLeftColor: theme.palette.mode === ThemeMode.DARK ? 'dark.main' : 'grey.200',
-    borderBottomColor: theme.palette.mode === ThemeMode.DARK ? 'dark.main' : 'grey.200'
+    borderBottomColor: theme.palette.mode === ThemeMode.DARK ? 'dark.main' : 'grey.200',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center'
+  };
+
+  const iconSX = {
+    width: 40,
+    height: 40,
+    color: 'secondary.main',
+    borderRadius: '14px',
+    p: 1,
+    bgcolor: theme.palette.mode === ThemeMode.DARK ? 'background.default' : 'primary.light',
+    marginBottom: 2
   };
 
   const iconMap = {
@@ -53,59 +68,38 @@ export default function MonitorSummaryCard() {
   }
 
   return (
-    <MainCard
-      content={false}
-      sx={{
-        '& svg': {
-          width: 50,
-          height: 50,
-          color: 'secondary.main',
-          borderRadius: '14px',
-          p: 1.25,
-          bgcolor: theme.palette.mode === ThemeMode.DARK ? 'background.default' : 'primary.light'
-        }
-      }}
-    >
-      {rows.map((row, idx) => (
-        <Grid key={idx} container spacing={0} sx={{ alignItems: 'center' }}>
-          {row.map(([name, detail]) => {
-            const Icon = iconMap[name] || IconShieldCheck;
-            const color = statusColor(detail.status);
-            const date = detail.last_updated ? new Date(detail.last_updated) : null;
-            return (
-              <Grid
-                key={name}
-                className={`status-card monitor-style ${color}`}
-                sx={blockSX}
-                item
-                xs={12}
-                sm={6}
-              >
-                <Grid container spacing={1} sx={{ alignItems: 'center', justifyContent: { xs: 'space-between', sm: 'center' } }}>
-                  <Grid item className="icon">
-                    <Icon stroke={1.5} />
-                  </Grid>
-                  <Grid item xs>
-                    <Typography className="label" align="center">
-                      {shortNameMap[name] || name}
-                    </Typography>
-                    <Typography className="value" align="center">
-                      <span className="monitor-time">{date ? date.toLocaleTimeString() : 'Never'}</span>
-                      {date && <span className="monitor-date"> {date.toLocaleDateString()}</span>}
-                    </Typography>
-                    <Grid container spacing={1} justifyContent="center" sx={{ mt: 0.5, flexWrap: 'nowrap' }}>
-                      <span className={`led-dot ${color}`} />
-                      <Typography variant="subtitle2" align="center">
-                        {detail.status}
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </Grid>
+    <MainCard content={false}>
+      <Grid container>
+        {entries.map(([name, detail]) => {
+          const Icon = iconMap[name] || IconShieldCheck;
+          const color = statusColor(detail.status);
+          const date = detail.last_updated ? new Date(detail.last_updated) : null;
+          return (
+            <Grid
+              key={name}
+              className={`status-card monitor-style ${color}`}
+              sx={blockSX}
+              item
+              xs={6}
+            >
+              <Icon stroke={1.5} style={iconSX} />
+              <Typography className="label" variant="h5">
+                {shortNameMap[name] || name}
+              </Typography>
+              <Typography className="value">
+                <span className="monitor-time">{date ? date.toLocaleTimeString() : 'Never'}</span>
+                {date && <span className="monitor-date"> {date.toLocaleDateString()}</span>}
+              </Typography>
+              <Grid container spacing={1} justifyContent="center" alignItems="center" sx={{ mt: 1 }}>
+                <span className={`led-dot ${color}`} />
+                <Typography variant="subtitle2">
+                  {detail.status}
+                </Typography>
               </Grid>
-            );
-          })}
-        </Grid>
-      ))}
+            </Grid>
+          );
+        })}
+      </Grid>
     </MainCard>
   );
 }
