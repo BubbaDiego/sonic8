@@ -95,6 +95,8 @@ class DLMonitorLedgerManager:
             if raw_ts.endswith("Z"):
                 raw_ts = raw_ts.replace("Z", "+00:00")
             last_ts = datetime.fromisoformat(raw_ts)
+            if last_ts.tzinfo is None:
+                last_ts = last_ts.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
             age = (now - last_ts).total_seconds()
             return {
