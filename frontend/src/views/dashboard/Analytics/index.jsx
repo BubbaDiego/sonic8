@@ -39,7 +39,7 @@ export default function Analytics() {
             <MonitorSummaryCard />
           </Grid>
           <Grid size={12}>
-            <TraderListCard title="Total Revenue" />
+            <TraderListCard title="Traders" />
           </Grid>
           <Grid size={12}>
             <UserCountCard

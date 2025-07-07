@@ -1,181 +1,88 @@
+
+// TraderListCard.jsx
+import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-// material-ui
 import Divider from '@mui/material/Divider';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
+import Avatar from '@mui/material/Avatar';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-
-// third party
 import PerfectScrollbar from 'react-perfect-scrollbar';
-
-// project imports
 import MainCard from 'ui-component/cards/MainCard';
 
-// assets
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
+// Stubbed API call
+const fetchTraders = async () => {
+  // Replace this with real API call later
+  return Promise.resolve([
+    {
+      id: 1,
+      name: 'Trader Joe',
+      image: '/static/images/avatar1.png',
+      balance: '$25,340',
+      pnl: '+$3,200',
+      pnlColor: 'success.dark'
+    },
+    {
+      id: 2,
+      name: 'Jane Doe',
+      image: '/static/images/avatar2.png',
+      balance: '$17,920',
+      pnl: '-$1,050',
+      pnlColor: 'error.main'
+    },
+    {
+      id: 3,
+      name: 'Alpha Trader',
+      image: '/static/images/avatar3.png',
+      balance: '$45,100',
+      pnl: '+$8,560',
+      pnlColor: 'success.dark'
+    }
+  ]);
+};
 
 export default function TraderListCard({ title }) {
-  const successSX = { color: 'success.dark' };
-  const errorSX = { color: 'error.main' };
+  const [traders, setTraders] = useState([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const data = await fetchTraders();
+      setTraders(data);
+    };
+
+    loadData();
+  }, []);
 
   return (
     <MainCard title={title} content={false}>
       <PerfectScrollbar style={{ height: 370 }}>
-        <List
-          component="nav"
-          aria-label="main mailbox folders"
-          sx={{
-            '& svg': {
-              width: 32,
-              my: -0.75,
-              ml: -0.75,
-              mr: 0.75
-            }
-          }}
-        >
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropUpIcon sx={successSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Bitcoin</span>
-                  <Typography sx={successSX}>+ $145.85</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
-          <Divider />
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropDownIcon sx={errorSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Ethereum</span>
-                  <Typography sx={errorSX}>- $6.368</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
-          <Divider />
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropUpIcon sx={successSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Ripple</span>
-                  <Typography sx={successSX}>+ $458.63</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
-          <Divider />
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropDownIcon sx={errorSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Neo</span>
-                  <Typography sx={errorSX}>- $5.631</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
-          <Divider />
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropDownIcon sx={errorSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Ethereum</span>
-                  <Typography sx={errorSX}>- $6.368</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
-          <Divider />
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropUpIcon sx={successSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Ripple</span>
-                  <Typography sx={successSX}>+ $458.63</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
-          <Divider />
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropDownIcon sx={errorSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Neo</span>
-                  <Typography sx={errorSX}>- $5.631</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
-          <Divider />
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropDownIcon sx={errorSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Ethereum</span>
-                  <Typography sx={errorSX}>- $6.368</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
-          <Divider />
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropUpIcon sx={successSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Ripple</span>
-                  <Typography sx={successSX}>+ $458.63</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
-          <Divider />
-          <ListItemButton>
-            <ListItemIcon>
-              <ArrowDropDownIcon sx={errorSX} />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Neo</span>
-                  <Typography sx={errorSX}>- $5.631</Typography>
-                </Stack>
-              }
-            />
-          </ListItemButton>
+        <List>
+          {traders.map((trader) => (
+            <div key={trader.id}>
+              <ListItemButton>
+                <ListItemAvatar>
+                  <Avatar src={trader.image} alt={trader.name} />
+                </ListItemAvatar>
+                <ListItemText
+                  primary={
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography variant="subtitle1">{trader.name}</Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
+                        {trader.balance}
+                      </Typography>
+                      <Typography variant="subtitle2" sx={{ color: trader.pnlColor }}>
+                        {trader.pnl}
+                      </Typography>
+                    </Stack>
+                  }
+                />
+              </ListItemButton>
+              <Divider />
+            </div>
+          ))}
         </List>
       </PerfectScrollbar>
     </MainCard>
