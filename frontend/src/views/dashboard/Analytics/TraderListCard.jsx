@@ -1,3 +1,4 @@
+
 // TraderListCard.jsx
 import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
@@ -11,45 +12,19 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import MainCard from 'ui-component/cards/MainCard';
-
-// Stubbed API call
-const fetchTraders = async () => {
-  // Replace this with real API call later
-  return Promise.resolve([
-    {
-      id: 1,
-      name: 'Trader Joe',
-      image: '/static/images/avatar1.png',
-      balance: '$25,340',
-      pnl: '+$3,200',
-      pnlColor: 'success.dark'
-    },
-    {
-      id: 2,
-      name: 'Jane Doe',
-      image: '/static/images/avatar2.png',
-      balance: '$17,920',
-      pnl: '-$1,050',
-      pnlColor: 'error.main'
-    },
-    {
-      id: 3,
-      name: 'Alpha Trader',
-      image: '/static/images/avatar3.png',
-      balance: '$45,100',
-      pnl: '+$8,560',
-      pnlColor: 'success.dark'
-    }
-  ]);
-};
+import { getTraders } from 'api/traders';
 
 export default function TraderListCard({ title }) {
   const [traders, setTraders] = useState([]);
 
   useEffect(() => {
     const loadData = async () => {
-      const data = await fetchTraders();
-      setTraders(data);
+      try {
+        const data = await getTraders();
+        setTraders(data);
+      } catch (error) {
+        console.error('Error fetching traders:', error);
+      }
     };
 
     loadData();
@@ -60,20 +35,20 @@ export default function TraderListCard({ title }) {
       <Box sx={{ height: 370, overflowY: 'auto' }}>
         <List>
           {traders.map((trader) => (
-            <div key={trader.id}>
+            <div key={trader.name}>
               <ListItemButton>
                 <ListItemAvatar>
-                  <Avatar src={trader.image} alt={trader.name} />
+                  <Avatar src={trader.avatar} alt={trader.name} />
                 </ListItemAvatar>
                 <ListItemText
                   primary={
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Typography variant="subtitle1">{trader.name}</Typography>
                       <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
-                        {trader.balance}
+                        ${Number(trader.wallet_balance).toLocaleString()}
                       </Typography>
-                      <Typography variant="subtitle2" sx={{ color: trader.pnlColor }}>
-                        {trader.pnl}
+                      <Typography variant="subtitle2" sx={{ color: trader.profit >= 0 ? 'success.dark' : 'error.main' }}>
+                        {trader.profit >= 0 ? '+' : '-'}${Math.abs(trader.profit).toLocaleString()}
                       </Typography>
                     </Stack>
                   }

@@ -1,6 +1,6 @@
 from typing import Dict
 
-from calc_core.calc_services import CalcServices
+from backend.core.calc_core.calc_services import CalcServices
 from .oracle_data_service import OracleDataService
 
 
