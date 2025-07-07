@@ -10,7 +10,7 @@ from typing import List, Optional
 from backend.data.learning_database.learning_event_logger import log_learning_event
 import json
 
-from backend.core.trader_core.trader import Trader
+from backend.models.trader import Trader
 from backend.core.trader_core.mood_engine import evaluate_mood
 from backend.core.trader_core.trader_store import TraderStore
 from backend.utils.time_utils import iso_utc_now

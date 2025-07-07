@@ -2,7 +2,7 @@ import importlib
 import types
 
 from trader_core.trader_loader import TraderLoader
-from trader_core.trader import Trader
+from backend.models.trader import Trader
 
 
 class DummyWallets:

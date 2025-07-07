@@ -1,8 +1,8 @@
-"""Data access layer for Trader records.
+"""Data access layer for :class:`Trader` records.
 
-This module persists Trader metadata in a simple SQLite table. When
-retrieving trader dictionaries, missing fields are populated for
-convenience:
+This module persists trader metadata in a simple SQLite table. Loaded
+records are returned as :class:`Trader` objects with missing fields filled
+automatically:
 
 * ``born_on`` - Defaults to the ``created_at`` timestamp stored in the
   database if not present in the JSON payload.
@@ -10,6 +10,9 @@ convenience:
 """
 
 import json
+from dataclasses import asdict
+
+from backend.models.trader import Trader
 
 from backend.utils.time_utils import iso_utc_now, normalize_iso_timestamp
 
@@ -46,11 +49,14 @@ class DLTraderManager:
         self.db.commit()
         log.success("✅ Trader table ready", source="DLTraderManager")
 
-    def create_trader(self, trader: dict) -> bool:
+    def create_trader(self, trader: object) -> bool:
         """Persist a new trader record.
 
-        Returns ``True`` on success, ``False`` if any error occurs."""
+        Accepts either a :class:`Trader` instance or a mapping and returns
+        ``True`` on success, ``False`` if any error occurs."""
         try:
+            if isinstance(trader, Trader):
+                trader = asdict(trader)
             name = trader.get("name")
             if not name:
                 raise ValueError("Trader 'name' is required")
@@ -86,8 +92,8 @@ class DLTraderManager:
             log.error(f"❌ Failed to create trader: {e}", source="DLTraderManager")
             return False
 
-    def get_trader_by_name(self, name: str) -> dict:
-        """Return a trader dict by name with default fields filled in."""
+    def get_trader_by_name(self, name: str) -> Trader | None:
+        """Return a :class:`Trader` by name with default fields filled in."""
         try:
             log.info(
                 f"🔍 Fetching trader by name: {name}", source="DLTraderManager"
@@ -116,12 +122,12 @@ class DLTraderManager:
                 trader["born_on"] = normalize_iso_timestamp(row["created_at"])
             log.debug("Trader loaded", source="DLTraderManager", payload=trader or {})
 
-            return trader
+            return Trader(**trader) if trader is not None else None
         except Exception as e:
             log.error(f"❌ Failed to retrieve trader '{name}': {e}", source="DLTraderManager")
             return None
 
-    def list_traders(self) -> list:
+    def list_traders(self) -> list[Trader]:
         """Return all traders with defaults applied."""
         try:
             log.route("Fetching traders from DB...", source="DLTraderManager")
@@ -131,7 +137,7 @@ class DLTraderManager:
                 return []
             cursor.execute("SELECT trader_json, created_at FROM traders")
             rows = cursor.fetchall()
-            traders = []
+            traders: list[Trader] = []
             for row in rows:
 
                 trader = json.loads(row["trader_json"])
@@ -139,7 +145,7 @@ class DLTraderManager:
                     trader["born_on"] = normalize_iso_timestamp(row["created_at"])
                 trader.setdefault("initial_collateral", 0.0)
                 trader.setdefault("strategy_notes", "")
-                traders.append(trader)
+                traders.append(Trader(**trader))
             log.debug(
                 f"Loaded {len(traders)} traders from DB", source="DLTraderManager"
             )
@@ -156,8 +162,13 @@ class DLTraderManager:
                 log.warning(f"⚠️ Trader not found for update: {name}", source="DLTraderManager")
                 return
 
-            trader.update(fields)
-            trader_json = json.dumps(trader, indent=2)
+            if isinstance(trader, Trader):
+                for k, v in fields.items():
+                    setattr(trader, k, v)
+                trader_json = json.dumps(asdict(trader), indent=2)
+            else:
+                trader.update(fields)
+                trader_json = json.dumps(trader, indent=2)
             now = iso_utc_now()
 
             cursor = self.db.get_cursor()
@@ -210,7 +221,7 @@ class DLTraderManager:
         try:
             traders = self.list_traders()
             with open(path, "w", encoding="utf-8") as fh:
-                json.dump(traders, fh, indent=2)
+                json.dump([asdict(t) for t in traders], fh, indent=2)
             log.info(f"💾 Traders exported to {path}", source="DLTraderManager")
         except Exception as e:
             log.error(f"❌ Failed to export traders: {e}", source="DLTraderManager")
@@ -231,10 +242,9 @@ class DLTraderManager:
 
         count = 0
         for item in data:
-            if not isinstance(item, dict) or not item.get("name"):
-                continue
-            self.create_trader(item)
-            count += 1
+            if isinstance(item, dict) and item.get("name"):
+                self.create_trader(item)
+                count += 1
 
         log.info(f"♻️ Imported {count} traders from {path}", source="DLTraderManager")
         return count
