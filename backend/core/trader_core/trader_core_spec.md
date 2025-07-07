@@ -14,7 +14,7 @@ trader_core/
 ├── trader_store.py            # In-memory fallback store
 ├── trader_factory_service.py  # UI/console wrapper
 ├── trader_loader.py           # Legacy loader (read-only)
-├── trader.py                  # Trader dataclass
+├── ../models/trader.py        # Trader dataclass
 ├── mood_engine.py             # Heat-based mood selection
 ├── persona_avatars.py         # Avatar registry
 ├── personas/                  # Predefined persona JSON files for PersonaManager
