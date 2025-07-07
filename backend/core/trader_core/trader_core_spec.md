@@ -1,27 +1,27 @@
 # 🧠 Trader Core Specification
 
-> Version: `v1.4`
+> Version: `v1.5`
 > Author: `CoreOps 🧠`
 > Scope: Build, persist, and manage Trader personas tied to portfolio strategy and mood evaluation.
-> Now integrates with Cyclone Engine 2025 for persona updates and notifies XCom of important events.
+
 
 ---
 
 ## 📂 Module Structure
 ```txt
 trader_core/
+├── __init__.py                # Package marker
 ├── trader_core.py             # Main service logic
 ├── trader_store.py            # In-memory fallback store
-├── trader_factory_service.py  # UI/console wrapper
-├── trader_loader.py           # Legacy loader (read-only)
-├── ../models/trader.py        # Trader dataclass
+├── trader_factory_service.py  # UI helper around TraderCore
+├── trader_loader.py           # Build Trader from live data
 ├── mood_engine.py             # Heat-based mood selection
 ├── persona_avatars.py         # Avatar registry
-├── personas/                  # Predefined persona JSON files for PersonaManager
+├── personas/                  # Example persona JSON files
 ├── trader_bp.py               # Flask blueprint
-├── personas/                  # Example persona JSONs
-├── templates/trader/trader_factory.html # Factory dashboard
-├── templates/trader/trader_shop.html    # Shop view
+├── trader_core_spec.md        # This document
+├── trader_core_ui_spec.md     # UI overview
+├── ../models/trader.py        # Trader dataclass
 ```
 The `personas/` directory stores predefined persona JSON files used by `PersonaManager`.
 
@@ -83,10 +83,6 @@ class Trader:
     hedges: List[Dict] = field(default_factory=list)
     performance_score: int = 0
     heat_index: float = 0.0
-    born_on: str = ""
-    initial_collateral: float = 0.0
-
-Note: `born_on` and `initial_collateral` are intentionally defined twice in this dataclass. It's a quirk of the implementation that re-applies the same default values.
 
 
 ## 🛢️ Persistence
@@ -98,7 +94,7 @@ Used for dev testing (`TraderStore`)
 - Table: `traders`
 - Fields:
   - `name TEXT PRIMARY KEY`
-  - `trader_json TEXT NOT NULL[trader_bp.py](trader_bp.py)`
+  - `trader_json TEXT NOT NULL`
   - `created_at TEXT`
   - `last_updated TEXT`
 - JSON-encodes entire object
@@ -108,18 +104,18 @@ Used for dev testing (`TraderStore`)
 
 
 ## 🎨 UI (HTML)
-- Dropdown persona selector
-- Preview panel (`<pre>`)
-- Save + delete buttons
-- Real-time sync with backend
-- Optional Oracle button
-- Leaderboard and activity log
+The repository no longer includes HTML templates. `TraderFactoryService`
+can be used by a separate Flask app to build pages with features such as:
+- dropdown persona selection
+- preview panels
+- save and delete actions
+- real-time metrics
 
 ---
 
 ## 🚏 Flask Routes
 All paths are under the `/trader` blueprint prefix.
-- `/shop` – Trader shop page for managing personas
+- `/shop` – legacy shop page for managing personas (template not included)
 - `/factory/<name>` – minimal factory view for tests
 - `/cards` – legacy page showing trader names
 - `/api/wallets` – list wallet names and balances
