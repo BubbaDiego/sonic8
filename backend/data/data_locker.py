@@ -266,7 +266,12 @@ class DataLocker:
                     avg_travel_percent REAL,
                     avg_heat_index REAL,
                     total_heat_index REAL,
-                    market_average_sp500 REAL
+                    market_average_sp500 REAL,
+                    session_start_time TEXT,
+                    session_start_value REAL,
+                    current_session_value REAL,
+                    session_goal_value REAL,
+                    session_performance_value REAL
                 )
             """,
             "modifiers": """
@@ -373,6 +378,11 @@ class DataLocker:
         _ensure_column(cursor, "positions", "hedge_buddy_id TEXT")
         _ensure_column(cursor, "positions_totals_history", "market_average_sp500 REAL")
         _ensure_column(cursor, "positions_totals_history", "total_heat_index REAL")
+        _ensure_column(cursor, "positions_totals_history", "session_start_time TEXT")
+        _ensure_column(cursor, "positions_totals_history", "session_start_value REAL")
+        _ensure_column(cursor, "positions_totals_history", "current_session_value REAL")
+        _ensure_column(cursor, "positions_totals_history", "session_goal_value REAL")
+        _ensure_column(cursor, "positions_totals_history", "session_performance_value REAL")
 
 
         # Ensure a default row exists for system vars so lookups don't fail

@@ -48,6 +48,23 @@ class PortfolioSnapshot(BaseModel):
     market_average_sp500: float = Field(
         0.0, description="S&P500 index value at snapshot time"
     )
+    # --- Short Term Goal Metrics ---
+    session_start_time: Optional[datetime] = Field(
+        default=None,
+        description="Time when the performance tracking session began",
+    )
+    session_start_value: float = Field(
+        0.0, description="Portfolio value at the start of the session"
+    )
+    current_session_value: float = Field(
+        0.0, description="Current portfolio value for the session"
+    )
+    session_goal_value: float = Field(
+        0.0, description="Target portfolio value for the session"
+    )
+    session_performance_value: float = Field(
+        0.0, description="Performance delta relative to the session start"
+    )
 
     class Config:
         orm_mode = True

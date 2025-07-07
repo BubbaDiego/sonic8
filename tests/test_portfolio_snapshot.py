@@ -20,6 +20,10 @@ def test_record_and_fetch_snapshot(dl_tmp):
     assert latest.total_value == snap.total_value
     assert latest.total_heat_index == snap.total_heat_index
     assert latest.market_average_sp500 == 100.0
+    assert latest.session_start_value == 0.0
+    assert latest.current_session_value == 0.0
+    assert latest.session_goal_value == 0.0
+    assert latest.session_performance_value == 0.0
     all_snaps = mgr.get_snapshots()
     assert len(all_snaps) == 1
     assert isinstance(all_snaps[0], PortfolioSnapshot)
