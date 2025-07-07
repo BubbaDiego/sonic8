@@ -89,7 +89,10 @@ export default function MonitorSummaryCard() {
         {entries.map(([name, detail]) => {
           const Icon = iconMap[name] || IconShieldCheck;
           const color = statusColor(detail.status);
-          const date = detail.last_updated ? new Date(detail.last_updated) : null;
+          const date =
+            detail.last_updated && detail.last_updated !== 'Never'
+              ? new Date(detail.last_updated)
+              : null;
           return (
             <Grid
               key={name}
