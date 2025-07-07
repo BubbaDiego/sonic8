@@ -1057,7 +1057,7 @@ sonic1/
 │   │   │   │   │   │   └── market-share-area-chart.jsx
 │   │   │   │   │   ├── PositionListCard.jsx
 │   │   │   │   │   ├── PerformanceGraphCard.jsx
-│   │   │   │   │   ├── TotalRevenueCard.jsx
+│   │   │   │   │   ├── TraderListCard.jsx
 │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   ├── Default
 │   │   │   │   │   ├── chart-data
@@ -1077,7 +1077,7 @@ sonic1/
 │   │   │   │       ├── PositionListCard.jsx
 │   │   │   │       ├── PositionTableCard.jsx
 │   │   │   │       ├── SizeHedgeChartCard.jsx
-│   │   │   │       ├── TotalRevenueCard.jsx
+│   │   │   │       ├── TraderListCard.jsx
 │   │   │   │       ├── ValueToCollateralChartCard.jsx
 │   │   │   │       └── index_sonic_dashboard.jsx
 │   │   │   ├── forms

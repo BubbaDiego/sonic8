@@ -4,7 +4,7 @@ import MonitorSummaryCard from './MonitorSummaryCard';
 
 // project imports
 import MarketShareAreaChartCard from './PerformanceGraphCard';
-import TotalRevenueCard from './TotalRevenueCard';
+import TraderListCard from './TraderListCard';
 import PositionListCard from './PositionListCard';
 import RevenueCard from 'ui-component/cards/RevenueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
@@ -39,7 +39,7 @@ export default function Analytics() {
             <MonitorSummaryCard />
           </Grid>
           <Grid size={12}>
-            <TotalRevenueCard title="Total Revenue" />
+            <TraderListCard title="Total Revenue" />
           </Grid>
           <Grid size={12}>
             <UserCountCard

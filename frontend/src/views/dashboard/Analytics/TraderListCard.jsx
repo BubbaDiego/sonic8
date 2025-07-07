@@ -18,7 +18,7 @@ import MainCard from 'ui-component/cards/MainCard';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
-export default function TotalRevenueCard({ title }) {
+export default function TraderListCard({ title }) {
   const successSX = { color: 'success.dark' };
   const errorSX = { color: 'error.main' };
 
@@ -182,4 +182,4 @@ export default function TotalRevenueCard({ title }) {
   );
 }
 
-TotalRevenueCard.propTypes = { title: PropTypes.string };
+TraderListCard.propTypes = { title: PropTypes.string };
