@@ -72,10 +72,6 @@ export default function MonitorSummaryCard() {
   }
 
   const entries = Object.entries(monitorStatus?.monitors || {});
-  const rows = [];
-  for (let i = 0; i < entries.length; i += 2) {
-    rows.push(entries.slice(i, i + 2));
-  }
 
   function statusColor(status) {
     if (status === 'Healthy') return 'green';
