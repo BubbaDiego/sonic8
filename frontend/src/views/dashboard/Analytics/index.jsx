@@ -23,7 +23,7 @@ import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
 // ==============================|| ANALYTICS DASHBOARD ||============================== //
 
 export default function Analytics() {
-  const { data: positionsData } = useGetPositions();
+  const { positions: positionsData } = useGetPositions();
   const [totalHeatIndex, setTotalHeatIndex] = useState(0);
   const [totalLeverage, setTotalLeverage] = useState(0);
   const [travelPercent, setTravelPercent] = useState(0);
