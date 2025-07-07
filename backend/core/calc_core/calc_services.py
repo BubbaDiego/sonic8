@@ -271,6 +271,10 @@ class CalcServices:
         avg_leverage = weighted_leverage_sum / total_size if total_size > 0 else 0.0
         avg_travel_percent = weighted_travel_percent_sum / total_size if total_size > 0 else 0.0
         avg_heat_index = self.calculate_weighted_heat_index(positions)
+        total_heat_index = 0.0
+        for pos in positions:
+            data = self._as_dict(pos)
+            total_heat_index += float(data.get("heat_index") or 0.0)
 
         totals = {
             "total_size": total_size,
@@ -278,7 +282,8 @@ class CalcServices:
             "total_collateral": total_collateral,
             "avg_leverage": avg_leverage,
             "avg_travel_percent": avg_travel_percent,
-            "avg_heat_index": avg_heat_index
+            "avg_heat_index": avg_heat_index,
+            "total_heat_index": total_heat_index,
         }
 
         log.success(

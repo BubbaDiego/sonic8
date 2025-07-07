@@ -44,6 +44,7 @@ def test_totals_exclude_inactive(tmp_path):
     assert snap.total_value == active_pos["value"]
     assert snap.total_size == active_pos["size"]
     assert snap.total_collateral == active_pos["collateral"]
+    assert snap.total_heat_index == 0.0
 
 
 def test_calc_services_totals_with_objects():
@@ -74,4 +75,5 @@ def test_calc_services_totals_with_objects():
     assert totals["total_collateral"] == 150.0
     assert totals["avg_leverage"] == pytest.approx((2.0 * 1.0 + 3.0 * 2.0) / 3.0)
     assert totals["avg_travel_percent"] == pytest.approx((5.0 * 1.0 + 10.0 * 2.0) / 3.0)
+    assert totals["total_heat_index"] == 0.0
 

@@ -265,6 +265,7 @@ class DataLocker:
                     avg_leverage REAL,
                     avg_travel_percent REAL,
                     avg_heat_index REAL,
+                    total_heat_index REAL,
                     market_average_sp500 REAL
                 )
             """,
@@ -371,6 +372,7 @@ class DataLocker:
         _ensure_column(cursor, "positions", "stale INTEGER DEFAULT 0")
         _ensure_column(cursor, "positions", "hedge_buddy_id TEXT")
         _ensure_column(cursor, "positions_totals_history", "market_average_sp500 REAL")
+        _ensure_column(cursor, "positions_totals_history", "total_heat_index REAL")
 
 
         # Ensure a default row exists for system vars so lookups don't fail

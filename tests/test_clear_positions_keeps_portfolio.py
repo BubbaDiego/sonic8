@@ -14,6 +14,7 @@ def test_clear_positions_keeps_portfolio_history(dl_tmp):
         avg_leverage=1.0,
         avg_travel_percent=0.0,
         avg_heat_index=0.0,
+        total_heat_index=0.0,
         market_average_sp500=120.0,
     )
     dl_tmp.portfolio.record_snapshot(snap)
@@ -27,4 +28,5 @@ def test_clear_positions_keeps_portfolio_history(dl_tmp):
     after = dl_tmp.portfolio.get_snapshots()
     assert len(after) == len(before) == 1
     assert after[0].id == before[0].id
+    assert after[0].total_heat_index == 0.0
     assert after[0].market_average_sp500 == 120.0

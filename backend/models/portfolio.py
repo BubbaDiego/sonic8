@@ -42,6 +42,9 @@ class PortfolioSnapshot(BaseModel):
     avg_heat_index: float = Field(
         ..., description="Average heat index reflecting portfolio risk"
     )
+    total_heat_index: float = Field(
+        0.0, description="Sum of heat index across all positions"
+    )
     market_average_sp500: float = Field(
         0.0, description="S&P500 index value at snapshot time"
     )
