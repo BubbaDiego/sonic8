@@ -1,4 +1,4 @@
-// material-ui
+// index.jsx
 import Grid from '@mui/material/Grid';
 import MonitorSummaryCard from './MonitorSummaryCard';
 
@@ -12,14 +12,14 @@ import UserCountCard from 'ui-component/cards/UserCountCard';
 import { gridSpacing } from 'store/constant';
 
 // assets
-import MonetizationOnTwoToneIcon from '@mui/icons-material/MonetizationOnTwoTone';
-import AccountCircleTwoTone from '@mui/icons-material/AccountCircleTwoTone';
-import DescriptionTwoToneIcon from '@mui/icons-material/DescriptionTwoTone';
+import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
+import WhatshotTwoToneIcon from '@mui/icons-material/WhatshotTwoTone';
+import ScaleTwoToneIcon from '@mui/icons-material/ScaleTwoTone';
+import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
 
 // ==============================|| ANALYTICS DASHBOARD ||============================== //
 
 export default function Analytics() {
-
   return (
     <Grid container spacing={gridSpacing}>
       <Grid size={{ xs: 12, lg: 8, md: 6 }}>
@@ -27,29 +27,12 @@ export default function Analytics() {
           <Grid size={12}>
             <MarketShareAreaChartCard />
           </Grid>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <RevenueCard
-              primary="Revenue"
-              secondary="$42,562"
-              content="$50,032 Last Month"
-              iconPrimary={MonetizationOnTwoToneIcon}
-              color="secondary.main"
-            />
-          </Grid>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <RevenueCard
-              primary="Orders Received"
-              secondary="486"
-              content="20% Increase"
-              iconPrimary={AccountCircleTwoTone}
-              color="primary.main"
-            />
-          </Grid>
           <Grid size={12}>
             <PositionListCard title="Latest Customers" />
           </Grid>
         </Grid>
       </Grid>
+
       <Grid size={{ xs: 12, lg: 4, md: 6 }}>
         <Grid container spacing={gridSpacing}>
           <Grid size={12}>
@@ -59,10 +42,38 @@ export default function Analytics() {
             <TotalRevenueCard title="Total Revenue" />
           </Grid>
           <Grid size={12}>
-            <UserCountCard primary="Daily user" secondary="1,658" iconPrimary={AccountCircleTwoTone} color="secondary.main" />
+            <UserCountCard
+              primary="Total Heat Index"
+              secondary="1,658"
+              iconPrimary={WhatshotTwoToneIcon}
+              color="error.main"
+            />
           </Grid>
           <Grid size={12}>
-            <UserCountCard primary="Daily page view" secondary="1K" iconPrimary={DescriptionTwoToneIcon} color="primary.main" />
+            <UserCountCard
+              primary="Total Leverage"
+              secondary="1K"
+              iconPrimary={SpeedTwoToneIcon}
+              color="primary.main"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, lg: 12 }}>
+            <RevenueCard
+              primary="Travel Percent"
+              secondary="$42,562"
+              content="$50,032 Last Month"
+              iconPrimary={PercentTwoToneIcon}
+              color="secondary.main"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, lg: 12 }}>
+            <RevenueCard
+              primary="Total Size"
+              secondary="486"
+              content="20% Increase"
+              iconPrimary={ScaleTwoToneIcon}
+              color="primary.main"
+            />
           </Grid>
         </Grid>
       </Grid>
