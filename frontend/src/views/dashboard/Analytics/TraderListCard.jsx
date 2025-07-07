@@ -1,4 +1,3 @@
-
 // TraderListCard.jsx
 import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
@@ -10,7 +9,7 @@ import Avatar from '@mui/material/Avatar';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import PerfectScrollbar from 'react-perfect-scrollbar';
+import Box from '@mui/material/Box';
 import MainCard from 'ui-component/cards/MainCard';
 
 // Stubbed API call
@@ -58,7 +57,7 @@ export default function TraderListCard({ title }) {
 
   return (
     <MainCard title={title} content={false}>
-      <PerfectScrollbar style={{ height: 370 }}>
+      <Box sx={{ height: 370, overflowY: 'auto' }}>
         <List>
           {traders.map((trader) => (
             <div key={trader.id}>
@@ -84,7 +83,7 @@ export default function TraderListCard({ title }) {
             </div>
           ))}
         </List>
-      </PerfectScrollbar>
+      </Box>
     </MainCard>
   );
 }
