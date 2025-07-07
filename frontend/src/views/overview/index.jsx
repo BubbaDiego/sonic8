@@ -15,7 +15,7 @@ export default function OverviewPage() {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  const { portfolio } = useGetLatestPortfolio();
+  const { portfolio, totalHeatIndex } = useGetLatestPortfolio();
   const shouldFetchPositions = portfolio == null;
   const { positions = [] } = useGetPositions(shouldFetchPositions);
 
@@ -31,11 +31,8 @@ export default function OverviewPage() {
   const totalValueNumber = portfolio?.total_value ?? fallbackTotal;
   const totalValue = `$${Number(totalValueNumber || 0).toLocaleString()}`;
 
-  const heatIndexNumber = portfolio?.avg_heat_index ??
-    (positions.length
-      ? positions.reduce((sum, p) => sum + parseFloat(p.heat_index || 0) * (parseFloat(p.size || 1) || 1), 0) /
-        positions.reduce((sum, p) => sum + (parseFloat(p.size || 1) || 1), 0)
-      : 0);
+  const heatIndexNumber = totalHeatIndex ??
+    positions.reduce((sum, p) => sum + parseFloat(p.heat_index || 0), 0);
 
   const fallbackSize = positions.reduce((s, p) => s + parseFloat(p.size || 0), 0);
   const fallbackLeverage = positions.length

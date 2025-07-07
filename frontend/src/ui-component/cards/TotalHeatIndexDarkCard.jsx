@@ -60,7 +60,7 @@ export default function TotalHeatIndexDarkCard({ isLoading, value }) {
       try {
         const response = await axios.get('/portfolio/latest');
         const data = response.data || {};
-        const val = parseFloat(data.avg_heat_index || 0).toFixed(2);
+        const val = parseFloat(data.total_heat_index || 0).toFixed(2);
         setHeatIndex(val);
       } catch (e) {
         console.error(e);
@@ -104,7 +104,7 @@ export default function TotalHeatIndexDarkCard({ isLoading, value }) {
                   }
                   secondary={
                     <Typography variant="subtitle2" sx={{ color: 'primary.light', mt: 0.25 }}>
-                      Heat Index
+                      Total Heat Index
                     </Typography>
                   }
                 />
