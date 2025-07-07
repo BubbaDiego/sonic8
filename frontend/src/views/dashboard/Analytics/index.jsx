@@ -60,10 +60,10 @@ export default function Analytics() {
       <Grid size={{ xs: 12, lg: 8, md: 6 }}>
         <Grid container spacing={gridSpacing}>
           <Grid size={12}>
-            <MarketShareAreaChartCard />
+            <PositionListCard title="Positions" />
           </Grid>
           <Grid size={12}>
-            <PositionListCard title="Positions" />
+            <MarketShareAreaChartCard />
           </Grid>
         </Grid>
       </Grid>
