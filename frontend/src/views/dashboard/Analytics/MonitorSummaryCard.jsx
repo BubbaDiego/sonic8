@@ -1,12 +1,13 @@
+
 // MonitorSummaryCard.jsx
 import { useEffect } from 'react';
 import { useTheme } from '@mui/material/styles';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import MainCard from 'ui-component/cards/MainCard';
+import Box from '@mui/material/Box';
 import { ThemeMode } from 'config';
 import { IconShieldCheck, IconPlanet, IconSatellite, IconCurrencyDollar } from '@tabler/icons-react';
-
 import { useGetMonitorStatus, refreshMonitorStatus } from 'api/monitorStatus';
 
 export default function MonitorSummaryCard() {
@@ -17,29 +18,6 @@ export default function MonitorSummaryCard() {
     const id = setInterval(() => refreshMonitorStatus(), 30000);
     return () => clearInterval(id);
   }, []);
-
-  const blockSX = {
-    p: 2.5,
-    borderLeft: '1px solid ',
-    borderBottom: '1px solid ',
-    borderLeftColor: theme.palette.mode === ThemeMode.DARK ? 'dark.main' : 'grey.200',
-    borderBottomColor: theme.palette.mode === ThemeMode.DARK ? 'dark.main' : 'grey.200',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textAlign: 'center'
-  };
-
-  const iconSX = {
-    width: 40,
-    height: 40,
-    color: 'secondary.main',
-    borderRadius: '14px',
-    p: 1,
-    bgcolor: theme.palette.mode === ThemeMode.DARK ? 'background.default' : 'primary.light',
-    marginBottom: 2
-  };
 
   const iconMap = {
     'Sonic Monitoring': IconShieldCheck,
@@ -74,51 +52,40 @@ export default function MonitorSummaryCard() {
   const entries = Object.entries(monitorStatus?.monitors || {});
 
   function statusColor(status) {
-    if (status === 'Healthy') return 'green';
-    if (status === 'Warning') return 'yellow';
-    return 'red';
+    if (status === 'Healthy') return theme.palette.success.main;
+    if (status === 'Warning') return theme.palette.warning.main;
+    return theme.palette.error.main;
   }
 
   return (
     <MainCard content={false}>
-      <Grid container>
-        {entries.map(([name, detail]) => {
-          const Icon = iconMap[name] || IconShieldCheck;
-          const color = statusColor(detail.status);
-          const date =
-            detail.last_updated && detail.last_updated !== 'Never'
-              ? new Date(detail.last_updated)
-              : null;
-          return (
-            <Grid
-              key={name}
-              className={`status-card monitor-style ${color}`}
-              sx={blockSX}
-              item
-              xs={6}
-            >
-              <Icon stroke={1.5} style={iconSX} />
-              <Typography className="label" variant="h5">
-                {shortNameMap[name] || name}
-              </Typography>
-              <Typography className="value">
-                <span className="monitor-time">
-                  {date ? formatTime(date) : 'Never'}
-                </span>
-                {date && (
-                  <span className="monitor-date"> {formatDate(date)}</span>
-                )}
-              </Typography>
-              <Grid container spacing={1} justifyContent="center" alignItems="center" sx={{ mt: 1 }}>
-                <span className={`led-dot ${color}`} />
-                <Typography variant="subtitle2">
+      <Box sx={{ p: 2 }}>
+        <Grid container spacing={2}>
+          {entries.map(([name, detail]) => {
+            const Icon = iconMap[name] || IconShieldCheck;
+            const color = statusColor(detail.status);
+            const date =
+              detail.last_updated && detail.last_updated !== 'Never'
+                ? new Date(detail.last_updated)
+                : null;
+
+            return (
+              <Grid key={name} item xs={6} sx={{ textAlign: 'center' }}>
+                <Icon style={{ width: 40, height: 40, color }} />
+                <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 1 }}>
+                  {shortNameMap[name] || name}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                  {date ? `${formatTime(date)} ${formatDate(date)}` : 'Never'}
+                </Typography>
+                <Typography variant="body2" sx={{ color, fontWeight: 'medium', mt: 0.5 }}>
                   {detail.status}
                 </Typography>
               </Grid>
-            </Grid>
-          );
-        })}
-      </Grid>
+            );
+          })}
+        </Grid>
+      </Box>
     </MainCard>
   );
 }
