@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict
-from data.data_locker import DataLocker
+from backend.data.data_locker import DataLocker
 
 from backend.models.monitor_status import (
     MonitorStatus,
