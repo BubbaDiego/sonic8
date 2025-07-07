@@ -40,7 +40,7 @@ def test_inactive_wallet_positions_excluded(tmp_path, monkeypatch):
 
     core = PositionCore(dl)
     positions = core.get_active_positions()
-    names = {p.get("wallet_name") for p in positions}
+    names = {getattr(p, "wallet_name", None) for p in positions}
     assert "active" in names
     assert "inactive" not in names
 
@@ -48,5 +48,6 @@ def test_inactive_wallet_positions_excluded(tmp_path, monkeypatch):
     snap = dl.portfolio.get_latest_snapshot()
     assert isinstance(snap, PortfolioSnapshot)
     assert snap.total_value == 5
+    assert snap.total_heat_index == 0.0
 
 
