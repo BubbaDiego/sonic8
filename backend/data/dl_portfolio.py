@@ -77,7 +77,22 @@ class DLPortfolioManager:
             cursor.execute("SELECT * FROM positions_totals_history ORDER BY snapshot_time ASC")
             rows = cursor.fetchall()
             log.debug(f"Retrieved {len(rows)} portfolio snapshots", source="DLPortfolioManager")
-            return [PortfolioSnapshot(**dict(row)) for row in rows]
+            snapshots = []
+            for row in rows:
+                data = dict(row)
+                for field in [
+                    "total_size",
+                    "total_value",
+                    "total_collateral",
+                    "avg_leverage",
+                    "avg_travel_percent",
+                    "avg_heat_index",
+                    "market_average_sp500",
+                ]:
+                    if data.get(field) is None:
+                        data[field] = 0.0
+                snapshots.append(PortfolioSnapshot(**data))
+            return snapshots
         except Exception as e:
             log.error(f"Failed to fetch portfolio snapshots: {e}", source="DLPortfolioManager")
             return []
@@ -92,7 +107,20 @@ class DLPortfolioManager:
             row = cursor.fetchone()
             if row:
                 log.debug("Latest portfolio snapshot retrieved", source="DLPortfolioManager")
-            return PortfolioSnapshot(**dict(row)) if row else None
+                data = dict(row)
+                for field in [
+                    "total_size",
+                    "total_value",
+                    "total_collateral",
+                    "avg_leverage",
+                    "avg_travel_percent",
+                    "avg_heat_index",
+                    "market_average_sp500",
+                ]:
+                    if data.get(field) is None:
+                        data[field] = 0.0
+                return PortfolioSnapshot(**data)
+            return None
         except Exception as e:
             log.error(f"Failed to fetch latest snapshot: {e}", source="DLPortfolioManager")
             return None
