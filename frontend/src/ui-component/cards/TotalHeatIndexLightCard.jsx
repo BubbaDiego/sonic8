@@ -43,7 +43,7 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
   }
 }));
 
-export default function TotalHeatIndexLightCard({ isLoading, icon, label = 'Heat Index', value }) {
+export default function TotalHeatIndexLightCard({ isLoading, icon, label = 'Total Heat Index', value }) {
   const theme = useTheme();
   const [heatIndex, setHeatIndex] = useState('0');
 
@@ -56,7 +56,7 @@ export default function TotalHeatIndexLightCard({ isLoading, icon, label = 'Heat
       try {
         const response = await axios.get('/portfolio/latest');
         const data = response.data || {};
-        const val = parseFloat(data.avg_heat_index || 0).toFixed(2);
+        const val = parseFloat(data.total_heat_index || 0).toFixed(2);
         setHeatIndex(val);
       } catch (e) {
         console.error(e);

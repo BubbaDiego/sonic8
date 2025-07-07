@@ -23,7 +23,8 @@ export function useGetLatestPortfolio() {
       portfolio: data,
       portfolioLoading: isLoading,
       portfolioError: error,
-      portfolioValidating: isValidating
+      portfolioValidating: isValidating,
+      totalHeatIndex: data?.total_heat_index
     }),
     [data, error, isLoading, isValidating]
   );
