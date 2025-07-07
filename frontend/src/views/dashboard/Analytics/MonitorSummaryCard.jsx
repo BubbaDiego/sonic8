@@ -87,8 +87,24 @@ export default function MonitorSummaryCard() {
                 {shortNameMap[name] || name}
               </Typography>
               <Typography className="value">
-                <span className="monitor-time">{date ? date.toLocaleTimeString() : 'Never'}</span>
-                {date && <span className="monitor-date"> {date.toLocaleDateString()}</span>}
+                <span className="monitor-time">
+                  {date
+                    ? date.toLocaleTimeString([], {
+                        hour: 'numeric',
+                        minute: 'numeric'
+                      })
+                    : 'Never'}
+                </span>
+                {date && (
+                  <span className="monitor-date">
+                    {' '}
+                    {date.toLocaleDateString([], {
+                      month: 'numeric',
+                      day: 'numeric',
+                      year: '2-digit'
+                    })}
+                  </span>
+                )}
               </Typography>
               <Grid container spacing={1} justifyContent="center" alignItems="center" sx={{ mt: 1 }}>
                 <span className={`led-dot ${color}`} />
