@@ -73,7 +73,9 @@ export default function PositionListCard({ title }) {
                   <TableCell>{position.position_type}</TableCell>
                   <TableCell align="right">${Number(position.value || 0).toLocaleString()}</TableCell>
                   <TableCell align="right">{position.liquidation_distance}</TableCell>
-                  <TableCell align="right" sx={{ pr: 3 }}>{position.travel_percent}%</TableCell>
+                  <TableCell align="right" sx={{ pr: 3 }}>
+                    {`${Number(position.travel_percent || 0).toFixed(2)}%`}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
