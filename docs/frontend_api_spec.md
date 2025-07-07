@@ -95,6 +95,9 @@ Exports:
 - **`refreshLatestPortfolio()`** – Mutates the `latest` cache key.
 - **`refreshPortfolioHistory()`** – Mutates the `history` cache key.
 
+The `/portfolio/latest` route returns `null` until a snapshot has been recorded.
+Call `POST /positions/snapshot` (or run `/cyclone/run`) to create one.
+
 Both hooks memoize the returned object containing data, error and loading fields plus an `historyEmpty` check for `useGetPortfolioHistory`.
 
 ## `positions.js`
