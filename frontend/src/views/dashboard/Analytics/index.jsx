@@ -17,12 +17,12 @@ import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
 import WhatshotTwoToneIcon from '@mui/icons-material/WhatshotTwoTone';
 import ScaleTwoToneIcon from '@mui/icons-material/ScaleTwoTone';
 import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
+import { useGetLatestPortfolio } from 'api/portfolio';
 
 // ==============================|| ANALYTICS DASHBOARD ||============================== //
 
 export default function Analytics() {
   const { portfolio } = useGetLatestPortfolio();
-
   const totalHeatIndex = portfolio?.avg_heat_index?.toFixed(2) || '0.00';
   const totalLeverage = portfolio?.avg_leverage?.toFixed(2) || '0.00';
   const travelPercent = portfolio?.avg_travel_percent?.toFixed(2) || '0.00';
