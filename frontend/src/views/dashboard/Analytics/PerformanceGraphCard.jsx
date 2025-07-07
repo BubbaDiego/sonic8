@@ -40,9 +40,15 @@ export default function PerformanceGraphCard() {
     const categories = history.map((d) =>
       new Date(d.snapshot_time).toLocaleDateString()
     );
-    const valueSeries = history.map((d) => parseFloat(d.total_value || 0));
-    const collateralSeries = history.map((d) => parseFloat(d.total_collateral || 0));
-    const sp500Series = history.map((d) => parseFloat(d.market_average_sp500 || 0));
+    const valueSeries = history.map((d) =>
+      Math.round(parseFloat(d.total_value || 0))
+    );
+    const collateralSeries = history.map((d) =>
+      Math.round(parseFloat(d.total_collateral || 0))
+    );
+    const sp500Series = history.map((d) =>
+      Math.round(parseFloat(d.market_average_sp500 || 0))
+    );
 
     setChartConfig((prevState) => ({
       ...prevState,
