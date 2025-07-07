@@ -542,7 +542,8 @@ class DataLocker:
         if count == 0:
             json_path = os.path.join(
                 BASE_DIR,
-                "wallets",
+                "core",
+                "wallet_core",
                 "test_wallets",
                 "star_wars_wallets.json",
             )
@@ -586,6 +587,11 @@ class DataLocker:
                     )
                 except Exception as e:
                     log.error(f"❌ Failed seeding wallets: {e}", source="DataLocker")
+            else:
+                log.error(
+                    f"Wallet seed file not found at {json_path}",
+                    source="DataLocker",
+                )
 
 
     def _seed_thresholds_if_empty(self):
