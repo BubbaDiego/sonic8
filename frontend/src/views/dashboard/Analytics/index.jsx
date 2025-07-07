@@ -104,7 +104,7 @@ export default function Analytics() {
           <Grid size={{ xs: 12, lg: 12 }}>
             <RevenueCard
               primary="Total Size"
-              secondary={totalSize}
+              secondary={Math.round(totalSize)}
               content="Aggregate Size"
               iconPrimary={ScaleTwoToneIcon}
               color="primary.main"
