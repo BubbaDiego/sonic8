@@ -16,10 +16,17 @@ import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
 import WhatshotTwoToneIcon from '@mui/icons-material/WhatshotTwoTone';
 import ScaleTwoToneIcon from '@mui/icons-material/ScaleTwoTone';
 import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
+import { useGetLatestPortfolio } from 'api/portfolio';
 
 // ==============================|| ANALYTICS DASHBOARD ||============================== //
 
 export default function Analytics() {
+  const { portfolio } = useGetLatestPortfolio();
+  const totalHeatIndex = portfolio?.avg_heat_index?.toFixed(2) || '0.00';
+  const totalLeverage = portfolio?.avg_leverage?.toFixed(2) || '0.00';
+  const travelPercent = portfolio?.avg_travel_percent?.toFixed(2) || '0.00';
+  const totalSize = portfolio?.total_size || 0;
+
   return (
     <Grid container spacing={gridSpacing}>
       <Grid size={{ xs: 12, lg: 8, md: 6 }}>
@@ -44,7 +51,7 @@ export default function Analytics() {
           <Grid size={12}>
             <UserCountCard
               primary="Total Heat Index"
-              secondary="1,658"
+              secondary={totalHeatIndex}
               iconPrimary={WhatshotTwoToneIcon}
               color="error.main"
             />
@@ -52,7 +59,7 @@ export default function Analytics() {
           <Grid size={12}>
             <UserCountCard
               primary="Total Leverage"
-              secondary="1K"
+              secondary={totalLeverage}
               iconPrimary={SpeedTwoToneIcon}
               color="primary.main"
             />
@@ -60,8 +67,8 @@ export default function Analytics() {
           <Grid size={{ xs: 12, lg: 12 }}>
             <RevenueCard
               primary="Travel Percent"
-              secondary="$42,562"
-              content="$50,032 Last Month"
+              secondary={`${travelPercent}%`}
+              content="Current Avg. Travel %"
               iconPrimary={PercentTwoToneIcon}
               color="secondary.main"
             />
@@ -69,8 +76,8 @@ export default function Analytics() {
           <Grid size={{ xs: 12, lg: 12 }}>
             <RevenueCard
               primary="Total Size"
-              secondary="486"
-              content="20% Increase"
+              secondary={totalSize}
+              content="Aggregate Size"
               iconPrimary={ScaleTwoToneIcon}
               color="primary.main"
             />
