@@ -143,7 +143,9 @@ export function SupabseProvider({ children }) {
     [forgotPassword, login, logout, register, state]
   );
 
-  return <SupabaseContext value={memoizedValue}>{children}</SupabaseContext>;
+  return (
+    <SupabaseContext.Provider value={memoizedValue}>{children}</SupabaseContext.Provider>
+  );
 }
 
 export default SupabaseContext;
