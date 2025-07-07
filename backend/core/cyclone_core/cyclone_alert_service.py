@@ -25,6 +25,22 @@ class CycloneAlertService:
         self.enrichment_service = AlertEnrichmentService(data_locker)
         self.evaluation_service = AlertEvaluationService()
 
+    def _as_dict(self, pos):
+        """Return ``pos`` as a plain ``dict``."""
+        if isinstance(pos, dict):
+            return pos
+        if hasattr(pos, "model_dump"):
+            try:
+                return pos.model_dump()
+            except Exception:
+                pass
+        if hasattr(pos, "dict"):
+            try:
+                return pos.dict()
+            except Exception:
+                pass
+        return vars(pos)
+
     async def create_position_alerts(self):
         """Generate alerts per open position — DIAGNOSTIC MODE"""
         logger.banner("📊 Creating Position Alerts")
@@ -37,18 +53,24 @@ class CycloneAlertService:
             created = 0
 
             for pos in positions:
-                logger.debug(f"🔍 Inspecting position: {pos.get('id')} | {pos}", source="AlertDebug")
+                pos_data = self._as_dict(pos)
+                logger.debug(
+                    f"🔍 Inspecting position: {pos_data.get('id')} | {pos_data}",
+                    source="AlertDebug",
+                )
 
-                if not pos.get("asset_type") or not pos.get("position_type"):
-                    logger.warning(f"⚠️ Skipping position — missing asset_type or position_type: {pos.get('id')}",
-                                   source="AlertDebug")
+                if not pos_data.get("asset_type") or not pos_data.get("position_type"):
+                    logger.warning(
+                        f"⚠️ Skipping position — missing asset_type or position_type: {pos_data.get('id')}",
+                        source="AlertDebug",
+                    )
                     continue
 
                 base = {
-                    "asset": pos["asset_type"],
-                    "asset_type": pos["asset_type"],
-                    "position_reference_id": pos["id"],
-                    "position_type": pos.get("position_type", "long"),
+                    "asset": pos_data["asset_type"],
+                    "asset_type": pos_data["asset_type"],
+                    "position_reference_id": pos_data["id"],
+                    "position_type": pos_data.get("position_type", "long"),
                     "notification_type": "SMS",
                     "level": "Normal",
                     "last_triggered": None,
@@ -56,11 +78,11 @@ class CycloneAlertService:
                     "frequency": 1,
                     "counter": 0,
                     "notes": "Auto-created by Cyclone",
-                    "description": f"Alert for {pos['asset_type']}",
-                    "liquidation_distance": pos.get("liquidation_distance", 0.0),
-                    "travel_percent": pos.get("travel_percent", 0.0),
-                    "liquidation_price": pos.get("liquidation_price", 0.0),
-                    "evaluated_value": pos.get("value", 0.0),
+                    "description": f"Alert for {pos_data['asset_type']}",
+                    "liquidation_distance": pos_data.get("liquidation_distance", 0.0),
+                    "travel_percent": pos_data.get("travel_percent", 0.0),
+                    "liquidation_price": pos_data.get("liquidation_price", 0.0),
+                    "evaluated_value": pos_data.get("value", 0.0),
                     "created_at": now
                 }
 
@@ -86,25 +108,30 @@ class CycloneAlertService:
                 for alert in alerts:
                     try:
                         existing = self.data_locker.alerts.find_alert(
-                            alert["alert_type"], alert["alert_class"], alert.get("position_reference_id")
+                            alert["alert_type"],
+                            alert["alert_class"],
+                            alert.get("position_reference_id"),
                         )
                         if existing:
                             alert["id"] = existing["id"]
                             self.data_locker.alerts.update_alert(alert)
                             logger.debug(
-                                f"🔄 Updated alert {existing['id']} for pos {pos['id']}",
+                                f"🔄 Updated alert {existing['id']} for pos {pos_data['id']}",
                                 source="AlertDebug",
                             )
                         else:
                             self.data_locker.alerts.create_alert(alert)
                             log_alert_summary(alert)
                             logger.success(
-                                f"✅ Alert created: {alert['alert_type']} for pos {pos['id']}",
+                                f"✅ Alert created: {alert['alert_type']} for pos {pos_data['id']}",
                                 source="AlertDebug",
                             )
                             created += 1
                     except Exception as e:
-                        logger.error(f"❌ Failed to create alert for {pos['id']}: {e}", source="AlertDebug")
+                        logger.error(
+                            f"❌ Failed to create alert for {pos_data['id']}: {e}",
+                            source="AlertDebug",
+                        )
 
             logger.success("📊 Position Alert Summary", source="AlertDebug", payload={
                 "alerts_created": created,
