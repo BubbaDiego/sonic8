@@ -1,7 +1,8 @@
 import types
 import pytest
 
-from trader_core.trader_core import TraderCore, Trader
+from trader_core.trader_core import TraderCore
+from backend.models.trader import Trader
 
 
 class DummyLocker:

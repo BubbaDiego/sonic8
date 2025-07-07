@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from backend.core.trader_core.trader import Trader
+from backend.models.trader import Trader
 from backend.core.trader_core.trader_core import TraderCore
 
 

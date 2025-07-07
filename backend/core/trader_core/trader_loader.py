@@ -10,7 +10,7 @@ PersonaManager = importlib.import_module("oracle_core.persona_manager").PersonaM
 OracleDataService = importlib.import_module("oracle_core.oracle_data_service").OracleDataService
 PortfolioSnapshot = importlib.import_module("backend.models.portfolio").PortfolioSnapshot
 CalcServices = importlib.import_module("calc_core.calc_services").CalcServices
-from backend.core.trader_core.trader import Trader
+from backend.models.trader import Trader
 from backend.core.trader_core.mood_engine import evaluate_mood
 
 
