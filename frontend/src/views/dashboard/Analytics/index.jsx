@@ -8,6 +8,7 @@ import TraderListCard from './TraderListCard';
 import PositionListCard from './PositionListCard';
 import RevenueCard from 'ui-component/cards/RevenueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
+import { useGetLatestPortfolio } from 'api/portfolio';
 
 import { gridSpacing } from 'store/constant';
 
