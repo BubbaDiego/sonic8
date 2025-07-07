@@ -48,3 +48,20 @@ def test_sp500_price_saved(monkeypatch, tmp_path):
     row = dl.get_latest_price("SP500")
     assert row and row["current_price"] == 4000.0
     dl.db.close()
+
+
+def test_missing_price_skipped(monkeypatch, tmp_path):
+    dl = _setup_datalocker(tmp_path, monkeypatch)
+    svc = PriceSyncService(dl)
+    monkeypatch.setattr(
+        svc.service,
+        "fetch_prices",
+        lambda: {"BTC": 1.0, "SP500": None},
+    )
+
+    result = svc.run_full_price_sync(source="test")
+
+    assert "SP500" not in result["assets"]
+    assert result["fetched_count"] == 1
+    assert not dl.get_latest_price("SP500")
+    dl.db.close()
