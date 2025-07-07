@@ -55,6 +55,22 @@ export default function MonitorSummaryCard() {
     'XCom Communication': 'XCom'
   };
 
+  function formatTime(d) {
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours %= 12;
+    if (hours === 0) hours = 12;
+    return `${hours}:${minutes} ${ampm}`;
+  }
+
+  function formatDate(d) {
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    const year = d.getFullYear().toString().slice(-2);
+    return `${month}/${day}/${year}`;
+  }
+
   const entries = Object.entries(monitorStatus?.monitors || {});
   const rows = [];
   for (let i = 0; i < entries.length; i += 2) {
@@ -88,22 +104,10 @@ export default function MonitorSummaryCard() {
               </Typography>
               <Typography className="value">
                 <span className="monitor-time">
-                  {date
-                    ? date.toLocaleTimeString([], {
-                        hour: 'numeric',
-                        minute: 'numeric'
-                      })
-                    : 'Never'}
+                  {date ? formatTime(date) : 'Never'}
                 </span>
                 {date && (
-                  <span className="monitor-date">
-                    {' '}
-                    {date.toLocaleDateString([], {
-                      month: 'numeric',
-                      day: 'numeric',
-                      year: '2-digit'
-                    })}
-                  </span>
+                  <span className="monitor-date"> {formatDate(date)}</span>
                 )}
               </Typography>
               <Grid container spacing={1} justifyContent="center" alignItems="center" sx={{ mt: 1 }}>
