@@ -47,14 +47,14 @@ export default function TotalSizeLightCard({ isLoading, icon, label = 'Total Siz
   const theme = useTheme();
   const [size, setSize] = useState(
     value !== undefined && value !== null
-      ? `${(parseFloat(value) / 1000).toFixed(1)}k`
+      ? `${Math.round(parseFloat(value) / 1000)}k`
       : '0'
   );
 
   useEffect(() => {
     if (value !== undefined && value !== null) {
       const num = parseFloat(value);
-      const val = `${(num / 1000).toFixed(1)}k`;
+      const val = `${Math.round(num / 1000)}k`;
       setSize(val);
       return;
     }
@@ -63,7 +63,7 @@ export default function TotalSizeLightCard({ isLoading, icon, label = 'Total Siz
         const response = await axios.get('/portfolio/latest');
         const data = response.data || {};
         const num = parseFloat(data.total_size || 0);
-        const val = `${(num / 1000).toFixed(1)}k`;
+        const val = `${Math.round(num / 1000)}k`;
         setSize(val);
       } catch (e) {
         console.error(e);
