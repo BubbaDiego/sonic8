@@ -2,9 +2,9 @@
 """Simple script to verify .env loading.
 
 This script loads environment variables from a ``.env`` file located at the
-repository root (falling back to ``.env.example``) and prints the resulting
-values. Use this to confirm that ``python-dotenv`` can locate and parse the
-file correctly.
+repository root, three directories above this script (falling back to
+``.env.example``), and prints the resulting values. Use this to confirm that
+``python-dotenv`` can locate and parse the file correctly.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from dotenv import load_dotenv, dotenv_values
 
 
 def main() -> int:
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parents[2]
     env_path = repo_root / ".env"
     if not env_path.exists():
         env_example = repo_root / ".env.example"
