@@ -1,6 +1,6 @@
 # 🚨 Alert Core Specification
 
-> Version: `v1.1`
+> Version: `v1.2`
 > Author: `CoreOps 🥷`
 > Scope: Alert orchestration, enrichment, evaluation and notification.
 > Integrates with Cyclone Engine 2025 for event processing using DataLocker and dispatches alerts through XCom.
@@ -14,8 +14,8 @@ alert_core/
 ├── alert_controller.py           # High level operations
 ├── config/
 │   └── loader.py                 # JSON config loader
-├── domain/
-│   └── models.py                 # Pydantic alert models
+├── models → `backend/models/alert.py`
+│   └── (Alert, AlertLog, enums)
 ├── infrastructure/
 │   ├── stores.py                 # SQLite stores
 │   └── notifiers/
@@ -30,6 +30,21 @@ alert_core/
 ├── threshold_service.py          # Threshold CRUD wrapper
 └── utils.py                      # Helpers and normalizers
 ```
+
+### 🛡️ `AlertController`
+Lightweight wrapper that binds an `AlertStore` to the application's `DataLocker` database.
+```python
+class AlertController:
+    def __init__(self, data_locker=None):
+        self.dl = data_locker or get_locker()
+        db_adapter = _DBAdapter(str(self.dl.db.db_path))
+        self.store = AlertStore(db_adapter)
+
+    def delete_alert(self, alert_id: str) -> bool:
+        """Delete an alert by id using the underlying AlertStore."""
+        return self.store.delete_alert(alert_id)
+```
+【F:alert_core/alert_controller.py†L1-L15】
 
 ### 🚨 `AlertOrchestrator`
 Central facade that loads stores, enrichment/evaluation services and dispatches notifications.
@@ -84,7 +99,7 @@ Two built-in notifiers are provided:
 
 ### 🔧 Configuration and Thresholds
 `load_thresholds()` reads a JSON file and records missing-file errors to the log store.【F:alert_core/config/loader.py†L16-L34】
-`ThresholdService` wraps the `DLThresholdManager` from the data layer to manage threshold records.【F:alert_core/threshold_service.py†L7-L56】
+`ThresholdService` wraps the `DLThresholdManager` from the data layer to manage threshold records. It also exposes `load_config()` and `replace_config()` helpers for bulk configuration.【F:alert_core/threshold_service.py†L7-L73】
 
 ### 🛠 Utilities
 Helper functions to normalize enum inputs, resolve wallet metadata and load default thresholds.【F:alert_core/utils.py†L8-L137】
