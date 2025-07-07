@@ -5,6 +5,7 @@ import positions from './positions';
 import alertThresholds from './alert-thresholds';
 import walletManager from './wallet-manager';
 import sonicLabs from './sonic-labs';
+import traderShop from './traderShop';
 import pages from './pages';
 
 const menuItems = {
@@ -20,7 +21,8 @@ const menuItems = {
         positions,
         walletManager,
         alertThresholds,
-        sonicLabs
+        sonicLabs,
+        traderShop
       ]
     },
     pages
