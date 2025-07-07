@@ -28,7 +28,7 @@ export default function Analytics() {
             <MarketShareAreaChartCard />
           </Grid>
           <Grid size={12}>
-            <PositionListCard title="Latest Customers" />
+            <PositionListCard title="Positions" />
           </Grid>
         </Grid>
       </Grid>
