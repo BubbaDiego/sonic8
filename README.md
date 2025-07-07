@@ -49,6 +49,10 @@ Feel free to explore each directory for more details.
 See [docs/alert_thresholds_api.md](docs/alert_thresholds_api.md) for the alert thresholds API.
 See [docs/backend_api_spec.md](docs/backend_api_spec.md) for a complete list of backend routes.
 
+The `/portfolio/latest` endpoint will only return data after a portfolio snapshot is
+recorded. You can create a snapshot using `POST /positions/snapshot` or by running
+`POST /cyclone/run` to execute the full cycle.
+
 ## Frontend UI Guide
 See [docs/berry_react_guide.md](docs/berry_react_guide.md) for details on the React codebase:
 - Overview of the `src/` folder structure.
