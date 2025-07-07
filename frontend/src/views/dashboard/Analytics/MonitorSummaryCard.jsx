@@ -1,4 +1,3 @@
-
 // MonitorSummaryCard.jsx
 import { useEffect } from 'react';
 import { useTheme } from '@mui/material/styles';
@@ -6,7 +5,6 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import MainCard from 'ui-component/cards/MainCard';
 import Box from '@mui/material/Box';
-import { ThemeMode } from 'config';
 import { IconShieldCheck, IconPlanet, IconSatellite, IconCurrencyDollar } from '@tabler/icons-react';
 import { useGetMonitorStatus, refreshMonitorStatus } from 'api/monitorStatus';
 
@@ -33,6 +31,12 @@ export default function MonitorSummaryCard() {
     'XCom Communication': 'XCom'
   };
 
+  function statusColor(status) {
+    if (status === 'Healthy') return theme.palette.success.main;
+    if (status === 'Warning') return theme.palette.warning.main;
+    return theme.palette.error.main;
+  }
+
   function formatTime(d) {
     let hours = d.getHours();
     const minutes = d.getMinutes().toString().padStart(2, '0');
@@ -45,40 +49,30 @@ export default function MonitorSummaryCard() {
   function formatDate(d) {
     const month = d.getMonth() + 1;
     const day = d.getDate();
-    const year = d.getFullYear().toString().slice(-2);
-    return `${month}/${day}/${year}`;
-  }
-
-  const entries = Object.entries(monitorStatus?.monitors || {});
-
-  function statusColor(status) {
-    if (status === 'Healthy') return theme.palette.success.main;
-    if (status === 'Warning') return theme.palette.warning.main;
-    return theme.palette.error.main;
+    return `${month}/${day}`;
   }
 
   return (
     <MainCard content={false}>
       <Box sx={{ p: 2 }}>
         <Grid container spacing={2}>
-          {entries.map(([name, detail]) => {
-            const Icon = iconMap[name] || IconShieldCheck;
+          {Object.entries(monitorStatus?.monitors || {}).map(([name, detail]) => {
+            const Icon = iconMap[name];
             const color = statusColor(detail.status);
-            const date =
-              detail.last_updated && detail.last_updated !== 'Never'
-                ? new Date(detail.last_updated)
-                : null;
+            const date = detail.last_updated ? new Date(detail.last_updated) : null;
 
             return (
               <Grid key={name} item xs={6} sx={{ textAlign: 'center' }}>
-                <Icon style={{ width: 40, height: 40, color }} />
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 1 }}>
-                  {shortNameMap[name] || name}
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 0.5 }}>
+                  <Icon stroke={1.5} style={{ width: 25, height: 25, color }} />
+                </Box>
+                <Typography variant="subtitle2" fontWeight="bold" sx={{ fontSize: '0.8rem', mb: 0.25, color: 'white' }}>
+                  {shortNameMap[name]}
                 </Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                <Typography variant="caption" sx={{ fontSize: '0.7rem', display: 'block', fontWeight: 'bold' }}>
                   {date ? `${formatTime(date)} ${formatDate(date)}` : 'Never'}
                 </Typography>
-                <Typography variant="body2" sx={{ color, fontWeight: 'medium', mt: 0.5 }}>
+                <Typography variant="caption" sx={{ color, fontWeight: 'medium', fontSize: '0.7rem', display: 'block', mt: 0.25 }}>
                   {detail.status}
                 </Typography>
               </Grid>
