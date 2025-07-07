@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from data.data_locker import DataLocker
+from backend.data.data_locker import DataLocker
 from backend.models.portfolio import PortfolioSnapshot
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])

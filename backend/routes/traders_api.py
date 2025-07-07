@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.models.trader import Trader
 from data.dl_traders import DLTraderManager
-from data.data_locker import DataLocker
+from backend.data.data_locker import DataLocker
 
 router = APIRouter(prefix="/traders", tags=["traders"])
 
