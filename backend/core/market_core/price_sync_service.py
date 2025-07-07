@@ -38,6 +38,9 @@ class PriceSyncService:
 
             asset_list = []
             for asset, price in prices.items():
+                if price is None:
+                    log.warning(f"No price for {asset}", source="PriceSyncService")
+                    continue
                 if asset == "SP500":
                     self.dl.insert_or_update_price("SP500", price, source=source)
                 else:
@@ -58,7 +61,7 @@ class PriceSyncService:
                 asset_list.append(asset)
 
             result = {
-                "fetched_count": len(prices),
+                "fetched_count": len(asset_list),
                 "assets": asset_list,
                 "success": True,
                 "timestamp": now.isoformat()
