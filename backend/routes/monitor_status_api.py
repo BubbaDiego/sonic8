@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict
+from data.data_locker import DataLocker
 
 from backend.models.monitor_status import (
     MonitorStatus,
@@ -29,13 +30,15 @@ def _parse_type(value: str) -> MonitorType:
 @router.get("/", response_model=MonitorStatus)
 def get_status() -> MonitorStatus:
     """Return current monitor status snapshot."""
-    return _status
+    dl = DataLocker.get_instance()
+    return dl.ledger.get_monitor_status_summary()
 
 
 @router.get("/{monitor_type}", response_model=MonitorDetail)
 def get_monitor(monitor_type: str) -> MonitorDetail:
     mtype = _parse_type(monitor_type)
-    return _status.get_monitor_status(mtype)
+    summary = DataLocker.get_instance().ledger.get_monitor_status_summary()
+    return summary.get_monitor_status(mtype)
 
 
 @router.post("/{monitor_type}", response_model=MonitorDetail)

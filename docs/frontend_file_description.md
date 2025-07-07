@@ -19,7 +19,8 @@ The notes below summarize the purpose of key files and directories under `fronte
 ### `src/`
 - **App.jsx** – Root React component mounting routes and context providers.
 - **api/** – Simple wrappers around backend API endpoints (e.g., cyclone, menu, products).
-  - **monitorStatus.js** – Provides the `useGetMonitorStatus` hook and refresh helper.
+  - **monitorStatus.js** – Provides the `useGetMonitorStatus` hook for retrieving
+    the monitor status summary from `/monitor_status/` and a refresh helper.
 - **assets/** – SCSS styles and bundled images for the UI.
   - **images/** – Logos and themed illustrations used throughout the site.
   - **scss/** – Theme variables and global styling.
