@@ -120,6 +120,17 @@ Cyclone operations are also recorded to `logs/cyclone_log.txt`. The
 See [CONSOLE_LOGGER_SPEC.md](backend/utils/CONSOLE_LOGGER_SPEC.md) for the full
 specification.
 
+## Database path configuration
+
+`MOTHER_DB_PATH` controls where the project's main SQLite database (the
+"mother brain") is stored. `backend/utils/startup_service.py` automatically
+loads environment variables from a `.env` file at the repository root (or
+`.env.example` if present). You can define `MOTHER_DB_PATH` there or export it in
+your shell to override the default `mother.db` in the repo root.
+
+Both the FastAPI backend and the **Launch Pad** console read this value from the
+environment, so they must reference the same database file.
+
 ## Maintenance operations
 
 `CycloneMaintenanceService` provides helpers for wiping stored data during tests
