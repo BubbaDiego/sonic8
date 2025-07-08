@@ -51,14 +51,14 @@ export default function TotalSizeDarkCard({ isLoading, value }) {
   const theme = useTheme();
   const [size, setSize] = useState(
     value !== undefined && value !== null
-      ? `${Math.round(parseFloat(value) / 1000)}k`
+      ? `${(parseFloat(value) / 1000).toFixed(1)}k`
       : '0'
   );
 
   useEffect(() => {
     if (value !== undefined && value !== null) {
       const num = parseFloat(value);
-      const val = `${Math.round(num / 1000)}k`;
+      const val = `${(num / 1000).toFixed(1)}k`;
       setSize(val);
       return;
     }
@@ -67,7 +67,7 @@ export default function TotalSizeDarkCard({ isLoading, value }) {
         const response = await axios.get('/portfolio/latest');
         const data = response.data || {};
         const num = parseFloat(data.total_size || 0);
-        const val = `${Math.round(num / 1000)}k`;
+        const val = `${(num / 1000).toFixed(1)}k`;
         setSize(val);
       } catch (e) {
         console.error(e);
