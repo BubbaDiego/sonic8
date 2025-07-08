@@ -44,6 +44,7 @@ ICON = {
     "wallet": "💼",
     "cyclone": "🌪️",
     "test_ui": "🧑‍💻",
+    "goals": "🎯",
     "exit": "❌",
 }
 
@@ -165,6 +166,19 @@ def wallet_menu():
             input("\nPress ENTER to continue...")
 
 
+def _display_goal(snapshot: PortfolioSnapshot | None):
+    """Show current goal details."""
+    if not snapshot or snapshot.session_start_time is None:
+        console.print("[yellow]No goal data available.[/]")
+    else:
+        console.print(f"Start Time: {snapshot.session_start_time}")
+        console.print(f"Start Value: {snapshot.session_start_value}")
+        console.print(f"Current Value: {snapshot.current_session_value}")
+        console.print(f"Goal Value: {snapshot.session_goal_value}")
+        console.print(
+            f"Performance: {snapshot.session_performance_value}")
+
+
 def goals_menu():
     """Manage short term goal information."""
     dl = DataLocker.get_instance()
@@ -173,13 +187,17 @@ def goals_menu():
         clear_screen()
         banner()
         latest = mgr.get_latest_snapshot()
-        console.print("[bold magenta]Goals[/bold magenta]")
-        console.print("1) Edit goal fields")
-        console.print("2) Clear goal")
+        console.print(f"[bold magenta]{ICON['goals']} Goals[/bold magenta]")
+        console.print("1) View goal data")
+        console.print("2) Edit goal fields")
+        console.print("3) Clear goal")
         console.print("0) Back")
         ch = input("→ ").strip().lower()
 
         if ch == "1":
+            _display_goal(latest)
+            input("\nPress ENTER to continue...")
+        elif ch == "2":
             if latest is None:
                 console.print("[yellow]No snapshot found. Creating one...[/]")
                 mgr.record_snapshot(PortfolioSnapshot())
@@ -215,7 +233,7 @@ def goals_menu():
             mgr.update_entry(latest.id, fields)
             console.print("[green]Goal updated.[/]")
             input("\nPress ENTER to continue...")
-        elif ch == "2":
+        elif ch == "3":
             if latest:
                 mgr.update_entry(
                     latest.id,
@@ -284,6 +302,7 @@ def main():
                 f"8. {ICON['wallet']} Wallet Manager",
                 f"9. {ICON['cyclone']} Cyclone Console",
                 f"10. {ICON['test_ui']} Test Console UI",
+                f"11. {ICON['goals']} Goals",
                 f"0. {ICON['exit']} Exit",
             ]
         )
