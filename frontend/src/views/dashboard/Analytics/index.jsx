@@ -11,7 +11,6 @@ import RevenueCard from 'ui-component/cards/RevenueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 import { useGetPositions } from 'api/positions';
 import { useGetLatestPortfolio } from 'api/portfolio';
-import { getTraders } from 'api/traders';
 
 import { gridSpacing } from 'store/constant';
 
@@ -26,24 +25,11 @@ import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
 export default function Analytics() {
   const { portfolio } = useGetLatestPortfolio();
   const { positions: positionsData } = useGetPositions();
-  const [totalHeatIndex, setTotalHeatIndex] = useState(0);
+  const [avgHeatIndex, setAvgHeatIndex] = useState(0);
   const [avgLeverage, setAvgLeverage] = useState(0);
   const [travelPercent, setTravelPercent] = useState(0);
   const [totalSize, setTotalSize] = useState(0);
 
-  useEffect(() => {
-    const loadTraders = async () => {
-      try {
-        const traders = await getTraders();
-        const heatIndex = traders.reduce((sum, trader) => sum + (trader.heat_index || 0), 0);
-        setTotalHeatIndex(heatIndex);
-      } catch (error) {
-        console.error('Error fetching traders:', error);
-      }
-    };
-
-    loadTraders();
-  }, []);
 
   useEffect(() => {
     if (!positionsData && !portfolio) {
@@ -59,6 +45,16 @@ export default function Analytics() {
       );
       const size = positionsData.reduce((sum, pos) => sum + (pos.size || 0), 0);
       setAvgLeverage(size ? weighted / size : 0);
+    }
+
+    if (portfolio && typeof portfolio.avg_heat_index === 'number') {
+      setAvgHeatIndex(portfolio.avg_heat_index);
+    } else if (positionsData) {
+      const heat = positionsData.reduce(
+        (sum, pos) => sum + (pos.heat_index || 0),
+        0
+      );
+      setAvgHeatIndex(positionsData.length ? heat / positionsData.length : 0);
     }
 
     if (positionsData) {
@@ -94,8 +90,8 @@ export default function Analytics() {
           </Grid>
           <Grid size={12}>
             <UserCountCard
-              primary="Total Heat Index"
-              secondary={totalHeatIndex.toFixed(2)}
+              primary="Average Heat Index"
+              secondary={avgHeatIndex.toFixed(2)}
               iconPrimary={WhatshotTwoToneIcon}
               color="error.main"
             />
