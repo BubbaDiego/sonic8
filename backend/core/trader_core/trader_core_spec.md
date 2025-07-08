@@ -4,7 +4,7 @@
 > Author: `CoreOps 🧠`
 > Scope: Build, persist, and manage Trader personas tied to portfolio strategy and mood evaluation.
 
-
+[TraderShopList.jsx](../../../frontend/src/views/traderShop/TraderShopList.jsx)
 ---
 
 ## 📂 Module Structure
