@@ -8,7 +8,7 @@ This document describes the REST endpoints under `/alert_thresholds`.
 - `GET /alert_thresholds/{id}` – Retrieve a single threshold.
 - `POST /alert_thresholds/` – Create a new threshold. If `id` is omitted a UUID is generated.
 - `PUT /alert_thresholds/{id}` – Update an existing threshold with a JSON body of fields to change.
-- `DELETE /alert_thresholds/{i[seed_alert_thresholds.py](../backend/scripts/seed_alert_thresholds.py)d}` – Delete a threshold.
+- `DELETE /alert_thresholds/{id}` – Delete a threshold.
 
 Bulk import/export endpoints will live under `/alert_thresholds/bulk` once the feature is implemented.
 
