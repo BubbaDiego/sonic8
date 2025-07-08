@@ -10,6 +10,7 @@ import PositionListCard from './PositionListCard';
 import RevenueCard from 'ui-component/cards/RevenueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 import { useGetPositions } from 'api/positions';
+import { useGetLatestPortfolio } from 'api/portfolio';
 import { getTraders } from 'api/traders';
 
 import { gridSpacing } from 'store/constant';
@@ -23,9 +24,10 @@ import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
 // ==============================|| ANALYTICS DASHBOARD ||============================== //
 
 export default function Analytics() {
+  const { portfolio } = useGetLatestPortfolio();
   const { positions: positionsData } = useGetPositions();
   const [totalHeatIndex, setTotalHeatIndex] = useState(0);
-  const [totalLeverage, setTotalLeverage] = useState(0);
+  const [avgLeverage, setAvgLeverage] = useState(0);
   const [travelPercent, setTravelPercent] = useState(0);
   const [totalSize, setTotalSize] = useState(0);
 
@@ -44,16 +46,30 @@ export default function Analytics() {
   }, []);
 
   useEffect(() => {
-    if (positionsData) {
-      const leverage = positionsData.reduce((sum, pos) => sum + (pos.leverage || 0), 0);
-      const travel = positionsData.reduce((sum, pos) => sum + (pos.travel_percent || 0), 0) / positionsData.length;
-      const size = positionsData.reduce((sum, pos) => sum + (pos.size || 0), 0);
+    if (!positionsData && !portfolio) {
+      return;
+    }
 
-      setTotalLeverage(leverage);
+    if (portfolio && typeof portfolio.avg_leverage === 'number') {
+      setAvgLeverage(portfolio.avg_leverage);
+    } else if (positionsData) {
+      const weighted = positionsData.reduce(
+        (sum, pos) => sum + (pos.leverage || 0) * (pos.size || 1),
+        0
+      );
+      const size = positionsData.reduce((sum, pos) => sum + (pos.size || 0), 0);
+      setAvgLeverage(size ? weighted / size : 0);
+    }
+
+    if (positionsData) {
+      const travel =
+        positionsData.reduce((sum, pos) => sum + (pos.travel_percent || 0), 0) /
+        positionsData.length;
+      const size = positionsData.reduce((sum, pos) => sum + (pos.size || 0), 0);
       setTravelPercent(travel);
       setTotalSize(size);
     }
-  }, [positionsData]);
+  }, [positionsData, portfolio]);
 
   return (
     <Grid container spacing={gridSpacing}>
@@ -86,8 +102,8 @@ export default function Analytics() {
           </Grid>
           <Grid size={12}>
             <UserCountCard
-              primary="Total Leverage"
-              secondary={totalLeverage.toFixed(2)}
+              primary="Average Leverage"
+              secondary={avgLeverage.toFixed(2)}
               iconPrimary={SpeedTwoToneIcon}
               color="primary.main"
             />
