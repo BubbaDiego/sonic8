@@ -99,7 +99,7 @@ const PositionsTableCard = () => {
   };
 
   return (
-    <MainCard>
+    <MainCard sx={{ width: '100%' }}>
       <Typography variant="h4" sx={{ mb: 2 }}>
         Portfolio Positions
       </Typography>

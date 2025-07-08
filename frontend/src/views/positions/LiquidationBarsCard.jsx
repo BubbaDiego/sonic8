@@ -9,7 +9,7 @@ const LiquidationBarsCard = () => {
   const { positions = [] } = useGetPositions();
 
   return (
-    <MainCard>
+    <MainCard sx={{ width: '100%' }}>
       {/* Header now matches PositionTableCard: plain text, no navigation */}
       <Typography variant="h4" sx={{ mb: 2 }}>
         Liquidation Bars{' '}
