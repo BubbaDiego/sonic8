@@ -1,17 +1,18 @@
 import { Grid } from '@mui/material';
-import PositionsTableCard from 'ui-component/cards/positions/PositionsTableCard';
-import LiquidationBarsCard from 'views/positions/LiquidationBarsCard';
+import PositionTableCard from './PositionTableCard';
+import LiquidationBarsCard from './LiquidationBarsCard';
 
 const PositionsPage = () => (
   <Grid container spacing={2}>
     <Grid item xs={12}>
-      <PositionsTableCard />
+      <PositionTableCard />
     </Grid>
     <Grid item xs={12}>
-      <LiquidationBarsCard />
+      <div style={{ width: '100%', border: '2px solid yellow' }}>
+        <LiquidationBarsCard />
+      </div>
     </Grid>
   </Grid>
 );
 
 export default PositionsPage;
-
