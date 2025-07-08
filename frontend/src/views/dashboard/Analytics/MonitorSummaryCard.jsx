@@ -64,7 +64,7 @@ export default function MonitorSummaryCard() {
             return (
               <Grid key={name} item xs={6} sx={{ textAlign: 'center' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 0.5 }}>
-                  <Icon stroke={1.5} style={{ width: 25, height: 25, color }} />
+                  <Icon stroke={1.5} style={{ width: 35, height: 35, color }} />
                 </Box>
                 <Typography variant="subtitle2" fontWeight="bold" sx={{ fontSize: '0.8rem', mb: 0.25, color: 'white' }}>
                   {shortNameMap[name]}
