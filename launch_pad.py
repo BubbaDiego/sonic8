@@ -20,6 +20,7 @@ from backend.console.cyclone_console_service import run_cyclone_console
 from backend.core.wallet_core import WalletService
 from test_core import TestCoreRunner, formatter, get_console_ui
 from backend.data.data_locker import DataLocker
+from backend.models.portfolio import PortfolioSnapshot
 from backend.core.constants import MOTHER_DB_PATH
 from core.logging import log, configure_console_log
 
@@ -164,6 +165,79 @@ def wallet_menu():
             input("\nPress ENTER to continue...")
 
 
+def goals_menu():
+    """Manage short term goal information."""
+    dl = DataLocker.get_instance()
+    mgr = dl.portfolio
+    while True:
+        clear_screen()
+        banner()
+        latest = mgr.get_latest_snapshot()
+        console.print("[bold magenta]Goals[/bold magenta]")
+        console.print("1) Edit goal fields")
+        console.print("2) Clear goal")
+        console.print("0) Back")
+        ch = input("→ ").strip().lower()
+
+        if ch == "1":
+            if latest is None:
+                console.print("[yellow]No snapshot found. Creating one...[/]")
+                mgr.record_snapshot(PortfolioSnapshot())
+                latest = mgr.get_latest_snapshot()
+            start_time = input(
+                f"Session start time [{latest.session_start_time or ''}]: "
+            ).strip()
+            start_val = input(
+                f"Session start value [{latest.session_start_value}]: "
+            ).strip()
+            curr_val = input(
+                f"Current session value [{latest.current_session_value}]: "
+            ).strip()
+            goal_val = input(
+                f"Session goal value [{latest.session_goal_value}]: "
+            ).strip()
+
+            fields = {
+                "session_start_time": start_time or latest.session_start_time,
+                "session_start_value": float(start_val)
+                if start_val
+                else latest.session_start_value,
+                "current_session_value": float(curr_val)
+                if curr_val
+                else latest.current_session_value,
+                "session_goal_value": float(goal_val)
+                if goal_val
+                else latest.session_goal_value,
+            }
+            fields["session_performance_value"] = (
+                fields["current_session_value"] - fields["session_start_value"]
+            )
+            mgr.update_entry(latest.id, fields)
+            console.print("[green]Goal updated.[/]")
+            input("\nPress ENTER to continue...")
+        elif ch == "2":
+            if latest:
+                mgr.update_entry(
+                    latest.id,
+                    {
+                        "session_start_time": None,
+                        "session_start_value": 0.0,
+                        "current_session_value": 0.0,
+                        "session_goal_value": 0.0,
+                        "session_performance_value": 0.0,
+                    },
+                )
+                console.print("[green]Goal cleared.[/]")
+            else:
+                console.print("[yellow]No snapshot found to clear.[/]")
+            input("\nPress ENTER to continue...")
+        elif ch in {"0", "b"}:
+            break
+        else:
+            console.print("[bold red]Invalid selection.[/]")
+            input("\nPress ENTER to continue...")
+
+
 def operations_menu(db_path: str = str(MOTHER_DB_PATH)):
     """Menu for basic DataLocker operations."""
     locker = DataLocker(db_path)
@@ -214,6 +288,7 @@ def main():
             ]
         )
         console.print(Panel.fit(menu_body, title="Main Menu", border_style="bright_magenta"))
+
         choice = input("→ ").strip()
 
         if choice == "1":
@@ -236,6 +311,8 @@ def main():
             run_cyclone_console()
         elif choice == "10":
             run_test_console()
+        elif choice == "11":
+            goals_menu()
         elif choice == "0":
             console.print("[bold green]Exiting...[/]")
             break
