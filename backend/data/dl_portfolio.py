@@ -42,14 +42,18 @@ class DLPortfolioManager:
             if isinstance(data.get("snapshot_time"), datetime):
                 data["snapshot_time"] = data["snapshot_time"].isoformat()
             data.setdefault("snapshot_time", datetime.now().isoformat())
+            if isinstance(data.get("session_start_time"), datetime):
+                data["session_start_time"] = data["session_start_time"].isoformat()
 
             cursor.execute(
                 """
                 INSERT INTO positions_totals_history (
                     id, snapshot_time, total_size, total_value,
                     total_collateral, avg_leverage, avg_travel_percent, avg_heat_index,
-                    total_heat_index, market_average_sp500
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    total_heat_index, market_average_sp500,
+                    session_start_time, session_start_value, current_session_value,
+                    session_goal_value, session_performance_value
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data.get("id"),
@@ -62,6 +66,11 @@ class DLPortfolioManager:
                     data.get("avg_heat_index", 0.0),
                     data.get("total_heat_index", 0.0),
                     data.get("market_average_sp500", 0.0),
+                    data.get("session_start_time"),
+                    data.get("session_start_value", 0.0),
+                    data.get("current_session_value", 0.0),
+                    data.get("session_goal_value", 0.0),
+                    data.get("session_performance_value", 0.0),
                 ),
             )
             self.db.commit()
@@ -90,6 +99,10 @@ class DLPortfolioManager:
                     "avg_heat_index",
                     "total_heat_index",
                     "market_average_sp500",
+                    "session_start_value",
+                    "current_session_value",
+                    "session_goal_value",
+                    "session_performance_value",
                 ]:
                     if data.get(field) is None:
                         data[field] = 0.0
@@ -119,6 +132,10 @@ class DLPortfolioManager:
                     "avg_heat_index",
                     "total_heat_index",
                     "market_average_sp500",
+                    "session_start_value",
+                    "current_session_value",
+                    "session_goal_value",
+                    "session_performance_value",
                 ]:
                     if data.get(field) is None:
                         data[field] = 0.0
@@ -138,15 +155,21 @@ class DLPortfolioManager:
                 entry["id"] = str(uuid4())
             if "snapshot_time" not in entry:
                 entry["snapshot_time"] = datetime.now().isoformat()
+            if isinstance(entry.get("session_start_time"), datetime):
+                entry["session_start_time"] = entry["session_start_time"].isoformat()
             cursor.execute(
                 """
                 INSERT INTO positions_totals_history (
                     id, snapshot_time, total_size, total_value,
                     total_collateral, avg_leverage, avg_travel_percent, avg_heat_index,
-                    total_heat_index, market_average_sp500
+                    total_heat_index, market_average_sp500,
+                    session_start_time, session_start_value, current_session_value,
+                    session_goal_value, session_performance_value
                 ) VALUES (:id, :snapshot_time, :total_size, :total_value,
                           :total_collateral, :avg_leverage, :avg_travel_percent, :avg_heat_index,
-                          :total_heat_index, :market_average_sp500)
+                          :total_heat_index, :market_average_sp500,
+                          :session_start_time, :session_start_value, :current_session_value,
+                          :session_goal_value, :session_performance_value)
                 """,
                 {
                     "id": entry["id"],
@@ -159,6 +182,11 @@ class DLPortfolioManager:
                     "avg_heat_index": entry.get("avg_heat_index", 0.0),
                     "total_heat_index": entry.get("total_heat_index", 0.0),
                     "market_average_sp500": entry.get("market_average_sp500", 0.0),
+                    "session_start_time": entry.get("session_start_time"),
+                    "session_start_value": entry.get("session_start_value", 0.0),
+                    "current_session_value": entry.get("current_session_value", 0.0),
+                    "session_goal_value": entry.get("session_goal_value", 0.0),
+                    "session_performance_value": entry.get("session_performance_value", 0.0),
                 },
             )
             self.db.commit()

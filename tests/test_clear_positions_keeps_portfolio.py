@@ -30,3 +30,4 @@ def test_clear_positions_keeps_portfolio_history(dl_tmp):
     assert after[0].id == before[0].id
     assert after[0].total_heat_index == 0.0
     assert after[0].market_average_sp500 == 120.0
+    assert after[0].session_start_value == 0.0
