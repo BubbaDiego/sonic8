@@ -1,7 +1,5 @@
 import PropTypes from 'prop-types';
 import { memo } from 'react';
-
-// material-ui
 import { useTheme } from '@mui/material/styles';
 import Avatar from '@mui/material/Avatar';
 import Card from '@mui/material/Card';
@@ -13,37 +11,31 @@ import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-
 import { linearProgressClasses } from '@mui/material/LinearProgress';
-
-// project imports
 import { ThemeMode } from 'config';
-
-// assets
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
+import { useGetLatestPortfolio } from 'api/portfolio';
 
-// ==============================|| PROGRESS BAR WITH LABEL ||============================== //
-
+// Progress Bar Component with dynamic value
 function LinearProgressWithLabel({ value, ...others }) {
   const theme = useTheme();
 
   return (
     <Grid container direction="column" spacing={1} sx={{ mt: 1.5 }}>
-      <Grid>
-        <Grid container sx={{ justifyContent: 'space-between' }}>
-          <Grid>
+      <Grid item>
+        <Grid container justifyContent="space-between">
+          <Grid item>
             <Typography variant="h6" sx={{ color: theme.palette.mode === ThemeMode.DARK ? 'dark.light' : 'primary.800' }}>
               Progress
             </Typography>
           </Grid>
-          <Grid>
-            <Typography variant="h6" color="inherit">{`${Math.round(value)}%`}</Typography>
+          <Grid item>
+            <Typography variant="h6">{`${Math.round(value)}%`}</Typography>
           </Grid>
         </Grid>
       </Grid>
-      <Grid>
+      <Grid item>
         <LinearProgress
-          aria-label="progress of theme"
           variant="determinate"
           value={value}
           {...others}
@@ -64,10 +56,18 @@ function LinearProgressWithLabel({ value, ...others }) {
   );
 }
 
-// ==============================|| SIDEBAR - MENU CARD ||============================== //
+LinearProgressWithLabel.propTypes = {
+  value: PropTypes.number.isRequired
+};
 
+// MenuCard updated with portfolio session data
 function MenuCard() {
   const theme = useTheme();
+  const { portfolio } = useGetLatestPortfolio();
+
+  const currentSessionValue = portfolio?.current_session_value || 0;
+  const sessionGoalValue = portfolio?.session_goal_value || 1; // Avoid division by zero
+  const progressValue = Math.min((currentSessionValue / sessionGoalValue) * 100, 100);
 
   return (
     <Card
@@ -110,19 +110,21 @@ function MenuCard() {
               sx={{ mt: 0 }}
               primary={
                 <Typography variant="subtitle1" sx={{ color: theme.palette.mode === ThemeMode.DARK ? 'dark.light' : 'primary.800' }}>
-                  Get Extra Space
+                  {currentSessionValue.toLocaleString()}
                 </Typography>
               }
-              secondary={<Typography variant="caption"> 28/23 GB</Typography>}
+              secondary={
+                <Typography variant="caption">
+                  {`Goal: ${sessionGoalValue.toLocaleString()}`}
+                </Typography>
+              }
             />
           </ListItem>
         </List>
-        <LinearProgressWithLabel value={80} />
+        <LinearProgressWithLabel value={progressValue} />
       </Box>
     </Card>
   );
 }
 
 export default memo(MenuCard);
-
-LinearProgressWithLabel.propTypes = { value: PropTypes.number, others: PropTypes.any };
