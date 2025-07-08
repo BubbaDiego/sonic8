@@ -72,7 +72,7 @@ Demonstrates the simplest 12-column arithmetic.
 | Spacing prop       | Hard-coded 2 shows default gap.                           |
 | Novice gotcha      | Forgetting to wrap every `<Grid>` child with item semantics (`size` does this automatically). |
 
-### 3.3 MultipleBreakPoints
+### 3.3 MultipleBreakPo[index.jsx](../frontend/src/layout/MainLayout/MenuList/index.jsx)ints
 
 Shows two-breakpoint override (`xs`, `md`).
 

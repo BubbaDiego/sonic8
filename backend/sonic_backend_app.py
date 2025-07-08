@@ -4,7 +4,6 @@ import os
 # Adds the parent of 'backend' to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.positions_api import router as positions_router
@@ -20,10 +19,14 @@ from backend.routes.monitor_status_api import router as monitor_status_router
 
 app = FastAPI(title="Sonic API")
 
-# Configure CORS
+# Clearly Updated CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3006",  # Clearly match your frontend app origin
+        "http://localhost:3000",
+        "*"  # Or "*" to allow all clearly (simpler during development)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

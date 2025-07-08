@@ -1,6 +1,6 @@
 // src/views/traderShop/TraderShopList.jsx
-import React, { useState } from 'react';
-import { Box, Button, Stack, Typography, Chip } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Button, Stack, Typography, Chip, CircularProgress } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DownloadIcon from '@mui/icons-material/Download';
 import EnhancedTable from 'views/forms/tables/TableEnhanced';
@@ -9,22 +9,32 @@ import QuickImportStarWars from './QuickImportStarWars';
 import { useTraders, deleteTrader, exportTraders } from './hooks';
 
 function TraderShopList() {
-  const { traders, isLoading } = useTraders();
+  const { traders, isLoading, isError } = useTraders();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
+  useEffect(() => {
+    console.log("✅ TraderShopList Mounted");
+    console.log("🔄 isLoading:", isLoading);
+    console.log("⚠️ isError:", isError);
+    console.log("📦 traders:", traders);
+  }, [traders, isLoading, isError]);
+
   const openNew = () => {
+    console.log("➕ Opening drawer to create new trader");
     setEditing(null);
     setDrawerOpen(true);
   };
 
   const handleRowClick = (row) => {
+    console.log("🖱️ Clicked row:", row);
     setEditing(row);
     setDrawerOpen(true);
   };
 
   const handleDelete = async (row) => {
     if (window.confirm(`Delete trader ${row.name}?`)) {
+      console.log("🗑️ Deleting trader:", row.name);
       await deleteTrader(row.name);
     }
   };
@@ -32,11 +42,11 @@ function TraderShopList() {
   const cols = [
     {
       id: 'avatar',
-      label: '',
+      label: 'Avatar',
       align: 'center',
-      format: (row) => (row.avatar ? row.avatar : '🧙')
+      format: (row) => row.avatar ? <img src={row.avatar} width={30} /> : '🧙'
     },
-    { id: 'name', label: 'Name', format: (row) => row.name },
+    { id: 'name', label: 'Name' },
     { id: 'persona', label: 'Persona' },
     { id: 'wallet_balance', label: 'Balance', align: 'right' },
     {
@@ -57,26 +67,28 @@ function TraderShopList() {
     }
   ];
 
+  if (isLoading) {
+    console.log("⏳ Loading trader data...");
+    return <Box sx={{ p: 3, textAlign: 'center' }}><CircularProgress /></Box>;
+  }
+
+  if (isError) {
+    console.log("❌ Error loading trader data");
+    return <Box sx={{ p: 3, textAlign: 'center' }}>Error loading traders.</Box>;
+  }
+
+  console.log("🎉 Rendering traders table with data:", traders);
+
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" mb={2} alignItems="center">
-        <Typography variant="h4">Trader Shop</Typography>
+        <Typography variant="h4">Trader Shop</Typography>
         <Stack direction="row">
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={openNew}
-            sx={{ mr: 1 }}
-          >
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openNew} sx={{ mr: 1 }}>
             New Trader
           </Button>
           <QuickImportStarWars />
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={exportTraders}
-            sx={{ ml: 1 }}
-          >
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={exportTraders} sx={{ ml: 1 }}>
             Export
           </Button>
         </Stack>

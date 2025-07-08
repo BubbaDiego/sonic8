@@ -5,7 +5,6 @@ from backend.data.data_locker import DataLocker
 
 router = APIRouter(prefix="/api/traders", tags=["traders"])
 
-
 def _dl() -> DataLocker:
     return DataLocker.get_instance()
 
@@ -36,3 +35,10 @@ async def delete_trader(name: str, dl: DataLocker = Depends(_dl)):
     if dl.traders.delete_trader(name):
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Trader not found")
+
+# NEW QUICK IMPORT ENDPOINT
+@router.post("/quick_import", status_code=201)
+async def quick_import_traders(dl: DataLocker = Depends(_dl)):
+    if dl.traders.quick_import_from_wallets():
+        return {"status": "created"}
+    raise HTTPException(status_code=400, detail="Quick import failed")

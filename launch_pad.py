@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-🚀 Sonic1 Enhanced Launch Pad Console
-Enhanced console with pyfiglet title, emojis, and subprocesses launching in new console windows.
+🚀 Sonic Launch Pad Console Enhanced
+Enhanced console with pyfiglet title, custom emojis, numbers as strings, and launch flare.
 """
 
 import subprocess
@@ -32,6 +32,20 @@ FRONTEND_DIR = ROOT_DIR / "frontend"
 PYTHON_EXEC = sys.executable
 
 console = Console()
+
+ICON = {
+    "frontend": "🌐",
+    "backend": "🛠️",
+    "full_stack": "🔄",
+    "monitor": "📡",
+    "apps": "🧩",
+    "verify_db": "🗄️",
+    "tests": "🧪",
+    "wallet": "💼",
+    "cyclone": "🌪️",
+    "test_ui": "🧑‍💻",
+    "exit": "❌",
+}
 
 def banner():
     figlet = Figlet(font="slant")
@@ -258,18 +272,23 @@ def main():
     while True:
         clear_screen()
         banner()
-        console.print("1️⃣  Launch [bold]Frontend[/] (Sonic/Vite)")
-        console.print("2️⃣  Launch [bold]Backend[/] (FastAPI)")
-        console.print("3️⃣  Launch [bold]Full Stack[/] (Frontend + Backend)")
-        console.print("4️⃣  Start [bold]Sonic Monitor[/]")
-        console.print("5️⃣  Sonic Apps (FastApi + React) w/ Sonic Monitor")
-        console.print("6️⃣  Verify Database")
-        console.print("7️⃣  Run Unit Tests")
-        console.print("8️⃣  Wallet Manager")
-        console.print("9️⃣  Cyclone Console")
-        console.print("🔟  Test Console UI")
-        console.print("11) Goals")
-        console.print("0️⃣  Exit")
+        menu_body = "\n".join(
+            [
+                f"1. {ICON['frontend']} Launch [bold]Frontend[/] (Sonic/Vite)",
+                f"2. {ICON['backend']} Launch [bold]Backend[/] (FastAPI)",
+                f"3. {ICON['full_stack']} Launch [bold]Full Stack[/] (Frontend + Backend)",
+                f"4. {ICON['monitor']} Start [bold]Sonic Monitor[/]",
+                f"5. {ICON['apps']} Sonic Apps (FastApi + React) w/ Sonic Monitor",
+                f"6. {ICON['verify_db']} Verify Database",
+                f"7. {ICON['tests']} Run Unit Tests",
+                f"8. {ICON['wallet']} Wallet Manager",
+                f"9. {ICON['cyclone']} Cyclone Console",
+                f"10. {ICON['test_ui']} Test Console UI",
+                f"0. {ICON['exit']} Exit",
+            ]
+        )
+        console.print(Panel.fit(menu_body, title="Main Menu", border_style="bright_magenta"))
+
         choice = input("→ ").strip()
 
         if choice == "1":

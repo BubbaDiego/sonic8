@@ -4,10 +4,10 @@ import useSWR, { mutate } from 'swr';
 import axios from 'utils/axios';
 
 const endpoints = {
-  traders: '/traders',
-  quickImport: '/traders/quick_import',
-  starWarsWallets: '/wallets/star_wars',
-  export: '/traders/export'
+  traders: '/api/traders', // <- Fixed here!
+  quickImport: '/api/traders/quick_import',
+  starWarsWallets: '/api/wallets/star_wars',
+  export: '/api/traders/export'
 };
 
 const fetcher = (url) => axios.get(url).then((res) => res.data);
@@ -40,9 +40,7 @@ export async function deleteTrader(name) {
 
 // --- Quick‑import Star Wars traders ---
 export async function importStarWarsTraders() {
-  // 1) Ensure wallets exist
   await axios.post(endpoints.starWarsWallets).catch(() => {});
-  // 2) Generate traders from active wallets
   await axios.post(endpoints.quickImport);
   mutate(endpoints.traders);
 }

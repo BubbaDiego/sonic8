@@ -4,7 +4,9 @@ import { Navigate } from 'react-router-dom';
 import Loadable from 'ui-component/Loadable';
 import MainLayout from 'layout/MainLayout';
 
-const TraderShop = Loadable(() => import('views/traderShop'));
+//const TraderShop = Loadable(() => import('views/traderShop'));
+import TraderShop from 'views/traderShop';
+
 
 const TraderShopRoutes = {
   path: '/trader-shop',
