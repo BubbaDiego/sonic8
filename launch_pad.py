@@ -11,6 +11,8 @@ import sys
 import os
 import platform
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+from dotenv import load_dotenv
+load_dotenv()
 
 from pathlib import Path
 from rich.console import Console
