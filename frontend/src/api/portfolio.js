@@ -24,7 +24,8 @@ export function useGetLatestPortfolio() {
       portfolioLoading: isLoading,
       portfolioError: error,
       portfolioValidating: isValidating,
-      totalHeatIndex: data?.total_heat_index
+      totalHeatIndex: data?.total_heat_index,
+      avgHeatIndex: data?.avg_heat_index
     }),
     [data, error, isLoading, isValidating]
   );
