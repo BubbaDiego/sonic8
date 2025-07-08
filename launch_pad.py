@@ -23,6 +23,8 @@ from backend.data.data_locker import DataLocker
 from backend.models.portfolio import PortfolioSnapshot
 from backend.core.constants import MOTHER_DB_PATH
 from core.logging import log, configure_console_log
+from datetime import datetime
+from backend.utils.time_utils import normalize_iso_timestamp
 
 wallet_service = WalletService()
 
@@ -202,9 +204,17 @@ def goals_menu():
                 console.print("[yellow]No snapshot found. Creating one...[/]")
                 mgr.record_snapshot(PortfolioSnapshot())
                 latest = mgr.get_latest_snapshot()
-            start_time = input(
+            start_time_inp = input(
                 f"Session start time [{latest.session_start_time or ''}]: "
             ).strip()
+            start_time = ""
+            if start_time_inp:
+                normalized = normalize_iso_timestamp(start_time_inp)
+                try:
+                    datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+                    start_time = normalized
+                except Exception:
+                    console.print("[red]Invalid timestamp format.[/]")
             start_val = input(
                 f"Session start value [{latest.session_start_value}]: "
             ).strip()
@@ -215,8 +225,15 @@ def goals_menu():
                 f"Session goal value [{latest.session_goal_value}]: "
             ).strip()
 
+            if not start_time:
+                cur = latest.session_start_time
+                if isinstance(cur, datetime):
+                    start_time = normalize_iso_timestamp(cur.isoformat())
+                else:
+                    start_time = cur
+
             fields = {
-                "session_start_time": start_time or latest.session_start_time,
+                "session_start_time": start_time,
                 "session_start_value": float(start_val)
                 if start_val
                 else latest.session_start_value,
