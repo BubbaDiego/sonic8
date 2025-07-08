@@ -45,6 +45,10 @@ class DLPortfolioManager:
             if isinstance(data.get("session_start_time"), datetime):
                 data["session_start_time"] = data["session_start_time"].isoformat()
 
+            start = float(data.get("session_start_value") or 0.0)
+            total = float(data.get("total_value") or 0.0)
+            data["current_session_value"] = total - start
+
             cursor.execute(
                 """
                 INSERT INTO positions_totals_history (
@@ -68,7 +72,7 @@ class DLPortfolioManager:
                     data.get("market_average_sp500", 0.0),
                     data.get("session_start_time"),
                     data.get("session_start_value", 0.0),
-                    data.get("current_session_value", 0.0),
+                    data["current_session_value"],
                     data.get("session_goal_value", 0.0),
                     data.get("session_performance_value", 0.0),
                 ),
@@ -157,6 +161,10 @@ class DLPortfolioManager:
                 entry["snapshot_time"] = datetime.now().isoformat()
             if isinstance(entry.get("session_start_time"), datetime):
                 entry["session_start_time"] = entry["session_start_time"].isoformat()
+
+            start = float(entry.get("session_start_value") or 0.0)
+            total = float(entry.get("total_value") or 0.0)
+            entry["current_session_value"] = total - start
             cursor.execute(
                 """
                 INSERT INTO positions_totals_history (
@@ -184,7 +192,7 @@ class DLPortfolioManager:
                     "market_average_sp500": entry.get("market_average_sp500", 0.0),
                     "session_start_time": entry.get("session_start_time"),
                     "session_start_value": entry.get("session_start_value", 0.0),
-                    "current_session_value": entry.get("current_session_value", 0.0),
+                    "current_session_value": entry["current_session_value"],
                     "session_goal_value": entry.get("session_goal_value", 0.0),
                     "session_performance_value": entry.get("session_performance_value", 0.0),
                 },
