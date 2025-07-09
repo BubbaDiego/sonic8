@@ -3,7 +3,6 @@ import MainCard from 'ui-component/cards/MainCard';
 import { Grid, Button, IconButton, Avatar, Stack } from '@mui/material';
 import WalletTable from 'ui-component/wallet/WalletTable';
 import WalletFormModal from 'ui-component/wallet/WalletFormModal';
-import CollateralPanel from 'ui-component/wallet/CollateralPanel';
 import BalanceBreakdownCard from './BalanceBreakdownCard';
 import {
   useGetWallets,
@@ -63,12 +62,9 @@ const WalletManager = () => {
           }
         >
           <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <WalletTable rows={wallets} onEdit={handleEdit} onDelete={handleDelete}/>
-            </Grid>
-            <Grid item xs={12}>
-              <CollateralPanel wallets={wallets}/>
-            </Grid>
+              <Grid item xs={12}>
+                <WalletTable rows={wallets} onEdit={handleEdit} onDelete={handleDelete}/>
+              </Grid>
           </Grid>
 
           <WalletFormModal
