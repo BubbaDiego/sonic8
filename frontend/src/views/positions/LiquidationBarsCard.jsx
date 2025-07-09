@@ -13,8 +13,8 @@ const LiquidationBarsCard = () => {
         Liquidation Bars 🔮
       </Typography>
 
-      {/* Force FULL WIDTH explicitly here */}
-      <Box sx={{ width: '100vw', ml: '-50vw', mr: '-50vw', position: 'relative', left: '50%', right: '50%', bgcolor: 'rgba(255,0,0,0.1)' }}>
+      {/* Corrected and normal width (no debug overrides!) */}
+      <Box sx={{ width: '100%' }}>
         <LiquidationBars positions={positions} />
       </Box>
     </MainCard>

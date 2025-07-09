@@ -1,7 +1,9 @@
-
+// index.jsx
 import { useEffect, useState } from 'react';
 import Grid from '@mui/material/Grid';
 import MonitorSummaryCard from './MonitorSummaryCard';
+
+// project imports
 import MarketShareAreaChartCard from './PerformanceGraphCard';
 import TraderListCard from './TraderListCard';
 import PositionListCard from './PositionListCard';
@@ -9,13 +11,16 @@ import RevenueCard from 'ui-component/cards/RevenueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 import { useGetPositions } from 'api/positions';
 import { useGetLatestPortfolio } from 'api/portfolio';
-import SonicStatusRail from './SonicStatusRail';
 
 import { gridSpacing } from 'store/constant';
+
+// assets
 import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
 import WhatshotTwoToneIcon from '@mui/icons-material/WhatshotTwoTone';
 import ScaleTwoToneIcon from '@mui/icons-material/ScaleTwoTone';
 import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
+
+// ==============================|| ANALYTICS DASHBOARD ||============================== //
 
 export default function Analytics() {
   const { portfolio } = useGetLatestPortfolio();
@@ -25,6 +30,7 @@ export default function Analytics() {
   const [travelPercent, setTravelPercent] = useState(0);
   const [totalSize, setTotalSize] = useState(0);
 
+
   useEffect(() => {
     if (!positionsData && !portfolio) {
       return;
@@ -32,15 +38,29 @@ export default function Analytics() {
 
     if (portfolio && typeof portfolio.avg_leverage === 'number') {
       setAvgLeverage(portfolio.avg_leverage);
+    } else if (positionsData) {
+      const weighted = positionsData.reduce(
+        (sum, pos) => sum + (pos.leverage || 0) * (pos.size || 1),
+        0
+      );
+      const size = positionsData.reduce((sum, pos) => sum + (pos.size || 0), 0);
+      setAvgLeverage(size ? weighted / size : 0);
     }
 
     if (portfolio && typeof portfolio.avg_heat_index === 'number') {
       setAvgHeatIndex(portfolio.avg_heat_index);
+    } else if (positionsData) {
+      const heat = positionsData.reduce(
+        (sum, pos) => sum + (pos.heat_index || 0),
+        0
+      );
+      setAvgHeatIndex(positionsData.length ? heat / positionsData.length : 0);
     }
 
     if (positionsData) {
       const travel =
-        positionsData.reduce((sum, pos) => sum + (pos.travel_percent || 0), 0) / positionsData.length;
+        positionsData.reduce((sum, pos) => sum + (pos.travel_percent || 0), 0) /
+        positionsData.length;
       const size = positionsData.reduce((sum, pos) => sum + (pos.size || 0), 0);
       setTravelPercent(travel);
       setTotalSize(size);
@@ -49,35 +69,26 @@ export default function Analytics() {
 
   return (
     <Grid container spacing={gridSpacing}>
-      <Grid item xs={12} lg={8} md={6}>
+      <Grid size={{ xs: 12, lg: 8, md: 6 }}>
         <Grid container spacing={gridSpacing}>
-          <Grid item xs={12}>
-            <SonicStatusRail
-              data={{
-                value: portfolio?.total_value || 0,
-                heatIndex: avgHeatIndex,
-                leverage: avgLeverage,
-                size: totalSize
-              }}
-            />
-          </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <PositionListCard title="Positions" />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <MarketShareAreaChartCard />
           </Grid>
         </Grid>
       </Grid>
-      <Grid item xs={12} lg={4} md={6}>
+
+      <Grid size={{ xs: 12, lg: 4, md: 6 }}>
         <Grid container spacing={gridSpacing}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <MonitorSummaryCard />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TraderListCard title="Traders" />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <UserCountCard
               primary="Average Heat Index"
               secondary={avgHeatIndex.toFixed(2)}
@@ -85,7 +96,7 @@ export default function Analytics() {
               color="error.main"
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <UserCountCard
               primary="Average Leverage"
               secondary={avgLeverage.toFixed(2)}
@@ -93,7 +104,7 @@ export default function Analytics() {
               color="primary.main"
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12, lg: 12 }}>
             <RevenueCard
               primary="Travel Percent"
               secondary={`${travelPercent.toFixed(2)}%`}
@@ -102,7 +113,7 @@ export default function Analytics() {
               color="secondary.main"
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12, lg: 12 }}>
             <RevenueCard
               primary="Total Size"
               secondary={`${(totalSize / 1000).toFixed(1)}k`}
