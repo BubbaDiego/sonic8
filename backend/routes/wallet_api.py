@@ -3,7 +3,7 @@ from backend.models.wallet import Wallet
 from backend.data.data_locker import DataLocker
 from backend.core.wallet_core import WalletCore
 
-router = APIRouter(prefix="/api/wallets", tags=["wallets"])  # fixed here clearly
+router = APIRouter(prefix="/wallets", tags=["wallets"])
 
 def _dl() -> DataLocker:
     return DataLocker.get_instance()
