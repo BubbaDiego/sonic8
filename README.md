@@ -9,10 +9,13 @@ three main parts:
 
 ## Getting started
 
-To run the backend locally install the requirements and then start the server:
+To run the backend locally first create a virtual environment for this
+repository and install the requirements. Using an environment from another
+clone (e.g. ``sonic2``) can load mismatched modules and cause import errors.
 
 ```bash
-pip install -r requirements.txt
+python backend/scripts/create_virtual_env.py
+.venv/bin/pip install -r requirements.txt  # ``.venv\Scripts\pip`` on Windows
 uvicorn backend.sonic_backend_app:app --app-dir backend --host 0.0.0.0 --port 5000 --reload
 ```
 
