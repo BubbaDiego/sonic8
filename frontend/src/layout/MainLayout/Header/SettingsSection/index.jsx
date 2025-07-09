@@ -30,8 +30,8 @@ import { IconLogout, IconSettings, IconUser } from '@tabler/icons-react';
 const SonicBurstIcon = "/static/images/sonic_burst.png";
 
 
-// ProfileSection component
-export default function ProfileSection() {
+// SettingsSection component
+export default function SettingsSection() {
   const theme = useTheme();
   const { mode, borderRadius } = useConfig();
   const navigate = useNavigate();
