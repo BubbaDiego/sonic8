@@ -6,7 +6,7 @@ import axios from 'utils/axios';
 const endpoints = {
   traders: '/api/traders', // <- Fixed here!
   quickImport: '/api/traders/quick_import',
-  starWarsWallets: '/api/wallets/star_wars',
+  starWarsWallets: '/wallets/star_wars',
   export: '/api/traders/export'
 };
 
