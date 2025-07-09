@@ -6,11 +6,11 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Chart from 'react-apexcharts';
 import MainCard from 'ui-component/cards/MainCard';
-import { useGetPositions } from 'api/positions';
+import { useGetLatestPortfolio } from 'api/portfolio';
 
 export default function CompositionPieCard() {
   const theme = useTheme();
-  const { positions = [], positionsLoading } = useGetPositions();
+  const { portfolio, portfolioLoading } = useGetLatestPortfolio();
 
   const [series, setSeries] = useState([0, 0]);
   const chartOptions = {
@@ -26,18 +26,13 @@ export default function CompositionPieCard() {
   };
 
   useEffect(() => {
-    if (positionsLoading || !positions.length) return;
+    if (portfolioLoading || !portfolio) return;
 
-    const longSize = positions
-      .filter(pos => pos.side === 'long')
-      .reduce((sum, pos) => sum + pos.size, 0);
-
-    const shortSize = positions
-      .filter(pos => pos.side === 'short')
-      .reduce((sum, pos) => sum + pos.size, 0);
+    const longSize = parseFloat(portfolio.total_long_size || 0);
+    const shortSize = parseFloat(portfolio.total_short_size || 0);
 
     setSeries([longSize, shortSize]);
-  }, [positions, positionsLoading]);
+  }, [portfolio, portfolioLoading]);
 
   return (
     <MainCard>
