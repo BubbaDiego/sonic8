@@ -4,12 +4,12 @@ import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Chart from 'react-apexcharts';
 import MainCard from 'ui-component/cards/MainCard';
-import { useGetPositions } from 'api/positions';
+import { useGetLatestPortfolio } from 'api/portfolio';
 import PropTypes from 'prop-types';
 
 export default function CompositionPieCard({ maxHeight, maxWidth }) {
   const theme = useTheme();
-  const { positions = [], positionsLoading } = useGetPositions();
+  const { portfolio, portfolioLoading } = useGetLatestPortfolio();
 
   const [series, setSeries] = useState([0, 0]);
   const chartOptions = {
@@ -21,18 +21,13 @@ export default function CompositionPieCard({ maxHeight, maxWidth }) {
   };
 
   useEffect(() => {
-    if (positionsLoading || !positions.length) return;
+    if (portfolioLoading || !portfolio) return;
 
-    const longSize = positions
-      .filter(pos => pos.side === 'long')
-      .reduce((sum, pos) => sum + pos.size, 0);
-
-    const shortSize = positions
-      .filter(pos => pos.side === 'short')
-      .reduce((sum, pos) => sum + pos.size, 0);
+    const longSize = portfolio.total_long_size || 0;
+    const shortSize = portfolio.total_short_size || 0;
 
     setSeries([longSize, shortSize]);
-  }, [positions, positionsLoading]);
+  }, [portfolio, portfolioLoading]);
 
   maxHeight = 115
   maxWidth = 190
