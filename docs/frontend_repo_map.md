@@ -137,7 +137,7 @@ frontend/
                 ├── NotificationSection/
                     ├── NotificationList.jsx
                     ├── index.jsx
-                ├── ProfileSection/
+                ├── SettingsSection/
                     ├── UpgradePlanCard.jsx
                     ├── index.jsx
                 ├── SearchSection/

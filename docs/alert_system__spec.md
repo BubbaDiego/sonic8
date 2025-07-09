@@ -507,7 +507,7 @@ sonic1/
 │   │   │   │   │   ├── NotificationSection
 │   │   │   │   │   │   ├── NotificationList.jsx
 │   │   │   │   │   │   └── index_sonic_dashboard.jsx
-│   │   │   │   │   ├── ProfileSection
+│   │   │   │   │   ├── SettingsSection
 │   │   │   │   │   │   ├── UpgradePlanCard.jsx
 │   │   │   │   │   │   └── index_sonic_dashboard.jsx
 │   │   │   │   │   ├── SearchSection

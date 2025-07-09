@@ -6,7 +6,7 @@ import Box from '@mui/material/Box';
 
 // project imports
 import LogoSection from '../LogoSection';
-import ProfileSection from './ProfileSection';
+import SettingsSection from './SettingsSection';
 import FullScreenSection from './FullScreenSection';
 import ThemeModeSection from './ThemeModeSection';
 import NotificationSection from './NotificationSection';
@@ -82,8 +82,8 @@ export default function Header() {
       {/* theme mode toggler */}
       <ThemeModeSection />
 
-      {/* profile */}
-      <ProfileSection />
+      {/* settings */}
+      <SettingsSection />
     </>
   );
 }
