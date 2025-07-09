@@ -12,7 +12,7 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
   position: 'relative'
 }));
 
-export default function TotalValueDarkCard({ value, label = 'Total Value' }) {
+export default function TotalValueDarkCard({ value, label = 'Value' }) {
   const theme = useTheme();
   return (
     <CardWrapper>

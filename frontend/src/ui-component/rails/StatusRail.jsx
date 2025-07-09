@@ -24,7 +24,7 @@ export default function StatusRail({
     >
       <Grid size={12}>
         <TotalValueCard
-          primary="Total Value"
+          primary="Value"
           secondary={totalValue}
           content="Yearly revenue"
           iconPrimary={IconCurrencyDollar}

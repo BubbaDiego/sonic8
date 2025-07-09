@@ -111,7 +111,7 @@ export default function TotalSizeDarkCard({ isLoading, value }) {
                   }
                   secondary={
                     <Typography variant="subtitle2" sx={{ color: 'primary.light', mt: 0.25 }}>
-                      Total Size
+                      Size
                     </Typography>
                   }
                 />

@@ -6,13 +6,13 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 
 const CardWrapper = styled(MainCard)(({ theme }) => ({
-  backgroundColor: theme.palette.warning.light,
-  color: theme.palette.warning.dark,
+  backgroundColor: theme.palette.primary.light,
+  color: theme.palette.primary.dark,
   overflow: 'hidden',
   position: 'relative'
 }));
 
-export default function TotalValueLightCard({ value, label = 'Total Value' }) {
+export default function TotalValueLightCard({ value, label = 'Value' }) {
   return (
     <CardWrapper>
       <Box sx={{ p: 2 }}>

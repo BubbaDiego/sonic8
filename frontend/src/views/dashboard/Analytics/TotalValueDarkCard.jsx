@@ -76,7 +76,7 @@ export default function TotalValueDarkCard({ isLoading, value }) {
               }
               secondary={
                 <Typography variant="subtitle2" sx={{ color: 'primary.light', mt: 0.25 }}>
-                  Total Value
+                  Value
                 </Typography>
               }
             />
