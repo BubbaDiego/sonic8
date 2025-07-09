@@ -200,13 +200,15 @@ class DLPositionManager:
                 return
             cursor.execute("""
                 INSERT INTO positions_totals_history (
-                    id, snapshot_time, total_size, total_value, total_collateral,
+                    id, snapshot_time, total_size, total_long_size, total_short_size, total_value, total_collateral,
                     avg_leverage, avg_travel_percent, avg_heat_index
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 snapshot_id,
                 snapshot_time,
                 totals.get("total_size", 0.0),
+                totals.get("total_long_size", 0.0),
+                totals.get("total_short_size", 0.0),
                 totals.get("total_value", 0.0),
                 totals.get("total_collateral", 0.0),
                 totals.get("avg_leverage", 0.0),

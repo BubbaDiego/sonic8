@@ -39,6 +39,8 @@ def test_goals_menu_view(monkeypatch):
             called["view"] = True
             return launch_pad.PortfolioSnapshot(
                 total_size=0.0,
+                total_long_size=0.0,
+                total_short_size=0.0,
                 total_value=0.0,
                 total_collateral=0.0,
                 avg_leverage=0.0,
@@ -74,6 +76,8 @@ def test_goals_menu_view(monkeypatch):
 def _dummy_snapshot(dt=None):
     return launch_pad.PortfolioSnapshot(
         total_size=0.0,
+        total_long_size=0.0,
+        total_short_size=0.0,
         total_value=0.0,
         total_collateral=0.0,
         avg_leverage=0.0,

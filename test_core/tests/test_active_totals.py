@@ -43,6 +43,8 @@ def test_totals_exclude_inactive(tmp_path):
     assert isinstance(snap, PortfolioSnapshot)
     assert snap.total_value == active_pos["value"]
     assert snap.total_size == active_pos["size"]
+    assert snap.total_long_size == active_pos["size"]
+    assert snap.total_short_size == 0.0
     assert snap.total_collateral == active_pos["collateral"]
     assert snap.total_heat_index == 0.0
 
@@ -72,6 +74,8 @@ def test_calc_services_totals_with_objects():
 
     assert totals["total_value"] == 300.0
     assert totals["total_size"] == 3.0
+    assert totals["total_long_size"] == 3.0
+    assert totals["total_short_size"] == 0.0
     assert totals["total_collateral"] == 150.0
     assert totals["avg_leverage"] == pytest.approx((2.0 * 1.0 + 3.0 * 2.0) / 3.0)
     assert totals["avg_travel_percent"] == pytest.approx((5.0 * 1.0 + 10.0 * 2.0) / 3.0)
