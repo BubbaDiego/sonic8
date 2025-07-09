@@ -252,6 +252,7 @@ class CalcServices:
             source="calculate_totals",
         )
         total_size = total_value = total_collateral = 0.0
+        total_long_size = total_short_size = 0.0
         weighted_leverage_sum = weighted_travel_percent_sum = 0.0
 
         for pos in positions:
@@ -263,6 +264,11 @@ class CalcServices:
             travel_percent = float(data.get("travel_percent") or 0.0)
 
             total_size += size
+            ptype = str(data.get("position_type", "")).lower()
+            if ptype == "long":
+                total_long_size += size
+            elif ptype == "short":
+                total_short_size += size
             total_value += value
             total_collateral += collateral
             weighted_leverage_sum += leverage * size
@@ -284,6 +290,8 @@ class CalcServices:
             "avg_travel_percent": avg_travel_percent,
             "avg_heat_index": avg_heat_index,
             "total_heat_index": total_heat_index,
+            "total_long_size": total_long_size,
+            "total_short_size": total_short_size,
         }
 
         log.success(

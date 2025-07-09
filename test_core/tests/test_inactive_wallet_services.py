@@ -74,6 +74,8 @@ def test_position_core_service_snapshot_ignores_inactive(tmp_path, monkeypatch):
     snap = dl.portfolio.get_latest_snapshot()
     assert isinstance(snap, PortfolioSnapshot)
     assert snap.total_value == 5
+    assert snap.total_long_size == 0.0
+    assert snap.total_short_size == 0.0
 
 
 def test_position_sync_service_snapshot_ignores_inactive(tmp_path, monkeypatch):
@@ -102,6 +104,8 @@ def test_position_sync_service_snapshot_ignores_inactive(tmp_path, monkeypatch):
     snap = dl.portfolio.get_latest_snapshot()
     assert isinstance(snap, PortfolioSnapshot)
     assert snap.total_value == 3
+    assert snap.total_long_size == 0.0
+    assert snap.total_short_size == 0.0
 
 
 def test_wallet_core_balance_ignores_inactive(tmp_path, monkeypatch):

@@ -260,6 +260,8 @@ class DataLocker:
                     id TEXT PRIMARY KEY,
                     snapshot_time TEXT,
                     total_size REAL,
+                    total_long_size REAL,
+                    total_short_size REAL,
                     total_value REAL,
                     total_collateral REAL,
                     avg_leverage REAL,
@@ -377,6 +379,8 @@ class DataLocker:
         _ensure_column(cursor, "positions", "stale INTEGER DEFAULT 0")
         _ensure_column(cursor, "positions", "hedge_buddy_id TEXT")
         _ensure_column(cursor, "positions_totals_history", "market_average_sp500 REAL")
+        _ensure_column(cursor, "positions_totals_history", "total_long_size REAL")
+        _ensure_column(cursor, "positions_totals_history", "total_short_size REAL")
         _ensure_column(cursor, "positions_totals_history", "total_heat_index REAL")
         _ensure_column(cursor, "positions_totals_history", "session_start_time TEXT")
         _ensure_column(cursor, "positions_totals_history", "session_start_value REAL")

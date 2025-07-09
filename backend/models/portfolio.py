@@ -29,6 +29,12 @@ class PortfolioSnapshot(BaseModel):
         description="Timestamp of the portfolio snapshot",
     )
     total_size: float = Field(..., description="Total size of all positions")
+    total_long_size: float = Field(
+        0.0, description="Aggregate size of all long positions"
+    )
+    total_short_size: float = Field(
+        0.0, description="Aggregate size of all short positions"
+    )
     total_value: float = Field(..., description="Total value of the portfolio")
     total_collateral: float = Field(
         ..., description="Total collateral provided for the portfolio"

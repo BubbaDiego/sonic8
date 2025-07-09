@@ -52,17 +52,19 @@ class DLPortfolioManager:
             cursor.execute(
                 """
                 INSERT INTO positions_totals_history (
-                    id, snapshot_time, total_size, total_value,
+                    id, snapshot_time, total_size, total_long_size, total_short_size, total_value,
                     total_collateral, avg_leverage, avg_travel_percent, avg_heat_index,
                     total_heat_index, market_average_sp500,
                     session_start_time, session_start_value, current_session_value,
                     session_goal_value, session_performance_value
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data.get("id"),
                     data.get("snapshot_time"),
                     data.get("total_size", 0.0),
+                    data.get("total_long_size", 0.0),
+                    data.get("total_short_size", 0.0),
                     data.get("total_value", 0.0),
                     data.get("total_collateral", 0.0),
                     data.get("avg_leverage", 0.0),
@@ -96,6 +98,8 @@ class DLPortfolioManager:
                 data = dict(row)
                 for field in [
                     "total_size",
+                    "total_long_size",
+                    "total_short_size",
                     "total_value",
                     "total_collateral",
                     "avg_leverage",
@@ -129,6 +133,8 @@ class DLPortfolioManager:
                 data = dict(row)
                 for field in [
                     "total_size",
+                    "total_long_size",
+                    "total_short_size",
                     "total_value",
                     "total_collateral",
                     "avg_leverage",
@@ -168,12 +174,12 @@ class DLPortfolioManager:
             cursor.execute(
                 """
                 INSERT INTO positions_totals_history (
-                    id, snapshot_time, total_size, total_value,
+                    id, snapshot_time, total_size, total_long_size, total_short_size, total_value,
                     total_collateral, avg_leverage, avg_travel_percent, avg_heat_index,
                     total_heat_index, market_average_sp500,
                     session_start_time, session_start_value, current_session_value,
                     session_goal_value, session_performance_value
-                ) VALUES (:id, :snapshot_time, :total_size, :total_value,
+                ) VALUES (:id, :snapshot_time, :total_size, :total_long_size, :total_short_size, :total_value,
                           :total_collateral, :avg_leverage, :avg_travel_percent, :avg_heat_index,
                           :total_heat_index, :market_average_sp500,
                           :session_start_time, :session_start_value, :current_session_value,
@@ -183,6 +189,8 @@ class DLPortfolioManager:
                     "id": entry["id"],
                     "snapshot_time": entry.get("snapshot_time"),
                     "total_size": entry.get("total_size", 0.0),
+                    "total_long_size": entry.get("total_long_size", 0.0),
+                    "total_short_size": entry.get("total_short_size", 0.0),
                     "total_value": entry.get("total_value", 0.0),
                     "total_collateral": entry.get("total_collateral", 0.0),
                     "avg_leverage": entry.get("avg_leverage", 0.0),

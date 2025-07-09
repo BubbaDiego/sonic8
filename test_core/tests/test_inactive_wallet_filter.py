@@ -48,6 +48,8 @@ def test_inactive_wallet_positions_excluded(tmp_path, monkeypatch):
     snap = dl.portfolio.get_latest_snapshot()
     assert isinstance(snap, PortfolioSnapshot)
     assert snap.total_value == 5
+    assert snap.total_long_size == 0.0
+    assert snap.total_short_size == 0.0
     assert snap.total_heat_index == 0.0
 
 
