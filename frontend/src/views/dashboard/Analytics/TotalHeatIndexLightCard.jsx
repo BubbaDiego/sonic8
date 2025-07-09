@@ -16,6 +16,7 @@ import { ThemeMode } from 'config';
 import MainCard from 'ui-component/cards/MainCard';
 import TotalIncomeCard from 'ui-component/cards/Skeleton/TotalIncomeCard';
 import axios from 'utils/axios';
+import LocalFireDepartmentOutlinedIcon from '@mui/icons-material/LocalFireDepartmentOutlined';
 
 // styles
 const CardWrapper = styled(MainCard)(({ theme }) => ({
@@ -43,7 +44,12 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
   }
 }));
 
-export default function TotalHeatIndexLightCard({ isLoading, icon, label = 'Heat', value }) {
+export default function TotalHeatIndexLightCard({
+  isLoading,
+  icon = <LocalFireDepartmentOutlinedIcon fontSize="inherit" />,
+  label = 'Heat',
+  value
+}) {
   const theme = useTheme();
   const [heatIndex, setHeatIndex] = useState('0');
 
