@@ -9,7 +9,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import MainCard from 'ui-component/cards/MainCard';
-import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
+import AttachMoneyOutlinedIcon from '@mui/icons-material/AttachMoneyOutlined';
 import { ThemeMode } from 'config';
 
 const CardWrapper = styled(MainCard)(({ theme }) => ({
@@ -64,7 +64,7 @@ export default function TotalValueLightCard({ isLoading, value, label = 'Value' 
                   color: 'primary.dark'
                 }}
               >
-                <TableChartOutlinedIcon fontSize="inherit" />
+                <AttachMoneyOutlinedIcon fontSize="inherit" />
               </Avatar>
             </ListItemAvatar>
             <ListItemText
