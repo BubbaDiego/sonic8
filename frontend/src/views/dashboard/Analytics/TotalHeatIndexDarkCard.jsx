@@ -17,7 +17,7 @@ import TotalIncomeCard from 'ui-component/cards/Skeleton/TotalIncomeCard';
 import axios from 'utils/axios';
 
 // assets
-import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
+import LocalFireDepartmentOutlinedIcon from '@mui/icons-material/LocalFireDepartmentOutlined';
 
 // styles
 const CardWrapper = styled(MainCard)(({ theme }) => ({
@@ -88,7 +88,7 @@ export default function TotalHeatIndexDarkCard({ isLoading, value }) {
                       color: '#fff'
                     }}
                   >
-                    <TableChartOutlinedIcon fontSize="inherit" />
+                    <LocalFireDepartmentOutlinedIcon fontSize="inherit" />
                   </Avatar>
                 </ListItemAvatar>
                 <ListItemText
