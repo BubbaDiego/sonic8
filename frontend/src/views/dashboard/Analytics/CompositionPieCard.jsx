@@ -1,51 +1,63 @@
-// CompositionPieCard.jsx
+
 import { useEffect, useState } from 'react';
 import { useTheme } from '@mui/material/styles';
-import Grid from '@mui/material/Grid';
-import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Chart from 'react-apexcharts';
 import MainCard from 'ui-component/cards/MainCard';
-import { useGetLatestPortfolio } from 'api/portfolio';
+import { useGetPositions } from 'api/positions';
+import PropTypes from 'prop-types';
 
-export default function CompositionPieCard() {
+export default function CompositionPieCard({ maxHeight, maxWidth }) {
   const theme = useTheme();
-  const { portfolio, portfolioLoading } = useGetLatestPortfolio();
+  const { positions = [], positionsLoading } = useGetPositions();
 
   const [series, setSeries] = useState([0, 0]);
   const chartOptions = {
-    labels: ['Long Positions', 'Short Positions'],
+    labels: ['Long', 'Short'],
     colors: [theme.palette.success.main, theme.palette.error.main],
-    legend: {
-      show: true,
-      position: 'bottom'
-    },
-    tooltip: {
-      theme: 'dark'
-    }
+    legend: { show: false },
+    tooltip: { theme: theme.palette.mode === 'dark' ? 'dark' : 'light' },
+    dataLabels: { enabled: false },
   };
 
   useEffect(() => {
-    if (portfolioLoading || !portfolio) return;
+    if (positionsLoading || !positions.length) return;
 
-    const longSize = parseFloat(portfolio.total_long_size || 0);
-    const shortSize = parseFloat(portfolio.total_short_size || 0);
+    const longSize = positions
+      .filter(pos => pos.side === 'long')
+      .reduce((sum, pos) => sum + pos.size, 0);
+
+    const shortSize = positions
+      .filter(pos => pos.side === 'short')
+      .reduce((sum, pos) => sum + pos.size, 0);
 
     setSeries([longSize, shortSize]);
-  }, [portfolio, portfolioLoading]);
+  }, [positions, positionsLoading]);
+
+  maxHeight = 115
+  maxWidth = 190
 
   return (
-    <MainCard>
-      <Box sx={{ p: 3 }}>
-        <Grid container direction="column" spacing={2} alignItems="center">
-          <Grid item>
-            <Typography variant="h3">Positions Composition</Typography>
-          </Grid>
-          <Grid item xs={12} sx={{ width: '100%' }}>
-            <Chart options={chartOptions} series={series} type="pie" height={250} />
-          </Grid>
-        </Grid>
+    <MainCard
+      sx={{
+        height: '100%',
+        maxHeight: maxHeight || 'none', // Dynamically sets max height if provided
+        maxWidth: maxWidth || 'none',   // Dynamically sets max width if provided
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Chart options={chartOptions} series={series} type="pie" height={120} width={120} />
       </Box>
     </MainCard>
   );
 }
+
+// Prop validation
+CompositionPieCard.propTypes = {
+  maxHeight: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  maxWidth: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+};

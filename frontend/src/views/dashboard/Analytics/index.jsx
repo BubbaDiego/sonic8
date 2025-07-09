@@ -10,6 +10,7 @@ import UserCountCard from 'ui-component/cards/UserCountCard';
 import { useGetPositions } from 'api/positions';
 import { useGetLatestPortfolio } from 'api/portfolio';
 import SonicStatusRail from './SonicStatusRail';
+import CompositionPieCard from './CompositionPieCard';
 
 import { gridSpacing } from 'store/constant';
 import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
@@ -26,9 +27,7 @@ export default function Analytics() {
   const [totalSize, setTotalSize] = useState(0);
 
   useEffect(() => {
-    if (!positionsData && !portfolio) {
-      return;
-    }
+    if (!positionsData && !portfolio) return;
 
     if (portfolio && typeof portfolio.avg_leverage === 'number') {
       setAvgLeverage(portfolio.avg_leverage);
@@ -49,9 +48,9 @@ export default function Analytics() {
 
   return (
     <Grid container spacing={gridSpacing}>
-      <Grid item xs={12} lg={8} md={6}>
+      <Grid item xs={12}>
         <Grid container spacing={gridSpacing}>
-          <Grid item xs={12}>
+          <Grid item xs={12} md={8}>
             <SonicStatusRail
               data={{
                 value: portfolio?.total_value || 0,
@@ -61,14 +60,20 @@ export default function Analytics() {
               }}
             />
           </Grid>
-          <Grid item xs={12}>
-            <PositionListCard title="Positions" />
-          </Grid>
-          <Grid item xs={12}>
-            <MarketShareAreaChartCard />
+          <Grid item xs={12} md={4}>
+            <CompositionPieCard />
           </Grid>
         </Grid>
       </Grid>
+
+      <Grid item xs={12}>
+        <PositionListCard title="Positions" />
+      </Grid>
+
+      <Grid item xs={12} lg={8} md={6}>
+        <MarketShareAreaChartCard />
+      </Grid>
+
       <Grid item xs={12} lg={4} md={6}>
         <Grid container spacing={gridSpacing}>
           <Grid item xs={12}>
