@@ -77,7 +77,7 @@ export default function PositionListCard({ title }) {
                     direction={orderBy === 'asset_type' ? order : 'asc'}
                     onClick={() => handleSort('asset_type')}
                   >
-                    Asset Type
+                    Asset
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -116,7 +116,7 @@ export default function PositionListCard({ title }) {
                     direction={orderBy === 'travel_percent' ? order : 'asc'}
                     onClick={() => handleSort('travel_percent')}
                   >
-                    Travel Percent
+                    Travel %
                   </TableSortLabel>
                 </TableCell>
               </TableRow>
