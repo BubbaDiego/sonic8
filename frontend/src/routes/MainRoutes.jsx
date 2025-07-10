@@ -16,6 +16,7 @@ const AlertThresholdsPage = Loadable(lazy(() => import('views/alertThresholds'))
 const SonicLabsPage = Loadable(lazy(() => import('views/sonicLabs')));
 const DashboardAnalytics = Loadable(lazy(() => import('views/dashboard/Analytics')));
 const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')));
+const DatabaseViewer = Loadable(lazy(() => import('views/debug/DatabaseViewer')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -26,6 +27,10 @@ const MainRoutes = {
     {
       index: true,
       element: <Navigate to="/overview" />
+    },
+    {
+      path: 'debug/db',
+      element: <DatabaseViewer />
     },
     {
       path: '/overview',
