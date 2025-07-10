@@ -17,7 +17,7 @@ export default function AuthGuard({ children }) {
 
   useEffect(() => {
     if (!isLoggedIn) {
-      navigate('login', { replace: true });
+      navigate('/forbidden', { replace: true });
     }
   }, [isLoggedIn, navigate]);
 
