@@ -1,5 +1,9 @@
 import Grid from 'components/AppGrid';
 import StatCard from './StatCard';
+import MonetizationOnTwoToneIcon from '@mui/icons-material/MonetizationOnTwoTone';
+import LocalFireDepartmentTwoToneIcon from '@mui/icons-material/LocalFireDepartmentTwoTone';
+import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
+import Inventory2TwoToneIcon from '@mui/icons-material/Inventory2TwoTone';
 
 export default function PortfolioBar({ data = {}, variant = 'light' }) {
   const value = `$${Number(data.value || 0).toLocaleString()}`;
@@ -10,16 +14,36 @@ export default function PortfolioBar({ data = {}, variant = 'light' }) {
   return (
     <Grid container spacing={2}>
       <Grid size={3}>
-        <StatCard variant={variant} label="Value" value={value} />
+        <StatCard
+          variant={variant}
+          label="Value"
+          value={value}
+          icon={<MonetizationOnTwoToneIcon />}
+        />
       </Grid>
       <Grid size={3}>
-        <StatCard variant={variant} label="Heat" value={heat} />
+        <StatCard
+          variant={variant}
+          label="Heat"
+          value={heat}
+          icon={<LocalFireDepartmentTwoToneIcon />}
+        />
       </Grid>
       <Grid size={3}>
-        <StatCard variant={variant} label="Leverage" value={leverage} />
+        <StatCard
+          variant={variant}
+          label="Leverage"
+          value={leverage}
+          icon={<TrendingUpTwoToneIcon />}
+        />
       </Grid>
       <Grid size={3}>
-        <StatCard variant={variant} label="Size" value={size} />
+        <StatCard
+          variant={variant}
+          label="Size"
+          value={size}
+          icon={<Inventory2TwoToneIcon />}
+        />
       </Grid>
     </Grid>
   );
