@@ -66,8 +66,11 @@ function MenuCard() {
   const { portfolio } = useGetLatestPortfolio();
 
   const currentSessionValue = portfolio?.current_session_value || 0;
-  const sessionGoalValue = portfolio?.session_goal_value || 1; // Avoid division by zero
-  const progressValue = Math.min((currentSessionValue / sessionGoalValue) * 100, 100);
+  const sessionGoalValue = portfolio?.session_goal_value ?? 0;
+  const progressValue =
+    sessionGoalValue > 0
+      ? Math.min((currentSessionValue / sessionGoalValue) * 100, 100)
+      : 0;
 
   return (
     <Card
