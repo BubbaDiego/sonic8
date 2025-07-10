@@ -106,7 +106,7 @@ export default function Analytics() {
           </Grid>
           <Grid size={{ xs: 12, lg: 12 }}>
             <RevenueCard
-              primary="Travel Percent"
+              primary="Travel %"
               secondary={`${travelPercent.toFixed(2)}%`}
               content="Current Avg. Travel %"
               iconPrimary={PercentTwoToneIcon}
