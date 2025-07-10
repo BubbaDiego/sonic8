@@ -16,6 +16,7 @@ import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axios';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
+import WaterDropTwoToneIcon from '@mui/icons-material/WaterDropTwoTone';
 
 export default function PositionListCard({ title }) {
   const [positions, setPositions] = useState([]);
@@ -85,7 +86,7 @@ export default function PositionListCard({ title }) {
                     direction={orderBy === 'position_type' ? order : 'asc'}
                     onClick={() => handleSort('position_type')}
                   >
-                    Position Type
+                    Type
                   </TableSortLabel>
                 </TableCell>
                 <TableCell align="right">
@@ -103,7 +104,10 @@ export default function PositionListCard({ title }) {
                     direction={orderBy === 'liquidation_distance' ? order : 'asc'}
                     onClick={() => handleSort('liquidation_distance')}
                   >
-                    Liquidation Distance
+                    <WaterDropTwoToneIcon
+                      sx={{ color: 'primary.main', verticalAlign: 'middle', mr: 0.5 }}
+                    />
+                    Distance
                   </TableSortLabel>
                 </TableCell>
                 <TableCell align="right" sx={{ pr: 3 }}>
@@ -131,18 +135,15 @@ export default function PositionListCard({ title }) {
                     />
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Avatar
-                        src={`/static/images/${(position.asset_type || 'unknown').toLowerCase()}_logo.png`}
-                        alt={position.asset_type}
-                        sx={{ width: 24, height: 24, mr: 1 }}
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/static/images/unknown.png';
-                        }}
-                      />
-                      {position.asset_type}
-                    </Box>
+                    <Avatar
+                      src={`/static/images/${(position.asset_type || 'unknown').toLowerCase()}_logo.png`}
+                      alt={position.asset_type}
+                      sx={{ width: 24, height: 24 }}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/static/images/unknown.png';
+                      }}
+                    />
                   </TableCell>
                   <TableCell>{position.position_type}</TableCell>
                   <TableCell align="right">${Number(position.value || 0).toLocaleString()}</TableCell>
