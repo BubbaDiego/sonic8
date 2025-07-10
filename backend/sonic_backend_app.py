@@ -1,8 +1,20 @@
 import sys
 import os
+from pathlib import Path
 
 # Adds the parent of 'backend' to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+try:  # pragma: no cover - optional dependency
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover - fallback if dotenv is missing
+    def load_dotenv(*_a, **_k):
+        return False
+
+# Load environment variables before importing modules that rely on them
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if not load_dotenv(ROOT_DIR / '.env'):
+    load_dotenv(ROOT_DIR / '.env.example')
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
