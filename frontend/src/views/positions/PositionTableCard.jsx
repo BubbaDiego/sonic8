@@ -112,13 +112,12 @@ const PositionTableCard = () => {
                       src={`/static/images/${(position.asset_type || 'unknown')
                         .toLowerCase()}_logo.png`}
                       alt={position.asset_type}
-                      sx={{ width: 24, height: 24, mr: 1 }}
+                      sx={{ width: 24, height: 24 }}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
                         e.currentTarget.src = '/static/images/unknown.png';
                       }}
                     />
-                    {position.asset_type}
                   </Box>
                 </StyledTableCell>
                 <StyledTableCell>{position.position_type}</StyledTableCell>
