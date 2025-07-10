@@ -24,7 +24,7 @@ import MainCard from 'ui-component/cards/MainCard';
 import Transitions from 'ui-component/extended/Transitions';
 import useAuth from 'hooks/useAuth';
 import useConfig from 'hooks/useConfig';
-import { IconLogout, IconSettings, IconUser } from '@tabler/icons-react';
+import { IconLogout, IconSettings, IconUser, IconDatabase } from '@tabler/icons-react';
 
 // Updated to new icon
 const SonicBurstIcon = "/static/images/sonic_burst.png";
@@ -164,6 +164,15 @@ export default function SettingsSection() {
                             <IconUser stroke={1.5} size="20px" />
                           </ListItemIcon>
                           <ListItemText primary={<Typography variant="body2"><FormattedMessage id="social-profile" /></Typography>} />
+                        </ListItemButton>
+                        <ListItemButton
+                            selected={selectedIndex === 2}
+                            onClick={(e) => handleListItemClick(e, 2, '/debug/db')}
+                        >
+                          <ListItemIcon>
+                            <IconDatabase stroke={1.5} size="20px" />
+                          </ListItemIcon>
+                          <ListItemText primary={<Typography variant="body2"><FormattedMessage id="database-viewer" defaultMessage="Database Viewer" /></Typography>} />
                         </ListItemButton>
                         <ListItemButton onClick={handleLogout}>
                           <ListItemIcon>
