@@ -118,7 +118,6 @@ const PositionTableCard = () => {
                         e.currentTarget.src = '/static/images/unknown.png';
                       }}
                     />
-                    {position.asset_type}
                   </Box>
                 </StyledTableCell>
                 <StyledTableCell>{position.position_type}</StyledTableCell>
