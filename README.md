@@ -125,13 +125,13 @@ specification.
 
 ## Database path configuration
 
-`MOTHER_DB_PATH` controls where the project's main SQLite database (the
-"mother brain") is stored. `backend/utils/startup_service.py` automatically
-loads environment variables from a `.env` file at the repository root (or
-`.env.example` if present). You can define `MOTHER_DB_PATH` there or export it in
-your shell to override the default `mother.db` in the repo root.
-Older code may reference `MOTHER_BRAIN_DB_PATH`; this project treats it as an
-alias of `MOTHER_DB_PATH` for backward compatibility.
+`MOTHER_BRAIN_DB_PATH` controls where the project's main SQLite database (the
+"mother brain") is stored. `backend/utils/startup_service.py` and related
+scripts automatically load environment variables from a `.env` file at the
+repository root (falling back to `.env.example` when present). Define
+`MOTHER_BRAIN_DB_PATH` there or export it in your shell to override the default
+`mother.db` in the repo root. `MOTHER_DB_PATH` is still recognised for backward
+compatibility.
 
 Both the FastAPI backend and the **Launch Pad** console read this value from the
 environment, so they must reference the same database file.
