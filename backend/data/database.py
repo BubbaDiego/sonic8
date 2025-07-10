@@ -2,11 +2,13 @@
 
 import sqlite3
 import os
-#from core.core_imports import log
+from backend.core.core_imports import log
+
 try:
     from system.death_nail_service import DeathNailService
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     DeathNailService = None
+
 
 class DatabaseManager:
     def __init__(self, db_path: str):
@@ -23,7 +25,9 @@ class DatabaseManager:
                 try:
                     self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
                 except sqlite3.DatabaseError as e:
-                    if "file is not a database" in str(e) or "database disk image is malformed" in str(e):
+                    if "file is not a database" in str(
+                        e
+                    ) or "database disk image is malformed" in str(e):
                         try:
                             os.remove(self.db_path)
                             wal = f"{self.db_path}-wal"
@@ -42,7 +46,9 @@ class DatabaseManager:
                             "🔈 Death nail suppressed during DB reconnect",
                             source="DatabaseManager",
                         )
-                        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+                        self.conn = sqlite3.connect(
+                            self.db_path, check_same_thread=False
+                        )
                     else:
                         raise
 
@@ -51,7 +57,9 @@ class DatabaseManager:
                     self.conn.execute("PRAGMA journal_mode=WAL;")
                 except sqlite3.DatabaseError as e:
                     # Handle corruption or non-database files gracefully
-                    if "file is not a database" in str(e) or "database disk image is malformed" in str(e):
+                    if "file is not a database" in str(
+                        e
+                    ) or "database disk image is malformed" in str(e):
                         self.conn.close()
                         try:
                             os.remove(self.db_path)
@@ -71,13 +79,19 @@ class DatabaseManager:
                             "🔈 Death nail suppressed during DB reconnect",
                             source="DatabaseManager",
                         )
-                        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+                        self.conn = sqlite3.connect(
+                            self.db_path, check_same_thread=False
+                        )
                         self.conn.row_factory = sqlite3.Row
                         self.conn.execute("PRAGMA journal_mode=WAL;")
                     else:
-                        log.error(f"Failed to set WAL mode: {e}", source="DatabaseManager")
+                        log.error(
+                            f"Failed to set WAL mode: {e}", source="DatabaseManager"
+                        )
             except Exception as e:
-                log.error(f"❌ Failed to connect to database: {e}", source="DatabaseManager")
+                log.error(
+                    f"❌ Failed to connect to database: {e}", source="DatabaseManager"
+                )
                 self.conn = None
         return self.conn
 
@@ -111,7 +125,9 @@ class DatabaseManager:
                 return None
             return conn.cursor()
         except sqlite3.DatabaseError as e:
-            if "file is not a database" in str(e) or "database disk image is malformed" in str(e):
+            if "file is not a database" in str(
+                e
+            ) or "database disk image is malformed" in str(e):
                 self.recover_database()
                 return self.conn.cursor() if self.conn else None
             log.error(f"Failed to get cursor: {e}", source="DatabaseManager")
@@ -150,5 +166,18 @@ class DatabaseManager:
         if not cursor:
             return []
         cursor.execute(f"SELECT * FROM {table_name}")
+        rows = cursor.fetchall()
+        return [dict(r) for r in rows]
+
+    def read_table(self, name: str, limit: int = 200) -> list:
+        """Return up to ``limit`` rows from the specified table."""
+        cursor = self.get_cursor()
+        if not cursor:
+            return []
+        try:
+            cursor.execute(f"SELECT * FROM {name} LIMIT ?", (limit,))
+        except Exception as e:  # pragma: no cover - should rarely fail
+            log.error(f"Failed reading table {name}: {e}", source="DatabaseManager")
+            return []
         rows = cursor.fetchall()
         return [dict(r) for r in rows]

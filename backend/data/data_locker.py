@@ -22,6 +22,7 @@ from backend.data.dl_prices import DLPriceManager
 from backend.data.dl_positions import DLPositionManager
 from backend.data.dl_wallets import DLWalletManager
 from backend.data.dl_portfolio import DLPortfolioManager
+
 try:  # pragma: no cover - optional dependency
     from backend.data.dl_system_data import DLSystemDataManager
 except ModuleNotFoundError:
@@ -29,6 +30,7 @@ except ModuleNotFoundError:
 
 from backend.data.dl_monitor_ledger import DLMonitorLedgerManager
 from backend.data.dl_modifiers import DLModifierManager
+
 try:  # pragma: no cover - optional dependency
     from backend.data.dl_hedges import DLHedgeManager
 except ModuleNotFoundError:
@@ -59,6 +61,7 @@ from backend.core.constants import (
 )
 
 from backend.core.core_imports import log  # Corrected clearly
+
 try:
     from system.death_nail_service import DeathNailService
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
@@ -145,7 +148,7 @@ class DataLocker:
                 )
             else:
                 log.warning(
-                    "⚠️ DataLocker initialization failed: no DB connection", 
+                    "⚠️ DataLocker initialization failed: no DB connection",
                     source="DataLocker",
                 )
 
@@ -323,14 +326,16 @@ class DataLocker:
     strategy_description TEXT
 )
     
-        """
+        """,
         }
 
         def _ensure_column(cursor, table, column_def):
             """Add a column to ``table`` if missing."""
             try:
                 col_name = column_def.split()[0]
-                existing = {row[1] for row in cursor.execute(f"PRAGMA table_info({table})")}
+                existing = {
+                    row[1] for row in cursor.execute(f"PRAGMA table_info({table})")
+                }
                 if col_name not in existing:
                     cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")
                     log.info(
@@ -386,15 +391,19 @@ class DataLocker:
         _ensure_column(cursor, "positions_totals_history", "session_start_value REAL")
         _ensure_column(cursor, "positions_totals_history", "current_session_value REAL")
         _ensure_column(cursor, "positions_totals_history", "session_goal_value REAL")
-        _ensure_column(cursor, "positions_totals_history", "session_performance_value REAL")
-
+        _ensure_column(
+            cursor, "positions_totals_history", "session_performance_value REAL"
+        )
 
         # Ensure a default row exists for system vars so lookups don't fail
         log.debug("Ensuring system_vars default row", source="DataLocker")
         try:
             cursor.execute("INSERT OR IGNORE INTO system_vars (id) VALUES ('main')")
         except Exception as e:
-            log.error(f"❌ Failed initializing system_vars default row: {e}", source="DataLocker")
+            log.error(
+                f"❌ Failed initializing system_vars default row: {e}",
+                source="DataLocker",
+            )
 
         try:
             self.db.commit()
@@ -444,7 +453,11 @@ class DataLocker:
     def get_last_update_times(self) -> dict:
         """Return last update times for positions and prices as a dict."""
         try:
-            return self.system.get_last_update_times().to_dict() if self.system is not None else {}
+            return (
+                self.system.get_last_update_times().to_dict()
+                if self.system is not None
+                else {}
+            )
         except Exception:
             return {}
 
@@ -483,7 +496,7 @@ class DataLocker:
             "previous_price": 0.0,
             "last_update_time": datetime.now().isoformat(),
             "previous_update_time": None,
-            "source": source
+            "source": source,
         }
         self.prices.insert_price(price_data)
 
@@ -572,7 +585,8 @@ class DataLocker:
                         wallets = data.get("wallets")
                         if not isinstance(wallets, list):
                             log.warning(
-                                "⚠️ Wallet seed JSON missing 'wallets' list", source="DataLocker"
+                                "⚠️ Wallet seed JSON missing 'wallets' list",
+                                source="DataLocker",
                             )
                             return
                     elif isinstance(data, list):
@@ -598,9 +612,7 @@ class DataLocker:
                                 f"Wallet seed failed for {w.get('name')}: {e}",
                                 source="DataLocker",
                             )
-                    log.debug(
-                        f"Wallets seeded from {json_path}", source="DataLocker"
-                    )
+                    log.debug(f"Wallets seeded from {json_path}", source="DataLocker")
                 except Exception as e:
                     log.error(f"❌ Failed seeding wallets: {e}", source="DataLocker")
             else:
@@ -608,7 +620,6 @@ class DataLocker:
                     f"Wallet seed file not found at {json_path}",
                     source="DataLocker",
                 )
-
 
     def _seed_thresholds_if_empty(self):
         """Seed alert_thresholds table with defaults if empty."""
@@ -629,14 +640,16 @@ class DataLocker:
                 created, updated = seeder.seed_all()
                 log.debug(
                     f"Alert thresholds seeded: {created} created, {updated} updated",
-
                     source="DataLocker",
                 )
             except Exception as e:
-                log.error(f"❌ Failed seeding alert thresholds: {e}", source="DataLocker")
+                log.error(
+                    f"❌ Failed seeding alert thresholds: {e}", source="DataLocker"
+                )
 
                 try:
                     from system.death_nail_service import DeathNailService
+
                     # DeathNailService(log).trigger({
                     #     "message": "💀 Failed to seed alert thresholds",
                     #     "level": "HIGH",
@@ -690,15 +703,12 @@ class DataLocker:
                     "⚠️ DLThresholdManager not available; skipping TravelPercent seed",
                     source="DataLocker",
                 )
-            log.debug(
-                "TravelPercent threshold seeded by ensure", source="DataLocker"
-            )
+            log.debug("TravelPercent threshold seeded by ensure", source="DataLocker")
         except Exception as e:
             log.error(
                 f"❌ Failed ensuring TravelPercent threshold: {e}",
                 source="DataLocker",
             )
-
 
     def _seed_alerts_if_empty(self):
         """Seed the alerts table from sample_alerts.json if no alerts exist."""
@@ -770,8 +780,6 @@ class DataLocker:
         except Exception as e:
             log.error(f"❌ Failed seeding alert config: {e}", source="DataLocker")
 
-
-
     def get_all_tables_as_dict(self) -> dict:
         """Return all user tables and their rows as a dictionary."""
         try:
@@ -793,3 +801,6 @@ class DataLocker:
             log.error(f"❌ Failed to gather tables: {e}", source="DataLocker")
             return {}
 
+    def read_table(self, name: str, limit: int = 200) -> list:
+        """Convenience wrapper for ``DatabaseManager.read_table``."""
+        return self.db.read_table(name, limit)
