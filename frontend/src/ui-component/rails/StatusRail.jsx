@@ -1,15 +1,6 @@
 // src/ui-component/rails/StatusRail.jsx
 import Grid from 'components/AppGrid';
-import { IconCurrencyDollar } from '@tabler/icons-react';
-import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
-
-import TotalValueCard from 'ui-component/cards/TotalValueCard';
-import TotalHeatIndexDarkCard from 'ui-component/cards/TotalHeatIndexDarkCard';
-import TotalHeatIndexLightCard from 'ui-component/cards/TotalHeatIndexLightCard';
-import TotalLeverageDarkCard from 'ui-component/cards/TotalLeverageDarkCard';
-import TotalLeverageLightCard from 'ui-component/cards/TotalLeverageLightCard';
-import TotalSizeDarkCard from 'ui-component/cards/TotalSizeDarkCard';
-import TotalSizeLightCard from 'ui-component/cards/TotalSizeLightCard';
+import StatCard from 'components/StatCard';
 import { gridSpacing } from 'store/constant';
 
 export default function StatusRail({
@@ -23,46 +14,35 @@ export default function StatusRail({
       sx={{ position: 'sticky', top: 0 }}
     >
       <Grid size={12}>
-        <TotalValueCard
-          primary="Value"
-          secondary={totalValue}
-          content="Yearly revenue"
-          iconPrimary={IconCurrencyDollar}
-          color="primary.main"
+        <StatCard
+          variant={isDark ? 'dark' : 'light'}
+          label="Value"
+          value={totalValue}
         />
       </Grid>
 
       <Grid size={12}>
-        {isDark
-          ? <TotalHeatIndexDarkCard value={heatIndex} />
-          : (
-            <TotalHeatIndexLightCard
-              value={heatIndex}
-              icon={<TableChartOutlinedIcon fontSize="inherit" />}
-            />
-          )}
+        <StatCard
+          variant={isDark ? 'dark' : 'light'}
+          label="Heat"
+          value={heatIndex}
+        />
       </Grid>
 
       <Grid size={12}>
-        {isDark
-          ? <TotalLeverageDarkCard value={leverage} />
-          : (
-            <TotalLeverageLightCard
-              value={leverage}
-              icon={<TableChartOutlinedIcon fontSize="inherit" />}
-            />
-          )}
+        <StatCard
+          variant={isDark ? 'dark' : 'light'}
+          label="Leverage"
+          value={leverage}
+        />
       </Grid>
 
       <Grid size={12}>
-        {isDark
-          ? <TotalSizeDarkCard value={totalSize} />
-          : (
-            <TotalSizeLightCard
-              value={totalSize}
-              icon={<TableChartOutlinedIcon fontSize="inherit" />}
-            />
-          )}
+        <StatCard
+          variant={isDark ? 'dark' : 'light'}
+          label="Size"
+          value={totalSize}
+        />
       </Grid>
     </Grid>
   );

@@ -1,7 +1,6 @@
 
 import { useEffect, useState } from 'react';
 import Grid from '@mui/material/Grid';
-import MonitorSummaryCard from './MonitorSummaryCard';
 import MarketShareAreaChartCard from './PerformanceGraphCard';
 import TraderListCard from './TraderListCard';
 import PositionListCard from './PositionListCard';
@@ -9,7 +8,7 @@ import RevenueCard from 'ui-component/cards/RevenueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 import { useGetPositions } from 'api/positions';
 import { useGetLatestPortfolio } from 'api/portfolio';
-import SonicStatusRail from './SonicStatusRail';
+import DashboardToggle from 'components/DashboardToggle';
 import CompositionPieCard from './CompositionPieCard';
 
 import { gridSpacing } from 'store/constant';
@@ -51,14 +50,7 @@ export default function Analytics() {
       <Grid item xs={12}>
         <Grid container spacing={gridSpacing}>
           <Grid item xs={12} md={8}>
-            <SonicStatusRail
-              data={{
-                value: portfolio?.total_value || 0,
-                heatIndex: avgHeatIndex,
-                leverage: avgLeverage,
-                size: totalSize
-              }}
-            />
+            <DashboardToggle />
           </Grid>
           <Grid item xs={12} md={4}>
             <CompositionPieCard />
@@ -76,9 +68,6 @@ export default function Analytics() {
 
       <Grid item xs={12} lg={4} md={6}>
         <Grid container spacing={gridSpacing}>
-          <Grid item xs={12}>
-            <MonitorSummaryCard />
-          </Grid>
           <Grid item xs={12}>
             <TraderListCard title="Traders" />
           </Grid>
