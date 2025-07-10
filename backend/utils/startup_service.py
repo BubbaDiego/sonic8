@@ -46,7 +46,7 @@ else:
         _loaded_env = ".env.example"
 
 # Database paths
-MOTHER_DB_PATH = os.getenv("MOTHER_DB_PATH", str(DB_PATH))
+MOTHER_DB_PATH = os.getenv("MOTHER_BRAIN_DB_PATH", os.getenv("MOTHER_DB_PATH", str(DB_PATH)))
 LEARNING_DB_PATH = os.getenv("LEARNING_DB_PATH", str(DATA_DIR / "learning_database.db"))
 
 

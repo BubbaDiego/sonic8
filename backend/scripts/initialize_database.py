@@ -21,15 +21,27 @@ import json
 import os
 import sys
 
+try:
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover - optional dependency
+    def load_dotenv(*_a, **_k):
+        return False
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from core.constants import MOTHER_DB_PATH, BASE_DIR
+from core.constants import MOTHER_BRAIN_DB_PATH, BASE_DIR
 from core.core_imports import configure_console_log
 from data.data_locker import DataLocker
 from data.reset_database import reset_database
 from seed_alert_thresholds import seed_thresholds as seed_default_thresholds
 from typing import List, Optional
+
+# Load environment variables from .env if available so MOTHER_BRAIN_DB_PATH is
+# respected when running this script directly.
+dotenv_file = BASE_DIR / ".env"
+if not load_dotenv(dotenv_file):
+    load_dotenv(BASE_DIR / ".env.example")
 
 
 def seed_wallets(locker: DataLocker) -> None:
@@ -76,9 +88,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     configure_console_log()
 
     if args.reset:
-        reset_database(str(MOTHER_DB_PATH))
+        reset_database(str(MOTHER_BRAIN_DB_PATH))
 
-    locker = DataLocker(str(MOTHER_DB_PATH))
+    locker = DataLocker(str(MOTHER_BRAIN_DB_PATH))
 
     if args.all:
         args.seed_wallets = True
@@ -93,7 +105,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         seed_thresholds(locker)
 
     locker.close()
-    print(f"✅ Database initialized at: {MOTHER_DB_PATH}")
+    print(f"✅ Database initialized at: {MOTHER_BRAIN_DB_PATH}")
     return 0
 
 
