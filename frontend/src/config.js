@@ -44,6 +44,7 @@ export const APP_AUTH = AuthProvider.JWT;
 const config = {
   menuOrientation: MenuOrientation.VERTICAL,
   miniDrawer: false,
+  sidePanelWidth: 260,
   fontFamily: `'Roboto', sans-serif`,
   borderRadius: 8,
   outlinedFilled: true,
