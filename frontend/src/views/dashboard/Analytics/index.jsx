@@ -4,18 +4,12 @@ import Grid from '@mui/material/Grid';
 import MarketShareAreaChartCard from './PerformanceGraphCard';
 import TraderListCard from './TraderListCard';
 import PositionListCard from './PositionListCard';
-import RevenueCard from 'ui-component/cards/RevenueCard';
-import UserCountCard from 'ui-component/cards/UserCountCard';
+import StatusRail from 'ui-component/status-rail/StatusRail';
 import { useGetPositions } from 'api/positions';
 import { useGetLatestPortfolio } from 'api/portfolio';
-import DashboardToggle from 'components/DashboardToggle';
 import CompositionPieCard from './CompositionPieCard';
 
 import { gridSpacing } from 'store/constant';
-import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
-import WhatshotTwoToneIcon from '@mui/icons-material/WhatshotTwoTone';
-import ScaleTwoToneIcon from '@mui/icons-material/ScaleTwoTone';
-import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
 
 export default function Analytics() {
   const { portfolio } = useGetLatestPortfolio();
@@ -48,14 +42,7 @@ export default function Analytics() {
   return (
     <Grid container spacing={gridSpacing}>
       <Grid item xs={12}>
-        <Grid container spacing={gridSpacing}>
-          <Grid item xs={12} md={8}>
-            <DashboardToggle />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <CompositionPieCard />
-          </Grid>
-        </Grid>
+        <StatusRail />
       </Grid>
 
       <Grid item xs={12}>
@@ -67,45 +54,11 @@ export default function Analytics() {
       </Grid>
 
       <Grid item xs={12} lg={4} md={6}>
-        <Grid container spacing={gridSpacing}>
-          <Grid item xs={12}>
-            <TraderListCard title="Traders" />
-          </Grid>
-          <Grid item xs={12}>
-            <UserCountCard
-              primary="Average Heat Index"
-              secondary={avgHeatIndex.toFixed(2)}
-              iconPrimary={WhatshotTwoToneIcon}
-              color="error.main"
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <UserCountCard
-              primary="Average Leverage"
-              secondary={avgLeverage.toFixed(2)}
-              iconPrimary={SpeedTwoToneIcon}
-              color="primary.main"
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <RevenueCard
-              primary="Travel %"
-              secondary={`${travelPercent.toFixed(2)}%`}
-              content="Current Avg. Travel %"
-              iconPrimary={PercentTwoToneIcon}
-              color="secondary.main"
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <RevenueCard
-              primary="Total Size"
-              secondary={`${(totalSize / 1000).toFixed(1)}k`}
-              content="Aggregate Size"
-              iconPrimary={ScaleTwoToneIcon}
-              color="primary.main"
-            />
-          </Grid>
-        </Grid>
+        <TraderListCard title="Traders" />
+      </Grid>
+
+      <Grid item xs={12} md={4}>
+        <CompositionPieCard />
       </Grid>
     </Grid>
   );
