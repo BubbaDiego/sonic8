@@ -2,8 +2,6 @@ import json
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
 wallet_json_path = os.path.abspath(os.path.join(
     os.path.dirname(__file__), '..', 'core', 'wallet_core', 'test_wallets', 'star_wars_wallets.json'
 ))

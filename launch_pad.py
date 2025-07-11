@@ -10,7 +10,6 @@ import time
 import sys
 import os
 import platform
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -24,7 +23,7 @@ from test_core import TestCoreRunner, formatter, get_console_ui
 from backend.data.data_locker import DataLocker
 from backend.models.portfolio import PortfolioSnapshot
 from backend.core.constants import MOTHER_DB_PATH
-from core.logging import log, configure_console_log
+from backend.core.logging import log, configure_console_log
 from datetime import datetime
 from backend.utils.time_utils import normalize_iso_timestamp
 

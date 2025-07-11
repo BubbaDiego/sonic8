@@ -1,18 +1,17 @@
 # json_manager.py
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import json
 from enum import Enum
 from typing import Optional
-from utils.rich_logger import RichLogger
+from backend.utils.rich_logger import RichLogger
 import re
 from difflib import get_close_matches
-from core.core_imports import ALERT_THRESHOLDS_PATH
+from backend.core.core_imports import ALERT_THRESHOLDS_PATH
 
 
-from core.constants import THEME_CONFIG_PATH, SONIC_SAUCE_PATH
+from backend.core.constants import THEME_CONFIG_PATH, SONIC_SAUCE_PATH
 
 class JsonType(Enum):
     ALERT_THRESHOLDS = "alert_thresholds.json"

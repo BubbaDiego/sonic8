@@ -1,8 +1,7 @@
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime
-from core.logging import log
+from backend.core.logging import log
 
 
 
@@ -27,5 +26,5 @@ def log_travel_percent_comparison(alert_id, jupiter_value, calculated_value, for
             f.write(log_line)
 
     except Exception as e:
-        from core.logging import log
+        from backend.core.logging import log
         log.error(f"💥 TravelPercent log error: {e}", source="TravelLogger")
