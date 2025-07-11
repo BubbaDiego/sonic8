@@ -12,7 +12,7 @@ from difflib import get_close_matches
 from core.core_imports import ALERT_THRESHOLDS_PATH
 
 
-from core.constants import THEME_CONFIG_PATH, SONIC_SAUCE_PATH
+from core.constants import CONFIG_DIR, THEME_CONFIG_PATH, SONIC_SAUCE_PATH
 
 class JsonType(Enum):
     ALERT_THRESHOLDS = "alert_thresholds.json"
@@ -31,8 +31,8 @@ class JsonManager:
             JsonType.ALERT_THRESHOLDS: ALERT_THRESHOLDS_PATH,
             JsonType.THEME_CONFIG: THEME_CONFIG_PATH,
             JsonType.SONIC_SAUCE: SONIC_SAUCE_PATH,
-            JsonType.SONIC_CONFIG: "config/sonic_config.json",
-            JsonType.COMM_CONFIG: "config/comm_config.json"
+            JsonType.SONIC_CONFIG: CONFIG_DIR / "sonic_config.json",
+            JsonType.COMM_CONFIG: CONFIG_DIR / "comm_config.json"
         }
 
         # ✅ Resolve mapped path if JsonType is provided
