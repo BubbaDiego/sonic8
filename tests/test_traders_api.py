@@ -14,7 +14,7 @@ def _setup_client(tmp_path, monkeypatch):
 def test_get_traders_returns_data(tmp_path, monkeypatch):
     client, dl = _setup_client(tmp_path, monkeypatch)
     dl.traders.create_trader({"name": "Alice"})
-    resp = client.get("/traders/")
+    resp = client.get("/api/traders/")
     assert resp.status_code == 200
     assert any(t["name"] == "Alice" for t in resp.json())
 
