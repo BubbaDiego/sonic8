@@ -5,7 +5,7 @@ import LocalFireDepartmentTwoToneIcon from '@mui/icons-material/LocalFireDepartm
 import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 import Inventory2TwoToneIcon from '@mui/icons-material/Inventory2TwoTone';
 
-export default function PortfolioBar({ data = {}, variant = 'light' }) {
+export default function PortfolioBar({ data = {}, variant = 'light', onToggle }) {
   const value = `$${Number(data.value || 0).toLocaleString()}`;
   const heat = Number(data.heatIndex || 0).toFixed(2);
   const leverage = Number(data.leverage || 0).toFixed(2);
@@ -19,6 +19,7 @@ export default function PortfolioBar({ data = {}, variant = 'light' }) {
           label="Value"
           value={value}
           icon={<MonetizationOnTwoToneIcon />}
+          onClick={onToggle}
         />
       </Grid>
       <Grid size={3}>
@@ -27,6 +28,7 @@ export default function PortfolioBar({ data = {}, variant = 'light' }) {
           label="Heat"
           value={heat}
           icon={<LocalFireDepartmentTwoToneIcon />}
+          onClick={onToggle}
         />
       </Grid>
       <Grid size={3}>
@@ -35,6 +37,7 @@ export default function PortfolioBar({ data = {}, variant = 'light' }) {
           label="Leverage"
           value={leverage}
           icon={<TrendingUpTwoToneIcon />}
+          onClick={onToggle}
         />
       </Grid>
       <Grid size={3}>
@@ -43,6 +46,7 @@ export default function PortfolioBar({ data = {}, variant = 'light' }) {
           label="Size"
           value={size}
           icon={<Inventory2TwoToneIcon />}
+          onClick={onToggle}
         />
       </Grid>
     </Grid>
