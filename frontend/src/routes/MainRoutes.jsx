@@ -5,6 +5,7 @@ import Loadable from 'ui-component/Loadable';
 import DashboardGrid   from 'components/dashboard-grid/DashboardGrid';
 import analyticsLayout from 'views/dashboard/analytics-wireframe.json';
 import Sonic from 'views/sonic';
+import ErrorBoundary from './ErrorBoundary';
 
 
 
@@ -24,6 +25,7 @@ const DatabaseViewer = Loadable(lazy(() => import('views/debug/DatabaseViewer'))
 const MainRoutes = {
   path: '/',
   element: <MainLayout />,
+  errorElement: <ErrorBoundary />,
   children: [
     {
       index: true,
