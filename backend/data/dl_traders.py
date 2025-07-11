@@ -249,3 +249,53 @@ class DLTraderManager:
         log.info(f"♻️ Imported {count} traders from {path}", source="DLTraderManager")
         return count
 
+    def quick_import_from_wallets(self) -> bool:
+        """Create traders from active wallets whose names match a persona."""
+        try:
+            cursor = self.db.get_cursor()
+            if cursor is None:
+                log.error("DB unavailable for quick import", source="DLTraderManager")
+                return False
+
+            cursor.execute("SELECT name, balance, is_active FROM wallets")
+            wallets = [dict(row) for row in cursor.fetchall()]
+
+            active = [w for w in wallets if w.get("is_active", 1)]
+
+            from backend.core.oracle_core.persona_manager import PersonaManager
+            from backend.core.trader_core.persona_avatars import AVATARS
+
+            pm = PersonaManager()
+            persona_names = list(pm.list_personas())
+
+            created = 0
+            for w in active:
+                wname = w.get("name", "")
+                match = next((p for p in persona_names if p.lower() in wname.lower()), None)
+                if not match:
+                    continue
+
+                persona = pm.get(match)
+                avatar_key = getattr(persona, "avatar", match)
+                avatar = AVATARS.get(avatar_key, {}).get("icon", avatar_key)
+
+                trader_data = {
+                    "name": persona.name,
+                    "avatar": avatar,
+                    "color": getattr(persona, "color", ""),
+                    "wallet": wname,
+                    "born_on": iso_utc_now(),
+                    "initial_collateral": w.get("balance", 0.0),
+                }
+
+                if self.create_trader(trader_data):
+                    created += 1
+
+            log.info(
+                f"Quick import created {created} traders", source="DLTraderManager"
+            )
+            return created > 0
+        except Exception as e:
+            log.error(f"❌ Failed quick import from wallets: {e}", source="DLTraderManager")
+            return False
+
