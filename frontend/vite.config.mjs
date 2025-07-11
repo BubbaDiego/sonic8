@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => {
       open: true,
       port: PORT,
       host: true,
+      hmr: {
+        overlay: true
+      },
       proxy: {
         // Forward every request that starts with /cyclone to the backend
         '/cyclone': {
