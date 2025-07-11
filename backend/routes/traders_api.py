@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from backend.models.trader import Trader
-from data.dl_traders import DLTraderManager
+from data.dl_traders import DLTraderManager, ACTIVE_TRADERS_JSON_PATH
 from backend.data.data_locker import DataLocker
+import os
 
 router = APIRouter(prefix="/api/traders", tags=["traders"])
 
@@ -42,3 +44,11 @@ async def quick_import_traders(dl: DataLocker = Depends(_dl)):
     if dl.traders.quick_import_from_wallets():
         return {"status": "created"}
     raise HTTPException(status_code=400, detail="Quick import failed")
+
+
+@router.get("/export")
+async def export_traders(dl: DataLocker = Depends(_dl)):
+    """Export traders to ``active_traders.json`` and return the file."""
+    path = str(ACTIVE_TRADERS_JSON_PATH)
+    dl.traders.export_to_json(path)
+    return FileResponse(path, filename=os.path.basename(path), media_type="application/json")

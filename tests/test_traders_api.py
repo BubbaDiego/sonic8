@@ -18,3 +18,19 @@ def test_get_traders_returns_data(tmp_path, monkeypatch):
     assert resp.status_code == 200
     assert any(t["name"] == "Alice" for t in resp.json())
 
+
+def test_export_traders(tmp_path, monkeypatch):
+    import json
+    from data import dl_traders as dl_t
+
+    client, dl = _setup_client(tmp_path, monkeypatch)
+    json_path = tmp_path / "active_traders.json"
+    monkeypatch.setattr(dl_t, "ACTIVE_TRADERS_JSON_PATH", json_path)
+
+    dl.traders.create_trader({"name": "Alice"})
+    resp = client.get("/traders/export")
+    assert resp.status_code == 200
+    assert json_path.exists()
+    data = json.loads(json_path.read_text())
+    assert any(t["name"] == "Alice" for t in data)
+
