@@ -1,9 +1,9 @@
 # backend/routes/positions_api.py
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from models.position import Position, PositionDB
+from backend.models.position import Position, PositionDB
 from backend.data.data_locker import DataLocker
-from core.positions_core.position_core import PositionCore
-from services.position_service import CyclonePositionService
+from backend.core.positions_core.position_core import PositionCore
+from backend.services.position_service import CyclonePositionService
 
 router = APIRouter(prefix="/positions", tags=["positions"])
 
