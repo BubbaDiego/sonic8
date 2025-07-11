@@ -2,9 +2,7 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(Path(__file__).resolve().parent.parent))
-
-from core.constants import (
+from backend.core.constants import (
     DB_PATH,
     CONFIG_PATH,
     ALERT_THRESHOLDS_PATH,
@@ -18,13 +16,13 @@ from core.constants import (
     DATA_DIR,
     LOG_DIR,
 )
-from utils.schema_validation_service import SchemaValidationService
-from data.data_locker import DataLocker
-from monitor.operations_monitor import OperationsMonitor
-from xcom.check_twilio_heartbeat_service import CheckTwilioHeartbeatService
-from utils.path_audit import run_audit
-from xcom.sound_service import SoundService
-from scripts.verify_all_tables_exist import verify_all_tables_exist
+from backend.utils.schema_validation_service import SchemaValidationService
+from backend.data.data_locker import DataLocker
+from backend.core.monitor_core.operations_monitor import OperationsMonitor
+from backend.core.xcom_core.check_twilio_heartbeat_service import CheckTwilioHeartbeatService
+from backend.utils.path_audit import run_audit
+from backend.core.xcom_core.sound_service import SoundService
+from backend.scripts.verify_all_tables_exist import verify_all_tables_exist
 from typing import Optional
 try:
     from dotenv import load_dotenv
@@ -76,8 +74,8 @@ class DotSpinner:
         sys.stdout.write("\n")
         sys.stdout.flush()
 
-from config.config_loader import save_config
-from core.core_imports import log
+from backend.config.config_loader import save_config
+from backend.core.core_imports import log
 
 if _loaded_env:
     log.info(f"Loaded environment from {_loaded_env}", source="StartUpService")

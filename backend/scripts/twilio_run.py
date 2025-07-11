@@ -24,10 +24,8 @@ from typing import List
 
 # Make sure we can import scripts.twilio_test when executed from repo root
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
 
-from twilio_test import main as twilio_test_main
+from backend.scripts.twilio_test import main as twilio_test_main
 
 
 def build_argv() -> List[str]:

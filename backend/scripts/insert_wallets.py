@@ -23,14 +23,12 @@ def _resolve_placeholder(placeholder: str) -> str | None:
 # Ensure repository root is on the import path
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
-from core.constants import MOTHER_DB_PATH
-from core.core_imports import configure_console_log
-from data.data_locker import DataLocker
-from wallets.wallet_service import WalletService
-from wallets.wallet_schema import WalletIn
+from backend.core.constants import MOTHER_DB_PATH
+from backend.core.core_imports import configure_console_log
+from backend.data.data_locker import DataLocker
+from backend.core.wallet_core.wallet_service import WalletService
+from backend.core.wallet_core.wallet_schema import WalletIn
 
 
 def load_wallets(json_path: Path) -> List[dict]:

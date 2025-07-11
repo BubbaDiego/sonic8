@@ -1,13 +1,11 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import json
 import jsonschema
 from jsonschema import validate
-from core.core_imports import log
-from core.constants import ALERT_THRESHOLDS_PATH
+from backend.core.core_imports import log
+from backend.core.constants import ALERT_THRESHOLDS_PATH
 
 class SchemaValidationService:
     """
