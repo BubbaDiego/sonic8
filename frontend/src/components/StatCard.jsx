@@ -51,12 +51,19 @@ export default function StatCard({
   label,
   value,
   secondary,
-  variant = 'light'
+  variant = 'light',
+  onClick
 }) {
   const theme = useTheme();
 
   return (
-    <CardWrapper variant={variant} border={false} content={false}>
+    <CardWrapper
+      variant={variant}
+      border={false}
+      content={false}
+      onClick={onClick}
+      sx={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
         {icon && (
           <Avatar
@@ -101,5 +108,6 @@ StatCard.propTypes = {
   label: PropTypes.string,
   value: PropTypes.any,
   secondary: PropTypes.any,
-  variant: PropTypes.oneOf(['light', 'dark'])
+  variant: PropTypes.oneOf(['light', 'dark']),
+  onClick: PropTypes.func
 };

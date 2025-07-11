@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import PortfolioBar from './PortfolioBar';
 import OperationsBar from './OperationsBar';
@@ -26,20 +25,23 @@ export default function DashboardToggle() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-        <Button size="small" variant="outlined" onClick={toggle}>
-          {mode === 'portfolio' ? 'Show Operations' : 'Show Portfolio'}
-        </Button>
-      </Box>
       {mode === 'portfolio' ? (
-        <PortfolioBar data={{
-          value: portfolio?.total_value,
-          heatIndex: portfolio?.avg_heat_index,
-          leverage: portfolio?.avg_leverage,
-          size: portfolio?.total_size
-        }} variant={variant} />
+        <PortfolioBar
+          data={{
+            value: portfolio?.total_value,
+            heatIndex: portfolio?.avg_heat_index,
+            leverage: portfolio?.avg_leverage,
+            size: portfolio?.total_size
+          }}
+          variant={variant}
+          onToggle={toggle}
+        />
       ) : (
-        <OperationsBar monitors={monitorStatus?.monitors || {}} variant={variant} />
+        <OperationsBar
+          monitors={monitorStatus?.monitors || {}}
+          variant={variant}
+          onToggle={toggle}
+        />
       )}
     </Box>
   );

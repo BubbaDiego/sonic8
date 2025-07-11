@@ -25,7 +25,7 @@ function statusColor(theme, status) {
   return theme.palette.error.main;
 }
 
-export default function OperationsBar({ monitors = {}, variant = 'light' }) {
+export default function OperationsBar({ monitors = {}, variant = 'light', onToggle }) {
   const theme = useTheme();
   return (
     <Grid container spacing={2}>
@@ -42,7 +42,13 @@ export default function OperationsBar({ monitors = {}, variant = 'light' }) {
         const secondary = detail.last_updated ? new Date(detail.last_updated).toLocaleString() : 'Never';
         return (
           <Grid size={3} key={name}>
-            <StatCard variant={variant} label={short} value={value} secondary={secondary} />
+            <StatCard
+              variant={variant}
+              label={short}
+              value={value}
+              secondary={secondary}
+              onClick={onToggle}
+            />
           </Grid>
         );
       })}
