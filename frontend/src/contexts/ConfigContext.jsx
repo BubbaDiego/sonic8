@@ -46,7 +46,7 @@ function ConfigProvider({ children }) {
     container: initialState.container,
     sidePanelWidth: initialState.sidePanelWidth
   });
-  const [sidePanelWidth, setSidePanelWidth] = useLocalStorage(
+  const [sidePanelWidth, setSidePanelWidthLocalStorage] = useLocalStorage(
     'sidePanelWidth',
     defaultConfig.sidePanelWidth
   );
@@ -65,11 +65,12 @@ function ConfigProvider({ children }) {
     });
   };
 
-  const setSidePanelWidth = (sidePanelWidth) => {
-    setConfig({
-      ...config,
-      sidePanelWidth
-    });
+  const updateSidePanelWidth = (newWidth) => {
+    setSidePanelWidthLocalStorage(newWidth);
+    setConfig((prevConfig) => ({
+      ...prevConfig,
+      sidePanelWidth: newWidth
+    }));
   };
 
   const onChangeMode = (mode) => {
@@ -149,7 +150,7 @@ function ConfigProvider({ children }) {
 
         onReset,
         sidePanelWidth,
-        setSidePanelWidth
+        setSidePanelWidth: updateSidePanelWidth
 
       }}
     >
