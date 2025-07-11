@@ -6,6 +6,7 @@ import alertThresholds from './alert-thresholds';
 import walletManager from './wallet-manager';
 import sonicLabs from './sonic-labs';
 import traderShop from './traderShop';
+import sonic from './sonic';
 
 const menuItems = {
   items: [
@@ -13,16 +14,7 @@ const menuItems = {
       id: 'main-pages',
       title: 'Main Pages',
       type: 'group',
-      children: [
-        overview,
-        analytics,
-        dashboardDefault,
-        positions,
-        walletManager,
-        alertThresholds,
-        sonicLabs,
-        traderShop
-      ]
+      children: [overview, analytics, dashboardDefault, positions, walletManager, alertThresholds, sonicLabs, traderShop, sonic]
     }
   ]
 };
