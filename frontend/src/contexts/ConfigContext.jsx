@@ -5,9 +5,14 @@ import { createContext } from 'react';
 import defaultConfig from 'config';
 import useLocalStorage from 'hooks/useLocalStorage';
 
+const mergedDefaultConfig = {
+  ...defaultConfig,
+  sidePanelWidth: Number(localStorage.getItem('sidePanelWidth')) || 320
+};
+
 // initial state
 const initialState = {
-  ...defaultConfig,
+  ...mergedDefaultConfig,
   onChangeMenuOrientation: () => {},
   onChangeMiniDrawer: () => {},
   onChangeMode: () => {},
@@ -38,8 +43,13 @@ function ConfigProvider({ children }) {
     presetColor: initialState.presetColor,
     i18n: initialState.i18n,
     themeDirection: initialState.themeDirection,
-    container: initialState.container
+    container: initialState.container,
+    sidePanelWidth: initialState.sidePanelWidth
   });
+  const [sidePanelWidth, setSidePanelWidth] = useLocalStorage(
+    'sidePanelWidth',
+    defaultConfig.sidePanelWidth
+  );
 
   const onChangeMenuOrientation = (menuOrientation) => {
     setConfig({
@@ -136,8 +146,11 @@ function ConfigProvider({ children }) {
         onChangeFontFamily,
         onChangeBorderRadius,
         onChangeOutlinedField,
-        setSidePanelWidth,
-        onReset
+
+        onReset,
+        sidePanelWidth,
+        setSidePanelWidth
+
       }}
     >
       {children}

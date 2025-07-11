@@ -49,6 +49,7 @@ const config = {
   borderRadius: 8,
   outlinedFilled: true,
   mode: ThemeMode.LIGHT,
+  sidePanelWidth: 320,
   presetColor: 'default',
   i18n: 'en',
   themeDirection: ThemeDirection.LTR,
