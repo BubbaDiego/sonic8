@@ -26,7 +26,7 @@ const MainRoutes = {
   children: [
     {
       index: true,
-      element: <Navigate to="/overview" />
+      element: <Navigate to="/dashboard/analytics" />
     },
     {
       path: 'debug/db',
