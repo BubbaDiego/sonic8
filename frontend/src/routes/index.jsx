@@ -1,7 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 
-// error boundary
-import ErrorBoundary from './ErrorBoundary.jsx';
+
 
 // routes
 import AuthenticationRoutes from './AuthenticationRoutes';

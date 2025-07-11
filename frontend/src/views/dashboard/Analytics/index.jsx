@@ -1,14 +1,12 @@
-
 import { useEffect, useState } from 'react';
 import Grid from '@mui/material/Grid';
-import MarketShareAreaChartCard from './PerformanceGraphCard';
-import TraderListCard from './TraderListCard';
-import PositionListCard from './PositionListCard';
+import MarketShareAreaChartCard from 'views/dashboard/analytics/PerformanceGraphCard';
+import TraderListCard from 'views/dashboard/analytics/TraderListCard';
+import PositionListCard from 'views/dashboard/analytics/PositionListCard';
 import StatusRail from 'ui-component/status-rail/StatusRail';
 import { useGetPositions } from 'api/positions';
 import { useGetLatestPortfolio } from 'api/portfolio';
-import CompositionPieCard from './CompositionPieCard';
-
+import CompositionPieCard from 'views/dashboard/analytics/CompositionPieCard';
 import { gridSpacing } from 'store/constant';
 
 export default function Analytics() {
