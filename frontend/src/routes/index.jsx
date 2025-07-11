@@ -4,6 +4,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import AuthenticationRoutes from './AuthenticationRoutes';
 import MainRoutes from './MainRoutes';
 import TraderShopRoutes from './TraderShopRoutes';
+import ErrorBoundary from './ErrorBoundary';
 
 // ==============================|| ROUTING RENDER ||============================== //
 
