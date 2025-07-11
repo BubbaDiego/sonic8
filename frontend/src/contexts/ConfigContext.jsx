@@ -18,6 +18,7 @@ const initialState = {
   onChangeFontFamily: () => {},
   onChangeBorderRadius: () => {},
   onChangeOutlinedField: () => {},
+  setSidePanelWidth: () => {},
   onReset: () => {}
 };
 
@@ -29,6 +30,7 @@ function ConfigProvider({ children }) {
   const [config, setConfig] = useLocalStorage('berry-config-vite-ts', {
     menuOrientation: initialState.menuOrientation,
     miniDrawer: initialState.miniDrawer,
+    sidePanelWidth: initialState.sidePanelWidth,
     fontFamily: initialState.fontFamily,
     borderRadius: initialState.borderRadius,
     outlinedFilled: initialState.outlinedFilled,
@@ -50,6 +52,13 @@ function ConfigProvider({ children }) {
     setConfig({
       ...config,
       miniDrawer
+    });
+  };
+
+  const setSidePanelWidth = (sidePanelWidth) => {
+    setConfig({
+      ...config,
+      sidePanelWidth
     });
   };
 
@@ -127,6 +136,7 @@ function ConfigProvider({ children }) {
         onChangeFontFamily,
         onChangeBorderRadius,
         onChangeOutlinedField,
+        setSidePanelWidth,
         onReset
       }}
     >
