@@ -4,6 +4,7 @@ import MainLayout from 'layout/MainLayout';
 import Loadable from 'ui-component/Loadable';
 import DashboardGrid   from 'components/dashboard-grid/DashboardGrid';
 import analyticsLayout from 'views/dashboard/analytics-wireframe.json';
+import Sonic from 'views/sonic';
 
 
 
@@ -66,6 +67,10 @@ const MainRoutes = {
 
       path: '/sonic-labs',
       element: <SonicLabsPage />
+    },
+    {
+      path: '/sonic',
+      element: <Sonic />
     }
   ]
 };
