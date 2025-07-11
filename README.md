@@ -44,8 +44,14 @@ npm run start
 ```
 
 The Vite dev server disables the hot module replacement (HMR) error overlay by
-default. You can change this by editing `frontend/vite.config.mjs` and setting
-`server.hmr.overlay` to `true`.
+default. For local development you can enable it by editing
+`frontend/vite.config.mjs` and adding the following block:
+
+```js
+server: { hmr: { overlay: true } }
+```
+
+Production builds can omit this overlay configuration.
 
 Feel free to explore each directory for more details.
 
