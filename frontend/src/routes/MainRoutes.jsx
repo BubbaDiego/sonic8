@@ -29,7 +29,7 @@ const MainRoutes = {
   children: [
     {
       index: true,
-      element: <Navigate to="/dashboard/analytics" />
+      element: <Navigate to="/sonic" />
     },
     {
       path: 'debug/db',

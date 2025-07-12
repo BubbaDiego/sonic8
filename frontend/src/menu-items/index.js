@@ -1,4 +1,3 @@
-import overview from './overview';
 import analytics from './analytics';
 import dashboardDefault from './dashboard-default';
 import positions from './positions';
@@ -14,7 +13,7 @@ const menuItems = {
       id: 'main-pages',
       title: 'Main Pages',
       type: 'group',
-      children: [overview, analytics, dashboardDefault, positions, walletManager, alertThresholds, sonicLabs, traderShop, sonic]
+      children: [sonic, analytics, dashboardDefault, positions, walletManager, alertThresholds, sonicLabs, traderShop]
     }
   ]
 };
