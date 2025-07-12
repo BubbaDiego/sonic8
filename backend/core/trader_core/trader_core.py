@@ -41,8 +41,8 @@ class TraderCore:
         persona = self.persona_manager.get(trader_name)
         wallet_name = persona.name + "Vault"
         wallet_data = None
-        if self.data_locker and getattr(self.data_locker, "wallets", None):
-            wallet_data = self.data_locker.wallets.get_wallet_by_name(wallet_name)
+        if self.data_locker and hasattr(self.data_locker, "get_wallet_by_name"):
+            wallet_data = self.data_locker.get_wallet_by_name(wallet_name)
         positions = []
         if self.data_locker and getattr(self.data_locker, "positions", None):
             pm = self.data_locker.positions
@@ -55,7 +55,10 @@ class TraderCore:
         avg_heat = calc.calculate_weighted_heat_index(positions)
         mood = evaluate_mood(avg_heat, getattr(persona, "moods", {}))
         score = max(0, int(100 - avg_heat))
-        total_balance = sum(float(p.get("value") or 0.0) for p in positions)
+        wallet_balance = (
+            wallet_data.get("balance", 0.0) if isinstance(wallet_data, dict) else 0.0
+        )
+        wallet_balance += sum(float(p.get("value") or 0.0) for p in positions)
         total_profit = sum(calc.calculate_profit(p) for p in positions)
         born_on = iso_utc_now()
         initial_collateral = (
@@ -73,7 +76,7 @@ class TraderCore:
             strategies=persona.strategy_weights,
             strategy_notes="",
             wallet=wallet_data.get("name") if isinstance(wallet_data, dict) else wallet_name,
-            wallet_balance=round(total_balance, 2),
+            wallet_balance=round(wallet_balance, 2),
             profit=round(total_profit, 2),
             portfolio=portfolio,
             positions=positions,
@@ -125,12 +128,18 @@ class TraderCore:
 
         calc = CalcServices()
         avg_heat = calc.calculate_weighted_heat_index(positions)
-        total_balance = sum(float(p.get("value") or 0.0) for p in positions)
+        wallet_data = None
+        if self.data_locker and hasattr(self.data_locker, "get_wallet_by_name"):
+            wallet_data = self.data_locker.get_wallet_by_name(wallet_name)
+        wallet_balance = (
+            wallet_data.get("balance", 0.0) if isinstance(wallet_data, dict) else 0.0
+        )
+        wallet_balance += sum(float(p.get("value") or 0.0) for p in positions)
         total_profit = sum(calc.calculate_profit(p) for p in positions)
         trader.positions = positions
         trader.heat_index = avg_heat
         trader.performance_score = max(0, int(100 - avg_heat))
-        trader.wallet_balance = round(total_balance, 2)
+        trader.wallet_balance = round(wallet_balance, 2)
         trader.profit = round(total_profit, 2)
 
         if hasattr(self.data_locker, "traders"):

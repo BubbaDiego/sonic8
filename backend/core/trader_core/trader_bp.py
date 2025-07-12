@@ -57,6 +57,9 @@ def _enrich_trader(trader: dict, dl, pm: PersonaManager, calc: CalcServices) -> 
             log.debug(f"Wallet lookup failed: {exc}", source="TraderBP")
     if wallet_info:
         trader["public_address"] = wallet_info.get("public_address", "")
+        balance = wallet_info.get("balance", 0.0)
+    else:
+        balance = None
 
     positions = []
     if hasattr(dl, "positions"):
@@ -67,7 +70,8 @@ def _enrich_trader(trader: dict, dl, pm: PersonaManager, calc: CalcServices) -> 
             positions = pos_mgr.get_all_positions() or []
 
     try:
-        balance = sum(float(p.get("value") or 0.0) for p in positions)
+        if balance is None:
+            balance = sum(float(p.get("value") or 0.0) for p in positions)
         profit = sum(calc.calculate_profit(p) for p in positions)
         trader["wallet_balance"] = round(balance, 2)
         trader["profit"] = round(profit, 2)

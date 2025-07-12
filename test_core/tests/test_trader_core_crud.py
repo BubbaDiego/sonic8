@@ -13,6 +13,9 @@ class DummyLocker:
         self.positions = types.SimpleNamespace(get_all_positions=lambda: [])
         self.portfolio = types.SimpleNamespace(get_latest_snapshot=lambda: {})
 
+    def get_wallet_by_name(self, name):
+        return self.wallets.get_wallet_by_name(name)
+
     def get_last_update_times(self):
         return {}
 
@@ -85,3 +88,17 @@ def test_delete_trader(core):
     core.save_trader(trader)
     assert core.delete_trader("TestBot")
     assert core.store.get("TestBot") is None
+
+
+def test_create_trader_uses_wallet_balance(core):
+    core.data_locker.wallets.get_wallet_by_name = lambda name: {"name": name, "balance": 42}
+    trader = core.create_trader("TestBot")
+    assert trader.wallet_balance == 42
+
+
+def test_refresh_trader_uses_wallet_balance(core):
+    core.data_locker.wallets.get_wallet_by_name = lambda name: {"name": name, "balance": 50}
+    trader = core.create_trader("TestBot")
+    core.save_trader(trader)
+    refreshed = core.refresh_trader("TestBot")
+    assert refreshed.wallet_balance == 50
