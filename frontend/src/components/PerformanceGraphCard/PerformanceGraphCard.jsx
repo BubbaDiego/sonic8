@@ -16,7 +16,7 @@ export default function PerformanceGraphCard() {
   const theme = useTheme();
   const { mode } = useConfig();
   const { history = [], historyLoading } = useGetPortfolioHistory();
-  const [granularity, setGranularity] = useState('day');
+  const [granularity, setGranularity] = useState('24');
 
   const bucketHistory = (granularity, rows = []) => {
     const buckets = new Map();
@@ -24,33 +24,34 @@ export default function PerformanceGraphCard() {
     rows.forEach((row) => {
       const date = parseISO(row.snapshot_time);
       let key;
-      if (granularity === 'week') {
+      if (granularity === '1w') {
         key = format(startOfWeek(date), 'yyyy-MM-dd');
-      } else if (granularity === 'month') {
-        key = format(date, 'yyyy-MM');
-      } else {
+      } else if (granularity === '24') {
         key = format(date, 'yyyy-MM-dd');
+      } else if (granularity === '12') {
+        key = format(date, 'yyyy-MM-dd HH');
+      } else {
+        key = format(date, 'yyyy-MM-dd HH:mm');
       }
 
-      const prev = buckets.get(key) ?? { value: 0, collateral: 0, sp500: 0, count: 0 };
+      const prev = buckets.get(key) ?? { value: 0, collateral: 0, btc: 0, count: 0 };
       buckets.set(key, {
         value: prev.value + Number(row.total_value || 0),
         collateral: prev.collateral + Number(row.total_collateral || 0),
-        sp500: prev.sp500 + Number(row.market_average_sp500 || 0),
+        btc: prev.btc + Number(row.market_average_btc || 0),
         count: prev.count + 1
       });
     });
 
-    const categories = [];
-    const valueSeries = [], collateralSeries = [], sp500Series = [];
+    const categories = [], valueSeries = [], collateralSeries = [], btcSeries = [];
     [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([k, v]) => {
       categories.push(k);
       valueSeries.push(Math.round(v.value / v.count));
       collateralSeries.push(Math.round(v.collateral / v.count));
-      sp500Series.push(Math.round(v.sp500 / v.count));
+      btcSeries.push(Math.round(v.btc / v.count));
     });
 
-    return { categories, valueSeries, collateralSeries, sp500Series };
+    return { categories, valueSeries, collateralSeries, btcSeries };
   };
 
   const bucketed = useMemo(() => bucketHistory(granularity, history), [granularity, history]);
@@ -61,7 +62,7 @@ export default function PerformanceGraphCard() {
       chart: {
         animations: { enabled: false },
         zoom: { enabled: true, autoScaleYaxis: true },
-        toolbar: { show: true, autoSelected: 'zoom' }
+        toolbar: { show: true, tools: { download: false }, autoSelected: 'zoom' }
       },
       stroke: { curve: 'smooth', width: 2 },
       dataLabels: { enabled: false },
@@ -75,18 +76,18 @@ export default function PerformanceGraphCard() {
   useEffect(() => {
     if (historyLoading) return;
 
-    const { categories, valueSeries, collateralSeries, sp500Series } = bucketed;
+    const { categories, valueSeries, collateralSeries, btcSeries } = bucketed;
 
     setChartConfig((prevState) => ({
       ...prevState,
       series: [
-        { name: 'Value', data: valueSeries },
-        { name: 'Collateral', data: collateralSeries },
-        { name: 'SP500', data: sp500Series }
+        { name: `${valueSeries[valueSeries.length - 1]}`, data: valueSeries, color: theme.palette.primary.main },
+        { name: `${collateralSeries[collateralSeries.length - 1]}`, data: collateralSeries, color: theme.palette.secondary.main },
+        { name: 'BTC', data: btcSeries }
       ],
       options: { ...prevState.options, xaxis: { categories }, tooltip: { theme: mode } }
     }));
-  }, [bucketed, historyLoading, mode]);
+  }, [bucketed, historyLoading, mode, theme.palette.primary.main, theme.palette.secondary.main]);
 
   const iconSX = {
     width: 30,
@@ -104,23 +105,23 @@ export default function PerformanceGraphCard() {
           <Grid item>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={iconSX}><IconCoin stroke={1.5} /></Box>
-              <Box component="span" sx={{ typography: 'subtitle1' }}>Value</Box>
+              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.primary.main }}>{bucketed.valueSeries.at(-1)}</Box>
               <Box sx={iconSX}><IconPigMoney stroke={1.5} /></Box>
-              <Box component="span" sx={{ typography: 'subtitle1' }}>Collateral</Box>
+              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.secondary.main }}>{bucketed.collateralSeries.at(-1)}</Box>
               <Box sx={iconSX}><IconChartAreaLine stroke={1.5} /></Box>
-              <Box component="span" sx={{ typography: 'subtitle1' }}>SP500</Box>
+              <Box component="span" sx={{ typography: 'subtitle1' }}>BTC</Box>
             </Box>
           </Grid>
           <Grid item>
             <ToggleButtonGroup size="small" exclusive value={granularity} onChange={(_, v) => v && setGranularity(v)}>
-              <ToggleButton value="day">Day</ToggleButton>
-              <ToggleButton value="week">Week</ToggleButton>
-              <ToggleButton value="month">Month</ToggleButton>
+              <ToggleButton value="1">1hr</ToggleButton>
+              <ToggleButton value="12">12hr</ToggleButton>
+              <ToggleButton value="24">24hr</ToggleButton>
+              <ToggleButton value="1w">1w</ToggleButton>
             </ToggleButtonGroup>
           </Grid>
         </Grid>
       </Box>
-
       <Box sx={{ flexGrow: 1, minHeight: 220, px: 1 }}>
         <Chart {...chartConfig} height="100%" />
       </Box>
