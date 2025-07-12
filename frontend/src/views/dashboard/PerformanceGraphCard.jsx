@@ -1,21 +1,35 @@
-// PerformanceGraphCard.jsx
 import { useEffect, useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import Grid from '@mui/material/Grid';
-import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Chart from 'react-apexcharts';
 import MainCard from 'ui-component/cards/MainCard';
 import { ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
-import chartData from './chart-data/market-share-area-chart';
+import chartData from 'components/PerformanceGraphCard/chart-data/market-share-area-chart';
 import { useGetPortfolioHistory } from 'api/portfolio';
 import { IconCoin, IconPigMoney, IconChartAreaLine } from '@tabler/icons-react';
 
 export default function PerformanceGraphCard() {
   const theme = useTheme();
   const { mode } = useConfig();
-  const [chartConfig, setChartConfig] = useState(chartData);
+  const [chartConfig, setChartConfig] = useState({
+    ...chartData,
+    options: {
+      ...chartData.options,
+      chart: {
+        ...chartData.options.chart,
+        animations: { enabled: false },
+        zoom: { enabled: false },
+        toolbar: { show: false }
+      },
+      stroke: { curve: 'smooth', width: 2 },
+      dataLabels: { enabled: false },
+      markers: { size: 0 },
+      yaxis: { forceNiceScale: true }
+    }
+  });
+
   const { history = [], historyLoading } = useGetPortfolioHistory();
 
   const secondaryMain = theme.palette.secondary.main;
@@ -34,9 +48,8 @@ export default function PerformanceGraphCard() {
   }, [mode, theme.palette]);
 
   useEffect(() => {
-    if (historyLoading) {
-      return;
-    }
+    if (historyLoading) return;
+
     const categories = history.map((d) =>
       new Date(d.snapshot_time).toLocaleDateString()
     );
@@ -65,69 +78,42 @@ export default function PerformanceGraphCard() {
   }, [history, historyLoading]);
 
   const iconSX = {
-    width: 40,
-    height: 40,
+    width: 30,
+    height: 30,
     color: 'secondary.main',
     borderRadius: '12px',
-    padding: 1,
+    padding: 0.5,
     bgcolor: mode === ThemeMode.DARK ? 'background.default' : 'primary.light'
   };
 
   return (
-    <MainCard content={false}>
-      <Box sx={{ p: 3 }}>
-        <Grid container direction="column" spacing={3}>
-          <Grid container spacing={1} alignItems="center">
-            <Grid item>
-              <Typography variant="h3">Performance Overview</Typography>
-            </Grid>
+    <MainCard content={false} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Box sx={{ p: 1.5, flexShrink: 0 }}>
+        <Grid container spacing={2} alignItems="center" justifyContent="center">
+          <Grid item>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={iconSX}><IconCoin stroke={1.5} /></Box>
+              <Box component="span" sx={{ typography: 'subtitle1' }}>Value</Box>
+            </Box>
           </Grid>
-          <Grid item xs={12}>
-            <Typography variant="h5" sx={{ mt: -2.5, fontWeight: 400 }}>
-              Key Metrics Comparison
-            </Typography>
+          <Grid item>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={iconSX}><IconPigMoney stroke={1.5} /></Box>
+              <Box component="span" sx={{ typography: 'subtitle1' }}>Collateral</Box>
+            </Box>
           </Grid>
-          <Grid container spacing={3} alignItems="center">
-            <Grid item>
-              <Grid container spacing={1} alignItems="center">
-                <Grid item>
-                  <Typography sx={iconSX}>
-                    <IconCoin stroke={1.5} />
-                  </Typography>
-                </Grid>
-                <Grid item xs>
-                  <Typography variant="h4">Value</Typography>
-                </Grid>
-              </Grid>
-            </Grid>
-            <Grid item>
-              <Grid container spacing={1} alignItems="center">
-                <Grid item>
-                  <Typography sx={iconSX}>
-                    <IconPigMoney stroke={1.5} />
-                  </Typography>
-                </Grid>
-                <Grid item xs>
-                  <Typography variant="h4">Collateral</Typography>
-                </Grid>
-              </Grid>
-            </Grid>
-            <Grid item>
-              <Grid container spacing={1} alignItems="center">
-                <Grid item>
-                  <Typography sx={iconSX}>
-                    <IconChartAreaLine stroke={1.5} />
-                  </Typography>
-                </Grid>
-                <Grid item xs>
-                  <Typography variant="h4">SP500</Typography>
-                </Grid>
-              </Grid>
-            </Grid>
+          <Grid item>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={iconSX}><IconChartAreaLine stroke={1.5} /></Box>
+              <Box component="span" sx={{ typography: 'subtitle1' }}>SP500</Box>
+            </Box>
           </Grid>
         </Grid>
       </Box>
-      <Chart {...chartConfig} />
+
+      <Box sx={{ flexGrow: 1, minHeight: 220, px: 1 }}>
+        <Chart {...chartConfig} height="100%" />
+      </Box>
     </MainCard>
   );
 }

@@ -3,7 +3,7 @@ import Stack from '@mui/material/Stack';
 import PropTypes from 'prop-types';
 
 import StatusCard from './StatusCard';
-import { portfolioCards } from './cardData';
+import { portfolioCards } from './cardData.jsx';
 
 // data hooks
 import { useGetLatestPortfolio } from 'api/portfolio';

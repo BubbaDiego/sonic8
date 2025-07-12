@@ -4,9 +4,9 @@ import Grid from '@mui/material/Grid';
 import MonitorSummaryCard from './MonitorSummaryCard';
 
 // project imports
-import MarketShareAreaChartCard from './PerformanceGraphCard';
-import TraderListCard from './TraderListCard';
-import PositionListCard from './PositionListCard';
+import MarketShareAreaChartCard from '../PerformanceGraphCard';
+import TraderListCard from '../TraderListCard';
+import PositionListCard from '../PositionListCard';
 import RevenueCard from 'ui-component/cards/RevenueCard';
 import UserCountCard from 'ui-component/cards/UserCountCard';
 import { useGetPositions } from 'api/positions';
