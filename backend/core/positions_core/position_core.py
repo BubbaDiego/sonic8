@@ -12,6 +12,7 @@ from backend.core.positions_core.position_enrichment_service import PositionEnri
 from backend.core.positions_core.position_enrichment_service import validate_enriched_position
 from backend.core.hedge_core.hedge_core import HedgeCore
 from backend.core.calc_core.calc_services import CalcServices
+from backend.core.trader_core import TraderUpdateService
 from datetime import datetime
 import uuid
 from backend.models.position import PositionDB
@@ -43,13 +44,31 @@ class PositionCore:
         from backend.core.wallet_core import WalletCore
 
         wc = WalletCore()
+        trader_service = (
+            TraderUpdateService(dl) if getattr(dl, "traders", None) else None
+        )
+
         if wallets:
             updated = 0
             for w in wallets:
                 if wc.refresh_wallet_balance(w):
                     updated += 1
+                    if trader_service:
+                        trader_service.refresh_trader_for_wallet(w)
             return updated
-        return wc.refresh_wallet_balances()
+
+        names = {
+            w.get("name")
+            for w in dl.read_wallets()
+            if w.get("is_active", True)
+        }
+        updated = 0
+        for w in names:
+            if wc.refresh_wallet_balance(w):
+                updated += 1
+                if trader_service:
+                    trader_service.refresh_trader_for_wallet(w)
+        return updated
 
     def get_all_positions(self):
         return self.store.get_all_positions()
