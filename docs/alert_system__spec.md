@@ -1060,13 +1060,13 @@ sonic1/
 │   │   │   ├── cyclone
 │   │   │   │   └── Run.jsx
 │   │   │   ├── dashboard
-│   │   │   │   ├── Analytics
-│   │   │   │   │   ├── chart-data
-│   │   │   │   │   │   └── market-share-area-chart.jsx
-│   │   │   │   │   ├── PositionListCard.jsx
-│   │   │   │   │   ├── PerformanceGraphCard.jsx
-│   │   │   │   │   ├── TraderListCard.jsx
-│   │   │   │   │   └── index_sonic_dashboard.jsx
+│   │   │   │   ├── chart-data
+│   │   │   │   │   └── market-share-area-chart.jsx
+│   │   │   │   ├── CompositionPieCard.jsx
+│   │   │   │   ├── PerformanceGraphCard.jsx
+│   │   │   │   ├── PositionListCard.jsx
+│   │   │   │   ├── TraderListCard.jsx
+│   │   │   │   └── VerticalMonitorSummaryCard.jsx
 │   │   │   │   ├── Default
 │   │   │   │   │   ├── chart-data
 │   │   │   │   │   │   ├── bajaj-area-chart.jsx

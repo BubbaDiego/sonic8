@@ -1,7 +1,7 @@
-import MarketShareAreaChartCard from 'views/dashboard/Analytics/PerformanceGraphCard';
-import LatestCustomerTableCard  from 'views/dashboard/Analytics/PositionListCard';
+import MarketShareAreaChartCard from 'views/dashboard/PerformanceGraphCard';
+import LatestCustomerTableCard  from 'views/dashboard/PositionListCard';
 import RevenueCard              from 'ui-component/cards/RevenueCard';
-import TotalRevenueCard         from 'views/dashboard/Analytics/TraderListCard';
+import TotalRevenueCard         from 'views/dashboard/TraderListCard';
 
 export const widgetRegistry = {
   marketShare : MarketShareAreaChartCard,

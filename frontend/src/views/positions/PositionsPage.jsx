@@ -6,7 +6,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 import useConfig from 'hooks/useConfig';
 import PositionTableCard from './PositionTableCard';
-import CompositionPieCard from '../dashboard/Analytics/CompositionPieCard';
+import CompositionPieCard from '../dashboard/CompositionPieCard';
 import SidePanelWidthSlider from './SidePanelWidthSlider';
 
 const PositionsPage = () => {
