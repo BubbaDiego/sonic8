@@ -9,7 +9,7 @@
  * Example: 920 → left column = 920 px wide, right column sticks
  * to its right edge.
  */
-export const RIGHT_COLUMN_X = 920;
+export const RIGHT_COLUMN_X = 620;
 
 /**
  * X-coordinate (in px) where the SIDE column ends.
@@ -17,22 +17,22 @@ export const RIGHT_COLUMN_X = 920;
  *
  * Example: 1300 → side column ends at 1300 px
  */
-export const SIDE_COLUMN_END_X = 1300;
+export const SIDE_COLUMN_END_X = 1000;
 
 /**
  * Maximum height (in px) allowed for ROW 1.
  */
-export const ROW_1_MAX_HEIGHT = 400;
+export const ROW_1_MAX_HEIGHT = 125;
 
 /**
  * Maximum height (in px) allowed for ROW 2.
  */
-export const ROW_2_MAX_HEIGHT = 500;
+export const ROW_2_MAX_HEIGHT = 300;
 
 /**
  * Maximum height (in px) allowed for ROW 3.
  */
-export const ROW_3_MAX_HEIGHT = 600;
+export const ROW_3_MAX_HEIGHT = 500;
 
 /**
  * Turn visual debug ON/OFF.
@@ -100,7 +100,7 @@ const Dashboard = () => (
   <Box
     sx={{
       display: 'grid',
-      gridTemplateColumns: `${RIGHT_COLUMN_X}px 1fr`,
+      gridTemplateColumns: `${RIGHT_COLUMN_X}px ${SIDE_COLUMN_END_X - RIGHT_COLUMN_X}px`,
       gridTemplateRows: `${ROW_1_MAX_HEIGHT}px ${ROW_2_MAX_HEIGHT}px ${ROW_3_MAX_HEIGHT}px`,
       columnGap: 2,
       rowGap: 2,
