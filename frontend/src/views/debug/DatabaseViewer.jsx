@@ -17,6 +17,7 @@ const TABLES = [
   { label: 'Positions', value: 'positions' },
   { label: 'Portfolio', value: 'portfolio' },
   { label: 'Wallets', value: 'wallets' },
+  { label: 'Traders', value: 'api/traders' },
   { label: 'Alerts', value: 'alert_thresholds' }
 ];
 
