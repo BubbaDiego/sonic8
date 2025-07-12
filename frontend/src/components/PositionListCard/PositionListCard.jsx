@@ -81,6 +81,7 @@ export default function PositionListCard({ title }) {
                 </TableCell>
                 <TableCell>Asset</TableCell>
                 <TableCell>Type</TableCell>
+                <TableCell align="right">Leverage</TableCell>
                 <TableCell align="right">Value</TableCell>
                 <TableCell align="right">
                   <WaterDropTwoToneIcon sx={{ color: 'primary.main', verticalAlign: 'middle', mr: 0.5 }} />
@@ -108,6 +109,7 @@ export default function PositionListCard({ title }) {
                     />
                   </TableCell>
                   <TableCell>{position.position_type}</TableCell>
+                  <TableCell align="right">{Number(position.leverage || 0).toFixed(2)}</TableCell>
                   <TableCell align="right">${Number(position.value || 0).toLocaleString()}</TableCell>
                   <TableCell align="right">{position.liquidation_distance}</TableCell>
                   <TableCell align="right" sx={{ pr: 3 }}>
