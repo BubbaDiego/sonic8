@@ -1,9 +1,8 @@
-// src/routes/TraderShopRoutes.jsx
-import React from 'react';
+import { lazy } from 'react';
 import Loadable from 'ui-component/Loadable';
 import MainLayout from 'layout/MainLayout';
 
-const TraderShopIndex = Loadable(() => import('views/traderShop'));
+const TraderShopIndex = Loadable(lazy(() => import('views/traderShop')));
 
 const TraderShopRoutes = {
   path: '/trader-shop',

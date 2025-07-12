@@ -41,7 +41,8 @@ export default function DashboardToggle() {
               value: portfolio?.total_value,
               heatIndex: portfolio?.avg_heat_index,
               leverage: portfolio?.avg_leverage,
-              size: portfolio?.total_size
+              size: portfolio?.total_size,
+              travelPercent: portfolio?.total_travel_percent
             }}
             variant={variant}
             onToggle={toggle}

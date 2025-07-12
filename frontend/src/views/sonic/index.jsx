@@ -9,7 +9,7 @@
  * Example: 920 → left column = 920 px wide, right column sticks
  * to its right edge.
  */
-export const RIGHT_COLUMN_X = 640;
+export const RIGHT_COLUMN_X = 610;
 
 /**
  * X-coordinate (in px) where the SIDE column ends.
@@ -39,7 +39,7 @@ export const ROW_3_MAX_HEIGHT = 500;
  *  true  – every section gets a dashed outline + live coordinates
  *  false – clean production look
  */
-export const DEBUG_LAYOUT = true;
+export const DEBUG_LAYOUT = false;//true;
 
 /******************************************************************
  *  SECTION + LAYOUT IMPLEMENTATION                               *
