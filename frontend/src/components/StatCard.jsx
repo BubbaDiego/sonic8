@@ -85,14 +85,25 @@ export default function StatCard({
           <Typography variant="h4">{value}</Typography>
           <Typography
             variant="subtitle2"
-            sx={{ lineHeight: 1.1, mt: 0.25, opacity: 0.8 }}
+            sx={{
+              lineHeight: 1.1,
+              mt: 0.25,
+              opacity: 0.8,
+              fontWeight: variant === 'dark' ? 'bold' : 'normal',
+              color: variant === 'dark' ? '#fff' : 'inherit'
+            }}
           >
             {label}
           </Typography>
           {secondary && (
             <Typography
               variant="caption"
-              sx={{ display: 'block', mt: 0.25, whiteSpace: 'nowrap' }}
+              sx={{
+                display: 'block',
+                mt: 0.25,
+                whiteSpace: 'nowrap',
+                fontSize: '0.7rem'
+              }}
             >
               {secondary}
             </Typography>
