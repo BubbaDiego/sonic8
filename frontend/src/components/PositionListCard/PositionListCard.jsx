@@ -12,18 +12,21 @@ import PerfectScrollbar from 'react-perfect-scrollbar';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axios';
 import Avatar from '@mui/material/Avatar';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+
+import AccountBalanceWalletTwoToneIcon from '@mui/icons-material/AccountBalanceWalletTwoTone';
+import BuildTwoToneIcon from '@mui/icons-material/BuildTwoTone';
+import MonetizationOnTwoToneIcon from '@mui/icons-material/MonetizationOnTwoTone';
 import WaterDropTwoToneIcon from '@mui/icons-material/WaterDropTwoTone';
+import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
 
-/**
- * Adjustable height for each individual position row.
- * Modify this value to increase or decrease the position row height.
- */
-const POSITION_ROW_HEIGHT = 11;
+/* --- Configurable Variables --- */
+const HEADER_ROW_HEIGHT = 20;      // Height of the header row with icons (px)
+const POSITION_ROW_HEIGHT = 18;    // Height of each position row (px)
+const TABLE_MAX_HEIGHT = 30045;      // Maximum height of the whole table/card (px)
+/* ------------------------------ */
 
-/**
- * Adjustable size (in px) for the wallet and asset icons.
- * Modify this value to increase or decrease the size of the icons.
- */
 const POSITION_ICON_SIZE = 26;
 
 export default function PositionListCard({ title }) {
@@ -32,15 +35,14 @@ export default function PositionListCard({ title }) {
   const [order, setOrder] = useState('asc');
 
   useEffect(() => {
-    async function loadPositions() {
+    (async () => {
       try {
-        const response = await axios.get('/positions/');
-        setPositions(response.data || []);
+        const res = await axios.get('/positions/');
+        setPositions(res.data || []);
       } catch (e) {
         console.error(e);
       }
-    }
-    loadPositions();
+    })();
   }, []);
 
   const sortedPositions = useMemo(() => {
@@ -57,63 +59,86 @@ export default function PositionListCard({ title }) {
     });
   }, [positions, order, orderBy]);
 
-  const handleSort = (property) => {
-    const isAsc = orderBy === property && order === 'asc';
+  const handleSort = (prop) => {
+    const isAsc = orderBy === prop && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(property);
+    setOrderBy(prop);
   };
 
   return (
     <MainCard title={title} content={false}>
-      <PerfectScrollbar style={{ height: 345, padding: 0 }}>
+      <PerfectScrollbar style={{ height: TABLE_MAX_HEIGHT, padding: 0 }}>
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
+              <TableRow sx={{ height: HEADER_ROW_HEIGHT }}>
                 <TableCell sx={{ pl: 3 }}>
                   <TableSortLabel
                     active={orderBy === 'wallet_name'}
                     direction={orderBy === 'wallet_name' ? order : 'asc'}
                     onClick={() => handleSort('wallet_name')}
                   >
-                    Wallet
+                    <AccountBalanceWalletTwoToneIcon color="primary" />
                   </TableSortLabel>
                 </TableCell>
-                <TableCell>Asset</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell align="right">Leverage</TableCell>
-                <TableCell align="right">Value</TableCell>
+
+                <TableCell />
+
                 <TableCell align="right">
-                  <WaterDropTwoToneIcon sx={{ color: 'primary.main', verticalAlign: 'middle', mr: 0.5 }} />
-                  Distance
+                  <TableSortLabel
+                    active={orderBy === 'leverage'}
+                    direction={orderBy === 'leverage' ? order : 'asc'}
+                    onClick={() => handleSort('leverage')}
+                  >
+                    <BuildTwoToneIcon color="primary" />
+                  </TableSortLabel>
                 </TableCell>
-                <TableCell align="right" sx={{ pr: 3 }}>Travel %</TableCell>
+
+                <TableCell align="right">
+                  <MonetizationOnTwoToneIcon color="primary" />
+                </TableCell>
+                <TableCell align="right">
+                  <WaterDropTwoToneIcon color="primary" />
+                </TableCell>
+                <TableCell align="right" sx={{ pr: 3 }}>
+                  <PercentTwoToneIcon color="primary" />
+                </TableCell>
               </TableRow>
             </TableHead>
+
             <TableBody>
-              {sortedPositions.map((position) => (
-                <TableRow hover key={position.id} sx={{ height: POSITION_ROW_HEIGHT }}>
+              {sortedPositions.map((pos) => (
+                <TableRow hover key={pos.id} sx={{ height: POSITION_ROW_HEIGHT }}>
                   <TableCell sx={{ pl: 3 }}>
                     <Avatar
-                      src={`/static/images/${(position.wallet_name || 'unknown').replace(/\s+/g, '').replace(/vault$/i, '').toLowerCase()}_icon.jpg`}
-                      alt={position.wallet_name}
+                      src={`/static/images/${(pos.wallet_name || 'unknown').replace(/\s+/g, '').replace(/vault$/i, '').toLowerCase()}_icon.jpg`}
+                      alt={pos.wallet_name}
                       sx={{ width: POSITION_ICON_SIZE, height: POSITION_ICON_SIZE }}
                     />
                   </TableCell>
+
                   <TableCell>
-                    <Avatar
-                      src={`/static/images/${(position.asset_type || 'unknown').toLowerCase()}_logo.png`}
-                      alt={position.asset_type}
-                      sx={{ width: POSITION_ICON_SIZE, height: POSITION_ICON_SIZE }}
-                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/static/images/unknown.png'; }}
-                    />
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Avatar
+                        src={`/static/images/${(pos.asset_type || 'unknown').toLowerCase()}_logo.png`}
+                        alt={pos.asset_type}
+                        sx={{ width: POSITION_ICON_SIZE, height: POSITION_ICON_SIZE }}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/static/images/unknown.png';
+                        }}
+                      />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        {pos.position_type?.toUpperCase()}
+                      </Typography>
+                    </Stack>
                   </TableCell>
-                  <TableCell>{position.position_type}</TableCell>
-                  <TableCell align="right">{Number(position.leverage || 0).toFixed(2)}</TableCell>
-                  <TableCell align="right">${Number(position.value || 0).toLocaleString()}</TableCell>
-                  <TableCell align="right">{position.liquidation_distance}</TableCell>
+
+                  <TableCell align="right">{Number(pos.leverage || 0).toFixed(2)}</TableCell>
+                  <TableCell align="right">${Number(pos.value || 0).toLocaleString()}</TableCell>
+                  <TableCell align="right">{pos.liquidation_distance}</TableCell>
                   <TableCell align="right" sx={{ pr: 3 }}>
-                    {`${Number(position.travel_percent || 0).toFixed(2)}%`}
+                    {`${Number(pos.travel_percent || 0).toFixed(2)}%`}
                   </TableCell>
                 </TableRow>
               ))}
