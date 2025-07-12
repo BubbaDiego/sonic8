@@ -15,6 +15,7 @@ trader_core/
 ├── trader_store.py            # In-memory fallback store
 ├── trader_factory_service.py  # UI helper around TraderCore
 ├── trader_loader.py           # Build Trader from live data
+├── trader_update_service.py   # Refresh helpers for wallet changes
 ├── mood_engine.py             # Heat-based mood selection
 ├── persona_avatars.py         # Avatar registry
 ├── personas/                  # Example persona JSON files
@@ -131,6 +132,13 @@ All paths are under the `/trader` blueprint prefix.
 - `/api/traders/delete_all` – remove all traders
 - `/api/traders/export` – export traders to `active_traders.json`
 - `/api/traders/import` – import traders from a JSON file or payload
+
+---
+
+## 🔄 TraderUpdateService
+Automatically refreshes trader metrics whenever wallet balances change.
+`PositionCore` calls this service after wallet reconciliations so that
+`wallet_balance`, `profit`, and `heat_index` stay in sync with positions.
 
 ---
 

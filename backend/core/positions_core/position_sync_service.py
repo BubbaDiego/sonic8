@@ -13,6 +13,7 @@ from backend.core.positions_core.position_enrichment_service import PositionEnri
 from backend.core.positions_core.position_core import PositionCore
 from backend.core.calc_core.calculation_core import CalculationCore
 from backend.core.hedge_core.hedge_core import HedgeCore
+from backend.core.trader_core import TraderUpdateService
 
 console = Console()
 
@@ -323,6 +324,17 @@ class PositionSyncService:
                 HedgeCore(self.dl).update_hedges()
             except Exception as e:  # pragma: no cover - just log
                 log.error(f"Failed to update hedges after upsert: {e}", source="PositionSyncService")
+
+            if getattr(self.dl, "traders", None):
+                try:
+                    TraderUpdateService(self.dl).refresh_trader_for_wallet(
+                        position_data.get("wallet_name", "")
+                    )
+                except Exception as exc:  # pragma: no cover - best effort
+                    log.error(
+                        f"Trader refresh failed: {exc}",
+                        source="PositionSyncService",
+                    )
 
             # Determine if it was an insert or update
             return cursor.rowcount == 1

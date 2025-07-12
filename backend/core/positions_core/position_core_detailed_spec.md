@@ -6,7 +6,7 @@
 ## Overview
 
 The `PositionCore` module orchestrates position management, enrichment, synchronization, and snapshotting. It relies on the `DataLocker` data layer for persistent storage and shared services.  This specification documents the behavior of `PositionCore`, its interaction with subordinate services (`PositionStore`, `PositionEnrichmentService`, `PositionSyncService`, and `HedgeManager`), and the responsibilities of the data layer components it uses.
-It now participates in Cyclone Engine 2025 cycles and feeds data to Monitor, Hedge and Trader cores.
+It now participates in Cyclone Engine 2025 cycles and feeds data to Monitor, Hedge and Trader cores. When wallet balances change PositionCore calls `TraderUpdateService` so trader metrics stay current.
 
 ## Module Relationships
 
@@ -217,6 +217,7 @@ Creating a position via `PositionCore.create_position()` proceeds as follows:
 4. `PositionStore` calls `DLPositionManager.create_position()` which ensures defaults, sanitizes fields against the schema, constructs the SQL insert, and commits to SQLite.
 5. Success is logged at each stage via the centralized logger.
 6. The updated state is persisted via `DataLocker` and key metrics are broadcast to `MonitorCore` using `XCom`.
+7. `TraderUpdateService.refresh_trader_for_wallet()` is invoked so the associated trader reflects the new balance and profit metrics.
 
 ## Snapshot Lifecycle
 
