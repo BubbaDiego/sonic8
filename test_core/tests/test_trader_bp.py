@@ -334,6 +334,8 @@ def test_quick_import_traders(client, monkeypatch):
     data = resp.get_json()
     assert data["success"] is True
     assert any(t.get("name") == "Vader" for t in client.application.data_locker.traders._traders)
+    vader = next(t for t in client.application.data_locker.traders._traders if t.get("name") == "Vader")
+    assert vader.get("wallet_balance") == 2.0
 
 
 

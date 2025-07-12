@@ -285,6 +285,7 @@ class DLTraderManager:
                     "color": getattr(persona, "color", ""),
                     "wallet": wname,
                     "born_on": iso_utc_now(),
+                    "wallet_balance": w.get("balance", 0.0),
                     "initial_collateral": w.get("balance", 0.0),
                 }
 
