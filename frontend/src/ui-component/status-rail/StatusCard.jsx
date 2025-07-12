@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
 import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
 
 import './statusRail.scss';
 
@@ -11,6 +12,9 @@ import './statusRail.scss';
  * `back`  – ReactNode
  */
 export default function StatusCard({ front, back, flipped, onToggle }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   return (
     <Box className={flipped ? 'sr-card flipped' : 'sr-card'} onClick={onToggle}>
       <Box className="sr-inner">
@@ -28,7 +32,10 @@ export default function StatusCard({ front, back, flipped, onToggle }) {
             {front.icon}
           </Avatar>
           <Typography variant="h6">{front.value}</Typography>
-          <Typography variant="caption" sx={{ opacity: 0.7 }}>
+          <Typography
+            variant="caption"
+            sx={{ opacity: 0.7, fontWeight: isDark ? 'bold' : 'normal', color: isDark ? '#fff' : 'inherit' }}
+          >
             {front.label}
           </Typography>
         </Box>
