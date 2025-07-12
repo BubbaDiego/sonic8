@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import Divider from '@mui/material/Divider';
@@ -14,6 +13,18 @@ import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axios';
 import Avatar from '@mui/material/Avatar';
 import WaterDropTwoToneIcon from '@mui/icons-material/WaterDropTwoTone';
+
+/**
+ * Adjustable height for each individual position row.
+ * Modify this value to increase or decrease the position row height.
+ */
+const POSITION_ROW_HEIGHT = 11;
+
+/**
+ * Adjustable size (in px) for the wallet and asset icons.
+ * Modify this value to increase or decrease the size of the icons.
+ */
+const POSITION_ICON_SIZE = 26;
 
 export default function PositionListCard({ title }) {
   const [positions, setPositions] = useState([]);
@@ -80,19 +91,19 @@ export default function PositionListCard({ title }) {
             </TableHead>
             <TableBody>
               {sortedPositions.map((position) => (
-                <TableRow hover key={position.id}>
+                <TableRow hover key={position.id} sx={{ height: POSITION_ROW_HEIGHT }}>
                   <TableCell sx={{ pl: 3 }}>
                     <Avatar
                       src={`/static/images/${(position.wallet_name || 'unknown').replace(/\s+/g, '').replace(/vault$/i, '').toLowerCase()}_icon.jpg`}
                       alt={position.wallet_name}
-                      sx={{ width: 30, height: 30 }}
+                      sx={{ width: POSITION_ICON_SIZE, height: POSITION_ICON_SIZE }}
                     />
                   </TableCell>
                   <TableCell>
                     <Avatar
                       src={`/static/images/${(position.asset_type || 'unknown').toLowerCase()}_logo.png`}
                       alt={position.asset_type}
-                      sx={{ width: 24, height: 24 }}
+                      sx={{ width: POSITION_ICON_SIZE, height: POSITION_ICON_SIZE }}
                       onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/static/images/unknown.png'; }}
                     />
                   </TableCell>

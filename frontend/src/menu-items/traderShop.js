@@ -1,12 +1,13 @@
 // src/menu-items/traderShop.js
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 
 const traderShop = {
   id: 'trader-shop',
   title: 'Trader Shop',
   type: 'item',
   url: '/trader-shop',
-  icon: ShoppingCartIcon
+  icon: StorefrontRoundedIcon,
+  breadcrumbs: false
 };
 
 export default traderShop;

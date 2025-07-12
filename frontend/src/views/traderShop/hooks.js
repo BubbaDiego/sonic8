@@ -1,10 +1,10 @@
 // src/views/traderShop/hooks.js
-// Thin wrappers around existing API helpers so the view remains decoupled.
 import useSWR, { mutate } from 'swr';
 import axios from 'utils/axios';
+import sample from './sampleTraders.json';
 
 const endpoints = {
-  traders: '/api/traders', // <- Fixed here!
+  traders: '/api/traders',
   quickImport: '/api/traders/quick_import',
   starWarsWallets: '/wallets/star_wars',
   export: '/api/traders/export'
@@ -14,7 +14,11 @@ const fetcher = (url) => axios.get(url).then((res) => res.data);
 
 // --- Traders ---
 export function useTraders() {
-  const { data, error, isLoading } = useSWR(endpoints.traders, fetcher);
+  const { data, error, isLoading } = useSWR(
+    endpoints.traders,
+    fetcher,
+    { fallbackData: sample, revalidateOnFocus: false }
+  );
   return {
     traders: data || [],
     isLoading,

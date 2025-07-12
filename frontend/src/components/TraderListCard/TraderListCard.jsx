@@ -1,5 +1,3 @@
-
-// TraderListCard.jsx
 import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import Divider from '@mui/material/Divider';
@@ -13,6 +11,18 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import MainCard from 'ui-component/cards/MainCard';
 import { getTraders } from 'api/traders';
+
+/**
+ * Adjustable height for each individual trader row.
+ * Modify this value to increase or decrease the trader row height.
+ */
+const TRADER_ROW_HEIGHT = 50;
+
+/**
+ * Adjustable size (in px) for the trader avatars/icons.
+ * Modify this to increase or decrease the size of the trader icons.
+ */
+const TRADER_ICON_SIZE = 30;
 
 export default function TraderListCard({ title }) {
   const [traders, setTraders] = useState([]);
@@ -36,9 +46,13 @@ export default function TraderListCard({ title }) {
         <List>
           {traders.map((trader) => (
             <div key={trader.name}>
-              <ListItemButton>
+              <ListItemButton sx={{ height: TRADER_ROW_HEIGHT }}>
                 <ListItemAvatar>
-                  <Avatar src={trader.avatar} alt={trader.name} />
+                  <Avatar
+                    src={trader.avatar}
+                    alt={trader.name}
+                    sx={{ width: TRADER_ICON_SIZE, height: TRADER_ICON_SIZE }}
+                  />
                 </ListItemAvatar>
                 <ListItemText
                   primary={
@@ -47,7 +61,10 @@ export default function TraderListCard({ title }) {
                       <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
                         ${Number(trader.wallet_balance).toLocaleString()}
                       </Typography>
-                      <Typography variant="subtitle2" sx={{ color: trader.profit >= 0 ? 'success.dark' : 'error.main' }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ color: trader.profit >= 0 ? 'success.dark' : 'error.main' }}
+                      >
                         {trader.profit >= 0 ? '+' : '-'}${Math.abs(trader.profit).toLocaleString()}
                       </Typography>
                     </Stack>

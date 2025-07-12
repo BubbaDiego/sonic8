@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Button, Stack, Typography, Chip, CircularProgress } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DownloadIcon from '@mui/icons-material/Download';
-import EnhancedTable from 'views/forms/tables/TableEnhanced';
+import EnhancedTable from '../forms/tables/TableEnhanced';
 import TraderFormDrawer from './TraderFormDrawer';
 import QuickImportStarWars from './QuickImportStarWars';
 import { useTraders, deleteTrader, exportTraders } from './hooks';
@@ -13,28 +13,18 @@ function TraderShopList() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  useEffect(() => {
-    console.log("✅ TraderShopList Mounted");
-    console.log("🔄 isLoading:", isLoading);
-    console.log("⚠️ isError:", isError);
-    console.log("📦 traders:", traders);
-  }, [traders, isLoading, isError]);
-
   const openNew = () => {
-    console.log("➕ Opening drawer to create new trader");
     setEditing(null);
     setDrawerOpen(true);
   };
 
   const handleRowClick = (row) => {
-    console.log("🖱️ Clicked row:", row);
     setEditing(row);
     setDrawerOpen(true);
   };
 
   const handleDelete = async (row) => {
     if (window.confirm(`Delete trader ${row.name}?`)) {
-      console.log("🗑️ Deleting trader:", row.name);
       await deleteTrader(row.name);
     }
   };
@@ -44,7 +34,8 @@ function TraderShopList() {
       id: 'avatar',
       label: 'Avatar',
       align: 'center',
-      format: (row) => row.avatar ? <img src={row.avatar} width={30} /> : '🧙'
+      format: (row) =>
+        row.avatar ? <img src={row.avatar} width={30} alt="" /> : '🧙'
     },
     { id: 'name', label: 'Name' },
     { id: 'persona', label: 'Persona' },
@@ -68,16 +59,20 @@ function TraderShopList() {
   ];
 
   if (isLoading) {
-    console.log("⏳ Loading trader data...");
-    return <Box sx={{ p: 3, textAlign: 'center' }}><CircularProgress /></Box>;
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (isError) {
-    console.log("❌ Error loading trader data");
-    return <Box sx={{ p: 3, textAlign: 'center' }}>Error loading traders.</Box>;
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        Error loading traders.
+      </Box>
+    );
   }
-
-  console.log("🎉 Rendering traders table with data:", traders);
 
   return (
     <Box>

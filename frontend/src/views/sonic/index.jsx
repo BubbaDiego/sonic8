@@ -9,7 +9,7 @@
  * Example: 920 → left column = 920 px wide, right column sticks
  * to its right edge.
  */
-export const RIGHT_COLUMN_X = 620;
+export const RIGHT_COLUMN_X = 640;
 
 /**
  * X-coordinate (in px) where the SIDE column ends.
