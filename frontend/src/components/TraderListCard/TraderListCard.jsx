@@ -10,22 +10,19 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import MainCard from 'ui-component/cards/MainCard';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { getTraders } from 'api/traders';
 
 /* ------------------------------------------------------------------ */
-/* 💅🏼  PUBLIC STYLE CONFIGS – edit these four values and go          */
+/* 💅🏼  PUBLIC STYLE CONFIGS – edit these four values and go          */
 /* ------------------------------------------------------------------ */
-const TITLE_AREA_HEIGHT = 40;               // px: height of the blue header bar
+const TITLE_AREA_HEIGHT = 40;
 const TITLE_FONT_FAMILY = 'Roboto, sans-serif';
-const TITLE_FONT_SIZE = 22;                 // px
-const TRADER_ROW_HEIGHT = 35;               // px: height of each trader row
-/* ------------------------------------------------------------------ */
-// If you ever want avatar size or other quirks exposed the same way,
-// just add more constants above. 🙂
-// --------------------------------------------------------------------
-
-// (Kept as a constant so it isn’t accidentally overridden by props)
-const CARD_TITLE_TEXT = 'Traders';
+const TITLE_FONT_SIZE = 22;
+const TRADER_ROW_HEIGHT = 35;
+const HEADER_ICON_COLOR = '#90caf9';
 
 export default function TraderListCard() {
   const [traders, setTraders] = useState([]);
@@ -44,27 +41,20 @@ export default function TraderListCard() {
 
   return (
     <MainCard
-      // Override the default MUI CardHeader to respect our height
       sx={{
         '& .MuiCardHeader-root': { minHeight: TITLE_AREA_HEIGHT, p: 0 },
-        '& .MuiCardHeader-content': { m: 0 }
+        '& .MuiCardHeader-content': { m: 0 },
+        backgroundColor: '#1a2b41',
+        color: '#ffffff'
       }}
-      title={
-        <Typography
-          sx={{
-            fontFamily: TITLE_FONT_FAMILY,
-            fontSize: TITLE_FONT_SIZE,
-            lineHeight: `${TITLE_AREA_HEIGHT}px`, // vertical centering
-            fontWeight: 600
-          }}
-        >
-          {CARD_TITLE_TEXT}
-        </Typography>
-      }
       content={false}
     >
-      {/* Fixed body height so the list scrolls beneath the header */}
       <Box sx={{ height: 370, overflowY: 'auto' }}>
+        <Stack direction="row" spacing={2} justifyContent="center" sx={{ padding: 1, backgroundColor: '#1a2b41', color: HEADER_ICON_COLOR }}>
+          <AccountCircleIcon />
+          <AccountBalanceWalletIcon />
+          <TrendingUpIcon />
+        </Stack>
         <List disablePadding>
           {traders.map((trader) => (
             <div key={trader.name}>
@@ -76,7 +66,6 @@ export default function TraderListCard() {
                     sx={{ width: 30, height: 30 }}
                   />
                 </ListItemAvatar>
-
                 <ListItemText
                   primary={
                     <Stack
@@ -85,14 +74,9 @@ export default function TraderListCard() {
                       alignItems="center"
                       sx={{ width: '100%' }}
                     >
-                      <Typography variant="subtitle1">
-                        {trader.name}
-                      </Typography>
-
                       <Typography variant="subtitle2" fontWeight={500}>
                         ${Number(trader.wallet_balance).toLocaleString()}
                       </Typography>
-
                       <Typography
                         variant="subtitle2"
                         sx={{

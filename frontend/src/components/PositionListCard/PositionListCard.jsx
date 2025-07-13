@@ -23,11 +23,9 @@ import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
 
 /* --- Configurable Variables --- */
 const HEADER_ROW_HEIGHT = 20;      // Height of the header row with icons (px)
-const POSITION_ROW_HEIGHT = 18;    // Height of each position row (px)
-const TABLE_MAX_HEIGHT = 30045;      // Maximum height of the whole table/card (px)
+const POSITION_ROW_HEIGHT = 28;    // Height of each position row (px)
+const TABLE_MAX_HEIGHT = 345;      // Maximum height of the whole table/card (px)
 /* ------------------------------ */
-
-const POSITION_ICON_SIZE = 26;
 
 export default function PositionListCard({ title }) {
   const [positions, setPositions] = useState([]);
@@ -72,36 +70,36 @@ export default function PositionListCard({ title }) {
           <Table>
             <TableHead>
               <TableRow sx={{ height: HEADER_ROW_HEIGHT }}>
-                <TableCell sx={{ pl: 3 }}>
+                <TableCell sx={{ pl: 1, py: 0.5 }}>
                   <TableSortLabel
                     active={orderBy === 'wallet_name'}
                     direction={orderBy === 'wallet_name' ? order : 'asc'}
                     onClick={() => handleSort('wallet_name')}
                   >
-                    <AccountBalanceWalletTwoToneIcon color="primary" />
+                    <AccountBalanceWalletTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                   </TableSortLabel>
                 </TableCell>
 
                 <TableCell />
 
-                <TableCell align="right">
+                <TableCell align="right" sx={{ py: 0.5 }}>
                   <TableSortLabel
                     active={orderBy === 'leverage'}
                     direction={orderBy === 'leverage' ? order : 'asc'}
                     onClick={() => handleSort('leverage')}
                   >
-                    <BuildTwoToneIcon color="primary" />
+                    <BuildTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                   </TableSortLabel>
                 </TableCell>
 
-                <TableCell align="right">
-                  <MonetizationOnTwoToneIcon color="primary" />
+                <TableCell align="right" sx={{ py: 0.5 }}>
+                  <MonetizationOnTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                 </TableCell>
-                <TableCell align="right">
-                  <WaterDropTwoToneIcon color="primary" />
+                <TableCell align="right" sx={{ py: 0.5 }}>
+                  <WaterDropTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                 </TableCell>
-                <TableCell align="right" sx={{ pr: 3 }}>
-                  <PercentTwoToneIcon color="primary" />
+                <TableCell align="right" sx={{ pr: 1, py: 0.5 }}>
+                  <PercentTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                 </TableCell>
               </TableRow>
             </TableHead>
@@ -109,35 +107,31 @@ export default function PositionListCard({ title }) {
             <TableBody>
               {sortedPositions.map((pos) => (
                 <TableRow hover key={pos.id} sx={{ height: POSITION_ROW_HEIGHT }}>
-                  <TableCell sx={{ pl: 3 }}>
+                  <TableCell sx={{ pl: 1, py: 0.5 }}>
                     <Avatar
                       src={`/static/images/${(pos.wallet_name || 'unknown').replace(/\s+/g, '').replace(/vault$/i, '').toLowerCase()}_icon.jpg`}
                       alt={pos.wallet_name}
-                      sx={{ width: POSITION_ICON_SIZE, height: POSITION_ICON_SIZE }}
+                      sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
                     />
                   </TableCell>
 
-                  <TableCell>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                  <TableCell sx={{ py: 0.5 }}>
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
                       <Avatar
                         src={`/static/images/${(pos.asset_type || 'unknown').toLowerCase()}_logo.png`}
                         alt={pos.asset_type}
-                        sx={{ width: POSITION_ICON_SIZE, height: POSITION_ICON_SIZE }}
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/static/images/unknown.png';
-                        }}
+                        sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
                       />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      <Typography variant="subtitle2" sx={{ fontSize: POSITION_ROW_HEIGHT * 0.5, lineHeight: 1 }}>
                         {pos.position_type?.toUpperCase()}
                       </Typography>
                     </Stack>
                   </TableCell>
 
-                  <TableCell align="right">{Number(pos.leverage || 0).toFixed(2)}</TableCell>
-                  <TableCell align="right">${Number(pos.value || 0).toLocaleString()}</TableCell>
-                  <TableCell align="right">{pos.liquidation_distance}</TableCell>
-                  <TableCell align="right" sx={{ pr: 3 }}>
+                  <TableCell align="right" sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>{Number(pos.leverage || 0).toFixed(2)}</TableCell>
+                  <TableCell align="right" sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>${Number(pos.value || 0).toLocaleString()}</TableCell>
+                  <TableCell align="right" sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>{pos.liquidation_distance}</TableCell>
+                  <TableCell align="right" sx={{ pr: 1, py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>
                     {`${Number(pos.travel_percent || 0).toFixed(2)}%`}
                   </TableCell>
                 </TableRow>

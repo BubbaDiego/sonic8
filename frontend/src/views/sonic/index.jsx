@@ -17,7 +17,7 @@ export const RIGHT_COLUMN_X = 610;
  *
  * Example: 1300 → side column ends at 1300 px
  */
-export const SIDE_COLUMN_END_X = 1000;
+export const SIDE_COLUMN_END_X = 800;
 
 /**
  * Maximum height (in px) allowed for ROW 1.
