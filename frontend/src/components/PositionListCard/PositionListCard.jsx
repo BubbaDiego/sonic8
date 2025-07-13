@@ -16,15 +16,16 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import AccountBalanceWalletTwoToneIcon from '@mui/icons-material/AccountBalanceWalletTwoTone';
-import BuildTwoToneIcon from '@mui/icons-material/BuildTwoTone';
+import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';     // Profit
+import BuildTwoToneIcon from '@mui/icons-material/BuildTwoTone';              // Leverage
 import MonetizationOnTwoToneIcon from '@mui/icons-material/MonetizationOnTwoTone';
 import WaterDropTwoToneIcon from '@mui/icons-material/WaterDropTwoTone';
 import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
 
 /* --- Configurable Variables --- */
-const HEADER_ROW_HEIGHT = 20;      // Height of the header row with icons (px)
-const POSITION_ROW_HEIGHT = 28;    // Height of each position row (px)
-const TABLE_MAX_HEIGHT = 270;      // Maximum height of the whole table/card (px)
+const HEADER_ROW_HEIGHT = 20;   // Height of the header row with icons (px)
+const POSITION_ROW_HEIGHT = 28; // Height of each position row (px)
+const TABLE_MAX_HEIGHT = 270;   // Maximum height of the whole table/card (px)
 /* ------------------------------ */
 
 export default function PositionListCard({ title }) {
@@ -68,8 +69,10 @@ export default function PositionListCard({ title }) {
       <PerfectScrollbar style={{ height: TABLE_MAX_HEIGHT, padding: 0 }}>
         <TableContainer>
           <Table>
+            {/* ================= HEADER ================ */}
             <TableHead>
               <TableRow sx={{ height: HEADER_ROW_HEIGHT }}>
+                {/* Wallet name */}
                 <TableCell sx={{ pl: 1, py: 0.5 }}>
                   <TableSortLabel
                     active={orderBy === 'wallet_name'}
@@ -80,8 +83,21 @@ export default function PositionListCard({ title }) {
                   </TableSortLabel>
                 </TableCell>
 
+                {/* Spacer for asset & type column */}
                 <TableCell />
 
+                {/* 🆕 Profit */}
+                <TableCell align="right" sx={{ py: 0.5 }}>
+                  <TableSortLabel
+                    active={orderBy === 'profit'}
+                    direction={orderBy === 'profit' ? order : 'asc'}
+                    onClick={() => handleSort('profit')}
+                  >
+                    <TrendingUpTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
+                  </TableSortLabel>
+                </TableCell>
+
+                {/* Leverage */}
                 <TableCell align="right" sx={{ py: 0.5 }}>
                   <TableSortLabel
                     active={orderBy === 'leverage'}
@@ -92,29 +108,40 @@ export default function PositionListCard({ title }) {
                   </TableSortLabel>
                 </TableCell>
 
+                {/* Value */}
                 <TableCell align="right" sx={{ py: 0.5 }}>
                   <MonetizationOnTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                 </TableCell>
+
+                {/* Liquidation distance */}
                 <TableCell align="right" sx={{ py: 0.5 }}>
                   <WaterDropTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                 </TableCell>
+
+                {/* Travel percent */}
                 <TableCell align="right" sx={{ pr: 1, py: 0.5 }}>
                   <PercentTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                 </TableCell>
               </TableRow>
             </TableHead>
 
+            {/* ================= BODY ================ */}
             <TableBody>
               {sortedPositions.map((pos) => (
                 <TableRow hover key={pos.id} sx={{ height: POSITION_ROW_HEIGHT }}>
+                  {/* Wallet icon */}
                   <TableCell sx={{ pl: 1, py: 0.5 }}>
                     <Avatar
-                      src={`/static/images/${(pos.wallet_name || 'unknown').replace(/\s+/g, '').replace(/vault$/i, '').toLowerCase()}_icon.jpg`}
+                      src={`/static/images/${(pos.wallet_name || 'unknown')
+                        .replace(/\s+/g, '')
+                        .replace(/vault$/i, '')
+                        .toLowerCase()}_icon.jpg`}
                       alt={pos.wallet_name}
                       sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
                     />
                   </TableCell>
 
+                  {/* Asset & position type */}
                   <TableCell sx={{ py: 0.5 }}>
                     <Stack direction="row" alignItems="center" spacing={0.5}>
                       <Avatar
@@ -122,16 +149,56 @@ export default function PositionListCard({ title }) {
                         alt={pos.asset_type}
                         sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
                       />
-                      <Typography variant="subtitle2" sx={{ fontSize: POSITION_ROW_HEIGHT * 0.5, lineHeight: 1 }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontSize: POSITION_ROW_HEIGHT * 0.5, lineHeight: 1 }}
+                      >
                         {pos.position_type?.toUpperCase()}
                       </Typography>
                     </Stack>
                   </TableCell>
 
-                  <TableCell align="right" sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>{Number(pos.leverage || 0).toFixed(2)}</TableCell>
-                  <TableCell align="right" sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>${Number(pos.value || 0).toLocaleString()}</TableCell>
-                  <TableCell align="right" sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>{pos.liquidation_distance}</TableCell>
-                  <TableCell align="right" sx={{ pr: 1, py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>
+                  {/* 🆕 Profit */}
+                  <TableCell
+                    align="right"
+                    sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
+                  >
+                    {Number(pos.profit || 0).toLocaleString(undefined, {
+                      style: 'currency',
+                      currency: 'USD',
+                      minimumFractionDigits: 2
+                    })}
+                  </TableCell>
+
+                  {/* Leverage */}
+                  <TableCell
+                    align="right"
+                    sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
+                  >
+                    {Number(pos.leverage || 0).toFixed(2)}
+                  </TableCell>
+
+                  {/* Value */}
+                  <TableCell
+                    align="right"
+                    sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
+                  >
+                    ${Number(pos.value || 0).toLocaleString()}
+                  </TableCell>
+
+                  {/* Liquidation distance */}
+                  <TableCell
+                    align="right"
+                    sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
+                  >
+                    {pos.liquidation_distance}
+                  </TableCell>
+
+                  {/* Travel percent */}
+                  <TableCell
+                    align="right"
+                    sx={{ pr: 1, py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
+                  >
                     {`${Number(pos.travel_percent || 0).toFixed(2)}%`}
                   </TableCell>
                 </TableRow>

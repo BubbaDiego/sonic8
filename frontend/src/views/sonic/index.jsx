@@ -67,15 +67,17 @@ const Section = ({ name, children, debug = DEBUG_LAYOUT }) => {
 };
 
 const Dashboard = () => {
-  const { data: snapshot } = useSWR('/api/portfolio/latest_snapshot', fetcher);
+  //const { data: snapshot } = useSWR('/api/portfolio/latest_snapshot', fetcher);
+  const { data: snapshot } = useSWR('http://localhost:5000/api/portfolio/latest_snapshot', fetcher);
+
 
   const handleModify = () => {
     console.log("Modify session clicked");
   };
 
-  const handleReset = async () => {
-    await fetch('/api/portfolio/reset_session', { method: 'POST' });
-    mutate('/api/portfolio/latest_snapshot');
+ const handleReset = async () => {
+    await fetch('http://localhost:5000/api/portfolio/reset_session', { method: 'POST' });
+    mutate('http://localhost:5000/api/portfolio/latest_snapshot');
   };
 
   return (
