@@ -122,3 +122,13 @@ Usage Notes:
 These routers are included by FastAPI application startup in
 `backend/sonic_backend_app.py` and are the primary interface consumed by the
 React frontend.
+
+### DataLocker dependency
+
+Route handlers typically accept a ``DataLocker`` parameter annotated like
+``dl: DataLocker = Depends(get_locker)``.  The helper
+``backend.deps.get_locker`` returns the current ``DataLocker`` instance from the
+Flask app context when available, otherwise falling back to the singleton
+``DataLocker.get_instance()``.  FastAPI injects this dependency into each
+request so handlers have direct access to the persistence layer without manual
+initialization.

@@ -35,6 +35,12 @@ backend/config/theme_config.json
 `sonic_sauce.json` must contain at least the keys `hedge_modifiers` and
 `heat_modifiers` as required by the backend's `JsonManager`.
 
+The API routes access the persistence layer through a `DataLocker` instance.
+Each router declares route parameters like `dl: DataLocker = Depends(get_locker)`
+so FastAPI injects the locker for every request.  The helper
+[`backend.deps.get_locker`](backend/deps.py) fetches the instance from the Flask
+context when available, or falls back to the `DataLocker` singleton.
+
 To start the frontend:
 
 ```bash
