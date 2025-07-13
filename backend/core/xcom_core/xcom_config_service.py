@@ -10,15 +10,7 @@ except Exception:  # pragma: no cover - optional dependency
     def has_app_context():  # pragma: no cover - simple stub
         return False
 from core.logging import log
-
-
-def _resolve_env(value, env_key):
-    """Return the value or fallback to environment variable if empty or a placeholder."""
-    if value is None or value == "":
-        return os.getenv(env_key)
-    if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
-        return os.getenv(value[2:-1])
-    return value
+from backend.utils.env_utils import _resolve_env
 
 class XComConfigService:
     def __init__(self, dl_sys):
