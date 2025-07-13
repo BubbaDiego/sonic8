@@ -3,6 +3,7 @@ from backend.data.data_locker import DataLocker
 from backend.models.portfolio import PortfolioSnapshot
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
+api_router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 
 
 def _dl() -> DataLocker:
@@ -16,6 +17,13 @@ def list_portfolio_history(dl: DataLocker = Depends(_dl)):
 
 @router.get("/latest", response_model=PortfolioSnapshot | None)
 def get_latest_snapshot(dl: DataLocker = Depends(_dl)):
+    return dl.portfolio.get_latest_snapshot()
+
+
+@api_router.get("/latest_snapshot", response_model=PortfolioSnapshot | None)
+def get_latest_snapshot_api(dl: DataLocker = Depends(_dl)):
+    """Alias of /portfolio/latest that includes the /api prefix for
+    backwards compatibility."""
     return dl.portfolio.get_latest_snapshot()
 
 

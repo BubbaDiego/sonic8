@@ -24,6 +24,7 @@ endpoints below return JSON responses and use Pydantic models from the
 - `GET /` – Return the entire portfolio history.
   - **Response model**: `list[PortfolioSnapshot]`
 - `GET /latest` – Retrieve the most recent `PortfolioSnapshot` or `null` if none exist.
+- `GET /api/portfolio/latest_snapshot` – Alias for `/portfolio/latest` returning the same payload.
 -  Returns `null` until a snapshot has been recorded. Trigger one via
   `POST /positions/snapshot` or during a full cycle (`POST /cyclone/run`).
 - `POST /` – Insert a new snapshot.

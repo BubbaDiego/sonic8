@@ -16,7 +16,7 @@ if not load_dotenv(ROOT_DIR / '.env'):
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.positions_api import router as positions_router
-from backend.routes.portfolio_api import router as portfolio_router
+from backend.routes.portfolio_api import router as portfolio_router, api_router as portfolio_api_router
 from backend.routes.cyclone_api import router as cyclone_router
 from backend.routes.wallet_api import router as wallet_router
 from backend.routes.traders_api import router as traders_router
@@ -44,6 +44,7 @@ app.add_middleware(
 
 app.include_router(positions_router)
 app.include_router(portfolio_router)
+app.include_router(portfolio_api_router)
 app.include_router(cyclone_router)
 app.include_router(wallet_router)
 app.include_router(traders_router)

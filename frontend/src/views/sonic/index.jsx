@@ -9,7 +9,14 @@ import PositionListCard from '../../components/PositionListCard/PositionListCard
 import TraderListCard from '../../components/TraderListCard/TraderListCard';
 import PerformanceGraphCard from '../../components/PerformanceGraphCard/PerformanceGraphCard';
 
-const fetcher = url => fetch(url).then(res => res.json());
+const fetcher = async (url) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`API Error: ${res.status} ${res.statusText}\n${errorText}`);
+  }
+  return res.json();
+};
 
 const RIGHT_COLUMN_X = 610;
 const SIDE_COLUMN_END_X = 800;
