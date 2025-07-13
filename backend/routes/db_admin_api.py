@@ -1,20 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.data.data_locker import DataLocker
+from backend.deps import get_locker
 
 router = APIRouter(prefix="/db_admin", tags=["db_admin"])
 
 
-def _dl() -> DataLocker:
-    return DataLocker.get_instance()
-
-
 @router.get("/tables", response_model=list[str])
-def list_tables(dl: DataLocker = Depends(_dl)):
+def list_tables(dl: DataLocker = Depends(get_locker)):
     return dl.db.list_tables()
 
 
 @router.get("/tables/{table}", response_model=list[dict])
-def read_table(table: str, limit: int = 200, dl: DataLocker = Depends(_dl)):
+def read_table(table: str, limit: int = 200, dl: DataLocker = Depends(get_locker)):
     try:
         return dl.read_table(table, limit)
     except Exception as exc:  # pragma: no cover - unexpected
