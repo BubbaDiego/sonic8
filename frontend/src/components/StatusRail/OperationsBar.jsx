@@ -27,14 +27,18 @@ function statusColor(theme, status) {
   return theme.palette.error.main;
 }
 
+const getBackgroundColor = (theme, lastUpdated) => {
+  const ageMinutes = lastUpdated
+    ? dayjs().diff(dayjs(lastUpdated), 'minute')
+    : Number.POSITIVE_INFINITY;
+
+  if (ageMinutes < 5) return theme.palette.primary.dark;      // Default blue
+  if (ageMinutes < 10) return theme.palette.warning.main;     // Yellow
+  return theme.palette.error.main;                            // Red
+};
+
 export default function OperationsBar({ monitors = {}, variant = 'light', onToggle }) {
   const theme = useTheme();
-
-  const getBackgroundColor = (ageMinutes) => {
-    if (ageMinutes < 5) return theme.palette.primary.dark; // default blue
-    if (ageMinutes < 10) return theme.palette.warning.main; // yellow
-    return theme.palette.error.main; // red
-  };
 
   return (
     <Stack
@@ -55,11 +59,7 @@ export default function OperationsBar({ monitors = {}, variant = 'light', onTogg
 
         const color = statusColor(theme, detail.status);
 
-        const ageMinutes = detail.last_updated
-          ? dayjs().diff(dayjs(detail.last_updated), 'minute')
-          : Number.POSITIVE_INFINITY;
-
-        const cardBackground = getBackgroundColor(ageMinutes);
+        const cardBackground = getBackgroundColor(theme, detail.last_updated);
 
         return (
           <Box key={name} sx={{ flex: 1, minWidth: 0 }}>
