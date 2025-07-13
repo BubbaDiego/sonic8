@@ -24,7 +24,8 @@ export default function CompositionPieCard({ maxHeight = 115, maxWidth = 190 }) 
       enabled: true,
       formatter: (val) => `${Math.round(val)}%`,
       style: {
-        fontSize: '12px',
+        fontSize: '14px',
+        fontWeight: 700,
         colors: ['#ffffff'], // white text for labels
       },
       dropShadow: {

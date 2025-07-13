@@ -24,7 +24,7 @@ import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
 /* --- Configurable Variables --- */
 const HEADER_ROW_HEIGHT = 20;      // Height of the header row with icons (px)
 const POSITION_ROW_HEIGHT = 28;    // Height of each position row (px)
-const TABLE_MAX_HEIGHT = 345;      // Maximum height of the whole table/card (px)
+const TABLE_MAX_HEIGHT = 270;      // Maximum height of the whole table/card (px)
 /* ------------------------------ */
 
 export default function PositionListCard({ title }) {

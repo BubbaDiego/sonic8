@@ -10,7 +10,6 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import MainCard from 'ui-component/cards/MainCard';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { getTraders } from 'api/traders';
@@ -50,8 +49,7 @@ export default function TraderListCard() {
       content={false}
     >
       <Box sx={{ height: 370, overflowY: 'auto' }}>
-        <Stack direction="row" spacing={2} justifyContent="center" sx={{ padding: 1, backgroundColor: '#1a2b41', color: HEADER_ICON_COLOR }}>
-          <AccountCircleIcon />
+        <Stack direction="row" spacing={2} justifyContent="center" alignItems="center" sx={{ padding: 1, backgroundColor: '#1a2b41', color: HEADER_ICON_COLOR }}>
           <AccountBalanceWalletIcon />
           <TrendingUpIcon />
         </Stack>
