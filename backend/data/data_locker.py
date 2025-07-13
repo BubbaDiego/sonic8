@@ -133,6 +133,7 @@ class DataLocker:
             self._seed_modifiers_if_empty()
             self._seed_wallets_if_empty()
             self._seed_alerts_if_empty()
+            self._seed_traders_if_empty()
             self._seed_thresholds_if_empty()
             self._ensure_travel_percent_threshold()
             if self.system is not None:
@@ -620,6 +621,50 @@ class DataLocker:
                     f"Wallet seed file not found at {json_path}",
                     source="DataLocker",
                 )
+
+    def _seed_traders_if_empty(self):
+        """Seed traders table from ``active_traders.json`` if empty."""
+        if self.traders is None:
+            log.warning(
+                "⚠️ Trader manager unavailable; skipping trader seed",
+                source="DataLocker",
+            )
+            return
+
+        cursor = self.db.get_cursor()
+        if not cursor:
+            log.error("❌ DB unavailable, skipping trader seed", source="DataLocker")
+            return
+
+        count = cursor.execute("SELECT COUNT(*) FROM traders").fetchone()[0]
+        if count != 0:
+            return
+
+        try:
+            from backend.data.dl_traders import ACTIVE_TRADERS_JSON_PATH
+        except Exception as e:  # pragma: no cover - optional dependency
+            log.error(
+                f"❌ Unable to import ACTIVE_TRADERS_JSON_PATH: {e}",
+                source="DataLocker",
+            )
+            return
+
+        path = str(ACTIVE_TRADERS_JSON_PATH)
+        if not os.path.exists(path):
+            log.warning(
+                f"⚠️ Trader seed file not found at {path}",
+                source="DataLocker",
+            )
+            return
+
+        try:
+            added = self.traders.import_from_json(path)
+            log.debug(
+                f"Traders seeded from {path} (count={added})",
+                source="DataLocker",
+            )
+        except Exception as e:
+            log.error(f"❌ Failed seeding traders: {e}", source="DataLocker")
 
     def _seed_thresholds_if_empty(self):
         """Seed alert_thresholds table with defaults if empty."""

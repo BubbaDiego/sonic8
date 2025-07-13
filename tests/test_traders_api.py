@@ -34,3 +34,17 @@ def test_export_traders(tmp_path, monkeypatch):
     data = json.loads(json_path.read_text())
     assert any(t["name"] == "Alice" for t in data)
 
+
+def test_seed_traders_on_init(tmp_path, monkeypatch):
+    import json
+    from data import dl_traders as dl_t
+
+    json_path = tmp_path / "active_traders.json"
+    json_path.write_text(json.dumps([{"name": "Seeded"}]))
+    monkeypatch.setattr(dl_t, "ACTIVE_TRADERS_JSON_PATH", json_path)
+
+    client, dl = _setup_client(tmp_path, monkeypatch)
+    resp = client.get("/api/traders/")
+    assert resp.status_code == 200
+    assert any(t["name"] == "Seeded" for t in resp.json())
+
