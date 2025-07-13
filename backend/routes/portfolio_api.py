@@ -3,6 +3,11 @@ from backend.data.data_locker import DataLocker
 from backend.models.portfolio import PortfolioSnapshot
 from backend.deps import get_app_locker
 
+
+def _dl() -> DataLocker:
+    """Return the global :class:`DataLocker` instance."""
+    return DataLocker.get_instance()
+
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 api_router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 
