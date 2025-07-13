@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, Dict
 from backend.data.data_locker import DataLocker
-from backend.deps import get_locker
+from backend.deps import get_app_locker
 
 from backend.models.monitor_status import (
     MonitorStatus,
@@ -29,13 +29,13 @@ def _parse_type(value: str) -> MonitorType:
 
 
 @router.get("/", response_model=MonitorStatus)
-def get_status(dl: DataLocker = Depends(get_locker)) -> MonitorStatus:
+def get_status(dl: DataLocker = Depends(get_app_locker)) -> MonitorStatus:
     """Return current monitor status snapshot."""
     return dl.ledger.get_monitor_status_summary()
 
 
 @router.get("/{monitor_type}", response_model=MonitorDetail)
-def get_monitor(monitor_type: str, dl: DataLocker = Depends(get_locker)) -> MonitorDetail:
+def get_monitor(monitor_type: str, dl: DataLocker = Depends(get_app_locker)) -> MonitorDetail:
     mtype = _parse_type(monitor_type)
     summary = dl.ledger.get_monitor_status_summary()
     return summary.get_monitor_status(mtype)
