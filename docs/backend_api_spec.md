@@ -94,6 +94,29 @@ endpoints below return JSON responses and use Pydantic models from the
 - `POST /delete_all` – Remove all stored alerts.
 - `GET /monitor` – Return `{ "alerts": [...] }` with all current alerts.
 
+## XCom API (`xcom_api.py`)
+**Base path**: `/xcom`
+
+- `GET /config` – Return the configured notification providers.
+  - **Response model**: `dict`
+  - Secret fields such as tokens are masked with `***` in the response.
+- `PUT /config` – Replace provider settings.
+  - **Body**: provider configuration JSON
+  - **Response**: `{"status": "updated"}` (HTTP 200)
+- `POST /config/validate` – Validate Twilio credentials.
+  - **Response**: `{"status": "ok"}` (HTTP 200)
+- `GET /status` – Get aggregated status for Twilio, ChatGPT, Jupiter and GitHub.
+  - **Response model**: `{"twilio": str, "chatgpt": str, "jupiter": str, "github": str}`
+- `GET /check/{provider}` – Check a single provider by name.
+  - **Path parameter**: `provider` ("twilio", "chatgpt", etc.)
+  - **Response model**: `{"result": bool}`
+
+Usage Notes:
+  The XCom API manages notification settings and health checks for SMS, voice,
+  email and chat integrations. When retrieving configuration, sensitive values are
+  redacted so secrets do not leak through the API. Provide full secrets again
+  when updating if they need to change.
+
 ---
 
 These routers are included by FastAPI application startup in
