@@ -1,28 +1,46 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from 'api/xcom';
 
+// Providers hook
 export const useProviders = () => {
-  const qc = useQueryClient();
-  return {
-    ...useQuery(['xcom','providers'], api.getProviders),
-    saveProviders: useMutation(api.saveProviders, {
-      onSuccess: () => qc.invalidateQueries(['xcom','providers'])
-    })
-  };
+  return useQuery({
+    queryKey: ['xcom', 'providers'],
+    queryFn: api.getProviders
+  });
 };
 
+// Mutation hook to save providers
+export const useSaveProviders = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.saveProviders,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['xcom', 'providers'] })
+  });
+};
+
+// Status hook
 export const useStatus = () => {
-  const qc = useQueryClient();
-  return {
-    ...useQuery(['xcom','status'], api.getStatus, { refetchInterval: 30000 }),
-    refetchStatus: () => qc.invalidateQueries(['xcom','status']),
-    runHeartbeat: useMutation(api.runHeartbeat, {
-      onSuccess: () => qc.invalidateQueries(['xcom','status'])
-    })
-  };
+  return useQuery({
+    queryKey: ['xcom', 'status'],
+    queryFn: api.getStatus,
+    refetchInterval: 30000,
+  });
 };
 
+// Test message mutation hook
 export const useTestMessage = () => {
-  return useMutation(api.testMessage);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ mode, recipient, subject, body, level }) => api.testMessage(mode, recipient, subject, body, level),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['xcom', 'status'] })
+  });
+};
+
+// Heartbeat mutation hook
+export const useRunHeartbeat = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.runHeartbeat,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['xcom', 'status'] })
+  });
 };

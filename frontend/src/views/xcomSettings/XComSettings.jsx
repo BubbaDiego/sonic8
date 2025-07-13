@@ -1,10 +1,8 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MainCard from 'ui-component/cards/MainCard';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -14,7 +12,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import SyncIcon from '@mui/icons-material/Sync';
 import ProviderAccordion from './components/ProviderAccordion';
-import { useProviders, useStatus, useTestMessage } from 'hooks/useXCom';
+import { useProviders, useSaveProviders, useStatus, useTestMessage, useRunHeartbeat } from 'hooks/useXCom';
 import { enqueueSnackbar } from 'notistack';
 
 const emailFields = [
@@ -34,31 +32,34 @@ const twilioFields = [
 ];
 
 export default function XComSettings() {
-  const { data: providers, isLoading, saveProviders } = useProviders();
-  const { data: status, refetchStatus, runHeartbeat } = useStatus();
+  const { data: providers, isLoading: providersLoading, error: providersError } = useProviders();
+  const saveProviders = useSaveProviders();
+  const { data: status, refetch: refetchStatus, isLoading: statusLoading } = useStatus();
+  const runHeartbeat = useRunHeartbeat();
   const testMsg = useTestMessage();
 
   const [draft, setDraft] = useState({});
 
-  // Initialize draft when providers load
-  if (!isLoading && Object.keys(draft).length === 0 && providers) {
-    setDraft(JSON.parse(JSON.stringify(providers)));
-  }
+  useEffect(() => {
+    if (providers) setDraft(JSON.parse(JSON.stringify(providers)));
+  }, [providers]);
 
   const handleSave = () => {
     saveProviders.mutate(draft, {
-      onSuccess: () => enqueueSnackbar('Settings saved', {variant:'success'}),
-      onError: (err) => enqueueSnackbar('Save failed: '+err.message, {variant:'error'})
+      onSuccess: () => enqueueSnackbar('Settings saved', { variant: 'success' }),
+      onError: (err) => enqueueSnackbar('Save failed: ' + err.message, { variant: 'error' })
     });
   };
 
   const runTest = (mode) => {
-    testMsg.mutate({mode}, {
-      onSuccess: (res)=> enqueueSnackbar('Test '+mode+' sent ('+(res.success?'ok':'error')+')',{variant:res.success?'success':'error'})
+    testMsg.mutate({ mode }, {
+      onSuccess: (res) => enqueueSnackbar('Test ' + mode + ' sent (' + (res.success ? 'ok' : 'error') + ')', { variant: res.success ? 'success' : 'error' }),
+      onError: (err) => enqueueSnackbar('Test failed: ' + err.message, { variant: 'error' })
     });
   };
 
-  if (isLoading || !draft) return <CircularProgress/>;
+  if (providersLoading || statusLoading) return <CircularProgress />;
+  if (providersError) return <div>Error loading providers: {providersError.message}</div>;
 
   return (
     <Grid container spacing={3}>
@@ -67,27 +68,21 @@ export default function XComSettings() {
           <ProviderAccordion
             title="Email (SMTP)"
             fields={emailFields}
-            values={draft?.email?.smtp || {}}
-            onChange={(update)=>setDraft(prev=>{
-              const n={...prev};
-              n.email = n.email || {};
-              n.email.smtp = update;
-              return n;
-            })}
+            values={draft.email?.smtp || {}}
+            onChange={(update) => setDraft(prev => ({
+              ...prev,
+              email: { ...prev.email, smtp: update }
+            }))}
           />
           <ProviderAccordion
             title="Twilio (API)"
             fields={twilioFields}
-            values={draft?.api || {}}
-            onChange={(update)=>setDraft(prev=>{
-              const n={...prev};
-              n.api = update;
-              return n;
-            })}
+            values={draft.api || {}}
+            onChange={(update) => setDraft(prev => ({ ...prev, api: update }))}
           />
 
-          <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{mt:2}}>
-            <Button variant="outlined" onClick={()=>setDraft(providers)}>Cancel</Button>
+          <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 2 }}>
+            <Button variant="outlined" onClick={() => setDraft(providers)}>Cancel</Button>
             <Button variant="contained" onClick={handleSave} disabled={saveProviders.isLoading}>Save</Button>
           </Stack>
         </MainCard>
@@ -96,16 +91,16 @@ export default function XComSettings() {
       <Grid item xs={12} md={6}>
         <Stack spacing={3}>
           <MainCard title="Provider Status" secondary={
-            <Button size="small" onClick={refetchStatus}><SyncIcon/></Button>
+            <Button size="small" onClick={refetchStatus}><SyncIcon /></Button>
           }>
             <List>
-              {['twilio','smtp','chatgpt','jupiter','github'].map(key=>{
+              {['twilio', 'smtp', 'chatgpt', 'jupiter', 'github'].map(key => {
                 const st = status?.[key] || '—';
-                const ok = st==='ok';
+                const ok = st === 'ok';
                 return (
                   <ListItem key={key}>
-                    <ListItemIcon>{ok?<CheckCircleIcon color="success"/>:<ErrorIcon color="error"/>}</ListItemIcon>
-                    <ListItemText primary={key.toUpperCase()} secondary={st}/>
+                    <ListItemIcon>{ok ? <CheckCircleIcon color="success" /> : <ErrorIcon color="error" />}</ListItemIcon>
+                    <ListItemText primary={key.toUpperCase()} secondary={st} />
                   </ListItem>
                 )
               })}
@@ -114,11 +109,11 @@ export default function XComSettings() {
 
           <MainCard title="Send Test Notification">
             <Stack direction="row" spacing={2}>
-              {['voice','email','sound'].map(mode=>(
+              {['voice', 'email', 'sound'].map(mode => (
                 <Button
                   key={mode}
                   variant="outlined"
-                  onClick={()=>runTest(mode)}
+                  onClick={() => runTest(mode)}
                   disabled={testMsg.isLoading}
                 >
                   Test {mode}
@@ -129,12 +124,17 @@ export default function XComSettings() {
 
           <MainCard title="Heartbeat">
             <Stack direction="row" spacing={2}>
-              <Button variant="contained" onClick={()=>runHeartbeat.mutate()}
-              disabled={runHeartbeat.isLoading}>Run Heartbeat Now</Button>
+              <Button
+                variant="contained"
+                onClick={() => runHeartbeat.mutate()}
+                disabled={runHeartbeat.isLoading}
+              >
+                Run Heartbeat Now
+              </Button>
             </Stack>
           </MainCard>
         </Stack>
       </Grid>
     </Grid>
-  )
+  );
 }

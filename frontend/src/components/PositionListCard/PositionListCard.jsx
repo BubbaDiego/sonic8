@@ -31,7 +31,7 @@ const TABLE_MAX_HEIGHT = 270;   // Maximum height of the whole table/card (px)
  * Any profit **strictly greater** than this value (in USD)
  * is rendered in green and bold.
  */
-const profit_mark = 5;
+const profit_mark = 3;
 /* ------------------------------ */
 
 export default function PositionListCard({ title }) {
