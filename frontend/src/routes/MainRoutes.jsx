@@ -16,6 +16,9 @@ const PositionsPage = Loadable(lazy(() => import('views/positions')));
 const WalletManagerPage = Loadable(lazy(() => import('views/wallet/WalletManager')));
 const AlertThresholdsPage = Loadable(lazy(() => import('views/alertThresholds')));
 const SonicLabsPage = Loadable(lazy(() => import('views/sonicLabs')));
+const TraderFactoryPage = Loadable(
+  lazy(() => import('views/traderFactory/TraderFactoryPage'))
+);
 const DashboardAnalytics = Loadable(lazy(() => import('views/dashboard/Analytics')));
 const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')));
 const DatabaseViewer = Loadable(lazy(() => import('views/debug/DatabaseViewer')));
@@ -69,6 +72,10 @@ const MainRoutes = {
 
       path: '/sonic-labs',
       element: <SonicLabsPage />
+    },
+    {
+      path: '/trader-factory',
+      element: <TraderFactoryPage />
     },
     {
       path: '/sonic',
