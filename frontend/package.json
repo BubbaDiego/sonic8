@@ -48,7 +48,7 @@
     "redux-persist": "6.0.0",
     "slick-carousel": "1.8.1",
     "stylis-plugin-rtl": "2.1.1",
-    "swr": "2.3.3",
+    "swr": "^2.3.3",
     "vite": "6.3.3",
     "vite-jsconfig-paths": "2.0.1",
     "web-vitals": "4.2.4",
