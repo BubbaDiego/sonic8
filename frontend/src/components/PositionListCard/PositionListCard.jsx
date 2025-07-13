@@ -16,8 +16,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import AccountBalanceWalletTwoToneIcon from '@mui/icons-material/AccountBalanceWalletTwoTone';
-import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';     // Profit
-import BuildTwoToneIcon from '@mui/icons-material/BuildTwoTone';              // Leverage
+import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';   // Profit
+import BuildTwoToneIcon from '@mui/icons-material/BuildTwoTone';            // Leverage
 import MonetizationOnTwoToneIcon from '@mui/icons-material/MonetizationOnTwoTone';
 import WaterDropTwoToneIcon from '@mui/icons-material/WaterDropTwoTone';
 import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
@@ -26,6 +26,12 @@ import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
 const HEADER_ROW_HEIGHT = 20;   // Height of the header row with icons (px)
 const POSITION_ROW_HEIGHT = 28; // Height of each position row (px)
 const TABLE_MAX_HEIGHT = 270;   // Maximum height of the whole table/card (px)
+
+/**
+ * Any profit **strictly greater** than this value (in USD)
+ * is rendered in green and bold.
+ */
+const profit_mark = 5;
 /* ------------------------------ */
 
 export default function PositionListCard({ title }) {
@@ -44,14 +50,20 @@ export default function PositionListCard({ title }) {
     })();
   }, []);
 
+  // Centralised profit helper
+  const calcProfit = (p) =>
+    p.pnl_after_fees_usd != null
+      ? Number(p.pnl_after_fees_usd)
+      : p.value != null && p.collateral != null
+      ? Number(p.value) - Number(p.collateral)
+      : undefined;
+
   const sortedPositions = useMemo(() => {
     return [...positions].sort((a, b) => {
       let aVal = a[orderBy];
       let bVal = b[orderBy];
 
       if (orderBy === 'pnl_after_fees_usd') {
-        const calcProfit = (p) =>
-          p.value != null && p.collateral != null ? Number(p.value) - Number(p.collateral) : undefined;
         aVal = aVal ?? calcProfit(a);
         bVal = bVal ?? calcProfit(b);
       }
@@ -59,6 +71,7 @@ export default function PositionListCard({ title }) {
       if (aVal == null && bVal == null) return 0;
       if (aVal == null) return order === 'asc' ? -1 : 1;
       if (bVal == null) return order === 'asc' ? 1 : -1;
+
       if (typeof aVal === 'string' && typeof bVal === 'string') {
         return order === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       }
@@ -94,7 +107,7 @@ export default function PositionListCard({ title }) {
                 {/* Spacer for asset & type column */}
                 <TableCell />
 
-                {/* 🆕 Profit */}
+                {/* Profit */}
                 <TableCell align="right" sx={{ py: 0.5 }}>
                   <TableSortLabel
                     active={orderBy === 'pnl_after_fees_usd'}
@@ -135,87 +148,94 @@ export default function PositionListCard({ title }) {
 
             {/* ================= BODY ================ */}
             <TableBody>
-              {sortedPositions.map((pos) => (
-                <TableRow hover key={pos.id} sx={{ height: POSITION_ROW_HEIGHT }}>
-                  {/* Wallet icon */}
-                  <TableCell sx={{ pl: 1, py: 0.5 }}>
-                    <Avatar
-                      src={`/static/images/${(pos.wallet_name || 'unknown')
-                        .replace(/\s+/g, '')
-                        .replace(/vault$/i, '')
-                        .toLowerCase()}_icon.jpg`}
-                      alt={pos.wallet_name}
-                      sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
-                    />
-                  </TableCell>
+              {sortedPositions.map((pos) => {
+                const profitVal = calcProfit(pos) ?? 0;
+                const profitHighlight = profitVal > profit_mark;
+                const profitColor = profitHighlight ? 'success.main' : 'inherit';
+                const profitWeight = profitHighlight ? 700 : 'normal';
 
-                  {/* Asset & position type */}
-                  <TableCell sx={{ py: 0.5 }}>
-                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                return (
+                  <TableRow hover key={pos.id} sx={{ height: POSITION_ROW_HEIGHT }}>
+                    {/* Wallet icon */}
+                    <TableCell sx={{ pl: 1, py: 0.5 }}>
                       <Avatar
-                        src={`/static/images/${(pos.asset_type || 'unknown').toLowerCase()}_logo.png`}
-                        alt={pos.asset_type}
+                        src={`/static/images/${(pos.wallet_name || 'unknown')
+                          .replace(/\s+/g, '')
+                          .replace(/vault$/i, '')
+                          .toLowerCase()}_icon.jpg`}
+                        alt={pos.wallet_name}
                         sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
                       />
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ fontSize: POSITION_ROW_HEIGHT * 0.5, lineHeight: 1 }}
-                      >
-                        {pos.position_type?.toUpperCase()}
-                      </Typography>
-                    </Stack>
-                  </TableCell>
+                    </TableCell>
 
-                  {/* 🆕 Profit */}
-                  <TableCell
-                    align="right"
-                    sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
-                  >
-                    {Number(
-                      pos.pnl_after_fees_usd ??
-                        (pos.value != null && pos.collateral != null
-                          ? Number(pos.value) - Number(pos.collateral)
-                          : 0)
-                    ).toLocaleString(undefined, {
-                      style: 'currency',
-                      currency: 'USD',
-                      minimumFractionDigits: 2
-                    })}
-                  </TableCell>
+                    {/* Asset & position type */}
+                    <TableCell sx={{ py: 0.5 }}>
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <Avatar
+                          src={`/static/images/${(pos.asset_type || 'unknown').toLowerCase()}_logo.png`}
+                          alt={pos.asset_type}
+                          sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
+                        />
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontSize: POSITION_ROW_HEIGHT * 0.5, lineHeight: 1 }}
+                        >
+                          {pos.position_type?.toUpperCase()}
+                        </Typography>
+                      </Stack>
+                    </TableCell>
 
-                  {/* Leverage */}
-                  <TableCell
-                    align="right"
-                    sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
-                  >
-                    {Number(pos.leverage || 0).toFixed(2)}
-                  </TableCell>
+                    {/* Profit (color + bold if above mark) */}
+                    <TableCell
+                      align="right"
+                      sx={{
+                        py: 0.5,
+                        fontSize: POSITION_ROW_HEIGHT * 0.5,
+                        color: profitColor,
+                        fontWeight: profitWeight
+                      }}
+                    >
+                      {profitVal.toLocaleString(undefined, {
+                        style: 'currency',
+                        currency: 'USD',
+                        minimumFractionDigits: 2
+                      })}
+                    </TableCell>
 
-                  {/* Value */}
-                  <TableCell
-                    align="right"
-                    sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
-                  >
-                    ${Number(pos.value || 0).toLocaleString()}
-                  </TableCell>
+                    {/* Leverage */}
+                    <TableCell
+                      align="right"
+                      sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
+                    >
+                      {Number(pos.leverage || 0).toFixed(2)}
+                    </TableCell>
 
-                  {/* Liquidation distance */}
-                  <TableCell
-                    align="right"
-                    sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
-                  >
-                    {pos.liquidation_distance}
-                  </TableCell>
+                    {/* Value */}
+                    <TableCell
+                      align="right"
+                      sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
+                    >
+                      ${Number(pos.value || 0).toLocaleString()}
+                    </TableCell>
 
-                  {/* Travel percent */}
-                  <TableCell
-                    align="right"
-                    sx={{ pr: 1, py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
-                  >
-                    {`${Number(pos.travel_percent || 0).toFixed(2)}%`}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    {/* Liquidation distance */}
+                    <TableCell
+                      align="right"
+                      sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
+                    >
+                      {pos.liquidation_distance}
+                    </TableCell>
+
+                    {/* Travel percent */}
+                    <TableCell
+                      align="right"
+                      sx={{ pr: 1, py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
+                    >
+                      {`${Number(pos.travel_percent || 0).toFixed(2)}%`}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
