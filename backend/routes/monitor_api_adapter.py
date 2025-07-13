@@ -1,0 +1,28 @@
+
+"""Adapter layer that re‑exports the legacy Flask monitor API through FastAPI."""
+
+from __future__ import annotations
+from fastapi import APIRouter, HTTPException, status
+from backend.core.monitor_core.monitor_registry import MonitorRegistry
+from backend.core.monitor_core.monitor_core import MonitorCore
+
+router = APIRouter(prefix="/monitors", tags=["Monitors"])
+
+_registry = MonitorRegistry()           # Registers defaults (XComMonitor, TwilioMonitor, etc.)
+_core = MonitorCore(registry=_registry)
+
+@router.get("/", response_model=list[str])
+def list_monitors():
+    """Return sorted list of monitor keys."""
+    return sorted(_registry.get_all_monitors())
+
+@router.post("/{name}")
+def run_monitor(name: str):
+    if name not in _registry.get_all_monitors():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Monitor '{name}' not found")
+    monitor = _registry.get(name)
+    try:
+        monitor.run_cycle()
+        return {"status": "success", "monitor": name}
+    except Exception as exc:  # pragma: no cover
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
