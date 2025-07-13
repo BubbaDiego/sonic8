@@ -108,7 +108,11 @@ const Dashboard = () => {
       </Section>
 
       <Section name="Side‑B">
-        <TraderListCard title="Trader List" />
+        <PortfolioSessionCard
+          snapshot={snapshot}
+          onModify={handleModify}
+          onReset={handleReset}
+        />
       </Section>
 
       <Section name="Main‑C">
@@ -116,11 +120,7 @@ const Dashboard = () => {
       </Section>
 
       <Section name="Side‑C">
-        <PortfolioSessionCard
-          snapshot={snapshot}
-          onModify={handleModify}
-          onReset={handleReset}
-        />
+        <TraderListCard title="Trader List" />
       </Section>
     </Box>
   );
