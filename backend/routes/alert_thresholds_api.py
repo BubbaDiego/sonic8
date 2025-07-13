@@ -6,12 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from backend.data.data_locker import DataLocker
 from backend.core.alert_core.threshold_service import ThresholdService
 from backend.models.alert_thresholds import AlertThreshold
+from backend.deps import get_locker
 
 router = APIRouter(prefix="/alert_thresholds", tags=["alert_thresholds"])
 
 
-def _service() -> ThresholdService:
-    dl = DataLocker.get_instance()
+def _service(dl: DataLocker = Depends(get_locker)) -> ThresholdService:
     return ThresholdService(dl.db)
 
 
@@ -67,12 +67,8 @@ def delete_threshold(threshold_id: str, service: ThresholdService = Depends(_ser
 alerts_router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 
-def _dl() -> DataLocker:
-    return DataLocker.get_instance()
-
-
 @alerts_router.post("/refresh")
-def refresh_alerts(dl: DataLocker = Depends(_dl)):
+def refresh_alerts(dl: DataLocker = Depends(get_locker)):
     # Placeholder refresh logic; success even if no action.
     try:
         dl.alerts.get_all_alerts()
@@ -82,7 +78,7 @@ def refresh_alerts(dl: DataLocker = Depends(_dl)):
 
 
 @alerts_router.post("/create_all")
-def create_all_alerts(dl: DataLocker = Depends(_dl)):
+def create_all_alerts(dl: DataLocker = Depends(get_locker)):
     import json
     from backend.core.constants import CONFIG_DIR
 
@@ -98,13 +94,13 @@ def create_all_alerts(dl: DataLocker = Depends(_dl)):
 
 
 @alerts_router.post("/delete_all")
-def delete_all_alerts(dl: DataLocker = Depends(_dl)):
+def delete_all_alerts(dl: DataLocker = Depends(get_locker)):
     dl.alerts.delete_all_alerts()
     return {"success": True}
 
 
 @alerts_router.get("/monitor")
-def monitor_alerts(dl: DataLocker = Depends(_dl)):
+def monitor_alerts(dl: DataLocker = Depends(get_locker)):
     alerts = dl.alerts.get_all_alerts()
     return {"alerts": alerts}
 
