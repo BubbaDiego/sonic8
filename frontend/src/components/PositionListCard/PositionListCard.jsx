@@ -46,8 +46,16 @@ export default function PositionListCard({ title }) {
 
   const sortedPositions = useMemo(() => {
     return [...positions].sort((a, b) => {
-      const aVal = a[orderBy];
-      const bVal = b[orderBy];
+      let aVal = a[orderBy];
+      let bVal = b[orderBy];
+
+      if (orderBy === 'pnl_after_fees_usd') {
+        const calcProfit = (p) =>
+          p.value != null && p.collateral != null ? Number(p.value) - Number(p.collateral) : undefined;
+        aVal = aVal ?? calcProfit(a);
+        bVal = bVal ?? calcProfit(b);
+      }
+
       if (aVal == null && bVal == null) return 0;
       if (aVal == null) return order === 'asc' ? -1 : 1;
       if (bVal == null) return order === 'asc' ? 1 : -1;
@@ -89,9 +97,9 @@ export default function PositionListCard({ title }) {
                 {/* 🆕 Profit */}
                 <TableCell align="right" sx={{ py: 0.5 }}>
                   <TableSortLabel
-                    active={orderBy === 'profit'}
-                    direction={orderBy === 'profit' ? order : 'asc'}
-                    onClick={() => handleSort('profit')}
+                    active={orderBy === 'pnl_after_fees_usd'}
+                    direction={orderBy === 'pnl_after_fees_usd' ? order : 'asc'}
+                    onClick={() => handleSort('pnl_after_fees_usd')}
                   >
                     <TrendingUpTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                   </TableSortLabel>
@@ -163,7 +171,12 @@ export default function PositionListCard({ title }) {
                     align="right"
                     sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
                   >
-                    {Number(pos.profit || 0).toLocaleString(undefined, {
+                    {Number(
+                      pos.pnl_after_fees_usd ??
+                        (pos.value != null && pos.collateral != null
+                          ? Number(pos.value) - Number(pos.collateral)
+                          : 0)
+                    ).toLocaleString(undefined, {
                       style: 'currency',
                       currency: 'USD',
                       minimumFractionDigits: 2
