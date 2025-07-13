@@ -30,6 +30,12 @@ function statusColor(theme, status) {
 export default function OperationsBar({ monitors = {}, variant = 'light', onToggle }) {
   const theme = useTheme();
 
+  const getBackgroundColor = (ageMinutes) => {
+    if (ageMinutes < 5) return theme.palette.primary.dark; // default blue
+    if (ageMinutes < 10) return theme.palette.warning.main; // yellow
+    return theme.palette.error.main; // red
+  };
+
   return (
     <Stack
       direction="row"
@@ -49,30 +55,16 @@ export default function OperationsBar({ monitors = {}, variant = 'light', onTogg
 
         const color = statusColor(theme, detail.status);
 
-        // Freshness logic
         const ageMinutes = detail.last_updated
           ? dayjs().diff(dayjs(detail.last_updated), 'minute')
           : Number.POSITIVE_INFINITY;
 
-        let freshnessColor;
-        if (ageMinutes < 5) freshnessColor = theme.palette.success.main;
-        else if (ageMinutes < 10) freshnessColor = theme.palette.warning.main;
-        else freshnessColor = theme.palette.error.main;
+        const cardBackground = getBackgroundColor(ageMinutes);
 
         return (
-          <Box
-            key={name}
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              outline: `3px solid ${freshnessColor}`,
-              outlineOffset: '-3px',
-              borderRadius: 1,
-              boxSizing: 'border-box',
-            }}
-          >
+          <Box key={name} sx={{ flex: 1, minWidth: 0 }}>
             <StatCard
-              variant={variant}
+              variant="dark"
               icon={<Icon size={22} />}
               label={label}
               secondary={
@@ -83,7 +75,9 @@ export default function OperationsBar({ monitors = {}, variant = 'light', onTogg
               sx={{
                 '& .MuiTypography-h4': { fontSize: '.775rem', textAlign: 'center' },
                 '& .MuiTypography-subtitle2': { mt: 3 },
-                height: '100%'
+                backgroundColor: cardBackground,
+                height: '100%',
+                boxSizing: 'border-box'
               }}
               onClick={onToggle}
             />
