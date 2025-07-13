@@ -1,36 +1,10 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import {
-  Box,
-  Card,
-  CardHeader,
-  CardContent,
-  CardActions,
-  Typography,
-  LinearProgress,
-  IconButton,
-  Tooltip,
-  Stack
-} from '@mui/material';
+import { Card, Typography, Avatar, IconButton, Box, LinearProgress, Stack } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import EditNoteIcon from '@mui/icons-material/EditNote';
 
-const number = n => n?.toLocaleString(undefined, { maximumFractionDigits: 2 });
-
-/**
- * PortfolioSessionCard – shows real‑time session KPIs and lets the
- * user tweak / restart the session.
- *
- * Layout: header (title + value), body (metrics grid + progress bar),
- * footer (action buttons).  Width is governed by the grid slot; height
- * stretches to available space so the text remains readable.
- */
-export default function PortfolioSessionCard({
-  snapshot,
-  onModify    = () => {},
-  onReset     = () => {},
-  onEnd       = null     // optional “close session” action
-}) {
+export default function PortfolioSessionCard({ snapshot, onReset }) {
   if (!snapshot?.session_start_time) {
     return (
       <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -41,109 +15,57 @@ export default function PortfolioSessionCard({
     );
   }
 
-  const {
-    current_session_value,
-    session_start_value,
-    session_goal_value,
-    session_performance_value
-  } = snapshot;
+  const number = (n) => n?.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-  const delta = session_performance_value;
-  const pct   = session_goal_value
-    ? Math.min(100, (current_session_value / session_goal_value) * 100)
+  const progress = snapshot.session_goal_value
+    ? Math.min(100, (snapshot.current_session_value / snapshot.session_goal_value) * 100)
     : 0;
 
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <CardHeader
-        title="Current Session"
-        subheader={`Started ${new Date(snapshot.session_start_time).toLocaleString()}`}
-        sx={{ pb: 0 }}
-      />
+    <Box>
+      <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 2 }}>
+        <Avatar src="/static/images/bubba_icon.png" alt="Session Avatar" sx={{ width: 64, height: 64 }} />
+        <Typography variant="h5">Current Session</Typography>
+        <Typography variant="subtitle1" color="text.secondary">
+          Started: {new Date(snapshot.session_start_time).toLocaleString()}
+        </Typography>
 
-      <CardContent sx={{ flexGrow: 1 }}>
-        <Stack spacing={1}>
-          <Typography variant="h6">
-            {number(current_session_value)}&nbsp;USD
+        <Stack spacing={1} sx={{ width: '100%', mt: 2 }}>
+          <Typography variant="h4">{number(snapshot.current_session_value)} USD</Typography>
+          <Typography variant="subtitle1" color={snapshot.session_performance_value >= 0 ? 'success.main' : 'error.main'}>
+            {snapshot.session_performance_value >= 0 ? '+' : ''}
+            {number(snapshot.session_performance_value)} ({number((snapshot.session_performance_value / snapshot.session_start_value) * 100)}%)
           </Typography>
+          <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 2 }} />
 
-          <Typography variant="subtitle2" color={delta >= 0 ? 'success.main' : 'error.main'}>
-            {delta >= 0 ? '+' : ''}
-            {number(delta)} ({number((delta / session_start_value) * 100)}%)
-          </Typography>
-
-          <LinearProgress
-            variant="determinate"
-            value={pct}
-            sx={{ height: 10, borderRadius: 1 }}
-          />
-          <Typography variant="caption" align="right">
-            Goal {number(session_goal_value)}
-          </Typography>
-
-          {/* Mini metric grid */}
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: 0.5,
-              mt: 1
-            }}
-          >
-            <Metric label="Tot. Value"    value={snapshot.total_value} />
-            <Metric label="Collateral"     value={snapshot.total_collateral} />
-            <Metric label="Avg Lev."       value={snapshot.avg_leverage} />
-            <Metric label="Heat Index"     value={snapshot.avg_heat_index} />
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, mt: 1 }}>
+            <Metric label="Tot. Value" value={snapshot.total_value} />
+            <Metric label="Collateral" value={snapshot.total_collateral} />
+            <Metric label="Avg Leverage" value={snapshot.avg_leverage} />
+            <Metric label="Heat Index" value={snapshot.avg_heat_index} />
           </Box>
         </Stack>
-      </CardContent>
 
-      <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
-        <Tooltip title="Modify session settings">
-          <IconButton size="small" onClick={onModify}>
-            <EditNoteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        <Tooltip title="Reset session">
-          <IconButton size="small" onClick={onReset}>
-            <RestartAltIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        {onEnd && (
-          <Tooltip title="End session">
-            <IconButton size="small" onClick={onEnd}>
-              {/* use a stop icon of your choice */}
-            </IconButton>
-          </Tooltip>
-        )}
-      </CardActions>
-    </Card>
-  );
-}
-
-function Metric({ label, value }) {
-  return (
-    <Box>
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography variant="body2">
-        {number(value)}
-      </Typography>
+        <Box>
+          <IconButton color="primary" onClick={() => {}}><EditIcon /></IconButton>
+          <IconButton color="secondary" onClick={onReset}><RestartAltIcon /></IconButton>
+        </Box>
+      </Card>
     </Box>
   );
 }
 
-Metric.propTypes = {
-  label: PropTypes.string.isRequired,
-  value: PropTypes.number
-};
+function Metric({ label, value }) {
+  const number = (n) => n?.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      <Typography variant="body2">{number(value)}</Typography>
+    </Box>
+  );
+}
 
 PortfolioSessionCard.propTypes = {
-  snapshot:  PropTypes.object,
-  onModify:  PropTypes.func,
-  onReset:   PropTypes.func,
-  onEnd:     PropTypes.func
+  snapshot: PropTypes.object,
+  onReset: PropTypes.func,
 };

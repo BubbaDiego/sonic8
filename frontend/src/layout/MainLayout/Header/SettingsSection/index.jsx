@@ -24,7 +24,7 @@ import MainCard from 'ui-component/cards/MainCard';
 import Transitions from 'ui-component/extended/Transitions';
 import useAuth from 'hooks/useAuth';
 import useConfig from 'hooks/useConfig';
-import { IconLogout, IconSettings, IconUser, IconDatabase } from '@tabler/icons-react';
+import { IconLogout, IconSettings, IconUser, IconDatabase, IconAntennaBars5 } from '@tabler/icons-react';
 
 // Updated to new icon
 const SonicBurstIcon = "/static/images/sonic_burst.png";
@@ -165,9 +165,19 @@ export default function SettingsSection() {
                           </ListItemIcon>
                           <ListItemText primary={<Typography variant="body2"><FormattedMessage id="social-profile" /></Typography>} />
                         </ListItemButton>
+<ListItemButton
+  selected={selectedIndex === 3}
+  onClick={(e) => handleListItemClick(e, 2, '/communications/xcom')}
+>
+  <ListItemIcon>
+    <IconAntennaBars5 stroke={1.5} size="20px" />
+  </ListItemIcon>
+  <ListItemText primary={<Typography variant="body2">XCom Settings</Typography>} />
+</ListItemButton>
+
                         <ListItemButton
-                            selected={selectedIndex === 2}
-                            onClick={(e) => handleListItemClick(e, 2, '/debug/db')}
+                            selected={selectedIndex === 3}
+                            onClick={(e) => handleListItemClick(e, 3, '/debug/db')}
                         >
                           <ListItemIcon>
                             <IconDatabase stroke={1.5} size="20px" />

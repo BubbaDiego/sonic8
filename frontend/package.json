@@ -16,6 +16,7 @@
     "@reduxjs/toolkit": "2.7.0",
     "@supabase/supabase-js": "2.49.4",
     "@tabler/icons-react": "3.31.0",
+    "@tanstack/react-query": "^5.83.0",
     "@vitejs/plugin-react": "4.4.1",
     "amazon-cognito-identity-js": "6.3.15",
     "apexcharts": "^4.7.0",

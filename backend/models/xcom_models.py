@@ -1,51 +1,45 @@
-try:
-    from pydantic import BaseModel, Field
-    if not hasattr(BaseModel, "__fields__"):
-        raise ImportError("stub")
-except Exception:  # pragma: no cover - optional dependency or stub detected
-    class BaseModel:  # type: ignore
-        def __init__(self, **data):
-            for k, v in data.items():
-                setattr(self, k, v)
+"""Pydantic models exclusively used by the XCom & Monitor routes."""
 
-        def dict(self) -> dict:  # type: ignore[override]
-            return self.__dict__
+from __future__ import annotations
+from typing import Dict, Any, Optional, Literal
+from pydantic import BaseModel, Field, conint, EmailStr, RootModel  # ✅ RootModel added here
 
-    def Field(default=None, **_):  # type: ignore
-        return default
+class SMTPConfig(BaseModel):
+    """Subset of fields required for SMTP communication."""
+    server: str
+    port: conint(gt=0, lt=65536)
+    username: str
+    password: str
+    default_recipient: Optional[EmailStr] = None
 
 class ProviderConfig(BaseModel):
-    """Configuration for a single communication provider."""
+    """Generic provider configuration.
 
-    enabled: bool | None = True
+    Allows extra fields so Twilio or future providers
+    can persist arbitrary credential keys without code changes.
+    """
+    enabled: bool = True
+    smtp: Optional[SMTPConfig] = None
 
     class Config:
         extra = "allow"
 
-class ProviderMap(BaseModel):
-    """Mapping of provider name to configuration."""
+# ✅ Updated for Pydantic v2 compatibility
+class ProviderMap(RootModel[Dict[str, ProviderConfig]]):
+    pass
 
-    providers: dict[str, ProviderConfig] = Field(default_factory=dict)
-
-class StatusResponse(BaseModel):
-    """Status details for various external integrations."""
-
-    twilio: str
-    chatgpt: str
-    jupiter: str
-    github: str
+class StatusResponse(RootModel[Dict[str, str]]):
+    pass
 
 class TestMessageRequest(BaseModel):
-    """Request payload for sending a test XCom message."""
-
-    level: str = "LOW"
-    subject: str
-    body: str
-    recipient: str | None = None
+    """POST body for `/xcom/test`."""
+    mode: Literal["sms", "email", "voice", "sound"]
+    recipient: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    level: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
 
 class TestMessageResult(BaseModel):
-    """Result of a test XCom message dispatch."""
-
+    """Slim wrapper around XComCore result."""
     success: bool
-    results: dict
-
+    results: Dict[str, Any] = Field(default_factory=dict)

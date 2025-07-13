@@ -1,96 +1,59 @@
-from fastapi import APIRouter, Depends
-from backend.data.data_locker import DataLocker
-from backend.core.xcom_core.xcom_core import XComCore
-from backend.core.xcom_core.check_twilio_heartbeat_service import CheckTwilioHeartbeatService
+
+"""FastAPI router exposing XCom CRUD + utility endpoints."""
+
+from __future__ import annotations
+from fastapi import APIRouter, Depends, HTTPException, status
 from backend.models.xcom_models import (
     ProviderMap,
     StatusResponse,
     TestMessageRequest,
     TestMessageResult,
 )
-import os
-import requests
+from backend.core.xcom_core.xcom_status_service import XComStatusService
+from backend.core.xcom_core.xcom_core import XComCore, get_latest_xcom_monitor_entry
+from backend.data.data_locker import DataLocker
+from backend.deps import get_locker
 
-router = APIRouter(prefix="/xcom", tags=["xcom"])
-
-
-def _dl() -> DataLocker:
-    return DataLocker.get_instance()
-
-
-SENSITIVE_KEYS = {
-    "auth_token",
-    "password",
-    "account_sid",
-    "flow_sid",
-    "default_from_phone",
-    "default_to_phone",
-    "username",
-    "api_key",
-    "token",
-}
-
-
-def _mask(data):
-    if isinstance(data, dict):
-        return {k: ("***" if k in SENSITIVE_KEYS and data[k] else _mask(v)) for k, v in data.items()}
-    if isinstance(data, list):
-        return [_mask(v) for v in data]
-    return data
-
+router = APIRouter(prefix="/xcom", tags=["XCom"])
 
 @router.get("/providers", response_model=ProviderMap)
-def get_providers(dl: DataLocker = Depends(_dl)):
+def read_providers(dl: DataLocker = Depends(get_locker)):
     cfg = dl.system.get_var("xcom_providers") or {}
-    return ProviderMap(providers=_mask(cfg))
-
+    # Mask secrets before returning
+    for provider in cfg.values():
+        if isinstance(provider, dict):
+            if "password" in provider:
+                provider["password"] = "********"
+            if "auth_token" in provider:
+                provider["auth_token"] = "********"
+            if (smtp := provider.get("smtp")) and isinstance(smtp, dict) and "password" in smtp:
+                smtp["password"] = "********"
+    return ProviderMap(__root__=cfg)
 
 @router.put("/providers")
-def set_providers(map: ProviderMap, dl: DataLocker = Depends(_dl)):
-    data = map.model_dump()["providers"] if hasattr(map, "model_dump") else map.providers
-    dl.system.set_var("xcom_providers", data)
-    return {"status": "updated"}
-
+def write_providers(cfg: ProviderMap, dl: DataLocker = Depends(get_locker)):
+    dl.system.set_var("xcom_providers", cfg.root)
+    return {"status": "saved"}
 
 @router.get("/status", response_model=StatusResponse)
-def status() -> StatusResponse:
-    twilio_r = CheckTwilioHeartbeatService({}).check(dry_run=True)
-    twilio = "ok" if twilio_r.get("success") else f"error: {twilio_r.get('error')}" if twilio_r.get("error") else "error"
-
-    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPEN_AI_KEY")
-    if not api_key:
-        chatgpt = "missing api key"
-    else:
-        try:
-            from openai import OpenAI
-
-            client = OpenAI(api_key=api_key)
-            client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": "ping"}])
-            chatgpt = "ok"
-        except Exception as exc:  # pragma: no cover - network dependent
-            chatgpt = f"error: {exc}"
-
-    try:
-        requests.get("https://quote-api.jup.ag/v6/health", timeout=3).raise_for_status()
-        jupiter = "ok"
-    except Exception as exc:  # pragma: no cover - network dependent
-        jupiter = f"error: {exc}"
-
-    try:
-        requests.get("https://api.github.com", timeout=3).raise_for_status()
-        github = "ok"
-    except Exception as exc:  # pragma: no cover - network dependent
-        github = f"error: {exc}"
-
-    return StatusResponse(twilio=twilio, chatgpt=chatgpt, jupiter=jupiter, github=github)
-
+async def check_status(dl: DataLocker = Depends(get_locker)):
+    service = XComStatusService(dl.system.get_var("xcom_providers") or {})
+    data = await service.probe_all()
+    return StatusResponse(__root__=data)
 
 @router.post("/test", response_model=TestMessageResult)
-def send_test(msg: TestMessageRequest, dl: DataLocker = Depends(_dl)) -> TestMessageResult:
+def run_test(req: TestMessageRequest, dl: DataLocker = Depends(get_locker)):
     xcom = XComCore(dl.system)
-    result = xcom.send_notification(msg.level, msg.subject, msg.body, msg.recipient or "", initiator="api")
-    return TestMessageResult(success=bool(result.get("success")), results=result)
+    result = xcom.send_notification(
+        level=req.level,
+        subject=req.subject or f"Test {req.mode.upper()} Message",
+        body=req.body or "XCom test payload",
+        recipient=req.recipient or "",
+        initiator="api_test"
+    )
+    # Only keep minimal fields
+    return TestMessageResult(success=result.get("success"), results=result)
 
-
-__all__ = ["router"]
-
+@router.get("/last_ping")
+def last_ping(dl: DataLocker = Depends(get_locker)):
+    return get_latest_xcom_monitor_entry(dl)

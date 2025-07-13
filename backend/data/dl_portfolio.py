@@ -131,29 +131,24 @@ class DLPortfolioManager:
             if row:
                 log.debug("Latest portfolio snapshot retrieved", source="DLPortfolioManager")
                 data = dict(row)
-                for field in [
-                    "total_size",
-                    "total_long_size",
-                    "total_short_size",
-                    "total_value",
-                    "total_collateral",
-                    "avg_leverage",
-                    "avg_travel_percent",
-                    "avg_heat_index",
-                    "total_heat_index",
-                    "market_average_sp500",
-                    "session_start_value",
-                    "current_session_value",
-                    "session_goal_value",
-                    "session_performance_value",
-                ]:
+                for field in ["total_size", "total_long_size", "total_short_size", "total_value",
+                              "total_collateral", "avg_leverage", "avg_travel_percent",
+                              "avg_heat_index", "total_heat_index", "market_average_sp500",
+                              "session_start_value", "current_session_value",
+                              "session_goal_value", "session_performance_value"]:
                     if data.get(field) is None:
                         data[field] = 0.0
+
+                # Add this conditional logic here
+                if data.get("session_start_time") is None:
+                    data["session_start_time"] = datetime.now().isoformat()  # fallback to now or appropriate logic
+
                 return PortfolioSnapshot(**data)
             return None
         except Exception as e:
             log.error(f"Failed to fetch latest snapshot: {e}", source="DLPortfolioManager")
             return None
+
     def add_entry(self, entry: dict):
         """Insert a manual portfolio entry into positions_totals_history."""
         try:
