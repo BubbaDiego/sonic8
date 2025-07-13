@@ -12,6 +12,7 @@ import Box from '@mui/material/Box';
 import MainCard from 'ui-component/cards/MainCard';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import MoodIcon from '@mui/icons-material/Mood';
 import { getTraders } from 'api/traders';
 
 /* ------------------------------------------------------------------ */
@@ -52,6 +53,7 @@ export default function TraderListCard() {
         <Stack direction="row" spacing={2} justifyContent="center" alignItems="center" sx={{ padding: 1, backgroundColor: '#1a2b41', color: HEADER_ICON_COLOR }}>
           <AccountBalanceWalletIcon />
           <TrendingUpIcon />
+          <MoodIcon />
         </Stack>
         <List disablePadding>
           {traders.map((trader) => (
@@ -78,12 +80,13 @@ export default function TraderListCard() {
                       <Typography
                         variant="subtitle2"
                         sx={{
-                          color:
-                            trader.profit >= 0 ? 'success.dark' : 'error.main'
+                          color: trader.profit >= 0 ? 'success.dark' : 'error.main'
                         }}
                       >
-                        {trader.profit >= 0 ? '+' : '-'}$
-                        {Math.abs(trader.profit).toLocaleString()}
+                        {trader.profit >= 0 ? '+' : '-'}${Math.abs(trader.profit).toLocaleString()}
+                      </Typography>
+                      <Typography variant="subtitle2">
+                        {trader.mood}
                       </Typography>
                     </Stack>
                   }

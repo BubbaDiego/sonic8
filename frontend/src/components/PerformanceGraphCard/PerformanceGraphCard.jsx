@@ -7,17 +7,7 @@ import MainCard from 'ui-component/cards/MainCard';
 import { ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
 import { useGetPortfolioHistory } from 'api/portfolio';
-import { useGetPriceHistory } from 'api/prices';
-
-// Corrected and confirmed imports
-import {
-  IconCoin,
-  IconPigMoney,
-  IconCurrencyBitcoin,
-  IconCurrencyEthereum,
-  IconCurrencySolana
-} from '@tabler/icons-react';
-
+import { IconCoin, IconPigMoney, IconChartAreaLine } from '@tabler/icons-react';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import ToggleButton from '@mui/material/ToggleButton';
 import { startOfWeek, format, parseISO } from 'date-fns';
@@ -25,58 +15,46 @@ import { startOfWeek, format, parseISO } from 'date-fns';
 export default function PerformanceGraphCard() {
   const theme = useTheme();
   const { mode } = useConfig();
-
   const { history = [], historyLoading } = useGetPortfolioHistory();
   const [granularity, setGranularity] = useState('24');
 
-  const [asset, setAsset] = useState('BTC');
-  const cycleAsset = () =>
-    setAsset((prev) => (prev === 'BTC' ? 'ETH' : prev === 'ETH' ? 'SOL' : 'BTC'));
-
-  const bucketHistory = (gran, rows = []) => {
+  const bucketHistory = (granularity, rows = []) => {
     const buckets = new Map();
 
     rows.forEach((row) => {
-      const date = parseISO(row.snapshot_time || row.last_update_time);
+      const date = parseISO(row.snapshot_time);
       let key;
-      if (gran === '1w') key = format(startOfWeek(date), 'yyyy-MM-dd');
-      else if (gran === '24') key = format(date, 'yyyy-MM-dd');
-      else if (gran === '12') key = format(date, 'yyyy-MM-dd HH');
-      else key = format(date, 'yyyy-MM-dd HH:mm');
+      if (granularity === '1w') {
+        key = format(startOfWeek(date), 'yyyy-MM-dd');
+      } else if (granularity === '24') {
+        key = format(date, 'yyyy-MM-dd');
+      } else if (granularity === '12') {
+        key = format(date, 'yyyy-MM-dd HH');
+      } else {
+        key = format(date, 'yyyy-MM-dd HH:mm');
+      }
 
-      const prev = buckets.get(key) ?? {
-        value: 0,
-        collateral: 0,
-        price: 0,
-        count: 0
-      };
-
+      const prev = buckets.get(key) ?? { value: 0, collateral: 0, btc: 0, count: 0 };
       buckets.set(key, {
         value: prev.value + Number(row.total_value || 0),
         collateral: prev.collateral + Number(row.total_collateral || 0),
-        price: prev.price + Number(row.current_price || row.price || 0),
+        btc: prev.btc + Number(row.market_average_btc || 0),
         count: prev.count + 1
       });
     });
 
-    const categories = [], valueSeries = [], collateralSeries = [], priceSeries = [];
+    const categories = [], valueSeries = [], collateralSeries = [], btcSeries = [];
+    [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([k, v]) => {
+      categories.push(k);
+      valueSeries.push(Math.round(v.value / v.count));
+      collateralSeries.push(Math.round(v.collateral / v.count));
+      btcSeries.push(Math.round(v.btc / v.count));
+    });
 
-    [...buckets.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .forEach(([k, v]) => {
-        categories.push(k);
-        valueSeries.push(Math.round(v.value / v.count));
-        collateralSeries.push(Math.round(v.collateral / v.count));
-        priceSeries.push(Math.round(v.price / v.count));
-      });
-
-    return { categories, valueSeries, collateralSeries, priceSeries };
+    return { categories, valueSeries, collateralSeries, btcSeries };
   };
 
-  const bucketedPortfolio = useMemo(() => bucketHistory(granularity, history), [granularity, history]);
-
-  const { history: priceHistory = [], historyLoading: priceLoading } = useGetPriceHistory(asset, granularity);
-  const bucketedPrice = useMemo(() => bucketHistory(granularity, priceHistory), [granularity, priceHistory]);
+  const bucketed = useMemo(() => bucketHistory(granularity, history), [granularity, history]);
 
   const [chartConfig, setChartConfig] = useState({
     series: [],
@@ -96,25 +74,27 @@ export default function PerformanceGraphCard() {
   });
 
   useEffect(() => {
-    if (historyLoading || priceLoading) return;
+    if (historyLoading) return;
 
-    setChartConfig((prev) => ({
-      ...prev,
+    const { categories, valueSeries, collateralSeries, btcSeries } = bucketed;
+
+    setChartConfig((prevState) => ({
+      ...prevState,
       series: [
-        { name: `${bucketedPortfolio.valueSeries.at(-1)}`, data: bucketedPortfolio.valueSeries, color: theme.palette.primary.main },
-        { name: `${bucketedPortfolio.collateralSeries.at(-1)}`, data: bucketedPortfolio.collateralSeries, color: theme.palette.secondary.main },
-        { name: asset, data: bucketedPrice.priceSeries }
+        { name: `${valueSeries[valueSeries.length - 1]}`, data: valueSeries, color: theme.palette.primary.main },
+        { name: `${collateralSeries[collateralSeries.length - 1]}`, data: collateralSeries, color: theme.palette.secondary.main },
+        { name: 'BTC', data: btcSeries }
       ],
-      options: { ...prev.options, xaxis: { categories: bucketedPortfolio.categories }, tooltip: { theme: mode } }
+      options: { ...prevState.options, xaxis: { categories }, tooltip: { theme: mode } }
     }));
-  }, [bucketedPortfolio, bucketedPrice, historyLoading, priceLoading, asset, mode, theme.palette.primary.main, theme.palette.secondary.main]);
+  }, [bucketed, historyLoading, mode, theme.palette.primary.main, theme.palette.secondary.main]);
 
   const iconSX = {
     width: 30,
     height: 30,
     color: 'secondary.main',
     borderRadius: '12px',
-    p: 0.5,
+    padding: 0.5,
     bgcolor: mode === ThemeMode.DARK ? 'background.default' : 'primary.light'
   };
 
@@ -125,12 +105,20 @@ export default function PerformanceGraphCard() {
           <Grid item>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={iconSX}><IconCoin stroke={1.5} /></Box>
-              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.primary.main }}>{bucketedPortfolio.valueSeries.at(-1)}</Box>
+              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.primary.main }}>{bucketed.valueSeries.at(-1)}</Box>
               <Box sx={iconSX}><IconPigMoney stroke={1.5} /></Box>
-              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.secondary.main }}>{bucketedPortfolio.collateralSeries.at(-1)}</Box>
-              <Box sx={{ ...iconSX, cursor: 'pointer' }} onClick={cycleAsset}>{ {BTC: <IconCurrencyBitcoin stroke={1.5}/>, ETH: <IconCurrencyEthereum stroke={1.5}/>, SOL: <IconCurrencySolana stroke={1.5}/>}[asset] }</Box>
-              <Box component="span" sx={{ typography: 'subtitle1' }}>{asset}</Box>
+              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.secondary.main }}>{bucketed.collateralSeries.at(-1)}</Box>
+              <Box sx={iconSX}><IconChartAreaLine stroke={1.5} /></Box>
+              <Box component="span" sx={{ typography: 'subtitle1' }}>BTC</Box>
             </Box>
+          </Grid>
+          <Grid item>
+            <ToggleButtonGroup size="small" exclusive value={granularity} onChange={(_, v) => v && setGranularity(v)}>
+              <ToggleButton value="1">1hr</ToggleButton>
+              <ToggleButton value="12">12hr</ToggleButton>
+              <ToggleButton value="24">24hr</ToggleButton>
+              <ToggleButton value="1w">1w</ToggleButton>
+            </ToggleButtonGroup>
           </Grid>
         </Grid>
       </Box>

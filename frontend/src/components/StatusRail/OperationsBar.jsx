@@ -15,10 +15,10 @@ import {
 import StatCard from './StatCard';
 
 const iconMap = {
-  'Sonic Monitoring':     IconShieldCheck,
-  'Price Monitoring':     IconCurrencyDollar,
+  'Sonic Monitoring': IconShieldCheck,
+  'Price Monitoring': IconCurrencyDollar,
   'Positions Monitoring': IconPlanet,
-  'XCom Communication':   IconSatellite
+  'XCom Communication': IconSatellite
 };
 
 function statusColor(theme, status) {
@@ -41,14 +41,36 @@ export default function OperationsBar({ monitors = {}, variant = 'light', onTogg
       }}
     >
       {Object.entries(monitors).map(([name, detail]) => {
-        const Icon  = iconMap[name] ?? IconShieldCheck;
+        const Icon = iconMap[name] ?? IconShieldCheck;
+
         const label = detail.last_updated
           ? dayjs(detail.last_updated).format('h:mm A')
           : '--';
+
         const color = statusColor(theme, detail.status);
 
+        // Freshness logic
+        const ageMinutes = detail.last_updated
+          ? dayjs().diff(dayjs(detail.last_updated), 'minute')
+          : Number.POSITIVE_INFINITY;
+
+        let freshnessColor;
+        if (ageMinutes < 5) freshnessColor = theme.palette.success.main;
+        else if (ageMinutes < 10) freshnessColor = theme.palette.warning.main;
+        else freshnessColor = theme.palette.error.main;
+
         return (
-          <Box key={name} sx={{ flex: 1, minWidth: 0 }}>
+          <Box
+            key={name}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              outline: `3px solid ${freshnessColor}`,
+              outlineOffset: '-3px',
+              borderRadius: 1,
+              boxSizing: 'border-box',
+            }}
+          >
             <StatCard
               variant={variant}
               icon={<Icon size={22} />}
@@ -60,7 +82,8 @@ export default function OperationsBar({ monitors = {}, variant = 'light', onTogg
               }
               sx={{
                 '& .MuiTypography-h4': { fontSize: '.775rem', textAlign: 'center' },
-                '& .MuiTypography-subtitle2': { mt: 3 }
+                '& .MuiTypography-subtitle2': { mt: 3 },
+                height: '100%'
               }}
               onClick={onToggle}
             />
