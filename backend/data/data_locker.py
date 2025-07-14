@@ -22,6 +22,7 @@ from backend.data.dl_prices import DLPriceManager
 from backend.data.dl_positions import DLPositionManager
 from backend.data.dl_wallets import DLWalletManager
 from backend.data.dl_portfolio import DLPortfolioManager
+from backend.data.dl_session import DLSessionManager
 
 try:  # pragma: no cover - optional dependency
     from backend.data.dl_system_data import DLSystemDataManager
@@ -113,6 +114,8 @@ class DataLocker:
         self.hedges = DLHedgeManager(self.db) if DLHedgeManager else None
         self.wallets = DLWalletManager(self.db)
         self.portfolio = DLPortfolioManager(self.db)
+        # NEW: single-row live session tracker
+        self.session = DLSessionManager(self.db)
         if DLTraderManager:
             try:
                 self.traders = DLTraderManager(self.db)
@@ -280,6 +283,19 @@ class DataLocker:
                     session_performance_value REAL
                 )
             """,
+            "sessions": """
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id TEXT PRIMARY KEY,
+                    session_start_time TEXT,
+                    session_start_value REAL,
+                    session_goal_value REAL,
+                    current_session_value REAL,
+                    session_performance_value REAL,
+                    status TEXT DEFAULT 'OPEN',
+                    notes TEXT,
+                    last_modified TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """,
             "modifiers": """
             CREATE TABLE IF NOT EXISTS modifiers (
                 key TEXT PRIMARY KEY,
@@ -395,6 +411,7 @@ class DataLocker:
         _ensure_column(
             cursor, "positions_totals_history", "session_performance_value REAL"
         )
+        _ensure_column(cursor, "sessions", "notes TEXT")
 
         # Ensure a default row exists for system vars so lookups don't fail
         log.debug("Ensuring system_vars default row", source="DataLocker")
@@ -506,6 +523,15 @@ class DataLocker:
 
     def get_wallet_by_name(self, wallet_name: str):
         return self.wallets.get_wallet_by_name(wallet_name)
+
+    # ---- Session convenience wrappers ----
+    def start_session(self, *args, **kwargs):
+        """Begin a new live session via ``DLSessionManager``."""
+        return self.session.start_session(*args, **kwargs)
+
+    def get_active_session(self):
+        """Return the currently OPEN session if one exists."""
+        return self.session.get_active_session()
 
     # Wallet convenience wrappers used by repositories
     def read_wallets(self):
