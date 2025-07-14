@@ -119,7 +119,7 @@ Upon instantiation, `PositionCore` keeps a reference to the provided `DataLocker
 42         log.error(f"❌ Snapshot recording failed: {e}", source="PositionCore")
 ```
 
-Snapshots summarize all positions into aggregate metrics and store them using `DLPortfolioManager.record_snapshot`. The `CalcServices.calculate_totals()` utility computes totals (size, value, collateral) plus averages such as leverage and heat index. The resulting data is persisted in `positions_totals_history`.
+Snapshots summarize all positions into aggregate metrics and store them using `DLPortfolioManager.record_snapshot`. The `CalcServices.calculate_totals()` utility computes totals (size, value, collateral) plus averages such as leverage and heat index. After writing the snapshot, `record_snapshot()` also updates the open trading session with the latest portfolio delta if a session exists. The resulting data is persisted in `positions_totals_history`.
 
 ### Jupiter Synchronization
 
@@ -226,7 +226,8 @@ When `record_snapshot()` is invoked:
 1. All positions are loaded from the database.
 2. `CalcServices.calculate_totals()` computes totals and averages.
 3. `DLPortfolioManager.record_snapshot()` writes these aggregates to `positions_totals_history` with a timestamp.
-4. The operation is logged as a success or failure.
+4. If a session is currently OPEN, its `current_session_value` and `session_performance_value` are updated with the new portfolio delta.
+5. The operation is logged as a success or failure.
 
 ## Timestamp Management
 

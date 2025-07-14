@@ -1,5 +1,7 @@
 import pytest
 from backend.data.dl_session import DLSessionManager
+from backend.core.positions_core.position_core import PositionCore
+from backend.models.position import PositionDB
 
 CREATE_TABLE_SQL = """
     CREATE TABLE IF NOT EXISTS sessions (
@@ -74,3 +76,26 @@ def test_reset_and_close_session(session_mgr):
 
     assert session_mgr.reset_session() is None
     assert session_mgr.close_session() is None
+
+
+def test_record_snapshot_updates_session(dl_tmp):
+    dl_tmp.create_wallet({"name": "W", "public_address": "addr"})
+    core = PositionCore(dl_tmp)
+    core.create_position(
+        PositionDB(
+            id="p1",
+            asset_type="BTC",
+            position_type="long",
+            entry_price=1.0,
+            size=1.0,
+            leverage=1.0,
+            wallet_name="W",
+            value=100.0,
+            collateral=0.0,
+        )
+    )
+    dl_tmp.start_session(start_value=50.0)
+    core.record_snapshot()
+    session = dl_tmp.get_active_session()
+    assert session.current_session_value == pytest.approx(50.0)
+    assert session.session_performance_value == pytest.approx(50.0)

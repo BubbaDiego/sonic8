@@ -137,6 +137,24 @@ class PositionCore:
             raw = self.get_active_positions()
             totals = CalcServices().calculate_totals(raw)
             self.dl.portfolio.record_snapshot(totals)
+            try:
+                session = self.dl.session.get_active_session()
+                if session:
+                    total_val = (
+                        totals.get("total_value")
+                        if isinstance(totals, dict)
+                        else getattr(totals, "total_value", 0.0)
+                    )
+                    delta = total_val - float(session.session_start_value or 0.0)
+                    self.dl.session.update_session(
+                        session.id,
+                        {
+                            "current_session_value": delta,
+                            "session_performance_value": delta,
+                        },
+                    )
+            except Exception as ex:  # pragma: no cover - defensive
+                log.error(f"Failed to update session metrics: {ex}", source="PositionCore")
             log.success("📸 Position snapshot recorded", source="PositionCore")
         except Exception as e:
             log.error(f"❌ Snapshot recording failed: {e}", source="PositionCore")
