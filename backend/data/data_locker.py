@@ -114,7 +114,7 @@ class DataLocker:
         self.hedges = DLHedgeManager(self.db) if DLHedgeManager else None
         self.wallets = DLWalletManager(self.db)
         self.portfolio = DLPortfolioManager(self.db)
-        # NEW: single-row live session tracker
+
         self.session = DLSessionManager(self.db)
         if DLTraderManager:
             try:
