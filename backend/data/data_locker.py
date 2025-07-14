@@ -114,7 +114,7 @@ class DataLocker:
         self.hedges = DLHedgeManager(self.db) if DLHedgeManager else None
         self.wallets = DLWalletManager(self.db)
         self.portfolio = DLPortfolioManager(self.db)
-        # Single active trading session tracker
+
         self.session = DLSessionManager(self.db)
         if DLTraderManager:
             try:
@@ -523,6 +523,15 @@ class DataLocker:
 
     def get_wallet_by_name(self, wallet_name: str):
         return self.wallets.get_wallet_by_name(wallet_name)
+
+    # ---- Session convenience wrappers ----
+    def start_session(self, *args, **kwargs):
+        """Begin a new live session via ``DLSessionManager``."""
+        return self.session.start_session(*args, **kwargs)
+
+    def get_active_session(self):
+        """Return the currently OPEN session if one exists."""
+        return self.session.get_active_session()
 
     # Wallet convenience wrappers used by repositories
     def read_wallets(self):
