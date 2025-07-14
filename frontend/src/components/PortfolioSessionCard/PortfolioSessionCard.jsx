@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Card, Typography, Avatar, IconButton, Box, LinearProgress, Stack, Paper, Button, TextField } from '@mui/material';
+import { useGetActiveSession } from 'api/session';
 import EditIcon from '@mui/icons-material/Edit';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -15,7 +16,9 @@ const cannedSnapshot = {
   session_goal_value: 200
 };
 
-export default function PortfolioSessionCard({ snapshot = cannedSnapshot, onModify, onReset }) {
+export default function PortfolioSessionCard({ snapshot: snapshotProp, onModify, onReset }) {
+  const { session } = useGetActiveSession();
+  const snapshot = snapshotProp || session || cannedSnapshot;
   const [flipped, setFlipped] = useState(false);
   const [editableSnapshot, setEditableSnapshot] = useState({ ...snapshot });
 
