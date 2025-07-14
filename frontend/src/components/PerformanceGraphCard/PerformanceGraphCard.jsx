@@ -81,8 +81,8 @@ export default function PerformanceGraphCard() {
     setChartConfig((prevState) => ({
       ...prevState,
       series: [
-        { name: `${valueSeries[valueSeries.length - 1]}`, data: valueSeries, color: theme.palette.primary.main },
-        { name: `${collateralSeries[collateralSeries.length - 1]}`, data: collateralSeries, color: theme.palette.secondary.main },
+        { name: 'Value', data: valueSeries, color: theme.palette.primary.main },
+        { name: 'Collateral', data: collateralSeries, color: theme.palette.secondary.main },
         { name: 'BTC', data: btcSeries }
       ],
       options: { ...prevState.options, xaxis: { categories }, tooltip: { theme: mode } }
