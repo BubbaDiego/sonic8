@@ -1,21 +1,17 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
-import useSWR, { mutate } from 'swr';
+import {
+  useGetActiveSession,
+  updateSession,
+  resetSession,
+  refreshActiveSession
+} from 'api/session';
 import PortfolioSessionCard from '../../components/PortfolioSessionCard/PortfolioSessionCard';
 import DashboardToggle from '../../components/StatusRail/DashboardToggle';
 import CompositionPieCard from '../../components/CompositionPieCard/CompositionPieCard';
 import PositionListCard from '../../components/PositionListCard/PositionListCard';
 import TraderListCard from '../../components/TraderListCard/TraderListCard';
 import PerformanceGraphCard from '../../components/PerformanceGraphCard/PerformanceGraphCard';
-
-const fetcher = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`API Error: ${res.status} ${res.statusText}\n${errorText}`);
-  }
-  return res.json();
-};
 
 const RIGHT_COLUMN_X = 610;
 const SIDE_COLUMN_END_X = 800;
@@ -66,28 +62,24 @@ const Section = ({ name, children, debug = DEBUG_LAYOUT }) => {
 };
 
 const Dashboard = () => {
-  const { data: initialSnapshot } = useSWR('http://localhost:5000/api/portfolio/latest_snapshot', fetcher);
-  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const { session } = useGetActiveSession();
+  const [snapshot, setSnapshot] = useState(session);
 
   useEffect(() => {
-    if (initialSnapshot) {
-      setSnapshot(initialSnapshot);
+    if (session) {
+      setSnapshot(session);
     }
-  }, [initialSnapshot]);
+  }, [session]);
 
   const handleModify = async (updatedSnapshot) => {
     setSnapshot(updatedSnapshot);
-    await fetch('http://localhost:5000/api/portfolio/update_snapshot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedSnapshot),
-    });
-    mutate('http://localhost:5000/api/portfolio/latest_snapshot');
+    await updateSession(updatedSnapshot);
+    refreshActiveSession();
   };
 
   const handleReset = async () => {
-    await fetch('http://localhost:5000/api/portfolio/reset_session', { method: 'POST' });
-    mutate('http://localhost:5000/api/portfolio/latest_snapshot');
+    await resetSession();
+    refreshActiveSession();
   };
 
   return (

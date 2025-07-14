@@ -100,6 +100,28 @@ Call `POST /positions/snapshot` (or run `/cyclone/run`) to create one.
 
 Both hooks memoize the returned object containing data, error and loading fields plus an `historyEmpty` check for `useGetPortfolioHistory`.
 
+## `session.js`
+
+Manages the active trading session and its history.
+
+Constants:
+- `active` → `/session`
+- `history` → `/session/history`
+- `start` → `/session/start`
+- `reset` → `/session/reset`
+- `close` → `/session/close`
+
+Exports:
+
+- **`useGetActiveSession()`** – SWR hook returning the currently open session.
+- **`useGetSessionHistory()`** – SWR hook listing historical sessions.
+- **`startSession(payload)`** – `POST` to `start` creating a new session.
+- **`updateSession(patch)`** – `PATCH` to `active` updating the open session.
+- **`resetSession()`** – `POST` to `reset` zeroing metrics while keeping it open.
+- **`closeSession()`** – `POST` to `close` marking the session closed.
+- **`refreshActiveSession()`** – Mutates the `active` cache key.
+- **`refreshSessionHistory()`** – Mutates the `history` cache key.
+
 ## `positions.js`
 
 Constants: `list` → `/positions/`.
