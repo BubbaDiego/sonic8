@@ -34,6 +34,37 @@ endpoints below return JSON responses and use Pydantic models from the
   - **Body**: arbitrary JSON dict of fields to update
 - `DELETE /{entry_id}` – Remove a snapshot by ID.
 
+## Session API (`session_api.py`)
+**Base path**: `/session`
+
+- `GET /` – Fetch the currently OPEN session or `null` if none exists.
+- `GET /history` – List previous sessions ordered from newest to oldest.
+  - Optional query parameter `limit` restricts the number of returned rows.
+- `POST /` – Start a new session. Any existing OPEN session is marked CLOSED.
+  - **Body**: `SessionCreate` with `session_start_value`, `session_goal_value` and optional `notes`.
+  - **Response model**: `Session` (HTTP 201)
+- `PATCH /{id}` – Update fields of a session by ID. Use `PATCH /` with no ID to modify the active session.
+  - **Body**: `SessionUpdate` containing only the fields to change.
+- `POST /reset` – Zero the live metrics on the active session while keeping it OPEN.
+- `POST /close` – Mark the active session as CLOSED and return the updated row.
+
+Only one session can be OPEN at a time. Starting a new session automatically archives the previous one. See the [frontend API docs](frontend_api_spec.md) for React helpers wrapping these routes.
+
+Example usage:
+
+```bash
+# start a session with a $1,000 bankroll
+curl -X POST http://localhost:5000/session \
+     -H 'Content-Type: application/json' \
+     -d '{"session_start_value": 1000, "session_goal_value": 2000}'
+
+# fetch the current session
+curl http://localhost:5000/session
+
+# reset metrics back to zero
+curl -X POST http://localhost:5000/session/reset
+```
+
 ## Wallet API (`wallet_api.py`)
 **Base path**: `/wallets`
 
