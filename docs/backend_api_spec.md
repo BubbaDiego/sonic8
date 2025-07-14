@@ -99,6 +99,7 @@ curl -X POST http://localhost:5000/session/reset
   - **Response**: `{"status": "created"}` (HTTP 201)
 - `DELETE /{pos_id}` – Delete a position by ID.
 - `POST /snapshot` – Record a portfolio snapshot of current positions.
+  Updates the active session's performance metrics if a session is open.
 - `POST /update` – Run Jupiter position synchronization in the background.
 - `POST /enrich` – Enrich all positions with live price data in the background.
 
