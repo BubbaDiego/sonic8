@@ -19,72 +19,40 @@ class XComConfigService:
         # available.
         self.dl_sys = dl_sys
 
-    def get_provider(self, name: str) -> dict:
-        try:
-            locker = None
-            if has_app_context():
-                locker = getattr(current_app, "data_locker", None)
-            # Fallback to the object passed into ``__init__`` when Flask
-            # context is unavailable. ``self.dl_sys`` can be either a
-            # DataLocker instance or already the DLSystemDataManager.
-            if not locker or not hasattr(locker, "system"):
-                if hasattr(self.dl_sys, "get_var"):
-                    system_mgr = self.dl_sys
-                elif hasattr(self.dl_sys, "system") and hasattr(self.dl_sys.system, "get_var"):
-                    system_mgr = self.dl_sys.system
-                else:
-                    raise Exception("data_locker.system not available")
+
+def get_provider(self, name: str) -> dict:
+    try:
+        locker = None
+        if has_app_context():
+            locker = getattr(current_app, "data_locker", None)
+
+        if not locker or not hasattr(locker, "system"):
+            if hasattr(self.dl_sys, "get_var"):
+                system_mgr = self.dl_sys
+            elif hasattr(self.dl_sys, "system") and hasattr(self.dl_sys.system, "get_var"):
+                system_mgr = self.dl_sys.system
             else:
-                system_mgr = locker.system
+                raise Exception("data_locker.system not available")
+        else:
+            system_mgr = locker.system
 
-            config = system_mgr.get_var("xcom_providers") or {}
-            # Recognize 'api' as an alias for the 'twilio' provider
-            provider = config.get(name) or (config.get("twilio") if name == "api" else {})
-            # Fallback for email if missing/empty
-            if name == "email" and (not provider or not provider.get("smtp")):
-                provider = {
-                    "enabled": True,
-                    "smtp": {
-                        "server": os.getenv("SMTP_SERVER"),
-                        "port": int(os.getenv("SMTP_PORT", "0")) if os.getenv("SMTP_PORT") else None,
-                        "username": os.getenv("SMTP_USERNAME"),
-                        "password": os.getenv("SMTP_PASSWORD"),
-                        "default_recipient": os.getenv("SMTP_DEFAULT_RECIPIENT"),
-                    },
-                }
+        config = system_mgr.get_var("xcom_providers") or {}
+        provider = config.get(name) or (config.get("twilio") if name == "api" else {})
 
-            # Fallback for API (Twilio) if missing/empty. "api" is treated
-            # as an alias for the "twilio" provider above.
-            if name == "api" and not provider:
-                provider = {
-                    "enabled": True,
-                    "account_sid": os.getenv("TWILIO_ACCOUNT_SID"),
-                    "auth_token": os.getenv("TWILIO_AUTH_TOKEN"),
-                    "flow_sid": os.getenv("TWILIO_FLOW_SID"),
-                    "default_to_phone": os.getenv("MY_PHONE_NUMBER"),
-                    "default_from_phone": os.getenv("TWILIO_PHONE_NUMBER"),
-                }
+        # Explicitly fallback to environment vars for Twilio ("api")
+        if name == "api" and (not provider or not provider.get("account_sid")):
+            provider = {
+                "enabled": True,
+                "account_sid": os.getenv("TWILIO_ACCOUNT_SID"),
+                "auth_token": os.getenv("TWILIO_AUTH_TOKEN"),
+                "flow_sid": os.getenv("TWILIO_FLOW_SID"),
+                "default_to_phone": os.getenv("MY_PHONE_NUMBER"),
+                "default_from_phone": os.getenv("TWILIO_PHONE_NUMBER"),
+            }
 
-            # Resolve placeholders using environment variables
-            if name == "email":
-                smtp = provider.get("smtp", {})
-                smtp["server"] = _resolve_env(smtp.get("server"), "SMTP_SERVER")
-                port_val = _resolve_env(smtp.get("port"), "SMTP_PORT")
-                smtp["port"] = int(port_val) if port_val else None
-                smtp["username"] = _resolve_env(smtp.get("username"), "SMTP_USERNAME")
-                smtp["password"] = _resolve_env(smtp.get("password"), "SMTP_PASSWORD")
-                smtp["default_recipient"] = _resolve_env(smtp.get("default_recipient"), "SMTP_DEFAULT_RECIPIENT")
-                provider["smtp"] = smtp
+        return provider
+    except Exception as e:
+        log.error(f"Failed to load provider config for '{name}': {e}", source="XComConfigService")
+        return {}
 
-            if name == "api":
-                provider["account_sid"] = _resolve_env(provider.get("account_sid"), "TWILIO_ACCOUNT_SID")
-                provider["auth_token"] = _resolve_env(provider.get("auth_token"), "TWILIO_AUTH_TOKEN")
-                provider["flow_sid"] = _resolve_env(provider.get("flow_sid"), "TWILIO_FLOW_SID")
-                provider["default_to_phone"] = _resolve_env(provider.get("default_to_phone"), "MY_PHONE_NUMBER")
-                provider["default_from_phone"] = _resolve_env(provider.get("default_from_phone"), "TWILIO_PHONE_NUMBER")
-
-            return provider
-        except Exception as e:
-            log.error(f"Failed to load provider config for '{name}': {e}", source="XComConfigService")
-            return {}
 

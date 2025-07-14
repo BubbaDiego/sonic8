@@ -53,3 +53,11 @@ def update_portfolio_entry(entry_id: str, fields: dict, dl: DataLocker = Depends
 def delete_portfolio_entry(entry_id: str, dl: DataLocker = Depends(get_app_locker)):
     dl.delete_portfolio_entry(entry_id)
     return {"status": "deleted"}
+
+@api_router.post("/update_snapshot", response_model=PortfolioSnapshot)
+async def update_snapshot(snapshot: PortfolioSnapshot, dl: DataLocker = Depends(_dl)):
+    try:
+        dl.portfolio.record_snapshot(snapshot)
+        return snapshot
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))

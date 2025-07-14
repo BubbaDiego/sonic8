@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import useSWR, { mutate } from 'swr';
@@ -67,15 +66,26 @@ const Section = ({ name, children, debug = DEBUG_LAYOUT }) => {
 };
 
 const Dashboard = () => {
-  //const { data: snapshot } = useSWR('/api/portfolio/latest_snapshot', fetcher);
-  const { data: snapshot } = useSWR('http://localhost:5000/api/portfolio/latest_snapshot', fetcher);
+  const { data: initialSnapshot } = useSWR('http://localhost:5000/api/portfolio/latest_snapshot', fetcher);
+  const [snapshot, setSnapshot] = useState(initialSnapshot);
 
+  useEffect(() => {
+    if (initialSnapshot) {
+      setSnapshot(initialSnapshot);
+    }
+  }, [initialSnapshot]);
 
-  const handleModify = () => {
-    console.log("Modify session clicked");
+  const handleModify = async (updatedSnapshot) => {
+    setSnapshot(updatedSnapshot);
+    await fetch('http://localhost:5000/api/portfolio/update_snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedSnapshot),
+    });
+    mutate('http://localhost:5000/api/portfolio/latest_snapshot');
   };
 
- const handleReset = async () => {
+  const handleReset = async () => {
     await fetch('http://localhost:5000/api/portfolio/reset_session', { method: 'POST' });
     mutate('http://localhost:5000/api/portfolio/latest_snapshot');
   };
