@@ -30,6 +30,11 @@ class CycloneConsoleService:
         self.alert_service = CycloneAlertService(cyclone_instance.data_locker)
         self.hedge_service = CycloneHedgeService(cyclone_instance.data_locker)
 
+    @staticmethod
+    def _get(obj, key, default=None):
+        """Safely fetch ``key`` from ``obj`` whether it is a dict or model."""
+        return getattr(obj, key, default) if not isinstance(obj, dict) else obj.get(key, default)
+
     def run(self):
         """Backward compatible entry point."""
         self.run_console()
@@ -243,7 +248,9 @@ class CycloneConsoleService:
                     for idx, group in enumerate(groups, start=1):
                         print(f"Group {idx}:")
                         for pos in group:
-                            print(f"  Position ID: {pos.get('id')} (Type: {pos.get('position_type')})")
+                            pid = self._get(pos, 'id')
+                            ptype = self._get(pos, 'position_type')
+                            print(f"  Position ID: {pid} (Type: {ptype})")
                         print("-" * 30)
                 else:
                     print("No hedge groups found.")
@@ -294,21 +301,21 @@ class CycloneConsoleService:
 
     def view_position_details(self, pos: dict):
         print("━━━━━━━━━━ POSITION ━━━━━━━━━━")
-        print(f"🆔 ID:           {pos.get('id', '')}")
-        print(f"💰 Asset:        {pos.get('asset_type', '')}")
-        print(f"📉 Type:         {pos.get('position_type', '')}")
-        print(f"📈 Entry Price:  {pos.get('entry_price', '')}")
-        print(f"🔄 Current:      {pos.get('current_price', '')}")
-        print(f"💣 Liq. Price:   {pos.get('liquidation_price', '')}")
-        print(f"🪙 Collateral:   {pos.get('collateral', '')}")
-        print(f"📦 Size:         {pos.get('size', '')}")
-        print(f"⚖ Leverage:      {pos.get('leverage', '')}x")
-        print(f"💵 Value:        {pos.get('value', '')}")
-        print(f"💰 PnL (net):    {pos.get('pnl_after_fees_usd', '')}")
-        print(f"💼 Wallet:       {pos.get('wallet_name', '')}")
-        print(f"🧠 Alert Ref:    {pos.get('alert_reference_id', '')}")
-        print(f"🛡 Hedge ID:     {pos.get('hedge_buddy_id', '')}")
-        print(f"📅 Updated:      {pos.get('last_updated', '')}")
+        print(f"🆔 ID:           {self._get(pos, 'id', '')}")
+        print(f"💰 Asset:        {self._get(pos, 'asset_type', '')}")
+        print(f"📉 Type:         {self._get(pos, 'position_type', '')}")
+        print(f"📈 Entry Price:  {self._get(pos, 'entry_price', '')}")
+        print(f"🔄 Current:      {self._get(pos, 'current_price', '')}")
+        print(f"💣 Liq. Price:   {self._get(pos, 'liquidation_price', '')}")
+        print(f"🪙 Collateral:   {self._get(pos, 'collateral', '')}")
+        print(f"📦 Size:         {self._get(pos, 'size', '')}")
+        print(f"⚖ Leverage:      {self._get(pos, 'leverage', '')}x")
+        print(f"💵 Value:        {self._get(pos, 'value', '')}")
+        print(f"💰 PnL (net):    {self._get(pos, 'pnl_after_fees_usd', '')}")
+        print(f"💼 Wallet:       {self._get(pos, 'wallet_name', '')}")
+        print(f"🧠 Alert Ref:    {self._get(pos, 'alert_reference_id', '')}")
+        print(f"🛡 Hedge ID:     {self._get(pos, 'hedge_buddy_id', '')}")
+        print(f"📅 Updated:      {self._get(pos, 'last_updated', '')}")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
     def view_alert_details(self, alert: dict):
@@ -389,7 +396,10 @@ class CycloneConsoleService:
         else:
             print(f"🧾 DEBUG: Pulled {len(positions)} positions from DB:")
             for pos in positions:
-                print(f"  ➤ {pos.get('id')} — {pos.get('asset_type')} — {pos.get('wallet_name')}")
+                pid = self._get(pos, 'id')
+                asset = self._get(pos, 'asset_type')
+                wallet = self._get(pos, 'wallet_name')
+                print(f"  ➤ {pid} — {asset} — {wallet}")
 
         self.paginate_items(positions, self.view_position_details, title="Open Positions")
 
