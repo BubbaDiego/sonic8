@@ -83,11 +83,11 @@ export default function PerformanceGraphCard() {
       series: [
         { name: 'Value', data: valueSeries, color: theme.palette.primary.main },
         { name: 'Collateral', data: collateralSeries, color: theme.palette.secondary.main },
-        { name: 'BTC', data: btcSeries }
+        { name: 'BTC', data: btcSeries, color: theme.palette.info.main }
       ],
       options: { ...prevState.options, xaxis: { categories }, tooltip: { theme: mode } }
     }));
-  }, [bucketed, historyLoading, mode, theme.palette.primary.main, theme.palette.secondary.main]);
+  }, [bucketed, historyLoading, mode, theme.palette.primary.main, theme.palette.secondary.main, theme.palette.info.main]);
 
   const iconSX = {
     width: 30,
@@ -109,7 +109,7 @@ export default function PerformanceGraphCard() {
               <Box sx={iconSX}><IconPigMoney stroke={1.5} /></Box>
               <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.secondary.main }}>{bucketed.collateralSeries.at(-1)}</Box>
               <Box sx={iconSX}><IconChartAreaLine stroke={1.5} /></Box>
-              <Box component="span" sx={{ typography: 'subtitle1' }}>BTC</Box>
+              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.info.main }}>BTC</Box>
             </Box>
           </Grid>
           <Grid item>
