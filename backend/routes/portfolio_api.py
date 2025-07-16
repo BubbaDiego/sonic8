@@ -59,27 +59,31 @@ async def update_snapshot(
     snapshot: PortfolioSnapshot, dl: DataLocker = Depends(_dl)
 ):
     try:
-        dl.portfolio.record_snapshot(snapshot)
+        if hasattr(snapshot, "model_dump"):
+            snap_data = snapshot.model_dump()
+        elif hasattr(snapshot, "dict"):
+            snap_data = snapshot.dict()
+        else:
+            snap_data = snapshot.__dict__
 
-        # ------------------------------------------------------------------
-        # If a trading session is active, update its metrics based on the new
-        # snapshot value. This mirrors the behaviour of PositionCore when it
-        # records snapshots outside the API layer.
-        # ------------------------------------------------------------------
+        session = None
         try:
             session = dl.session.get_active_session()
             if session:
-                if hasattr(snapshot, "model_dump"):
-                    snap_data = snapshot.model_dump()
-                elif hasattr(snapshot, "dict"):
-                    snap_data = snapshot.dict()
-                else:
-                    snap_data = snapshot.__dict__
+                snap_data.setdefault("session_start_value", session.session_start_value or 0.0)
+                snap_data.setdefault("session_goal_value", session.session_goal_value or 0.0)
+        except Exception:  # pragma: no cover - defensive
+            session = None
 
-                total_val = float(snap_data.get("total_value", 0.0) or 0.0)
-                start_val = float(session.session_start_value or 0.0)
-                delta = total_val - start_val
+        snap_obj = PortfolioSnapshot(**snap_data)
+        dl.portfolio.record_snapshot(snap_obj)
 
+        if session:
+            total_val = float(snap_data.get("total_value", 0.0) or 0.0)
+            start_val = float(session.session_start_value or 0.0)
+            delta = total_val - start_val
+
+            try:
                 dl.session.update_session(
                     session.id,
                     {
@@ -87,9 +91,9 @@ async def update_snapshot(
                         "session_performance_value": delta,
                     },
                 )
-        except Exception:  # pragma: no cover - defensive
-            pass
+            except Exception:  # pragma: no cover - defensive
+                pass
 
-        return snapshot
+        return snap_obj
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

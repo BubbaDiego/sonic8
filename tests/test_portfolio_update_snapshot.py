@@ -39,3 +39,8 @@ def test_update_snapshot_updates_session(tmp_path, monkeypatch):
     data = resp.json()
     assert data["current_session_value"] == pytest.approx(20.0)
     assert data["session_performance_value"] == pytest.approx(20.0)
+
+    latest = dl.portfolio.get_latest_snapshot()
+    assert latest.session_start_value == pytest.approx(100.0)
+    assert latest.session_goal_value == pytest.approx(200.0)
+    assert latest.current_session_value == pytest.approx(20.0)
