@@ -34,29 +34,28 @@ except Exception:
 def test_goals_menu_view(monkeypatch):
     called = {"view": False}
 
-    class DummyPortfolio:
-        def get_latest_snapshot(self):
+    class DummySessionMgr:
+        def get_active_session(self):
             called["view"] = True
-            return launch_pad.PortfolioSnapshot(
-                total_size=0.0,
-                total_long_size=0.0,
-                total_short_size=0.0,
-                total_value=0.0,
-                total_collateral=0.0,
-                avg_leverage=0.0,
-                avg_travel_percent=0.0,
-                avg_heat_index=0.0,
+            return launch_pad.Session(
+                id="s1",
+                session_start_value=0.0,
+                current_session_value=0.0,
+                session_goal_value=0.0,
             )
 
-        def record_snapshot(self, *a, **k):
+        def start_session(self, *a, **k):
             pass
 
-        def update_entry(self, *a, **k):
+        def update_session(self, *a, **k):
+            pass
+
+        def reset_session(self):
             pass
 
     class DummyLocker:
         def __init__(self, *a, **k):
-            self.portfolio = DummyPortfolio()
+            self.session = DummySessionMgr()
 
     inputs = iter(["1", "", "0"])
     monkeypatch.setattr(builtins, "input", lambda _: next(inputs))
@@ -74,46 +73,51 @@ def test_goals_menu_view(monkeypatch):
 
 
 def _dummy_snapshot(dt=None):
-    return launch_pad.PortfolioSnapshot(
-        total_size=0.0,
-        total_long_size=0.0,
-        total_short_size=0.0,
-        total_value=0.0,
-        total_collateral=0.0,
-        avg_leverage=0.0,
-        avg_travel_percent=0.0,
-        avg_heat_index=0.0,
-        session_start_time=dt,
+    return launch_pad.Session(
+        id="s1",
+        session_start_time=dt or datetime.utcnow(),
+        session_start_value=0.0,
+        current_session_value=0.0,
+        session_goal_value=0.0,
+        session_performance_value=0.0,
+        status="OPEN",
+        notes=None,
     )
 
 
 def _setup_edit_menu(monkeypatch, start_input):
     updated = {}
 
-    class DummyPortfolio:
+    class DummySessionMgr:
         def __init__(self):
-            self.latest = _dummy_snapshot(datetime(2024, 1, 1, 12, 0, 0))
+            self.active = _dummy_snapshot(datetime(2024, 1, 1, 12, 0, 0))
 
-        def get_latest_snapshot(self):
-            return self.latest
+        def get_active_session(self):
+            return self.active
 
-        def record_snapshot(self, *_a, **_k):
-            pass
+        def start_session(self, *_a, **_k):
+            return self.active
 
-        def update_entry(self, _id, fields):
+        def update_session(self, _id, fields):
             updated.update(fields)
+            return self.active
+
+        def reset_session(self):
+            return self.active
 
     class DummyLocker:
         def __init__(self, *_a, **_k):
-            self.portfolio = DummyPortfolio()
+            self.session = DummySessionMgr()
 
     inputs = iter([
         "2",
         start_input,
-        "",
-        "",
-        "",
-        "",
+        "",  # start value
+        "",  # current value
+        "",  # goal value
+        "",  # perf value
+        "",  # status
+        "",  # notes
         "0",
     ])
     monkeypatch.setattr(builtins, "input", lambda _: next(inputs))
