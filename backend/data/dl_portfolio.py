@@ -214,6 +214,22 @@ class DLPortfolioManager:
             if cursor is None:
                 log.error("DB unavailable, cannot update entry", source="DLPortfolioManager")
                 return
+            recalc_needed = (
+                "current_session_value" not in fields
+                and ("total_value" in fields or "session_start_value" in fields)
+            ) or (
+                "session_performance_value" not in fields
+                and ("total_value" in fields or "session_start_value" in fields)
+            )
+
+            existing = None
+            if recalc_needed:
+                existing = self.get_entry_by_id(entry_id) or {}
+                total = float(fields.get("total_value", existing.get("total_value", 0.0)) or 0.0)
+                start = float(fields.get("session_start_value", existing.get("session_start_value", 0.0)) or 0.0)
+                delta = total - start
+                fields.setdefault("current_session_value", delta)
+                fields.setdefault("session_performance_value", delta)
             set_clause = ", ".join(f"{k} = ?" for k in fields.keys())
             params = list(fields.values()) + [entry_id]
             cursor.execute(
