@@ -21,7 +21,7 @@ from backend.console.cyclone_console_service import run_cyclone_console
 from backend.core.wallet_core import WalletService
 from test_core import TestCoreRunner, formatter, get_console_ui
 from backend.data.data_locker import DataLocker
-from backend.models.portfolio import PortfolioSnapshot
+from backend.models.session import Session
 from backend.core.constants import MOTHER_DB_PATH
 from backend.core.logging import log, configure_console_log
 from datetime import datetime
@@ -169,44 +169,47 @@ def wallet_menu():
             input("\nPress ENTER to continue...")
 
 
-def _display_goal(snapshot: PortfolioSnapshot | None):
-    """Show current goal details."""
-    if not snapshot or snapshot.session_start_time is None:
-        console.print("[yellow]No goal data available.[/]")
+def _display_session(session: Session | None):
+    """Show current session details."""
+    if not session:
+        console.print("[yellow]No session data available.[/]")
     else:
-        console.print(f"Start Time: {snapshot.session_start_time}")
-        console.print(f"Start Value: {snapshot.session_start_value}")
-        console.print(f"Current Value: {snapshot.current_session_value}")
-        console.print(f"Goal Value: {snapshot.session_goal_value}")
+        console.print(f"ID: {session.id}")
+        console.print(f"Status: {session.status}")
+        console.print(f"Start Time: {session.session_start_time}")
+        console.print(f"Start Value: {session.session_start_value}")
+        console.print(f"Current Value: {session.current_session_value}")
+        console.print(f"Goal Value: {session.session_goal_value}")
         console.print(
-            f"Performance: {snapshot.session_performance_value}")
+            f"Performance: {session.session_performance_value}")
+        console.print(f"Notes: {session.notes}")
+        console.print(f"Last Modified: {session.last_modified}")
 
 
 def goals_menu():
-    """Manage short term goal information."""
+    """Manage session and goal information."""
     dl = DataLocker.get_instance()
-    mgr = dl.portfolio
+    mgr = dl.session
     while True:
         clear_screen()
         banner()
-        latest = mgr.get_latest_snapshot()
-        console.print(f"[bold magenta]{ICON['goals']} Goals[/bold magenta]")
-        console.print("1) View goal data")
-        console.print("2) Edit goal fields")
-        console.print("3) Clear goal")
+        active = mgr.get_active_session()
+        console.print(f"[bold magenta]{ICON['goals']} Session / Goals[/bold magenta]")
+        console.print("1) View session data")
+        console.print("2) Edit session fields")
+        console.print("3) Reset session")
         console.print("0) Back")
         ch = input("→ ").strip().lower()
 
         if ch == "1":
-            _display_goal(latest)
+            _display_session(active)
             input("\nPress ENTER to continue...")
         elif ch == "2":
-            if latest is None:
-                console.print("[yellow]No snapshot found. Creating one...[/]")
-                mgr.record_snapshot(PortfolioSnapshot())
-                latest = mgr.get_latest_snapshot()
+            if active is None:
+                console.print("[yellow]No active session. Starting one...[/]")
+                active = mgr.start_session()
             start_time_inp = input(
-                f"Session start time [{latest.session_start_time or ''}]: "
+                f"Session start time [{active.session_start_time or ''}]: "
             ).strip()
             start_time = ""
             if start_time_inp:
@@ -217,17 +220,26 @@ def goals_menu():
                 except Exception:
                     console.print("[red]Invalid timestamp format.[/]")
             start_val = input(
-                f"Session start value [{latest.session_start_value}]: "
+                f"Session start value [{active.session_start_value}]: "
             ).strip()
             curr_val = input(
-                f"Current session value [{latest.current_session_value}]: "
+                f"Current session value [{active.current_session_value}]: "
             ).strip()
             goal_val = input(
-                f"Session goal value [{latest.session_goal_value}]: "
+                f"Session goal value [{active.session_goal_value}]: "
+            ).strip()
+            perf_val = input(
+                f"Session performance value [{active.session_performance_value}]: "
+            ).strip()
+            status_val = input(
+                f"Status [{active.status}]: "
+            ).strip()
+            notes_val = input(
+                f"Notes [{active.notes or ''}]: "
             ).strip()
 
             if not start_time:
-                cur = latest.session_start_time
+                cur = active.session_start_time
                 if isinstance(cur, datetime):
                     start_time = normalize_iso_timestamp(cur.isoformat())
                 else:
@@ -237,35 +249,33 @@ def goals_menu():
                 "session_start_time": start_time,
                 "session_start_value": float(start_val)
                 if start_val
-                else latest.session_start_value,
+                else active.session_start_value,
                 "current_session_value": float(curr_val)
                 if curr_val
-                else latest.current_session_value,
+                else active.current_session_value,
                 "session_goal_value": float(goal_val)
                 if goal_val
-                else latest.session_goal_value,
+                else active.session_goal_value,
             }
             fields["session_performance_value"] = (
-                fields["current_session_value"] - fields["session_start_value"]
+                float(perf_val) if perf_val else (
+                    fields["current_session_value"] - fields["session_start_value"]
+                )
             )
-            mgr.update_entry(latest.id, fields)
-            console.print("[green]Goal updated.[/]")
+            if status_val:
+                fields["status"] = status_val
+            if notes_val:
+                fields["notes"] = notes_val
+            active = mgr.update_session(active.id, fields)
+            console.print("[green]Session updated.[/]")
             input("\nPress ENTER to continue...")
         elif ch == "3":
-            if latest:
-                mgr.update_entry(
-                    latest.id,
-                    {
-                        "session_start_time": None,
-                        "session_start_value": 0.0,
-                        "current_session_value": 0.0,
-                        "session_goal_value": 0.0,
-                        "session_performance_value": 0.0,
-                    },
-                )
-                console.print("[green]Goal cleared.[/]")
+            reset = mgr.reset_session()
+            if reset:
+                active = reset
+                console.print("[green]Session reset.[/]")
             else:
-                console.print("[yellow]No snapshot found to clear.[/]")
+                console.print("[yellow]No active session to reset.[/]")
             input("\nPress ENTER to continue...")
         elif ch in {"0", "b"}:
             break
@@ -320,7 +330,7 @@ def main():
                 f"8. {ICON['wallet']} Wallet Manager",
                 f"9. {ICON['cyclone']} Cyclone Console",
                 f"10. {ICON['test_ui']} Test Console UI",
-                f"11. {ICON['goals']} Goals",
+                f"11. {ICON['goals']} Session / Goals",
                 f"0. {ICON['exit']} Exit",
             ]
         )
