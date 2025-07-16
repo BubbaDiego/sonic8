@@ -79,6 +79,45 @@ export default function PositionListCard({ title }) {
     });
   }, [positions, order, orderBy]);
 
+  const totals = useMemo(() => {
+    let totalValue = 0;
+    let totalProfit = 0;
+    let weightedTravel = 0;
+    let weightedLiqDist = 0;
+    let weightedLev = 0;
+    let totalWeight = 0;
+
+    positions.forEach((p) => {
+      const size = parseFloat(p.size || 0);
+      const value = parseFloat(p.value || 0);
+      const travel = parseFloat(p.travel_percent || 0);
+      const liq = parseFloat(p.liquidation_distance || 0);
+      const lev = parseFloat(p.leverage || 0);
+      const profit = calcProfit(p) ?? 0;
+
+      totalValue += value;
+      totalProfit += profit;
+
+      const weight = size || 1;
+      weightedTravel += travel * weight;
+      weightedLiqDist += liq * weight;
+      weightedLev += lev * weight;
+      totalWeight += weight;
+    });
+
+    const avgTravel = totalWeight ? weightedTravel / totalWeight : 0;
+    const avgLiqDist = totalWeight ? weightedLiqDist / totalWeight : 0;
+    const avgLev = totalWeight ? weightedLev / totalWeight : 0;
+
+    return {
+      profit: totalProfit,
+      leverage: avgLev,
+      value: totalValue,
+      travel: avgTravel,
+      liqDist: avgLiqDist
+    };
+  }, [positions]);
+
   const handleSort = (prop) => {
     const isAsc = orderBy === prop && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
@@ -131,17 +170,35 @@ export default function PositionListCard({ title }) {
 
                 {/* Value */}
                 <TableCell align="right" sx={{ py: 0.5 }}>
-                  <MonetizationOnTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
+                  <TableSortLabel
+                    active={orderBy === 'value'}
+                    direction={orderBy === 'value' ? order : 'asc'}
+                    onClick={() => handleSort('value')}
+                  >
+                    <MonetizationOnTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
+                  </TableSortLabel>
                 </TableCell>
 
                 {/* Liquidation distance */}
                 <TableCell align="right" sx={{ py: 0.5 }}>
-                  <WaterDropTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
+                  <TableSortLabel
+                    active={orderBy === 'liquidation_distance'}
+                    direction={orderBy === 'liquidation_distance' ? order : 'asc'}
+                    onClick={() => handleSort('liquidation_distance')}
+                  >
+                    <WaterDropTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
+                  </TableSortLabel>
                 </TableCell>
 
                 {/* Travel percent */}
                 <TableCell align="right" sx={{ pr: 1, py: 0.5 }}>
-                  <PercentTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
+                  <TableSortLabel
+                    active={orderBy === 'travel_percent'}
+                    direction={orderBy === 'travel_percent' ? order : 'asc'}
+                    onClick={() => handleSort('travel_percent')}
+                  >
+                    <PercentTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
+                  </TableSortLabel>
                 </TableCell>
               </TableRow>
             </TableHead>
@@ -233,12 +290,35 @@ export default function PositionListCard({ title }) {
                     >
                       {`${Number(pos.travel_percent || 0).toFixed(2)}%`}
                     </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                </TableRow>
+              );
+            })}
+            <TableRow>
+              <TableCell sx={{ pl: 1, fontWeight: 700 }}>Totals</TableCell>
+              <TableCell />
+              <TableCell align="right" sx={{ fontWeight: 700 }}>
+                {totals.profit.toLocaleString(undefined, {
+                  style: 'currency',
+                  currency: 'USD',
+                  minimumFractionDigits: 2
+                })}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700 }}>
+                {Number(totals.leverage).toFixed(2)}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700 }}>
+                ${Number(totals.value).toLocaleString()}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700 }}>
+                {Number(totals.liqDist).toFixed(2)}
+              </TableCell>
+              <TableCell align="right" sx={{ pr: 1, fontWeight: 700 }}>
+                {`${Number(totals.travel).toFixed(2)}%`}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
       </PerfectScrollbar>
     </MainCard>
   );
