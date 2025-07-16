@@ -99,3 +99,6 @@ def test_record_snapshot_updates_session(dl_tmp):
     session = dl_tmp.get_active_session()
     assert session.current_session_value == pytest.approx(50.0)
     assert session.session_performance_value == pytest.approx(50.0)
+    snap = dl_tmp.portfolio.get_latest_snapshot()
+    assert snap.session_start_value == pytest.approx(50.0)
+    assert snap.current_session_value == pytest.approx(50.0)
