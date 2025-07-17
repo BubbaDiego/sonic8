@@ -2,7 +2,12 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 from alert_v2.models import (
-    AlertConfig, Condition, NotificationType, AlertLevel, AlertState, Threshold
+    AlertConfig,
+    Condition,
+    NotificationType,
+    AlertLevel,
+    AlertState,
+    Threshold,
 )
 from datetime import datetime, timedelta
 
@@ -66,7 +71,13 @@ def test_threshold_crud(repo):
     row = repo.thresholds_for("PriceThreshold", "Position", Condition.ABOVE)
     assert row == th
 
-def test_log(repo):
-    from alert_v2.models import AlertLog
-    repo.log(AlertLog(id="log1", alert_id=None, phase="TEST", level="INFO", message="hello"))
-    # ensures commit didn't raise
+def test_log(repo, session):
+    from sqlalchemy import select, func
+    from alert_v2.models import AlertLog, AlertLogTbl
+
+    repo.log(
+        AlertLog(id="log1", alert_id=None, phase="TEST", level="INFO", message="hello")
+    )
+
+    count = session.scalar(select(func.count()).select_from(AlertLogTbl))
+    assert count == 1
