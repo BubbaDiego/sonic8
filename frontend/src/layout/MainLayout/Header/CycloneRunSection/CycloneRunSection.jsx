@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 
 // project imports
 import { ThemeMode } from 'config';
+import useConfig from 'hooks/useConfig';
 import { runFullCycle, runPositionUpdate, runPriceUpdate, deleteAllData } from 'api/cyclone';
 import { refreshPositions } from 'api/positions';
 import { refreshLatestPortfolio, refreshPortfolioHistory } from 'api/portfolio';
@@ -21,7 +22,7 @@ import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-rea
 export default function CycloneRunSection() {
   const theme = useTheme();
   const dispatch = useDispatch();
-  const REFRESH_DELAY_MS = 4000;
+  const { cycloneRefreshDelay = 4000 } = useConfig();
 
   const avatarSX = {
     ...theme.typography.commonAvatar,
@@ -46,7 +47,7 @@ export default function CycloneRunSection() {
           refreshLatestPortfolio();
           refreshPortfolioHistory();
           refreshPositions();
-        }, REFRESH_DELAY_MS);
+        }, cycloneRefreshDelay);
 
         dispatch(
           openSnackbar({
@@ -81,7 +82,7 @@ export default function CycloneRunSection() {
           refreshLatestPortfolio();
           refreshPortfolioHistory();
           refreshPositions();
-        }, REFRESH_DELAY_MS);
+        }, cycloneRefreshDelay);
 
         dispatch(
           openSnackbar({
@@ -151,7 +152,7 @@ export default function CycloneRunSection() {
           refreshLatestPortfolio();
           refreshPortfolioHistory();
           refreshPositions();
-        }, REFRESH_DELAY_MS);
+        }, cycloneRefreshDelay);
 
         dispatch(
           openSnackbar({

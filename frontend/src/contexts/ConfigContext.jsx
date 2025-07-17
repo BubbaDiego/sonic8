@@ -35,7 +35,6 @@ function ConfigProvider({ children }) {
   const [config, setConfig] = useLocalStorage('berry-config-vite-ts', {
     menuOrientation: initialState.menuOrientation,
     miniDrawer: initialState.miniDrawer,
-    sidePanelWidth: initialState.sidePanelWidth,
     fontFamily: initialState.fontFamily,
     borderRadius: initialState.borderRadius,
     outlinedFilled: initialState.outlinedFilled,
@@ -44,6 +43,7 @@ function ConfigProvider({ children }) {
     i18n: initialState.i18n,
     themeDirection: initialState.themeDirection,
     container: initialState.container,
+    cycloneRefreshDelay: initialState.cycloneRefreshDelay,
     sidePanelWidth: initialState.sidePanelWidth
   });
   const [sidePanelWidth, setSidePanelWidthLocalStorage] = useLocalStorage(
