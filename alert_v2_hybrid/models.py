@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum, auto
 from typing import Optional, List
 
 from pydantic import BaseModel, Field, ConfigDict, PositiveFloat
@@ -13,34 +12,13 @@ from sqlalchemy import (
     Boolean,
     Enum,
     ForeignKey,
-    Column,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from alert_common import Condition, AlertLevel, NotificationType, Base
 
 # ------------------------------------------------------------------
-# 1. Enums
+# 1. Enums (see alert_common)
 # ------------------------------------------------------------------
-class Condition(StrEnum):
-    ABOVE = auto()
-    BELOW = auto()
-
-class AlertLevel(StrEnum):
-    NORMAL = auto()
-    LOW = auto()
-    MEDIUM = auto()
-    HIGH = auto()
-
-class NotificationType(StrEnum):
-    SMS = auto()
-    EMAIL = auto()
-    WINDOWS = auto()
-    PHONECALL = auto()
-
-# ------------------------------------------------------------------
-# 2. SQLAlchemy Base
-# ------------------------------------------------------------------
-class Base(DeclarativeBase):
-    pass
 
 # ------------------------------------------------------------------
 # 3. ORM tables
