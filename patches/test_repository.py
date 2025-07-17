@@ -9,7 +9,7 @@ from alert_v2.models import (
     AlertState,
     Threshold,
 )
-from datetime import datetime, timedelta
+from datetime import datetime
 
 def _sample_cfg():
     return AlertConfig(
