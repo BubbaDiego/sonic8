@@ -1,6 +1,6 @@
 
-from alert_v2_hybrid.models import AlertConfig, AlertState, Condition, Threshold
-from alert_v2_hybrid.services.evaluation import evaluate, AlertLevel
+from backend.alert_v2.models import AlertConfig, AlertState, Condition, Threshold
+from backend.alert_v2.services.evaluation import evaluate, AlertLevel
 
 def test_evaluate_level_change():
     cfg = AlertConfig(
