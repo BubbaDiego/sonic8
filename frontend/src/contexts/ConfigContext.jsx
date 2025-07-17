@@ -43,8 +43,7 @@ function ConfigProvider({ children }) {
     i18n: initialState.i18n,
     themeDirection: initialState.themeDirection,
     container: initialState.container,
-    cycloneRefreshDelay: initialState.cycloneRefreshDelay,
-    sidePanelWidth: initialState.sidePanelWidth
+    cycloneRefreshDelay: initialState.cycloneRefreshDelay
   });
   const [sidePanelWidth, setSidePanelWidthLocalStorage] = useLocalStorage(
     'sidePanelWidth',
