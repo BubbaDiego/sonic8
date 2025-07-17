@@ -1,5 +1,6 @@
 export const DASHBOARD_PATH = '/sonic';
 export const HORIZONTAL_MAX_ITEM = 7;
+export const CYCLONE_REFRESH_DELAY_MS = 4000;
 
 export let MenuOrientation;
 
@@ -53,7 +54,8 @@ const config = {
   presetColor: 'default',
   i18n: 'en',
   themeDirection: ThemeDirection.LTR,
-  container: true
+  container: true,
+  cycloneRefreshDelay: CYCLONE_REFRESH_DELAY_MS
 };
 
 export default config;
