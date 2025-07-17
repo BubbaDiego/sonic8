@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from alert_v2.models import (
     AlertConfig, Condition, NotificationType, AlertLevel, AlertState, Threshold
 )
-from datetime import datetime, timedelta
+from datetime import datetime
 
 def _sample_cfg():
     return AlertConfig(
