@@ -353,8 +353,31 @@ frontend/
                 ├── UnderConstruction.jsx
         ├── overview/
             ├── index.jsx
+        ├── alertThresholds/
+            ├── AlertThresholdsPage.jsx
+            ├── index.jsx
+        ├── traderShop/
+            ├── QuickImportStarWars.jsx
+            ├── TraderFormDrawer.jsx
+            ├── TraderEnhancedTable.jsx
+            ├── TraderShopList.jsx
+            ├── hooks.js
+            ├── sampleTraders.json
+            ├── index.jsx
     ├── vite-env.d.js
 ├── vite.config.mjs
 ├── yarn.lock
+```
+
+The `alertThresholds` folder implements the **Alert Thresholds** page available
+under the `/alert-thresholds` route. The `traderShop` folder provides the
+**Trader Shop** at `/trader-shop`.
+
+The frontend depends on **Tailwind CSS** for styling. Install dependencies and
+run the unit tests with:
+
+```bash
+npm install
+npm test
 ```
 
