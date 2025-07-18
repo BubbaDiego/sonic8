@@ -12,6 +12,8 @@ import PerfectScrollbar from 'react-perfect-scrollbar';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axios';
 import Avatar from '@mui/material/Avatar';
+import Box from '@mui/material/Box';
+import colorForHedge from 'utils/hedgeColors';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
@@ -210,19 +212,35 @@ export default function PositionListCard({ title }) {
                 const profitHighlight = profitVal > profit_mark;
                 const profitColor = profitHighlight ? 'success.main' : 'inherit';
                 const profitWeight = profitHighlight ? 700 : 'normal';
+                const ring = colorForHedge(pos.hedge_buddy_id);
 
                 return (
                   <TableRow hover key={pos.id} sx={{ height: POSITION_ROW_HEIGHT }}>
                     {/* Wallet icon */}
                     <TableCell sx={{ pl: 1, py: 0.5 }}>
-                      <Avatar
-                        src={`/static/images/${(pos.wallet_name || 'unknown')
-                          .replace(/\s+/g, '')
-                          .replace(/vault$/i, '')
-                          .toLowerCase()}_icon.jpg`}
-                        alt={pos.wallet_name}
-                        sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
-                      />
+                      <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                        <Avatar
+                          src={`/static/images/${(pos.wallet_name || 'unknown')
+                            .replace(/\s+/g, '')
+                            .replace(/vault$/i, '')
+                            .toLowerCase()}_icon.jpg`}
+                          alt={pos.wallet_name}
+                          sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
+                        />
+                        <Box
+                          component="span"
+                          aria-hidden
+                          sx={{
+                            position: 'absolute',
+                            inset: 0,
+                            borderRadius: '50%',
+                            pointerEvents: 'none',
+                            boxSizing: 'border-box',
+                            border: '2px solid',
+                            borderColor: ring
+                          }}
+                        />
+                      </Box>
                     </TableCell>
 
                     {/* Asset & position type */}
