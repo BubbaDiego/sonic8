@@ -73,7 +73,12 @@ const Dashboard = () => {
 
   const handleModify = async (updatedSnapshot) => {
     setSnapshot(updatedSnapshot);
-    await updateSession(updatedSnapshot);
+    const patch = {
+      session_start_time: updatedSnapshot.session_start_time,
+      session_start_value: updatedSnapshot.session_start_value,
+      session_goal_value: updatedSnapshot.session_goal_value
+    };
+    await updateSession(patch);
     refreshActiveSession();
   };
 
