@@ -5,6 +5,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+# NOTE: CycloneAlertService remains legacy; console CRUD uses V2 repo directly
 from uuid import uuid4
 from backend.models.alert import Alert, AlertType, Condition
 from backend.core.alert_core.utils import log_alert_summary, normalize_alert_fields
