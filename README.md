@@ -157,3 +157,17 @@ or when resetting the environment. `clear_positions()` only removes open
 positions and leaves the `positions_totals_history` table intact. Use
 `clear_portfolio_history()` if you also want to wipe these snapshots. Running
 `clear_all_tables()` clears alerts, prices and positions.
+
+## Frontend tests
+
+The frontend uses Jest together with React Testing Library. Install the
+development dependencies and run the test suite from the `frontend` folder:
+
+```bash
+cd frontend
+yarn install
+yarn test
+```
+
+This executes Jest using the configuration provided in
+`frontend/jest.config.js`.
