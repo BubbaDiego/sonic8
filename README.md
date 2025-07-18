@@ -105,6 +105,9 @@ the positions table, so both views display consistent information.
   `frontend/static/images`.
 - The **Alert Thresholds** page features an **Add Threshold** dialog for creating
   new records.
+- The Alert Thresholds UI is available at `/alert-thresholds`. See
+  [frontend/src/routes/MainRoutes.jsx](frontend/src/routes/MainRoutes.jsx) for the
+  route definition.
 - Running `python backend/scripts/initialize_database.py --seed-thresholds`
   seeds default ranges for **Liquidation Distance** and **Profit** alerts.
 

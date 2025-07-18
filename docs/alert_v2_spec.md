@@ -44,7 +44,7 @@ def get_repo():
 
 router = APIRouter()
 
-@router.get("/alerts")
+@router.get("/alert-thresholds")
 def list_states(repo: AlertRepo = Depends(get_repo)):
     return repo.active_states()
 ```
