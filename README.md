@@ -46,8 +46,11 @@ To start the frontend:
 ```bash
 cd frontend
 npm install
+npm run build:css  # or `yarn build:css`
 npm run start
 ```
+
+This generates `src/tailwind.output.css` which the dev server requires.
 
 The Vite dev server disables the hot module replacement (HMR) error overlay by
 default. For local development you can enable it by editing
