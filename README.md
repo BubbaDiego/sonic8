@@ -7,6 +7,9 @@ three main parts:
 - **frontend/** – a React + Vite application used for the UI.
 - **docs/** – documentation and additional resources.
 
+Dependency management for Node.js packages occurs entirely inside
+**frontend/**. The repository root does not use `npm` or `yarn` directly.
+
 ## Getting started
 
 To run the backend locally first create a virtual environment for this
