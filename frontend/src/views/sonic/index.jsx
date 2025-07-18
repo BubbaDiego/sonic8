@@ -117,7 +117,7 @@ const Dashboard = () => {
       <Section name="Side‑B">
         <PortfolioSessionCard
           snapshot={snapshot}
-          onModify={handleModify}
+          onEditStart={handleModify}
           onReset={handleReset}
         />
       </Section>
