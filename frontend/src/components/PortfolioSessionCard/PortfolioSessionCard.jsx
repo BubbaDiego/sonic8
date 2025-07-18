@@ -1,22 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import {
-  Card,
-  Typography,
-  IconButton,
-  Box,
-  LinearProgress,
-  Stack,
-  Paper,
-  Button,
-  TextField
-} from '@mui/material';
 import { useGetActiveSession } from 'api/session';
-import EditIcon from '@mui/icons-material/Edit';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import {
+  PencilSquareIcon,
+  ArrowPathIcon,
+  CalendarIcon,
+  ClockIcon,
+  CurrencyDollarIcon
+} from '@heroicons/react/24/outline';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*                          ✨  TWEAK‑ME CONFIGS  ✨                          */
@@ -26,10 +17,6 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 /*    • If you need a taller or shorter widget, bump this number up/down.    */
 export const CARD_MAX_HEIGHT = 250; // ← default: 450 px
 
-/* 2️⃣ CARD_CONTENT_TOP_MARGIN is the *inner* top padding for the front &     */
-/*    back faces.                                                            */
-/*    • Set to 0 for a flush top edge, or raise it for breathing room.       */
-export const CARD_CONTENT_TOP_MARGIN = 4; // ← default: 8 px
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /* Helper to robustly pull the **current total** regardless of field name */
@@ -51,6 +38,9 @@ const cannedSnapshot = {
 
 export default function PortfolioSessionCard({
   snapshot: snapshotProp,
+
+  onEditStart,
+
   currentValueUsd,
   onModify,
   onReset
@@ -72,6 +62,11 @@ export default function PortfolioSessionCard({
   }, [snapshot]);
 
   const flipCard = () => setFlipped(!flipped);
+
+  const handleEditClick = () => {
+    onEditStart?.(snapshot);
+    flipCard();
+  };
 
   const number = (n) =>
     n?.toLocaleString(undefined, {
@@ -123,7 +118,7 @@ export default function PortfolioSessionCard({
   };
 
   const handleSave = () => {
-    onModify?.(editableSnapshot);
+    onEditStart?.(editableSnapshot);
     flipCard();
   };
 
@@ -135,127 +130,85 @@ export default function PortfolioSessionCard({
   /* Render                                                                */
   /* --------------------------------------------------------------------- */
   return (
-    <Box
-      sx={{
-        perspective: '1000px',
-        height: CARD_MAX_HEIGHT,
-        width: '100%'
-      }}
+    <div
+      className="w-full"
+      style={{ perspective: '1000px', height: CARD_MAX_HEIGHT }}
     >
-      <Box
-        sx={{
-          width: '100%',
-          height: '100%',
-          position: 'relative',
+      <div
+        className="w-full h-full relative"
+        style={{
           transition: 'transform 0.8s',
           transformStyle: 'preserve-3d',
           transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
         }}
       >
         {/* FRONT SIDE ----------------------------------------------------- */}
-        <Card
-          sx={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            backfaceVisibility: 'hidden',
-            pt: CARD_CONTENT_TOP_MARGIN,
-            px: 2,
-            pb: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'flex-start' // <— content starts at the top
-          }}
+        <div
+          className="absolute w-full h-full backface-hidden flex flex-col items-center justify-start p-2"
+          style={{ backfaceVisibility: 'hidden' }}
         >
-          <Stack spacing={2} alignItems="center">
-            {/* Avatar removed as requested */}
-
-            <Typography variant="h4">{number(currentTotal)} USD</Typography>
-
-            <Typography
-              variant="subtitle1"
-              color={perfValue >= 0 ? 'success.main' : 'error.main'}
-            >
-              {perfValue >= 0 ? '+' : ''}
-              {number(perfValue)} ({number(perfPct)}%)
-            </Typography>
-
-            <Typography variant="subtitle2">
-              Goal: {number(snapshot.session_goal_value)} USD
-            </Typography>
-
-            <LinearProgress
-              variant="determinate"
-              value={progress}
-              sx={{ width: '100%', borderRadius: 2, height: 8 }}
-            />
-
-            {/* Meta row */}
-            <Paper
-              elevation={3}
-              sx={{ p: 1, borderRadius: 2, width: '100%', mt: 1 }}
-            >
-              <Stack
-                direction="row"
-                justifyContent="space-around"
-                alignItems="center"
+          <div className="w-full bg-white shadow rounded p-2 mb-2">
+            <div className="flex justify-between items-start mb-1">
+              <span className="font-medium text-sm">{number(currentTotal)} USD</span>
+              <button
+                type="button"
+                data-testid="edit-btn"
+                onClick={handleEditClick}
+                className="text-blue-600 hover:text-blue-800"
               >
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <CalendarTodayIcon fontSize="small" />
-                  <Typography variant="caption">
-                    {`${sessionDate.getMonth() + 1}/${sessionDate.getDate()}`}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <AccessTimeIcon fontSize="small" />
-                  <Typography variant="caption">
-                    {sessionDate.toLocaleTimeString([], {
-                      hour: 'numeric',
-                      minute: '2-digit'
-                    })}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <AttachMoneyIcon fontSize="small" />
-                  <Typography variant="caption">
-                    {number(snapshot.session_start_value)} USD
-                  </Typography>
-                </Stack>
-              </Stack>
-            </Paper>
-
-            <IconButton color="primary" onClick={flipCard}>
-              <EditIcon />
-            </IconButton>
-          </Stack>
-        </Card>
+                <PencilSquareIcon className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
+              <div className="flex items-center gap-1">
+                <CalendarIcon className="w-3 h-3" />
+                <span>{`${sessionDate.getMonth() + 1}/${sessionDate.getDate()}`}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <ClockIcon className="w-3 h-3" />
+                <span>
+                  {sessionDate.toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 col-span-2">
+                <CurrencyDollarIcon className="w-3 h-3" />
+                <span>{number(snapshot.session_start_value)} USD</span>
+              </div>
+            </div>
+          </div>
+          <div className="text-sm">
+            Goal: {number(snapshot.session_goal_value)} USD
+          </div>
+          <div
+            className="w-full bg-gray-200 rounded-full h-2 overflow-hidden my-1"
+          >
+            <div
+              className="bg-blue-500 h-2 rounded-full"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div
+            className={`text-sm ${perfValue >= 0 ? 'text-green-600' : 'text-red-600'}`}
+          >
+            {perfValue >= 0 ? '+' : ''}
+            {number(perfValue)} ({number(perfPct)}%)
+          </div>
+        </div>
 
         {/* BACK SIDE ------------------------------------------------------ */}
-        <Card
-          sx={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            backfaceVisibility: 'hidden',
-            transform: 'rotateY(180deg)',
-            pt: CARD_CONTENT_TOP_MARGIN,
-            px: 2,
-            pb: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'flex-start'
-          }}
+        <div
+          className="absolute w-full h-full backface-hidden flex flex-col items-center justify-start p-2"
+          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
         >
-          <Typography variant="h6">Edit Session</Typography>
+          <div className="font-semibold">Edit Session</div>
 
-          <Stack spacing={1.5} sx={{ mt: 1, width: '90%' }}>
-            <TextField
+          <div className="flex flex-col space-y-2 mt-1 w-11/12">
+            <input
               type="date"
-              size="small"
-              label="Date"
-              InputLabelProps={{ shrink: true }}
+              className="border rounded px-2 py-1 text-sm"
               value={new Date(editableSnapshot.session_start_time)
                 .toISOString()
                 .substring(0, 10)}
@@ -264,11 +217,9 @@ export default function PortfolioSessionCard({
               }
             />
 
-            <TextField
+            <input
               type="time"
-              size="small"
-              label="Time"
-              InputLabelProps={{ shrink: true }}
+              className="border rounded px-2 py-1 text-sm"
               value={new Date(editableSnapshot.session_start_time)
                 .toTimeString()
                 .substring(0, 5)}
@@ -277,47 +228,53 @@ export default function PortfolioSessionCard({
               }
             />
 
-            <TextField
+            <input
               type="number"
-              size="small"
-              label="Start $"
+              className="border rounded px-2 py-1 text-sm"
               value={editableSnapshot.session_start_value}
               onChange={(e) =>
                 handleInputChange('session_start_value', e.target.value)
               }
             />
 
-            <TextField
+            <input
               type="number"
-              size="small"
-              label="Goal $"
+              className="border rounded px-2 py-1 text-sm"
               value={editableSnapshot.session_goal_value}
               onChange={(e) =>
                 handleInputChange('session_goal_value', e.target.value)
               }
             />
-          </Stack>
+          </div>
 
-          <Stack spacing={1} direction="row" sx={{ mt: 1 }}>
-            <Button size="small" variant="contained" onClick={handleSave}>
+          <div className="flex flex-row space-x-2 mt-2">
+            <button
+              type="button"
+              className="px-2 py-1 text-white bg-blue-600 rounded text-sm"
+              onClick={handleSave}
+            >
               Save
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<RestartAltIcon />}
+            </button>
+            <button
+              type="button"
+              className="px-2 py-1 border rounded text-sm flex items-center gap-1"
               onClick={onReset}
             >
+              <ArrowPathIcon className="w-4 h-4" />
               Reset
-            </Button>
-          </Stack>
+            </button>
+          </div>
 
-          <Button size="small" sx={{ mt: 0.5 }} onClick={flipCard}>
+          <button
+            type="button"
+            className="mt-1 text-sm text-blue-600"
+            onClick={flipCard}
+          >
             Close
-          </Button>
-        </Card>
-      </Box>
-    </Box>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
