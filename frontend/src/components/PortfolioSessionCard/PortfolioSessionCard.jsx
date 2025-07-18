@@ -38,7 +38,11 @@ const cannedSnapshot = {
 
 export default function PortfolioSessionCard({
   snapshot: snapshotProp,
+
   onEditStart,
+
+  currentValueUsd,
+  onModify,
   onReset
 }) {
   /* --------------------------------------------------------------------- */
@@ -72,7 +76,10 @@ export default function PortfolioSessionCard({
   /* --------------------------------------------------------------------- */
   /* Derived metrics                                                       */
   /* --------------------------------------------------------------------- */
-  const currentTotal = pickTotal(snapshot);
+  const currentTotal =
+    typeof currentValueUsd === 'number'
+      ? currentValueUsd
+      : pickTotal(snapshot);
 
   const perfValue =
     snapshot.session_performance_value
@@ -273,6 +280,7 @@ export default function PortfolioSessionCard({
 
 PortfolioSessionCard.propTypes = {
   snapshot: PropTypes.object,
-  onEditStart: PropTypes.func,
+  currentValueUsd: PropTypes.number,
+  onModify: PropTypes.func,
   onReset: PropTypes.func
 };
