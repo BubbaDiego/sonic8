@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 # NOTE: CycloneConsoleService is designed for interactive use.  Expose a helper
 # function ``run_cyclone_console`` so callers don't need to manually construct a
@@ -18,6 +19,14 @@ from backend.core.positions_core.hedge_manager import HedgeManager
 from backend.core.logging import log
 from backend.core.cyclone_core.cyclone_position_service import CyclonePositionService
 from backend.core.cyclone_core.cyclone_portfolio_service import CyclonePortfolioService
+# Alert V2 hybrid repo
+from backend.alert_v2 import AlertRepo
+from backend.alert_v2.models import (
+    AlertConfig,
+    Threshold,
+    Condition,
+    NotificationType,
+)
 from backend.core.cyclone_core.cyclone_alert_service import CycloneAlertService
 from backend.core.cyclone_core.cyclone_hedge_service import CycloneHedgeService
 from backend.core.cyclone_core.cyclone_report_generator import generate_cycle_report
@@ -28,6 +37,7 @@ class CycloneConsoleService:
         self.position_service = CyclonePositionService(cyclone_instance.data_locker)
         self.portfolio_service = CyclonePortfolioService(cyclone_instance.data_locker)
         self.alert_service = CycloneAlertService(cyclone_instance.data_locker)
+        self.alert_repo = AlertRepo()          # 🔔 NEW
         self.hedge_service = CycloneHedgeService(cyclone_instance.data_locker)
 
     @staticmethod
@@ -150,56 +160,32 @@ class CycloneConsoleService:
 
     def run_alerts_menu(self):
         while True:
-            print("\n--- Alerts Menu ---")
+            print("\n--- Alerts Menu (V2) ---")
             print("1) 👁 View Alerts")
-            print("2) 💵 Create Market Alerts")
-            print("3) 📊 Create Portfolio Alerts")
-            print("4) 📌 Create Position Alerts")
-            print("5) 🖥 Create Global Alerts")
-            print("6) ✨ Enrich Alerts")
-            print("7) 🔄 Update Evaluated Value")
-            print("8) 🔍 Alert Evaluations")
-            print("9) 🧹 Clear Alerts")
-            print("10) ♻️ Refresh Alerts")
-            print("11) ↩️ Back to Main Menu")
-            choice = input("Enter your choice (1-11): ").strip()
+            print("2) ➕ Create Alert")
+            print("3) ✏️ Edit Alert Trigger")
+            print("4) 🗑 Delete Alert")
+            print("5) 📐 View Thresholds")
+            print("6) ✏️ Edit Threshold")
+            print("7) ↩️ Back to Main Menu")
+            choice = input("Enter choice (1-7): ").strip()
+
             if choice == "1":
-                print("Viewing Alerts...")
-                self.view_alerts_backend()
+                self._view_alerts_v2()
             elif choice == "2":
-                print("Creating Market Alerts...")
-                asyncio.run(self.cyclone.run_cycle(steps=["create_market_alerts"]))
+                self._create_alert_v2()
             elif choice == "3":
-                print("Creating Portfolio Alerts...")
-                asyncio.run(self.cyclone.run_create_portfolio_alerts())
+                self._edit_alert_trigger_v2()
             elif choice == "4":
-                print("Creating Position Alerts...")
-                asyncio.run(self.cyclone.run_cycle(steps=["create_position_alerts"]))
+                self._delete_alert_v2()
             elif choice == "5":
-                print("Creating Global Alerts...")
-                asyncio.run(self.cyclone.run_cycle(steps=["create_global_alerts"]))
+                self._view_thresholds_v2()
             elif choice == "6":
-                print("Running Enrich Alerts...")
-                asyncio.run(self.cyclone.run_alert_enrichment())
-                print("Enrich Alerts completed.")
+                self._edit_threshold_v2()
             elif choice == "7":
-                print("Updating Evaluated Values for Alerts...")
-                asyncio.run(self.cyclone.run_cycle(steps=["update_evaluated_value"]))
-            elif choice == "8":
-                print("Running Alert Evaluations...")
-                asyncio.run(self.cyclone.run_cycle(steps=["evaluate_alerts"]))
-                print("Alert Evaluations completed.")
-            elif choice == "9":
-                print("Clearing Alerts...")
-                self.cyclone.clear_alerts_backend()
-            elif choice == "10":
-                print("Refreshing Alerts...")
-                asyncio.run(self.cyclone.run_alert_updates())
-                print("Alerts refreshed.")
-            elif choice == "11":
                 break
             else:
-                print("Invalid choice, please try again.")
+                print("Invalid choice.")
 
     def run_hedges_menu(self):
         """
@@ -335,6 +321,99 @@ class CycloneConsoleService:
         print(f"🧠 Position Ref:     {alert.get('position_reference_id', '')}")
         print(f"📝 Notes:            {alert.get('notes', '')}")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+
+    # ─────────────────────────  V2 Helpers  ───────────────────────── #
+
+    # ----- Alerts -----
+    def _view_alerts_v2(self):
+        alerts = [cfg.model_dump() | st.model_dump()
+                  for cfg, st in self.alert_repo.iter_alerts_with_state()]
+        self.paginate_items(alerts, self.view_alert_details, title="Alert V2 Configs")
+
+    def _create_alert_v2(self):
+        aid = input("Alert ID (blank = auto): ").strip() or f"alert-{uuid4()}"
+        a_type  = input("Alert Type  (e.g. TravelPercent): ").strip()
+        a_class = input("Alert Class (Position/Portfolio/Market): ").strip()
+        trig    = float(input("Trigger Value: "))
+        cond    = input("Condition ABOVE/BELOW (default ABOVE): ").strip().upper() or "ABOVE"
+        notif   = input("Notification (SMS/EMAIL) [SMS]: ").strip().upper() or "SMS"
+        pos_ref = input("Position Ref ID (blank if N/A): ").strip() or None
+
+        cfg = AlertConfig(
+            id=aid,
+            alert_type=a_type,
+            alert_class=a_class,
+            trigger_value=trig,
+            condition=Condition[cond],
+            notification_type=NotificationType[notif],
+            position_reference_id=pos_ref,
+        )
+        self.alert_repo.add_config(cfg)
+        print(f"✅ Alert {aid} created.")
+
+    def _edit_alert_trigger_v2(self):
+        aid = input("Alert ID to edit: ").strip()
+        cfg = self.alert_repo.get_config(aid)
+        if not cfg:
+            print("⚠️ Not found.")
+            return
+        new_val = float(input(f"New trigger (current {cfg.trigger_value}): "))
+        cfg_dict = cfg.model_dump()
+        cfg_dict["trigger_value"] = new_val
+        # replace = delete & re‑add (simplest for frozen model)
+        self.alert_repo.session.execute(
+            "DELETE FROM alert_config WHERE id = :id", {"id": aid}
+        )
+        self.alert_repo.session.commit()
+        self.alert_repo.add_config(AlertConfig(**cfg_dict))
+        print("✅ Trigger updated.")
+
+    def _delete_alert_v2(self):
+        aid = input("Alert ID to delete: ").strip()
+        self.alert_repo.session.execute(
+            "DELETE FROM alert_config WHERE id = :id", {"id": aid}
+        )
+        self.alert_repo.session.execute(
+            "DELETE FROM alert_state  WHERE alert_id = :id", {"id": aid}
+        )
+        self.alert_repo.session.commit()
+        print("🗑 Alert removed.")
+
+    # ----- Thresholds -----
+    def _view_thresholds_v2(self):
+        rows = self.alert_repo.session.execute("SELECT * FROM alert_threshold").fetchall()
+        if not rows:
+            print("⚠️ No thresholds.")
+            return
+        for r in rows:
+            print(f"{r.id} | {r.alert_type}/{r.alert_class} "
+                  f"low={r.low} med={r.medium} high={r.high} enabled={r.enabled}")
+
+    def _edit_threshold_v2(self):
+        tid = input("Threshold ID to edit: ").strip()
+        row = self.alert_repo.session.execute(
+            "SELECT * FROM alert_threshold WHERE id=:id", {"id": tid}
+        ).first()
+        if not row:
+            print("⚠️ Not found.")
+            return
+        new_low = input(f"Low ({row.low}): ").strip() or row.low
+        new_med = input(f"Med ({row.medium}): ").strip() or row.medium
+        new_high= input(f"High({row.high}): ").strip() or row.high
+        enabled = input(f"Enabled(y/n) [{ 'y' if row.enabled else 'n' }]: ").strip().lower()
+        en_bool = row.enabled if enabled not in ("y", "n") else enabled == "y"
+
+        self.alert_repo.session.execute(
+            """
+            UPDATE alert_threshold
+            SET low=:low, medium=:med, high=:high, enabled=:en
+            WHERE id=:id
+            """,
+            dict(low=float(new_low), med=float(new_med),
+                 high=float(new_high), en=en_bool, id=tid),
+        )
+        self.alert_repo.session.commit()
+        print("✅ Threshold updated.")
 
     def paginate_items(self, items: list, display_fn: callable, title: str = "", page_size: int = 5):
         """
