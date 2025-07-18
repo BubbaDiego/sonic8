@@ -33,6 +33,7 @@ dist/
 
 # Node dependencies
 node_modules/
+frontend/src/tailwind.output.css
 
 # IDE settings
 .idea/
