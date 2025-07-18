@@ -139,6 +139,22 @@ class PositionSyncService:
             snapshot_totals = calc_core.calculate_totals(active_positions)
             self.dl.portfolio.record_snapshot(snapshot_totals)
 
+            session = None
+            try:
+                session = self.dl.session.get_active_session()
+                if session:
+                    total_val = float(snapshot_totals.get("total_value", 0.0) or 0.0)
+                    delta = total_val - float(session.session_start_value or 0.0)
+                    self.dl.session.update_session(
+                        session.id,
+                        {
+                            "current_session_value": delta,
+                            "session_performance_value": delta,
+                        },
+                    )
+            except Exception as exc:  # pragma: no cover - defensive
+                log.error(f"Failed to update session metrics: {exc}", source="PositionSyncService")
+
             # -------- 5) Build + persist HTML report ------------------- #
             console.print("[cyan]Step 5/6: Build sync report[/cyan]")
             self._write_report(now, sync_result, hedges)
