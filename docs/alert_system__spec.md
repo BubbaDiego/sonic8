@@ -1535,9 +1535,9 @@ sonic1/
   asset type in the positions table. The images live under
   `frontend/static/images` and are loaded automatically based on the wallet or
   token name.
-- The **Alert Thresholds** page includes an **Add Threshold** dialog used to add a
-  new threshold. The dialog collects the alert type, metric key and low/medium/high
-  values before persisting the record through the backend API.
+- The **Alert Thresholds** page now provides a data grid for editing existing
+  thresholds, import/export actions and an **Add Threshold** dialog for quickly
+  creating presets. Changes are persisted through the backend API.
 - Running `scripts/initialize_database.py --seed-thresholds` populates default
   ranges for **Liquidation Distance** and **Profit** using `AlertThresholdSeeder`.
 

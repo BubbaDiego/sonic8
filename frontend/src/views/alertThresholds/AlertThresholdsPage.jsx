@@ -1,46 +1,165 @@
-import { useEffect } from 'react';
-import { Grid, Button } from '@mui/material';
-import MainCard from 'ui-component/cards/MainCard';
-import ThresholdTable from 'ui-component/thresholds/ThresholdTable';
-import CooldownTable from 'ui-component/thresholds/CooldownTable';
-import { useDispatch, useSelector } from 'store';
-import { fetchThresholds, persistThresholds, setThresholds } from 'store/slices/alertThresholds';
+import { useState, useCallback } from 'react';
+import useSWR from 'swr';
+import { Box, Button, Stack, Tab, Tabs, Switch, FormControlLabel } from '@mui/material';
+import AddThresholdDialog from './AddThresholdDialog';
+import axios, { fetcher } from 'utils/axios';
+import { useDispatch } from 'store';
+import { openSnackbar } from 'store/slices/snackbar';
+import ThresholdsTable from './ThresholdsTable';
 
 export default function AlertThresholdsPage() {
   const dispatch = useDispatch();
-  const { data } = useSelector((state) => state.thresholds);
-  const thresholds = data?.thresholds || [];
-  const cooldowns = data?.cooldowns || {};
+  const [tab, setTab] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [monitorEnabled, setMonitorEnabled] = useState(true);
+  const { data: thresholds = [], mutate } = useSWR('/alert_thresholds/', fetcher);
 
-  useEffect(() => {
-    dispatch(fetchThresholds());
-  }, [dispatch]);
+  const updateRow = useCallback(
+    async (row) => {
+      await axios.put(`/alert_thresholds/${row.id}`, row);
+      mutate();
+    },
+    [mutate]
+  );
 
-  const handleThresholdChange = (id, field, value) => {
-    const updated = thresholds.map((t) =>
-      t.id === id ? { ...t, [field]: value } : t
-    );
-    dispatch(setThresholds({ thresholds: updated, cooldowns }));
+  const handleCreated = useCallback(
+    (row) => {
+      mutate((prev = []) => [...prev, row], false);
+      mutate();
+    },
+    [mutate]
+  );
+
+  const handleSave = async () => {
+    try {
+      await axios.put('/alert_thresholds/bulk', { thresholds, monitorEnabled });
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Configuration saved',
+          variant: 'alert',
+          alert: { color: 'success' },
+          close: false
+        })
+      );
+    } catch (err) {
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Save failed',
+          variant: 'alert',
+          alert: { color: 'error' },
+          severity: 'error',
+          close: false
+        })
+      );
+    }
   };
 
-  const handleCooldownChange = (field, value) => {
-    const updated = { ...cooldowns, [field]: value };
-    dispatch(setThresholds({ thresholds, cooldowns: updated }));
+  const handleExport = async () => {
+    try {
+      const res = await axios.get('/alert_thresholds/bulk');
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' })
+      );
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'alert_thresholds.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Exported',
+          variant: 'alert',
+          alert: { color: 'success' },
+          close: false
+        })
+      );
+    } catch (err) {
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Export failed',
+          variant: 'alert',
+          alert: { color: 'error' },
+          severity: 'error',
+          close: false
+        })
+      );
+    }
   };
 
-  const handleSave = () => {
-    dispatch(persistThresholds({ thresholds, cooldowns }));
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      await axios.put('/alert_thresholds/bulk', JSON.parse(text));
+      mutate();
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Configuration imported',
+          variant: 'alert',
+          alert: { color: 'success' },
+          close: false
+        })
+      );
+    } catch (err) {
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Import failed',
+          variant: 'alert',
+          alert: { color: 'error' },
+          severity: 'error',
+          close: false
+        })
+      );
+    }
   };
 
   return (
-    <Grid container spacing={2}>
-      <Grid item xs={12}>
-        <MainCard title="Alert Thresholds" secondary={<Button variant="contained" onClick={handleSave}>Save All</Button>}>
-          <ThresholdTable rows={thresholds} onChange={handleThresholdChange} />
-          <div style={{ height: 16 }} />
-          <CooldownTable values={cooldowns} onChange={handleCooldownChange} />
-        </MainCard>
-      </Grid>
-    </Grid>
+    <Box>
+      <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+        <Button variant="contained" onClick={handleSave} data-testid="save-btn">
+          Save
+        </Button>
+        <Button variant="contained" onClick={() => setDialogOpen(true)}>
+          + Add Threshold
+        </Button>
+        <Button component="label" variant="outlined">
+          Import
+          <input hidden type="file" accept="application/json" onChange={handleImport} />
+        </Button>
+        <Button variant="outlined" onClick={handleExport} data-testid="export-btn">
+          Export
+        </Button>
+      </Stack>
+      <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab label="Thresholds" />
+        <Tab label="Settings" />
+      </Tabs>
+      {tab === 0 && <ThresholdsTable rows={thresholds} updateRow={updateRow} />}
+      {tab === 1 && (
+        <Box sx={{ p: 2 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={monitorEnabled}
+                onChange={(e) => setMonitorEnabled(e.target.checked)}
+              />
+            }
+            label="Enable Monitors"
+          />
+        </Box>
+      )}
+      <AddThresholdDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onCreated={handleCreated}
+      />
+    </Box>
   );
 }
