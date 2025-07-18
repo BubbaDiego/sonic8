@@ -68,6 +68,23 @@ class PositionCoreService:
             calc = CalculationCore(self.dl)
             totals = calc.calculate_totals(positions)
             self.dl.portfolio.record_snapshot(totals)
+
+            session = None
+            try:
+                session = self.dl.session.get_active_session()
+                if session:
+                    total_val = float(totals.get("total_value", 0.0) or 0.0)
+                    delta = total_val - float(session.session_start_value or 0.0)
+                    self.dl.session.update_session(
+                        session.id,
+                        {
+                            "current_session_value": delta,
+                            "session_performance_value": delta,
+                        },
+                    )
+            except Exception as e:  # pragma: no cover - defensive
+                log.error(f"Failed to update session metrics: {e}", source="PositionCoreService")
+
             log.success(f"📋 Snapshot of {len(positions)} positions recorded.", source="PositionCoreService")
         except Exception as e:
             log.error(f"❌ record_positions_snapshot failed: {e}", source="PositionCoreService")
