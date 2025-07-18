@@ -6,6 +6,7 @@ import {
   resetSession,
   refreshActiveSession
 } from 'api/session';
+import { useGetLatestPortfolio } from 'api/portfolio';
 import PortfolioSessionCard from '../../components/PortfolioSessionCard/PortfolioSessionCard';
 import DashboardToggle from '../../components/StatusRail/DashboardToggle';
 import CompositionPieCard from '../../components/CompositionPieCard/CompositionPieCard';
@@ -63,6 +64,7 @@ const Section = ({ name, children, debug = DEBUG_LAYOUT }) => {
 
 const Dashboard = () => {
   const { session } = useGetActiveSession();
+  const { portfolio } = useGetLatestPortfolio();
   const [snapshot, setSnapshot] = useState(session);
 
   useEffect(() => {
@@ -86,6 +88,11 @@ const Dashboard = () => {
     await resetSession();
     refreshActiveSession();
   };
+
+  const currentValueUsd =
+    portfolio?.total_value ??
+    ((snapshot?.session_start_value || 0) +
+      (snapshot?.session_performance_value || 0));
 
   return (
     <Box
@@ -117,6 +124,7 @@ const Dashboard = () => {
       <Section name="Side‑B">
         <PortfolioSessionCard
           snapshot={snapshot}
+          currentValueUsd={currentValueUsd}
           onModify={handleModify}
           onReset={handleReset}
         />
