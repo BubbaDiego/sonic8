@@ -246,12 +246,12 @@ export default function PortfolioSessionCard({
         >
           <Typography variant="h6">Edit Session</Typography>
 
-          <Stack spacing={2} sx={{ mt: 2, width: '80%' }}>
+          <Stack spacing={1.5} sx={{ mt: 1, width: '90%' }}>
             <TextField
               type="date"
-              label="Start Date"
+              size="small"
+              label="Date"
               InputLabelProps={{ shrink: true }}
-              fullWidth
               value={new Date(editableSnapshot.session_start_time)
                 .toISOString()
                 .substring(0, 10)}
@@ -262,9 +262,9 @@ export default function PortfolioSessionCard({
 
             <TextField
               type="time"
-              label="Start Time"
+              size="small"
+              label="Time"
               InputLabelProps={{ shrink: true }}
-              fullWidth
               value={new Date(editableSnapshot.session_start_time)
                 .toTimeString()
                 .substring(0, 5)}
@@ -275,8 +275,8 @@ export default function PortfolioSessionCard({
 
             <TextField
               type="number"
-              label="Start Amount"
-              fullWidth
+              size="small"
+              label="Start $"
               value={editableSnapshot.session_start_value}
               onChange={(e) =>
                 handleInputChange('session_start_value', e.target.value)
@@ -285,8 +285,8 @@ export default function PortfolioSessionCard({
 
             <TextField
               type="number"
-              label="Goal Amount"
-              fullWidth
+              size="small"
+              label="Goal $"
               value={editableSnapshot.session_goal_value}
               onChange={(e) =>
                 handleInputChange('session_goal_value', e.target.value)
@@ -294,11 +294,12 @@ export default function PortfolioSessionCard({
             />
           </Stack>
 
-          <Stack spacing={2} direction="row" sx={{ mt: 2 }}>
-            <Button variant="contained" onClick={handleSave}>
+          <Stack spacing={1} direction="row" sx={{ mt: 1 }}>
+            <Button size="small" variant="contained" onClick={handleSave}>
               Save
             </Button>
             <Button
+              size="small"
               variant="outlined"
               startIcon={<RestartAltIcon />}
               onClick={onReset}
@@ -307,7 +308,7 @@ export default function PortfolioSessionCard({
             </Button>
           </Stack>
 
-          <Button sx={{ mt: 1 }} onClick={flipCard}>
+          <Button size="small" sx={{ mt: 0.5 }} onClick={flipCard}>
             Close
           </Button>
         </Card>
