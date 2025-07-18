@@ -107,7 +107,7 @@ Manages the active trading session and its history.
 Constants:
 - `active` → `/session`
 - `history` → `/session/history`
-- `start` → `/session/start`
+- `start` → `/session`
 - `reset` → `/session/reset`
 - `close` → `/session/close`
 
@@ -116,7 +116,7 @@ Exports:
 - **`useGetActiveSession()`** – SWR hook returning the currently open session.
 - **`useGetSessionHistory()`** – SWR hook listing historical sessions.
 - **`startSession(payload)`** – `POST` to `start` creating a new session.
-- **`updateSession(patch)`** – `PATCH` to `active` updating the open session.
+- **`updateSession(patch)`** – `PUT` to `active` updating the open session.
 - **`resetSession()`** – `POST` to `reset` zeroing metrics while keeping it open.
 - **`closeSession()`** – `POST` to `close` marking the session closed.
 - **`refreshActiveSession()`** – Mutates the `active` cache key.

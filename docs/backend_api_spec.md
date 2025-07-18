@@ -43,7 +43,7 @@ endpoints below return JSON responses and use Pydantic models from the
 - `POST /` – Start a new session. Any existing OPEN session is marked CLOSED.
   - **Body**: `SessionCreate` with `session_start_value`, `session_goal_value` and optional `notes`.
   - **Response model**: `Session` (HTTP 201)
-- `PATCH /{id}` – Update fields of a session by ID. Use `PATCH /` with no ID to modify the active session.
+- `PUT /{id}` – Update fields of a session by ID. Use `PUT /` with no ID to modify the active session.
   - **Body**: `SessionUpdate` containing only the fields to change.
 - `POST /reset` – Zero the live metrics on the active session while keeping it OPEN.
 - `POST /close` – Mark the active session as CLOSED and return the updated row.

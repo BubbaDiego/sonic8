@@ -5,7 +5,7 @@ import axios, { fetcher } from 'utils/axios';
 const endpoints = {
   active: '/session',
   history: '/session/history',
-  start: '/session/start',
+  start: '/session',
   reset: '/session/reset',
   close: '/session/close'
 };
@@ -65,7 +65,7 @@ export async function startSession(payload) {
 }
 
 export async function updateSession(patch) {
-  const res = await axios.patch(endpoints.active, patch);
+  const res = await axios.put(endpoints.active, patch);
   return res.data;
 }
 
