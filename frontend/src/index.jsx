@@ -13,6 +13,7 @@ import { ConfigProvider } from 'contexts/ConfigContext';
 // style + assets
 import 'assets/scss/style.scss';
 import 'assets/scss/_liquidation-bars.scss';
+import './tailwind.output.css';
 
 // map
 import 'mapbox-gl/dist/mapbox-gl.css';

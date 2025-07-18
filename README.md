@@ -59,6 +59,14 @@ server: { hmr: { overlay: true } }
 
 Production builds can omit this overlay configuration.
 
+### Tailwind CSS
+
+The frontend uses Tailwind for utility classes. Base directives live in
+`frontend/src/tailwind.css` and compile to `tailwind.output.css` during the
+`yarn build` step. The generated file is imported in
+`frontend/src/index.jsx` so any utilities defined in `tailwind.css` are
+available throughout the app.
+
 Feel free to explore each directory for more details.
 
 See [docs/alert_thresholds_api.md](docs/alert_thresholds_api.md) for the alert thresholds API.
