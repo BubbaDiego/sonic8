@@ -119,7 +119,7 @@ curl -X POST http://localhost:5000/session/reset
 - `DELETE /{threshold_id}` – Delete a threshold by ID.
 
 ### Legacy Alert Endpoints (`alerts_router` in `alert_thresholds_api.py`)
-**Base path**: `/alerts`
+**Base path**: `/alert-thresholds`
 
 - `POST /refresh` – Retrieve alerts from storage; returns `{"success": true}` when reachable.
 - `POST /create_all` – Load and insert sample alerts from `sample_alerts.json`.
