@@ -47,7 +47,13 @@ export default function PerformanceGraphCard() {
   /* History bucketing with a rolling window that matches the granularity   */
   /* ──────────────────────────────────────────────────────────────────────── */
   const bucketHistory = (gran, rows = []) => {
-    if (!rows.length) return { categories: [], valueSeries: [], collateralSeries: [], btcSeries: [] };
+    if (!rows.length)
+      return {
+        categories: [],
+        valueSeries: [],
+        collateralSeries: [],
+        btcSeries: []
+      };
 
     const now = parseISO(rows.at(-1).snapshot_time);
     const windowStart =
@@ -120,11 +126,21 @@ export default function PerformanceGraphCard() {
     series: [],
     options: {
       chart: {
+        type: 'area', // ⇠ area chart so we get the fill
         animations: { enabled: false },
         zoom: { enabled: true, autoScaleYaxis: true },
         toolbar: { show: true, tools: { download: false }, autoSelected: 'zoom' }
       },
-      stroke: { curve: 'smooth', width: 2 },
+      stroke: { curve: 'smooth', width: 4 }, // thicker line (4 px)
+      fill: {
+        type: 'gradient',
+        gradient: {
+          shadeIntensity: 1,
+          opacityFrom: 0.3, // stronger at top
+          opacityTo: 0.05,  // fades out
+          stops: [0, 90, 100]
+        }
+      },
       dataLabels: { enabled: false },
       markers: { size: 0 },
       yaxis: { forceNiceScale: true },
@@ -148,7 +164,11 @@ export default function PerformanceGraphCard() {
         },
         { name: 'BTC', data: btcSeries, color: theme.palette.info.main }
       ],
-      options: { ...prev.options, xaxis: { categories }, tooltip: { theme: mode } }
+      options: {
+        ...prev.options,
+        xaxis: { categories },
+        tooltip: { theme: mode }
+      }
     }));
   }, [
     bucketed,
