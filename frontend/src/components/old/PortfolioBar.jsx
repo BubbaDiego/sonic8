@@ -6,7 +6,7 @@ import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 import Inventory2TwoToneIcon from '@mui/icons-material/Inventory2TwoTone';
 
 export default function PortfolioBar({ data = {}, variant = 'light', onToggle }) {
-  const value = `$${Number(data.value || 0).toLocaleString()}`;
+  const value = `$${Number(data.value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   const heat = Number(data.heatIndex || 0).toFixed(2);
   const leverage = Number(data.leverage || 0).toFixed(2);
   const size = `${(Number(data.size || 0) / 1000).toFixed(1)}k`;

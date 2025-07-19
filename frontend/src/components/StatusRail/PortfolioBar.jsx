@@ -10,7 +10,9 @@ import Inventory2TwoToneIcon from '@mui/icons-material/Inventory2TwoTone';
 import StatCard from './StatCard';
 
 function formatValue(v) {
-  return v != null ? `$${Number(v).toLocaleString()}` : '--';
+  return v != null
+    ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+    : '--';
 }
 function formatHeat(v) {
   return v != null ? Number(v).toFixed(2) : '--';
