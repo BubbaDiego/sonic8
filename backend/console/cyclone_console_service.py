@@ -38,6 +38,7 @@ class CycloneConsoleService:
         self.portfolio_service = CyclonePortfolioService(cyclone_instance.data_locker)
         self.alert_service = CycloneAlertService(cyclone_instance.data_locker)
         self.alert_repo = AlertRepo()          # 🔔 NEW
+        self.alert_repo.ensure_schema()  # 🔔 make sure alert_* tables exist
         self.hedge_service = CycloneHedgeService(cyclone_instance.data_locker)
 
     @staticmethod
@@ -332,24 +333,77 @@ class CycloneConsoleService:
 
     def _create_alert_v2(self):
         aid = input("Alert ID (blank = auto): ").strip() or f"alert-{uuid4()}"
-        a_type  = input("Alert Type  (e.g. TravelPercent): ").strip()
-        a_class = input("Alert Class (Position/Portfolio/Market): ").strip()
-        trig    = float(input("Trigger Value: "))
-        cond    = input("Condition ABOVE/BELOW (default ABOVE): ").strip().upper() or "ABOVE"
-        notif   = input("Notification (SMS/EMAIL) [SMS]: ").strip().upper() or "SMS"
+
+        alert_types = ["TravelPercent", "PriceThreshold", "Profit", "LiquidationDistance"]
+        print("\nChoose Alert Type:")
+        for i, at in enumerate(alert_types, 1):
+            print(f"{i}) {at}")
+        while True:
+            try:
+                at_choice = int(input("Enter choice number: "))
+                alert_type = alert_types[at_choice - 1]
+                break
+            except (IndexError, ValueError):
+                print("Invalid selection. Try again.")
+
+        alert_classes = ["Position", "Portfolio", "Market"]
+        print("\nChoose Alert Class:")
+        for i, ac in enumerate(alert_classes, 1):
+            print(f"{i}) {ac}")
+        while True:
+            try:
+                ac_choice = int(input("Enter choice number: "))
+                alert_class = alert_classes[ac_choice - 1]
+                break
+            except (IndexError, ValueError):
+                print("Invalid selection. Try again.")
+
+        while True:
+            try:
+                trig = float(input("Trigger Value (must be positive): "))
+                if trig <= 0:
+                    raise ValueError
+                break
+            except ValueError:
+                print("Trigger Value must be a positive number. Try again.")
+
+        conditions = ["ABOVE", "BELOW"]
+        print("\nChoose Condition:")
+        for i, cond in enumerate(conditions, 1):
+            print(f"{i}) {cond}")
+        while True:
+            try:
+                cond_choice = int(input("Enter choice number: "))
+                condition = Condition[conditions[cond_choice - 1]]
+                break
+            except (IndexError, ValueError):
+                print("Invalid selection. Try again.")
+
+        notifications = ["SMS", "EMAIL"]
+        print("\nChoose Notification Type:")
+        for i, nt in enumerate(notifications, 1):
+            print(f"{i}) {nt}")
+        while True:
+            try:
+                nt_choice = int(input("Enter choice number: "))
+                notification_type = NotificationType[notifications[nt_choice - 1]]
+                break
+            except (IndexError, ValueError):
+                print("Invalid selection. Try again.")
+
         pos_ref = input("Position Ref ID (blank if N/A): ").strip() or None
 
         cfg = AlertConfig(
             id=aid,
-            alert_type=a_type,
-            alert_class=a_class,
+            alert_type=alert_type,
+            alert_class=alert_class,
             trigger_value=trig,
-            condition=Condition[cond],
-            notification_type=NotificationType[notif],
+            condition=condition,
+            notification_type=notification_type,
             position_reference_id=pos_ref,
         )
         self.alert_repo.add_config(cfg)
-        print(f"✅ Alert {aid} created.")
+        print(f"✅ Alert '{aid}' created successfully.")
 
     def _edit_alert_trigger_v2(self):
         aid = input("Alert ID to edit: ").strip()

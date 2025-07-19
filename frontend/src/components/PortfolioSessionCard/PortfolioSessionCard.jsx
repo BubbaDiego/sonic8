@@ -24,7 +24,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 /* 1️⃣ CARD_MAX_HEIGHT controls the absolute height of the entire flip card.  */
 /*    • Unit: pixels                                                         */
 /*    • If you need a taller or shorter widget, bump this number up/down.    */
-export const CARD_MAX_HEIGHT = 250; // ← default: 450 px
+export const CARD_MAX_HEIGHT = 350; // ← default: 450 px
 
 /* 2️⃣ CARD_CONTENT_TOP_MARGIN is the *inner* top padding for the front &     */
 /*    back faces.                                                            */

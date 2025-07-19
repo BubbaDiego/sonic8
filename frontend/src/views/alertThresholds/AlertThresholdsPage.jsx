@@ -5,6 +5,7 @@ import AddThresholdDialog from './AddThresholdDialog';
 import axios, { fetcher } from 'utils/axios';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/slices/snackbar';
+import { LiquidationDistanceIcon, ProfitEmojiIcon } from './icons.jsx';3
 import ThresholdsTable from './ThresholdsTable';
 
 export default function AlertThresholdsPage() {

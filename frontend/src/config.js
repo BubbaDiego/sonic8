@@ -1,6 +1,6 @@
 export const DASHBOARD_PATH = '/sonic';
 export const HORIZONTAL_MAX_ITEM = 7;
-export const CYCLONE_REFRESH_DELAY_MS = 4000;
+export const CYCLONE_REFRESH_DELAY_MS = 7000;
 
 export let MenuOrientation;
 
