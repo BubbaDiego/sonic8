@@ -17,7 +17,7 @@ import PerformanceGraphCard from '../../components/PerformanceGraphCard/Performa
 const RIGHT_COLUMN_X = 610;
 const SIDE_COLUMN_END_X = 800;
 const ROW_1_MAX_HEIGHT = 125;
-const ROW_2_MAX_HEIGHT = 300;
+const ROW_2_MAX_HEIGHT = 400;
 const ROW_3_MAX_HEIGHT = 500;
 const DEBUG_LAYOUT = false;
 

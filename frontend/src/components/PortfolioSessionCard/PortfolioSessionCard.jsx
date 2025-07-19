@@ -9,7 +9,8 @@ import {
   Stack,
   Paper,
   Button,
-  TextField
+  TextField,
+  Grid                       // ← still needed for the 2 × 2 layout
 } from '@mui/material';
 import { useGetActiveSession } from 'api/session';
 import EditIcon from '@mui/icons-material/Edit';
@@ -20,27 +21,17 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*                          ✨  TWEAK‑ME CONFIGS  ✨                          */
-/*                                                                           */
-/* 1️⃣ CARD_MAX_HEIGHT controls the absolute height of the entire flip card.  */
-/*    • Unit: pixels                                                         */
-/*    • If you need a taller or shorter widget, bump this number up/down.    */
-export const CARD_MAX_HEIGHT = 350; // ← default: 450 px
-
-/* 2️⃣ CARD_CONTENT_TOP_MARGIN is the *inner* top padding for the front &     */
-/*    back faces.                                                            */
-/*    • Set to 0 for a flush top edge, or raise it for breathing room.       */
-export const CARD_CONTENT_TOP_MARGIN = 4; // ← default: 8 px
+export const CARD_MAX_HEIGHT = 300;
+export const CARD_CONTENT_TOP_MARGIN = 4;
 /* ────────────────────────────────────────────────────────────────────────── */
 
-/* Helper to robustly pull the **current total** regardless of field name */
 const pickTotal = (snap) =>
   snap?.current_total_value ??
   snap?.current_total ??
-  snap?.current_session_value ?? // legacy field
+  snap?.current_session_value ??
   snap?.current_value ??
   0;
 
-/* Fallback snapshot for Storybook / offline demos */
 const cannedSnapshot = {
   session_start_time: new Date('2025-07-13T13:39:41'),
   current_total_value: 164.41,
@@ -74,17 +65,13 @@ export default function PortfolioSessionCard({
   const flipCard = () => setFlipped(!flipped);
 
   const number = (n) =>
-    n?.toLocaleString(undefined, {
-      maximumFractionDigits: 2
-    });
+    n?.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
   /* --------------------------------------------------------------------- */
   /* Derived metrics                                                       */
   /* --------------------------------------------------------------------- */
   const currentTotal =
-    typeof currentValueUsd === 'number'
-      ? currentValueUsd
-      : pickTotal(snapshot);
+    typeof currentValueUsd === 'number' ? currentValueUsd : pickTotal(snapshot);
 
   const perfValue =
     snapshot.session_performance_value
@@ -165,12 +152,10 @@ export default function PortfolioSessionCard({
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'flex-start' // <— content starts at the top
+            justifyContent: 'flex-start'
           }}
         >
           <Stack spacing={2} alignItems="center">
-            {/* Avatar removed as requested */}
-
             <Typography variant="h4">{number(currentTotal)} USD</Typography>
 
             <Typography
@@ -191,43 +176,72 @@ export default function PortfolioSessionCard({
               sx={{ width: '100%', borderRadius: 2, height: 8 }}
             />
 
-            {/* Meta row */}
+            {/* Meta block (2 × 2 grid) */}
             <Paper
               elevation={3}
-              sx={{ p: 1, borderRadius: 2, width: '100%', mt: 1 }}
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                width: '92%',
+                mx: 'auto',
+                mt: 1,
+                mb: 2,                                   // ⇐ extra bottom padding
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(255,255,255,0.06)'           // lighter for dark mode
+                    : 'rgba(0,0,0,0.04)'                // subtle for light mode
+              }}
             >
-              <Stack
-                direction="row"
-                justifyContent="space-around"
-                alignItems="center"
-              >
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <CalendarTodayIcon fontSize="small" />
-                  <Typography variant="caption">
-                    {`${sessionDate.getMonth() + 1}/${sessionDate.getDate()}`}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <AccessTimeIcon fontSize="small" />
-                  <Typography variant="caption">
-                    {sessionDate.toLocaleTimeString([], {
-                      hour: 'numeric',
-                      minute: '2-digit'
-                    })}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <AttachMoneyIcon fontSize="small" />
-                  <Typography variant="caption">
-                    {number(snapshot.session_start_value)} USD
-                  </Typography>
-                </Stack>
-              </Stack>
-            </Paper>
+              <Grid container spacing={0.5}>
+                {/* Row 1, Col 1 — Date */}
+                <Grid item xs={6}>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <CalendarTodayIcon fontSize="small" />
+                    <Typography variant="caption">
+                      {`${sessionDate.getMonth() + 1}/${sessionDate.getDate()}`}
+                    </Typography>
+                  </Stack>
+                </Grid>
 
-            <IconButton color="primary" onClick={flipCard}>
-              <EditIcon />
-            </IconButton>
+                {/* Row 1, Col 2 — Start amount */}
+                <Grid
+                  item
+                  xs={6}
+                  sx={{ display: 'flex', justifyContent: 'flex-end' }}
+                >
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <AttachMoneyIcon fontSize="small" />
+                    <Typography variant="caption">
+                      {number(snapshot.session_start_value)} USD
+                    </Typography>
+                  </Stack>
+                </Grid>
+
+                {/* Row 2, Col 1 — Time */}
+                <Grid item xs={6}>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <AccessTimeIcon fontSize="small" />
+                    <Typography variant="caption">
+                      {sessionDate.toLocaleTimeString([], {
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}
+                    </Typography>
+                  </Stack>
+                </Grid>
+
+                {/* Row 2, Col 2 — Pencil icon (centered) */}
+                <Grid
+                  item
+                  xs={6}
+                  sx={{ display: 'flex', justifyContent: 'center' }}  // ⇐ centered
+                >
+                  <IconButton color="primary" onClick={flipCard} size="small">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Grid>
+              </Grid>
+            </Paper>
           </Stack>
         </Card>
 
