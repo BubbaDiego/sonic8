@@ -21,7 +21,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*                          ✨  TWEAK‑ME CONFIGS  ✨                          */
-export const CARD_MAX_HEIGHT = 300;
+export const CARD_MAX_HEIGHT = 320;
 export const CARD_CONTENT_TOP_MARGIN = 4;
 /* ────────────────────────────────────────────────────────────────────────── */
 

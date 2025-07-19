@@ -18,21 +18,16 @@ import {
   subDays
 } from 'date-fns';
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Helpers                                                                   */
-/* ────────────────────────────────────────────────────────────────────────── */
+/* ─────────── helpers ─────────── */
 const fmt = (n, d = 0) =>
   n?.toLocaleString(undefined, { maximumFractionDigits: d });
 
 const calcPerf = (series) => {
-  if (!series || series.length < 1) return { delta: 0, pct: 0 };
+  if (!series?.length) return { delta: 0, pct: 0 };
   const first = series[0];
   const last = series.at(-1);
   const delta = last - first;
-  return {
-    delta,
-    pct: first ? (delta / first) * 100 : 0
-  };
+  return { delta, pct: first ? (delta / first) * 100 : 0 };
 };
 
 export default function PerformanceGraphCard() {
@@ -40,20 +35,12 @@ export default function PerformanceGraphCard() {
   const { mode } = useConfig();
   const { history = [], historyLoading } = useGetPortfolioHistory();
 
-  // 1 = 1 hr • 12 = 12 hr • 24 = 24 hr • 1w = 7 days
   const [granularity, setGranularity] = useState('24');
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* History bucketing with a rolling window that matches the granularity   */
-  /* ──────────────────────────────────────────────────────────────────────── */
+  /* ───────── bucket history ───────── */
   const bucketHistory = (gran, rows = []) => {
     if (!rows.length)
-      return {
-        categories: [],
-        valueSeries: [],
-        collateralSeries: [],
-        btcSeries: []
-      };
+      return { categories: [], valueSeries: [], collateralSeries: [], btcSeries: [] };
 
     const now = parseISO(rows.at(-1).snapshot_time);
     const windowStart =
@@ -63,32 +50,24 @@ export default function PerformanceGraphCard() {
         ? subHours(now, 12)
         : gran === '24'
         ? subDays(now, 1)
-        : subDays(now, 7); // 1 w
+        : subDays(now, 7);
 
     const buckets = new Map();
 
     rows.forEach((row) => {
       const date = parseISO(row.snapshot_time);
-      if (date < windowStart) return; // ignore data outside active window
+      if (date < windowStart) return;
 
-      let key;
-      if (gran === '1w') {
-        key = format(startOfWeek(date), 'yyyy-MM-dd');
-      } else if (gran === '24') {
-        key = format(date, 'yyyy-MM-dd');
-      } else if (gran === '12') {
-        key = format(date, 'yyyy-MM-dd HH');
-      } else {
-        key = format(date, 'yyyy-MM-dd HH:mm');
-      }
+      const key =
+        gran === '1w'
+          ? format(startOfWeek(date), 'yyyy-MM-dd')
+          : gran === '24'
+          ? format(date, 'yyyy-MM-dd')
+          : gran === '12'
+          ? format(date, 'yyyy-MM-dd HH')
+          : format(date, 'yyyy-MM-dd HH:mm');
 
-      const prev = buckets.get(key) ?? {
-        value: 0,
-        collateral: 0,
-        btc: 0,
-        count: 0
-      };
-
+      const prev = buckets.get(key) ?? { value: 0, collateral: 0, btc: 0, count: 0 };
       buckets.set(key, {
         value: prev.value + Number(row.total_value || 0),
         collateral: prev.collateral + Number(row.total_collateral || 0),
@@ -97,10 +76,10 @@ export default function PerformanceGraphCard() {
       });
     });
 
-    const categories = [],
-      valueSeries = [],
-      collateralSeries = [],
-      btcSeries = [];
+    const categories = [];
+    const valueSeries = [];
+    const collateralSeries = [];
+    const btcSeries = [];
 
     [...buckets.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
@@ -119,56 +98,44 @@ export default function PerformanceGraphCard() {
     [granularity, history]
   );
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Chart config                                                            */
-  /* ──────────────────────────────────────────────────────────────────────── */
-  const [chartConfig, setChartConfig] = useState({
-    series: [],
-    options: {
-      chart: {
-        type: 'area', // ⇠ area chart so we get the fill
-        animations: { enabled: false },
-        zoom: { enabled: true, autoScaleYaxis: true },
-        toolbar: { show: true, tools: { download: false }, autoSelected: 'zoom' }
-      },
-      stroke: { curve: 'smooth', width: 4 }, // thicker line (4 px)
-      fill: {
-        type: 'gradient',
-        gradient: {
-          shadeIntensity: 1,
-          opacityFrom: 0.3, // stronger at top
-          opacityTo: 0.05,  // fades out
-          stops: [0, 90, 100]
-        }
-      },
-      dataLabels: { enabled: false },
-      markers: { size: 0 },
-      yaxis: { forceNiceScale: true },
-      xaxis: { categories: [] },
-      tooltip: { theme: mode }
-    }
+  /* ───────── chart state ───────── */
+  const [chartSeries, setChartSeries] = useState([]);
+  const [chartOptions, setChartOptions] = useState({
+    chart: {
+      animations: { enabled: false },
+      zoom: { enabled: true, autoScaleYaxis: true },
+      toolbar: { show: true, tools: { download: false }, autoSelected: 'zoom' }
+    },
+    stroke: { curve: 'smooth', width: 4 },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.35,
+        opacityTo: 0.05,
+        stops: [0, 90, 100]
+      }
+    },
+    dataLabels: { enabled: false },
+    markers: { size: 0 },
+    yaxis: { forceNiceScale: true },
+    xaxis: { categories: [] },
+    tooltip: { theme: mode }
   });
 
   useEffect(() => {
     if (historyLoading) return;
-    const { categories, valueSeries, collateralSeries, btcSeries } = bucketed;
 
-    setChartConfig((prev) => ({
+    const { categories, valueSeries, collateralSeries, btcSeries } = bucketed;
+    setChartSeries([
+      { name: 'Value', data: valueSeries, color: theme.palette.primary.main },
+      { name: 'Collateral', data: collateralSeries, color: theme.palette.secondary.main },
+      { name: 'BTC', data: btcSeries, color: theme.palette.info.main }
+    ]);
+    setChartOptions((prev) => ({
       ...prev,
-      series: [
-        { name: 'Value', data: valueSeries, color: theme.palette.primary.main },
-        {
-          name: 'Collateral',
-          data: collateralSeries,
-          color: theme.palette.secondary.main
-        },
-        { name: 'BTC', data: btcSeries, color: theme.palette.info.main }
-      ],
-      options: {
-        ...prev.options,
-        xaxis: { categories },
-        tooltip: { theme: mode }
-      }
+      xaxis: { categories },
+      tooltip: { theme: mode }
     }));
   }, [
     bucketed,
@@ -179,24 +146,14 @@ export default function PerformanceGraphCard() {
     theme.palette.info.main
   ]);
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /*  Performance deltas                                                     */
-  /* ──────────────────────────────────────────────────────────────────────── */
+  /* ───────── performance chips ───────── */
   const valuePerf = calcPerf(bucketed.valueSeries);
   const collateralPerf = calcPerf(bucketed.collateralSeries);
   const btcPerf = calcPerf(bucketed.btcSeries);
-
   const perfColour = (delta) => (delta >= 0 ? 'success.main' : 'error.main');
 
   const PerfChip = ({ delta, pct }) => (
-    <Box
-      component="span"
-      sx={{
-        typography: 'caption',
-        color: perfColour(delta),
-        ml: 0.5 // small gap after the base value
-      }}
-    >
+    <Box component="span" sx={{ typography: 'caption', color: perfColour(delta), ml: 0.5 }}>
       {delta >= 0 ? '+' : ''}
       {fmt(delta)} ({fmt(pct, 1)}%)
     </Box>
@@ -211,36 +168,19 @@ export default function PerformanceGraphCard() {
     bgcolor: mode === ThemeMode.DARK ? 'background.default' : 'primary.light'
   };
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Render                                                                  */
-  /* ──────────────────────────────────────────────────────────────────────── */
+  /* ───────── render ───────── */
   return (
-    <MainCard
-      content={false}
-      sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
-    >
-      {/* Header row */}
+    <MainCard content={false} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* header */}
       <Box sx={{ p: 1.5, flexShrink: 0 }}>
-        <Grid
-          container
-          spacing={2}
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          {/* Metrics */}
+        <Grid container spacing={2} alignItems="center" justifyContent="space-between">
           <Grid item>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {/* Value */}
               <Box sx={iconSX}>
                 <IconCoin stroke={1.5} />
               </Box>
-              <Box
-                component="span"
-                sx={{
-                  typography: 'subtitle1',
-                  color: theme.palette.primary.main
-                }}
-              >
+              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.primary.main }}>
                 {fmt(bucketed.valueSeries.at(-1))}
               </Box>
               <PerfChip {...valuePerf} />
@@ -249,13 +189,7 @@ export default function PerformanceGraphCard() {
               <Box sx={iconSX}>
                 <IconPigMoney stroke={1.5} />
               </Box>
-              <Box
-                component="span"
-                sx={{
-                  typography: 'subtitle1',
-                  color: theme.palette.secondary.main
-                }}
-              >
+              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.secondary.main }}>
                 {fmt(bucketed.collateralSeries.at(-1))}
               </Box>
               <PerfChip {...collateralPerf} />
@@ -264,24 +198,16 @@ export default function PerformanceGraphCard() {
               <Box sx={iconSX}>
                 <IconChartAreaLine stroke={1.5} />
               </Box>
-              <Box
-                component="span"
-                sx={{ typography: 'subtitle1', color: theme.palette.info.main }}
-              >
+              <Box component="span" sx={{ typography: 'subtitle1', color: theme.palette.info.main }}>
                 {fmt(bucketed.btcSeries.at(-1))}
               </Box>
               <PerfChip {...btcPerf} />
             </Box>
           </Grid>
 
-          {/* Toggle */}
+          {/* granularity toggle */}
           <Grid item>
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={granularity}
-              onChange={(_, v) => v && setGranularity(v)}
-            >
+            <ToggleButtonGroup size="small" exclusive value={granularity} onChange={(_, v) => v && setGranularity(v)}>
               <ToggleButton value="1">1hr</ToggleButton>
               <ToggleButton value="12">12hr</ToggleButton>
               <ToggleButton value="24">24hr</ToggleButton>
@@ -291,9 +217,14 @@ export default function PerformanceGraphCard() {
         </Grid>
       </Box>
 
-      {/* Chart */}
+      {/* chart */}
       <Box sx={{ flexGrow: 1, minHeight: 220, px: 1 }}>
-        <Chart {...chartConfig} height="100%" />
+        <Chart
+          options={chartOptions}
+          series={chartSeries}
+          type={bucketed.categories.length > 1 ? 'area' : 'line'}  // safety fallback
+          height="100%"
+        />
       </Box>
     </MainCard>
   );

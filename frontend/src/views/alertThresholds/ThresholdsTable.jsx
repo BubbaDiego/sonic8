@@ -4,7 +4,8 @@ import { DataGrid } from '@mui/x-data-grid';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/slices/snackbar';
 import MainCard from 'ui-component/cards/MainCard';
-import { typeIcons } from './icons';
+import { alertTypeIcons as typeIcons } from './icons';
+
 
 export default function ThresholdsTable({ rows = [], updateRow }) {
   const dispatch = useDispatch();
