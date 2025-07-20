@@ -1,0 +1,11 @@
+/* Stub of sonic themes variables — replace with real values or import your global theme file */
+:root {
+  --container-bg: #1e1e1e;
+  --title-bar-bg: #333;
+  --panel-title: #fff;
+  --panel-border: #444;
+  --panel-border-width: 1px;
+  --accent: #2b2b2b;
+  --text: #dfdfdf;
+  --primary: #3498db;
+}

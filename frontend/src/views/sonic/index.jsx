@@ -7,19 +7,23 @@ import {
   refreshActiveSession
 } from 'api/session';
 import { useGetLatestPortfolio } from 'api/portfolio';
+
 import PortfolioSessionCard from '../../components/PortfolioSessionCard/PortfolioSessionCard';
-import DashboardToggle from '../../components/StatusRail/DashboardToggle';
-import CompositionPieCard from '../../components/CompositionPieCard/CompositionPieCard';
-import PositionListCard from '../../components/PositionListCard/PositionListCard';
-import TraderListCard from '../../components/TraderListCard/TraderListCard';
+import DashboardToggle      from '../../components/StatusRail/DashboardToggle';
+import CompositionPieCard   from '../../components/CompositionPieCard/CompositionPieCard';
+import PositionPieCard      from '../../components/PositionPieCard/PositionPieCard';  // ← NEW
+import PositionListCard     from '../../components/PositionListCard/PositionListCard';
+import TraderListCard       from '../../components/TraderListCard/TraderListCard';
 import PerformanceGraphCard from '../../components/PerformanceGraphCard/PerformanceGraphCard';
 
-const RIGHT_COLUMN_X = 610;
+const RIGHT_COLUMN_X   = 610;
 const SIDE_COLUMN_END_X = 800;
-const ROW_1_MAX_HEIGHT = 125;
-const ROW_2_MAX_HEIGHT = 400;
-const ROW_3_MAX_HEIGHT = 500;
-const DEBUG_LAYOUT = false;
+const ROW_1_MAX_HEIGHT  = 125;
+const ROW_2_MAX_HEIGHT  = 400;
+const ROW_3_MAX_HEIGHT  = 500;
+const DEBUG_LAYOUT      = false;
+
+/* ────────────────────────────────────────────────────────── */
 
 const Section = ({ name, children, debug = DEBUG_LAYOUT }) => {
   const ref = useRef(null);
@@ -36,7 +40,7 @@ const Section = ({ name, children, debug = DEBUG_LAYOUT }) => {
         position: 'relative',
         p: 1,
         outline: debug ? '2px dashed crimson' : 'none',
-        overflowY: 'auto',
+        overflowY: 'auto'
       }}
     >
       {debug && rect && (
@@ -48,9 +52,8 @@ const Section = ({ name, children, debug = DEBUG_LAYOUT }) => {
             left: 4,
             background: 'rgba(255,255,255,0.7)',
             px: 0.5,
-            py: 0,
             fontSize: 10,
-            zIndex: 10,
+            zIndex: 10
           }}
         >
           {name} — x:{Math.round(rect.x)} y:{Math.round(rect.y)} w:
@@ -62,25 +65,25 @@ const Section = ({ name, children, debug = DEBUG_LAYOUT }) => {
   );
 };
 
+/* ────────────────────────────────────────────────────────── */
+
 const Dashboard = () => {
-  const { session } = useGetActiveSession();
+  const { session }   = useGetActiveSession();
   const { portfolio } = useGetLatestPortfolio();
   const [snapshot, setSnapshot] = useState(session);
 
   useEffect(() => {
-    if (session) {
-      setSnapshot(session);
-    }
+    if (session) setSnapshot(session);
   }, [session]);
 
+  /* ——— Session handlers ——— */
   const handleModify = async (updatedSnapshot) => {
     setSnapshot(updatedSnapshot);
-    const patch = {
-      session_start_time: updatedSnapshot.session_start_time,
-      session_start_value: updatedSnapshot.session_start_value,
-      session_goal_value: updatedSnapshot.session_goal_value
-    };
-    await updateSession(patch);
+    await updateSession({
+      session_start_time:   updatedSnapshot.session_start_time,
+      session_start_value:  updatedSnapshot.session_start_value,
+      session_goal_value:   updatedSnapshot.session_goal_value
+    });
     refreshActiveSession();
   };
 
@@ -94,21 +97,24 @@ const Dashboard = () => {
     ((snapshot?.session_start_value || 0) +
       (snapshot?.session_performance_value || 0));
 
+  /* ——— Layout ——— */
   return (
     <Box
       sx={{
         display: 'grid',
         gridTemplateColumns: `${RIGHT_COLUMN_X}px ${SIDE_COLUMN_END_X - RIGHT_COLUMN_X}px`,
-        gridTemplateRows: `${ROW_1_MAX_HEIGHT}px ${ROW_2_MAX_HEIGHT}px ${ROW_3_MAX_HEIGHT}px`,
+        gridTemplateRows:    `${ROW_1_MAX_HEIGHT}px ${ROW_2_MAX_HEIGHT}px ${ROW_3_MAX_HEIGHT}px`,
         columnGap: 2,
-        rowGap: 2,
+        rowGap:    2,
         height: '100%',
-        width: '100%',
+        width:  '100%',
         position: 'relative',
         p: 2,
-        boxSizing: 'border-box',
+        boxSizing: 'border-box'
       }}
     >
+
+      {/* Row 1 */}
       <Section name="Main‑A">
         <DashboardToggle />
       </Section>
@@ -117,6 +123,7 @@ const Dashboard = () => {
         <CompositionPieCard />
       </Section>
 
+      {/* Row 2 */}
       <Section name="Main‑B">
         <PositionListCard />
       </Section>
@@ -130,12 +137,17 @@ const Dashboard = () => {
         />
       </Section>
 
+      {/* Row 3 */}
       <Section name="Main‑C">
         <PerformanceGraphCard />
       </Section>
 
       <Section name="Side‑C">
-        <TraderListCard title="Trader List" />
+        {/* Stack PositionPieCard above the trader list */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <PositionPieCard />            {/* ← NEW card */}
+          <TraderListCard title="Trader List" />
+        </Box>
       </Section>
     </Box>
   );
