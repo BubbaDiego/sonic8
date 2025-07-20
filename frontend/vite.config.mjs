@@ -26,6 +26,17 @@ export default defineConfig(({ mode }) => {
           target: API_URL,
           changeOrigin: true,
           secure: false
+        },
+        // Hedge report endpoints
+        '/positions': {
+          target: API_URL,
+          changeOrigin: true,
+          secure: false
+        },
+        '/sonic_labs': {
+          target: API_URL,
+          changeOrigin: true,
+          secure: false
         }
       }
     },
