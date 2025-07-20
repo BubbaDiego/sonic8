@@ -26,6 +26,18 @@ export default defineConfig(({ mode }) => {
           target: API_URL,
           changeOrigin: true,
           secure: false
+        },
+
+        '/positions': {
+          target: API_URL,
+          changeOrigin: true,
+          secure: false
+        },
+
+        '/sonic_labs': {
+          target: API_URL,
+          changeOrigin: true,
+          secure: false
         }
       }
     },
