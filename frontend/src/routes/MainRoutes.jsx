@@ -23,6 +23,7 @@ const DashboardAnalytics = Loadable(lazy(() => import('views/dashboard/Analytics
 const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')));
 const DatabaseViewer = Loadable(lazy(() => import('views/debug/DatabaseViewer')));
 const XComSettingsPage = Loadable(lazy(() => import('views/xcomSettings/XComSettings')));
+const HedgeReportPage = Loadable(lazy(() => import('views/hedgeReport')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -82,7 +83,11 @@ const MainRoutes = {
       path: '/communications/xcom',
       element: <XComSettingsPage />
     },
-    
+    {
+      path: '/hedge-report',
+      element: <HedgeReportPage />
+    },
+
     {
       path: '/sonic',
       element: <Sonic />
