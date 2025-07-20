@@ -27,13 +27,13 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false
         },
-        // Forward every request that starts with /positions to the backend
+
         '/positions': {
           target: API_URL,
           changeOrigin: true,
           secure: false
         },
-        // Forward every request that starts with /sonic_labs to the backend
+
         '/sonic_labs': {
           target: API_URL,
           changeOrigin: true,
