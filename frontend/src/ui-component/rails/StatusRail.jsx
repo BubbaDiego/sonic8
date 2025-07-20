@@ -1,6 +1,6 @@
 // src/ui-component/rails/StatusRail.jsx
 import Grid from 'components/AppGrid';
-import StatCard from 'components/StatusRailsStatCard';
+import StatCard from 'components/StatusRail/StatCard';
 import { gridSpacing } from 'store/constant';
 
 export default function StatusRail({
