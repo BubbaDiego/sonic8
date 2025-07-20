@@ -1,11 +1,120 @@
-/* Stub of sonic themes variables — replace with real values or import your global theme file */
+/* ===========================================================
+   Super Theme Adjustments
+   This section defines appearance variables for each theme.
+   Modify these values to customize the look and feel, including
+   panel border colors and widths.
+   =========================================================== */
+
 :root {
-  --container-bg: #1e1e1e;
-  --title-bar-bg: #333;
-  --panel-title: #fff;
-  --panel-border: #444;
-  --panel-border-width: 1px;
-  --accent: #2b2b2b;
-  --text: #dfdfdf;
-  --primary: #3498db;
+  /*
+    Global fallback values.
+    These variables are used whenever no explicit theme data attribute is
+    present on the <html> element. They provide the baseline "light" look and
+    act as a starting point for additional themes.
+  */
+
+  --bg: #e7ecfa;            /* overall page background color          */
+  --text: #222;             /* default text color                     */
+  --card-bg: #f8fafc;       /* background for cards/panels            */
+  --card-border: #b7c5e0;   /* default card border color              */
+  --panel-border: #b7c5e0;  /* border color for main panels           */
+  --panel-border-width: 1.5px; /* thickness of panel borders          */
+  --navbar: #8fbbef;        /* navbar and header background           */
+  --title-bar-bg: #8fbbef;  /* background for title bars              */
+  --panel-title: #fff;      /* color of titles inside panels          */
+  --primary: #4678d8;       /* primary accent used for buttons etc.   */
+  --primary-hover: #3659a5; /* shade used when hovering primary items */
+  --accent: #ecf0fc;        /* secondary accent/background highlight  */
+  --container-bg: #fff;     /* base background of content containers  */
+  --body-bg-image: none;    /* optional page background image         */
+}
+
+/* === Theme Variables === */
+
+/*
+  Light theme overrides.
+  These values are similar to the defaults above but tuned for a brighter
+  appearance. Adjust them if you want a slightly different light look.
+*/
+:root[data-theme="light"] {
+  --bg: #e7ecfa;            /* page background for light theme        */
+  --text: #222;             /* default text color                     */
+  --card-bg: #9ebcdc;       /* card/panel background                  */
+  --card-border: #b7c5e0;   /* border color for cards                 */
+  --panel-border: #b7c5e0;  /* panel border color                     */
+  --panel-border-width: 1.5px; /* panel border thickness               */
+  --navbar: #8fbbef;        /* navbar background                      */
+  --title-bar-bg: #8fbbef;  /* header/title bar background            */
+  --panel-title: #2e4372;   /* color of text within panel headers     */
+  --primary: #4678d8;       /* main accent color                      */
+  --primary-hover: #3659a5; /* accent color on hover                  */
+  --accent: #ecf0fc;        /* general highlight color                */
+  --container-bg: #fff;     /* container backgrounds                  */
+  --body-bg-image: none;    /* set to url('...') for wallpaper        */
+}
+
+
+/*
+  Dark theme overrides.
+  Provides a high-contrast look suitable for low-light conditions.
+  Use these colors as a base to tweak the dark experience.
+*/
+:root[data-theme="dark"] {
+  --bg: #3a3a3c;            /* overall page background in dark mode   */
+  --text: #eee;             /* default text color in dark mode        */
+  --card-bg: #080910;       /* card/panel background                  */
+  --card-border: #39404e;   /* border color for cards                 */
+  --panel-border: #39404e;  /* panel border color                     */
+  --panel-border-width: 1.5px; /* panel border thickness               */
+  --navbar: #191c22;        /* navbar background                      */
+  --title-bar-bg: #191c22;  /* header/title bar background            */
+  --panel-title: #fff;      /* panel title text                       */
+  --primary: #4678d8;       /* main accent color                      */
+  --primary-hover: #27408b; /* hover accent                           */
+  --accent: #1a2639;        /* secondary accent color                 */
+  --container-bg: #14161c;  /* container backgrounds                  */
+  --body-bg-image: none;    /* wallpaper image if desired             */
+}
+
+
+/*
+  "Funky" theme overrides.
+  This theme introduces a playful wallpaper and bold colors. Switch image
+  URLs or colors here to completely change the vibe.
+*/
+:root[data-theme="funky"] {
+  --bg: #1e1e40;            /* dark purple/blue background             */
+  --text: #fff;             /* lighter text color                      */
+  --card-bg: #131315;       /* cards use near-black background         */
+  --card-border: #e5eff3;   /* light border around cards               */
+  --panel-border: #e5eff3;  /* border color for panels                 */
+  --panel-border-width: 2px;/* thicker borders for extra emphasis      */
+  --navbar: #8db5e1;        /* navbar background                       */
+  --title-bar-bg: #0e141b;  /* header/title bar background             */
+  --panel-title: #b3b2b0;   /* panel title text color                  */
+  --primary: #e4e7f1;       /* primary accent                          */
+  --primary-hover: #4e87f0; /* accent on hover                         */
+  --accent: #f4eef4;        /* secondary accent                        */
+  --container-bg: #ffffff;  /* base container backgrounds              */
+  --body-bg-image: url('/static/images/trader_wallpaper.jpg'); /* page wallpaper */
+  --section-bg-image: url('/static/images/wally2.png');        /* overlay within cards */
+}
+
+/* === Main Background Styling === */
+/*
+  The <body> element pulls from the theme variables above. Changing any of the
+  variables will automatically update these values. Use the background-image
+  variable to add a full page wallpaper.
+*/
+body {
+  background-color: var(--bg);              /* base page color */
+  background-image: var(--body-bg-image);   /* optional wallpaper */
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+  background-attachment: fixed;
+  color: var(--text);                       /* default text color */
+  transition: background-color 0.6s ease,
+              background-image 0.6s ease,
+              color 0.4s ease;
 }
