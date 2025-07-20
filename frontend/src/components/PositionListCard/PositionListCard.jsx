@@ -134,8 +134,8 @@ export default function PositionListCard({ title }) {
             {/* ================= HEADER ================ */}
             <TableHead>
               <TableRow sx={{ height: HEADER_ROW_HEIGHT }}>
-                {/* Wallet name */}
-                <TableCell sx={{ pl: 1, py: 0.5 }}>
+                {/* Wallet name - reduced padding */}
+                <TableCell sx={{ px: 0.5, py: 0.5 }}>
                   <TableSortLabel
                     active={orderBy === 'wallet_name'}
                     direction={orderBy === 'wallet_name' ? order : 'asc'}
@@ -146,10 +146,10 @@ export default function PositionListCard({ title }) {
                 </TableCell>
 
                 {/* Spacer for asset & type column */}
-                <TableCell />
+                <TableCell sx={{ px: 0.5 }} />
 
-                {/* Profit */}
-                <TableCell align="right" sx={{ py: 0.5 }}>
+                {/* Profit - reduced padding */}
+                <TableCell align="right" sx={{ px: 0.5, py: 0.5 }}>
                   <TableSortLabel
                     active={orderBy === 'pnl_after_fees_usd'}
                     direction={orderBy === 'pnl_after_fees_usd' ? order : 'asc'}
@@ -216,8 +216,8 @@ export default function PositionListCard({ title }) {
 
                 return (
                   <TableRow hover key={pos.id} sx={{ height: POSITION_ROW_HEIGHT }}>
-                    {/* Wallet icon */}
-                    <TableCell sx={{ pl: 1, py: 0.5 }}>
+                    {/* Wallet icon - reduced padding */}
+                    <TableCell sx={{ px: 0.5, py: 0.5 }}>
                       <Box sx={{ position: 'relative', display: 'inline-block' }}>
                         <Avatar
                           src={`/static/images/${(pos.wallet_name || 'unknown')
@@ -243,9 +243,9 @@ export default function PositionListCard({ title }) {
                       </Box>
                     </TableCell>
 
-                    {/* Asset & position type */}
-                    <TableCell sx={{ py: 0.5 }}>
-                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                    {/* Asset & position type - reduced padding */}
+                    <TableCell sx={{ px: 0.5, py: 0.5 }}>
+                      <Stack direction="row" alignItems="center" spacing={0.25}>
                         <Avatar
                           src={`/static/images/${(pos.asset_type || 'unknown').toLowerCase()}_logo.png`}
                           alt={pos.asset_type}
@@ -260,10 +260,11 @@ export default function PositionListCard({ title }) {
                       </Stack>
                     </TableCell>
 
-                    {/* Profit (color + bold if above mark) */}
+                    {/* Profit (color + bold if above mark) - reduced padding */}
                     <TableCell
                       align="right"
                       sx={{
+                        px: 0.5,
                         py: 0.5,
                         fontSize: POSITION_ROW_HEIGHT * 0.5,
                         color: profitColor,
@@ -312,9 +313,9 @@ export default function PositionListCard({ title }) {
               );
             })}
             <TableRow>
-              <TableCell sx={{ pl: 1, fontWeight: 700 }}>Totals</TableCell>
-              <TableCell />
-              <TableCell align="right" sx={{ fontWeight: 700 }}>
+              <TableCell sx={{ px: 0.5, fontWeight: 700 }}>Totals</TableCell>
+              <TableCell sx={{ px: 0.5 }} />
+              <TableCell align="right" sx={{ px: 0.5, fontWeight: 700 }}>
                 {totals.profit.toLocaleString(undefined, {
                   style: 'currency',
                   currency: 'USD',
