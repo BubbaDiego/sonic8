@@ -52,6 +52,7 @@
     "stylis-plugin-rtl": "2.1.1",
     "swr": "^2.3.3",
     "vite": "6.3.3",
+    "vite-jsconfig-paths": "2.0.1",
     "web-vitals": "4.2.4",
     "yet-another-react-lightbox": "^3.23.0",
     "yup": "1.6.1",
