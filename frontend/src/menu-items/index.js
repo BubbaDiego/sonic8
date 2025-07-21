@@ -5,6 +5,7 @@ import walletManager from './wallet-manager';
 import sonicLabs from './sonic-labs';
 import traderShop from './traderShop';
 import traderFactory from './traderFactory';
+import kanban from './kanban';
 import sonic from './sonic';
 
 const menuItems = {
@@ -19,6 +20,7 @@ const menuItems = {
         positions,
         walletManager,
         alertThresholds,
+        kanban,
         sonicLabs,
         traderShop,
         traderFactory
