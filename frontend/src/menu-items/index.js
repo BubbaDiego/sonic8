@@ -1,4 +1,3 @@
-import analytics from './analytics';
 import dashboardDefault from './dashboard-default';
 import positions from './positions';
 import alertThresholds from './alert-thresholds';
@@ -16,7 +15,6 @@ const menuItems = {
       type: 'group',
       children: [
         sonic,
-        analytics,
         dashboardDefault,
         positions,
         walletManager,
