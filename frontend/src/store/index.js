@@ -2,19 +2,37 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch as useAppDispatch, useSelector as useAppSelector } from 'react-redux';
 
-import { persistStore } from 'redux-persist';
+import {
+  persistStore,
+  persistReducer,
+  FLUSH,
+  REHYDRATE,
+  PAUSE,
+  PERSIST,
+  PURGE,
+  REGISTER
+} from 'redux-persist';
+import storage from 'redux-persist/lib/storage';
 
 // project imports
 import rootReducer from './reducer';
 
 // ==============================|| REDUX - MAIN STORE ||============================== //
 
-const store = configureStore({
-  reducer: rootReducer,
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware({ serializableCheck: false, immutableCheck: false })
+const persistConfig = { key: 'root', storage, whitelist: ['kanban'] };
+const persistedReducer = persistReducer(persistConfig, rootReducer);
+
+export const store = configureStore({
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]
+      }
+    })
 });
 
-const persister = persistStore(store);
+export const persistor = persistStore(store);
 
 const { dispatch } = store;
 
@@ -24,4 +42,4 @@ function useDispatch() {
 
 const useSelector = useAppSelector;
 
-export { store, persister, dispatch, useSelector, useDispatch };
+export { store, persistor, dispatch, useSelector, useDispatch };
