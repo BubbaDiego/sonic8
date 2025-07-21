@@ -24,6 +24,9 @@ const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')))
 const DatabaseViewer = Loadable(lazy(() => import('views/debug/DatabaseViewer')));
 const XComSettingsPage = Loadable(lazy(() => import('views/xcomSettings/XComSettings')));
 const HedgeReportPage = Loadable(lazy(() => import('views/hedgeReport')));
+const KanbanPage = Loadable(lazy(() => import('views/kanban')));
+const KanbanBoard = Loadable(lazy(() => import('views/kanban/Board')));
+const KanbanBacklogs = Loadable(lazy(() => import('views/kanban/Backlogs')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -86,6 +89,15 @@ const MainRoutes = {
     {
       path: '/hedge-report',
       element: <HedgeReportPage />
+    },
+    {
+      path: '/apps/kanban',
+      element: <KanbanPage />,
+      children: [
+        { index: true, element: <Navigate to="board" /> },
+        { path: 'board', element: <KanbanBoard /> },
+        { path: 'backlogs', element: <KanbanBacklogs /> }
+      ]
     },
 
     {
