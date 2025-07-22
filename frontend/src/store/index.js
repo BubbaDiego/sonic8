@@ -22,7 +22,7 @@ import rootReducer from './reducer';
 const persistConfig = { key: 'root', storage, whitelist: ['kanban'] };
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
-export const store = configureStore({
+const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
