@@ -8,6 +8,7 @@ from operations_monitor import OperationsMonitor
 from position_monitor import PositionMonitor
 from latency_monitor import LatencyMonitor
 from profit_monitor import ProfitMonitor
+from liquidation_monitor import LiquidationMonitor
 from core.logging import log
 
 app = Flask(__name__)
@@ -19,6 +20,7 @@ registry.register("operations_monitor", OperationsMonitor())
 registry.register("position_monitor", PositionMonitor())
 registry.register("latency_monitor", LatencyMonitor())
 registry.register("profit_monitor", ProfitMonitor())
+registry.register("liquid_monitor", LiquidationMonitor())
 
 core = MonitorCore(registry=registry)
 
