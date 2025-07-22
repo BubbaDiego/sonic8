@@ -60,7 +60,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
+)[xcom_core_spec.md](../backend/core/xcom_core/xcom_core_spec.md)
 
 app.include_router(positions_router)
 app.include_router(portfolio_router)

@@ -10,7 +10,7 @@
 ## 📂 Module Structure
 [monitor_core.py](monitor_core.py)
 ```txt
-monitor/
+monitor/[xcom_core_spec.md](../xcom_core/xcom_core_spec.md)
 ├── monitor_core.py         # 🚦 Registers and runs monitors
 ├── base_monitor.py         # 🔧 Shared run_cycle/ledger wrapper
 ├── monitor_registry.py     # 📇 Holds monitor instances

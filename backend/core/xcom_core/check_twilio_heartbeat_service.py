@@ -10,8 +10,8 @@ except Exception:  # pragma: no cover - optional dependency
         return False
 from twilio.rest import Client
 
-from core.logging import log
-from .voice_service import VoiceService
+from backend.core.logging import log
+from voice_service import VoiceService
 
 
 class CheckTwilioHeartbeatService:
