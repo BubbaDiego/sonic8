@@ -19,6 +19,7 @@ from backend.core.monitor_core.xcom_monitor import XComMonitor
 from backend.core.monitor_core.twilio_monitor import TwilioMonitor
 from backend.core.monitor_core.profit_monitor import ProfitMonitor  # Added ProfitMonitor
 from backend.core.monitor_core.risk_monitor import RiskMonitor
+from backend.core.monitor_core.liquidation_monitor import LiquidationMonitor
 #from backend.core.monitor_core.oracle_monitor.oracle_monitor import OracleMonitor
 from backend.core.monitor_core.monitor_registry import MonitorRegistry
 from backend.core.locker_factory import get_locker
@@ -46,6 +47,7 @@ class MonitorCore:
             self.registry.register("twilio_monitor", TwilioMonitor())
             self.registry.register("profit_monitor", ProfitMonitor())  # Registered ProfitMonitor
             self.registry.register("risk_monitor", RiskMonitor())
+            self.registry.register("liquid_monitor", LiquidationMonitor())
 #            self.registry.register("oracle_monitor", OracleMonitor())
 
     def run_all(self):
