@@ -5,7 +5,18 @@ import argparse
 __test__ = False
 import os
 import sys
+from pathlib import Path
 from typing import Optional, List
+
+try:  # pragma: no cover - optional dependency
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover - fallback if dotenv is missing
+    def load_dotenv(*_a, **_k):
+        return False
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if not load_dotenv(ROOT_DIR / ".env"):
+    load_dotenv(ROOT_DIR / ".env.example")
 
 import requests
 try:
