@@ -42,4 +42,4 @@ function useDispatch() {
 
 const useSelector = useAppSelector;
 
-export { store, persistor, dispatch, useSelector, useDispatch };
+export { store, dispatch, useSelector, useDispatch };
