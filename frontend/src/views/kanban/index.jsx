@@ -31,21 +31,21 @@ export default function KanbanPage() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  let tab = 'board';
+  let tab = 'backlogs';
   let breadcrumbTitle = '';
   let breadcrumbHeading = '';
 
   switch (pathname) {
-    case '/apps/kanban/backlogs':
-      tab = 'backlogs';
-      breadcrumbTitle = 'backlogs';
-      breadcrumbHeading = 'backlogs';
-      break;
     case '/apps/kanban/board':
-    default:
       tab = 'board';
       breadcrumbTitle = 'board';
       breadcrumbHeading = 'taskboard';
+      break;
+    case '/apps/kanban/backlogs':
+    default:
+      tab = 'backlogs';
+      breadcrumbTitle = 'backlogs';
+      breadcrumbHeading = 'backlogs';
   }
 
   const [value, setValue] = useState(tab);
@@ -60,7 +60,7 @@ export default function KanbanPage() {
     setValue(tab);
   }, [tab]);
 
-  let breadcrumbLinks = [{ title: 'home', to: DASHBOARD_PATH }, { title: 'kanban', to: '/apps/kanban/board' }, { title: breadcrumbTitle }];
+  let breadcrumbLinks = [{ title: 'home', to: DASHBOARD_PATH }, { title: 'kanban', to: '/apps/kanban/backlogs' }, { title: breadcrumbTitle }];
   if (tab === 'board') {
     breadcrumbLinks = [{ title: 'home', to: DASHBOARD_PATH }, { title: 'kanban' }];
   }
