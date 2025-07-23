@@ -99,7 +99,7 @@ const MainRoutes = {
       path: '/apps/kanban',
       element: <KanbanPage />,
       children: [
-        { index: true, element: <Navigate to="board" /> },
+        { index: true, element: <Navigate to="backlogs" /> },
         { path: 'board', element: <KanbanBoard /> },
         { path: 'backlogs', element: <KanbanBacklogs /> }
       ]

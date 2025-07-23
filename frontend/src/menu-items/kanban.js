@@ -4,7 +4,7 @@ const kanban = {
   id: 'kanban',
   title: 'Kanban',
   type: 'item',
-  url: '/apps/kanban/board',
+  url: '/apps/kanban/backlogs',
   icon: IconLayoutKanban,
   breadcrumbs: false
 };
