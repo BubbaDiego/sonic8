@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import axios from 'utils/axios';
 import { Link } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -40,10 +41,10 @@ export default function NotificationSection() {
 
   // Fetch helper
   const fetchData = async () => {
-    const list = await fetch(`/api/notifications?status=${filter}`).then(r => r.json());
-    setItems(list);
-    const { count } = await fetch('/api/notifications/unread-count').then(r => r.json());
-    setUnread(count);
+    const listRes = await axios.get(`/api/notifications?status=${filter}`);
+    setItems(listRes.data);
+    const countRes = await axios.get('/api/notifications/unread-count');
+    setUnread(countRes.data.count);
   };
 
   // Poll when dropdown opens or filter changes
@@ -67,7 +68,7 @@ export default function NotificationSection() {
   };
 
   const markAllRead = async () => {
-    await fetch('/api/notifications/mark_all_read', { method: 'POST' });
+    await axios.post('/api/notifications/mark_all_read');
     setUnread(0);
     setItems((arr) => arr.map((it) => ({ ...it, read: 1 })));
   };

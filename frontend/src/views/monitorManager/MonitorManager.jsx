@@ -1,7 +1,8 @@
 /* MonitorManager.jsx – UI page for adjusting monitor thresholds.
-   Uses React + MUI (v5) and fetch API.
+   Uses React + MUI (v5) and axios for API calls.
 */
 import React, { useEffect, useState } from 'react';
+import axios from 'utils/axios';
 import {
   Box,
   Card,
@@ -115,21 +116,13 @@ export default function MonitorManager() {
 
   // Fetch on mount
   useEffect(() => {
-    fetch('/api/monitor-settings/liquidation').then(r => r.json()).then(setLiqCfg);
-    fetch('/api/monitor-settings/profit').then(r => r.json()).then(setProfitCfg);
+    axios.get('/api/monitor-settings/liquidation').then(r => setLiqCfg(r.data));
+    axios.get('/api/monitor-settings/profit').then(r => setProfitCfg(r.data));
   }, []);
 
   const save = async () => {
-    await fetch('/api/monitor-settings/liquidation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(liqCfg)
-    });
-    await fetch('/api/monitor-settings/profit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profitCfg)
-    });
+    await axios.post('/api/monitor-settings/liquidation', liqCfg);
+    await axios.post('/api/monitor-settings/profit', profitCfg);
     setToast('Settings saved');
   };
 
