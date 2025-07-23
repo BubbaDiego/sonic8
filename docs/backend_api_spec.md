@@ -89,6 +89,31 @@ curl -X POST http://localhost:5000/session/reset
   - **Body**: `{ "status": MonitorHealth, "metadata": Optional[dict] }`
   - **Response model**: `MonitorDetail`
 
+## Monitor Settings API (`monitor_settings_api.py`)
+**Base path**: `/api/monitor-settings`
+
+- `GET /liquidation` – Return the liquidation monitor configuration.
+- `POST /liquidation` – Update liquidation settings. Accepts a JSON body with:
+  - `threshold_percent` – default percent distance from liquidation to trigger alerts.
+  - `snooze_seconds` – cooldown between alerts.
+  - `thresholds` – optional per‑asset overrides.
+  - `notifications` – `{ "system": bool, "voice": bool, "sms": bool }`.
+    Environment variable `LIQ_MON_SMS_ALERT` overrides the `sms` flag when set.
+- `GET /profit` – Return profit monitor threshold settings.
+- `POST /profit` – Update profit thresholds with `portfolio_low`, `portfolio_high`,
+  `single_low` and `single_high` fields.
+
+Example `notifications` payload:
+
+```json
+{
+  "threshold_percent": 5.0,
+  "snooze_seconds": 300,
+  "thresholds": {"BTC": 5, "ETH": 8, "SOL": 7},
+  "notifications": {"system": true, "voice": true, "sms": false}
+}
+```
+
 ## Positions API (`positions_api.py`)
 **Base path**: `/positions`
 
