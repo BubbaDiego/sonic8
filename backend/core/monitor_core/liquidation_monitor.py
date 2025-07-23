@@ -129,7 +129,8 @@ class LiquidationMonitor(BaseMonitor):
         if cfg["windows_alert"]:
             try:
                 from backend.core.xcom_core.sound_service import SoundService  # type: ignore
-                SoundService({"enabled": True}).play("alert_liq.mp3")
+
+                SoundService({"enabled": True}).play("static/sounds/alert_liq.mp3")
             except Exception as e:
                 log.warning(f"SoundService unavailable: {e}", source="LiquidationMonitor")
 
