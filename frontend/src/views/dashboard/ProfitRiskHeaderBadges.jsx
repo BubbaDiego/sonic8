@@ -31,6 +31,14 @@ function resolveWalletIcon(path, walletName) {
   return '/static/images/unknown_wallet.jpg';
 }
 
+function resolveAssetIcon(assetType) {
+  if (assetType) {
+    const icon = String(assetType).toLowerCase();
+    return `/static/images/${icon}_logo.png`;
+  }
+  return '/static/images/unknown.png';
+}
+
 const badgeStyle = {
   display: 'flex',
   alignItems: 'center',
@@ -55,7 +63,7 @@ export default function ProfitRiskHeaderBadges() {
     for (const p of positions) {
       const profit = parseFloat(p.pnl_after_fees_usd ?? 0);
       if (leader === null || profit > leader.profit) {
-        leader = { walletIcon: resolveWalletIcon(p.wallet_image, p.wallet_name), profit };
+        leader = { assetIcon: resolveAssetIcon(p.asset_type), profit };
       }
     }
     return leader;
@@ -66,7 +74,7 @@ export default function ProfitRiskHeaderBadges() {
     for (const p of positions) {
       const travel = parseFloat(p.travel_percent ?? 0);
       if (riskiest === null || travel < riskiest.travelPercent) {
-        riskiest = { walletIcon: resolveWalletIcon(p.wallet_image, p.wallet_name), travelPercent: travel };
+        riskiest = { assetIcon: resolveAssetIcon(p.asset_type), travelPercent: travel };
       }
     }
     return riskiest;
@@ -77,7 +85,7 @@ export default function ProfitRiskHeaderBadges() {
       {profitLeader && (
         <Tooltip title="Most Profitable Position">
           <Box sx={{ ...badgeStyle, borderLeft: '4px solid', borderColor: 'success.main' }}>
-            <Avatar src={profitLeader.walletIcon} sx={{ width: 24, height: 24, mr: 0.5 }} />
+            <Avatar src={profitLeader.assetIcon} sx={{ width: 24, height: 24, mr: 0.5 }} />
             <Typography variant="subtitle2" color="success.main" sx={{ fontWeight: 'bold' }}>
               ${profitLeader.profit.toFixed(2)}
             </Typography>
@@ -89,7 +97,7 @@ export default function ProfitRiskHeaderBadges() {
       {highestRisk && (
         <Tooltip title="Riskiest Position">
           <Box sx={{ ...badgeStyle, borderLeft: '4px solid', borderColor: 'error.main' }}>
-            <Avatar src={highestRisk.walletIcon} sx={{ width: 24, height: 24, mr: 0.5 }} />
+            <Avatar src={highestRisk.assetIcon} sx={{ width: 24, height: 24, mr: 0.5 }} />
             <Typography variant="subtitle2" color="error.main" sx={{ fontWeight: 'bold' }}>
               {highestRisk.travelPercent.toFixed(1)}%
             </Typography>
