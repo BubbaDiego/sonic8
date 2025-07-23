@@ -1,7 +1,17 @@
-/* MonitorManager.jsx – UI page for adjusting monitor thresholds.
-   Uses React + MUI (v5) and axios for API calls.
+/* MonitorManager.jsx – Liquidation & Profit monitor configuration page.
+   v2 – July 2025
+   • Liquidation card more compact: asset rows with icons stacked vertically.
+   • New notification selector (System, Voice, SMS) wired to nested `notifications` dict.
+   • Payload shape:
+       {
+         threshold_percent,
+         snooze_seconds,
+         thresholds: { BTC, ETH, SOL },
+         notifications: { system, voice, sms }
+       }
 */
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'utils/axios';
 import {
   Box,
@@ -13,69 +23,121 @@ import {
   Button,
   Snackbar,
   Alert,
-  Typography
+  Typography,
+  ToggleButton,
+  ToggleButtonGroup,
+  Stack
 } from '@mui/material';
+import CurrencyBitcoinIcon from '@mui/icons-material/CurrencyBitcoin';
+import CurrencyEthereumIcon from '@mui/icons-material/CurrencyEthereum';
+import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 
-function LiquidationSettings({ cfg, setCfg }) {
-  const handleChange = (e) => {
+const ASSETS = [
+  { code: 'BTC', Icon: CurrencyBitcoinIcon },
+  { code: 'ETH', Icon: CurrencyEthereumIcon },
+  { code: 'SOL', Icon: CurrencyExchangeIcon }
+];
+
+// -----------------------------------------------------------
+// Liquidation Monitor Card
+// -----------------------------------------------------------
+function LiquidationSettings({ cfg = {}, setCfg }) {
+  /* Normalise state shape */
+  const normCfg = useMemo(() => ({
+    threshold_percent: cfg.threshold_percent ?? '',
+    snooze_seconds: cfg.snooze_seconds ?? '',
+    thresholds: { BTC: '', ETH: '', SOL: '', ...(cfg.thresholds || {}) },
+    notifications: { system: true, voice: true, sms: false, ...(cfg.notifications || {}) }
+  }), [cfg]);
+
+  // --- Handlers ----------------------------------------------------
+  const handleGlobalChange = (e) => {
     const { name, value } = e.target;
     setCfg(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleThresholdChange = (asset) => (e) => {
+    const value = e.target.value;
+    setCfg(prev => ({
+      ...prev,
+      thresholds: { ...(prev.thresholds || {}), [asset]: value }
+    }));
+  };
+
+  const handleNotifChange = (event, selections) => {
+    setCfg(prev => ({
+      ...prev,
+      notifications: {
+        system: selections.includes('system'),
+        voice: selections.includes('voice'),
+        sms: selections.includes('sms')
+      }
+    }));
+  };
+
+  const selectedNotifs = Object.entries(normCfg.notifications)
+    .filter(([k, v]) => v)
+    .map(([k]) => k);
+
+  // --- Render ------------------------------------------------------
   return (
     <Card variant='outlined'>
       <CardHeader title='Liquidation Monitor' subheader='Global threshold & snooze' />
       <CardContent>
         <Grid container spacing={2}>
-          <Grid item xs={6}>
+          {/* Global fields */}
+          <Grid item xs={12} md={6}>
             <TextField
               fullWidth
               label='Threshold %'
               name='threshold_percent'
-              value={cfg.threshold_percent ?? ''}
-              onChange={handleChange}
+              value={normCfg.threshold_percent}
+              onChange={handleGlobalChange}
               type='number'
               inputProps={{ step: '0.1' }}
             />
           </Grid>
-          <Grid item xs={6}>
+          <Grid item xs={12} md={6}>
             <TextField
               fullWidth
               label='Snooze (seconds)'
               name='snooze_seconds'
-              value={cfg.snooze_seconds ?? ''}
-              onChange={handleChange}
+              value={normCfg.snooze_seconds}
+              onChange={handleGlobalChange}
               type='number'
             />
           </Grid>
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label='BTC Threshold'
-              name='threshold_btc'
-              value={cfg.threshold_btc ?? ''}
-              onChange={handleChange}
-              type='number'
-            />
+
+          {/* Asset‑specific thresholds */}
+          <Grid item xs={12} md={6}>
+            {ASSETS.map(({ code, Icon }) => (
+              <Stack key={code} direction='row' spacing={1} alignItems='center' sx={{ mb: 1 }}>
+                <Icon fontSize='small' />
+                <TextField
+                  fullWidth
+                  label={`${code} Threshold`}
+                  value={normCfg.thresholds[code]}
+                  onChange={handleThresholdChange(code)}
+                  type='number'
+                  size='small'
+                />
+              </Stack>
+            ))}
           </Grid>
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label='ETH Threshold'
-              name='threshold_eth'
-              value={cfg.threshold_eth ?? ''}
-              onChange={handleChange}
-              type='number'
-            />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label='SOL Threshold'
-              name='threshold_sol'
-              value={cfg.threshold_sol ?? ''}
-              onChange={handleChange}
-              type='number'
-            />
+
+          {/* Notification toggle buttons */}
+          <Grid item xs={12} md={6}>
+            <Typography variant='subtitle2' gutterBottom>Notifications</Typography>
+            <ToggleButtonGroup
+              value={selectedNotifs}
+              onChange={handleNotifChange}
+              aria-label='notification types'
+              size='small'
+            >
+              <ToggleButton value='system'>System</ToggleButton>
+              <ToggleButton value='voice'>Voice</ToggleButton>
+              <ToggleButton value='sms'>SMS</ToggleButton>
+            </ToggleButtonGroup>
           </Grid>
         </Grid>
       </CardContent>
@@ -83,6 +145,9 @@ function LiquidationSettings({ cfg, setCfg }) {
   );
 }
 
+// -----------------------------------------------------------
+// Profit Monitor Card (unchanged)
+// -----------------------------------------------------------
 function ProfitSettings({ cfg, setCfg }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -139,6 +204,9 @@ function ProfitSettings({ cfg, setCfg }) {
   );
 }
 
+// -----------------------------------------------------------
+// Outer page wrapper
+// -----------------------------------------------------------
 export default function MonitorManager() {
   const [liqCfg, setLiqCfg] = useState({});
   const [profitCfg, setProfitCfg] = useState({});
@@ -151,12 +219,7 @@ export default function MonitorManager() {
   }, []);
 
   const save = async () => {
-    await axios.post('/api/monitor-settings/liquidation', {
-      ...liqCfg,
-      threshold_btc: liqCfg.threshold_btc,
-      threshold_eth: liqCfg.threshold_eth,
-      threshold_sol: liqCfg.threshold_sol
-    });
+    await axios.post('/api/monitor-settings/liquidation', liqCfg);
     await axios.post('/api/monitor-settings/profit', profitCfg);
     setToast('Settings saved');
   };
@@ -177,6 +240,7 @@ export default function MonitorManager() {
           </Button>
         </Grid>
       </Grid>
+
       <Snackbar
         open={!!toast}
         autoHideDuration={3000}

@@ -1,16 +1,20 @@
 """LiquidationMonitor – alerts when positions approach their liquidation price.
-Generated July 22, 2025.
+
+v2 – July 2025
+• Supports per‑asset thresholds via ``thresholds`` dict (already present).
+• Adds nested ``notifications`` dict (system / voice / sms).
 """
 
 from datetime import datetime, timezone, timedelta
+from collections.abc import Mapping
+import json
+
 from backend.core.monitor_core.base_monitor import BaseMonitor  # type: ignore
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.data.dl_positions import DLPositionManager  # type: ignore
 from backend.core.xcom_core.xcom_core import XComCore  # type: ignore
 from backend.core.logging import log  # type: ignore
-from backend.utils.env_utils import _resolve_env
-from collections.abc import Mapping
-import json
+from backend.utils.env_utils import _resolve_env  # type: ignore
 
 class LiquidationMonitor(BaseMonitor):
     """Check active positions: if liquidation_distance <= threshold_percent → alert.
@@ -22,10 +26,9 @@ class LiquidationMonitor(BaseMonitor):
         {
           "liquid_monitor": {
             "threshold_percent": 5.0,
-            "level": "HIGH",
-            "windows_alert": true,
-            "voice_alert": true,
-            "snooze_seconds": 300
+            "snooze_seconds": 300,
+            "thresholds": { "BTC": 5, "ETH": 8, "SOL": 7 },
+            "notifications": { "system": true, "voice": true, "sms": false }
           }
         }
     """
@@ -33,17 +36,17 @@ class LiquidationMonitor(BaseMonitor):
     DEFAULT_CONFIG = {
         "threshold_percent": 5.0,
         "level": "HIGH",
-        "windows_alert": True,
+        "windows_alert": True,   # kept for env overrides / CLI
         "voice_alert": True,
+        "sms_alert": False,
         "snooze_seconds": 300,
         "thresholds": {},
+        "notifications": {"system": True, "voice": True, "sms": False},
     }
 
     def __init__(self):
         super().__init__(name="liquid_monitor", ledger_filename="liquid_monitor_ledger.json")
         self.dl = DataLocker.get_instance()
-        # Pass only the database manager to DLPositionManager
-        # instead of the full DataLocker instance
         self.pos_mgr = DLPositionManager(self.dl.db)
         self.xcom = XComCore(self.dl)
         self._last_alert_ts = None
@@ -66,6 +69,7 @@ class LiquidationMonitor(BaseMonitor):
             "level": "LIQ_MON_LEVEL",
             "windows_alert": "LIQ_MON_WINDOWS_ALERT",
             "voice_alert": "LIQ_MON_VOICE_ALERT",
+            "sms_alert": "LIQ_MON_SMS_ALERT",
             "snooze_seconds": "LIQ_MON_SNOOZE_SECONDS",
         }
 
@@ -77,6 +81,7 @@ class LiquidationMonitor(BaseMonitor):
                 return value.lower() in ("1", "true", "yes", "on")
             return bool(value)
 
+        # Coerce numeric
         try:
             merged["threshold_percent"] = float(merged.get("threshold_percent", 0))
         except Exception:
@@ -87,9 +92,12 @@ class LiquidationMonitor(BaseMonitor):
         except Exception:
             merged["snooze_seconds"] = int(self.DEFAULT_CONFIG["snooze_seconds"])
 
+        # Legacy boolean keys
         merged["windows_alert"] = to_bool(merged.get("windows_alert"))
         merged["voice_alert"] = to_bool(merged.get("voice_alert"))
+        merged["sms_alert"] = to_bool(merged.get("sms_alert"))
 
+        # Parse thresholds dict (per‑asset)
         thresholds = merged.get("thresholds", {})
         if isinstance(thresholds, str):
             try:
@@ -99,6 +107,29 @@ class LiquidationMonitor(BaseMonitor):
         if not isinstance(thresholds, Mapping):
             thresholds = {}
         merged["thresholds"] = dict(thresholds)
+
+        # Parse notifications dict – ensure booleans and sync with legacy keys
+        notifications = merged.get("notifications", {})
+        if isinstance(notifications, str):
+            try:
+                notifications = json.loads(notifications)
+            except Exception:
+                notifications = {}
+        if not isinstance(notifications, Mapping):
+            notifications = {}
+
+        # Fill missing keys with legacy values / defaults
+        notifications = {
+            "system": to_bool(notifications.get("system", merged["windows_alert"])),
+            "voice": to_bool(notifications.get("voice", merged["voice_alert"])),
+            "sms": to_bool(notifications.get("sms", merged["sms_alert"])),
+        }
+        merged["notifications"] = notifications
+
+        # Keep the top‑level flags in sync (so env overrides still work)
+        merged["windows_alert"] = notifications["system"]
+        merged["voice_alert"] = notifications["voice"]
+        merged["sms_alert"] = notifications["sms"]
 
         return merged
 
@@ -161,18 +192,27 @@ class LiquidationMonitor(BaseMonitor):
         subject = f"⚠️ {len(in_danger)} position(s) near liquidation"
         body = "\n".join(lines)
 
-        # Local sound / toast
-        if cfg["windows_alert"]:
+        # Notification routing
+        notif = cfg["notifications"]
+        # Local system sound / toast
+        if notif.get("system"):
             try:
                 from backend.core.xcom_core.sound_service import SoundService  # type: ignore
-
                 SoundService().play("static/sounds/alert_liq.mp3")
             except Exception as e:
                 log.warning(f"SoundService unavailable: {e}", source="LiquidationMonitor")
 
-        # XCom escalation
-        if cfg["voice_alert"]:
-            self.xcom.send_notification(cfg["level"], subject, body, initiator="liquid_monitor")
+        # Voice call
+        if notif.get("voice"):
+            self.xcom.send_notification(
+                cfg["level"], subject, body, initiator="liquid_monitor", mode="voice"
+            )
+
+        # SMS (stub – mode recognised but might no‑op until provider wired)
+        if notif.get("sms"):
+            self.xcom.send_notification(
+                cfg["level"], subject, body, initiator="liquid_monitor", mode="sms"
+            )
 
         self._last_alert_ts = datetime.now(timezone.utc)
         return {**summary, "status": "Success", "alert_sent": True}

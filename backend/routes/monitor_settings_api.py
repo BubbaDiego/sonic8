@@ -1,6 +1,7 @@
 """FastAPI router providing CRUD endpoints for monitor thresholds.
 
-The previous Flask ``Blueprint`` has been replaced with :class:`APIRouter`.
+v2 – Adds nested ``notifications`` dict (system / voice / sms) to liquidation monitor schema.
+Back‑compat: still accepts flat ``threshold_btc`` etc. and old ``windows_alert`` / ``voice_alert`` flags.
 """
 
 from fastapi import APIRouter, Depends
@@ -15,29 +16,74 @@ router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
 # ------------------------------------------------------------------ #
 
 
+def _merge_liq_config(cfg: dict, payload: dict) -> dict:
+    """Return merged config respecting new + legacy keys."""
+    cfg = cfg.copy()
+
+    # --- Global fields ------------------------------------------------
+    cfg["threshold_percent"] = float(
+        payload.get("threshold_percent", cfg.get("threshold_percent", 5.0))
+    )
+    cfg["snooze_seconds"] = int(
+        payload.get("snooze_seconds", cfg.get("snooze_seconds", 300))
+    )
+
+    # --- Thresholds dict ---------------------------------------------
+    thresholds = payload.get("thresholds")
+    if thresholds is None:
+        # Fallback to legacy ``threshold_btc`` style keys
+        thresholds = {}
+        for sym in ("btc", "eth", "sol"):
+            if (k := f"threshold_{sym}") in payload:
+                try:
+                    thresholds[sym.upper()] = float(payload[k])
+                except Exception:
+                    pass
+    cfg["thresholds"] = thresholds or cfg.get("thresholds", {})
+
+    # --- Notifications ----------------------------------------------
+    notifications = payload.get("notifications")
+    if notifications is None:
+        # Map any flat keys so that UI relying on old names still works
+        notifications = {
+            "system": bool(payload.get("windows_alert", cfg.get("windows_alert", True))),
+            "voice": bool(payload.get("voice_alert", cfg.get("voice_alert", True))),
+            "sms": bool(payload.get("sms_alert", cfg.get("sms_alert", False))),
+        }
+    # Ensure booleans
+    notifications = {
+        "system": bool(notifications.get("system")),
+        "voice": bool(notifications.get("voice")),
+        "sms": bool(notifications.get("sms")),
+    }
+    cfg["notifications"] = notifications
+
+    # Preserve legacy flags for the monitor until fully migrated
+    cfg["windows_alert"] = notifications["system"]
+    cfg["voice_alert"] = notifications["voice"]
+    cfg["sms_alert"] = notifications["sms"]
+
+    return cfg
+
+
 @router.get("/liquidation")
 def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
     """Return the current liquidation monitor configuration."""
-    return dl.system.get_var("liquid_monitor") or {}
+    cfg = dl.system.get_var("liquid_monitor") or {}
+    # Ensure defaults so that frontend checkboxes have values
+    cfg.setdefault("thresholds", {})
+    cfg.setdefault("notifications", {"system": True, "voice": True, "sms": False})
+    return cfg
 
 
 @router.post("/liquidation")
-def update_liquidation_settings(
-    payload: dict, dl: DataLocker = Depends(get_app_locker)
-):
-    """Update threshold and snooze settings for the liquidation monitor."""
-    cfg = dl.system.get_var("liquid_monitor") or {}
-    cfg.update(
-        {
-            "threshold_percent": float(
-                payload.get("threshold_percent", cfg.get("threshold_percent", 5.0))
-            ),
-            "snooze_seconds": int(
-                payload.get("snooze_seconds", cfg.get("snooze_seconds", 300))
-            ),
-            "thresholds": payload.get("thresholds", cfg.get("thresholds", {})),
-        }
-    )
+def update_liquidation_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
+    """Update liquidation monitor settings.
+
+    Accepts both new nested structure and legacy flat keys.
+    """
+    existing = dl.system.get_var("liquid_monitor") or {}
+    cfg = _merge_liq_config(existing, payload)
     dl.system.set_var("liquid_monitor", cfg)
     return {"success": True, "config": cfg}
 
