@@ -72,11 +72,12 @@ def _make_position(dist):
 def test_liquid_monitor_alert_and_snooze(monkeypatch):
     cfg = {
         "liquid_monitor": {
-            "threshold_percent": 5.0,
+            "threshold_percent": 10.0,
             "snooze_seconds": 60,
             "windows_alert": False,
             "voice_alert": True,
             "level": "HIGH",
+            "thresholds": {"BTC": 5.0},
         }
     }
     dl = FakeDataLocker(cfg)
@@ -98,6 +99,7 @@ def test_liquid_monitor_alert_and_snooze(monkeypatch):
     first = monitor._do_work()
     assert first["alert_sent"] is True
     assert fake_xcom.sent
+    assert first["details"][0]["threshold"] == 5.0
 
     second = monitor._do_work()
     assert second["alert_sent"] is False

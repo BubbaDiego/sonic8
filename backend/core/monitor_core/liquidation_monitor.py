@@ -9,6 +9,8 @@ from backend.data.dl_positions import DLPositionManager  # type: ignore
 from backend.core.xcom_core.xcom_core import XComCore  # type: ignore
 from backend.core.logging import log  # type: ignore
 from backend.utils.env_utils import _resolve_env
+from collections.abc import Mapping
+import json
 
 class LiquidationMonitor(BaseMonitor):
     """Check active positions: if liquidation_distance <= threshold_percent → alert.
@@ -33,7 +35,8 @@ class LiquidationMonitor(BaseMonitor):
         "level": "HIGH",
         "windows_alert": True,
         "voice_alert": True,
-        "snooze_seconds": 300
+        "snooze_seconds": 300,
+        "thresholds": {},
     }
 
     def __init__(self):
@@ -87,6 +90,16 @@ class LiquidationMonitor(BaseMonitor):
         merged["windows_alert"] = to_bool(merged.get("windows_alert"))
         merged["voice_alert"] = to_bool(merged.get("voice_alert"))
 
+        thresholds = merged.get("thresholds", {})
+        if isinstance(thresholds, str):
+            try:
+                thresholds = json.loads(thresholds)
+            except Exception:
+                thresholds = {}
+        if not isinstance(thresholds, Mapping):
+            thresholds = {}
+        merged["thresholds"] = dict(thresholds)
+
         return merged
 
     def _snoozed(self, cfg: dict) -> bool:
@@ -111,18 +124,21 @@ class LiquidationMonitor(BaseMonitor):
                 dist = float(p.liquidation_distance)
             except Exception:
                 continue
-            breach = dist <= cfg["threshold_percent"]
+            threshold = cfg.get("thresholds", {}).get(
+                getattr(p, "asset_type", None), cfg["threshold_percent"]
+            )
+            breach = dist <= threshold
             if breach:
                 in_danger.append(p)
             log.info(
                 f"Asset: {p.asset_type}  Current Liquid Distance: {dist:.2f}  "
-                f"Threshold: {cfg['threshold_percent']:.2f}  Result: {'BREACH' if breach else 'NO BREACH'}",
+                f"Threshold: {threshold:.2f}  Result: {'BREACH' if breach else 'NO BREACH'}",
                 source="LiquidationMonitor",
             )
             details.append({
                 "asset": p.asset_type,
                 "distance": dist,
-                "threshold": cfg["threshold_percent"],
+                "threshold": threshold,
                 "breach": breach,
             })
 
