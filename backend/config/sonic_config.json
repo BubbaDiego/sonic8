@@ -53,6 +53,14 @@
 
   },
 
+  "liquid_monitor": {
+    "threshold_percent": 5.0,
+    "level": "HIGH",
+    "windows_alert": true,
+    "voice_alert": true,
+    "snooze_seconds": 300
+  },
+
   "theme_config": {
     "selected_profile": "profile4",
     "profiles": {}
