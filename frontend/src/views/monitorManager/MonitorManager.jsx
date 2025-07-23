@@ -47,6 +47,36 @@ function LiquidationSettings({ cfg, setCfg }) {
               type='number'
             />
           </Grid>
+          <Grid item xs={6}>
+            <TextField
+              fullWidth
+              label='BTC Threshold'
+              name='threshold_btc'
+              value={cfg.threshold_btc ?? ''}
+              onChange={handleChange}
+              type='number'
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <TextField
+              fullWidth
+              label='ETH Threshold'
+              name='threshold_eth'
+              value={cfg.threshold_eth ?? ''}
+              onChange={handleChange}
+              type='number'
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <TextField
+              fullWidth
+              label='SOL Threshold'
+              name='threshold_sol'
+              value={cfg.threshold_sol ?? ''}
+              onChange={handleChange}
+              type='number'
+            />
+          </Grid>
         </Grid>
       </CardContent>
     </Card>
@@ -121,7 +151,12 @@ export default function MonitorManager() {
   }, []);
 
   const save = async () => {
-    await axios.post('/api/monitor-settings/liquidation', liqCfg);
+    await axios.post('/api/monitor-settings/liquidation', {
+      ...liqCfg,
+      threshold_btc: liqCfg.threshold_btc,
+      threshold_eth: liqCfg.threshold_eth,
+      threshold_sol: liqCfg.threshold_sol
+    });
     await axios.post('/api/monitor-settings/profit', profitCfg);
     setToast('Settings saved');
   };
