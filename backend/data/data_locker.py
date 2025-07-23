@@ -141,6 +141,7 @@ class DataLocker:
             self._ensure_travel_percent_threshold()
             if self.system is not None:
                 self._seed_alert_config_if_empty()
+                self._seed_liquid_monitor_config_if_empty()
 
         except Exception as e:
             log.error(f"❌ DataLocker setup failed: {e}", source="DataLocker")
@@ -850,6 +851,43 @@ class DataLocker:
             )
         except Exception as e:
             log.error(f"❌ Failed seeding alert config: {e}", source="DataLocker")
+
+    def _seed_liquid_monitor_config_if_empty(self):
+        """Seed liquid monitor defaults into the global_config table if missing."""
+        if self.system is None:
+            log.warning(
+                "⚠️ System data manager unavailable; skipping liquid monitor seed",
+                source="DataLocker",
+            )
+            return
+        try:
+            current = self.system.get_var("liquid_monitor")
+            if current:
+                return
+
+            json_path = os.path.join(CONFIG_DIR, "sonic_config.json")
+            config = {}
+            if os.path.exists(json_path):
+                with open(json_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                    if isinstance(cfg, Mapping):
+                        config = cfg.get("liquid_monitor") or {}
+
+            if not config:
+                from backend.core.monitor_core.liquidation_monitor import LiquidationMonitor
+
+                config = LiquidationMonitor.DEFAULT_CONFIG
+
+            self.system.set_var("liquid_monitor", config)
+            log.debug(
+                "Liquid monitor config seeded from defaults",
+                source="DataLocker",
+            )
+        except Exception as e:
+            log.error(
+                f"❌ Failed seeding liquid monitor config: {e}",
+                source="DataLocker",
+            )
 
     def get_all_tables_as_dict(self) -> dict:
         """Return all user tables and their rows as a dictionary."""
