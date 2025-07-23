@@ -8,6 +8,7 @@ from backend.data.data_locker import DataLocker  # type: ignore
 from backend.data.dl_positions import DLPositionManager  # type: ignore
 from backend.core.xcom_core.xcom_core import XComCore  # type: ignore
 from backend.core.logging import log  # type: ignore
+from backend.utils.env_utils import _resolve_env
 
 class LiquidationMonitor(BaseMonitor):
     """Check active positions: if liquidation_distance <= threshold_percent → alert.
@@ -46,10 +47,44 @@ class LiquidationMonitor(BaseMonitor):
     # Helpers
     # ------------------------------------------------------------------
     def _get_config(self):
-        cfg = self.dl.config.get_section("liquid_monitor") or {}
+        """Load config from system vars with environment overrides."""
+        try:
+            cfg = self.dl.system.get_var("liquid_monitor") or {}
+        except Exception as e:  # pragma: no cover - DB access
+            log.error(f"Failed loading liquid monitor config: {e}", source=self.name)
+            cfg = {}
+
         merged = {**self.DEFAULT_CONFIG, **cfg}
-        merged["threshold_percent"] = float(merged["threshold_percent"])
-        merged["snooze_seconds"] = int(merged["snooze_seconds"])
+
+        env_map = {
+            "threshold_percent": "LIQ_MON_THRESHOLD_PERCENT",
+            "level": "LIQ_MON_LEVEL",
+            "windows_alert": "LIQ_MON_WINDOWS_ALERT",
+            "voice_alert": "LIQ_MON_VOICE_ALERT",
+            "snooze_seconds": "LIQ_MON_SNOOZE_SECONDS",
+        }
+
+        for key, env_key in env_map.items():
+            merged[key] = _resolve_env(merged.get(key), env_key)
+
+        def to_bool(value):
+            if isinstance(value, str):
+                return value.lower() in ("1", "true", "yes", "on")
+            return bool(value)
+
+        try:
+            merged["threshold_percent"] = float(merged.get("threshold_percent", 0))
+        except Exception:
+            merged["threshold_percent"] = float(self.DEFAULT_CONFIG["threshold_percent"])
+
+        try:
+            merged["snooze_seconds"] = int(float(merged.get("snooze_seconds", 0)))
+        except Exception:
+            merged["snooze_seconds"] = int(self.DEFAULT_CONFIG["snooze_seconds"])
+
+        merged["windows_alert"] = to_bool(merged.get("windows_alert"))
+        merged["voice_alert"] = to_bool(merged.get("voice_alert"))
+
         return merged
 
     def _snoozed(self, cfg: dict) -> bool:
