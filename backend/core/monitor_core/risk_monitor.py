@@ -54,10 +54,18 @@ class RiskMonitor(BaseMonitor):
         hottest = None
         most_travel = None
         for pos in positions:
-            heat = pos.get("heat_index")
-            if heat is None:
-                heat = pos.get("current_heat_index", 0)
-            travel = pos.get("travel_percent", 0)
+            if isinstance(pos, dict):
+                heat = pos.get("heat_index")
+                if heat is None:
+                    heat = pos.get("current_heat_index", 0)
+                travel = pos.get("travel_percent", 0)
+                pos_id = pos.get("id")
+            else:
+                heat = getattr(pos, "heat_index", None)
+                if heat is None:
+                    heat = getattr(pos, "current_heat_index", 0)
+                travel = getattr(pos, "travel_percent", 0)
+                pos_id = getattr(pos, "id", None)
             try:
                 heat = float(heat)
             except Exception:
@@ -98,8 +106,11 @@ class RiskMonitor(BaseMonitor):
             source="RiskMonitor",
         )
         if hottest:
+            hot_id = (
+                hottest.get("id") if isinstance(hottest, dict) else getattr(hottest, "id", None)
+            )
             log.info(
-                f"Highest heat index {max_heat:.2f} on position {hottest.get('id')}",
+                f"Highest heat index {max_heat:.2f} on position {hot_id}",
                 source="RiskMonitor",
             )
         else:
