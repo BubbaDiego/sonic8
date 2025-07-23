@@ -867,16 +867,31 @@ class DataLocker:
 
             json_path = os.path.join(CONFIG_DIR, "sonic_config.json")
             config = {}
+            assets: list[str] | None = None
             if os.path.exists(json_path):
                 with open(json_path, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
                     if isinstance(cfg, Mapping):
                         config = cfg.get("liquid_monitor") or {}
-
+                        price_cfg = cfg.get("price_config")
+                        if isinstance(price_cfg, Mapping):
+                            assets = price_cfg.get("assets")
+            
             if not config:
                 from backend.core.monitor_core.liquidation_monitor import LiquidationMonitor
-
                 config = LiquidationMonitor.DEFAULT_CONFIG
+
+            if not assets:
+                assets = ["BTC", "ETH", "SOL"]
+
+            try:
+                threshold = float(config.get("threshold_percent", 5.0))
+            except Exception:
+                threshold = 5.0
+
+            config.setdefault("asset_thresholds", {})
+            for asset in assets:
+                config["asset_thresholds"].setdefault(asset, threshold)
 
             self.system.set_var("liquid_monitor", config)
             log.debug(
