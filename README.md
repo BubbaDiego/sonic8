@@ -167,6 +167,15 @@ compatibility.
 Both the FastAPI backend and the **Launch Pad** console read this value from the
 environment, so they must reference the same database file.
 
+## Monitor configuration
+
+| Variable            | Purpose                                                          | Default |
+|---------------------|------------------------------------------------------------------|---------|
+| `LIQ_MON_SMS_ALERT` | Enable SMS notifications for the Liquidation Monitor             | `false` |
+
+The Liquidation Monitor also supports runtime changes via the
+[Monitor Settings API](docs/backend_api_spec.md#monitor-settings-api-monitor_settings_apipy).
+
 ## Maintenance operations
 
 `CycloneMaintenanceService` provides helpers for wiping stored data during tests
