@@ -102,18 +102,36 @@ class LiquidationMonitor(BaseMonitor):
         cfg = self._get_config()
         positions = self.pos_mgr.get_active_positions()
 
-        in_danger = [
-            p for p in positions
-            if p.liquidation_distance is not None
-            and p.liquidation_distance != ""
-            and float(p.liquidation_distance) <= cfg["threshold_percent"]
-        ]
+        details = []
+        in_danger = []
+        for p in positions:
+            if p.liquidation_distance is None or p.liquidation_distance == "":
+                continue
+            try:
+                dist = float(p.liquidation_distance)
+            except Exception:
+                continue
+            breach = dist <= cfg["threshold_percent"]
+            if breach:
+                in_danger.append(p)
+            log.info(
+                f"Asset: {p.asset_type}  Current Liquid Distance: {dist:.2f}  "
+                f"Threshold: {cfg['threshold_percent']:.2f}  Result: {'BREACH' if breach else 'NO BREACH'}",
+                source="LiquidationMonitor",
+            )
+            details.append({
+                "asset": p.asset_type,
+                "distance": dist,
+                "threshold": cfg["threshold_percent"],
+                "breach": breach,
+            })
 
         summary = {
             "total_checked": len(positions),
             "danger_count": len(in_danger),
             "threshold_percent": cfg["threshold_percent"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "details": details,
         }
 
         if not in_danger or self._snoozed(cfg):
