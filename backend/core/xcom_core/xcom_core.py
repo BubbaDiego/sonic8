@@ -11,7 +11,7 @@ from backend.core.xcom_core.voice_service import VoiceService
 from backend.core.xcom_core.sound_service import SoundService
 from backend.data.data_locker import DataLocker
 from backend.core.logging import log
-from backend.core.xcom_core.notification_service import NotificationService
+from backend.core.notification_service import NotificationService
 
 class XComCore:
     def __init__(self, dl_sys_data_manager):
