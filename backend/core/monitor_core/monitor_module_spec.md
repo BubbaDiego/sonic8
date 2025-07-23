@@ -33,7 +33,7 @@ Central controller for executing registered monitors.
 ```python
 MonitorCore(registry: MonitorRegistry | None = None)
 ```
-- If `registry` is not provided, a new one is created and default monitors are registered (`PriceMonitor`, `PositionMonitor`, `OperationsMonitor`, `XComMonitor`, `TwilioMonitor`, `ProfitMonitor`, `RiskMonitor`).
+- If `registry` is not provided, a new one is created and default monitors are registered (`PriceMonitor`, `PositionMonitor`, `OperationsMonitor`, `XComMonitor`, `TwilioMonitor`, `ProfitMonitor`, `RiskMonitor`, `LiquidationMonitor`).
 - **RiskMonitor** – monitors heat index and dispatches HIGH level alerts.
 
 **Methods**
@@ -53,6 +53,10 @@ MonitorCore(registry: MonitorRegistry | None = None)
 - **TwilioMonitor** – verifies Twilio credentials and records the status.
 - **ProfitMonitor** – tracks accumulated profit and triggers alerts.
 - **RiskMonitor** – monitors heat index and dispatches HIGH level alerts.
+- **LiquidationMonitor** – alerts when a position's liquidation distance
+  falls below `threshold_percent`. Config section `liquid_monitor` defines
+  `threshold_percent`, `level`, `windows_alert`, `voice_alert`, and
+  `snooze_seconds`.
 - **LatencyMonitor** – optional HTTP latency checker for third-party services.
 
 ### 🌐 API & Background Runner
