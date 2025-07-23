@@ -35,6 +35,7 @@ def update_liquidation_settings(
             "snooze_seconds": int(
                 payload.get("snooze_seconds", cfg.get("snooze_seconds", 300))
             ),
+            "thresholds": payload.get("thresholds", cfg.get("thresholds", {})),
         }
     )
     dl.system.set_var("liquid_monitor", cfg)

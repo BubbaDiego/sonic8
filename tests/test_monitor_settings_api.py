@@ -16,19 +16,25 @@ def _setup(tmp_path, monkeypatch):
 def test_liquidation_settings_persists(tmp_path, monkeypatch):
     client, dl = _setup(tmp_path, monkeypatch)
 
-    payload = {"threshold_percent": 2.5, "snooze_seconds": 123}
+    payload = {
+        "threshold_percent": 2.5,
+        "snooze_seconds": 123,
+        "thresholds": {"BTC": 1.2, "ETH": 3.4},
+    }
     resp = client.post("/api/monitor-settings/liquidation", json=payload)
     assert resp.status_code == 200
 
     cfg = dl.system.get_var("liquid_monitor")
     assert cfg["threshold_percent"] == pytest.approx(2.5)
     assert cfg["snooze_seconds"] == 123
+    assert cfg["thresholds"] == {"BTC": 1.2, "ETH": 3.4}
 
     resp = client.get("/api/monitor-settings/liquidation")
     assert resp.status_code == 200
     data = resp.json()
     assert data["threshold_percent"] == pytest.approx(2.5)
     assert data["snooze_seconds"] == 123
+    assert data["thresholds"] == {"BTC": 1.2, "ETH": 3.4}
 
 
 def test_profit_settings_persists(tmp_path, monkeypatch):
