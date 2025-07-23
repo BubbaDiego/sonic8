@@ -14,6 +14,7 @@ import ErrorBoundary from './ErrorBoundary';
 const OverviewPage = Loadable(lazy(() => import('views/overview')));
 const PositionsPage = Loadable(lazy(() => import('views/positions')));
 const WalletManagerPage = Loadable(lazy(() => import('views/wallet/WalletManager')));
+const MonitorManagerPage = Loadable(lazy(() => import('views/monitorManager/MonitorManager')));
 const AlertThresholdsPage = Loadable(lazy(() => import('views/alertThresholds')));
 const SonicLabsPage = Loadable(lazy(() => import('views/sonicLabs')));
 const TraderFactoryPage = Loadable(
@@ -54,6 +55,10 @@ const MainRoutes = {
     {
       path: '/wallet-manager',
       element: <WalletManagerPage />
+    },
+    {
+      path: '/monitor-manager',
+      element: <MonitorManagerPage />
     },
     {
       path: '/alert-thresholds',
