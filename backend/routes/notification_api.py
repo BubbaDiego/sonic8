@@ -1,33 +1,36 @@
-"""Blueprint exposing notification endpoints for React header dropdown."""
-from flask import Blueprint, jsonify, request
+"""APIRouter exposing notification endpoints for React header dropdown."""
+
+from fastapi import APIRouter, Depends
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.core.notification_service import NotificationService  # type: ignore
+from backend.deps import get_app_locker
 
-bp = Blueprint('notification_api', __name__, url_prefix='/api/notifications')
+router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
-@bp.route('', methods=['GET'])
-def list_notifications():
-    status = request.args.get('status', 'all')
-    dl = DataLocker.get_instance()
+
+@router.get("/")
+def list_notifications(status: str = "all", dl: DataLocker = Depends(get_app_locker)):
     svc = NotificationService(dl.db)
-    return jsonify(svc.list(status=status))
+    return svc.list(status=status)
 
-@bp.route('/unread-count', methods=['GET'])
-def unread_count():
-    dl = DataLocker.get_instance()
+
+@router.get("/unread-count")
+def unread_count(dl: DataLocker = Depends(get_app_locker)):
     svc = NotificationService(dl.db)
-    return jsonify({'count': svc.unread_count()})
+    return {"count": svc.unread_count()}
 
-@bp.route('/<notif_id>/read', methods=['POST'])
-def mark_read(notif_id):
-    dl = DataLocker.get_instance()
+
+@router.post("/{notif_id}/read")
+def mark_read(notif_id: str, dl: DataLocker = Depends(get_app_locker)):
     svc = NotificationService(dl.db)
     svc.mark_read(notif_id)
-    return jsonify({'success': True})
+    return {"success": True}
 
-@bp.route('/mark_all_read', methods=['POST'])
-def mark_all_read():
-    dl = DataLocker.get_instance()
+
+@router.post("/mark_all_read")
+def mark_all_read(dl: DataLocker = Depends(get_app_locker)):
     svc = NotificationService(dl.db)
     svc.mark_all_read()
-    return jsonify({'success': True})
+    return {"success": True}
+
+
