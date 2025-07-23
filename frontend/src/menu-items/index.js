@@ -2,6 +2,7 @@ import dashboardDefault from './dashboard-default';
 import positions from './positions';
 import alertThresholds from './alert-thresholds';
 import walletManager from './wallet-manager';
+import monitorManager from './monitor-manager';
 import sonicLabs from './sonic-labs';
 import traderShop from './traderShop';
 import traderFactory from './traderFactory';
@@ -19,6 +20,7 @@ const menuItems = {
         dashboardDefault,
         positions,
         walletManager,
+        monitorManager,
         alertThresholds,
         kanban,
         sonicLabs,
