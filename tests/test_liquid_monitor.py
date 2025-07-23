@@ -26,6 +26,12 @@ class FakeConfig:
 class FakeDataLocker:
     def __init__(self, sections=None):
         self.config = FakeConfig(sections or {})
+        # Minimal stand-ins for system vars and database manager
+        self.system = types.SimpleNamespace(
+            get_var=lambda key: self.config.get_section(key),
+            set_var=lambda key, val: None,
+        )
+        self.db = object()
 
     def close(self):
         pass
@@ -76,11 +82,18 @@ def test_liquid_monitor_alert_and_snooze(monkeypatch):
     dl = FakeDataLocker(cfg)
     monkeypatch.setattr(liquidation_monitor.DataLocker, "get_instance", classmethod(lambda cls: dl))
     fake_pm = FakePositionManager([_make_position(4.0)])
-    monkeypatch.setattr(liquidation_monitor, "DLPositionManager", lambda _dl: fake_pm)
+    called = {}
+
+    def pm_factory(arg):
+        called["db"] = arg
+        return fake_pm
+
+    monkeypatch.setattr(liquidation_monitor, "DLPositionManager", pm_factory)
     fake_xcom = FakeXComCore(dl)
     monkeypatch.setattr(liquidation_monitor, "XComCore", lambda _dl: fake_xcom)
 
     monitor = liquidation_monitor.LiquidationMonitor()
+    assert called["db"] is dl.db
 
     first = monitor._do_work()
     assert first["alert_sent"] is True

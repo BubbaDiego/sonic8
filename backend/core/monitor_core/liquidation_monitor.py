@@ -39,7 +39,9 @@ class LiquidationMonitor(BaseMonitor):
     def __init__(self):
         super().__init__(name="liquid_monitor", ledger_filename="liquid_monitor_ledger.json")
         self.dl = DataLocker.get_instance()
-        self.pos_mgr = DLPositionManager(self.dl)
+        # Pass only the database manager to DLPositionManager
+        # instead of the full DataLocker instance
+        self.pos_mgr = DLPositionManager(self.dl.db)
         self.xcom = XComCore(self.dl)
         self._last_alert_ts = None
 
