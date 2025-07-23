@@ -11,6 +11,7 @@ from backend.core.xcom_core.voice_service import VoiceService
 from backend.core.xcom_core.sound_service import SoundService
 from backend.data.data_locker import DataLocker
 from backend.core.logging import log
+from backend.core.xcom_core.notification_service import NotificationService
 
 class XComCore:
     def __init__(self, dl_sys_data_manager):
@@ -89,6 +90,22 @@ class XComCore:
         })
 
         success = any(v is True for v in results.values()) and error_msg is None
+
+        if success:
+            try:
+                dl = DataLocker.get_instance()
+                comm_type = ",".join(
+                    [k for k in ("email", "sms", "voice", "sound") if results.get(k)]
+                )
+                NotificationService(dl.db).insert(
+                    level=level,
+                    subject=subject,
+                    body=body,
+                    initiator=initiator,
+                    comm_type=comm_type,
+                )
+            except Exception as e:  # pragma: no cover - best effort
+                log.error(f"🧨 Failed to write notification: {e}", source="XComCore")
 
         try:
             from data.data_locker import DataLocker
