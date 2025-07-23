@@ -126,6 +126,17 @@ curl -X POST http://localhost:5000/session/reset
 - `POST /delete_all` – Remove all stored alerts.
 - `GET /monitor` – Return `{ "alerts": [...] }` with all current alerts.
 
+## Monitor Settings API (`monitor_settings_api.py`)
+**Base path**: `/monitor-settings`
+
+- `GET /liquidation` – Return the current liquidation monitor configuration.
+- `POST /liquidation` – Update liquidation monitor settings.
+- `GET /profit` – Return the profit monitor thresholds.
+- `POST /profit` – Update profit monitor thresholds.
+
+The liquidation payload accepts a nested `notifications` dict but still honors
+legacy keys like `voice_alert` for backward compatibility.
+
 ## XCom API (`xcom_api.py`)
 **Base path**: `/xcom`
 
