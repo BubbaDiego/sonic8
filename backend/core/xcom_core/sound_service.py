@@ -10,9 +10,12 @@ except Exception:  # pragma: no cover - optional
 
 
 class SoundService:
-    def __init__(self, sound_file="static/sounds/death_spiral.mp3"):
-        # Always anchor to project root
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    def __init__(self, sound_file="frontend/static/sounds/death_spiral.mp3"):
+        """Initialize the service anchored at the repository root."""
+        # Move two levels up to reach ``backend`` then one more to repo root
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         self.sound_file = os.path.join(base_dir, sound_file)
 
     def play(self, file_path: str = None):
