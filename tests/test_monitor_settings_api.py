@@ -65,3 +65,37 @@ def test_profit_settings_persists(tmp_path, monkeypatch):
     assert data["single_low"] == 5
     assert data["single_high"] == 15
 
+
+@pytest.mark.parametrize("value", ["false", "0"])
+def test_liquidation_settings_bool_parsing_legacy(tmp_path, monkeypatch, value):
+    client, dl = _setup(tmp_path, monkeypatch)
+
+    payload = {
+        "windows_alert": value,
+        "voice_alert": value,
+        "sms_alert": value,
+    }
+    resp = client.post("/api/monitor-settings/liquidation", json=payload)
+    assert resp.status_code == 200
+
+    cfg = dl.system.get_var("liquid_monitor")
+    assert cfg["windows_alert"] is False
+    assert cfg["voice_alert"] is False
+    assert cfg["sms_alert"] is False
+    assert cfg["notifications"] == {"system": False, "voice": False, "sms": False}
+
+
+@pytest.mark.parametrize("value", ["false", "0"])
+def test_liquidation_settings_bool_parsing_new(tmp_path, monkeypatch, value):
+    client, dl = _setup(tmp_path, monkeypatch)
+
+    payload = {"notifications": {"system": value, "voice": value, "sms": value}}
+    resp = client.post("/api/monitor-settings/liquidation", json=payload)
+    assert resp.status_code == 200
+
+    cfg = dl.system.get_var("liquid_monitor")
+    assert cfg["windows_alert"] is False
+    assert cfg["voice_alert"] is False
+    assert cfg["sms_alert"] is False
+    assert cfg["notifications"] == {"system": False, "voice": False, "sms": False}
+
