@@ -6,6 +6,8 @@ import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 
 // project imports
 import { ThemeMode } from 'config';
@@ -20,6 +22,7 @@ import { openSnackbar } from 'store/slices/snackbar';
 
 // assets
 import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-react';
+const SonicBurstIcon = '/static/images/sonic_burst.png';
 
 // ==============================|| HEADER CONTENT - CYCLONE RUN ||============================== //
 
@@ -27,6 +30,7 @@ export default function CycloneRunSection() {
   const theme = useTheme();
   const dispatch = useDispatch();
   const { cycloneRefreshDelay = 6000 } = useConfig();
+  const [sonicRunning, setSonicRunning] = useState(false);
 
   const [running, setRunning] = useState(false);
 
@@ -48,6 +52,44 @@ export default function CycloneRunSection() {
       bgcolor: 'primary.main',
       color: 'primary.light'
     }
+  };
+
+  const handleSonicCycle = () => {
+    setSonicRunning(true);
+    runSonicCycle()
+      .then(() => {
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+          refreshMonitorStatus();
+          setSonicRunning(false);
+        }, cycloneRefreshDelay);
+
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Sonic Cycle Success',
+            variant: 'alert',
+            alert: { color: 'success' },
+            close: false
+          })
+        );
+      })
+      .catch((error) => {
+        console.error(error);
+        setSonicRunning(false);
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Sonic Cycle Error',
+            variant: 'alert',
+            alert: { color: 'error' },
+            close: false,
+            severity: 'error'
+          })
+        );
+      });
   };
 
   const handlePriceUpdate = () => {
@@ -230,16 +272,20 @@ export default function CycloneRunSection() {
   return (
     <Box sx={{ ml: 2 }}>
       <Stack direction="row" spacing={1}>
-        <Tooltip title="Run Sonic Cycle">
-          <Avatar
-            variant="rounded"
-            src="/static/images/sonic_burst.png"
-            sx={{
-              ...avatarSX,
-              animation: running ? `${spin} 1s linear infinite` : 'none'
-            }}
-            onClick={handleSonicCycle}
-          />
+
+        <Tooltip title="Sonic Cycle">
+          {sonicRunning ? (
+            <motion.div animate={{ rotate: -360 }} transition={{ repeat: Infinity, repeatType: 'loop', duration: 2, ease: 'linear' }}>
+              <Avatar variant="circular" sx={avatarSX}>
+                <Box component="img" src={SonicBurstIcon} alt="sonic" sx={{ width: '20px' }} />
+              </Avatar>
+            </motion.div>
+          ) : (
+            <Avatar variant="circular" sx={avatarSX} onClick={handleSonicCycle}>
+              <Box component="img" src={SonicBurstIcon} alt="sonic" sx={{ width: '20px' }} />
+            </Avatar>
+          )
+
         </Tooltip>
         <Tooltip title="Price Update">
           <Avatar variant="rounded" sx={avatarSX} onClick={handlePriceUpdate}>
