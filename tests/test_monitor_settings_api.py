@@ -19,7 +19,8 @@ def test_liquidation_settings_persists(tmp_path, monkeypatch):
     payload = {
         "threshold_percent": 2.5,
         "snooze_seconds": 123,
-        "thresholds": {"BTC": 1.2, "ETH": 3.4},
+        # Submit numbers as strings to ensure casting occurs
+        "thresholds": {"BTC": "1.2", "ETH": "3.4"},
     }
     resp = client.post("/api/monitor-settings/liquidation", json=payload)
     assert resp.status_code == 200
