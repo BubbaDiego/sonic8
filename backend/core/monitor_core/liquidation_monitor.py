@@ -198,7 +198,7 @@ class LiquidationMonitor(BaseMonitor):
         if notif.get("system"):
             try:
                 from backend.core.xcom_core.sound_service import SoundService  # type: ignore
-                SoundService().play("static/sounds/alert_liq.mp3")
+                SoundService().play("frontend/static/sounds/alert_liq.mp3")
             except Exception as e:
                 log.warning(f"SoundService unavailable: {e}", source="LiquidationMonitor")
 

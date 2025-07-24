@@ -123,7 +123,7 @@ class StartUpService:
                     step()
             log.success("✅ All startup checks passed.\n", source="StartUpService")
             if play_sound:
-                sounder.play("static/sounds/web_station_startup.mp3")
+                sounder.play("frontend/static/sounds/web_station_startup.mp3")
         except SystemExit:
             if play_sound:
                 # sounder.play("static/sounds/death_spiral.mp3")  # disabled
