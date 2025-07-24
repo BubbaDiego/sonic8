@@ -72,5 +72,62 @@ class ThresholdService:
             log.error(f"Failed to replace config: {e}", source="ThresholdService")
             return False
 
+    def set_threshold(
+        self,
+        alert_type: str,
+        alert_class: str,
+        low: float | None,
+        high: float | None,
+        *,
+        condition: str = "ABOVE",
+        metric_key: str | None = None,
+    ) -> bool:
+        """Create or update a simple threshold row.
+
+        Only ``low`` and ``high`` values are modified. A new row is inserted if
+        no existing threshold matches ``alert_type``, ``alert_class`` and
+        ``condition``.
+        """
+
+        existing = self.repo.get_by_type_and_class(alert_type, alert_class, condition)
+
+        try:
+            low_val = float(low) if low is not None else None
+        except Exception:
+            low_val = None
+        try:
+            high_val = float(high) if high is not None else None
+        except Exception:
+            high_val = None
+
+        if existing:
+            updates = {}
+            if low_val is not None:
+                updates["low"] = low_val
+            if high_val is not None:
+                updates["high"] = high_val
+            return self.update_threshold(existing.id, updates) if updates else True
+
+        if metric_key is None:
+            metric_key = {
+                "Profit": "pnl_after_fees_usd",
+                "TotalProfit": "pnl_after_fees_usd",
+                "LiquidationDistance": "liquidation_distance",
+                "HeatIndex": "heat_index",
+                "TravelPercent": "travel_percent",
+            }.get(alert_type, "value")
+
+        threshold = AlertThreshold(
+            id=str(uuid4()),
+            alert_type=alert_type,
+            alert_class=alert_class,
+            metric_key=metric_key,
+            condition=condition,
+            low=low_val or 0.0,
+            medium=0.0,
+            high=high_val or 0.0,
+        )
+        return self.create_threshold(threshold)
+
 
 __all__ = ["ThresholdService"]
