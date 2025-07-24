@@ -2,7 +2,10 @@
 """Adapter layer that re‑exports the legacy Flask monitor API through FastAPI."""
 
 from __future__ import annotations
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, BackgroundTasks
+import asyncio
+from backend.core.cyclone_core.cyclone_engine import Cyclone
+from backend.core.monitor_core.sonic_monitor import sonic_cycle
 from backend.core.monitor_core.monitor_registry import MonitorRegistry
 from backend.core.monitor_core.monitor_core import MonitorCore
 
@@ -26,3 +29,15 @@ def run_monitor(name: str):
         return {"status": "success", "monitor": name}
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+
+
+@router.post("/sonic_cycle", status_code=202)
+def run_sonic_cycle(bg: BackgroundTasks):
+    """Execute the Sonic monitor cycle asynchronously."""
+    cyclone = Cyclone()
+
+    async def _runner():
+        await sonic_cycle(0, cyclone)
+
+    bg.add_task(_runner)
+    return {"status": "sonic cycle started"}
