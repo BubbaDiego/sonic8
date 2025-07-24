@@ -1,5 +1,7 @@
 // material-ui
 import { useTheme } from '@mui/material/styles';
+import { keyframes } from '@mui/system';
+import { useState } from 'react';
 import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
@@ -11,6 +13,8 @@ import useConfig from 'hooks/useConfig';
 import { runFullCycle, runPositionUpdate, runPriceUpdate, deleteAllData } from 'api/cyclone';
 import { refreshPositions } from 'api/positions';
 import { refreshLatestPortfolio, refreshPortfolioHistory } from 'api/portfolio';
+import { runSonicMonitor } from 'api/sonicMonitor';
+import { refreshMonitorStatus } from 'api/monitorStatus';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/slices/snackbar';
 
@@ -23,6 +27,13 @@ export default function CycloneRunSection() {
   const theme = useTheme();
   const dispatch = useDispatch();
   const { cycloneRefreshDelay = 6000 } = useConfig();
+
+  const [running, setRunning] = useState(false);
+
+  const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(-360deg); }
+  `;
 
   const avatarSX = {
     ...theme.typography.commonAvatar,
@@ -179,9 +190,57 @@ export default function CycloneRunSection() {
       });
   };
 
+  const handleSonicCycle = () => {
+    setRunning(true);
+    runSonicMonitor()
+      .then(() => {
+        setTimeout(() => {
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+          refreshMonitorStatus();
+        }, cycloneRefreshDelay);
+
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Sonic Cycle Success',
+            variant: 'alert',
+            alert: { color: 'success' },
+            close: false
+          })
+        );
+      })
+      .catch((error) => {
+        console.error(error);
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Sonic Cycle Error',
+            variant: 'alert',
+            alert: { color: 'error' },
+            close: false,
+            severity: 'error'
+          })
+        );
+      })
+      .finally(() => setRunning(false));
+  };
+
   return (
     <Box sx={{ ml: 2 }}>
       <Stack direction="row" spacing={1}>
+        <Tooltip title="Run Sonic Cycle">
+          <Avatar
+            variant="rounded"
+            src="/static/images/sonic_burst.png"
+            sx={{
+              ...avatarSX,
+              animation: running ? `${spin} 1s linear infinite` : 'none'
+            }}
+            onClick={handleSonicCycle}
+          />
+        </Tooltip>
         <Tooltip title="Price Update">
           <Avatar variant="rounded" sx={avatarSX} onClick={handlePriceUpdate}>
             <IconRefresh size="20px" />
