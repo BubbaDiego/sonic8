@@ -8,3 +8,7 @@ export async function runSonicCycle() {
     throw error;
   }
 }
+
+export const runSonicMonitor = () =>
+  axios.post('/monitors/sonic_monitor').then(r => r.data);
+
