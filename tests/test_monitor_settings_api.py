@@ -19,7 +19,8 @@ def test_liquidation_settings_persists(tmp_path, monkeypatch):
     payload = {
         "threshold_percent": 2.5,
         "snooze_seconds": 123,
-        "thresholds": {"BTC": 1.2, "ETH": 3.4},
+        # Submit numbers as strings to ensure casting occurs
+        "thresholds": {"BTC": "1.2", "ETH": "3.4"},
     }
     resp = client.post("/api/monitor-settings/liquidation", json=payload)
     assert resp.status_code == 200
@@ -66,36 +67,34 @@ def test_profit_settings_persists(tmp_path, monkeypatch):
     assert data["single_high"] == 15
 
 
-@pytest.mark.parametrize("value", ["false", "0"])
-def test_liquidation_settings_bool_parsing_legacy(tmp_path, monkeypatch, value):
+def test_liq_notifications_merge(tmp_path, monkeypatch):
+    """Legacy payload keys should merge into nested notifications."""
     client, dl = _setup(tmp_path, monkeypatch)
 
     payload = {
-        "windows_alert": value,
-        "voice_alert": value,
-        "sms_alert": value,
+        "threshold_percent": 1.1,
+        "snooze_seconds": 42,
+        "threshold_btc": 0.9,
+        "threshold_eth": 0.7,
+        "windows_alert": False,
+        "voice_alert": False,
+        "sms_alert": True,
     }
-    resp = client.post("/api/monitor-settings/liquidation", json=payload)
-    assert resp.status_code == 200
 
-    cfg = dl.system.get_var("liquid_monitor")
+
+    assert cfg["thresholds"] == {"BTC": 0.9, "ETH": 0.7}
+    assert cfg["notifications"] == {"system": False, "voice": False, "sms": True}
     assert cfg["windows_alert"] is False
     assert cfg["voice_alert"] is False
-    assert cfg["sms_alert"] is False
-    assert cfg["notifications"] == {"system": False, "voice": False, "sms": False}
+    assert cfg["sms_alert"] is True
 
-
-@pytest.mark.parametrize("value", ["false", "0"])
-def test_liquidation_settings_bool_parsing_new(tmp_path, monkeypatch, value):
-    client, dl = _setup(tmp_path, monkeypatch)
-
-    payload = {"notifications": {"system": value, "voice": value, "sms": value}}
-    resp = client.post("/api/monitor-settings/liquidation", json=payload)
+    resp = client.get("/api/monitor-settings/liquidation")
     assert resp.status_code == 200
+    data = resp.json()
+    assert data["notifications"] == {"system": False, "voice": False, "sms": True}
+    assert data["windows_alert"] is False
+    assert data["voice_alert"] is False
+    assert data["sms_alert"] is True
+    assert data["thresholds"] == {"BTC": 0.9, "ETH": 0.7}
 
-    cfg = dl.system.get_var("liquid_monitor")
-    assert cfg["windows_alert"] is False
-    assert cfg["voice_alert"] is False
-    assert cfg["sms_alert"] is False
-    assert cfg["notifications"] == {"system": False, "voice": False, "sms": False}
 

@@ -44,6 +44,17 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
                     thresholds[sym.upper()] = float(payload[k])
                 except Exception:
                     pass
+    else:
+        # Cast each provided value to float when merging
+        casted = {}
+        for sym, value in thresholds.items():
+            try:
+                casted[sym] = float(value)
+            except Exception:
+                # Skip values that cannot be converted
+                pass
+        thresholds = casted
+
     cfg["thresholds"] = thresholds or cfg.get("thresholds", {})
 
     # --- Notifications ----------------------------------------------
