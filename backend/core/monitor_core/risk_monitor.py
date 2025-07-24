@@ -134,6 +134,10 @@ class RiskMonitor(BaseMonitor):
                     "Violation detected! HIGH alert will be sent.",
                     source="RiskMonitor",
                 )
+                log.info(
+                    "Actions dispatched: sound, SMS and voice when available",
+                    source="RiskMonitor",
+                )
                 self._set_silenced(False)
             else:
                 log.info("Risk alert suppressed by snooze", source="RiskMonitor")

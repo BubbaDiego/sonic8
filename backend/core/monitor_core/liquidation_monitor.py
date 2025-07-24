@@ -196,6 +196,7 @@ class LiquidationMonitor(BaseMonitor):
         notif = cfg["notifications"]
         # Local system sound / toast
         if notif.get("system"):
+            log.info("System sound alert dispatched", source="LiquidationMonitor")
             try:
                 from backend.core.xcom_core.sound_service import SoundService  # type: ignore
                 SoundService().play("frontend/static/sounds/alert_liq.mp3")
@@ -204,12 +205,14 @@ class LiquidationMonitor(BaseMonitor):
 
         # Voice call
         if notif.get("voice"):
+            log.info("Voice alert dispatched", source="LiquidationMonitor")
             self.xcom.send_notification(
                 cfg["level"], subject, body, initiator="liquid_monitor", mode="voice"
             )
 
         # SMS (stub – mode recognised but might no‑op until provider wired)
         if notif.get("sms"):
+            log.info("SMS alert dispatched", source="LiquidationMonitor")
             self.xcom.send_notification(
                 cfg["level"], subject, body, initiator="liquid_monitor", mode="sms"
             )
