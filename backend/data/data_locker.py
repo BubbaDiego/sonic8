@@ -863,6 +863,18 @@ class DataLocker:
         try:
             current = self.system.get_var("liquid_monitor")
             if current:
+                migrated = False
+                if (
+                    isinstance(current, Mapping)
+                    and "asset_thresholds" in current
+                    and "thresholds" not in current
+                ):
+                    at = current.get("asset_thresholds")
+                    if isinstance(at, Mapping):
+                        current["thresholds"] = dict(at)
+                        migrated = True
+                if migrated:
+                    self.system.set_var("liquid_monitor", current)
                 return
 
             json_path = os.path.join(CONFIG_DIR, "sonic_config.json")
@@ -889,9 +901,9 @@ class DataLocker:
             except Exception:
                 threshold = 5.0
 
-            config.setdefault("asset_thresholds", {})
+            config.setdefault("thresholds", {})
             for asset in assets:
-                config["asset_thresholds"].setdefault(asset, threshold)
+                config["thresholds"].setdefault(asset, threshold)
 
             self.system.set_var("liquid_monitor", config)
             log.debug(

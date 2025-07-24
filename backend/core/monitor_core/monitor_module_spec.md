@@ -55,9 +55,8 @@ MonitorCore(registry: MonitorRegistry | None = None)
 - **RiskMonitor** – monitors heat index and dispatches HIGH level alerts.
 - **LiquidationMonitor** – alerts when a position's liquidation distance
   falls below the asset-specific threshold. Config section `liquid_monitor`
-  defines `btc_threshold_percent`, `eth_threshold_percent`,
-  `sol_threshold_percent`, `level`, `windows_alert`, `voice_alert`, and
-  `snooze_seconds`.
+  defines a global `threshold_percent`, per-asset `thresholds` map,
+  `level`, `windows_alert`, `voice_alert`, and `snooze_seconds`.
 - **LatencyMonitor** – optional HTTP latency checker for third-party services.
 
 ### 🌐 API & Background Runner

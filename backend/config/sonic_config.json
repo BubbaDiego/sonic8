@@ -59,7 +59,7 @@
     "windows_alert": true,
     "voice_alert": true,
     "snooze_seconds": 300,
-    "asset_thresholds": {
+    "thresholds": {
       "BTC": 5.0,
       "ETH": 5.0,
       "SOL": 5.0
