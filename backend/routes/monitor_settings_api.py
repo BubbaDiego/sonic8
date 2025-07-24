@@ -20,6 +20,11 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
     """Return merged config respecting new + legacy keys."""
     cfg = cfg.copy()
 
+    def to_bool(value):
+        if isinstance(value, str):
+            return value.lower() in ("1", "true", "yes", "on")
+        return bool(value)
+
     # --- Global fields ------------------------------------------------
     cfg["threshold_percent"] = float(
         payload.get("threshold_percent", cfg.get("threshold_percent", 5.0))
@@ -57,15 +62,15 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
     if notifications is None:
         # Map any flat keys so that UI relying on old names still works
         notifications = {
-            "system": bool(payload.get("windows_alert", cfg.get("windows_alert", True))),
-            "voice": bool(payload.get("voice_alert", cfg.get("voice_alert", True))),
-            "sms": bool(payload.get("sms_alert", cfg.get("sms_alert", False))),
+            "system": to_bool(payload.get("windows_alert", cfg.get("windows_alert", True))),
+            "voice": to_bool(payload.get("voice_alert", cfg.get("voice_alert", True))),
+            "sms": to_bool(payload.get("sms_alert", cfg.get("sms_alert", False))),
         }
     # Ensure booleans
     notifications = {
-        "system": bool(notifications.get("system")),
-        "voice": bool(notifications.get("voice")),
-        "sms": bool(notifications.get("sms")),
+        "system": to_bool(notifications.get("system")),
+        "voice": to_bool(notifications.get("voice")),
+        "sms": to_bool(notifications.get("sms")),
     }
     cfg["notifications"] = notifications
 
