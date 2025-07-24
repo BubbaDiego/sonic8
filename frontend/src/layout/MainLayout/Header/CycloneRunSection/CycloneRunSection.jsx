@@ -6,7 +6,6 @@ import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 // project imports
