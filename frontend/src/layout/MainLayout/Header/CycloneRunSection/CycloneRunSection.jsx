@@ -1,4 +1,5 @@
 // material-ui
+import { useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { keyframes } from '@mui/system';
 import Avatar from '@mui/material/Avatar';
@@ -243,7 +244,7 @@ export default function CycloneRunSection() {
             <Avatar variant="circular" sx={avatarSX} onClick={handleSonicCycle}>
               <Box component="img" src={SonicBurstIcon} alt="sonic" sx={{ width: '20px' }} />
             </Avatar>
-          )
+            )}
 
         </Tooltip>
         <Tooltip title="Price Update">
