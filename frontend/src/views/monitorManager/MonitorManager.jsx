@@ -89,6 +89,11 @@ function AssetThresholdCard({ cfg, setCfg }) {
               value={normCfg.thresholds[code]}
               onChange={handleThresholdChange(code)}
             />
+            {/* Blast radius buttons would be rendered next to each asset threshold */}
+            {/* Example: <Button onClick={() => setLiqCfg(prev=>({
+                  ...prev,
+                  thresholds:{...prev.thresholds, BTC: marketCfg.blast_radius?.BTC}
+                }))}>BR</Button> */}
           </Stack>
         ))}
 
@@ -218,17 +223,20 @@ function ProfitSettings({ cfg, setCfg }) {
 export default function MonitorManager() {
   const [liqCfg,    setLiqCfg]    = useState({});
   const [profitCfg, setProfitCfg] = useState({});
+  const [marketCfg, setMarketCfg] = useState({});
   const [toast,     setToast]     = useState('');
 
   // initial fetch
   useEffect(() => {
     axios.get('/api/monitor-settings/liquidation').then(r => setLiqCfg(r.data));
     axios.get('/api/monitor-settings/profit').then(r => setProfitCfg(r.data));
+    axios.get('/api/monitor-settings/market').then(r => setMarketCfg(r.data));
   }, []);
 
   const saveAll = async () => {
     await axios.post('/api/monitor-settings/liquidation', liqCfg);
     await axios.post('/api/monitor-settings/profit',      profitCfg);
+    await axios.post('/api/monitor-settings/market',      marketCfg);
     setToast('Settings saved');
   };
 
