@@ -19,8 +19,8 @@ from backend.core.monitor_core.xcom_monitor import XComMonitor
 from backend.core.monitor_core.twilio_monitor import TwilioMonitor
 from backend.core.monitor_core.profit_monitor import ProfitMonitor  # Added ProfitMonitor
 from backend.core.monitor_core.risk_monitor import RiskMonitor
+# NEW →
 from backend.core.monitor_core.liquidation_monitor import LiquidationMonitor
-# NEW → Market monitor for blast radius & price swings
 from backend.core.monitor_core.market_monitor import MarketMonitor
 #from backend.core.monitor_core.oracle_monitor.oracle_monitor import OracleMonitor
 from backend.core.monitor_core.monitor_registry import MonitorRegistry
@@ -50,6 +50,7 @@ class MonitorCore:
             self.registry.register("profit_monitor", ProfitMonitor())  # Registered ProfitMonitor
             self.registry.register("risk_monitor", RiskMonitor())
             self.registry.register("liquid_monitor", LiquidationMonitor())
+
             self.registry.register("market_monitor", MarketMonitor())
 #            self.registry.register("oracle_monitor", OracleMonitor())
 

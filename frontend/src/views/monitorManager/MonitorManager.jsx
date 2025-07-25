@@ -233,6 +233,9 @@ export default function MonitorManager() {
     axios.get('/api/monitor-settings/market').then(r => setMarketCfg(r.data));
   }, []);
 
+  // Blast radius buttons would be rendered next to each asset threshold
+  // Example: <Button onClick={() => setLiqCfg(prev=>({...prev, thresholds:{...prev.thresholds, BTC: marketCfg.blast_radius?.BTC}}))}>BR</Button>
+
   const saveAll = async () => {
     await axios.post('/api/monitor-settings/liquidation', liqCfg);
     await axios.post('/api/monitor-settings/profit',      profitCfg);

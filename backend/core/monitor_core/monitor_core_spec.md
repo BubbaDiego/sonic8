@@ -113,6 +113,7 @@ This design makes **Sonic Monitor** the single source of truth for:
 | `profit_monitor` | `ProfitMonitor` | Aggregates realised PnL, compares versus `ThresholdService`. fileciteturn0file13 | yes | XCom (HIGH) |
 | `risk_monitor` | `RiskMonitor` | Heat index & travel %, env snooze. fileciteturn0file14 | yes | XCom + sound |
 | `liquid_monitor` | `LiquidationMonitor` | Per‑asset % distance → alert, nested notifications map. fileciteturn0file75 | yes | voice/SMS/system sound |
+| `market_monitor` | `MarketMonitor` | Price %‑move triggers + blast‑radius calc. |  | Ledger only |
 | `operations_monitor` | `OperationsMonitor` | POST tests + ChatGPT/Twilio ping. fileciteturn0file62 |  ‑ | Ledger only |
 | `latency_monitor` | `LatencyMonitor` | Simple HTTP ping to CoinGecko/Jupiter. fileciteturn0file73 |  ‑ | Ledger only |
 | `xcom_monitor` | `XComMonitor` | Sends low‑level ping via XComCore. fileciteturn0file68 |  ‑ | XCom (LOW) |
