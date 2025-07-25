@@ -12,6 +12,21 @@ from backend.deps import get_app_locker
 router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
 
 # ------------------------------------------------------------------ #
+# Market Monitor settings
+# ------------------------------------------------------------------ #
+
+@router.get("/market")
+def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
+    cfg = dl.system.get_var("market_monitor") or {}
+    return cfg
+
+
+@router.post("/market")
+def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
+    dl.system.set_var("market_monitor", payload)
+    return {"success": True}
+
+# ------------------------------------------------------------------ #
 # Liquidation Monitor (liquid_monitor)
 # ------------------------------------------------------------------ #
 
