@@ -345,21 +345,22 @@ class DataLocker:
             )
 
         """,
-            "sonic_monitor_log": """
-                CREATE TABLE IF NOT EXISTS sonic_monitor_log (
-                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                    monitor_name TEXT    NOT NULL,
-                    level        TEXT    CHECK(level IN ('LOW','MEDIUM','HIGH')),
-                    subject      TEXT    NOT NULL,
-                    body         TEXT    NOT NULL,
-                    metadata     TEXT,
-                    read         INTEGER DEFAULT 0,
-                    created_at   TIMESTAMP DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-                );
-                CREATE INDEX IF NOT EXISTS idx_sonic_log_time
-                    ON sonic_monitor_log(created_at DESC);
-            """,
         }
+
+        sonic_log_ddl = """
+            CREATE TABLE IF NOT EXISTS sonic_monitor_log (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                monitor_name TEXT    NOT NULL,
+                level        TEXT    CHECK(level IN ('LOW','MEDIUM','HIGH')),
+                subject      TEXT    NOT NULL,
+                body         TEXT    NOT NULL,
+                metadata     TEXT,
+                read         INTEGER DEFAULT 0,
+                created_at   TIMESTAMP DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_sonic_log_time
+                ON sonic_monitor_log(created_at DESC);
+        """
 
         def _ensure_column(cursor, table, column_def):
             """Add a column to ``table`` if missing."""
@@ -387,6 +388,16 @@ class DataLocker:
                 log.debug(f"Table ensured: {name}", source="DataLocker")
             except Exception as e:
                 log.error(f"❌ Failed creating table {name}: {e}", source="DataLocker")
+
+        # Special handling for sonic_monitor_log due to multiple statements
+        try:
+            cursor.executescript(sonic_log_ddl)
+            log.debug("Table ensured: sonic_monitor_log", source="DataLocker")
+        except Exception as e:
+            log.error(
+                f"❌ Failed creating sonic_monitor_log table and index: {e}",
+                source="DataLocker",
+            )
 
         # Ensure uniqueness for alert definition fields
         try:
