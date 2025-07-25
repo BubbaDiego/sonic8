@@ -74,6 +74,12 @@ app.include_router(monitor_settings_router)
 # 🔥 FIXED HERE: REMOVED EXTRA PREFIX "/api"
 app.include_router(monitor_status_router)
 
+# ------------------------------------------------------------------ #
+# Alias so /monitor_status/ works (underscores, no /api) – temporary
+# ------------------------------------------------------------------ #
+from backend.routes.monitor_status_api import get_status as _monitor_status_get
+app.add_api_route("/monitor_status/", _monitor_status_get, methods=["GET"])
+
 
 
 # 🔥 REGISTER THE NEW ROUTER
