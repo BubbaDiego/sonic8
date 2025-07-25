@@ -20,17 +20,37 @@ class SoundService:
 
     def play(self, file_path: str = None):
         """
-        Plays an MP3 file using `playsound`. Defaults to death_spiral.mp3.
+        Plays an MP3 file. If *file_path* is missing or not found,
+        tries an additional fallback path under *frontend/static/sounds/*.
         """
-        # Respect override or default to init path
-        path = os.path.abspath(file_path) if file_path else self.sound_file
+
+        # Determine candidate paths
+        candidates = []
+        if file_path:
+            candidates.append(os.path.abspath(file_path))
+        # primary path (provided in constructor)
+        candidates.append(self.sound_file)
+        # fallback: project_root/frontend/static/sounds/<filename>
+        try:
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            fname = os.path.basename(file_path) if file_path else os.path.basename(self.sound_file)
+            candidates.append(os.path.join(root_dir, "frontend", "static", "sounds", fname))
+        except Exception:
+            pass
+
+        path = None
+        for p in candidates:
+            if p and os.path.isfile(p):
+                path = p
+                break
+
+        if not path:
+            log.error(f"Sound file not found in any known location: {candidates}", source="SoundService")
+            self._fallback_beep()
+            return False
 
         try:
-            if not os.path.isfile(path):
-                raise FileNotFoundError(f"Sound file not found: {path}")
-
             log.info(f"🔊 Playing sound: {path}", source="SoundService")
-
             if sys.platform.startswith("win"):
                 try:
                     os.startfile(path)  # non-blocking
@@ -47,10 +67,12 @@ class SoundService:
                     raise RuntimeError("playsound dependency missing")
 
             log.success("✅ System sound played", source="SoundService")
+            return True
 
         except Exception as e:
             log.error(f"❌ Playback failed: {e}", source="SoundService")
             self._fallback_beep()
+            return False
 
     def _fallback_beep(self):
         try:

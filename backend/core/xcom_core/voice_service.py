@@ -30,6 +30,9 @@ class VoiceService:
         only be triggered if ``suppress_death_on_error`` in the provider
         configuration is explicitly set to ``False``.
         """
+        """  THIS MUST BE REMOVED """
+        """ return False """
+
         if not self.config.get("enabled"):
             log.warning("Voice provider disabled", source="VoiceService")
             return False

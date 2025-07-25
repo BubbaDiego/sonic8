@@ -45,7 +45,7 @@ class MonitorDetail(BaseModel):
 
 class MonitorStatus(BaseModel):
     """
-    📌 Comprehensive status snapshot of all system monitors.
+    📌 Comprehensive status snapshot of all system monitors including countdown timers.
     """
     monitors: Dict[MonitorType, MonitorDetail] = Field(
         default_factory=lambda: {
@@ -56,6 +56,9 @@ class MonitorStatus(BaseModel):
         },
         description="Current status of all monitored backend components"
     )
+
+    sonic_next: Optional[int] = Field(0, description="Seconds until the next Sonic monitor run")
+    liquid_snooze: Optional[int] = Field(0, description="Seconds remaining for liquidation snooze timer")
 
     def update_monitor(self, monitor_type: MonitorType, status: MonitorHealth, metadata: Dict = None):
         """
@@ -89,12 +92,16 @@ class MonitorStatus(BaseModel):
         🌐 Formats the monitor status into a payload suitable for frontend display.
 
         Returns:
-            dict: Frontend-friendly representation of the monitor statuses.
+            dict: Frontend-friendly representation of the monitor statuses including timers.
         """
         return {
-            monitor.value: {
-                "status": detail.status.value,
-                "last_updated": detail.last_updated.isoformat() if detail.last_updated else "Never",
-                "metadata": detail.metadata
-            } for monitor, detail in self.monitors.items()
+            "monitors": {
+                monitor.value: {
+                    "status": detail.status.value,
+                    "last_updated": detail.last_updated.isoformat() if detail.last_updated else "Never",
+                    "metadata": detail.metadata
+                } for monitor, detail in self.monitors.items()
+            },
+            "sonic_next": self.sonic_next,
+            "liquid_snooze": self.liquid_snooze
         }

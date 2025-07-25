@@ -259,7 +259,10 @@ class CycloneAlertService:
 
     async def run_alert_evaluation(self):
         """Evaluate all alerts and log results in detail"""
-        logger.banner("🔍 Running ALERT EVALUATION ONLY")
+        logger.banner("🔍 Running ALERT EVALUATION ONLY - DISABLED")
+        return
+
+
 
         alerts = self.data_locker.alerts.get_all_alerts()
         if not alerts:

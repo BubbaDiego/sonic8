@@ -146,6 +146,8 @@ class LiquidationMonitor(BaseMonitor):
         cfg = self._get_config()
         positions = self.pos_mgr.get_active_positions()
 
+        log.debug(f"Liquidation cfg: {cfg}", source="LiquidationMonitor")
+
         details = []
         in_danger = []
         for p in positions:

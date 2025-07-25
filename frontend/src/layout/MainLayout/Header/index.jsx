@@ -1,4 +1,4 @@
-// material-ui
+// Header/index.jsx – patched to include TimerSection left of NotificationSection
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Avatar from '@mui/material/Avatar';
@@ -9,6 +9,8 @@ import LogoSection from '../LogoSection';
 import SettingsSection from './SettingsSection';
 import FullScreenSection from './FullScreenSection';
 import ThemeModeSection from './ThemeModeSection';
+import TimerSection from "./TimerSection/TimerSection";
+
 import NotificationSection from './NotificationSection';
 import CycloneRunSection from './CycloneRunSection';
 import ProfitRiskHeaderBadges from 'views/dashboard/ProfitRiskHeaderBadges';
@@ -67,6 +69,9 @@ export default function Header() {
       <ProfitRiskHeaderBadges />
 
       <Box sx={{ flexGrow: 1 }} />
+
+      {/* timers */}
+      <TimerSection />
 
       {/* notification */}
       <NotificationSection />

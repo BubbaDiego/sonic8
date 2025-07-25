@@ -9,7 +9,6 @@ except Exception:  # pragma: no cover - fallback if dotenv is missing
     def load_dotenv(*_a, **_k):
         return False
 
-
 # Load environment variables before importing modules that rely on them
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if not load_dotenv(ROOT_DIR / ".env"):
@@ -45,12 +44,18 @@ app = FastAPI(title="Sonic API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3006", "http://localhost:3000", "*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "*"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Include all existing routers
 app.include_router(positions_router)
 app.include_router(portfolio_router)
 app.include_router(portfolio_api_router)
@@ -59,7 +64,6 @@ app.include_router(wallet_router)
 app.include_router(traders_router)
 app.include_router(threshold_router)
 app.include_router(new_alerts_router, tags=["alerts"])
-app.include_router(monitor_status_router)
 app.include_router(db_admin_router)
 app.include_router(alerts_router)
 app.include_router(xcom_router)
@@ -67,16 +71,18 @@ app.include_router(session_router)
 app.include_router(notification_router)
 app.include_router(monitor_settings_router)
 
+# 🔥 FIXED HERE: REMOVED EXTRA PREFIX "/api"
+app.include_router(monitor_status_router)
+
+
+
 # 🔥 REGISTER THE NEW ROUTER
 app.include_router(monitor_router)
-
 
 @app.get("/api/status")
 async def status():
     return {"status": "FastAPI backend online 🚀"}
 
-
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("backend.sonic_backend_app:app", host="0.0.0.0", port=5000, reload=True)

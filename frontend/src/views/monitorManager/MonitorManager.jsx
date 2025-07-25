@@ -1,48 +1,49 @@
-/* MonitorManager.jsx – Liquidation & Profit monitor configuration page.
-   v2 – July 2025
-   • Liquidation card more compact: asset rows with icons stacked vertically.
-   • New notification selector (System, Voice, SMS) wired to nested `notifications` dict.
-   • Payload shape:
-       {
-         threshold_percent,
-         snooze_seconds,
-         thresholds: { BTC, ETH, SOL },
-         notifications: { system, voice, sms }
-       }
-*/
-
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'utils/axios';
 import {
-  Box,
-  Card,
-  CardContent,
-  CardHeader,
-  TextField,
-  Grid,
-  Button,
-  Snackbar,
-  Alert,
-  Typography,
-  ToggleButton,
-  ToggleButtonGroup,
-  Stack
+  Box, Card, CardContent, CardHeader, TextField, Grid,
+  Button, Snackbar, Alert, Typography, ToggleButton,
+  ToggleButtonGroup, Stack, CircularProgress
 } from '@mui/material';
-import CurrencyBitcoinIcon from '@mui/icons-material/CurrencyBitcoin';
-import CurrencyEthereumIcon from '@mui/icons-material/CurrencyEthereum';
-import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 
+import CurrencyBitcoinIcon from '@mui/icons-material/CurrencyBitcoin';
+import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+
+// Asset Icons
 const ASSETS = [
   { code: 'BTC', Icon: CurrencyBitcoinIcon },
-  { code: 'ETH', Icon: CurrencyEthereumIcon },
+  { code: 'ETH', Icon: AccountBalanceWalletIcon },
   { code: 'SOL', Icon: CurrencyExchangeIcon }
 ];
 
-// -----------------------------------------------------------
+// Circular Countdown Component
+function CircularCountdown({ remaining, total }) {
+  const percent = (remaining / total) * 100;
+
+  return (
+    <Box sx={{ position: 'relative', display: 'inline-flex', mt: 2 }}>
+      <CircularProgress variant="determinate" value={percent} size={80} thickness={4} />
+      <Box
+        sx={{
+          top: 0, left: 0, bottom: 0, right: 0,
+          position: 'absolute', display: 'flex',
+          alignItems: 'center', justifyContent: 'center'
+        }}
+      >
+        <Typography variant="h6" component="div" color="text.secondary">
+          {remaining}s
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
 // Liquidation Monitor Card
-// -----------------------------------------------------------
 function LiquidationSettings({ cfg = {}, setCfg }) {
-  /* Normalise state shape */
+  const [remaining, setRemaining] = useState(0);
+  const [isCounting, setIsCounting] = useState(false);
+
   const normCfg = useMemo(() => ({
     threshold_percent: cfg.threshold_percent ?? '',
     snooze_seconds: cfg.snooze_seconds ?? '',
@@ -50,7 +51,27 @@ function LiquidationSettings({ cfg = {}, setCfg }) {
     notifications: { system: true, voice: true, sms: false, ...(cfg.notifications || {}) }
   }), [cfg]);
 
-  // --- Handlers ----------------------------------------------------
+  useEffect(() => {
+    let timer;
+    if (isCounting && remaining > 0) {
+      timer = setInterval(() => {
+        setRemaining(prev => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    } else if (remaining === 0) {
+      setIsCounting(false);
+    }
+    return () => clearInterval(timer);
+  }, [isCounting, remaining]);
+
+  const startSnooze = () => {
+    const duration = parseInt(normCfg.snooze_seconds, 10);
+    if (duration > 0) {
+      setRemaining(duration);
+      setIsCounting(true);
+    }
+  };
+
+  // Handlers
   const handleGlobalChange = (e) => {
     const { name, value } = e.target;
     setCfg(prev => ({ ...prev, [name]: value }));
@@ -79,13 +100,11 @@ function LiquidationSettings({ cfg = {}, setCfg }) {
     .filter(([k, v]) => v)
     .map(([k]) => k);
 
-  // --- Render ------------------------------------------------------
   return (
     <Card variant='outlined'>
       <CardHeader title='Liquidation Monitor' subheader='Global threshold & snooze' />
       <CardContent>
         <Grid container spacing={2}>
-          {/* Global fields */}
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
@@ -108,7 +127,6 @@ function LiquidationSettings({ cfg = {}, setCfg }) {
             />
           </Grid>
 
-          {/* Asset‑specific thresholds */}
           <Grid item xs={12} md={6}>
             {ASSETS.map(({ code, Icon }) => (
               <Stack key={code} direction='row' spacing={1} alignItems='center' sx={{ mb: 1 }}>
@@ -125,7 +143,6 @@ function LiquidationSettings({ cfg = {}, setCfg }) {
             ))}
           </Grid>
 
-          {/* Notification toggle buttons */}
           <Grid item xs={12} md={6}>
             <Typography variant='subtitle2' gutterBottom>Notifications</Typography>
             <ToggleButtonGroup
@@ -139,15 +156,23 @@ function LiquidationSettings({ cfg = {}, setCfg }) {
               <ToggleButton value='sms'>SMS</ToggleButton>
             </ToggleButtonGroup>
           </Grid>
+
+          <Grid item xs={12}>
+            {isCounting ? (
+              <CircularCountdown remaining={remaining} total={normCfg.snooze_seconds} />
+            ) : (
+              <Button variant="outlined" onClick={startSnooze}>
+                Start Snooze Countdown
+              </Button>
+            )}
+          </Grid>
         </Grid>
       </CardContent>
     </Card>
   );
 }
 
-// -----------------------------------------------------------
 // Profit Monitor Card (unchanged)
-// -----------------------------------------------------------
 function ProfitSettings({ cfg, setCfg }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -158,61 +183,30 @@ function ProfitSettings({ cfg, setCfg }) {
       <CardHeader title='Profit Monitor' subheader='Single & portfolio profit thresholds' />
       <CardContent>
         <Grid container spacing={2}>
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label='Single Profit HIGH ($)'
-              name='single_high'
-              value={cfg.single_high ?? ''}
-              onChange={handleChange}
-              type='number'
-            />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label='Portfolio Profit HIGH ($)'
-              name='portfolio_high'
-              value={cfg.portfolio_high ?? ''}
-              onChange={handleChange}
-              type='number'
-            />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label='Single Profit LOW ($)'
-              name='single_low'
-              value={cfg.single_low ?? ''}
-              onChange={handleChange}
-              type='number'
-            />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label='Portfolio Profit LOW ($)'
-              name='portfolio_low'
-              value={cfg.portfolio_low ?? ''}
-              onChange={handleChange}
-              type='number'
-            />
-          </Grid>
+          {['single_high', 'portfolio_high', 'single_low', 'portfolio_low'].map((field, idx) => (
+            <Grid key={field} item xs={6}>
+              <TextField
+                fullWidth
+                label={`${field.replace('_', ' ').toUpperCase()} ($)`}
+                name={field}
+                value={cfg[field] ?? ''}
+                onChange={handleChange}
+                type='number'
+              />
+            </Grid>
+          ))}
         </Grid>
       </CardContent>
     </Card>
   );
 }
 
-// -----------------------------------------------------------
 // Outer page wrapper
-// -----------------------------------------------------------
 export default function MonitorManager() {
   const [liqCfg, setLiqCfg] = useState({});
   const [profitCfg, setProfitCfg] = useState({});
   const [toast, setToast] = useState('');
 
-  // Fetch on mount
   useEffect(() => {
     axios.get('/api/monitor-settings/liquidation').then(r => setLiqCfg(r.data));
     axios.get('/api/monitor-settings/profit').then(r => setProfitCfg(r.data));
@@ -240,14 +234,13 @@ export default function MonitorManager() {
           </Button>
         </Grid>
       </Grid>
-
       <Snackbar
         open={!!toast}
         autoHideDuration={3000}
         onClose={() => setToast('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert severity='success' sx={{ width: '100%' }}>{toast}</Alert>
+        <Alert severity='success'>{toast}</Alert>
       </Snackbar>
     </Box>
   );

@@ -42,6 +42,17 @@ export default function SettingsSection() {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef(null);
 
+  // ---------- 👋 Dynamic greeting logic (2 am–10 am / 10 am–6 pm / 6 pm–2 am) ----------
+  const getGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr >= 2 && hr < 10) return 'Good Morning';
+    if (hr >= 10 && hr < 18) return 'Good Day';
+    return 'Good Evening';
+  };
+  const greeting = getGreeting();
+  const displayName = 'Bubba'; // Always greet the boss as Bubba
+  // ---------- end greeting logic ----------
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -117,12 +128,23 @@ export default function SettingsSection() {
                   <MainCard elevation={16} boxShadow shadow={theme.shadows[16]}>
                     <Box sx={{ p: 2, pb: 0 }}>
                       <Stack>
+                        {/* ---------- Original static greeting preserved (now commented) ---------- */}
+                        {/*
                         <Stack direction="row" spacing={0.5} alignItems="center">
                           <Typography variant="h4">Good Morning,</Typography>
                           <Typography variant="h4" sx={{ fontWeight: 400 }}>
                             {user?.name}
                           </Typography>
                         </Stack>
+                        */}
+                        {/* ---------- New dynamic greeting ---------- */}
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Typography variant="h4">{greeting},</Typography>
+                          <Typography variant="h4" sx={{ fontWeight: 400 }}>
+                            {displayName}
+                          </Typography>
+                        </Stack>
+                        {/* ---------- end dynamic greeting ---------- */}
                         <Typography variant="subtitle2">Project Admin</Typography>
                       </Stack>
                       <Divider />
@@ -165,19 +187,18 @@ export default function SettingsSection() {
                           </ListItemIcon>
                           <ListItemText primary={<Typography variant="body2"><FormattedMessage id="social-profile" /></Typography>} />
                         </ListItemButton>
-<ListItemButton
-  selected={selectedIndex === 3}
-  onClick={(e) => handleListItemClick(e, 2, '/communications/xcom')}
->
-  <ListItemIcon>
-    <IconAntennaBars5 stroke={1.5} size="20px" />
-  </ListItemIcon>
-  <ListItemText primary={<Typography variant="body2">XCom Settings</Typography>} />
-</ListItemButton>
-
                         <ListItemButton
-                            selected={selectedIndex === 3}
-                            onClick={(e) => handleListItemClick(e, 3, '/debug/db')}
+                          selected={selectedIndex === 3}
+                          onClick={(e) => handleListItemClick(e, 2, '/communications/xcom')}
+                        >
+                          <ListItemIcon>
+                            <IconAntennaBars5 stroke={1.5} size="20px" />
+                          </ListItemIcon>
+                          <ListItemText primary={<Typography variant="body2">XCom Settings</Typography>} />
+                        </ListItemButton>
+                        <ListItemButton
+                          selected={selectedIndex === 3}
+                          onClick={(e) => handleListItemClick(e, 3, '/debug/db')}
                         >
                           <ListItemIcon>
                             <IconDatabase stroke={1.5} size="20px" />

@@ -19,8 +19,14 @@ class XComCore:
         self.log = []
 
     def send_notification(
-            self, level: str, subject: str, body: str, recipient: str = "",
-            initiator: str = "system"
+            self,
+            level: str,
+            subject: str,
+            body: str,
+            recipient: str = "",
+            initiator: str = "system",
+            mode: str | None = None,
+            **kwargs
     ):
         email_cfg = self.config_service.get_provider("email") or {}
         sms_cfg = self.config_service.get_provider("sms") or {}
@@ -89,23 +95,27 @@ class XComCore:
             "results": results
         })
 
-        success = any(v is True for v in results.values()) and error_msg is None
+        # ------------------------------------------------------------------ #
+        # Persist a row even if no provider succeeds
+        # ------------------------------------------------------------------ #
+        success = error_msg is None  # only fail when an exception occurs
 
-        if success:
-            try:
-                dl = DataLocker.get_instance()
-                comm_type = ",".join(
-                    [k for k in ("email", "sms", "voice", "sound") if results.get(k)]
-                )
-                NotificationService(dl.db).insert(
-                    level=level,
-                    subject=subject,
-                    body=body,
-                    initiator=initiator,
-                    comm_type=comm_type,
-                )
-            except Exception as e:  # pragma: no cover - best effort
-                log.error(f"🧨 Failed to write notification: {e}", source="XComCore")
+        comm_type = ",".join(
+            [k for k in ("email", "sms", "voice", "sound") if results.get(k)]
+        ) or "system"
+
+        try:
+            dl = DataLocker.get_instance()
+            NotificationService(dl.db).insert(
+                level=level,
+                subject=subject,
+                body=body,
+                initiator=initiator,
+                comm_type=comm_type,
+            )
+        except Exception as e:
+            log.error(f"🧨 Failed to write notification: {e}", source="XComCore")
+            log.error(f"🧨 Failed to write notification: {e}", source="XComCore")
 
         try:
             from data.data_locker import DataLocker

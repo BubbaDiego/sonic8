@@ -32,7 +32,8 @@ class BaseMonitor:
                 metadata=result
             )
 
-            log.success(f"{self.name} completed successfully.", source=self.name)
+            if status == "Success":
+                log.success(f"{self.name} completed successfully.", source=self.name)
 
         except Exception as e:
             log.error(f"{self.name} failed: {e}", source=self.name)

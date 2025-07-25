@@ -105,7 +105,7 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     # Run price, profit and risk monitors after the Cyclone cycle
     await asyncio.to_thread(cyclone.monitor_core.run_by_name, "price_monitor")
     await asyncio.to_thread(cyclone.monitor_core.run_by_name, "profit_monitor")
-    await asyncio.to_thread(cyclone.monitor_core.run_by_name, "risk_monitor")
+   # await asyncio.to_thread(cyclone.monitor_core.run_by_name, "risk_monitor")
     await asyncio.to_thread(cyclone.monitor_core.run_by_name, "liquid_monitor")
 
     await asyncio.to_thread(orch.run_cycle)
@@ -115,7 +115,7 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
 
 
 def main():
-    loop_counter = 0
+    loop_counter = 00000000000000000
 
     from backend.core.monitor_core.monitor_core import MonitorCore
 
