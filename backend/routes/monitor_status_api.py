@@ -75,13 +75,7 @@ def get_status(dl: DataLocker = Depends(get_app_locker)) -> MonitorStatus:
 
     # Liquidation snooze timer calculation (safe handling)
     try:
-        liq_cfg = dl.system.get_var("liquid_monitor") or {}
-        last_alert_ts = liq_cfg.get("_last_alert_ts")
-        snooze_seconds = liq_cfg.get("snooze_seconds", 600)
-        if last_alert_ts:
-            liquid_snooze = max(0, int(last_alert_ts + snooze_seconds - now))
-        else:
-            liquid_snooze = 0
+        liquid_snooze = get_liquidation_snooze(dl)
     except Exception:
         liquid_snooze = 0
 

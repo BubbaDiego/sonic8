@@ -220,4 +220,15 @@ class LiquidationMonitor(BaseMonitor):
             )
 
         self._last_alert_ts = datetime.now(timezone.utc)
+        # Persist last alert timestamp for cross-process visibility
+        try:
+            cfg_record = self.dl.system.get_var("liquid_monitor") or {}
+            cfg_record["_last_alert_ts"] = self._last_alert_ts.timestamp()
+            self.dl.system.set_var("liquid_monitor", cfg_record)
+        except Exception as e:  # pragma: no cover - best effort persistence
+            log.warning(
+                f"Failed to persist last alert timestamp: {e}",
+                source="LiquidationMonitor",
+            )
+
         return {**summary, "status": "Success", "alert_sent": True}
