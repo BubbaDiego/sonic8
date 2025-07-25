@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
+import types
+
 import backend.sonic_backend_app as app_module
 from backend.data.data_locker import DataLocker
+from backend.core.monitor_core import liquidation_monitor
 
 
 def test_monitor_status_update(monkeypatch, tmp_path):
@@ -21,4 +24,50 @@ def test_monitor_status_update(monkeypatch, tmp_path):
     assert resp.status_code == 200
     detail = resp.json()
     assert detail["status"] == "Healthy"
+
+
+def test_liquid_snooze_countdown(monkeypatch, tmp_path):
+    db_path = tmp_path / "test.db"
+    dl = DataLocker(str(db_path))
+    monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls: dl))
+    # Ensure deterministic config with notifications disabled
+    dl.system.set_var(
+        "liquid_monitor",
+        {
+            "threshold_percent": 5.0,
+            "snooze_seconds": 60,
+            "thresholds": {"BTC": 5.0},
+            "notifications": {"system": False, "voice": False, "sms": False},
+        },
+    )
+
+    # Patch monitor dependencies
+    class FakePM:
+        def get_active_positions(self):
+            return [
+                types.SimpleNamespace(
+                    liquidation_distance=4.0,
+                    asset_type="BTC",
+                    position_type="LONG",
+                    current_price=100.0,
+                    liquidation_price=95.0,
+                )
+            ]
+
+    monkeypatch.setattr(liquidation_monitor, "DLPositionManager", lambda db: FakePM())
+    monkeypatch.setattr(
+        liquidation_monitor,
+        "XComCore",
+        lambda _dl: types.SimpleNamespace(send_notification=lambda *a, **k: None),
+    )
+
+    monitor = liquidation_monitor.LiquidationMonitor()
+    result = monitor._do_work()
+    assert result["alert_sent"] is True
+
+    client = TestClient(app_module.app)
+    resp = client.get("/monitor_status/")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["liquid_snooze"] > 0
 
