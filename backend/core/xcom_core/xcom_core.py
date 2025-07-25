@@ -11,7 +11,6 @@ from backend.core.xcom_core.voice_service import VoiceService
 from backend.core.xcom_core.sound_service import SoundService
 from backend.data.data_locker import DataLocker
 from backend.core.logging import log
-from backend.core.notification_service import NotificationService
 
 class XComCore:
     def __init__(self, dl_sys_data_manager):
@@ -106,12 +105,12 @@ class XComCore:
 
         try:
             dl = DataLocker.get_instance()
-            NotificationService(dl.db).insert(
+            dl.notifications.insert(
+                monitor="xcom_monitor",
                 level=level,
                 subject=subject,
                 body=body,
-                initiator=initiator,
-                comm_type=comm_type,
+                metadata={"initiator": initiator, "comm_type": comm_type},
             )
         except Exception as e:
             log.error(f"🧨 Failed to write notification: {e}", source="XComCore")

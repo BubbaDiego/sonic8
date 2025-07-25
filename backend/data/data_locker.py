@@ -342,9 +342,23 @@ class DataLocker:
     theme_active_profile TEXT,        -- ✅ ADD THIS TOO
     strategy_start_value REAL,
     strategy_description TEXT
-)
-    
+            )
+
         """,
+            "sonic_monitor_log": """
+                CREATE TABLE IF NOT EXISTS sonic_monitor_log (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    monitor_name TEXT    NOT NULL,
+                    level        TEXT    CHECK(level IN ('LOW','MEDIUM','HIGH')),
+                    subject      TEXT    NOT NULL,
+                    body         TEXT    NOT NULL,
+                    metadata     TEXT,
+                    read         INTEGER DEFAULT 0,
+                    created_at   TIMESTAMP DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_sonic_log_time
+                    ON sonic_monitor_log(created_at DESC);
+            """,
         }
 
         def _ensure_column(cursor, table, column_def):
@@ -940,3 +954,15 @@ class DataLocker:
     def read_table(self, name: str, limit: int = 200) -> list:
         """Convenience wrapper for ``DatabaseManager.read_table``."""
         return self.db.read_table(name, limit)
+
+    # ------------------------------------------------------------------ #
+    # Lazy helpers
+    # ------------------------------------------------------------------ #
+    @property
+    def notifications(self):
+        """Return a singleton ``DLNotificationManager``."""
+        from backend.data.dl_notification_manager import DLNotificationManager
+
+        if not hasattr(self, "_notif_mgr"):
+            self._notif_mgr = DLNotificationManager(self.db)
+        return self._notif_mgr
