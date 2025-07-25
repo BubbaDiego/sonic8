@@ -1,6 +1,6 @@
-"""NotificationService backed by sonic_monitor_log."""
+"""New NotificationService backed by sonic_monitor_log."""
 
-from typing import Any, Dict, List
+from typing import List, Dict
 import sqlite3
 
 from backend.data.dl_notification_manager import DLNotificationManager
@@ -9,13 +9,11 @@ from backend.data.dl_notification_manager import DLNotificationManager
 class NotificationService:
     """Drop-in replacement for legacy service using sonic_monitor_log."""
 
-    def __init__(self, db: sqlite3.Connection | any) -> None:
-        # Accept DatabaseManager or raw connection
-        conn = db.connect() if hasattr(db, "connect") else db
-        self._mgr = DLNotificationManager(conn)
+    def __init__(self, db: sqlite3.Connection) -> None:
+        self._mgr = DLNotificationManager(db)
 
     # -------- public API -------------------------------------------------- #
-    def list(self, status: str = "all", limit: int = 50) -> List[Dict[str, Any]]:
+    def list(self, status: str = "all", limit: int = 50) -> List[Dict]:
         return self._mgr.list(status=status, limit=limit)
 
     def unread_count(self) -> int:
