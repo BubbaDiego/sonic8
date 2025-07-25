@@ -4,7 +4,7 @@
 > Author: `CoreOps 🥷`
 > Scope: Monitor orchestrator and supporting monitors.
 > Runs within Cyclone Engine cycles, persisting output to DataLocker and routing notifications through XCom.
-
+[MonitorManager.jsx](../../../frontend/src/views/monitorManager/MonitorManager.jsx)
 ---
 
 ## 📂 Module Structure
@@ -18,7 +18,7 @@ monitor/[xcom_core_spec.md](../xcom_core/xcom_core_spec.md)
 ├── position_monitor.py     # 📈 Syncs and enriches positions
 ├── operations_monitor.py   # 🧪 Startup POST tests and health checks
 ├── xcom_monitor.py        # 📡 Sends a lightweight XCom notification
-├── twilio_monitor.py      # 🔔 Verifies Twilio credentials
+├── twilio_monitor.py      # [monitor_core_spec.md](../../../../Users/bubba/AppData/Local/Temp/monitor_core_spec.md)🔔 Verifies Twilio credentials
 ├── latency_monitor.py      # ⏱️ External API latency checker
 ├── profit_monitor.py       # 💰 Triggers alerts on accumulated profit
 ├── risk_monitor.py         # 🔥 Detects high heat index on positions

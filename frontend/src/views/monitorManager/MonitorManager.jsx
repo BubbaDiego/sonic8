@@ -7,28 +7,33 @@ import {
 } from '@mui/material';
 
 import CurrencyBitcoinIcon from '@mui/icons-material/CurrencyBitcoin';
-import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 
-// Asset Icons
+// ─────────────────────────────────────────────────────────────────────────────
+//  Constants
+// ─────────────────────────────────────────────────────────────────────────────
 const ASSETS = [
   { code: 'BTC', Icon: CurrencyBitcoinIcon },
   { code: 'ETH', Icon: AccountBalanceWalletIcon },
   { code: 'SOL', Icon: CurrencyExchangeIcon }
 ];
 
-// Circular Countdown Component
+// ─────────────────────────────────────────────────────────────────────────────
+//  Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 function CircularCountdown({ remaining, total }) {
-  const percent = (remaining / total) * 100;
-
+  const pct = (remaining / total) * 100;
   return (
-    <Box sx={{ position: 'relative', display: 'inline-flex', mt: 2 }}>
-      <CircularProgress variant="determinate" value={percent} size={80} thickness={4} />
+    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+      <CircularProgress value={pct} variant="determinate" size={80} thickness={4} />
       <Box
         sx={{
           top: 0, left: 0, bottom: 0, right: 0,
-          position: 'absolute', display: 'flex',
-          alignItems: 'center', justifyContent: 'center'
+          position: 'absolute',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
       >
         <Typography variant="h6" component="div" color="text.secondary">
@@ -39,159 +44,165 @@ function CircularCountdown({ remaining, total }) {
   );
 }
 
-// Liquidation Monitor Card
-function LiquidationSettings({ cfg = {}, setCfg }) {
-  const [remaining, setRemaining] = useState(0);
-  const [isCounting, setIsCounting] = useState(false);
-
+// ─────────────────────────────────────────────────────────────────────────────
+//  Left‑hand card – per‑asset thresholds + notifications
+// ─────────────────────────────────────────────────────────────────────────────
+function AssetThresholdCard({ cfg, setCfg }) {
   const normCfg = useMemo(() => ({
-    threshold_percent: cfg.threshold_percent ?? '',
-    snooze_seconds: cfg.snooze_seconds ?? '',
     thresholds: { BTC: '', ETH: '', SOL: '', ...(cfg.thresholds || {}) },
     notifications: { system: true, voice: true, sms: false, ...(cfg.notifications || {}) }
   }), [cfg]);
 
-  useEffect(() => {
-    let timer;
-    if (isCounting && remaining > 0) {
-      timer = setInterval(() => {
-        setRemaining(prev => (prev > 0 ? prev - 1 : 0));
-      }, 1000);
-    } else if (remaining === 0) {
-      setIsCounting(false);
-    }
-    return () => clearInterval(timer);
-  }, [isCounting, remaining]);
-
-  const startSnooze = () => {
-    const duration = parseInt(normCfg.snooze_seconds, 10);
-    if (duration > 0) {
-      setRemaining(duration);
-      setIsCounting(true);
-    }
-  };
-
-  // Handlers
-  const handleGlobalChange = (e) => {
-    const { name, value } = e.target;
-    setCfg(prev => ({ ...prev, [name]: value }));
-  };
-
   const handleThresholdChange = (asset) => (e) => {
-    const value = e.target.value;
     setCfg(prev => ({
       ...prev,
-      thresholds: { ...(prev.thresholds || {}), [asset]: value }
+      thresholds: { ...(prev.thresholds || {}), [asset]: e.target.value }
     }));
   };
 
-  const handleNotifChange = (event, selections) => {
+  const handleNotifChange = (_, selections) => {
     setCfg(prev => ({
       ...prev,
       notifications: {
         system: selections.includes('system'),
-        voice: selections.includes('voice'),
-        sms: selections.includes('sms')
+        voice  : selections.includes('voice'),
+        sms    : selections.includes('sms')
       }
     }));
   };
 
   const selectedNotifs = Object.entries(normCfg.notifications)
-    .filter(([k, v]) => v)
-    .map(([k]) => k);
+    .filter(([, v]) => v).map(([k]) => k);
 
   return (
-    <Card variant='outlined'>
-      <CardHeader title='Liquidation Monitor' subheader='Global threshold & snooze' />
+    <Card variant="outlined">
+      <CardHeader title="Asset Thresholds" subheader="Liquid distance per asset" />
       <CardContent>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
+        {ASSETS.map(({ code, Icon }) => (
+          <Stack key={code} direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+            <Icon fontSize="small" />
             <TextField
               fullWidth
-              label='Threshold %'
-              name='threshold_percent'
-              value={normCfg.threshold_percent}
-              onChange={handleGlobalChange}
-              type='number'
-              inputProps={{ step: '0.1' }}
+              label={`${code} Threshold`}
+              type="number"
+              size="small"
+              value={normCfg.thresholds[code]}
+              onChange={handleThresholdChange(code)}
             />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label='Snooze (seconds)'
-              name='snooze_seconds'
-              value={normCfg.snooze_seconds}
-              onChange={handleGlobalChange}
-              type='number'
-            />
-          </Grid>
+          </Stack>
+        ))}
 
-          <Grid item xs={12} md={6}>
-            {ASSETS.map(({ code, Icon }) => (
-              <Stack key={code} direction='row' spacing={1} alignItems='center' sx={{ mb: 1 }}>
-                <Icon fontSize='small' />
-                <TextField
-                  fullWidth
-                  label={`${code} Threshold`}
-                  value={normCfg.thresholds[code]}
-                  onChange={handleThresholdChange(code)}
-                  type='number'
-                  size='small'
-                />
-              </Stack>
-            ))}
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Typography variant='subtitle2' gutterBottom>Notifications</Typography>
-            <ToggleButtonGroup
-              value={selectedNotifs}
-              onChange={handleNotifChange}
-              aria-label='notification types'
-              size='small'
-            >
-              <ToggleButton value='system'>System</ToggleButton>
-              <ToggleButton value='voice'>Voice</ToggleButton>
-              <ToggleButton value='sms'>SMS</ToggleButton>
-            </ToggleButtonGroup>
-          </Grid>
-
-          <Grid item xs={12}>
-            {isCounting ? (
-              <CircularCountdown remaining={remaining} total={normCfg.snooze_seconds} />
-            ) : (
-              <Button variant="outlined" onClick={startSnooze}>
-                Start Snooze Countdown
-              </Button>
-            )}
-          </Grid>
-        </Grid>
+        <Typography variant="subtitle2" sx={{ mt: 2 }}>
+          Notifications
+        </Typography>
+        <ToggleButtonGroup
+          size="small"
+          value={selectedNotifs}
+          onChange={handleNotifChange}
+          aria-label="notification types"
+        >
+          <ToggleButton value="system">System</ToggleButton>
+          <ToggleButton value="voice">Voice</ToggleButton>
+          <ToggleButton value="sms">SMS</ToggleButton>
+        </ToggleButtonGroup>
       </CardContent>
     </Card>
   );
 }
 
-// Profit Monitor Card (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
+//  Right‑hand card – global threshold %, snooze, start‑snooze button
+// ─────────────────────────────────────────────────────────────────────────────
+function GlobalSnoozeCard({ cfg, setCfg }) {
+  const [remaining, setRemaining] = useState(0);
+  const [running,   setRunning]   = useState(false);
+
+  const thresh = cfg.threshold_percent ?? '';
+  const snooze = cfg.snooze_seconds   ?? '';
+
+  // start countdown
+  const start = () => {
+    const sec = parseInt(snooze, 10);
+    if (sec > 0) {
+      setRemaining(sec);
+      setRunning(true);
+    }
+  };
+
+  // ticking effect
+  React.useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => {
+      setRemaining(prev => {
+        if (prev <= 1) { setRunning(false); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const onChange = (e) => {
+    const { name, value } = e.target;
+    setCfg(prev => ({ ...prev, [name]: value }));
+  };
+
+  return (
+    <Card variant="outlined">
+      <CardHeader title="Global Threshold & Snooze" />
+      <CardContent>
+        <Stack spacing={2}>
+          <TextField
+            label="Threshold %"
+            type="number"
+            name="threshold_percent"
+            value={thresh}
+            onChange={onChange}
+            inputProps={{ step: '0.1' }}
+          />
+          <TextField
+            label="Snooze (seconds)"
+            type="number"
+            name="snooze_seconds"
+            value={snooze}
+            onChange={onChange}
+          />
+
+          {running ? (
+            <CircularCountdown remaining={remaining} total={snooze || 1} />
+          ) : (
+            <Button variant="outlined" onClick={start}>
+              Start Snooze Countdown
+            </Button>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Profit Monitor card (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
 function ProfitSettings({ cfg, setCfg }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setCfg(prev => ({ ...prev, [name]: value }));
   };
+
   return (
-    <Card variant='outlined'>
-      <CardHeader title='Profit Monitor' subheader='Single & portfolio profit thresholds' />
+    <Card variant="outlined">
+      <CardHeader title="Profit Monitor" subheader="Single & portfolio profit thresholds" />
       <CardContent>
         <Grid container spacing={2}>
-          {['single_high', 'portfolio_high', 'single_low', 'portfolio_low'].map((field, idx) => (
-            <Grid key={field} item xs={6}>
+          {['single_high', 'portfolio_high', 'single_low', 'portfolio_low'].map((field) => (
+            <Grid item xs={6} key={field}>
               <TextField
                 fullWidth
                 label={`${field.replace('_', ' ').toUpperCase()} ($)`}
                 name={field}
+                type="number"
                 value={cfg[field] ?? ''}
                 onChange={handleChange}
-                type='number'
               />
             </Grid>
           ))}
@@ -201,46 +212,57 @@ function ProfitSettings({ cfg, setCfg }) {
   );
 }
 
-// Outer page wrapper
+// ─────────────────────────────────────────────────────────────────────────────
+//  Main page component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function MonitorManager() {
-  const [liqCfg, setLiqCfg] = useState({});
+  const [liqCfg,    setLiqCfg]    = useState({});
   const [profitCfg, setProfitCfg] = useState({});
-  const [toast, setToast] = useState('');
+  const [toast,     setToast]     = useState('');
 
+  // initial fetch
   useEffect(() => {
     axios.get('/api/monitor-settings/liquidation').then(r => setLiqCfg(r.data));
     axios.get('/api/monitor-settings/profit').then(r => setProfitCfg(r.data));
   }, []);
 
-  const save = async () => {
+  const saveAll = async () => {
     await axios.post('/api/monitor-settings/liquidation', liqCfg);
-    await axios.post('/api/monitor-settings/profit', profitCfg);
+    await axios.post('/api/monitor-settings/profit',      profitCfg);
     setToast('Settings saved');
   };
 
   return (
     <Box p={3}>
-      <Typography variant='h4' gutterBottom>Monitor Manager</Typography>
+      <Typography variant="h4" gutterBottom>Monitor Manager</Typography>
+
       <Grid container spacing={3}>
+        {/* Liquidation monitor section split in two cards */}
         <Grid item xs={12} md={6}>
-          <LiquidationSettings cfg={liqCfg} setCfg={setLiqCfg} />
+          <AssetThresholdCard cfg={liqCfg} setCfg={setLiqCfg} />
         </Grid>
         <Grid item xs={12} md={6}>
+          <GlobalSnoozeCard  cfg={liqCfg} setCfg={setLiqCfg} />
+        </Grid>
+
+        {/* Profit monitor */}
+        <Grid item xs={12}>
           <ProfitSettings cfg={profitCfg} setCfg={setProfitCfg} />
         </Grid>
+
+        {/* Save button */}
         <Grid item xs={12}>
-          <Button variant='contained' color='primary' onClick={save}>
-            Save All
-          </Button>
+          <Button variant="contained" onClick={saveAll}>Save All</Button>
         </Grid>
       </Grid>
+
       <Snackbar
         open={!!toast}
         autoHideDuration={3000}
         onClose={() => setToast('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert severity='success'>{toast}</Alert>
+        <Alert severity="success">{toast}</Alert>
       </Snackbar>
     </Box>
   );
