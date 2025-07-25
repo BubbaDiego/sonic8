@@ -1,0 +1,11 @@
+
+--- a/backend/core/monitor_core/monitor_core.py
++++ b/backend/core/monitor_core/monitor_core.py
+@@
+ from backend.core.monitor_core.liquidation_monitor import LiquidationMonitor
++# NEW →
++from backend.core.monitor_core.market_monitor import MarketMonitor
+@@
+             self.registry.register("liquid_monitor", LiquidationMonitor())
++            # Register the new MarketMonitor
++            self.registry.register("market_monitor", MarketMonitor())

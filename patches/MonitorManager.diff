@@ -1,0 +1,19 @@
+
+--- a/MonitorManager.jsx
++++ b/MonitorManager.jsx
+@@
+   const [profitCfg, setProfitCfg] = useState({});
++  const [marketCfg, setMarketCfg] = useState({});
+@@
+   useEffect(() => {
+@@
+     axios.get('/api/monitor-settings/profit').then(r => setProfitCfg(r.data));
++    axios.get('/api/monitor-settings/market').then(r => setMarketCfg(r.data));
+@@
++        {/* Blast radius buttons would be rendered next to each asset threshold */}
++        {/* Example: <Button onClick={() => setLiqCfg(prev=>({...prev, thresholds:{...prev.thresholds, BTC: marketCfg.blast_radius?.BTC}}))}>BR</Button> */}
+@@
+   const saveAll = async () => {
+@@
+     await axios.post('/api/monitor-settings/profit',      profitCfg);
++    await axios.post('/api/monitor-settings/market',      marketCfg);

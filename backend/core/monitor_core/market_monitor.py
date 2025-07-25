@@ -1,0 +1,88 @@
+
+from datetime import datetime, timezone
+from backend.core.monitor_core.base_monitor import BaseMonitor
+from backend.data.data_locker import DataLocker
+from backend.core.market_core.daily_swing_service import DailySwingService
+
+class MarketMonitor(BaseMonitor):
+    name = "market_monitor"
+    ASSETS = ["BTC", "ETH", "SOL"]
+
+    def __init__(self):
+        super().__init__(name=self.name, ledger_filename="market_monitor_ledger.json")
+        self.dl = DataLocker.get_instance()
+        self.swing = DailySwingService()
+
+    # ------------------------------------------------------------------
+    # Config helpers
+    # ------------------------------------------------------------------
+    def _cfg(self):
+        cfg = self.dl.system.get_var("market_monitor") or {}
+        # default scaffold
+        cfg.setdefault("baseline", {})
+        cfg.setdefault("thresholds", {})
+        cfg.setdefault("blast_radius", {})
+        cfg.setdefault("blast_filters", {"window": "24h", "exchange": "coingecko"})
+        # ensure nested defaults
+        for asset in self.ASSETS:
+            cfg["baseline"].setdefault(asset, {
+                "price": self.dl.get_latest_price(asset).get("current_price") or 0,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "mode": "EITHER"
+            })
+            cfg["thresholds"].setdefault(asset, 5.0)
+            cfg["blast_radius"].setdefault(asset, 0.0)
+        return cfg
+
+    def _save_cfg(self, cfg):
+        self.dl.system.set_var("market_monitor", cfg)
+
+    # ------------------------------------------------------------------
+    # BaseMonitor override
+    # ------------------------------------------------------------------
+    def _do_work(self):
+        cfg = self._cfg()
+        prices = {a: self.dl.get_latest_price(a).get("current_price") for a in self.ASSETS}
+        hi_lo = self.swing.fetch(self.ASSETS)
+
+        detail = []
+        triggered_any = False
+
+        for a in self.ASSETS:
+            baseline = cfg["baseline"][a]["price"]
+            mode = cfg["baseline"][a]["mode"]
+            pct_move = ((prices[a] - baseline) / baseline) * 100 if baseline else 0.0
+            threshold = cfg["thresholds"][a]
+
+            hit = (
+                (mode == "UP" and pct_move >= threshold) or
+                (mode == "DOWN" and pct_move <= -threshold) or
+                (mode == "EITHER" and abs(pct_move) >= threshold)
+            )
+            triggered_any |= hit
+
+            hi, lo = hi_lo[a]["high"], hi_lo[a]["low"]
+            if lo:
+                br = (hi - lo) / lo * 100
+            else:
+                br = 0.0
+            cfg["blast_radius"][a] = br
+
+            detail.append({
+                "asset": a,
+                "price": prices[a],
+                "pct_move": round(pct_move, 4),
+                "baseline": baseline,
+                "blast_radius": round(br, 4),
+                "trigger": hit
+            })
+
+        # persist updated blast radius
+        self._save_cfg(cfg)
+
+        return {
+            "status": "Success",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "trigger_any": triggered_any,
+            "details": detail
+        }

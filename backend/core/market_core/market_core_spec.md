@@ -34,7 +34,7 @@ run_full_price_sync(source="user") -> dict
 - **MonitorCore** – `PriceMonitor` invokes this service during monitor cycles.
 - **CycloneEngine** – `run_market_updates()` offloads execution to this service.
 - **Learning DB** – price ticks are logged via `log_learning_event` when available.
-- **PositionsCore** – enrichment services rely on the stored prices for calculations.
+- **PositionsC[monitor_api_adapter.py](../../routes/monitor_api_adapter.py)ore** – enrichment services rely on the stored prices for calculations.
 
 ### ↔️ Expected Inputs & Outputs
 - **Input**: a `DataLocker` instance and optional `source` string.

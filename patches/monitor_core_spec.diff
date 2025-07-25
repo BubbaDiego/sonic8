@@ -1,0 +1,5 @@
+
+--- a/monitor_core_spec.md
++++ b/monitor_core_spec.md
+@@
+ | `market_monitor` | `MarketMonitor` | Price %‑move triggers + blast‑radius calc. |  | Ledger only |
