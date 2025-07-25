@@ -48,7 +48,10 @@ export default function TimerSection() {
         const { data } = await axios.get('/api/monitor-status/');
         setSonic(Math.max(0, Math.floor(data?.sonic_next    ?? 0)));
         setSnooze(Math.max(0, Math.floor(data?.liquid_snooze ?? 0)));
-      } catch (_) { /* ignore */ }
+      } catch (err) {
+        // Log the error so failed requests are visible during debugging
+        console.error('Failed to fetch monitor status:', err);
+      }
       handle = setTimeout(poll, POLL_MS);
     };
     poll();
