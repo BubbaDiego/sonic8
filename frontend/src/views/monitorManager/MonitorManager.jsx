@@ -47,16 +47,24 @@ function CircularCountdown({ remaining, total }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  Left‑hand card – per‑asset thresholds + notifications
 // ─────────────────────────────────────────────────────────────────────────────
-function AssetThresholdCard({ cfg, setCfg }) {
+function AssetThresholdCard({ cfg, setCfg, blast }) {
   const normCfg = useMemo(() => ({
     thresholds: { BTC: '', ETH: '', SOL: '', ...(cfg.thresholds || {}) },
+    blast_radius: blast || {},
     notifications: { system: true, voice: true, sms: false, ...(cfg.notifications || {}) }
-  }), [cfg]);
+  }), [cfg, blast]);
 
   const handleThresholdChange = (asset) => (e) => {
     setCfg(prev => ({
       ...prev,
       thresholds: { ...(prev.thresholds || {}), [asset]: e.target.value }
+    }));
+  };
+
+  const applyBlast = (asset) => () => {
+    const br = normCfg.blast_radius[asset];
+    setCfg(prev => ({
+      ...prev, thresholds: { ...(prev.thresholds || {}), [asset]: br }
     }));
   };
 
@@ -89,11 +97,12 @@ function AssetThresholdCard({ cfg, setCfg }) {
               value={normCfg.thresholds[code]}
               onChange={handleThresholdChange(code)}
             />
-            {/* Blast radius buttons would be rendered next to each asset threshold */}
-            {/* Example: <Button onClick={() => setLiqCfg(prev=>({
-                  ...prev,
-                  thresholds:{...prev.thresholds, BTC: marketCfg.blast_radius?.BTC}
-                }))}>BR</Button> */}
+            <Button
+              variant="outlined"
+              size="small"
+              sx={{ minWidth: 48 }}
+              onClick={applyBlast(code)}
+            >{normCfg.blast_radius[code]?.toFixed(1) || '—'}</Button>
           </Stack>
         ))}
 
@@ -250,7 +259,11 @@ export default function MonitorManager() {
       <Grid container spacing={3}>
         {/* Liquidation monitor section split in two cards */}
         <Grid item xs={12} md={6}>
-          <AssetThresholdCard cfg={liqCfg} setCfg={setLiqCfg} />
+          <AssetThresholdCard
+            cfg={liqCfg}
+            setCfg={setLiqCfg}
+            blast={marketCfg.blast_radius}
+          />
         </Grid>
         <Grid item xs={12} md={6}>
           <GlobalSnoozeCard  cfg={liqCfg} setCfg={setLiqCfg} />
