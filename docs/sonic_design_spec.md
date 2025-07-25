@@ -1,42 +1,27 @@
 # Sonic1 Design Specification
+**Updated:** 2025-07-25
+
 
 ## Repository Overview
 
-The project is divided into a Python backend built with FastAPI and a React+Vite frontend. A small test harness (`test_core/`) provides an extended unit test suite. The full file tree is documented in `docs/repo_map.md` and begins with:
+The project combines a Python backend and a React + Vite frontend.  A dedicated
+pytest harness lives under `test_core/` and the full layout is captured in
+`docs/repo_map.md`.  Top‑level directories include:
 
 ```txt
 sonic1/
-├── backend
-│   ├── config
-│   │   ├── __init__.py
-│   │   ├── active_traders.json
-│   │   ├── alert_thresholds.json
-│   │   ├── comm_config.json
-│   │   ├── config_loader.py
-│   │   ├── sonic_config.json
-│   │   ├── sonic_sauce.json
-│   │   └── theme_config.json
-│   ├── console
-│   │   ├── __init__.py
-│   │   ├── cyclone_console.py
-│   │   └── cyclone_console_service.py
-│   ├── controllers
-│   │   ├── __init__.py
-│   │   ├── cyclone_controller.py
-│   │   ├── logic.py
-│   │   └── monitor_controller.py
+├── backend/          # FastAPI application
+├── frontend/         # React client
+├── test_core/        # custom pytest runner
+├── tests/            # API test suite
+├── data/             # SQLite databases
+├── patches/          # integration bundles
+├── docs/             # design specs
+├── reports/          # generated HTML summaries
+├── launch_pad.py     # dev helper script
+└── requirements.txt  # Python dependencies
 ```
-
-Frontend assets follow further down the listing ending with:
-
-```txt
-│   ├── vite.config.mjs
-│   └── yarn.lock
-├── .gitignore
-├── README.md
-├── launch_pad.py
-└── requirements.txt
-```
+(See `docs/repo_map.md` for the complete tree.)
 
 ---
 
@@ -48,29 +33,62 @@ The FastAPI application is defined in `backend/sonic_backend_app.py`. It registe
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.positions_api import router as positions_router
-from backend.routes.portfolio_api import router as portfolio_router
+from backend.routes.portfolio_api import (
+    router as portfolio_router,
+    api_router as portfolio_api_router,
+)
 from backend.routes.cyclone_api import router as cyclone_router
+from backend.routes.wallet_api import router as wallet_router
+from backend.routes.traders_api import router as traders_router
+from backend.routes.alert_thresholds_api import (
+    router as threshold_router,
+    alerts_router,
+)
+from backend.routes.alerts import router as new_alerts_router
+from backend.routes.monitor_status_api import router as monitor_status_router
+from backend.routes.db_admin_api import router as db_admin_router
+from backend.routes.xcom_api import router as xcom_router
+from backend.routes.session_api import router as session_router
+from backend.routes.notification_api import router as notification_router
+from backend.routes.monitor_settings_api import router as monitor_settings_router
+from backend.routes.monitor_api_adapter import router as monitor_router
 
 app = FastAPI(title="Sonic API")
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "*",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)[xcom_core_spec.md](../backend/core/xcom_core/xcom_core_spec.md)
+)
 
 app.include_router(positions_router)
 app.include_router(portfolio_router)
+app.include_router(portfolio_api_router)
 app.include_router(cyclone_router)
+app.include_router(wallet_router)
+app.include_router(traders_router)
+app.include_router(threshold_router)
+app.include_router(new_alerts_router, tags=["alerts"])
+app.include_router(db_admin_router)
+app.include_router(alerts_router)
+app.include_router(xcom_router)
+app.include_router(session_router)
+app.include_router(notification_router)
+app.include_router(monitor_settings_router)
+app.include_router(monitor_status_router)
+app.include_router(monitor_router)
 
 @app.get("/api/status")
 async def status():
     return {"status": "FastAPI backend online 🚀"}
-```
-```python
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.sonic_backend_app:app", host="0.0.0.0", port=5000, reload=True)
@@ -91,6 +109,11 @@ class DataLocker:
         self.hedges = DLHedgeManager(self.db) if DLHedgeManager else None
         self.wallets = DLWalletManager(self.db)
         self.portfolio = DLPortfolioManager(self.db)
+        self.session = DLSessionManager(self.db)
+        self.traders = DLTraderManager(self.db) if DLTraderManager else None
+        self.system = DLSystemDataManager(self.db) if DLSystemDataManager else None
+        self.ledger = DLMonitorLedgerManager(self.db)
+        self.modifiers = DLModifierManager(self.db)
         ...
 ```[cyclone_core](../backend/core/cyclone_core)
 
@@ -104,14 +127,13 @@ The `backend/core/` package houses the primary business logic. Key submodules in
 - **hedge_core** – hedge linking and calculations.
 - **monitor_core** – runs background monitors. The spec outlines default monitors and the `run_all()` method:
 
-```text
 ### 🚦 MonitorCore
 Central controller for executing registered monitors.
 
 ```python
 MonitorCore(registry: MonitorRegistry | None = None)
 ```
-- If `registry` is not provided, a new one is created and default monitors are registered (`PriceMonitor`, `PositionMonitor`, `OperationsMonitor`, `XComMonitor`, `TwilioMonitor`, `ProfitMonitor`, `RiskMonitor`).
+- If `registry` is not provided, a new one is created and default monitors are registered (`PriceMonitor`, `PositionMonitor`, `OperationsMonitor`, `XComMonitor`, `TwilioMonitor`, `ProfitMonitor`, `RiskMonitor`, `LiquidationMonitor`).
 - **RiskMonitor** – monitors heat index and dispatches HIGH level alerts.
 
 **Methods**
@@ -122,7 +144,6 @@ MonitorCore(registry: MonitorRegistry | None = None)
 - **BaseMonitor** – provides `run_cycle()` wrapper that records results in the database ledger.
 - **PriceMonitor** – fetches BTC/ETH/SOL prices and the S&P 500 index via `MonitorService`.
 - **PositionMonitor** – syncs positions from Jupiter and logs summary metrics.
-```
 - **positions_core** – CRUD and enrichment of positions.
 - **wallet_core** – wallet repository and service layer.
 - **trader_core** – persona tracking utilities.
@@ -161,7 +182,7 @@ reportWebVitals();
 
 - `README.md` contains setup instructions including backend and frontend launch commands.
 - `launch_pad.py` starts both services for local development.
-- Multiple `*_spec.md` files under `backend/core/` provide detailed design notes for each subsystem.
+- Multiple `*_spec.md` files under `backend/core/` provide detailed design notes for each subsystem. Additional docs such as `docs/alert_v2_spec.md` and `docs/alert_v2_hybrid_spec.md` describe the evolving alert data model.
 - `docs/repo_map.md` enumerates the complete repository tree for reference.
 
 ### Test Harness
