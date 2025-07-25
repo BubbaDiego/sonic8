@@ -66,7 +66,7 @@ Generated: 2025-07-25T03:56:28.233996 UTC
 | `positions` | Active trading positions & metadata. | `id`(PK), `asset_type`, `size`, `leverage`, … | fileciteturn0file0 |
 | `prices` | Latest spot prices per asset. | `asset_type`, `current_price`, `last_update_time` | fileciteturn0file1 |
 | `alert_thresholds` | Per‑metric threshold triples (low/med/high). | `alert_type`, `alert_class`, `condition` | fileciteturn0file2 |
-| `system_vars` | Global KV store for UI & engine state. | `theme_mode`, `…` | fileciteturn0file3 |
+| `system_vars` | Global KV store for UI & engine state; MarketMonitor configuration persists here. | `theme_mode`, `…` | fileciteturn0file3 |
 
 > **JSON Ledgers** (`<monitor>_ledger.json`) are still produced for back‑compat but are **non‑authoritative** – migration to DB ledger is ongoing.
 
@@ -118,6 +118,7 @@ This design makes **Sonic Monitor** the single source of truth for:
 | `latency_monitor` | `LatencyMonitor` | Simple HTTP ping to CoinGecko/Jupiter. fileciteturn0file73 |  ‑ | Ledger only |
 | `xcom_monitor` | `XComMonitor` | Sends low‑level ping via XComCore. fileciteturn0file68 |  ‑ | XCom (LOW) |
 | `twilio_monitor` | `TwilioMonitor` | Verifies provider creds. fileciteturn0file69 |  ‑ | Ledger only |
+| `market_monitor` | `MarketMonitor` | Price %‑move triggers + blast‑radius calc. |  | Ledger only |
 | `sonic_monitor` | (see §4) | Orchestrator loop. | HB Row | Slack (AlertV2) |
 
 ---

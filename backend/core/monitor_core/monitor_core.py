@@ -50,7 +50,7 @@ class MonitorCore:
             self.registry.register("profit_monitor", ProfitMonitor())  # Registered ProfitMonitor
             self.registry.register("risk_monitor", RiskMonitor())
             self.registry.register("liquid_monitor", LiquidationMonitor())
-            # Register the new MarketMonitor
+
             self.registry.register("market_monitor", MarketMonitor())
 #            self.registry.register("oracle_monitor", OracleMonitor())
 

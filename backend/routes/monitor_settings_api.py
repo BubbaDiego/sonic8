@@ -17,6 +17,8 @@ router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
 
 @router.get("/market")
 def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
+    """Return current MarketMonitor configuration."""
+
     cfg = dl.system.get_var("market_monitor") or {}
     return cfg
 

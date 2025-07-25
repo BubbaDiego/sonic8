@@ -89,6 +89,11 @@ function AssetThresholdCard({ cfg, setCfg }) {
               value={normCfg.thresholds[code]}
               onChange={handleThresholdChange(code)}
             />
+            {/* Blast radius buttons would be rendered next to each asset threshold */}
+            {/* Example: <Button onClick={() => setLiqCfg(prev=>({
+                  ...prev,
+                  thresholds:{...prev.thresholds, BTC: marketCfg.blast_radius?.BTC}
+                }))}>BR</Button> */}
           </Stack>
         ))}
 
