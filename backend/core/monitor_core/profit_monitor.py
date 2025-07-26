@@ -6,10 +6,18 @@ from backend.core.constants import MOTHER_DB_PATH
 from backend.core.logging import log
 from backend.core.alert_core.threshold_service import ThresholdService
 from datetime import datetime, timezone
+import json
+from collections.abc import Mapping
+
 
 class ProfitMonitor(BaseMonitor):
     # Legacy attribute for backward compatibility
     snooze_until = None
+
+    DEFAULT_CONFIG = {
+        "notifications": {"system": True, "voice": True, "sms": False, "tts": True},
+        "enabled": True,
+    }
 
     def __init__(self):
         super().__init__(name="profit_monitor")
@@ -18,8 +26,42 @@ class ProfitMonitor(BaseMonitor):
         self.xcom_core = XComCore(self.dl.system)
         self.threshold_service = ThresholdService(self.dl.db)
 
+    def _get_config(self) -> dict:
+        """Return merged profit monitor configuration."""
+        try:
+            cfg = self.dl.system.get_var("profit_monitor") or {}
+        except Exception:
+            cfg = {}
+
+        merged = {**self.DEFAULT_CONFIG, **cfg}
+
+        notifications = merged.get("notifications", {})
+        if isinstance(notifications, str):
+            try:
+                notifications = json.loads(notifications)
+            except Exception:
+                notifications = {}
+        if not isinstance(notifications, Mapping):
+            notifications = {}
+
+        def to_bool(v):
+            if isinstance(v, str):
+                return v.lower() in ("1", "true", "yes", "on")
+            return bool(v)
+
+        merged["notifications"] = {
+            "system": to_bool(notifications.get("system", True)),
+            "voice": to_bool(notifications.get("voice", True)),
+            "sms": to_bool(notifications.get("sms", False)),
+            "tts": to_bool(notifications.get("tts", True)),
+        }
+
+        merged["enabled"] = to_bool(merged.get("enabled", True))
+
+        return merged
+
     def should_notify(self):
-        value = self.dl.system.get_var('snooze_until')
+        value = self.dl.system.get_var("snooze_until")
         snooze_until = None
         if isinstance(value, str):
             try:
@@ -37,6 +79,12 @@ class ProfitMonitor(BaseMonitor):
         return not (snooze_until and now < snooze_until)
 
     def _do_work(self):
+        cfg = self._get_config()
+
+        if not cfg.get("enabled", True):
+            log.info("ProfitMonitor disabled; skipping cycle", source="ProfitMonitor")
+            return {"status": "Disabled", "alert_triggered": False}
+
         positions = self.position_core.get_active_positions()
 
         def _field(obj, name, default=0.0):
@@ -59,9 +107,7 @@ class ProfitMonitor(BaseMonitor):
         portfolio_th = self.threshold_service.get_thresholds(
             "TotalProfit", "Portfolio", "ABOVE"
         )
-        single_th = self.threshold_service.get_thresholds(
-            "Profit", "Position", "ABOVE"
-        )
+        single_th = self.threshold_service.get_thresholds("Profit", "Position", "ABOVE")
 
         badge_limit = single_th.low if single_th else 0.0
         portfolio_limit = portfolio_th.high if portfolio_th else 50.0
@@ -77,12 +123,42 @@ class ProfitMonitor(BaseMonitor):
             alert_msg = f"💰 Total profit is ${total_profit:.2f}."
             notification_result = None
             if self.should_notify():
-                notification_result = self.xcom_core.send_notification(
-                    level="HIGH",
-                    subject="Profit Ready to Harvest",
-                    body=alert_msg,
-                    initiator="ProfitMonitor",
-                )
+                notif = cfg["notifications"]
+                if notif.get("system"):
+                    try:
+                        from backend.core.xcom_core.sound_service import SoundService  # type: ignore
+
+                        SoundService().play("frontend/static/sounds/message_alert.mp3")
+                    except Exception as e:
+                        log.warning(
+                            f"SoundService unavailable: {e}", source="ProfitMonitor"
+                        )
+
+                if notif.get("tts", True):
+                    self.xcom_core.send_notification(
+                        level="HIGH",
+                        subject="Profit Ready to Harvest",
+                        body=alert_msg,
+                        initiator="ProfitMonitor",
+                        mode="tts",
+                    )
+                if notif.get("voice"):
+                    self.xcom_core.send_notification(
+                        level="HIGH",
+                        subject="Profit Ready to Harvest",
+                        body=alert_msg,
+                        initiator="ProfitMonitor",
+                        mode="voice",
+                    )
+                if notif.get("sms"):
+                    self.xcom_core.send_notification(
+                        level="HIGH",
+                        subject="Profit Ready to Harvest",
+                        body=alert_msg,
+                        initiator="ProfitMonitor",
+                        mode="sms",
+                    )
+
                 log.success(
                     f"Profit alert sent: ${total_profit:.2f}.", source="ProfitMonitor"
                 )
@@ -108,7 +184,7 @@ class ProfitMonitor(BaseMonitor):
 
     def _update_profit_badge(self, badge_value):
         # Persist the badge value to align UI state
-        self.dl.system.set_var('profit_badge_value', badge_value)
+        self.dl.system.set_var("profit_badge_value", badge_value)
 
     def _set_silenced(self, state: bool) -> None:
         """Persist whether a profit alert was suppressed."""

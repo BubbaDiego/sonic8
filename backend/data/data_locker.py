@@ -142,6 +142,7 @@ class DataLocker:
             if self.system is not None:
                 self._seed_alert_config_if_empty()
                 self._seed_liquid_monitor_config_if_empty()
+                self._seed_profit_monitor_config_if_empty()
                 self._seed_xcom_providers_if_empty()
 
         except Exception as e:
@@ -914,9 +915,12 @@ class DataLocker:
                         price_cfg = cfg.get("price_config")
                         if isinstance(price_cfg, Mapping):
                             assets = price_cfg.get("assets")
-            
+
             if not config:
-                from backend.core.monitor_core.liquidation_monitor import LiquidationMonitor
+                from backend.core.monitor_core.liquidation_monitor import (
+                    LiquidationMonitor,
+                )
+
                 config = LiquidationMonitor.DEFAULT_CONFIG
 
             if not assets:
@@ -940,6 +944,37 @@ class DataLocker:
         except Exception as e:
             log.error(
                 f"❌ Failed seeding liquid monitor config: {e}",
+                source="DataLocker",
+            )
+
+    def _seed_profit_monitor_config_if_empty(self):
+        """Seed profit monitor defaults if missing."""
+        if self.system is None:
+            log.warning(
+                "⚠️ System data manager unavailable; skipping profit monitor seed",
+                source="DataLocker",
+            )
+            return
+        try:
+            current = self.system.get_var("profit_monitor")
+            if current:
+                return
+            config = {
+                "notifications": {
+                    "system": True,
+                    "voice": True,
+                    "sms": False,
+                    "tts": True,
+                }
+            }
+            self.system.set_var("profit_monitor", config)
+            log.debug(
+                "Profit monitor config seeded from defaults",
+                source="DataLocker",
+            )
+        except Exception as e:
+            log.error(
+                f"❌ Failed seeding profit monitor config: {e}",
                 source="DataLocker",
             )
 

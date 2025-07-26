@@ -68,6 +68,39 @@ def test_profit_settings_persists(tmp_path, monkeypatch):
     assert data["single_high"] == 15
 
 
+def test_profit_notifications_roundtrip(tmp_path, monkeypatch):
+    client, dl = _setup(tmp_path, monkeypatch)
+
+    payload = {
+        "notifications": {
+            "system": False,
+            "voice": False,
+            "sms": True,
+            "tts": False,
+        }
+    }
+    resp = client.post("/api/monitor-settings/profit", json=payload)
+    assert resp.status_code == 200
+
+    cfg = dl.system.get_var("profit_monitor")
+    assert cfg["notifications"] == {
+        "system": False,
+        "voice": False,
+        "sms": True,
+        "tts": False,
+    }
+
+    resp = client.get("/api/monitor-settings/profit")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["notifications"] == {
+        "system": False,
+        "voice": False,
+        "sms": True,
+        "tts": False,
+    }
+
+
 def test_liq_notifications_merge(tmp_path, monkeypatch):
     """Legacy payload keys should merge into nested notifications."""
     client, dl = _setup(tmp_path, monkeypatch)
@@ -83,9 +116,13 @@ def test_liq_notifications_merge(tmp_path, monkeypatch):
         "tts_alert": False,
     }
 
-
     assert cfg["thresholds"] == {"BTC": 0.9, "ETH": 0.7}
-    assert cfg["notifications"] == {"system": False, "voice": False, "sms": True, "tts": False}
+    assert cfg["notifications"] == {
+        "system": False,
+        "voice": False,
+        "sms": True,
+        "tts": False,
+    }
     assert cfg["windows_alert"] is False
     assert cfg["voice_alert"] is False
     assert cfg["sms_alert"] is True
@@ -93,7 +130,12 @@ def test_liq_notifications_merge(tmp_path, monkeypatch):
     resp = client.get("/api/monitor-settings/liquidation")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["notifications"] == {"system": False, "voice": False, "sms": True, "tts": False}
+    assert data["notifications"] == {
+        "system": False,
+        "voice": False,
+        "sms": True,
+        "tts": False,
+    }
     assert data["windows_alert"] is False
     assert data["voice_alert"] is False
     assert data["sms_alert"] is True
@@ -121,5 +163,3 @@ def test_sonic_interval_roundtrip(tmp_path, monkeypatch):
     resp = client.get("/api/monitor-settings/sonic")
     assert resp.status_code == 200
     assert resp.json()["interval_seconds"] == 42
-
-
