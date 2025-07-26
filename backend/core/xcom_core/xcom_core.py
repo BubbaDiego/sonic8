@@ -19,14 +19,14 @@ class XComCore:
         self.log = []
 
     def send_notification(
-            self,
-            level: str,
-            subject: str,
-            body: str,
-            recipient: str = "",
-            initiator: str = "system",
-            mode: str | None = None,
-            **kwargs
+        self,
+        level: str,
+        subject: str,
+        body: str,
+        recipient: str = "",
+        initiator: str = "system",
+        mode: str | list[str] | None = None,
+        **kwargs,
     ):
         email_cfg = self.config_service.get_provider("email") or {}
         sms_cfg = self.config_service.get_provider("sms") or {}
@@ -35,6 +35,24 @@ class XComCore:
 
         results = {"email": False, "sms": False, "voice": False, "sound": None, "tts": False}
         error_msg = None
+
+        # ------------------------------------------------------------------ #
+        # Determine which channels the caller wants
+        # ------------------------------------------------------------------ #
+
+        if mode is None:
+            # Legacy fan-out behaviour based purely on *level*
+            if level == "HIGH":
+                requested = {"sms", "voice"}
+            elif level == "MEDIUM":
+                requested = {"sms"}
+            else:
+                requested = {"email"}
+        else:
+            # Caller specified exactly which channel(s) to use
+            requested = (
+                {mode.lower()} if isinstance(mode, str) else {m.lower() for m in mode}
+            )
 
         try:
             system_mgr = self.config_service.dl_sys
@@ -57,18 +75,23 @@ class XComCore:
                 except Exception:
                     allow_call = True
 
-            if mode == "tts" and tts_cfg.get("enabled", False):
-                results["tts"] = TTSService(tts_cfg.get("voice")).send(recipient, body)
-            elif level == "HIGH":
-                timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-                voice_message = (
-                    f"New High Priority Alert received at {timestamp}. "
-                    f"Initiated by {initiator}. "
-                    f"Subject: {subject}. "
-                    f"Details: {body}."
-                )
+            # ---------------- EMAIL ---------------------------------------------------
+            if "email" in requested:
+                results["email"] = EmailService(email_cfg).send(recipient, subject, body)
+
+            # ---------------- SMS -----------------------------------------------------
+            if "sms" in requested:
                 results["sms"] = SMSService(sms_cfg).send(recipient, body)
-                if allow_call and (mode is None or mode == "voice"):
+
+            # ---------------- VOICE ---------------------------------------------------
+            if "voice" in requested:
+                if allow_call:
+                    voice_message = (
+                        f"New High Priority Alert received at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}. "
+                        f"Initiated by {initiator}. "
+                        f"Subject: {subject}. "
+                        f"Details: {body}."
+                    )
                     results["voice"] = VoiceService(voice_cfg).call(recipient, voice_message)
                     if results["voice"] and hasattr(system_mgr, "set_var"):
                         try:
@@ -82,10 +105,10 @@ class XComCore:
                         "Voice call suppressed by phone relax period",
                         source="XComCore",
                     )
-            elif level == "MEDIUM":
-                results["sms"] = SMSService(sms_cfg).send(recipient, body)
-            else:
-                results["email"] = EmailService(email_cfg).send(recipient, subject, body)
+
+            # ---------------- TTS  ----------------------------------------------------
+            if "tts" in requested and tts_cfg.get("enabled", False):
+                results["tts"] = TTSService(tts_cfg.get("voice")).send(recipient, body)
 
             log.success(f"✅ Notification dispatched [{level}]", source="XComCore", payload=results)
 
