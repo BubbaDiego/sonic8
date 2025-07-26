@@ -41,22 +41,30 @@ export default function TimerSection() {
   const [sonic, setSonic]     = useState(0);
   const [snooze, setSnooze]   = useState(0);
 
-  useEffect(() => {
-    let handle;
-    const poll = async () => {
-      try {
-        const { data } = await axios.get('/api/monitor-status/');
-        setSonic(Math.max(0, Math.floor(data?.sonic_next    ?? 0)));
-        setSnooze(Math.max(0, Math.floor(data?.liquid_snooze ?? 0)));
-      } catch (err) {
-        // Log the error so failed requests are visible during debugging
-        console.error('Failed to fetch monitor status:', err);
-      }
-      handle = setTimeout(poll, POLL_MS);
-    };
-    poll();
-    return () => clearTimeout(handle);
-  }, []);
+useEffect(() => {
+  let timeoutHandle;
+  let intervalId;
+  const poll = async () => {
+    try {
+      const { data } = await axios.get('/api/monitor-status/');
+      setSonic(Math.max(0, Math.floor(data?.sonic_next    ?? 0)));
+      setSnooze(Math.max(0, Math.floor(data?.liquid_snooze ?? 0)));
+    } catch (err) {
+      // Log the error so failed requests are visible during debugging
+      console.error('Failed to fetch monitor status:', err);
+    }
+    timeoutHandle = setTimeout(poll, POLL_MS);
+  };
+  poll();
+  intervalId = setInterval(() => {
+    setSonic(prev => Math.max(0, prev - 1));
+    setSnooze(prev => Math.max(0, prev - 1));
+  }, 1000);
+  return () => {
+    clearTimeout(timeoutHandle);
+    clearInterval(intervalId);
+  };
+}, []);
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', mx: 1 }}>
