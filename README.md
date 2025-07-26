@@ -38,6 +38,20 @@ backend/config/theme_config.json
 `sonic_sauce.json` must contain at least the keys `hedge_modifiers` and
 `heat_modifiers` as required by the backend's `JsonManager`.
 
+### Text-to-speech configuration
+
+Monitors can deliver spoken alerts when the `xcom_providers` setting defines a
+`"tts"` provider. At minimum set `"enabled": true`; the optional `"voice"`
+string selects a specific installed voice.
+
+```json
+"tts": { "enabled": true, "voice": "Zira" }
+```
+
+The sample file [`backend/config/comm_config.json`](backend/config/comm_config.json)
+illustrates the full provider layout. Text-to-speech only works if the host
+machine has a compatible speech engine.
+
 The API routes access the persistence layer through a `DataLocker` instance.
 Each router declares route parameters like `dl: DataLocker = Depends(get_locker)`
 so FastAPI injects the locker for every request.  The helper
