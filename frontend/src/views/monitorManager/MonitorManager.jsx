@@ -133,19 +133,24 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
           <Stack key={code} direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
             <img src={icon} width={20} alt={code} />
             <TextField
-              fullWidth
               label={`${code} Threshold`}
               type="number"
               size="small"
               value={normCfg.thresholds[code]}
               onChange={handleThresholdChange(code)}
+              sx={{ width: 110 }}
             />
             <Button variant="outlined" size="small" sx={{ minWidth: 48 }} onClick={applyBlast(code)}>
               {normCfg.blast_radius[code]?.toFixed(1) || '—'}
             </Button>
 
             {/* widened nearest‑distance box */}
-            <TextField value={nearest[code] ?? '—'} size="small" inputProps={{ readOnly: true }} sx={{ width: 90 }} />
+            <TextField
+              value={nearest[code] ?? '—'}
+              size="small"
+              inputProps={{ readOnly: true }}
+              sx={{ width: 120 }}
+            />
           </Stack>
         ))}
 
@@ -271,20 +276,19 @@ function ProfitSettings({ cfg, setCfg }) {
     <Card variant="outlined">
       <CardHeader title="Profit Monitor" subheader="Single & portfolio profit thresholds" />
       <CardContent>
-        <Grid container spacing={2}>
+        <Stack spacing={2}>
           {['single_high', 'portfolio_high', 'single_low', 'portfolio_low'].map((field) => (
-            <Grid item xs={12} key={field}>
-              <TextField
-                fullWidth
-                label={`${field.replace('_', ' ').toUpperCase()} ($)`}
-                name={field}
-                type="number"
-                value={normCfg[field] ?? ''}
-                onChange={handleChange}
-              />
-            </Grid>
+            <TextField
+              key={field}
+              fullWidth
+              label={`${field.replace('_', ' ').toUpperCase()} ($)`}
+              name={field}
+              type="number"
+              value={normCfg[field] ?? ''}
+              onChange={handleChange}
+            />
           ))}
-        </Grid>
+        </Stack>
 
         <Typography variant="subtitle2" sx={{ mt: 2 }}>
           Notifications
