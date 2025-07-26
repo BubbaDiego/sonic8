@@ -2,10 +2,14 @@
 import { useEffect, useState } from 'react';
 import { CircularProgress, Tooltip, Box } from '@mui/material';
 import axios from 'utils/axios';
+import { refreshLatestPortfolio, refreshPortfolioHistory } from 'api/portfolio';
+import { refreshPositions } from 'api/positions';
+import { refreshMonitorStatus } from 'api/monitorStatus';
 
 const FULL_SONIC  = 3600; // 60 minutes
 const FULL_SNOOZE = 600;  // 10 minutes
 const POLL_MS     = 5000; // refresh every 5 s
+const SONIC_REFRESH_DELAY_MS = 5000; // wait after Sonic loop start before refreshing
 
 function RadialTimer({ seconds, total, label, color }) {
   const pct = Math.min(100, (seconds / total) * 100);
@@ -74,6 +78,17 @@ useEffect(() => {
   frameId = requestAnimationFrame(tick);
   return () => cancelAnimationFrame(frameId);
 }, [sonicNextTs, snoozeEndTs]);
+
+useEffect(() => {
+  const delay = Math.max(0, sonicNextTs - Date.now()) + SONIC_REFRESH_DELAY_MS;
+  const refreshHandle = setTimeout(() => {
+    refreshLatestPortfolio();
+    refreshPortfolioHistory();
+    refreshPositions();
+    refreshMonitorStatus();
+  }, delay);
+  return () => clearTimeout(refreshHandle);
+}, [sonicNextTs]);
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', mx: 1 }}>
