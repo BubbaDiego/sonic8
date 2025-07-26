@@ -41,7 +41,7 @@ class LiquidationMonitor(BaseMonitor):
         "sms_alert": False,
         "snooze_seconds": 300,
         "thresholds": {},
-        "notifications": {"system": True, "voice": True, "sms": False},
+        "notifications": {"system": True, "voice": True, "sms": False, "tts": True},
     }
 
     def __init__(self):
@@ -123,6 +123,7 @@ class LiquidationMonitor(BaseMonitor):
             "system": to_bool(notifications.get("system", merged["windows_alert"])),
             "voice": to_bool(notifications.get("voice", merged["voice_alert"])),
             "sms": to_bool(notifications.get("sms", merged["sms_alert"])),
+            "tts": to_bool(notifications.get("tts", True)),
         }
         merged["notifications"] = notifications
 
@@ -204,6 +205,11 @@ class LiquidationMonitor(BaseMonitor):
                 SoundService().play("frontend/static/sounds/alert_liq.mp3")
             except Exception as e:
                 log.warning(f"SoundService unavailable: {e}", source="LiquidationMonitor")
+
+        if notif.get("tts", True):
+            self.xcom.send_notification(
+                cfg["level"], subject, "Liquidation is a concern", initiator="liquid_monitor", mode="tts"
+            )
 
         # Voice call
         if notif.get("voice"):

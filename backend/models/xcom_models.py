@@ -33,7 +33,7 @@ class StatusResponse(RootModel[Dict[str, str]]):
 
 class TestMessageRequest(BaseModel):
     """POST body for `/xcom/test`."""
-    mode: Literal["sms", "email", "voice", "sound"]
+    mode: Literal["sms", "email", "voice", "sound", "tts"]
     recipient: Optional[str] = None
     subject: Optional[str] = None
     body: Optional[str] = None

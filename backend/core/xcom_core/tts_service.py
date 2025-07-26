@@ -1,10 +1,13 @@
 
-import pyttsx3
+try:
+    import pyttsx3
+except Exception:  # pragma: no cover - optional dependency
+    pyttsx3 = None
 from backend.core.logging import log
 
 class TTSService:
     def __init__(self, voice_name: str | None = None):
-        self.engine = pyttsx3.init("sapi5")
+        self.engine = pyttsx3.init("sapi5") if pyttsx3 else None
         if voice_name:
             for v in self.engine.getProperty("voices"):
                 if voice_name.lower() in v.name.lower():
@@ -13,6 +16,9 @@ class TTSService:
                     break
 
     def send(self, recipient: str, body: str) -> bool:
+        if not self.engine:
+            log.warning("pyttsx3 not available", source="TTSService")
+            return False
         try:
             self.engine.say(body)
             self.engine.runAndWait()

@@ -16,6 +16,7 @@ xcom/
 ├── sms_service.py                 # 💬 SMS via carrier gateway
 ├── voice_service.py               # 📞 Twilio voice calls
 ├── sound_service.py               # 🔊 Local audio playback
+├── tts_service.py                 # 🗣️ Local text-to-speech
 └── check_twilio_heartbeat_service.py  # ❤️ Twilio credential check
 ```
 
@@ -53,6 +54,8 @@ get_latest_xcom_monitor_entry(data_locker) -> dict
   supplied message. The call is skipped if the provider's `enabled` flag is
   `False`. Errors are logged and no death nail is issued unless the provider
   config sets `suppress_death_on_error` to `False`.
+- **TTSService** – uses `pyttsx3` to speak text locally when the TTS provider is
+  enabled.
 - **SoundService** – plays an MP3 file on the local system as an audible alert.
 - **CheckTwilioHeartbeatService** – validates Twilio credentials and can trigger
   a test call in non-dry-run mode.
