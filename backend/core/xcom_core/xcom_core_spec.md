@@ -50,7 +50,9 @@ get_latest_xcom_monitor_entry(data_locker) -> dict
 
 ### 🛠️ Support Services
 - **EmailService** – sends plaintext mail through an SMTP server.
-- **SMSService** – uses EmailService to deliver SMS messages via a carrier gateway.
+- **SMSService** – first tries Twilio (`sid`, `token`, `from_number`); if those
+  are missing it falls back to the legacy carrier‑gateway email method.  Supports
+  `dry_run: true` for testing.
 - **VoiceService** – wraps Twilio's client to place a voice call that reads the
   supplied message. The call is skipped if the provider's `enabled` flag is
   `False`. Errors are logged and no death nail is issued unless the provider
