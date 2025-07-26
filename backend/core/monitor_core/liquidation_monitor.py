@@ -42,6 +42,7 @@ class LiquidationMonitor(BaseMonitor):
         "snooze_seconds": 300,
         "thresholds": {},
         "notifications": {"system": True, "voice": True, "sms": False, "tts": True},
+        "enabled": True,
     }
 
     def __init__(self):
@@ -71,6 +72,7 @@ class LiquidationMonitor(BaseMonitor):
             "voice_alert": "LIQ_MON_VOICE_ALERT",
             "sms_alert": "LIQ_MON_SMS_ALERT",
             "snooze_seconds": "LIQ_MON_SNOOZE_SECONDS",
+            "enabled": "LIQ_MON_ENABLED",
         }
 
         for key, env_key in env_map.items():
@@ -127,6 +129,9 @@ class LiquidationMonitor(BaseMonitor):
         }
         merged["notifications"] = notifications
 
+        # Ensure enabled is boolean
+        merged["enabled"] = to_bool(merged.get("enabled", True))
+
         # Keep the top‑level flags in sync (so env overrides still work)
         merged["windows_alert"] = notifications["system"]
         merged["voice_alert"] = notifications["voice"]
@@ -145,6 +150,14 @@ class LiquidationMonitor(BaseMonitor):
     # ------------------------------------------------------------------
     def _do_work(self):
         cfg = self._get_config()
+
+        # ╭──────────────────────────────────────────────╮
+        # │ Respect the master enable/disable switch     │
+        # ╰──────────────────────────────────────────────╯
+        if not cfg.get("enabled", True):
+            log.info("LiquidationMonitor disabled; skipping cycle", source=self.name)
+            return {"status": "Disabled", "success": True}
+
         positions = self.pos_mgr.get_active_positions()
 
         log.debug(f"Liquidation cfg: {cfg}", source="LiquidationMonitor")

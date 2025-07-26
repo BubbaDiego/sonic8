@@ -3,12 +3,13 @@ import axios from 'utils/axios';
 import {
   Box, Card, CardContent, CardHeader, TextField, Grid,
   Button, Snackbar, Alert, Typography, ToggleButton,
-  ToggleButtonGroup, Stack, CircularProgress
+  ToggleButtonGroup, Stack, CircularProgress, Switch, Tooltip
 } from '@mui/material';
 
 import CurrencyBitcoinIcon from '@mui/icons-material/CurrencyBitcoin';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Constants
@@ -51,7 +52,8 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
   const normCfg = useMemo(() => ({
     thresholds: { BTC: '', ETH: '', SOL: '', ...(cfg.thresholds || {}) },
     blast_radius: blast || {},
-    notifications: { system: true, voice: true, sms: false, ...(cfg.notifications || {}) }
+    notifications: { system: true, voice: true, sms: false, tts: true, ...(cfg.notifications || {}) },
+    enabled: cfg.enabled ?? true
   }), [cfg, blast]);
 
   const handleThresholdChange = (asset) => (e) => {
@@ -59,6 +61,11 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
       ...prev,
       thresholds: { ...(prev.thresholds || {}), [asset]: e.target.value }
     }));
+  };
+
+  // ── master enable/disable ──────────────────────────────────────────────
+  const handleEnabledChange = (e) => {
+    setCfg(prev => ({ ...prev, enabled: e.target.checked }));
   };
 
   const applyBlast = (asset) => () => {
@@ -73,8 +80,9 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
       ...prev,
       notifications: {
         system: selections.includes('system'),
-        voice  : selections.includes('voice'),
-        sms    : selections.includes('sms')
+        voice : selections.includes('voice'),
+        sms   : selections.includes('sms'),
+        tts   : selections.includes('tts')
       }
     }));
   };
@@ -84,7 +92,19 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
 
   return (
     <Card variant="outlined">
-      <CardHeader title="Asset Thresholds" subheader="Liquid distance per asset" />
+      <CardHeader
+        title={
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="h6">Liquidation Monitor</Typography>
+            <WaterDropIcon fontSize="small" color="primary" />
+          </Stack>
+        }
+        action={
+          <Tooltip title={normCfg.enabled ? 'Monitor enabled' : 'Monitor disabled'}>
+            <Switch size="small" checked={normCfg.enabled} onChange={handleEnabledChange} />
+          </Tooltip>
+        }
+      />
       <CardContent>
         {ASSETS.map(({ code, Icon }) => (
           <Stack key={code} direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -104,11 +124,12 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
               onClick={applyBlast(code)}
             >{normCfg.blast_radius[code]?.toFixed(1) || '—'}</Button>
 
+            {/* widened nearest‑distance box */}
             <TextField
               value={nearest[code] ?? '—'}
               size="small"
               inputProps={{ readOnly: true }}
-              sx={{ width: 72 }}
+              sx={{ width: 90 }}
             />
           </Stack>
         ))}
@@ -125,6 +146,7 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
           <ToggleButton value="system">System</ToggleButton>
           <ToggleButton value="voice">Voice</ToggleButton>
           <ToggleButton value="sms">SMS</ToggleButton>
+          <ToggleButton value="tts">TTS</ToggleButton>
         </ToggleButtonGroup>
       </CardContent>
     </Card>
