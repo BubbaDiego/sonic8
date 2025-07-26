@@ -127,7 +127,15 @@ class DLSessionManager:
         else:
             sql = f"UPDATE sessions SET {fields} WHERE id = :sid"
             patch["sid"] = sid
-        self._execute(sql, patch)
+        cur = self._execute(sql, patch)
+        if cur.rowcount == 0 and sid is None:
+            # No active session – create one with provided baseline fields
+            new = self.start_session(
+                start_value=patch.get("session_start_value", 0.0),
+                goal_value=patch.get("session_goal_value", 0.0),
+                notes=patch.get("notes"),
+            )
+            return self.update_session(new.id, patch)
         self.db.commit()
         return self.get_session_by_id(sid) if sid else self.get_active_session()
 
