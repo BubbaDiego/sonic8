@@ -3,12 +3,25 @@ try:
     import pyttsx3
 except Exception:  # pragma: no cover - optional dependency
     pyttsx3 = None
+import sys
 from backend.core.logging import log
 
 class TTSService:
     def __init__(self, voice_name: str | None = None):
-        self.engine = pyttsx3.init("sapi5") if pyttsx3 else None
-        if voice_name:
+        driver = "sapi5" if sys.platform == "win32" else None
+        if pyttsx3:
+            try:
+                self.engine = pyttsx3.init(driver)
+            except Exception as e:  # pragma: no cover - initialization failure
+                log.warning(
+                    f"⚠️ pyttsx3 driver unavailable: {e}", source="TTSService"
+                )
+                self.engine = None
+        else:
+            self.engine = None
+            log.warning("pyttsx3 not installed; TTS disabled", source="TTSService")
+
+        if voice_name and self.engine:
             for v in self.engine.getProperty("voices"):
                 if voice_name.lower() in v.name.lower():
                     self.engine.setProperty("voice", v.id)
