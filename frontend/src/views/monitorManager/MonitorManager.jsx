@@ -47,7 +47,7 @@ function CircularCountdown({ remaining, total }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  Left‑hand card – per‑asset thresholds + notifications
 // ─────────────────────────────────────────────────────────────────────────────
-function AssetThresholdCard({ cfg, setCfg, blast }) {
+function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
   const normCfg = useMemo(() => ({
     thresholds: { BTC: '', ETH: '', SOL: '', ...(cfg.thresholds || {}) },
     blast_radius: blast || {},
@@ -103,6 +103,13 @@ function AssetThresholdCard({ cfg, setCfg, blast }) {
               sx={{ minWidth: 48 }}
               onClick={applyBlast(code)}
             >{normCfg.blast_radius[code]?.toFixed(1) || '—'}</Button>
+
+            <TextField
+              value={nearest[code] ?? '—'}
+              size="small"
+              inputProps={{ readOnly: true }}
+              sx={{ width: 72 }}
+            />
           </Stack>
         ))}
 
@@ -233,6 +240,7 @@ export default function MonitorManager() {
   const [liqCfg,    setLiqCfg]    = useState({});
   const [profitCfg, setProfitCfg] = useState({});
   const [marketCfg, setMarketCfg] = useState({});
+  const [nearestLiq, setNearestLiq] = useState({});
   const [toast,     setToast]     = useState('');
 
   // initial fetch
@@ -240,6 +248,10 @@ export default function MonitorManager() {
     axios.get('/api/monitor-settings/liquidation').then(r => setLiqCfg(r.data));
     axios.get('/api/monitor-settings/profit').then(r => setProfitCfg(r.data));
     axios.get('/api/monitor-settings/market').then(r => setMarketCfg(r.data));
+
+    axios.get('/api/liquidation/nearest-distance')
+         .then(r => setNearestLiq(r.data))
+         .catch(() => setNearestLiq({}));
   }, []);
 
   // Blast radius buttons would be rendered next to each asset threshold
@@ -263,6 +275,7 @@ export default function MonitorManager() {
             cfg={liqCfg}
             setCfg={setLiqCfg}
             blast={marketCfg.blast_radius}
+            nearest={nearestLiq}
           />
         </Grid>
         <Grid item xs={12} md={6}>

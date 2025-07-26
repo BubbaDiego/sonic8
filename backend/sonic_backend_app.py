@@ -37,6 +37,8 @@ from backend.routes.session_api import router as session_router
 from backend.routes.notification_api import router as notification_router
 from backend.routes.monitor_settings_api import router as monitor_settings_router
 
+from backend.routes.liquidation_distance_api import router as liquidation_distance_router
+
 # 🔥 NEW ROUTER IMPORT
 from backend.routes.monitor_api_adapter import router as monitor_router
 
@@ -70,6 +72,7 @@ app.include_router(xcom_router)
 app.include_router(session_router)
 app.include_router(notification_router)
 app.include_router(monitor_settings_router)
+app.include_router(liquidation_distance_router)
 
 # 🔥 FIXED HERE: REMOVED EXTRA PREFIX "/api"
 app.include_router(monitor_status_router)
