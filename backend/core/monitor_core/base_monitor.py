@@ -12,7 +12,7 @@ class BaseMonitor:
     # ------------------------------------------------------------------ #
     # Config flags
     # ------------------------------------------------------------------ #
-    LOG_SUCCESS: bool = bool(int(os.getenv("MONITOR_LOG_SUCCESS", "1")))
+    LOG_SUCCESS: bool = bool(int(os.getenv("MONITOR_LOG_SUCCESS", "0")))
     SUCCESS_LEVEL: str = "LOW"
 
     def __init__(self, name: str, ledger_filename: str = None, timer_config_path: str = None):
