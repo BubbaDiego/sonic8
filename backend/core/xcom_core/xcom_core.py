@@ -68,15 +68,20 @@ class XComCore:
                     f"Details: {body}."
                 )
                 results["sms"] = SMSService(sms_cfg).send(recipient, body)
-                if allow_call:
+                if allow_call and (mode is None or mode == "voice"):
                     results["voice"] = VoiceService(voice_cfg).call(recipient, voice_message)
                     if results["voice"] and hasattr(system_mgr, "set_var"):
                         try:
-                            system_mgr.set_var("phone_last_call", datetime.utcnow().isoformat())
+                            system_mgr.set_var(
+                                "phone_last_call", datetime.utcnow().isoformat()
+                            )
                         except Exception:
                             pass
                 else:
-                    log.info("Voice call suppressed by phone relax period", source="XComCore")
+                    log.info(
+                        "Voice call suppressed by phone relax period",
+                        source="XComCore",
+                    )
             elif level == "MEDIUM":
                 results["sms"] = SMSService(sms_cfg).send(recipient, body)
             else:
