@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from backend.data.data_locker import DataLocker
 from backend.core.alert_core.threshold_service import ThresholdService
 import backend.sonic_backend_app as app_module
+from backend.core.monitor_core.sonic_monitor import MONITOR_NAME
 
 
 def _setup(tmp_path, monkeypatch):
@@ -97,5 +98,28 @@ def test_liq_notifications_merge(tmp_path, monkeypatch):
     assert data["voice_alert"] is False
     assert data["sms_alert"] is True
     assert data["thresholds"] == {"BTC": 0.9, "ETH": 0.7}
+
+
+def test_sonic_interval_roundtrip(tmp_path, monkeypatch):
+    client, dl = _setup(tmp_path, monkeypatch)
+
+    resp = client.get("/api/monitor-settings/sonic")
+    assert resp.status_code == 200
+    assert resp.json()["interval_seconds"] == 60
+
+    resp = client.post("/api/monitor-settings/sonic", json={"interval_seconds": 42})
+    assert resp.status_code == 200
+
+    cursor = dl.db.get_cursor()
+    cursor.execute(
+        "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name = ?",
+        (MONITOR_NAME,),
+    )
+    row = cursor.fetchone()
+    assert row[0] == 42
+
+    resp = client.get("/api/monitor-settings/sonic")
+    assert resp.status_code == 200
+    assert resp.json()["interval_seconds"] == 42
 
 

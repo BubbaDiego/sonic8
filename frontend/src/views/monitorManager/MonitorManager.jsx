@@ -156,12 +156,13 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  Right‑hand card – global threshold %, snooze, start‑snooze button
 // ─────────────────────────────────────────────────────────────────────────────
-function GlobalSnoozeCard({ cfg, setCfg }) {
+function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
   const [remaining, setRemaining] = useState(0);
   const [running,   setRunning]   = useState(false);
 
   const thresh = cfg.threshold_percent ?? '';
   const snooze = cfg.snooze_seconds   ?? '';
+  const loopSec = loop ?? '';
 
   // start countdown
   const start = () => {
@@ -189,6 +190,8 @@ function GlobalSnoozeCard({ cfg, setCfg }) {
     setCfg(prev => ({ ...prev, [name]: value }));
   };
 
+  const onLoopChange = (e) => setLoop(e.target.value);
+
   return (
     <Card variant="outlined">
       <CardHeader title="Global Threshold & Snooze" />
@@ -201,6 +204,12 @@ function GlobalSnoozeCard({ cfg, setCfg }) {
             value={thresh}
             onChange={onChange}
             inputProps={{ step: '0.1' }}
+          />
+          <TextField
+            label="Sonic Loop (seconds)"
+            type="number"
+            value={loopSec}
+            onChange={onLoopChange}
           />
           <TextField
             label="Snooze (seconds)"
@@ -262,6 +271,7 @@ export default function MonitorManager() {
   const [liqCfg,    setLiqCfg]    = useState({});
   const [profitCfg, setProfitCfg] = useState({});
   const [marketCfg, setMarketCfg] = useState({});
+  const [loopSec,   setLoopSec]   = useState('');
   const [nearestLiq, setNearestLiq] = useState({});
   const [toast,     setToast]     = useState('');
 
@@ -270,6 +280,9 @@ export default function MonitorManager() {
     axios.get('/api/monitor-settings/liquidation').then(r => setLiqCfg(r.data));
     axios.get('/api/monitor-settings/profit').then(r => setProfitCfg(r.data));
     axios.get('/api/monitor-settings/market').then(r => setMarketCfg(r.data));
+    axios.get('/api/monitor-settings/sonic').then(r => {
+      setLoopSec(String(r.data.interval_seconds ?? ''));
+    });
 
     axios.get('/api/liquidation/nearest-distance')
          .then(r => setNearestLiq(r.data))
@@ -283,6 +296,7 @@ export default function MonitorManager() {
     await axios.post('/api/monitor-settings/liquidation', liqCfg);
     await axios.post('/api/monitor-settings/profit',      profitCfg);
     await axios.post('/api/monitor-settings/market',      marketCfg);
+    await axios.post('/api/monitor-settings/sonic', { interval_seconds: parseInt(loopSec || '0', 10) });
     setToast('Settings saved');
   };
 
@@ -301,7 +315,12 @@ export default function MonitorManager() {
           />
         </Grid>
         <Grid item xs={12} md={6}>
-          <GlobalSnoozeCard  cfg={liqCfg} setCfg={setLiqCfg} />
+          <GlobalSnoozeCard
+            cfg={liqCfg}
+            setCfg={setLiqCfg}
+            loop={loopSec}
+            setLoop={setLoopSec}
+          />
         </Grid>
 
         {/* Profit monitor */}
