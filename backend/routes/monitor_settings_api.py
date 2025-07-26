@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
 # Market Monitor settings
 # ------------------------------------------------------------------ #
 
+
 @router.get("/market")
 def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
     """Return current MarketMonitor configuration."""
@@ -30,9 +31,11 @@ def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
     dl.system.set_var("market_monitor", payload)
     return {"success": True}
 
+
 # ------------------------------------------------------------------ #
 # Sonic loop interval
 # ------------------------------------------------------------------ #
+
 
 @router.get("/sonic")
 def get_sonic_settings(dl: DataLocker = Depends(get_app_locker)):
@@ -76,6 +79,7 @@ def update_sonic_settings(payload: dict, dl: DataLocker = Depends(get_app_locker
     )
     dl.db.commit()
     return {"success": True}
+
 
 # ------------------------------------------------------------------ #
 # Liquidation Monitor (liquid_monitor)
@@ -128,7 +132,9 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
     if notifications is None:
         # Map any flat keys so that UI relying on old names still works
         notifications = {
-            "system": to_bool(payload.get("windows_alert", cfg.get("windows_alert", True))),
+            "system": to_bool(
+                payload.get("windows_alert", cfg.get("windows_alert", True))
+            ),
             "voice": to_bool(payload.get("voice_alert", cfg.get("voice_alert", True))),
             "sms": to_bool(payload.get("sms_alert", cfg.get("sms_alert", False))),
             "tts": to_bool(payload.get("tts_alert", cfg.get("tts_alert", True))),
@@ -165,7 +171,9 @@ def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
 
 
 @router.post("/liquidation")
-def update_liquidation_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
+def update_liquidation_settings(
+    payload: dict, dl: DataLocker = Depends(get_app_locker)
+):
     """Update liquidation monitor settings.
 
     Accepts both new nested structure and legacy flat keys.
@@ -187,11 +195,19 @@ def get_profit_settings(dl: DataLocker = Depends(get_app_locker)):
     ts = ThresholdService(dl.db)
     portfolio_th = ts.get_thresholds("TotalProfit", "Portfolio", "ABOVE")
     single_th = ts.get_thresholds("Profit", "Position", "ABOVE")
+    cfg = dl.system.get_var("profit_monitor") or {}
+    notifications = cfg.get("notifications") or {
+        "system": True,
+        "voice": True,
+        "sms": False,
+        "tts": True,
+    }
     return {
         "portfolio_low": getattr(portfolio_th, "low", None),
         "portfolio_high": getattr(portfolio_th, "high", None),
         "single_low": getattr(single_th, "low", None),
         "single_high": getattr(single_th, "high", None),
+        "notifications": notifications,
     }
 
 
@@ -208,6 +224,24 @@ def update_profit_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
     ts.set_threshold(
         "Profit", "Position", payload.get("single_low"), payload.get("single_high")
     )
+
+    cfg = dl.system.get_var("profit_monitor") or {}
+    notifs = payload.get("notifications")
+    if isinstance(notifs, dict):
+
+        def to_bool(v):
+            if isinstance(v, str):
+                return v.lower() in ("1", "true", "yes", "on")
+            return bool(v)
+
+        cfg["notifications"] = {
+            "system": to_bool(notifs.get("system")),
+            "voice": to_bool(notifs.get("voice")),
+            "sms": to_bool(notifs.get("sms")),
+            "tts": to_bool(notifs.get("tts")),
+        }
+        dl.system.set_var("profit_monitor", cfg)
+
     return {"success": True}
 
 
@@ -216,11 +250,11 @@ def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
     cfg = dl.system.get_var("market_monitor") or {}
     return cfg
 
+
 @router.post("/market")
 def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
     dl.system.set_var("market_monitor", payload)
     return {"success": True}
-
 
 
 __all__ = ["router"]

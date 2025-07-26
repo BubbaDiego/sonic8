@@ -1,9 +1,22 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'utils/axios';
 import {
-  Box, Card, CardContent, CardHeader, TextField, Grid,
-  Button, Snackbar, Alert, Typography, ToggleButton,
-  ToggleButtonGroup, Stack, CircularProgress, Switch, Tooltip
+  Box,
+  Card,
+  CardContent,
+  CardHeader,
+  TextField,
+  Grid,
+  Button,
+  Snackbar,
+  Alert,
+  Typography,
+  ToggleButton,
+  ToggleButtonGroup,
+  Stack,
+  CircularProgress,
+  Switch,
+  Tooltip
 } from '@mui/material';
 
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
@@ -32,7 +45,10 @@ function CircularCountdown({ remaining, total }) {
       <CircularProgress value={pct} variant="determinate" size={80} thickness={4} />
       <Box
         sx={{
-          top: 0, left: 0, bottom: 0, right: 0,
+          top: 0,
+          left: 0,
+          bottom: 0,
+          right: 0,
           position: 'absolute',
           display: 'flex',
           alignItems: 'center',
@@ -51,15 +67,18 @@ function CircularCountdown({ remaining, total }) {
 //  Left‑hand card – per‑asset thresholds + notifications
 // ─────────────────────────────────────────────────────────────────────────────
 function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
-  const normCfg = useMemo(() => ({
-    thresholds: { BTC: '', ETH: '', SOL: '', ...(cfg.thresholds || {}) },
-    blast_radius: blast || {},
-    notifications: { system: true, voice: true, sms: false, tts: true, ...(cfg.notifications || {}) },
-    enabled: cfg.enabled ?? true
-  }), [cfg, blast]);
+  const normCfg = useMemo(
+    () => ({
+      thresholds: { BTC: '', ETH: '', SOL: '', ...(cfg.thresholds || {}) },
+      blast_radius: blast || {},
+      notifications: { system: true, voice: true, sms: false, tts: true, ...(cfg.notifications || {}) },
+      enabled: cfg.enabled ?? true
+    }),
+    [cfg, blast]
+  );
 
   const handleThresholdChange = (asset) => (e) => {
-    setCfg(prev => ({
+    setCfg((prev) => ({
       ...prev,
       thresholds: { ...(prev.thresholds || {}), [asset]: e.target.value }
     }));
@@ -67,30 +86,32 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
 
   // ── master enable/disable ──────────────────────────────────────────────
   const handleEnabledChange = (e) => {
-    setCfg(prev => ({ ...prev, enabled: e.target.checked }));
+    setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
   };
 
   const applyBlast = (asset) => () => {
     const br = normCfg.blast_radius[asset];
-    setCfg(prev => ({
-      ...prev, thresholds: { ...(prev.thresholds || {}), [asset]: br }
+    setCfg((prev) => ({
+      ...prev,
+      thresholds: { ...(prev.thresholds || {}), [asset]: br }
     }));
   };
 
   const handleNotifChange = (_, selections) => {
-    setCfg(prev => ({
+    setCfg((prev) => ({
       ...prev,
       notifications: {
         system: selections.includes('system'),
-        voice : selections.includes('voice'),
-        sms   : selections.includes('sms'),
-        tts   : selections.includes('tts')
+        voice: selections.includes('voice'),
+        sms: selections.includes('sms'),
+        tts: selections.includes('tts')
       }
     }));
   };
 
   const selectedNotifs = Object.entries(normCfg.notifications)
-    .filter(([, v]) => v).map(([k]) => k);
+    .filter(([, v]) => v)
+    .map(([k]) => k);
 
   return (
     <Card variant="outlined">
@@ -119,32 +140,19 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
               value={normCfg.thresholds[code]}
               onChange={handleThresholdChange(code)}
             />
-            <Button
-              variant="outlined"
-              size="small"
-              sx={{ minWidth: 48 }}
-              onClick={applyBlast(code)}
-            >{normCfg.blast_radius[code]?.toFixed(1) || '—'}</Button>
+            <Button variant="outlined" size="small" sx={{ minWidth: 48 }} onClick={applyBlast(code)}>
+              {normCfg.blast_radius[code]?.toFixed(1) || '—'}
+            </Button>
 
             {/* widened nearest‑distance box */}
-            <TextField
-              value={nearest[code] ?? '—'}
-              size="small"
-              inputProps={{ readOnly: true }}
-              sx={{ width: 90 }}
-            />
+            <TextField value={nearest[code] ?? '—'} size="small" inputProps={{ readOnly: true }} sx={{ width: 90 }} />
           </Stack>
         ))}
 
         <Typography variant="subtitle2" sx={{ mt: 2 }}>
           Notifications
         </Typography>
-        <ToggleButtonGroup
-          size="small"
-          value={selectedNotifs}
-          onChange={handleNotifChange}
-          aria-label="notification types"
-        >
+        <ToggleButtonGroup size="small" value={selectedNotifs} onChange={handleNotifChange} aria-label="notification types">
           <ToggleButton value="system">System</ToggleButton>
           <ToggleButton value="voice">Voice</ToggleButton>
           <ToggleButton value="sms">SMS</ToggleButton>
@@ -160,10 +168,10 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
   const [remaining, setRemaining] = useState(0);
-  const [running,   setRunning]   = useState(false);
+  const [running, setRunning] = useState(false);
 
   const thresh = cfg.threshold_percent ?? '';
-  const snooze = cfg.snooze_seconds   ?? '';
+  const snooze = cfg.snooze_seconds ?? '';
   const loopSec = loop ?? '';
 
   // start countdown
@@ -179,8 +187,11 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
   React.useEffect(() => {
     if (!running) return;
     const id = setInterval(() => {
-      setRemaining(prev => {
-        if (prev <= 1) { setRunning(false); return 0; }
+      setRemaining((prev) => {
+        if (prev <= 1) {
+          setRunning(false);
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
@@ -189,7 +200,7 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
 
   const onChange = (e) => {
     const { name, value } = e.target;
-    setCfg(prev => ({ ...prev, [name]: value }));
+    setCfg((prev) => ({ ...prev, [name]: value }));
   };
 
   const onLoopChange = (e) => setLoop(e.target.value);
@@ -207,19 +218,8 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
             onChange={onChange}
             inputProps={{ step: '0.1' }}
           />
-          <TextField
-            label="Sonic Loop (seconds)"
-            type="number"
-            value={loopSec}
-            onChange={onLoopChange}
-          />
-          <TextField
-            label="Snooze (seconds)"
-            type="number"
-            name="snooze_seconds"
-            value={snooze}
-            onChange={onChange}
-          />
+          <TextField label="Sonic Loop (seconds)" type="number" value={loopSec} onChange={onLoopChange} />
+          <TextField label="Snooze (seconds)" type="number" name="snooze_seconds" value={snooze} onChange={onChange} />
 
           {running ? (
             <CircularCountdown remaining={remaining} total={snooze || 1} />
@@ -238,10 +238,34 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
 //  Profit Monitor card (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 function ProfitSettings({ cfg, setCfg }) {
+  const normCfg = useMemo(
+    () => ({
+      notifications: { system: true, voice: true, sms: false, tts: true, ...(cfg.notifications || {}) },
+      ...cfg
+    }),
+    [cfg]
+  );
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setCfg(prev => ({ ...prev, [name]: value }));
+    setCfg((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleNotifChange = (_, selections) => {
+    setCfg((prev) => ({
+      ...prev,
+      notifications: {
+        system: selections.includes('system'),
+        voice: selections.includes('voice'),
+        sms: selections.includes('sms'),
+        tts: selections.includes('tts')
+      }
+    }));
+  };
+
+  const selectedNotifs = Object.entries(normCfg.notifications)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
 
   return (
     <Card variant="outlined">
@@ -249,18 +273,28 @@ function ProfitSettings({ cfg, setCfg }) {
       <CardContent>
         <Grid container spacing={2}>
           {['single_high', 'portfolio_high', 'single_low', 'portfolio_low'].map((field) => (
-            <Grid item xs={6} key={field}>
+            <Grid item xs={12} key={field}>
               <TextField
                 fullWidth
                 label={`${field.replace('_', ' ').toUpperCase()} ($)`}
                 name={field}
                 type="number"
-                value={cfg[field] ?? ''}
+                value={normCfg[field] ?? ''}
                 onChange={handleChange}
               />
             </Grid>
           ))}
         </Grid>
+
+        <Typography variant="subtitle2" sx={{ mt: 2 }}>
+          Notifications
+        </Typography>
+        <ToggleButtonGroup size="small" value={selectedNotifs} onChange={handleNotifChange} aria-label="notification types">
+          <ToggleButton value="system">System</ToggleButton>
+          <ToggleButton value="voice">Voice</ToggleButton>
+          <ToggleButton value="sms">SMS</ToggleButton>
+          <ToggleButton value="tts">TTS</ToggleButton>
+        </ToggleButtonGroup>
       </CardContent>
     </Card>
   );
@@ -270,25 +304,26 @@ function ProfitSettings({ cfg, setCfg }) {
 //  Main page component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MonitorManager() {
-  const [liqCfg,    setLiqCfg]    = useState({});
+  const [liqCfg, setLiqCfg] = useState({});
   const [profitCfg, setProfitCfg] = useState({});
   const [marketCfg, setMarketCfg] = useState({});
-  const [loopSec,   setLoopSec]   = useState('');
+  const [loopSec, setLoopSec] = useState('');
   const [nearestLiq, setNearestLiq] = useState({});
-  const [toast,     setToast]     = useState('');
+  const [toast, setToast] = useState('');
 
   // initial fetch
   useEffect(() => {
-    axios.get('/api/monitor-settings/liquidation').then(r => setLiqCfg(r.data));
-    axios.get('/api/monitor-settings/profit').then(r => setProfitCfg(r.data));
-    axios.get('/api/monitor-settings/market').then(r => setMarketCfg(r.data));
-    axios.get('/api/monitor-settings/sonic').then(r => {
+    axios.get('/api/monitor-settings/liquidation').then((r) => setLiqCfg(r.data));
+    axios.get('/api/monitor-settings/profit').then((r) => setProfitCfg(r.data));
+    axios.get('/api/monitor-settings/market').then((r) => setMarketCfg(r.data));
+    axios.get('/api/monitor-settings/sonic').then((r) => {
       setLoopSec(String(r.data.interval_seconds ?? ''));
     });
 
-    axios.get('/api/liquidation/nearest-distance')
-         .then(r => setNearestLiq(r.data))
-         .catch(() => setNearestLiq({}));
+    axios
+      .get('/api/liquidation/nearest-distance')
+      .then((r) => setNearestLiq(r.data))
+      .catch(() => setNearestLiq({}));
   }, []);
 
   // Blast radius buttons would be rendered next to each asset threshold
@@ -296,33 +331,25 @@ export default function MonitorManager() {
 
   const saveAll = async () => {
     await axios.post('/api/monitor-settings/liquidation', liqCfg);
-    await axios.post('/api/monitor-settings/profit',      profitCfg);
-    await axios.post('/api/monitor-settings/market',      marketCfg);
+    await axios.post('/api/monitor-settings/profit', profitCfg);
+    await axios.post('/api/monitor-settings/market', marketCfg);
     await axios.post('/api/monitor-settings/sonic', { interval_seconds: parseInt(loopSec || '0', 10) });
     setToast('Settings saved');
   };
 
   return (
     <Box p={3}>
-      <Typography variant="h4" gutterBottom>Monitor Manager</Typography>
+      <Typography variant="h4" gutterBottom>
+        Monitor Manager
+      </Typography>
 
       <Grid container spacing={3}>
         {/* Liquidation monitor section split in two cards */}
         <Grid item xs={12} md={6}>
-          <AssetThresholdCard
-            cfg={liqCfg}
-            setCfg={setLiqCfg}
-            blast={marketCfg.blast_radius}
-            nearest={nearestLiq}
-          />
+          <AssetThresholdCard cfg={liqCfg} setCfg={setLiqCfg} blast={marketCfg.blast_radius} nearest={nearestLiq} />
         </Grid>
         <Grid item xs={12} md={6}>
-          <GlobalSnoozeCard
-            cfg={liqCfg}
-            setCfg={setLiqCfg}
-            loop={loopSec}
-            setLoop={setLoopSec}
-          />
+          <GlobalSnoozeCard cfg={liqCfg} setCfg={setLiqCfg} loop={loopSec} setLoop={setLoopSec} />
         </Grid>
 
         {/* Profit monitor */}
@@ -332,7 +359,9 @@ export default function MonitorManager() {
 
         {/* Save button */}
         <Grid item xs={12}>
-          <Button variant="contained" onClick={saveAll}>Save All</Button>
+          <Button variant="contained" onClick={saveAll}>
+            Save All
+          </Button>
         </Grid>
       </Grid>
 
