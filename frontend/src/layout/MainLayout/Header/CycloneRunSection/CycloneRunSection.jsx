@@ -244,7 +244,7 @@ export default function CycloneRunSection() {
             <Avatar variant="circular" sx={avatarSX} onClick={handleSonicCycle}>
               <Box component="img" src={SonicBurstIcon} alt="sonic" sx={{ width: '20px' }} />
             </Avatar>
-            )}
+          )}
 
         </Tooltip>
         <Tooltip title="Price Update">
