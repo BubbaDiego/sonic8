@@ -142,6 +142,7 @@ class DataLocker:
             if self.system is not None:
                 self._seed_alert_config_if_empty()
                 self._seed_liquid_monitor_config_if_empty()
+                self._seed_xcom_providers_if_empty()
 
         except Exception as e:
             log.error(f"❌ DataLocker setup failed: {e}", source="DataLocker")
@@ -939,6 +940,50 @@ class DataLocker:
         except Exception as e:
             log.error(
                 f"❌ Failed seeding liquid monitor config: {e}",
+                source="DataLocker",
+            )
+
+    def _seed_xcom_providers_if_empty(self):
+        """Seed XCom provider defaults into the system table if missing."""
+        if self.system is None:
+            log.warning(
+                "⚠️ System data manager unavailable; skipping xcom provider seed",
+                source="DataLocker",
+            )
+            return
+        try:
+            current = self.system.get_var("xcom_providers")
+            if current:
+                return
+
+            json_path = os.path.join(CONFIG_DIR, "comm_config.json")
+            defaults = {}
+            if os.path.exists(json_path):
+                with open(json_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                    if isinstance(cfg, Mapping):
+                        comm = cfg.get("communication")
+                        if isinstance(comm, Mapping):
+                            defaults = comm.get("providers") or {}
+
+            if not isinstance(defaults, Mapping):
+                defaults = {}
+
+            tts = defaults.get("tts") or {}
+            if not isinstance(tts, Mapping):
+                tts = {}
+            tts.setdefault("enabled", True)
+            tts.setdefault("voice", "Zira")
+            defaults["tts"] = tts
+
+            self.system.set_var("xcom_providers", defaults)
+            log.debug(
+                "XCom providers seeded from comm_config.json",
+                source="DataLocker",
+            )
+        except Exception as e:
+            log.error(
+                f"❌ Failed seeding xcom providers: {e}",
                 source="DataLocker",
             )
 
