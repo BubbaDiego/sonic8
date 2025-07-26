@@ -4,12 +4,19 @@ from typing import Tuple, Optional
 from uuid import uuid4
 from datetime import datetime
 
-from ..models import AlertConfig, AlertState, Threshold, AlertLevel, AlertEvent
+from ..models import (
+    AlertConfig,
+    AlertState,
+    Threshold,
+    AlertLevel,
+    AlertEvent,
+    Condition,
+)
 
 def evaluate(cfg: AlertConfig, state: AlertState, metric: float, threshold: Threshold) -> Tuple[AlertState, Optional[AlertEvent]]:
     """Pure function that returns a possibly-updated state and an optional event."""
     # determine level
-    if threshold.condition == cfg.condition == threshold.condition:
+    if cfg.condition == Condition.ABOVE:
         if metric >= threshold.high:
             level = AlertLevel.HIGH
         elif metric >= threshold.medium:
