@@ -31,6 +31,10 @@
         "flow_sid": "${TWILIO_FLOW_SID}",
         "default_to_phone": "${MY_PHONE_NUMBER}",
         "default_from_phone": "${TWILIO_PHONE_NUMBER}"
+      },
+      "tts": {
+        "enabled": true,
+        "voice": "Zira"
       }
     },
     "defaults": {

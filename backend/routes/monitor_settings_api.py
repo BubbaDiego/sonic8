@@ -1,6 +1,6 @@
 """FastAPI router providing CRUD endpoints for monitor thresholds.
 
-v2 – Adds nested ``notifications`` dict (system / voice / sms) to liquidation monitor schema.
+v2 – Adds nested ``notifications`` dict (system / voice / sms / tts) to liquidation monitor schema.
 Back‑compat: still accepts flat ``threshold_btc`` etc. and old ``windows_alert`` / ``voice_alert`` flags.
 """
 
@@ -82,12 +82,14 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
             "system": to_bool(payload.get("windows_alert", cfg.get("windows_alert", True))),
             "voice": to_bool(payload.get("voice_alert", cfg.get("voice_alert", True))),
             "sms": to_bool(payload.get("sms_alert", cfg.get("sms_alert", False))),
+            "tts": to_bool(payload.get("tts_alert", cfg.get("tts_alert", True))),
         }
     # Ensure booleans
     notifications = {
         "system": to_bool(notifications.get("system")),
         "voice": to_bool(notifications.get("voice")),
         "sms": to_bool(notifications.get("sms")),
+        "tts": to_bool(notifications.get("tts")),
     }
     cfg["notifications"] = notifications
 
@@ -95,6 +97,7 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
     cfg["windows_alert"] = notifications["system"]
     cfg["voice_alert"] = notifications["voice"]
     cfg["sms_alert"] = notifications["sms"]
+    cfg["tts_alert"] = notifications["tts"]
 
     return cfg
 
@@ -105,7 +108,10 @@ def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
     cfg = dl.system.get_var("liquid_monitor") or {}
     # Ensure defaults so that frontend checkboxes have values
     cfg.setdefault("thresholds", {})
-    cfg.setdefault("notifications", {"system": True, "voice": True, "sms": False})
+    cfg.setdefault(
+        "notifications",
+        {"system": True, "voice": True, "sms": False, "tts": True},
+    )
     return cfg
 
 

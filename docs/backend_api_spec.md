@@ -110,7 +110,7 @@ Example `notifications` payload:
   "threshold_percent": 5.0,
   "snooze_seconds": 300,
   "thresholds": {"BTC": 5, "ETH": 8, "SOL": 7},
-  "notifications": {"system": true, "voice": true, "sms": false}
+  "notifications": {"system": true, "voice": true, "sms": false, "tts": true}
 }
 ```
 
