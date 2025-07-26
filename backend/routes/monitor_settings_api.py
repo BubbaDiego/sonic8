@@ -156,4 +156,16 @@ def update_profit_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
     return {"success": True}
 
 
+@router.get("/market")
+def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
+    cfg = dl.system.get_var("market_monitor") or {}
+    return cfg
+
+@router.post("/market")
+def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
+    dl.system.set_var("market_monitor", payload)
+    return {"success": True}
+
+
+
 __all__ = ["router"]

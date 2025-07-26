@@ -3,6 +3,16 @@ from datetime import datetime, timezone
 from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
 from backend.core.market_core.daily_swing_service import DailySwingService
+from backend.core.constants import MOTHER_BRAIN_DB_PATH
+from pathlib import Path
+
+MOTHER_BRAIN_DB_PATH = Path("c:/sonic4/data/mother_brain.db")
+
+
+
+print("USING DATABASE PATH:", MOTHER_BRAIN_DB_PATH)
+
+
 
 class MarketMonitor(BaseMonitor):
     name = "market_monitor"
@@ -10,8 +20,8 @@ class MarketMonitor(BaseMonitor):
 
     def __init__(self):
         super().__init__(name=self.name, ledger_filename="market_monitor_ledger.json")
-        self.dl = DataLocker.get_instance()
         self.swing = DailySwingService()
+        self.dl = DataLocker.get_instance(MOTHER_BRAIN_DB_PATH)
 
     # ------------------------------------------------------------------
     # Config helpers
@@ -86,3 +96,12 @@ class MarketMonitor(BaseMonitor):
             "trigger_any": triggered_any,
             "details": detail
         }
+
+if __name__ == "__main__":
+    import json
+    from backend.core.logging import log
+    monitor = MarketMonitor()
+    log.banner("🚀 SELF-RUN: MarketMonitor")
+    result = monitor.run_cycle()
+    log.success("🧾 MarketMonitor Run Complete", source="SelfTest", payload=result)
+    print(json.dumps(result, indent=2))

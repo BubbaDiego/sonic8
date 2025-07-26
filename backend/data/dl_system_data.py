@@ -9,8 +9,8 @@ Description:
 
 import json
 from datetime import datetime
-from core.core_imports import log
-from data.models import SystemVariables
+from backend.core.core_imports import log
+from backend.data.models import SystemVariables
 
 
 
