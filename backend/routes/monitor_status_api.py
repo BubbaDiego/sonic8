@@ -54,7 +54,7 @@ def get_liquidation_snooze(dl: DataLocker):
 def get_status(dl: DataLocker = Depends(get_app_locker)) -> MonitorStatus:
     status_summary = dl.ledger.get_monitor_status_summary()
 
-    now = datetime.utcnow().timestamp()
+    now = datetime.now(timezone.utc).timestamp()
 
     # Sonic next run calculation (safe handling)
     try:

@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 import types
+from datetime import datetime, timezone, timedelta
 
 import backend.sonic_backend_app as app_module
 from backend.data.data_locker import DataLocker
@@ -70,4 +71,24 @@ def test_liquid_snooze_countdown(monkeypatch, tmp_path):
     assert resp.status_code == 200
     data = resp.json()
     assert data["liquid_snooze"] > 0
+
+
+def test_sonic_next_positive(monkeypatch, tmp_path):
+    db_path = tmp_path / "test.db"
+    dl = DataLocker(str(db_path))
+    monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls: dl))
+
+    cursor = dl.db.get_cursor()
+    now = datetime.now(timezone.utc) - timedelta(seconds=1)
+    cursor.execute(
+        "INSERT INTO monitor_heartbeat (monitor_name, last_run, interval_seconds) VALUES (?, ?, ?)",
+        ("sonic_monitor", now.isoformat(), 60),
+    )
+    dl.db.commit()
+
+    client = TestClient(app_module.app)
+    resp = client.get("/monitor_status/")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["sonic_next"] > 0
 
