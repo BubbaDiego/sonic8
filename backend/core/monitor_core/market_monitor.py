@@ -33,6 +33,7 @@ class MarketMonitor(BaseMonitor):
         cfg.setdefault("thresholds", {})
         cfg.setdefault("blast_radius", {})
         cfg.setdefault("blast_filters", {"window": "24h", "exchange": "coingecko"})
+        defaults = {"BTC": 8000.0, "ETH": 300.0, "SOL": 13.0}
         # ensure nested defaults
         for asset in self.ASSETS:
             cfg["baseline"].setdefault(asset, {
@@ -41,7 +42,7 @@ class MarketMonitor(BaseMonitor):
                 "mode": "EITHER"
             })
             cfg["thresholds"].setdefault(asset, 5.0)
-            cfg["blast_radius"].setdefault(asset, 0.0)
+            cfg["blast_radius"].setdefault(asset, defaults.get(asset, 0.0))
         return cfg
 
     def _save_cfg(self, cfg):
