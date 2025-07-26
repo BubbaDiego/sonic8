@@ -49,7 +49,7 @@ def test_do_work_updates_blast_and_threshold(monkeypatch):
             "SOL": {"price": 100.0, "timestamp": "2024-01-01T00:00:00+00:00", "mode": "EITHER"},
         },
         "thresholds": {"BTC": 5.0, "ETH": 5.0, "SOL": 5.0},
-        "blast_radius": {"BTC": 0.0, "ETH": 0.0, "SOL": 0.0},
+        "blast_radius": {"BTC": 8000.0, "ETH": 300.0, "SOL": 13.0},
         "blast_filters": {"window": "24h", "exchange": "coingecko"},
     }
 
