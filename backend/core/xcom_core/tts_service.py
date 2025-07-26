@@ -7,7 +7,7 @@ import sys
 from backend.core.logging import log
 
 class TTSService:
-    def __init__(self, voice_name: str | None = None):
+    def __init__(self, voice_name: str | None = None, speed: int | None = None):
         driver = "sapi5" if sys.platform == "win32" else None
         if pyttsx3:
             try:
@@ -27,6 +27,15 @@ class TTSService:
                     self.engine.setProperty("voice", v.id)
                     log.info(f"TTS Voice set to {v.name}", source="TTSService")
                     break
+
+        if speed is not None and self.engine:
+            try:
+                self.engine.setProperty("rate", speed)
+                log.info(f"TTS speed set to {speed}", source="TTSService")
+            except Exception as e:  # pragma: no cover - optional configuration
+                log.warning(
+                    f"⚠️ Failed to set TTS speed: {e}", source="TTSService"
+                )
 
     def send(self, recipient: str, body: str) -> bool:
         if not self.engine:
