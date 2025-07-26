@@ -5,8 +5,10 @@ Back‑compat: still accepts flat ``threshold_btc`` etc. and old ``windows_alert
 """
 
 from fastapi import APIRouter, Depends
+from datetime import datetime, timezone
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.core.alert_core.threshold_service import ThresholdService  # type: ignore
+from backend.core.monitor_core.sonic_monitor import DEFAULT_INTERVAL, MONITOR_NAME
 from backend.deps import get_app_locker
 
 router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
@@ -26,6 +28,53 @@ def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
 @router.post("/market")
 def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
     dl.system.set_var("market_monitor", payload)
+    return {"success": True}
+
+# ------------------------------------------------------------------ #
+# Sonic loop interval
+# ------------------------------------------------------------------ #
+
+@router.get("/sonic")
+def get_sonic_settings(dl: DataLocker = Depends(get_app_locker)):
+    """Return current Sonic monitor loop interval."""
+
+    cursor = dl.db.get_cursor()
+    if cursor is None:
+        return {"interval_seconds": DEFAULT_INTERVAL}
+    cursor.execute(
+        "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name = ?",
+        (MONITOR_NAME,),
+    )
+    row = cursor.fetchone()
+    if row and row[0] is not None:
+        return {"interval_seconds": int(row[0])}
+    return {"interval_seconds": DEFAULT_INTERVAL}
+
+
+@router.post("/sonic")
+def update_sonic_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
+    """Update Sonic monitor loop interval."""
+
+    interval = int(payload.get("interval_seconds", DEFAULT_INTERVAL))
+
+    cursor = dl.db.get_cursor()
+    if cursor is None:
+        return {"success": False}
+    cursor.execute(
+        "SELECT last_run FROM monitor_heartbeat WHERE monitor_name = ?",
+        (MONITOR_NAME,),
+    )
+    row = cursor.fetchone()
+    last_run = row[0] if row else datetime.now(timezone.utc).isoformat()
+    cursor.execute(
+        """
+        INSERT INTO monitor_heartbeat (monitor_name, last_run, interval_seconds)
+        VALUES (?, ?, ?)
+        ON CONFLICT(monitor_name) DO UPDATE SET interval_seconds = excluded.interval_seconds
+        """,
+        (MONITOR_NAME, last_run, interval),
+    )
+    dl.db.commit()
     return {"success": True}
 
 # ------------------------------------------------------------------ #
