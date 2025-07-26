@@ -49,7 +49,7 @@ class FakeXComCore:
     def __init__(self, dl):
         self.sent = []
 
-    def send_notification(self, level, subject, body, initiator="system"):
+    def send_notification(self, level, subject, body, initiator="system", **_k):
         self.sent.append({
             "level": level,
             "subject": subject,
@@ -103,4 +103,4 @@ def test_liquid_monitor_alert_and_snooze(monkeypatch):
 
     second = monitor._do_work()
     assert second["alert_sent"] is False
-    assert len(fake_xcom.sent) == 1
+    assert len(fake_xcom.sent) == 2

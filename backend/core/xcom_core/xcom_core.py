@@ -9,6 +9,7 @@ from backend.core.xcom_core.email_service import EmailService
 from backend.core.xcom_core.sms_service import SMSService
 from backend.core.xcom_core.voice_service import VoiceService
 from backend.core.xcom_core.sound_service import SoundService
+from backend.core.xcom_core.tts_service import TTSService
 from backend.data.data_locker import DataLocker
 from backend.core.logging import log
 
@@ -30,8 +31,9 @@ class XComCore:
         email_cfg = self.config_service.get_provider("email") or {}
         sms_cfg = self.config_service.get_provider("sms") or {}
         voice_cfg = self.config_service.get_provider("api") or {}
+        tts_cfg = self.config_service.get_provider("tts") or {}
 
-        results = {"email": False, "sms": False, "voice": False, "sound": None}
+        results = {"email": False, "sms": False, "voice": False, "sound": None, "tts": False}
         error_msg = None
 
         try:
@@ -55,7 +57,9 @@ class XComCore:
                 except Exception:
                     allow_call = True
 
-            if level == "HIGH":
+            if mode == "tts" and tts_cfg.get("enabled", False):
+                results["tts"] = TTSService(tts_cfg.get("voice")).send(recipient, body)
+            elif level == "HIGH":
                 timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                 voice_message = (
                     f"New High Priority Alert received at {timestamp}. "
@@ -100,7 +104,7 @@ class XComCore:
         success = error_msg is None  # only fail when an exception occurs
 
         comm_type = ",".join(
-            [k for k in ("email", "sms", "voice", "sound") if results.get(k)]
+            [k for k in ("email", "sms", "voice", "sound", "tts") if results.get(k)]
         ) or "system"
 
         try:
@@ -159,7 +163,7 @@ def get_latest_xcom_monitor_entry(data_locker):
         except Exception:
             meta = {}
     results = meta.get("results", {}) or {}
-    comm_types = [("sms", "sms"), ("voice", "voice"), ("email", "email"), ("sound", "sound")]
+    comm_types = [("sms", "sms"), ("voice", "voice"), ("email", "email"), ("sound", "sound"), ("tts", "tts")]
     comm_type = "system"
     for key, value in comm_types:
         if results.get(key):
