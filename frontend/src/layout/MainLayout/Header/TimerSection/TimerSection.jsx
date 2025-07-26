@@ -18,6 +18,7 @@ function RadialTimer({ seconds, total, label, color }) {
           size={38}
           thickness={4}
           color={color}
+          sx={{ transition: 'stroke-dashoffset 0.1s linear' }}
         />
         <Box
           sx={{
@@ -38,17 +39,19 @@ function RadialTimer({ seconds, total, label, color }) {
 }
 
 export default function TimerSection() {
-  const [sonic, setSonic]     = useState(0);
-  const [snooze, setSnooze]   = useState(0);
+  const [sonic, setSonic] = useState(0);
+  const [snooze, setSnooze] = useState(0);
+  const [sonicNextTs, setSonicNextTs] = useState(Date.now());
+  const [snoozeEndTs, setSnoozeEndTs] = useState(Date.now());
 
 useEffect(() => {
   let timeoutHandle;
-  let intervalId;
   const poll = async () => {
     try {
       const { data } = await axios.get('/api/monitor-status/');
-      setSonic(Math.max(0, Math.floor(data?.sonic_next    ?? 0)));
-      setSnooze(Math.max(0, Math.floor(data?.liquid_snooze ?? 0)));
+      const now = Date.now();
+      setSonicNextTs(now + (data?.sonic_next ?? 0) * 1000);
+      setSnoozeEndTs(now + (data?.liquid_snooze ?? 0) * 1000);
     } catch (err) {
       // Log the error so failed requests are visible during debugging
       console.error('Failed to fetch monitor status:', err);
@@ -56,15 +59,21 @@ useEffect(() => {
     timeoutHandle = setTimeout(poll, POLL_MS);
   };
   poll();
-  intervalId = setInterval(() => {
-    setSonic(prev => Math.max(0, prev - 1));
-    setSnooze(prev => Math.max(0, prev - 1));
-  }, 1000);
   return () => {
     clearTimeout(timeoutHandle);
-    clearInterval(intervalId);
   };
 }, []);
+
+useEffect(() => {
+  let frameId;
+  const tick = () => {
+    setSonic(Math.max(0, (sonicNextTs - Date.now()) / 1000));
+    setSnooze(Math.max(0, (snoozeEndTs - Date.now()) / 1000));
+    frameId = requestAnimationFrame(tick);
+  };
+  frameId = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(frameId);
+}, [sonicNextTs, snoozeEndTs]);
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', mx: 1 }}>
