@@ -38,13 +38,19 @@ class ProfitMonitor(BaseMonitor):
 
     def _do_work(self):
         positions = self.position_core.get_active_positions()
+
+        def _field(obj, name, default=0.0):
+            if isinstance(obj, dict):
+                return obj.get(name, default)
+            return getattr(obj, name, default)
+
         total_profit = sum(
-            max(float(pos.get('pnl_after_fees_usd', 0)), 0.0) for pos in positions
+            max(float(_field(pos, "pnl_after_fees_usd", 0.0)), 0.0) for pos in positions
         )
         max_profit = 0.0
         for p in positions:
             try:
-                profit = float(p.get('pnl_after_fees_usd', 0))
+                profit = float(_field(p, "pnl_after_fees_usd", 0.0))
             except Exception:
                 profit = 0.0
             if profit > max_profit:
