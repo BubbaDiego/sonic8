@@ -31,11 +31,12 @@ XComCore(dl_sys_data_manager)
 
 **send_notification**
 ```python
-send_notification(level, subject, body, recipient="", initiator="system") -> dict
+send_notification(level, subject, body, recipient="", initiator="system", mode=None) -> dict
 ```
 - Retrieves provider configs (`email`, `sms`, `api`).
-- Based on `level` dispatches to `SMSService`, `VoiceService`, `EmailService` and
-  optionally plays a sound.
+- When `mode` is `None` it fans out based on `level` (`HIGH` => SMS+voice,
+  `MEDIUM` => SMS, otherwise email).  Passing a string or list in `mode`
+  explicitly selects the channels (`"voice"`, `"sms"`, `"tts"`, etc.).
 - Results and errors are logged and written to the `xcom_monitor` ledger.
 - Returns a dictionary of results including a `success` flag.
 
