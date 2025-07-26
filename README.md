@@ -46,7 +46,7 @@ Monitors can deliver spoken alerts when the `xcom_providers` setting defines a
 rate.
 
 ```json
-"tts": { "enabled": true, "voice": "Zira", "speed": 200 }
+"tts": { "enabled": true, "voice": "Zira", "speed": 140 }
 ```
 
 The sample file [`backend/config/comm_config.json`](backend/config/comm_config.json)

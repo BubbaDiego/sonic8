@@ -974,7 +974,7 @@ class DataLocker:
                 tts = {}
             tts.setdefault("enabled", True)
             tts.setdefault("voice", "Zira")
-            tts.setdefault("speed", 200)
+            tts.setdefault("speed", 140)
             defaults["tts"] = tts
 
             self.system.set_var("xcom_providers", defaults)
