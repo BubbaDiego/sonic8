@@ -41,11 +41,12 @@ backend/config/theme_config.json
 ### Text-to-speech configuration
 
 Monitors can deliver spoken alerts when the `xcom_providers` setting defines a
-`"tts"` provider. At minimum set `"enabled": true`; the optional `"voice"`
-string selects a specific installed voice.
+`"tts"` provider. At minimum set `"enabled": true`; you may also specify a
+`"voice"` name and a numeric `"speed"` (words per minute) to adjust the speech
+rate.
 
 ```json
-"tts": { "enabled": true, "voice": "Zira" }
+"tts": { "enabled": true, "voice": "Zira", "speed": 200 }
 ```
 
 The sample file [`backend/config/comm_config.json`](backend/config/comm_config.json)

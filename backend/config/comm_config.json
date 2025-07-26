@@ -34,7 +34,8 @@
       },
       "tts": {
         "enabled": true,
-        "voice": "Zira"
+        "voice": "Zira",
+        "speed": 200
       }
     },
     "defaults": {

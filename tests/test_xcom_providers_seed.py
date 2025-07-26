@@ -20,3 +20,4 @@ def test_xcom_providers_seed(tmp_path, monkeypatch):
     assert cfg["sms"]["enabled"] is False
     assert cfg["tts"]["enabled"] is True
     assert cfg["tts"]["voice"] == "Zira"
+    assert cfg["tts"]["speed"] == 200

@@ -108,7 +108,10 @@ class XComCore:
 
             # ---------------- TTS  ----------------------------------------------------
             if "tts" in requested and tts_cfg.get("enabled", False):
-                results["tts"] = TTSService(tts_cfg.get("voice")).send(recipient, body)
+                results["tts"] = TTSService(
+                    tts_cfg.get("voice"),
+                    tts_cfg.get("speed"),
+                ).send(recipient, body)
 
             log.success(f"✅ Notification dispatched [{level}]", source="XComCore", payload=results)
 
