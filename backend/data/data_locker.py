@@ -927,6 +927,7 @@ class DataLocker:
                 threshold = 5.0
 
             config.setdefault("thresholds", {})
+            config.setdefault("enabled", True)
             for asset in assets:
                 config["thresholds"].setdefault(asset, threshold)
 
