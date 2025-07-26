@@ -6,18 +6,20 @@ import {
   ToggleButtonGroup, Stack, CircularProgress, Switch, Tooltip
 } from '@mui/material';
 
-import CurrencyBitcoinIcon from '@mui/icons-material/CurrencyBitcoin';
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
+
+// use asset logos instead of MUI icons
+import btcLogo from '/static/images/btc_logo.png';
+import ethLogo from '/static/images/eth_logo.png';
+import solLogo from '/static/images/sol_logo.png';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Constants
 // ─────────────────────────────────────────────────────────────────────────────
 const ASSETS = [
-  { code: 'BTC', Icon: CurrencyBitcoinIcon },
-  { code: 'ETH', Icon: AccountBalanceWalletIcon },
-  { code: 'SOL', Icon: CurrencyExchangeIcon }
+  { code: 'BTC', icon: btcLogo },
+  { code: 'ETH', icon: ethLogo },
+  { code: 'SOL', icon: solLogo }
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,9 +108,9 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
         }
       />
       <CardContent>
-        {ASSETS.map(({ code, Icon }) => (
+        {ASSETS.map(({ code, icon }) => (
           <Stack key={code} direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-            <Icon fontSize="small" />
+            <img src={icon} width={20} alt={code} />
             <TextField
               fullWidth
               label={`${code} Threshold`}
