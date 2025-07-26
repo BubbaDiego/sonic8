@@ -79,11 +79,12 @@ def test_liq_notifications_merge(tmp_path, monkeypatch):
         "windows_alert": False,
         "voice_alert": False,
         "sms_alert": True,
+        "tts_alert": False,
     }
 
 
     assert cfg["thresholds"] == {"BTC": 0.9, "ETH": 0.7}
-    assert cfg["notifications"] == {"system": False, "voice": False, "sms": True}
+    assert cfg["notifications"] == {"system": False, "voice": False, "sms": True, "tts": False}
     assert cfg["windows_alert"] is False
     assert cfg["voice_alert"] is False
     assert cfg["sms_alert"] is True
@@ -91,7 +92,7 @@ def test_liq_notifications_merge(tmp_path, monkeypatch):
     resp = client.get("/api/monitor-settings/liquidation")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["notifications"] == {"system": False, "voice": False, "sms": True}
+    assert data["notifications"] == {"system": False, "voice": False, "sms": True, "tts": False}
     assert data["windows_alert"] is False
     assert data["voice_alert"] is False
     assert data["sms_alert"] is True

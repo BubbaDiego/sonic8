@@ -2,7 +2,7 @@
 
 v2 – July 2025
 • Supports per‑asset thresholds via ``thresholds`` dict (already present).
-• Adds nested ``notifications`` dict (system / voice / sms).
+• Adds nested ``notifications`` dict (system / voice / sms / tts).
 """
 
 from datetime import datetime, timezone, timedelta
@@ -28,7 +28,7 @@ class LiquidationMonitor(BaseMonitor):
             "threshold_percent": 5.0,
             "snooze_seconds": 300,
             "thresholds": { "BTC": 5, "ETH": 8, "SOL": 7 },
-            "notifications": { "system": true, "voice": true, "sms": false }
+            "notifications": { "system": true, "voice": true, "sms": false, "tts": true }
           }
         }
     """
