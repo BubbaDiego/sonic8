@@ -1,5 +1,5 @@
 // PositionListCard.jsx (updated to Positions data with liquidation distance and travel percent)
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import Button from '@mui/material/Button';
 import CardActions from '@mui/material/CardActions';
@@ -13,27 +13,15 @@ import TableRow from '@mui/material/TableRow';
 import TableSortLabel from '@mui/material/TableSortLabel';
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import MainCard from 'ui-component/cards/MainCard';
-import axios from 'utils/axios';
+import { useGetPositions } from 'api/positions';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import WaterDropTwoToneIcon from '@mui/icons-material/WaterDropTwoTone';
 
 export default function PositionListCard({ title }) {
-  const [positions, setPositions] = useState([]);
+  const { positions = [], positionsLoading } = useGetPositions();
   const [orderBy, setOrderBy] = useState('wallet_name');
   const [order, setOrder] = useState('asc');
-
-  useEffect(() => {
-    async function loadPositions() {
-      try {
-        const response = await axios.get('/positions/');
-        setPositions(response.data || []);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    loadPositions();
-  }, []);
 
   const sortedPositions = useMemo(() => {
     return [...positions].sort((a, b) => {
