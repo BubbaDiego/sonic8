@@ -47,7 +47,7 @@ class DLTraderManager:
             )
         """)
         self.db.commit()
-        log.success("✅ Trader table ready", source="DLTraderManager")
+        # Logging suppressed to reduce console noise
 
     def create_trader(self, trader: object) -> bool:
         """Persist a new trader record.
