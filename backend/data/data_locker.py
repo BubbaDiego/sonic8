@@ -144,6 +144,7 @@ class DataLocker:
                 self._seed_alert_config_if_empty()
                 self._seed_liquid_monitor_config_if_empty()
                 self._seed_profit_monitor_config_if_empty()
+                self._seed_market_monitor_config_if_empty()
                 self._seed_xcom_providers_if_empty()
 
         except Exception as e:
@@ -976,6 +977,55 @@ class DataLocker:
         except Exception as e:
             log.error(
                 f"❌ Failed seeding profit monitor config: {e}",
+                source="DataLocker",
+            )
+
+    def _seed_market_monitor_config_if_empty(self):
+        """Seed MarketMonitor defaults if missing."""
+        if self.system is None:
+            log.warning(
+                "⚠️ System data manager unavailable; skipping market monitor seed",
+                source="DataLocker",
+            )
+            return
+        try:
+            current = self.system.get_var("market_monitor")
+            if current:
+                return
+
+            from datetime import timezone
+
+            assets = ["BTC", "ETH", "SOL"]
+            baseline = {}
+            thresholds = {}
+            blast_radius = {}
+            price_defaults = {"BTC": 8000.0, "ETH": 300.0, "SOL": 13.0}
+
+            for asset in assets:
+                price = self.get_latest_price(asset).get("current_price") or 0
+                baseline[asset] = {
+                    "price": price,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "mode": "EITHER",
+                }
+                thresholds[asset] = 5.0
+                blast_radius[asset] = price_defaults.get(asset, 0.0)
+
+            config = {
+                "baseline": baseline,
+                "thresholds": thresholds,
+                "blast_radius": blast_radius,
+                "blast_filters": {"window": "24h", "exchange": "coingecko"},
+            }
+
+            self.system.set_var("market_monitor", config)
+            log.debug(
+                "Market monitor config seeded from defaults",
+                source="DataLocker",
+            )
+        except Exception as e:
+            log.error(
+                f"❌ Failed seeding market monitor config: {e}",
                 source="DataLocker",
             )
 
