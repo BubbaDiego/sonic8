@@ -12,14 +12,13 @@ export default function ThemeModeSection() {
   const theme = useTheme();
   const { mode, onChangeMode } = useConfig();
 
-  const nextMode = {
-    [ThemeMode.LIGHT]: ThemeMode.DARK,
-    [ThemeMode.DARK]: ThemeMode.SYSTEM,
-    [ThemeMode.SYSTEM]: ThemeMode.LIGHT
-  }[mode];
+  const themeOrder = [ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.SYSTEM];
+  const nextMode = themeOrder[(themeOrder.indexOf(mode) + 1) % themeOrder.length];
 
-  const handleToggle = () => {
-    onChangeMode(nextMode);
+  const iconMap = {
+    [ThemeMode.LIGHT]: <IconMoon />,
+    [ThemeMode.DARK]: <IconDeviceDesktop />,
+    [ThemeMode.SYSTEM]: <IconSun />
   };
 
   const tooltipMap = {
@@ -28,43 +27,13 @@ export default function ThemeModeSection() {
     [ThemeMode.SYSTEM]: 'Light Mode'
   };
 
-  const iconMap = {
-    [ThemeMode.LIGHT]: <IconMoon />,
-    [ThemeMode.DARK]: <IconDeviceDesktop />,
-    [ThemeMode.SYSTEM]: <IconSun />
-
-    let newMode;
-    if (mode === ThemeMode.LIGHT) {
-      newMode = ThemeMode.DARK;
-    } else if (mode === ThemeMode.DARK) {
-      newMode = ThemeMode.FUNKY;
-    } else {
-      newMode = ThemeMode.LIGHT;
-    }
-    onChangeMode(newMode);
-
+  const handleToggle = () => {
+    onChangeMode(nextMode);
   };
-
-  const nextMode =
-    mode === ThemeMode.LIGHT
-      ? ThemeMode.DARK
-      : mode === ThemeMode.DARK
-        ? ThemeMode.FUNKY
-        : ThemeMode.LIGHT;
-  const tooltipTitle =
-    nextMode === ThemeMode.DARK
-      ? 'Dark Mode'
-      : nextMode === ThemeMode.FUNKY
-        ? 'Funky Mode'
-        : 'Light Mode';
 
   return (
     <Box sx={{ ml: 2 }}>
-
       <Tooltip title={tooltipMap[mode]}>
-
-      <Tooltip title={tooltipTitle}>
-
         <Avatar
           variant="rounded"
           sx={{
@@ -84,17 +53,7 @@ export default function ThemeModeSection() {
           onClick={handleToggle}
           color="inherit"
         >
-
           {iconMap[mode]}
-
-          {nextMode === ThemeMode.DARK ? (
-            <IconMoon />
-          ) : nextMode === ThemeMode.FUNKY ? (
-            'F'
-          ) : (
-            <IconSun />
-          )}
-
         </Avatar>
       </Tooltip>
     </Box>
