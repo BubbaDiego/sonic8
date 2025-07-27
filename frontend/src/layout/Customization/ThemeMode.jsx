@@ -13,6 +13,7 @@ import useConfig from 'hooks/useConfig';
 
 // assets
 import { IconMoon, IconSun } from '@tabler/icons-react';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 // ==============================|| CUSTOMIZATION - MODE ||============================== //
 
@@ -63,9 +64,10 @@ export default function ThemeModeLayout() {
                 variant="rounded"
                 {...(mode === ThemeMode.FUNKY && { outline: true })}
                 color={mode === ThemeMode.FUNKY ? 'primary' : 'dark'}
-                sx={{ width: 48, height: 48, fontWeight: 'bold' }}
+                sx={{ width: 48, height: 48, color: 'secondary.main' }}
               >
-                F
+                <AutoAwesomeIcon />
+
               </Avatar>
             }
           />

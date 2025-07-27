@@ -132,7 +132,7 @@ Edit global settings in `src/config.ts`:
 - layout
 - fontFamily
 - borderRadius
-- mode ('light'/'dark')
+- mode ('light'/'dark'/'funky')
 - presetColor
 - language (`i18n`)
 - themeDirection ('ltr'/'rtl')
