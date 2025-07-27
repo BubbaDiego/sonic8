@@ -121,6 +121,13 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
     .filter(([, v]) => v)
     .map(([k]) => k);
 
+  const getNearestObj = (code) => {
+    const v = nearest[code];
+    if (v == null) return { dist: "\u2014", side: "" };
+    if (typeof v === "number") return { dist: v, side: "" };
+    return { dist: v.dist, side: v.side };
+  };
+
   return (
     <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <CardHeader
@@ -152,13 +159,21 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
               {normCfg.blast_radius[code]?.toFixed(1) || '—'}
             </Button>
 
-            {/* widened nearest‑distance box */}
-            <TextField
-              value={nearest[code] ?? '—'}
-              size="small"
-              inputProps={{ readOnly: true }}
-              sx={{ width: 120 }}
-            />
+            {/* nearest distance + side */}
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography
+                variant="caption"
+                sx={{ width: 42, textAlign: 'right' }}
+              >
+                {getNearestObj(code).side}
+              </Typography>
+              <TextField
+                value={getNearestObj(code).dist}
+                size="small"
+                inputProps={{ readOnly: true }}
+                sx={{ width: 88 }}
+              />
+            </Stack>
           </Stack>
         ))}
 
