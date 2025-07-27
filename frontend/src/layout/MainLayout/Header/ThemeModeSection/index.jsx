@@ -32,11 +32,39 @@ export default function ThemeModeSection() {
     [ThemeMode.LIGHT]: <IconMoon />,
     [ThemeMode.DARK]: <IconDeviceDesktop />,
     [ThemeMode.SYSTEM]: <IconSun />
+
+    let newMode;
+    if (mode === ThemeMode.LIGHT) {
+      newMode = ThemeMode.DARK;
+    } else if (mode === ThemeMode.DARK) {
+      newMode = ThemeMode.FUNKY;
+    } else {
+      newMode = ThemeMode.LIGHT;
+    }
+    onChangeMode(newMode);
+
   };
+
+  const nextMode =
+    mode === ThemeMode.LIGHT
+      ? ThemeMode.DARK
+      : mode === ThemeMode.DARK
+        ? ThemeMode.FUNKY
+        : ThemeMode.LIGHT;
+  const tooltipTitle =
+    nextMode === ThemeMode.DARK
+      ? 'Dark Mode'
+      : nextMode === ThemeMode.FUNKY
+        ? 'Funky Mode'
+        : 'Light Mode';
 
   return (
     <Box sx={{ ml: 2 }}>
+
       <Tooltip title={tooltipMap[mode]}>
+
+      <Tooltip title={tooltipTitle}>
+
         <Avatar
           variant="rounded"
           sx={{
@@ -56,7 +84,17 @@ export default function ThemeModeSection() {
           onClick={handleToggle}
           color="inherit"
         >
+
           {iconMap[mode]}
+
+          {nextMode === ThemeMode.DARK ? (
+            <IconMoon />
+          ) : nextMode === ThemeMode.FUNKY ? (
+            'F'
+          ) : (
+            <IconSun />
+          )}
+
         </Avatar>
       </Tooltip>
     </Box>

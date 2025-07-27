@@ -24,8 +24,10 @@ The notes below summarize the purpose of key files and directories under `fronte
 - **assets/** – SCSS styles and bundled images for the UI.
   - **images/** – Logos and themed illustrations used throughout the site.
   - **scss/** – Theme variables and global styling.
-- **config.js** – Global configuration values for the frontend.
-- **contexts/** – React context providers for authentication and configuration (Auth0, Firebase, JWT, etc.).
+  - **config.js** – Global configuration values for the frontend.
+    - Includes the default `ThemeMode` setting. Available modes are `light`,
+      `dark`, and the new `funky` option.
+  - **contexts/** – React context providers for authentication and configuration (Auth0, Firebase, JWT, etc.).
 - **hooks/** – Reusable React hooks like `useAuth` and `useConfig`.
 - **index.jsx** – Vite entry point rendering `App`.
 - **layout/** – Layout components including main and minimal page shells.

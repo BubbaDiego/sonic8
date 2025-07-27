@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
 // material-ui
 import { createTheme, StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
@@ -7,6 +7,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 // project imports
 import useConfig from 'hooks/useConfig';
+import { ThemeMode } from 'config';
 import Palette from './palette';
 import Typography from './typography';
 import { ThemeMode } from 'config';
@@ -29,6 +30,7 @@ export default function ThemeCustomization({ children }) {
   const themeTypography = useMemo(() => Typography(theme, borderRadius, fontFamily), [theme, borderRadius, fontFamily]);
   const themeCustomShadows = useMemo(() => customShadows(resolvedMode, theme), [resolvedMode, theme]);
 
+
   const themeOptions = useMemo(
     () => ({
       direction: themeDirection,
@@ -50,6 +52,10 @@ export default function ThemeCustomization({ children }) {
 
   const themes = createTheme(themeOptions);
   themes.components = useMemo(() => componentStyleOverrides(themes, borderRadius, outlinedFilled), [themes, borderRadius, outlinedFilled]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', mode);
+  }, [mode]);
 
   return (
     <StyledEngineProvider injectFirst>
