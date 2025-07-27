@@ -11,6 +11,8 @@ from backend.core.xcom_core.voice_service import VoiceService
 from backend.core.xcom_core.sound_service import SoundService
 from backend.core.xcom_core.tts_service import TTSService
 from backend.data.data_locker import DataLocker
+from core.constants import MOTHER_DB_PATH
+from data.dl_monitor_ledger import DLMonitorLedgerManager
 from backend.core.logging import log
 
 class XComCore:
@@ -138,8 +140,8 @@ class XComCore:
             [k for k in ("email", "sms", "voice", "sound", "tts") if results.get(k)]
         ) or "system"
 
+        dl = DataLocker.get_instance()
         try:
-            dl = DataLocker.get_instance()
             dl.notifications.insert(
                 monitor="xcom_monitor",
                 level=level,
@@ -149,16 +151,10 @@ class XComCore:
             )
         except Exception as e:
             log.error(f"🧨 Failed to write notification: {e}", source="XComCore")
-            log.error(f"🧨 Failed to write notification: {e}", source="XComCore")
 
         try:
-            from backend.data.data_locker import DataLocker
-            from core.constants import MOTHER_DB_PATH
-            from data.dl_monitor_ledger import DLMonitorLedgerManager
-
-            dl = DataLocker(MOTHER_DB_PATH)
             ledger = DLMonitorLedgerManager(dl.db)
-
+            
             metadata = {
                 "level": level,
                 "subject": subject,
