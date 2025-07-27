@@ -152,7 +152,6 @@ class XComCore:
             log.error(f"🧨 Failed to write notification: {e}", source="XComCore")
 
         try:
-            from data.data_locker import DataLocker
             from core.constants import MOTHER_DB_PATH
             from data.dl_monitor_ledger import DLMonitorLedgerManager
 
