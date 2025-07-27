@@ -13,6 +13,7 @@ import useConfig from 'hooks/useConfig';
 
 // assets
 import { IconMoon, IconSun } from '@tabler/icons-react';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 // ==============================|| CUSTOMIZATION - MODE ||============================== //
 
@@ -50,6 +51,22 @@ export default function ThemeModeLayout() {
                 sx={{ width: 48, height: 48, color: 'grey.100' }}
               >
                 <IconMoon style={{ transform: 'rotate(220deg)' }} />
+              </Avatar>
+            }
+          />
+        </Tooltip>
+        <Tooltip title="Funky Mode">
+          <FormControlLabel
+            control={<Radio value={ThemeMode.FUNKY} sx={{ display: 'none' }} />}
+            label={
+              <Avatar
+                size="md"
+                variant="rounded"
+                {...(mode === ThemeMode.FUNKY && { outline: true })}
+                color={mode === ThemeMode.FUNKY ? 'primary' : 'dark'}
+                sx={{ width: 48, height: 48, color: 'secondary.main' }}
+              >
+                <AutoAwesomeIcon />
               </Avatar>
             }
           />
