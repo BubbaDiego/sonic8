@@ -3,7 +3,7 @@ import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import Box from '@mui/material/Box';
 
-import { IconSun, IconMoon, IconDeviceDesktop } from '@tabler/icons-react';
+import { IconSun, IconMoon, IconDeviceDesktop, IconMoodSmile } from '@tabler/icons-react';
 
 import { ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
@@ -12,18 +12,20 @@ export default function ThemeModeSection() {
   const theme = useTheme();
   const { mode, onChangeMode } = useConfig();
 
-  const themeOrder = [ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.SYSTEM];
+  const themeOrder = [ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.FUNKY, ThemeMode.SYSTEM];
   const nextMode = themeOrder[(themeOrder.indexOf(mode) + 1) % themeOrder.length];
 
   const iconMap = {
     [ThemeMode.LIGHT]: <IconMoon />,
-    [ThemeMode.DARK]: <IconDeviceDesktop />,
+    [ThemeMode.DARK]: <IconMoodSmile />,
+    [ThemeMode.FUNKY]: <IconDeviceDesktop />,
     [ThemeMode.SYSTEM]: <IconSun />
   };
 
   const tooltipMap = {
     [ThemeMode.LIGHT]: 'Dark Mode',
-    [ThemeMode.DARK]: 'System Mode',
+    [ThemeMode.DARK]: 'Funky Mode',
+    [ThemeMode.FUNKY]: 'System Mode',
     [ThemeMode.SYSTEM]: 'Light Mode'
   };
 
