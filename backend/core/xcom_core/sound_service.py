@@ -1,6 +1,7 @@
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from core.logging import log
 
 try:  # Optional external dependency
@@ -13,12 +14,10 @@ class SoundService:
     def __init__(self, sound_file="frontend/static/sounds/death_spiral.mp3"):
         """Initialize the service anchored at the repository root."""
         # Move four levels up from this file to reach the repository root
-        base_dir = os.path.dirname(
-            os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            )
+        self.root_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         )
-        self.sound_file = os.path.join(base_dir, sound_file)
+        self.sound_file = os.path.join(self.root_dir, sound_file)
 
     def play(self, file_path: str = None):
         """
@@ -29,20 +28,20 @@ class SoundService:
         # Determine candidate paths
         candidates = []
         if file_path:
+            # absolute path relative to current working directory
             candidates.append(os.path.abspath(file_path))
-        # primary path (provided in constructor)
-        candidates.append(self.sound_file)
+            # attempt repository-root-relative path if provided path is relative
+            if not os.path.isabs(file_path):
+                candidates.append(os.path.join(self.root_dir, file_path))
+            fname = os.path.basename(file_path)
+        else:
+            fname = os.path.basename(self.sound_file)
         # fallback: project_root/frontend/static/sounds/<filename>
-        try:
-            root_dir = os.path.dirname(
-                os.path.dirname(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                )
-            )
-            fname = os.path.basename(file_path) if file_path else os.path.basename(self.sound_file)
-            candidates.append(os.path.join(root_dir, "frontend", "static", "sounds", fname))
-        except Exception:
-            pass
+        candidates.append(
+            os.path.join(self.root_dir, "frontend", "static", "sounds", fname)
+        )
+        # default path (provided in constructor)
+        candidates.append(self.sound_file)
 
         path = None
         for p in candidates:
@@ -51,7 +50,10 @@ class SoundService:
                 break
 
         if not path:
-            log.error(f"Sound file not found in any known location: {candidates}", source="SoundService")
+            log.error(
+                f"Sound file not found in any known location: {candidates}",
+                source="SoundService",
+            )
             self._fallback_beep()
             return False
 
