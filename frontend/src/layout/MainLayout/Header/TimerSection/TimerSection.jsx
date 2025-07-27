@@ -10,7 +10,7 @@ import { refreshPositions } from 'api/positions';
 import { refreshMonitorStatus } from 'api/monitorStatus';
 
 const FULL_SONIC = 3600; // 60 min
-const FULL_SNOOZE = 600; // 10 min
+const DEFAULT_SNOOZE = 600; // 10 min fallback
 
 const POLL_MS = 5000;
 const SONIC_REFRESH_DELAY_MS = 5000;
@@ -20,11 +20,24 @@ export default function TimerSection() {
   const [snooze, setSnooze] = useState(0);
   const [sonicNextTs, setSonicNextTs] = useState(Date.now());
   const [snoozeEndTs, setSnoozeEndTs] = useState(Date.now());
+  const [fullSnooze, setFullSnooze] = useState(DEFAULT_SNOOZE);
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [activeLabel, setActiveLabel] = useState('');
 
   const openPopover = Boolean(anchorEl);
+
+  // ---------------- Fetch snooze duration once on mount ---------------
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await axios.get('/api/monitor-settings/liquidation');
+        setFullSnooze(data?.snooze_seconds ?? DEFAULT_SNOOZE);
+      } catch (err) {
+        console.error('Failed to fetch liquidation settings:', err);
+      }
+    })();
+  }, []);
 
   // ---------------- Poll backend for fresh timestamps -----------------
   useEffect(() => {
@@ -101,7 +114,7 @@ export default function TimerSection() {
         />
         <DonutCountdown
           remaining={snooze}
-          total={FULL_SNOOZE}
+          total={fullSnooze}
           label="Liq Snooze"
           paletteKey="warning"
           onClick={handleDonutClick('Liq Snooze')}
@@ -121,7 +134,9 @@ export default function TimerSection() {
           <Typography variant="body2" sx={{ mb: 1.5 }}>
             {activeLabel === 'Next Sonic'
               ? 'Sonic monitor scans all active wallets once the timer hits zero. Click below to trigger it now.'
-              : 'Liquidation snooze prevents repeat notifications for 10 min. Click below to clear the snooze.'}
+              : `Liquidation snooze prevents repeat notifications for ${Math.round(
+                  fullSnooze / 60
+                )} min. Click below to clear the snooze.`}
           </Typography>
           <Button
             variant="contained"
