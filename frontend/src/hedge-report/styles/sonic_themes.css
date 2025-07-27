@@ -76,6 +76,15 @@
   --body-bg-image: none;    /* wallpaper image if desired             */
 }
 
+/*
+  System theme overrides.
+  Uses the OS preference for light or dark colors but overlays a custom
+  wallpaper image behind the dashboard cards.
+*/
+:root[data-theme="system"] {
+  --body-bg-image: url('/static/images/abstract_mural.png');
+}
+
 
 /*
   "Funky" theme overrides.
