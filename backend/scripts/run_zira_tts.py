@@ -12,8 +12,8 @@ Usage
 import sys
 import pyttsx3
 
-TEXT                   = "Liquidation is a concern"
-TARGET_VOICE_SUBSTRING = "zira"      # case‑insensitive
+TEXT                   = "Liquidation is a concern.  And so are my huge tits."
+TARGET_VOICE_SUBSTRING = "hazel"      # case‑insensitive
 SPEECH_RATE_WPM        = 140         # adjust to taste
 
 def main() -> None:
