@@ -7,6 +7,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 // project imports
 import useConfig from 'hooks/useConfig';
+import { ThemeMode } from 'config';
 import Palette from './palette';
 import Typography from './typography';
 
@@ -16,10 +17,12 @@ import customShadows from './shadows';
 export default function ThemeCustomization({ children }) {
   const { borderRadius, fontFamily, mode, outlinedFilled, presetColor, themeDirection } = useConfig();
 
-  const theme = useMemo(() => Palette(mode, presetColor), [mode, presetColor]);
+  const muiMode = mode === ThemeMode.FUNKY ? ThemeMode.DARK : mode;
+
+  const theme = useMemo(() => Palette(muiMode, presetColor), [muiMode, presetColor]);
 
   const themeTypography = useMemo(() => Typography(theme, borderRadius, fontFamily), [theme, borderRadius, fontFamily]);
-  const themeCustomShadows = useMemo(() => customShadows(mode, theme), [mode, theme]);
+  const themeCustomShadows = useMemo(() => customShadows(muiMode, theme), [muiMode, theme]);
 
   const themeOptions = useMemo(
     () => ({
