@@ -18,10 +18,14 @@ export default function ThemeCustomization({ children }) {
   const { borderRadius, fontFamily, mode, outlinedFilled, presetColor, themeDirection } = useConfig();
 
   const resolvedMode = useMemo(() => {
+    if (mode === ThemeMode.SYSTEM && typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? ThemeMode.DARK
+        : ThemeMode.LIGHT;
+    }
     if (mode === ThemeMode.FUNKY) {
       return ThemeMode.DARK;
     }
-
     return mode;
   }, [mode]);
 
