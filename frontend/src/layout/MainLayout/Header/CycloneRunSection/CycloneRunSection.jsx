@@ -6,7 +6,6 @@ import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
-import { motion } from 'framer-motion';
 
 // project imports
 import { ThemeMode } from 'config';
@@ -23,6 +22,11 @@ import { openSnackbar } from 'store/slices/snackbar';
 import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-react';
 const SonicBurstIcon = '/static/images/sonic_burst.png';
 
+export const spin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+`;
+
 // ==============================|| HEADER CONTENT - CYCLONE RUN ||============================== //
 
 export default function CycloneRunSection() {
@@ -30,11 +34,6 @@ export default function CycloneRunSection() {
   const dispatch = useDispatch();
   const { cycloneRefreshDelay = 6000 } = useConfig();
   const [sonicRunning, setSonicRunning] = useState(false);
-
-  const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(-360deg); }
-  `;
 
   const avatarSX = {
     ...theme.typography.commonAvatar,
@@ -234,18 +233,16 @@ export default function CycloneRunSection() {
       <Stack direction="row" spacing={1}>
 
         <Tooltip title="Sonic Cycle">
-          {sonicRunning ? (
-            <motion.div animate={{ rotate: -360 }} transition={{ repeat: Infinity, repeatType: 'loop', duration: 2, ease: 'linear' }}>
-              <Avatar variant="circular" sx={avatarSX}>
-                <Box component="img" src={SonicBurstIcon} alt="sonic" sx={{ width: '20px' }} />
-              </Avatar>
-            </motion.div>
-          ) : (
-            <Avatar variant="circular" sx={avatarSX} onClick={handleSonicCycle}>
-              <Box component="img" src={SonicBurstIcon} alt="sonic" sx={{ width: '20px' }} />
-            </Avatar>
-          )}
-
+          <Avatar
+            variant="circular"
+            sx={{
+              ...avatarSX,
+              animation: sonicRunning ? `${spin} 2s linear infinite` : 'none'
+            }}
+            onClick={handleSonicCycle}
+          >
+            <Box component="img" src={SonicBurstIcon} alt="sonic" sx={{ width: '20px' }} />
+          </Avatar>
         </Tooltip>
         <Tooltip title="Price Update">
           <Avatar variant="rounded" sx={avatarSX} onClick={handlePriceUpdate}>
