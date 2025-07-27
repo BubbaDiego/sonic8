@@ -12,6 +12,25 @@ except Exception:  # pragma: no cover - optional dependency
 from core.logging import log
 from backend.utils.env_utils import _resolve_env
 
+ENV_MAP = {
+    "email": {
+        "smtp": {
+            "server": "SMTP_SERVER",
+            "port": "SMTP_PORT",
+            "username": "SMTP_USERNAME",
+            "password": "SMTP_PASSWORD",
+            "default_recipient": "SMTP_DEFAULT_RECIPIENT",
+        }
+    },
+    "twilio": {
+        "account_sid": "TWILIO_ACCOUNT_SID",
+        "auth_token": "TWILIO_AUTH_TOKEN",
+        "flow_sid": "TWILIO_FLOW_SID",
+        "default_to_phone": "MY_PHONE_NUMBER",
+        "default_from_phone": "TWILIO_PHONE_NUMBER",
+    },
+}
+
 class XComConfigService:
     def __init__(self, dl_sys):
         # dl_sys may be either a DataLocker or its DLSystemDataManager.
@@ -36,10 +55,11 @@ class XComConfigService:
                 system_mgr = locker.system
 
             config = system_mgr.get_var("xcom_providers") or {}
-            provider = config.get(name) or (config.get("twilio") if name == "api" else {})
+            provider_name = "twilio" if name == "api" else name
+            provider = config.get(provider_name) or {}
 
             # Explicitly fallback to environment vars for Twilio ("api")
-            if name == "api" and (not provider or not provider.get("account_sid")):
+            if provider_name == "twilio" and (not provider or not provider.get("account_sid")):
                 provider = {
                     "enabled": True,
                     "account_sid": os.getenv("TWILIO_ACCOUNT_SID"),
@@ -48,6 +68,20 @@ class XComConfigService:
                     "default_to_phone": os.getenv("MY_PHONE_NUMBER"),
                     "default_from_phone": os.getenv("TWILIO_PHONE_NUMBER"),
                 }
+
+            def apply_env(data: dict, mapping: dict) -> dict:
+                for k, v in list(data.items()):
+                    sub_map = mapping.get(k, {}) if isinstance(mapping, dict) else {}
+                    if isinstance(v, dict):
+                        data[k] = apply_env(v, sub_map if isinstance(sub_map, dict) else {})
+                    else:
+                        env_key = sub_map if isinstance(sub_map, str) else None
+                        data[k] = _resolve_env(v, env_key)
+                return data
+
+            env_map = ENV_MAP.get(provider_name, {})
+            if isinstance(provider, dict):
+                provider = apply_env(provider, env_map)
 
             return provider
         except Exception as e:
