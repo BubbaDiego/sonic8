@@ -31,11 +31,6 @@ export default function ThemeModeSection() {
   const handleToggle = () => {
     onChangeMode(nextMode);
 
-  const iconMap = {
-    [ThemeMode.LIGHT]: <IconMoon />,
-    [ThemeMode.DARK]: <IconDeviceDesktop />,
-    [ThemeMode.SYSTEM]: <IconSun />
-
   };
 
   return (
