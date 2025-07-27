@@ -171,7 +171,7 @@ class DataLocker:
         Creates all required tables in the database if they do not exist.
         This method can be run safely and repeatedly.
         """
-        log.info("🔧 Initializing database schema...", source="DataLocker")
+        # log.info("🔧 Initializing database schema...", source="DataLocker")  # Console log suppressed
         cursor = self.db.get_cursor()
         if cursor is None:
             log.error("❌ Unable to obtain DB cursor during init", source="DataLocker")
@@ -412,7 +412,7 @@ class DataLocker:
         except Exception as e:
             log.error(f"❌ Failed creating alert_unique_idx: {e}", source="DataLocker")
 
-        log.info("✅ Table creation complete.", source="DataLocker")
+        # log.info("✅ Table creation complete.", source="DataLocker")  # Console log suppressed
 
         # --- Automatic schema migrations ---
         log.debug("Applying schema migrations", source="DataLocker")
@@ -453,7 +453,7 @@ class DataLocker:
 
         try:
             self.db.commit()
-            log.info("✅ Database initialization finished.", source="DataLocker")
+            # log.info("✅ Database initialization finished.", source="DataLocker")  # Console log suppressed
         except sqlite3.DatabaseError as e:  # pragma: no cover - rare corruption case
             if "malformed" in str(e) or "file is not a database" in str(e):
                 log.error(
