@@ -12,9 +12,11 @@ except Exception:  # pragma: no cover - optional
 class SoundService:
     def __init__(self, sound_file="frontend/static/sounds/death_spiral.mp3"):
         """Initialize the service anchored at the repository root."""
-        # Move two levels up to reach ``backend`` then one more to repo root
+        # Move four levels up from this file to reach the repository root
         base_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
         )
         self.sound_file = os.path.join(base_dir, sound_file)
 
@@ -32,7 +34,11 @@ class SoundService:
         candidates.append(self.sound_file)
         # fallback: project_root/frontend/static/sounds/<filename>
         try:
-            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            root_dir = os.path.dirname(
+                os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                )
+            )
             fname = os.path.basename(file_path) if file_path else os.path.basename(self.sound_file)
             candidates.append(os.path.join(root_dir, "frontend", "static", "sounds", fname))
         except Exception:
