@@ -86,7 +86,7 @@ export default function PositionListCard({ title }) {
                     Value
                   </TableSortLabel>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ bgcolor: 'warning.light' }}>
                   <TableSortLabel
                     active={orderBy === 'liquidation_distance'}
                     direction={orderBy === 'liquidation_distance' ? order : 'asc'}
@@ -135,7 +135,9 @@ export default function PositionListCard({ title }) {
                   </TableCell>
                   <TableCell>{position.position_type}</TableCell>
                   <TableCell align="right">${Number(position.value || 0).toLocaleString()}</TableCell>
-                  <TableCell align="right">{position.liquidation_distance}</TableCell>
+                  <TableCell align="right" sx={{ bgcolor: 'warning.light' }}>
+                    {position.liquidation_distance}
+                  </TableCell>
                   <TableCell align="right" sx={{ pr: 3 }}>
                     {`${Number(position.travel_percent || 0).toFixed(2)}%`}
                   </TableCell>
