@@ -165,7 +165,6 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox" />
               <TableCell>
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   <TuneTwoToneIcon fontSize="inherit" />
@@ -191,20 +190,18 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
               const { dist } = getNearestObj(code);
               return (
                 <TableRow key={code}>
-                  {/* asset icon */}
-                  <TableCell padding="checkbox">
-                    <img src={icon} width={18} alt={code} />
-                  </TableCell>
-
-                  {/* threshold input */}
-                  <TableCell sx={{ width: 120 }}>
-                    <TextField
-                      type="number"
-                      size="small"
-                      value={normCfg.thresholds[code]}
-                      onChange={handleThresholdChange(code)}
-                      sx={{ width: 110 }}
-                    />
+                  {/* icon + threshold share ONE cell */}
+                  <TableCell sx={{ width: 160 }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <img src={icon} width={18} alt={code} />
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={normCfg.thresholds[code]}
+                        onChange={handleThresholdChange(code)}
+                        sx={{ width: 110 }}
+                      />
+                    </Stack>
                   </TableCell>
 
                   {/* current distance with icon & colour */}
@@ -241,23 +238,38 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
           </TableBody>
         </Table>
 
-        <Typography variant="subtitle2" sx={{ mt: 2 }}>
-          Notifications
-        </Typography>
-        <ToggleButtonGroup size="small" value={selectedNotifs} onChange={handleNotifChange} aria-label="notification types">
-          <ToggleButton value="system">System</ToggleButton>
-          <ToggleButton value="voice">Voice</ToggleButton>
-          <ToggleButton value="sms">SMS</ToggleButton>
-          <ToggleButton value="tts">TTS</ToggleButton>
-        </ToggleButtonGroup>
-
-        {/* Visual indicator icons */}
-        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-          {normCfg.notifications.system && <MemoryIcon color="info" fontSize="small" />}
-          {normCfg.notifications.voice && <RecordVoiceOverIcon color="success" fontSize="small" />}
-          {normCfg.notifications.sms && <SmsIcon color="warning" fontSize="small" />}
-          {normCfg.notifications.tts && <CampaignIcon color="error" fontSize="small" />}
-        </Stack>
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+          <Stack direction="row" spacing={3}>
+            {[
+              { key: 'system', label: 'System', icon: MemoryIcon, color: 'info' },
+              { key: 'voice', label: 'Voice', icon: RecordVoiceOverIcon, color: 'success' },
+              { key: 'sms', label: 'SMS', icon: SmsIcon, color: 'warning' },
+              { key: 'tts', label: 'TTS', icon: CampaignIcon, color: 'error' }
+            ].map(({ key, label, icon: Icon, color }) => (
+              <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <ToggleButton
+                  size="small"
+                  value={key}
+                  selected={normCfg.notifications[key]}
+                  onChange={() =>
+                    setCfg(prev => ({
+                      ...prev,
+                      notifications: { ...prev.notifications, [key]: !prev.notifications[key] }
+                    }))
+                  }
+                  sx={{ width: 70 }}
+                >
+                  {label}
+                </ToggleButton>
+                <Icon
+                  fontSize="small"
+                  sx={{ mt: 0.5 }}
+                  color={normCfg.notifications[key] ? color : 'disabled'}
+                />
+              </Box>
+            ))}
+          </Stack>
+        </Box>
       </CardContent>
     </Card>
   );
@@ -466,23 +478,38 @@ function ProfitSettings({ cfg, setCfg }) {
           </Grid>
         </Grid>
 
-        <Typography variant="subtitle2" sx={{ mt: 2 }}>
-          Notifications
-        </Typography>
-        <ToggleButtonGroup size="small" value={selectedNotifs} onChange={handleNotifChange} aria-label="notification types">
-          <ToggleButton value="system">System</ToggleButton>
-          <ToggleButton value="voice">Voice</ToggleButton>
-          <ToggleButton value="sms">SMS</ToggleButton>
-          <ToggleButton value="tts">TTS</ToggleButton>
-        </ToggleButtonGroup>
-
-        {/* Visual indicator icons */}
-        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-          {normCfg.notifications.system && <MemoryIcon color="info" fontSize="small" />}
-          {normCfg.notifications.voice && <RecordVoiceOverIcon color="success" fontSize="small" />}
-          {normCfg.notifications.sms && <SmsIcon color="warning" fontSize="small" />}
-          {normCfg.notifications.tts && <CampaignIcon color="error" fontSize="small" />}
-        </Stack>
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+          <Stack direction="row" spacing={3}>
+            {[
+              { key: 'system', label: 'System', icon: MemoryIcon, color: 'info' },
+              { key: 'voice', label: 'Voice', icon: RecordVoiceOverIcon, color: 'success' },
+              { key: 'sms', label: 'SMS', icon: SmsIcon, color: 'warning' },
+              { key: 'tts', label: 'TTS', icon: CampaignIcon, color: 'error' }
+            ].map(({ key, label, icon: Icon, color }) => (
+              <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <ToggleButton
+                  size="small"
+                  value={key}
+                  selected={normCfg.notifications[key]}
+                  onChange={() =>
+                    setCfg(prev => ({
+                      ...prev,
+                      notifications: { ...prev.notifications, [key]: !prev.notifications[key] }
+                    }))
+                  }
+                  sx={{ width: 70 }}
+                >
+                  {label}
+                </ToggleButton>
+                <Icon
+                  fontSize="small"
+                  sx={{ mt: 0.5 }}
+                  color={normCfg.notifications[key] ? color : 'disabled'}
+                />
+              </Box>
+            ))}
+          </Stack>
+        </Box>
       </CardContent>
     </Card>
   );
