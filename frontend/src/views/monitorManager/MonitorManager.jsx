@@ -136,6 +136,15 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
     return { dist: v.dist, side: v.side };
   };
 
+  const getDistColour = (code) => {
+    const br = normCfg.blast_radius[code];
+    const d = getNearestObj(code).dist;
+    if (typeof d !== "number" || typeof br !== "number") return "text.primary";
+    if (d > br) return "success.main";
+    if (d > br * 0.5) return "warning.main";
+    return "error.main";
+  };
+
   return (
     <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <CardHeader
@@ -179,7 +188,7 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
           </TableHead>
           <TableBody>
             {ASSETS.map(({ code, icon }) => {
-              const { dist, side } = getNearestObj(code);
+              const { dist } = getNearestObj(code);
               return (
                 <TableRow key={code}>
                   {/* asset icon */}
@@ -198,22 +207,20 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
                     />
                   </TableCell>
 
-                  {/* current distance + side */}
+                  {/* current distance with icon & colour */}
                   <TableCell sx={{ width: 140 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
+                      <img src={icon} width={16} alt="" />
                       <Typography
-                        variant="caption"
-                        color={side === 'LONG' ? 'success.main' : 'error.main'}
-                        sx={{ width: 42, textAlign: 'right' }}
+                        variant="body2"
+                        sx={{
+                          width: 80,
+                          textAlign: "right",
+                          color: getDistColour(code)
+                        }}
                       >
-                        {side}
+                        {dist}
                       </Typography>
-                      <TextField
-                        value={dist}
-                        size="small"
-                        inputProps={{ readOnly: true }}
-                        sx={{ width: 80 }}
-                      />
                     </Stack>
                   </TableCell>
 
