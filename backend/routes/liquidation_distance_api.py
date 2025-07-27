@@ -11,11 +11,27 @@ def nearest_liq(dl: DataLocker = Depends(get_app_locker)):
         return {}
     cursor.execute(
         """
-        SELECT asset_type, MIN(ABS(liquidation_distance)) AS min_dist
-          FROM positions
-         WHERE status = 'ACTIVE'
-      GROUP BY asset_type
+        WITH ranked AS (
+            SELECT
+                asset_type,
+                position_type,
+                ABS(liquidation_distance) AS dist,
+                ROW_NUMBER() OVER (
+                    PARTITION BY asset_type ORDER BY ABS(liquidation_distance)
+                ) AS rnk
+            FROM positions
+            WHERE status = 'ACTIVE'
+        )
+        SELECT asset_type, position_type, dist
+          FROM ranked
+         WHERE rnk = 1
         """
     )
     rows = cursor.fetchall() or []
-    return {row["asset_type"]: round(row["min_dist"], 2) for row in rows}
+    return {
+        row["asset_type"]: {
+            "dist": round(row["dist"], 2),
+            "side": row["position_type"],
+        }
+        for row in rows
+    }
