@@ -20,10 +20,18 @@ router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
 
 @router.get("/market")
 def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
-    """Return current MarketMonitor configuration."""
+    """Return current MarketMonitor configuration with defaults."""
 
-    cfg = dl.system.get_var("market_monitor") or {}
-    return cfg
+    monitor = market_monitor.MarketMonitor()
+    monitor.dl = dl
+
+    cfg = dl.system.get_var("market_monitor")
+    if cfg is None:
+        return monitor._cfg()
+
+    defaults = monitor._cfg()
+    defaults.update(cfg)
+    return defaults
 
 
 @router.post("/market")
@@ -247,8 +255,16 @@ def update_profit_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
 
 @router.get("/market")
 def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
-    cfg = dl.system.get_var("market_monitor") or {}
-    return cfg
+    monitor = market_monitor.MarketMonitor()
+    monitor.dl = dl
+
+    cfg = dl.system.get_var("market_monitor")
+    if cfg is None:
+        return monitor._cfg()
+
+    defaults = monitor._cfg()
+    defaults.update(cfg)
+    return defaults
 
 
 @router.post("/market")
