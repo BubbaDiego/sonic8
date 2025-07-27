@@ -16,12 +16,20 @@ import {
   Stack,
   CircularProgress,
   Switch,
-  Tooltip
+  Tooltip,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow
 } from '@mui/material';
 
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
 import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
+import BlurCircularTwoToneIcon from '@mui/icons-material/BlurCircularTwoTone'; // 💥 BR
+import TuneTwoToneIcon from '@mui/icons-material/TuneTwoTone';                 // Threshold hdr
+import InsightsTwoToneIcon from '@mui/icons-material/InsightsTwoTone';         // Current hdr
 
 // NEW colorful icons for notification-state indicators
 import MemoryIcon from '@mui/icons-material/Memory';              // System
@@ -144,38 +152,87 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
         }
       />
       <CardContent>
-        {ASSETS.map(({ code, icon }) => (
-          <Stack key={code} direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-            <img src={icon} width={20} alt={code} />
-            <TextField
-              label={`${code} Threshold`}
-              type="number"
-              size="small"
-              value={normCfg.thresholds[code]}
-              onChange={handleThresholdChange(code)}
-              sx={{ width: 110 }}
-            />
-            <Button variant="outlined" size="small" sx={{ minWidth: 48 }} onClick={applyBlast(code)}>
-              {normCfg.blast_radius[code]?.toFixed(1) || '—'}
-            </Button>
+        {/* New compact table -------------------------------------------------- */}
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell padding="checkbox" />
+              <TableCell>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <TuneTwoToneIcon fontSize="inherit" />
+                  <Typography variant="caption">Threshold</Typography>
+                </Stack>
+              </TableCell>
+              <TableCell>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <InsightsTwoToneIcon fontSize="inherit" />
+                  <Typography variant="caption">Current</Typography>
+                </Stack>
+              </TableCell>
+              <TableCell align="center">
+                <Stack direction="row" spacing={0.5} justifyContent="center">
+                  <BlurCircularTwoToneIcon fontSize="inherit" />
+                  <Typography variant="caption">Blast Radius</Typography>
+                </Stack>
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {ASSETS.map(({ code, icon }) => {
+              const { dist, side } = getNearestObj(code);
+              return (
+                <TableRow key={code}>
+                  {/* asset icon */}
+                  <TableCell padding="checkbox">
+                    <img src={icon} width={18} alt={code} />
+                  </TableCell>
 
-            {/* nearest distance + side */}
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography
-                variant="caption"
-                sx={{ width: 42, textAlign: 'right' }}
-              >
-                {getNearestObj(code).side}
-              </Typography>
-              <TextField
-                value={getNearestObj(code).dist}
-                size="small"
-                inputProps={{ readOnly: true }}
-                sx={{ width: 88 }}
-              />
-            </Stack>
-          </Stack>
-        ))}
+                  {/* threshold input */}
+                  <TableCell sx={{ width: 120 }}>
+                    <TextField
+                      type="number"
+                      size="small"
+                      value={normCfg.thresholds[code]}
+                      onChange={handleThresholdChange(code)}
+                      sx={{ width: 110 }}
+                    />
+                  </TableCell>
+
+                  {/* current distance + side */}
+                  <TableCell sx={{ width: 140 }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography
+                        variant="caption"
+                        color={side === 'LONG' ? 'success.main' : 'error.main'}
+                        sx={{ width: 42, textAlign: 'right' }}
+                      >
+                        {side}
+                      </Typography>
+                      <TextField
+                        value={dist}
+                        size="small"
+                        inputProps={{ readOnly: true }}
+                        sx={{ width: 80 }}
+                      />
+                    </Stack>
+                  </TableCell>
+
+                  {/* blast-radius button */}
+                  <TableCell align="center" sx={{ width: 100 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      sx={{ minWidth: 70 }}
+                      onClick={applyBlast(code)}
+                    >
+                      {normCfg.blast_radius[code]?.toFixed(1) || '—'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
 
         <Typography variant="subtitle2" sx={{ mt: 2 }}>
           Notifications
@@ -311,6 +368,7 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
 function ProfitSettings({ cfg, setCfg }) {
   const normCfg = useMemo(
     () => ({
+      enabled: cfg.enabled ?? true,
       notifications: { system: true, voice: true, sms: false, tts: true, ...(cfg.notifications || {}) },
       ...cfg
     }),
@@ -321,6 +379,9 @@ function ProfitSettings({ cfg, setCfg }) {
     const { name, value } = e.target;
     setCfg((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleEnabledChange = (e) =>
+    setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
 
   const handleNotifChange = (_, selections) => {
     setCfg((prev) => ({
@@ -348,6 +409,11 @@ function ProfitSettings({ cfg, setCfg }) {
           </Stack>
         }
         subheader="Single & portfolio profit thresholds"
+        action={
+          <Tooltip title={normCfg.enabled ? 'Monitor enabled' : 'Monitor disabled'}>
+            <Switch size="small" checked={normCfg.enabled} onChange={handleEnabledChange} />
+          </Tooltip>
+        }
       />
       <CardContent>
         <Grid container spacing={2}>
