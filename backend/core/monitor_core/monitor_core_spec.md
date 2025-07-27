@@ -93,7 +93,7 @@ Lifecycle:
 | **Execution** | Infinite `while True` loop (+ graceful `KeyboardInterrupt`) running inside its own event loop. |
 | **Interval** | Pulled fresh from `monitor_heartbeat.interval_seconds` *each* cycle; default 60 s. |
 | **Pipeline** | `Cyclone.run_cycle()` ⇒ `price_monitor` ⇒ `profit_monitor` ⇒ `liquid_monitor` (risk monitor optional toggle). |
-| **Alert V2** | After data & monitors, invokes `AlertOrchestrator` with Slack routing. |
+| **Alert V2** | (disabled) classic monitors only – no `AlertOrchestrator` invocation. |
 | **Ledger & HB** | Writes success/error to `monitor_ledger` and updates heartbeat row every loop. |
 
 This design makes **Sonic Monitor** the single source of truth for:
