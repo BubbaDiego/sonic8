@@ -12,7 +12,6 @@ import {
   Alert,
   Typography,
   ToggleButton,
-  ToggleButtonGroup,
   Stack,
   CircularProgress,
   Switch,
@@ -23,6 +22,7 @@ import {
   TableHead,
   TableRow
 } from '@mui/material';
+import Paper from '@mui/material/Paper';
 
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
@@ -79,6 +79,38 @@ function CircularCountdown({ remaining, total }) {
   );
 }
 
+function NotificationBar({ cfg, toggle }) {
+  const items = [
+    { key: 'system', label: 'System', icon: MemoryIcon, color: 'info' },
+    { key: 'voice', label: 'Voice', icon: RecordVoiceOverIcon, color: 'success' },
+    { key: 'sms', label: 'SMS', icon: SmsIcon, color: 'warning' },
+    { key: 'tts', label: 'TTS', icon: CampaignIcon, color: 'error' }
+  ];
+
+  return (
+    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+      <Paper variant="outlined" sx={{ px: 2, py: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+        <Stack direction="row" spacing={3}>
+          {items.map(({ key, label, icon: Icon, color }) => (
+            <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <ToggleButton
+                size="small"
+                value={key}
+                selected={cfg[key]}
+                onChange={() => toggle(key)}
+                sx={{ width: 60, height: 28, fontSize: 11, p: 0 }}
+              >
+                {label}
+              </ToggleButton>
+              <Icon fontSize="small" sx={{ mt: 0.5 }} color={cfg[key] ? color : 'disabled'} />
+            </Box>
+          ))}
+        </Stack>
+      </Paper>
+    </Box>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  Left‑hand card – per‑asset thresholds + notifications
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,21 +145,6 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
     }));
   };
 
-  const handleNotifChange = (_, selections) => {
-    setCfg((prev) => ({
-      ...prev,
-      notifications: {
-        system: selections.includes('system'),
-        voice: selections.includes('voice'),
-        sms: selections.includes('sms'),
-        tts: selections.includes('tts')
-      }
-    }));
-  };
-
-  const selectedNotifs = Object.entries(normCfg.notifications)
-    .filter(([, v]) => v)
-    .map(([k]) => k);
 
   const getNearestObj = (code) => {
     const v = nearest[code];
@@ -150,7 +167,7 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h5">Liquidation Monitor</Typography>
+            <Typography variant="h4" fontWeight={600}>Liquidation Monitor</Typography>
             <WaterDropIcon fontSize="small" color="primary" />
           </Stack>
         }
@@ -168,19 +185,19 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
               <TableCell>
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   <TuneTwoToneIcon fontSize="inherit" />
-                  <Typography variant="caption">Threshold</Typography>
+                  <Typography variant="subtitle2" fontWeight={700}>Threshold</Typography>
                 </Stack>
               </TableCell>
               <TableCell>
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   <InsightsTwoToneIcon fontSize="inherit" />
-                  <Typography variant="caption">Current</Typography>
+                  <Typography variant="subtitle2" fontWeight={700}>Current</Typography>
                 </Stack>
               </TableCell>
               <TableCell align="center">
                 <Stack direction="row" spacing={0.5} justifyContent="center">
                   <BlurCircularTwoToneIcon fontSize="inherit" />
-                  <Typography variant="caption">Blast Radius</Typography>
+                  <Typography variant="subtitle2" fontWeight={700}>Blast Radius</Typography>
                 </Stack>
               </TableCell>
             </TableRow>
@@ -204,21 +221,9 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
                     </Stack>
                   </TableCell>
 
-                  {/* current distance with icon & colour */}
-                  <TableCell sx={{ width: 140 }}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <img src={icon} width={16} alt="" />
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          width: 80,
-                          textAlign: "right",
-                          color: getDistColour(code)
-                        }}
-                      >
-                        {dist}
-                      </Typography>
-                    </Stack>
+                  {/* current distance (icon removed) */}
+                  <TableCell sx={{ width: 140, textAlign: 'right', color: getDistColour(code) }}>
+                    <Typography variant="body2">{dist}</Typography>
                   </TableCell>
 
                   {/* blast-radius button */}
@@ -238,38 +243,15 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
           </TableBody>
         </Table>
 
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-          <Stack direction="row" spacing={3}>
-            {[
-              { key: 'system', label: 'System', icon: MemoryIcon, color: 'info' },
-              { key: 'voice', label: 'Voice', icon: RecordVoiceOverIcon, color: 'success' },
-              { key: 'sms', label: 'SMS', icon: SmsIcon, color: 'warning' },
-              { key: 'tts', label: 'TTS', icon: CampaignIcon, color: 'error' }
-            ].map(({ key, label, icon: Icon, color }) => (
-              <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <ToggleButton
-                  size="small"
-                  value={key}
-                  selected={normCfg.notifications[key]}
-                  onChange={() =>
-                    setCfg(prev => ({
-                      ...prev,
-                      notifications: { ...prev.notifications, [key]: !prev.notifications[key] }
-                    }))
-                  }
-                  sx={{ width: 70 }}
-                >
-                  {label}
-                </ToggleButton>
-                <Icon
-                  fontSize="small"
-                  sx={{ mt: 0.5 }}
-                  color={normCfg.notifications[key] ? color : 'disabled'}
-                />
-              </Box>
-            ))}
-          </Stack>
-        </Box>
+        <NotificationBar
+          cfg={normCfg.notifications}
+          toggle={(k) =>
+            setCfg(prev => ({
+              ...prev,
+              notifications: { ...prev.notifications, [k]: !prev.notifications[k] }
+            }))
+          }
+        />
       </CardContent>
     </Card>
   );
@@ -322,7 +304,7 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h6">Global Settings</Typography>
+            <Typography variant="h4" fontWeight={600}>Global Settings</Typography>
             <SettingsTwoToneIcon fontSize="small" />
           </Stack>
         }
@@ -402,32 +384,16 @@ function ProfitSettings({ cfg, setCfg }) {
   const handleEnabledChange = (e) =>
     setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
 
-  const handleNotifChange = (_, selections) => {
-    setCfg((prev) => ({
-      ...prev,
-      notifications: {
-        system: selections.includes('system'),
-        voice: selections.includes('voice'),
-        sms: selections.includes('sms'),
-        tts: selections.includes('tts')
-      }
-    }));
-  };
-
-  const selectedNotifs = Object.entries(normCfg.notifications)
-    .filter(([, v]) => v)
-    .map(([k]) => k);
 
   return (
     <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h5">Profit Monitor</Typography>
+            <Typography variant="h4" fontWeight={600}>Profit Monitor</Typography>
             <TrendingUpTwoToneIcon fontSize="small" />
           </Stack>
         }
-        subheader="Single & portfolio profit thresholds"
         action={
           <Tooltip title={normCfg.enabled ? 'Monitor enabled' : 'Monitor disabled'}>
             <Switch size="small" checked={normCfg.enabled} onChange={handleEnabledChange} />
@@ -478,38 +444,15 @@ function ProfitSettings({ cfg, setCfg }) {
           </Grid>
         </Grid>
 
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-          <Stack direction="row" spacing={3}>
-            {[
-              { key: 'system', label: 'System', icon: MemoryIcon, color: 'info' },
-              { key: 'voice', label: 'Voice', icon: RecordVoiceOverIcon, color: 'success' },
-              { key: 'sms', label: 'SMS', icon: SmsIcon, color: 'warning' },
-              { key: 'tts', label: 'TTS', icon: CampaignIcon, color: 'error' }
-            ].map(({ key, label, icon: Icon, color }) => (
-              <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <ToggleButton
-                  size="small"
-                  value={key}
-                  selected={normCfg.notifications[key]}
-                  onChange={() =>
-                    setCfg(prev => ({
-                      ...prev,
-                      notifications: { ...prev.notifications, [key]: !prev.notifications[key] }
-                    }))
-                  }
-                  sx={{ width: 70 }}
-                >
-                  {label}
-                </ToggleButton>
-                <Icon
-                  fontSize="small"
-                  sx={{ mt: 0.5 }}
-                  color={normCfg.notifications[key] ? color : 'disabled'}
-                />
-              </Box>
-            ))}
-          </Stack>
-        </Box>
+        <NotificationBar
+          cfg={normCfg.notifications}
+          toggle={(k) =>
+            setCfg(prev => ({
+              ...prev,
+              notifications: { ...prev.notifications, [k]: !prev.notifications[k] }
+            }))
+          }
+        />
       </CardContent>
     </Card>
   );
