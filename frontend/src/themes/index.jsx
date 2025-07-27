@@ -10,7 +10,6 @@ import useConfig from 'hooks/useConfig';
 import { ThemeMode } from 'config';
 import Palette from './palette';
 import Typography from './typography';
-import { ThemeMode } from 'config';
 
 import componentStyleOverrides from './compStyleOverride';
 import customShadows from './shadows';
