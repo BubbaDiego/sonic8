@@ -15,6 +15,7 @@ export let ThemeMode;
 (function (ThemeMode) {
   ThemeMode['LIGHT'] = 'light';
   ThemeMode['DARK'] = 'dark';
+  ThemeMode['FUNKY'] = 'funky';
   ThemeMode['SYSTEM'] = 'system';
 })(ThemeMode || (ThemeMode = {}));
 
