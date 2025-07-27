@@ -62,6 +62,7 @@ from backend.core.constants import (
 )
 
 from backend.core.core_imports import log  # Corrected clearly
+from backend.utils.env_utils import _resolve_env
 
 try:
     from system.death_nail_service import DeathNailService
@@ -1011,6 +1012,40 @@ class DataLocker:
             tts.setdefault("voice", "Zira")
             tts.setdefault("speed", 140)
             defaults["tts"] = tts
+
+            env_map = {
+                "email": {
+                    "smtp": {
+                        "server": "SMTP_SERVER",
+                        "port": "SMTP_PORT",
+                        "username": "SMTP_USERNAME",
+                        "password": "SMTP_PASSWORD",
+                        "default_recipient": "SMTP_DEFAULT_RECIPIENT",
+                    }
+                },
+                "twilio": {
+                    "account_sid": "TWILIO_ACCOUNT_SID",
+                    "auth_token": "TWILIO_AUTH_TOKEN",
+                    "flow_sid": "TWILIO_FLOW_SID",
+                    "default_to_phone": "MY_PHONE_NUMBER",
+                    "default_from_phone": "TWILIO_PHONE_NUMBER",
+                },
+            }
+
+            def apply_env(data: dict, mapping: dict) -> dict:
+                for k, v in list(data.items()):
+                    sub = mapping.get(k, {}) if isinstance(mapping, dict) else {}
+                    if isinstance(v, Mapping):
+                        data[k] = apply_env(dict(v), sub if isinstance(sub, dict) else {})
+                    else:
+                        env_key = sub if isinstance(sub, str) else None
+                        data[k] = _resolve_env(v, env_key)
+                return data
+
+            for pname, cfg in list(defaults.items()):
+                mapping = env_map.get(pname, {})
+                if isinstance(cfg, Mapping):
+                    defaults[pname] = apply_env(dict(cfg), mapping)
 
             self.system.set_var("xcom_providers", defaults)
             log.debug(

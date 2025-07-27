@@ -38,6 +38,10 @@ backend/config/theme_config.json
 `sonic_sauce.json` must contain at least the keys `hedge_modifiers` and
 `heat_modifiers` as required by the backend's `JsonManager`.
 
+Provider entries in `comm_config.json` may reference environment variables using
+the `${VAR}` syntax. These placeholders are expanded when the backend loads the
+configuration so secrets can be injected without editing the file.
+
 ### Text-to-speech configuration
 
 Monitors can deliver spoken alerts when the `xcom_providers` setting defines a
