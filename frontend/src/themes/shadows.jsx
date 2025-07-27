@@ -24,5 +24,7 @@ function createCustomShadow(theme, color) {
 }
 
 export default function customShadows(mode, theme) {
-  return mode === ThemeMode.DARK ? createCustomShadow(theme, theme.palette.dark.main) : createCustomShadow(theme, theme.palette.grey[900]);
+  return [ThemeMode.DARK, ThemeMode.FUNKY].includes(mode)
+    ? createCustomShadow(theme, theme.palette.dark.main)
+    : createCustomShadow(theme, theme.palette.grey[900]);
 }
