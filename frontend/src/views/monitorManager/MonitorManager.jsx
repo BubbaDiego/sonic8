@@ -209,8 +209,8 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
                 <TableRow key={code}>
                   {/* icon + threshold share ONE cell */}
                   <TableCell sx={{ width: 160 }}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <img src={icon} width={18} alt={code} />
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <img src={icon} width={22} alt={code} style={{ flexShrink: 0 }} />
                       <TextField
                         type="number"
                         size="small"
@@ -222,8 +222,10 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
                   </TableCell>
 
                   {/* current distance (icon removed) */}
-                  <TableCell sx={{ width: 140, textAlign: 'right', color: getDistColour(code) }}>
-                    <Typography variant="body2">{dist}</Typography>
+                  <TableCell align="center" sx={{ width: 140, color: getDistColour(code) }}>
+                    <Typography variant="body2" sx={{ textAlign: 'center' }}>
+                      {dist}
+                    </Typography>
                   </TableCell>
 
                   {/* blast-radius button */}
