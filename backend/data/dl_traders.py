@@ -37,7 +37,7 @@ class DLTraderManager:
         if not cursor:
             log.error("❌ DB unavailable for trader table init", source="DLTraderManager")
             return
-        log.route("Ensuring 'traders' table exists...", source="DLTraderManager")
+        log.debug("Ensuring 'traders' table exists...", source="DLTraderManager")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS traders (
                 name TEXT PRIMARY KEY,
@@ -95,8 +95,8 @@ class DLTraderManager:
     def get_trader_by_name(self, name: str) -> Trader | None:
         """Return a :class:`Trader` by name with default fields filled in."""
         try:
-            log.info(
-                f"🔍 Fetching trader by name: {name}", source="DLTraderManager"
+            log.debug(
+                f"Fetching trader by name: {name}", source="DLTraderManager"
             )
             cursor = self.db.get_cursor()
             if cursor is None:
@@ -130,7 +130,7 @@ class DLTraderManager:
     def list_traders(self) -> list[Trader]:
         """Return all traders with defaults applied."""
         try:
-            log.route("Fetching traders from DB...", source="DLTraderManager")
+            log.debug("Fetching traders from DB...", source="DLTraderManager")
             cursor = self.db.get_cursor()
             if cursor is None:
                 log.error("DB unavailable while listing traders", source="DLTraderManager")
@@ -186,7 +186,7 @@ class DLTraderManager:
 
     def delete_trader(self, name: str):
         try:
-            log.route(f"Deleting trader: {name}", source="DLTraderManager")
+            log.debug(f"Deleting trader: {name}", source="DLTraderManager")
             cursor = self.db.get_cursor()
             if cursor is None:
                 log.error("DB unavailable while deleting trader", source="DLTraderManager")
@@ -246,7 +246,9 @@ class DLTraderManager:
                 self.create_trader(item)
                 count += 1
 
-        log.info(f"♻️ Imported {count} traders from {path}", source="DLTraderManager")
+        log.success(
+            f"Imported {count} traders from {path}", source="DLTraderManager"
+        )
         return count
 
     def quick_import_from_wallets(self) -> bool:
@@ -292,11 +294,13 @@ class DLTraderManager:
                 if self.create_trader(trader_data):
                     created += 1
 
-            log.info(
+            log.success(
                 f"Quick import created {created} traders", source="DLTraderManager"
             )
             return created > 0
         except Exception as e:
-            log.error(f"❌ Failed quick import from wallets: {e}", source="DLTraderManager")
+            log.error(
+                f"❌ Failed quick import from wallets: {e}", source="DLTraderManager"
+            )
             return False
 
