@@ -4,13 +4,7 @@ from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
 from backend.core.market_core.daily_swing_service import DailySwingService
 from backend.core.constants import MOTHER_BRAIN_DB_PATH
-from pathlib import Path
 
-MOTHER_BRAIN_DB_PATH = Path("c:/sonic4/data/mother_brain.db")
-
-
-
-print("USING DATABASE PATH:", MOTHER_BRAIN_DB_PATH)
 
 
 
