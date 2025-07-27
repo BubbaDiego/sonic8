@@ -40,6 +40,18 @@ def test_market_settings_persists(tmp_path, monkeypatch):
     assert data["baseline"]["BTC"]["price"] == pytest.approx(100.0)
 
 
+def test_market_settings_defaults(tmp_path, monkeypatch):
+    client, _ = _setup(tmp_path, monkeypatch)
+
+    resp = client.get("/api/monitor-settings/market")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["blast_radius"]["BTC"] == pytest.approx(8000.0)
+    assert data["blast_radius"]["ETH"] == pytest.approx(300.0)
+    assert data["blast_radius"]["SOL"] == pytest.approx(13.0)
+
+
 def test_do_work_updates_blast_and_threshold(monkeypatch):
     price_map = {"BTC": 110.0, "ETH": 102.0, "SOL": 98.0}
     cfg = {
