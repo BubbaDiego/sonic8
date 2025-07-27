@@ -128,7 +128,7 @@ class ProfitMonitor(BaseMonitor):
                     try:
                         from backend.core.xcom_core.sound_service import SoundService  # type: ignore
 
-                        SoundService().play("frontend/static/sounds/message_alert.mp3")
+                        SoundService().play("frontend/static/sounds/profit_alert.mp3")
                     except Exception as e:
                         log.warning(
                             f"SoundService unavailable: {e}", source="ProfitMonitor"
