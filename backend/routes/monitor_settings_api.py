@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.core.alert_core.threshold_service import ThresholdService  # type: ignore
 from backend.core.monitor_core.sonic_monitor import DEFAULT_INTERVAL, MONITOR_NAME
+from backend.core.monitor_core import market_monitor
 from backend.deps import get_app_locker
 
 router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
@@ -250,26 +251,6 @@ def update_profit_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
         }
         dl.system.set_var("profit_monitor", cfg)
 
-    return {"success": True}
-
-
-@router.get("/market")
-def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
-    monitor = market_monitor.MarketMonitor()
-    monitor.dl = dl
-
-    cfg = dl.system.get_var("market_monitor")
-    if cfg is None:
-        return monitor._cfg()
-
-    defaults = monitor._cfg()
-    defaults.update(cfg)
-    return defaults
-
-
-@router.post("/market")
-def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
-    dl.system.set_var("market_monitor", payload)
     return {"success": True}
 
 
