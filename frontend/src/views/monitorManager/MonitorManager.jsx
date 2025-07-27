@@ -23,6 +23,12 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
 import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 
+// NEW colorful icons for notification-state indicators
+import MemoryIcon from '@mui/icons-material/Memory';              // System
+import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver'; // Voice
+import SmsIcon from '@mui/icons-material/Sms';                    // SMS
+import CampaignIcon from '@mui/icons-material/Campaign';          // TTS
+
 // use asset logos instead of MUI icons
 import btcLogo from '/static/images/btc_logo.png';
 import ethLogo from '/static/images/eth_logo.png';
@@ -165,6 +171,14 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
           <ToggleButton value="sms">SMS</ToggleButton>
           <ToggleButton value="tts">TTS</ToggleButton>
         </ToggleButtonGroup>
+
+        {/* Visual indicator icons */}
+        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+          {normCfg.notifications.system && <MemoryIcon color="info" fontSize="small" />}
+          {normCfg.notifications.voice && <RecordVoiceOverIcon color="success" fontSize="small" />}
+          {normCfg.notifications.sms && <SmsIcon color="warning" fontSize="small" />}
+          {normCfg.notifications.tts && <CampaignIcon color="error" fontSize="small" />}
+        </Stack>
       </CardContent>
     </Card>
   );
@@ -277,7 +291,7 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Profit Monitor card (unchanged)
+//  Profit Monitor card
 // ─────────────────────────────────────────────────────────────────────────────
 function ProfitSettings({ cfg, setCfg }) {
   const normCfg = useMemo(
@@ -373,6 +387,14 @@ function ProfitSettings({ cfg, setCfg }) {
           <ToggleButton value="sms">SMS</ToggleButton>
           <ToggleButton value="tts">TTS</ToggleButton>
         </ToggleButtonGroup>
+
+        {/* Visual indicator icons */}
+        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+          {normCfg.notifications.system && <MemoryIcon color="info" fontSize="small" />}
+          {normCfg.notifications.voice && <RecordVoiceOverIcon color="success" fontSize="small" />}
+          {normCfg.notifications.sms && <SmsIcon color="warning" fontSize="small" />}
+          {normCfg.notifications.tts && <CampaignIcon color="error" fontSize="small" />}
+        </Stack>
       </CardContent>
     </Card>
   );
