@@ -26,7 +26,7 @@ The notes below summarize the purpose of key files and directories under `fronte
   - **scss/** – Theme variables and global styling.
   - **config.js** – Global configuration values for the frontend.
     - Includes the default `ThemeMode` setting. Available modes are `light`,
-      `dark`, and `system`.
+      `dark`, and `funky`.
   - **contexts/** – React context providers for authentication and configuration (Auth0, Firebase, JWT, etc.).
 - **hooks/** – Reusable React hooks like `useAuth` and `useConfig`.
 - **index.jsx** – Vite entry point rendering `App`.
