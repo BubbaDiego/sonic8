@@ -20,6 +20,8 @@ import {
 } from '@mui/material';
 
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
+import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 
 // use asset logos instead of MUI icons
 import btcLogo from '/static/images/btc_logo.png';
@@ -216,7 +218,7 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
         title={
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="h6">Global Settings</Typography>
-            <img src="/static/images/gear_icon.png" width={16} alt="Settings" />
+            <SettingsTwoToneIcon fontSize="small" />
           </Stack>
         }
       />
@@ -313,7 +315,7 @@ function ProfitSettings({ cfg, setCfg }) {
         title={
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="h5">Profit Monitor</Typography>
-            <img src="/static/images/profit_icon.png" width={18} alt="Profit Icon" />
+            <TrendingUpTwoToneIcon fontSize="small" />
           </Stack>
         }
         subheader="Single & portfolio profit thresholds"
