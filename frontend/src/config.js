@@ -11,11 +11,12 @@ export let MenuOrientation;
 
 export let ThemeMode;
 
-  (function (ThemeMode) {
-    ThemeMode['LIGHT'] = 'light';
-    ThemeMode['DARK'] = 'dark';
-    ThemeMode['FUNKY'] = 'funky';
-  })(ThemeMode || (ThemeMode = {}));
+
+(function (ThemeMode) {
+  ThemeMode['LIGHT'] = 'light';
+  ThemeMode['DARK'] = 'dark';
+  ThemeMode['SYSTEM'] = 'system';
+})(ThemeMode || (ThemeMode = {}));
 
 
 export let ThemeDirection;
@@ -51,7 +52,7 @@ const config = {
   fontFamily: `'Roboto', sans-serif`,
   borderRadius: 8,
   outlinedFilled: true,
-  mode: ThemeMode.LIGHT,
+  mode: ThemeMode.SYSTEM,
   sidePanelWidth: 320,
   presetColor: 'default',
   i18n: 'en',
