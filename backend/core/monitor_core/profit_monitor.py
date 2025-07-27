@@ -119,6 +119,15 @@ class ProfitMonitor(BaseMonitor):
         single_hit = max_profit >= single_limit
         portfolio_hit = total_profit >= portfolio_limit
 
+        log.info(
+            f"Total Profit: {total_profit:.2f}  Threshold: {portfolio_limit:.2f}  Result: {'BREACH' if portfolio_hit else 'NO BREACH'}",
+            source="ProfitMonitor",
+        )
+        log.info(
+            f"Highest Single Profit: {max_profit:.2f}  Threshold: {single_limit:.2f}  Result: {'BREACH' if single_hit else 'NO BREACH'}",
+            source="ProfitMonitor",
+        )
+
         if single_hit or portfolio_hit:
             alert_msg = f"💰 Total profit is ${total_profit:.2f}."
             notification_result = None
