@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
 // material-ui
 import { createTheme, StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
@@ -42,6 +42,10 @@ export default function ThemeCustomization({ children }) {
 
   const themes = createTheme(themeOptions);
   themes.components = useMemo(() => componentStyleOverrides(themes, borderRadius, outlinedFilled), [themes, borderRadius, outlinedFilled]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', mode);
+  }, [mode]);
 
   return (
     <StyledEngineProvider injectFirst>
