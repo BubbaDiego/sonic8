@@ -54,6 +54,22 @@ export default function ThemeModeLayout() {
             }
           />
         </Tooltip>
+        <Tooltip title="Funky Mode">
+          <FormControlLabel
+            control={<Radio value={ThemeMode.FUNKY} sx={{ display: 'none' }} />}
+            label={
+              <Avatar
+                size="md"
+                variant="rounded"
+                {...(mode === ThemeMode.FUNKY && { outline: true })}
+                color={mode === ThemeMode.FUNKY ? 'primary' : 'dark'}
+                sx={{ width: 48, height: 48, fontWeight: 'bold' }}
+              >
+                F
+              </Avatar>
+            }
+          />
+        </Tooltip>
       </RadioGroup>
     </Stack>
   );

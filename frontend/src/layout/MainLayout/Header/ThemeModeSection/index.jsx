@@ -13,12 +13,33 @@ export default function ThemeModeSection() {
   const { mode, onChangeMode } = useConfig();
 
   const handleToggle = () => {
-    onChangeMode(mode === ThemeMode.DARK ? ThemeMode.LIGHT : ThemeMode.DARK);
+    let newMode;
+    if (mode === ThemeMode.LIGHT) {
+      newMode = ThemeMode.DARK;
+    } else if (mode === ThemeMode.DARK) {
+      newMode = ThemeMode.FUNKY;
+    } else {
+      newMode = ThemeMode.LIGHT;
+    }
+    onChangeMode(newMode);
   };
+
+  const nextMode =
+    mode === ThemeMode.LIGHT
+      ? ThemeMode.DARK
+      : mode === ThemeMode.DARK
+        ? ThemeMode.FUNKY
+        : ThemeMode.LIGHT;
+  const tooltipTitle =
+    nextMode === ThemeMode.DARK
+      ? 'Dark Mode'
+      : nextMode === ThemeMode.FUNKY
+        ? 'Funky Mode'
+        : 'Light Mode';
 
   return (
     <Box sx={{ ml: 2 }}>
-      <Tooltip title={mode === ThemeMode.DARK ? 'Light Mode' : 'Dark Mode'}>
+      <Tooltip title={tooltipTitle}>
         <Avatar
           variant="rounded"
           sx={{
@@ -38,7 +59,13 @@ export default function ThemeModeSection() {
           onClick={handleToggle}
           color="inherit"
         >
-          {mode === ThemeMode.DARK ? <IconSun /> : <IconMoon />}
+          {nextMode === ThemeMode.DARK ? (
+            <IconMoon />
+          ) : nextMode === ThemeMode.FUNKY ? (
+            'F'
+          ) : (
+            <IconSun />
+          )}
         </Avatar>
       </Tooltip>
     </Box>

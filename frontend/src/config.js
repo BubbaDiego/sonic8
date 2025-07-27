@@ -11,10 +11,11 @@ export let MenuOrientation;
 
 export let ThemeMode;
 
-(function (ThemeMode) {
-  ThemeMode['LIGHT'] = 'light';
-  ThemeMode['DARK'] = 'dark';
-})(ThemeMode || (ThemeMode = {}));
+  (function (ThemeMode) {
+    ThemeMode['LIGHT'] = 'light';
+    ThemeMode['DARK'] = 'dark';
+    ThemeMode['FUNKY'] = 'funky';
+  })(ThemeMode || (ThemeMode = {}));
 
 export let ThemeDirection;
 
