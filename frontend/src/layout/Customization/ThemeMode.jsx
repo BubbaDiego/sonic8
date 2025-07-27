@@ -67,6 +67,7 @@ export default function ThemeModeLayout() {
                 sx={{ width: 48, height: 48, color: 'secondary.main' }}
               >
                 <AutoAwesomeIcon />
+
               </Avatar>
             }
           />
