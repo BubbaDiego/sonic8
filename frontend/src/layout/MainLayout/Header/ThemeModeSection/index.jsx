@@ -12,14 +12,13 @@ export default function ThemeModeSection() {
   const theme = useTheme();
   const { mode, onChangeMode } = useConfig();
 
-  const nextMode = {
-    [ThemeMode.LIGHT]: ThemeMode.DARK,
-    [ThemeMode.DARK]: ThemeMode.SYSTEM,
-    [ThemeMode.SYSTEM]: ThemeMode.LIGHT
-  }[mode];
+  const themeOrder = [ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.SYSTEM];
+  const nextMode = themeOrder[(themeOrder.indexOf(mode) + 1) % themeOrder.length];
 
-  const handleToggle = () => {
-    onChangeMode(nextMode);
+  const iconMap = {
+    [ThemeMode.LIGHT]: <IconMoon />,
+    [ThemeMode.DARK]: <IconDeviceDesktop />,
+    [ThemeMode.SYSTEM]: <IconSun />
   };
 
   const tooltipMap = {
@@ -28,10 +27,15 @@ export default function ThemeModeSection() {
     [ThemeMode.SYSTEM]: 'Light Mode'
   };
 
+
+  const handleToggle = () => {
+    onChangeMode(nextMode);
+
   const iconMap = {
     [ThemeMode.LIGHT]: <IconMoon />,
     [ThemeMode.DARK]: <IconDeviceDesktop />,
     [ThemeMode.SYSTEM]: <IconSun />
+
   };
 
   return (
