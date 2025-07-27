@@ -36,6 +36,7 @@ function DonutCountdown({
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <IconButton
+          aria-label={`${label} timer`}
           onClick={onClick}
           sx={{ p: 0, borderRadius: '50%', overflow: 'visible' }}
           disableRipple
