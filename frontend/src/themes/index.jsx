@@ -9,6 +9,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import useConfig from 'hooks/useConfig';
 import Palette from './palette';
 import Typography from './typography';
+import { ThemeMode } from 'config';
 
 import componentStyleOverrides from './compStyleOverride';
 import customShadows from './shadows';
@@ -16,10 +17,17 @@ import customShadows from './shadows';
 export default function ThemeCustomization({ children }) {
   const { borderRadius, fontFamily, mode, outlinedFilled, presetColor, themeDirection } = useConfig();
 
-  const theme = useMemo(() => Palette(mode, presetColor), [mode, presetColor]);
+  const resolvedMode = useMemo(() => {
+    if (mode === ThemeMode.SYSTEM && typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? ThemeMode.DARK : ThemeMode.LIGHT;
+    }
+    return mode;
+  }, [mode]);
+
+  const theme = useMemo(() => Palette(resolvedMode, presetColor), [resolvedMode, presetColor]);
 
   const themeTypography = useMemo(() => Typography(theme, borderRadius, fontFamily), [theme, borderRadius, fontFamily]);
-  const themeCustomShadows = useMemo(() => customShadows(mode, theme), [mode, theme]);
+  const themeCustomShadows = useMemo(() => customShadows(resolvedMode, theme), [resolvedMode, theme]);
 
   const themeOptions = useMemo(
     () => ({

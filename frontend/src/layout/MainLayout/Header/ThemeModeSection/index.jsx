@@ -3,7 +3,7 @@ import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import Box from '@mui/material/Box';
 
-import { IconSun, IconMoon } from '@tabler/icons-react';
+import { IconSun, IconMoon, IconDeviceDesktop } from '@tabler/icons-react';
 
 import { ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
@@ -12,13 +12,31 @@ export default function ThemeModeSection() {
   const theme = useTheme();
   const { mode, onChangeMode } = useConfig();
 
+  const nextMode = {
+    [ThemeMode.LIGHT]: ThemeMode.DARK,
+    [ThemeMode.DARK]: ThemeMode.SYSTEM,
+    [ThemeMode.SYSTEM]: ThemeMode.LIGHT
+  }[mode];
+
   const handleToggle = () => {
-    onChangeMode(mode === ThemeMode.DARK ? ThemeMode.LIGHT : ThemeMode.DARK);
+    onChangeMode(nextMode);
+  };
+
+  const tooltipMap = {
+    [ThemeMode.LIGHT]: 'Dark Mode',
+    [ThemeMode.DARK]: 'System Mode',
+    [ThemeMode.SYSTEM]: 'Light Mode'
+  };
+
+  const iconMap = {
+    [ThemeMode.LIGHT]: <IconMoon />,
+    [ThemeMode.DARK]: <IconDeviceDesktop />,
+    [ThemeMode.SYSTEM]: <IconSun />
   };
 
   return (
     <Box sx={{ ml: 2 }}>
-      <Tooltip title={mode === ThemeMode.DARK ? 'Light Mode' : 'Dark Mode'}>
+      <Tooltip title={tooltipMap[mode]}>
         <Avatar
           variant="rounded"
           sx={{
@@ -38,7 +56,7 @@ export default function ThemeModeSection() {
           onClick={handleToggle}
           color="inherit"
         >
-          {mode === ThemeMode.DARK ? <IconSun /> : <IconMoon />}
+          {iconMap[mode]}
         </Avatar>
       </Tooltip>
     </Box>
