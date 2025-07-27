@@ -1,5 +1,5 @@
 // TimerSection.jsx – radial countdowns for Sonic monitor and Liquidation snooze
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { CircularProgress, Tooltip, Box } from '@mui/material';
 import axios from 'utils/axios';
 import { refreshLatestPortfolio, refreshPortfolioHistory } from 'api/portfolio';
@@ -47,6 +47,7 @@ export default function TimerSection() {
   const [snooze, setSnooze] = useState(0);
   const [sonicNextTs, setSonicNextTs] = useState(Date.now());
   const [snoozeEndTs, setSnoozeEndTs] = useState(Date.now());
+  const prevSonicTsRef = useRef(sonicNextTs);
 
 useEffect(() => {
   let timeoutHandle;
@@ -80,7 +81,14 @@ useEffect(() => {
 }, [sonicNextTs, snoozeEndTs]);
 
 useEffect(() => {
-  const delay = Math.max(0, sonicNextTs - Date.now()) + SONIC_REFRESH_DELAY_MS;
+  const prev = prevSonicTsRef.current;
+  prevSonicTsRef.current = sonicNextTs;
+
+  let delay = Math.max(0, sonicNextTs - Date.now()) + SONIC_REFRESH_DELAY_MS;
+  if (sonicNextTs - prev > POLL_MS) {
+    delay = SONIC_REFRESH_DELAY_MS;
+  }
+
   const refreshHandle = setTimeout(() => {
     refreshLatestPortfolio();
     refreshPortfolioHistory();
