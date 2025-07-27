@@ -114,11 +114,11 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
     .map(([k]) => k);
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h6">Liquidation Monitor</Typography>
+            <Typography variant="h5">Liquidation Monitor</Typography>
             <WaterDropIcon fontSize="small" color="primary" />
           </Stack>
         }
@@ -211,29 +211,64 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
   const onLoopChange = (e) => setLoop(e.target.value);
 
   return (
-    <Card variant="outlined">
-      <CardHeader title="Global Threshold & Snooze" />
+    <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <CardHeader
+        title={
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="h6">Global Settings</Typography>
+            <img src="/static/images/gear_icon.png" width={16} alt="Settings" />
+          </Stack>
+        }
+      />
       <CardContent>
-        <Stack spacing={2}>
-          <TextField
-            label="Threshold %"
-            type="number"
-            name="threshold_percent"
-            value={thresh}
-            onChange={onChange}
-            inputProps={{ step: '0.1' }}
-          />
-          <TextField label="Sonic Loop (seconds)" type="number" value={loopSec} onChange={onLoopChange} />
-          <TextField label="Snooze (seconds)" type="number" name="snooze_seconds" value={snooze} onChange={onChange} />
-
-          {running ? (
-            <CircularCountdown remaining={remaining} total={snooze || 1} />
-          ) : (
-            <Button variant="outlined" onClick={start}>
-              Start Snooze Countdown
-            </Button>
-          )}
-        </Stack>
+        <Grid container spacing={2}>
+          <Grid item xs={6}>
+            <Stack spacing={2}>
+              <TextField
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography>Sonic Loop</Typography>
+                    <img src="/static/images/hedgehog_icon.png" width={16} alt="Loop" />
+                  </Stack>
+                }
+                type="number"
+                value={loopSec}
+                onChange={onLoopChange}
+              />
+              <TextField
+                label="Threshold %"
+                type="number"
+                name="threshold_percent"
+                value={thresh}
+                onChange={onChange}
+                inputProps={{ step: '0.1' }}
+              />
+            </Stack>
+          </Grid>
+          <Grid item xs={6}>
+            <Stack spacing={2}>
+              <TextField
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography>Snooze</Typography>
+                    <img src="/static/images/zzz_icon.png" width={16} alt="Zzz" />
+                  </Stack>
+                }
+                type="number"
+                name="snooze_seconds"
+                value={snooze}
+                onChange={onChange}
+              />
+              {running ? (
+                <CircularCountdown remaining={remaining} total={snooze || 1} />
+              ) : (
+                <Button variant="outlined" onClick={start}>
+                  Start Snooze Countdown
+                </Button>
+              )}
+            </Stack>
+          </Grid>
+        </Grid>
       </CardContent>
     </Card>
   );
@@ -273,22 +308,59 @@ function ProfitSettings({ cfg, setCfg }) {
     .map(([k]) => k);
 
   return (
-    <Card variant="outlined">
-      <CardHeader title="Profit Monitor" subheader="Single & portfolio profit thresholds" />
+    <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <CardHeader
+        title={
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="h5">Profit Monitor</Typography>
+            <img src="/static/images/profit_icon.png" width={18} alt="Profit Icon" />
+          </Stack>
+        }
+        subheader="Single & portfolio profit thresholds"
+      />
       <CardContent>
-        <Stack spacing={2}>
-          {['single_high', 'portfolio_high', 'single_low', 'portfolio_low'].map((field) => (
-            <TextField
-              key={field}
-              fullWidth
-              label={`${field.replace('_', ' ').toUpperCase()} ($)`}
-              name={field}
-              type="number"
-              value={normCfg[field] ?? ''}
-              onChange={handleChange}
-            />
-          ))}
-        </Stack>
+        <Grid container spacing={2}>
+          <Grid item xs={6}>
+            <Stack spacing={2}>
+              <TextField
+                fullWidth
+                label="PORTFOLIO HIGH ($)"
+                name="portfolio_high"
+                type="number"
+                value={normCfg.portfolio_high ?? ''}
+                onChange={handleChange}
+              />
+              <TextField
+                fullWidth
+                label="PORTFOLIO LOW ($)"
+                name="portfolio_low"
+                type="number"
+                value={normCfg.portfolio_low ?? ''}
+                onChange={handleChange}
+              />
+            </Stack>
+          </Grid>
+          <Grid item xs={6}>
+            <Stack spacing={2}>
+              <TextField
+                fullWidth
+                label="SINGLE HIGH ($)"
+                name="single_high"
+                type="number"
+                value={normCfg.single_high ?? ''}
+                onChange={handleChange}
+              />
+              <TextField
+                fullWidth
+                label="SINGLE LOW ($)"
+                name="single_low"
+                type="number"
+                value={normCfg.single_low ?? ''}
+                onChange={handleChange}
+              />
+            </Stack>
+          </Grid>
+        </Grid>
 
         <Typography variant="subtitle2" sx={{ mt: 2 }}>
           Notifications
@@ -348,17 +420,17 @@ export default function MonitorManager() {
       </Typography>
 
       <Grid container spacing={3}>
-        {/* Liquidation monitor section split in two cards */}
+        {/* Row 1: Liquidation + Profit monitor side by side */}
         <Grid item xs={12} md={6}>
           <AssetThresholdCard cfg={liqCfg} setCfg={setLiqCfg} blast={marketCfg.blast_radius} nearest={nearestLiq} />
         </Grid>
         <Grid item xs={12} md={6}>
-          <GlobalSnoozeCard cfg={liqCfg} setCfg={setLiqCfg} loop={loopSec} setLoop={setLoopSec} />
+          <ProfitSettings cfg={profitCfg} setCfg={setProfitCfg} />
         </Grid>
 
-        {/* Profit monitor */}
+        {/* Row 2: Global snooze settings */}
         <Grid item xs={12}>
-          <ProfitSettings cfg={profitCfg} setCfg={setProfitCfg} />
+          <GlobalSnoozeCard cfg={liqCfg} setCfg={setLiqCfg} loop={loopSec} setLoop={setLoopSec} />
         </Grid>
 
         {/* Save button */}
