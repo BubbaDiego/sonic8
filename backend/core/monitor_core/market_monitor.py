@@ -7,6 +7,7 @@ from backend.core.constants import MOTHER_BRAIN_DB_PATH
 
 
 
+
 class MarketMonitor(BaseMonitor):
     name = "market_monitor"
     ASSETS = ["BTC", "ETH", "SOL"]
