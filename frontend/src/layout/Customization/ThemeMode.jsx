@@ -54,15 +54,15 @@ export default function ThemeModeLayout() {
             }
           />
         </Tooltip>
-        <Tooltip title="System Mode">
+        <Tooltip title="Funky Mode">
           <FormControlLabel
-            control={<Radio value={ThemeMode.SYSTEM} sx={{ display: 'none' }} />}
+            control={<Radio value={ThemeMode.FUNKY} sx={{ display: 'none' }} />}
             label={
               <Avatar
                 size="md"
                 variant="rounded"
-                {...(mode === ThemeMode.SYSTEM && { outline: true })}
-                color={mode === ThemeMode.SYSTEM ? 'primary' : 'dark'}
+                {...(mode === ThemeMode.FUNKY && { outline: true })}
+                color={mode === ThemeMode.FUNKY ? 'primary' : 'dark'}
                 sx={{ width: 48, height: 48, color: 'info.main' }}
               >
                 <IconDeviceDesktop />
