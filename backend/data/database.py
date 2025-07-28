@@ -2,6 +2,7 @@
 
 import sqlite3
 import os
+import threading
 from backend.core.core_imports import log
 
 try:
@@ -14,85 +15,87 @@ class DatabaseManager:
     def __init__(self, db_path: str):
         self.db_path = db_path
         self.conn = None
+        self._lock = threading.RLock()
 
     def connect(self):
-        if self.conn is None:
-            try:
-                dir_name = os.path.dirname(self.db_path)
-                if dir_name and dir_name.strip() != "":
-                    os.makedirs(dir_name, exist_ok=True)
-
+        with self._lock:
+            if self.conn is None:
                 try:
-                    self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
-                except sqlite3.DatabaseError as e:
-                    if "file is not a database" in str(
-                        e
-                    ) or "database disk image is malformed" in str(e):
-                        try:
-                            os.remove(self.db_path)
-                            wal = f"{self.db_path}-wal"
-                            shm = f"{self.db_path}-shm"
-                            if os.path.exists(wal):
-                                os.remove(wal)
-                            if os.path.exists(shm):
-                                os.remove(shm)
-                        except OSError:
-                            pass
-                        # DeathNailService(log).trigger({
-                        #     "message": "Database corruption detected during connect",
-                        #     "payload": {"error": str(e), "db": self.db_path},
-                        # })
-                        log.info(
-                            "🔈 Death nail suppressed during DB reconnect",
-                            source="DatabaseManager",
-                        )
-                        self.conn = sqlite3.connect(
-                            self.db_path, check_same_thread=False
-                        )
-                    else:
-                        raise
+                    dir_name = os.path.dirname(self.db_path)
+                    if dir_name and dir_name.strip() != "":
+                        os.makedirs(dir_name, exist_ok=True)
 
-                self.conn.row_factory = sqlite3.Row
-                try:
-                    self.conn.execute("PRAGMA journal_mode=WAL;")
-                except sqlite3.DatabaseError as e:
-                    # Handle corruption or non-database files gracefully
-                    if "file is not a database" in str(
-                        e
-                    ) or "database disk image is malformed" in str(e):
-                        self.conn.close()
-                        try:
-                            os.remove(self.db_path)
-                            wal = f"{self.db_path}-wal"
-                            shm = f"{self.db_path}-shm"
-                            if os.path.exists(wal):
-                                os.remove(wal)
-                            if os.path.exists(shm):
-                                os.remove(shm)
-                        except OSError:
-                            pass
-                        # DeathNailService(log).trigger({
-                        #     "message": "Database corruption detected during connect",
-                        #     "payload": {"error": str(e), "db": self.db_path},
-                        # })
-                        log.info(
-                            "🔈 Death nail suppressed during DB reconnect",
-                            source="DatabaseManager",
-                        )
-                        self.conn = sqlite3.connect(
-                            self.db_path, check_same_thread=False
-                        )
-                        self.conn.row_factory = sqlite3.Row
+                    try:
+                        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+                    except sqlite3.DatabaseError as e:
+                        if "file is not a database" in str(
+                            e
+                        ) or "database disk image is malformed" in str(e):
+                            try:
+                                os.remove(self.db_path)
+                                wal = f"{self.db_path}-wal"
+                                shm = f"{self.db_path}-shm"
+                                if os.path.exists(wal):
+                                    os.remove(wal)
+                                if os.path.exists(shm):
+                                    os.remove(shm)
+                            except OSError:
+                                pass
+                            # DeathNailService(log).trigger({
+                            #     "message": "Database corruption detected during connect",
+                            #     "payload": {"error": str(e), "db": self.db_path},
+                            # })
+                            log.info(
+                                "🔈 Death nail suppressed during DB reconnect",
+                                source="DatabaseManager",
+                            )
+                            self.conn = sqlite3.connect(
+                                self.db_path, check_same_thread=False
+                            )
+                        else:
+                            raise
+
+                    self.conn.row_factory = sqlite3.Row
+                    try:
                         self.conn.execute("PRAGMA journal_mode=WAL;")
-                    else:
-                        log.error(
-                            f"Failed to set WAL mode: {e}", source="DatabaseManager"
-                        )
-            except Exception as e:
-                log.error(
-                    f"❌ Failed to connect to database: {e}", source="DatabaseManager"
-                )
-                self.conn = None
+                    except sqlite3.DatabaseError as e:
+                        # Handle corruption or non-database files gracefully
+                        if "file is not a database" in str(
+                            e
+                        ) or "database disk image is malformed" in str(e):
+                            self.conn.close()
+                            try:
+                                os.remove(self.db_path)
+                                wal = f"{self.db_path}-wal"
+                                shm = f"{self.db_path}-shm"
+                                if os.path.exists(wal):
+                                    os.remove(wal)
+                                if os.path.exists(shm):
+                                    os.remove(shm)
+                            except OSError:
+                                pass
+                            # DeathNailService(log).trigger({
+                            #     "message": "Database corruption detected during connect",
+                            #     "payload": {"error": str(e), "db": self.db_path},
+                            # })
+                            log.info(
+                                "🔈 Death nail suppressed during DB reconnect",
+                                source="DatabaseManager",
+                            )
+                            self.conn = sqlite3.connect(
+                                self.db_path, check_same_thread=False
+                            )
+                            self.conn.row_factory = sqlite3.Row
+                            self.conn.execute("PRAGMA journal_mode=WAL;")
+                        else:
+                            log.error(
+                                f"Failed to set WAL mode: {e}", source="DatabaseManager"
+                            )
+                except Exception as e:
+                    log.error(
+                        f"❌ Failed to connect to database: {e}", source="DatabaseManager"
+                    )
+                    self.conn = None
         return self.conn
 
     def recover_database(self):
@@ -119,30 +122,33 @@ class DatabaseManager:
 
     def get_cursor(self):
         """Return a database cursor, recovering the DB if corruption is detected."""
-        try:
+        with self._lock:
             conn = self.connect()
             if conn is None:
                 return None
-            return conn.cursor()
-        except sqlite3.DatabaseError as e:
-            if "file is not a database" in str(
-                e
-            ) or "database disk image is malformed" in str(e):
-                self.recover_database()
-                return self.conn.cursor() if self.conn else None
-            log.error(f"Failed to get cursor: {e}", source="DatabaseManager")
-            return None
-        except Exception as e:
-            log.error(f"Unexpected cursor error: {e}", source="DatabaseManager")
-            return None
+            try:
+                return conn.cursor()
+            except sqlite3.DatabaseError as e:
+                if "file is not a database" in str(
+                    e
+                ) or "database disk image is malformed" in str(e):
+                    self.recover_database()
+                    return self.conn.cursor() if self.conn else None
+                log.error(f"Failed to get cursor: {e}", source="DatabaseManager")
+                return None
+            except Exception as e:
+                log.error(f"Unexpected cursor error: {e}", source="DatabaseManager")
+                return None
 
     def commit(self):
-        try:
-            conn = self.connect()
-            if conn:
+        conn = self.connect()
+        if not conn:
+            return
+        with self._lock:
+            try:
                 conn.commit()
-        except Exception as e:
-            log.error(f"Commit failed: {e}", source="DatabaseManager")
+            except Exception as e:
+                log.error(f"Commit failed: {e}", source="DatabaseManager")
 
     def close(self):
         if self.conn:
