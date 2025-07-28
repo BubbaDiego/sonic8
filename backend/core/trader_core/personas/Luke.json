@@ -1,7 +1,7 @@
 {
   "name": "Luke",
   "profile": "Heroic",
-  "avatar": "/static/images/luke_icon.jpg",
+  "avatar": "/images/luke_icon.jpg",
   "strategy_weights": {
     "dynamic_hedging": 0.6,
     "profit_management": 0.4

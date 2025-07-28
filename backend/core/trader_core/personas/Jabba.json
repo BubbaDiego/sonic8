@@ -1,7 +1,7 @@
 {
   "name": "Jabba",
   "profile": "Greedy",
-  "avatar": "/static/images/jabba_icon.jpg",
+  "avatar": "/images/jabba_icon.jpg",
   "strategy_weights": {
     "dynamic_hedging": 0.1,
     "profit_management": 0.9

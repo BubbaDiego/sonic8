@@ -38,9 +38,9 @@ import SmsIcon from '@mui/icons-material/Sms';                    // SMS
 import CampaignIcon from '@mui/icons-material/Campaign';          // TTS
 
 // use asset logos instead of MUI icons
-import btcLogo from '/static/images/btc_logo.png';
-import ethLogo from '/static/images/eth_logo.png';
-import solLogo from '/static/images/sol_logo.png';
+import btcLogo from '/images/btc_logo.png';
+import ethLogo from '/images/eth_logo.png';
+import solLogo from '/images/sol_logo.png';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Constants
@@ -319,7 +319,7 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
                 label={
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography>Sonic Loop</Typography>
-                    <img src="/static/images/hedgehog_icon.png" width={16} alt="Loop" />
+                    <img src="/images/hedgehog_icon.png" width={16} alt="Loop" />
                   </Stack>
                 }
                 type="number"
@@ -342,7 +342,7 @@ function GlobalSnoozeCard({ cfg, setCfg, loop, setLoop }) {
                 label={
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography>Snooze</Typography>
-                    <img src="/static/images/zzz_icon.png" width={16} alt="Zzz" />
+                    <img src="/images/zzz_icon.png" width={16} alt="Zzz" />
                   </Stack>
                 }
                 type="number"

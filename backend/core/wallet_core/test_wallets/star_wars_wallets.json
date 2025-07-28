@@ -2,7 +2,7 @@
   "wallets": [
     {
       "name": "BobaVault",
-      "image_path": "static/images/boba_icon.jpg",
+      "image_path": "images/boba_icon.jpg",
       "public_address": "9DXTA7dnFjEKVq6d5v7X79C35VzuFUhZUi5PRceKLYNa",
       "private_address": null,
       "passphrase": "${BOBA_PASSPHRASE}",
@@ -14,7 +14,7 @@
     },
     {
       "name": "C3P0Vault",
-      "image_path": "static/images/c3p0_icon.jpg",
+      "image_path": "images/c3p0_icon.jpg",
       "public_address": "72nSXTTCUmYad6gFmzULcTmEJva9wNpg4MUovyvnZezQ",
       "private_address": null,
       "passphrase": "${C3P0_PASSPHRASE}",
@@ -26,7 +26,7 @@
     },
     {
       "name": "JabbaVault",
-      "image_path": "static/images/jabba_icon.jpg",
+      "image_path": "images/jabba_icon.jpg",
       "public_address": "BB4SvFPPqyV5sQD6Pb1sWmvhinh8QYjRpGk9SkW8USsT",
       "private_address": null,
       "passphrase": "${JABBA_PASSPHRASE}",
@@ -38,7 +38,7 @@
     },
     {
       "name": "LandoVault",
-      "image_path": "static/images/lando_icon.jpg",
+      "image_path": "images/lando_icon.jpg",
       "public_address": "89YeqPcCey8h9Vzg9nCdzw1gCixA2nLg9jKgCtw2b9CZ",
       "private_address": null,
       "passphrase": "${LANDO_PASSPHRASE}",
@@ -50,7 +50,7 @@
     },
     {
       "name": "LeiaVault",
-      "image_path": "static/images/leia_icon.jpg",
+      "image_path": "images/leia_icon.jpg",
       "public_address": "V8iveiirFvX7m7psPHWBJW85xPk1ZB6U4Ep9GUV2THW",
       "private_address": null,
       "passphrase": "${LEIA_PASSPHRASE}",
@@ -62,7 +62,7 @@
     },
     {
       "name": "LukeVault",
-      "image_path": "static/images/luke_icon.jpg",
+      "image_path": "images/luke_icon.jpg",
       "public_address": "6yYacpjB2SiB1RVQ29YCEYioENYkwXfFhhetALp8uU8E",
       "private_address": null,
       "passphrase": "${LUKE_PASSPHRASE}",
@@ -74,7 +74,7 @@
     },
     {
       "name": "PalpatineVault",
-      "image_path": "static/images/palpatine_icon.jpg",
+      "image_path": "images/palpatine_icon.jpg",
       "public_address": "CiPiaEJQzp44Cv6UVGecPzPMqx6KHHSse8ZoVqnmT4hP",
       "private_address": null,
       "passphrase": "${PALPATINE_PASSPHRASE}",
@@ -86,7 +86,7 @@
     },
     {
       "name": "R2D2Vault",
-      "image_path": "static/images/r2d2_icon.jpg",
+      "image_path": "images/r2d2_icon.jpg",
       "public_address": "5puBV83X2E9dw5MBiQX3T5cjAL9XVi7SucGQZLWZmbh3",
       "private_address": null,
       "passphrase": "${R2D2_PASSPHRASE}",
@@ -98,7 +98,7 @@
     },
     {
       "name": "VaderVault",
-      "image_path": "static/images/vader_icon.jpg",
+      "image_path": "images/vader_icon.jpg",
       "public_address": "E5cVX6nYE4KWGic7qfbyP1SPkdUvT6aqXFQkGYPxQCta",
       "private_address": null,
       "passphrase": "${VADER_PASSPHRASE}",
@@ -110,7 +110,7 @@
     },
     {
       "name": "YodaVault",
-      "image_path": "static/images/yoda_icon.jpg",
+      "image_path": "images/yoda_icon.jpg",
       "public_address": "CofTLEqPUXscsigdvP8YWkRTDmCQ6W7GKBVKRsZ6UvLn",
       "private_address": null,
       "passphrase": "${YODA_PASSPHRASE}",

@@ -1,7 +1,7 @@
 {
   "name": "Leia",
   "profile": "Strategic",
-  "avatar": "/static/images/leia_icon.jpg",
+  "avatar": "/images/leia_icon.jpg",
   "strategy_weights": {
     "dynamic_hedging": 0.4,
     "profit_management": 0.6

@@ -56,7 +56,7 @@ const WalletManager = () => {
             <Stack direction="row" spacing={1}>
               <Button onClick={handleAdd} variant="contained">Add</Button>
               <IconButton onClick={handleStarWars} size="large">
-                <Avatar src="/static/images/yoda_icon.jpg" sx={{ width: 32, height: 32 }} />
+                <Avatar src="/images/yoda_icon.jpg" sx={{ width: 32, height: 32 }} />
               </IconButton>
             </Stack>
           }

@@ -62,8 +62,8 @@ const config = {
 :root[data-theme="funky"] {
   --bg: #1e1e40;
   --text: #fff;
-  --body-bg-image: url('/static/images/trader_wallpaper.jpg');
-  --section-bg-image: url('/static/images/wally2.png');
+  --body-bg-image: url('/images/trader_wallpaper.jpg');
+  --section-bg-image: url('/images/wally2.png');
 }
 ```
 

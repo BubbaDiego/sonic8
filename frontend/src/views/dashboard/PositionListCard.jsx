@@ -114,7 +114,7 @@ export default function PositionListCard({ title }) {
                 <TableRow hover key={position.id}>
                   <TableCell sx={{ pl: 3 }}>
                     <Avatar
-                      src={`/static/images/${(position.wallet_name || 'unknown')
+                      src={`/images/${(position.wallet_name || 'unknown')
                         .replace(/\s+/g, '')
                         .replace(/vault$/i, '')
                         .toLowerCase()}_icon.jpg`}
@@ -124,12 +124,12 @@ export default function PositionListCard({ title }) {
                   </TableCell>
                   <TableCell>
                     <Avatar
-                      src={`/static/images/${(position.asset_type || 'unknown').toLowerCase()}_logo.png`}
+                      src={`/images/${(position.asset_type || 'unknown').toLowerCase()}_logo.png`}
                       alt={position.asset_type}
                       sx={{ width: 24, height: 24 }}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
-                        e.currentTarget.src = '/static/images/unknown.png';
+                        e.currentTarget.src = '/images/unknown.png';
                       }}
                     />
                   </TableCell>

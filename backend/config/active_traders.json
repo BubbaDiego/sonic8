@@ -1,7 +1,7 @@
 [
   {
     "name": "Lando",
-    "avatar": "/static/images/lando_icon.jpg",
+    "avatar": "/images/lando_icon.jpg",
     "color": "#8A9CD6FF",
     "wallet": "LandoVault",
     "born_on": "2025-06-16T17:06:31Z",
@@ -10,7 +10,7 @@
   },
   {
     "name": "Leia",
-    "avatar": "/static/images/leia_icon.jpg",
+    "avatar": "/images/leia_icon.jpg",
     "color": "#D6C797FF",
     "wallet": "LeiaVault",
     "born_on": "2025-06-16T17:06:31Z",
@@ -19,7 +19,7 @@
   },
   {
     "name": "Luke",
-    "avatar": "/static/images/luke_icon.jpg",
+    "avatar": "/images/luke_icon.jpg",
     "color": "#F8FAFCFF",
     "wallet": "LukeVault",
     "born_on": "2025-06-16T17:06:31Z",
