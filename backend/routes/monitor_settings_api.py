@@ -29,6 +29,8 @@ def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
     cfg = monitor._cfg()
     # Merge persisted settings so unknown keys are preserved
     stored = dl.system.get_var("market_monitor") or {}
+    # Drop persisted blast radius so defaults are returned
+    stored.pop("blast_radius", None)
     cfg.update(stored)
 
     # Ensure blast radius reflects latest defaults unless monitor updated it
