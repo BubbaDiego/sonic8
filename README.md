@@ -220,3 +220,15 @@ yarn test
 
 This executes Jest using the configuration provided in
 `frontend/jest.config.js`.
+
+## Backend tests
+
+Create a virtual environment and install the standard and development
+requirements before running Pytest:
+
+```bash
+python backend/scripts/create_virtual_env.py
+.venv/bin/pip install -r requirements.txt  # .venv\Scripts\pip on Windows
+.venv/bin/pip install -r requirements-dev.txt
+pytest
+```
