@@ -240,13 +240,13 @@ development dependencies and run the test suite from the `frontend` folder:
 
 ```bash
 cd frontend
-yarn install  # or `npm install`
-yarn test
+npm install  # or `yarn install`
+npm test
 ```
 
 This executes Jest using the configuration provided in
-`frontend/jest.config.js`.
-Make sure to install dependencies once before running tests or the build.
+`frontend/jest.config.js`. Install the dependencies with `npm install`
+before running the tests or build so Jest can load the required modules.
 
 ## Backend tests
 
@@ -259,3 +259,6 @@ python backend/scripts/create_virtual_env.py
 .venv/bin/pip install -r requirements-dev.txt
 pytest
 ```
+
+Run `pip install -r requirements.txt` whenever the dependencies change so
+Pytest can locate modules such as `cyclone`, `monitor` and `data`.
