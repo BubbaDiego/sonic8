@@ -59,16 +59,9 @@ class SoundService:
 
         try:
             log.info(f"🔊 Playing sound: {path}", source="SoundService")
-            use_playsound = bool(playsound)
 
-            if use_playsound:
+            if playsound:
                 playsound(path)
-            elif sys.platform.startswith("win"):
-                try:
-                    os.startfile(path)  # non-blocking
-                except Exception as e:
-                    log.debug(f"os.startfile failed: {e}", source="SoundService")
-                    raise
             else:
                 raise RuntimeError("playsound dependency missing")
 
