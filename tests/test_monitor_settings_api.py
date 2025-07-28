@@ -163,3 +163,34 @@ def test_sonic_interval_roundtrip(tmp_path, monkeypatch):
     resp = client.get("/api/monitor-settings/sonic")
     assert resp.status_code == 200
     assert resp.json()["interval_seconds"] == 42
+
+
+def test_profit_enabled_roundtrip(tmp_path, monkeypatch):
+    client, dl = _setup(tmp_path, monkeypatch)
+
+    resp = client.post("/api/monitor-settings/profit", json={"enabled": False})
+    assert resp.status_code == 200
+
+    cfg = dl.system.get_var("profit_monitor")
+    assert cfg["enabled"] is False
+
+    resp = client.get("/api/monitor-settings/profit")
+    assert resp.status_code == 200
+    assert resp.json()["enabled"] is False
+
+
+def test_liquidation_enabled_roundtrip(tmp_path, monkeypatch):
+    client, dl = _setup(tmp_path, monkeypatch)
+
+    resp = client.post(
+        "/api/monitor-settings/liquidation",
+        json={"enabled": False},
+    )
+    assert resp.status_code == 200
+
+    cfg = dl.system.get_var("liquid_monitor")
+    assert cfg["enabled"] is False
+
+    resp = client.get("/api/monitor-settings/liquidation")
+    assert resp.status_code == 200
+    assert resp.json()["enabled"] is False
