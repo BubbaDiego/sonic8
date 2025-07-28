@@ -64,6 +64,7 @@ export default function ThemeCustomization({ children }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
+    document.documentElement.style.setProperty('--asset-base', import.meta.env.BASE_URL);
   }, [mode]);
 
   return (
