@@ -43,7 +43,6 @@ class CalculationCore:
             }
 
         self.calc_services.weights = weights  # inject into CalcServices
-        log.success("✅ Modifiers loaded into CalcServices", source="CalculationCore", payload=weights)
         return weights
 
     def get_heat_index(self, position: dict) -> float:
