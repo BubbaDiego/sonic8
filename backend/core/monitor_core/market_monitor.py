@@ -28,20 +28,22 @@ class MarketMonitor(BaseMonitor):
         # default scaffold
         cfg.setdefault("baseline", {})
         cfg.setdefault("thresholds", {})
-        cfg.setdefault("blast_radius", {})
         cfg.setdefault(
             "blast_filters", {"window": "24h", "exchange": "coingecko"}
         )
-        defaults = MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
+        cfg["blast_radius"] = MARKET_MONITOR_BLAST_RADIUS_DEFAULTS.copy()
         # ensure nested defaults
         for asset in self.ASSETS:
-            cfg["baseline"].setdefault(asset, {
-                "price": self.dl.get_latest_price(asset).get("current_price") or 0,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "mode": "EITHER"
-            })
+            cfg["baseline"].setdefault(
+                asset,
+                {
+                    "price": self.dl.get_latest_price(asset).get("current_price")
+                    or 0,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "mode": "EITHER",
+                },
+            )
             cfg["thresholds"].setdefault(asset, 5.0)
-            cfg["blast_radius"].setdefault(asset, defaults.get(asset, 0.0))
         return cfg
 
     def _save_cfg(self, cfg):
@@ -53,7 +55,6 @@ class MarketMonitor(BaseMonitor):
     def _do_work(self):
         cfg = self._cfg()
         prices = {a: self.dl.get_latest_price(a).get("current_price") for a in self.ASSETS}
-        hi_lo = self.swing.fetch(self.ASSETS)
 
         detail = []
         triggered_any = False
@@ -71,12 +72,7 @@ class MarketMonitor(BaseMonitor):
             )
             triggered_any |= hit
 
-            hi, lo = hi_lo[a]["high"], hi_lo[a]["low"]
-            if lo:
-                br = (hi - lo) / lo * 100
-            else:
-                br = 0.0
-            cfg["blast_radius"][a] = br
+            br = MARKET_MONITOR_BLAST_RADIUS_DEFAULTS.get(a, 0.0)
 
             detail.append({
                 "asset": a,
@@ -86,9 +82,6 @@ class MarketMonitor(BaseMonitor):
                 "blast_radius": round(br, 4),
                 "trigger": hit
             })
-
-        # persist updated blast radius
-        self._save_cfg(cfg)
 
         return {
             "status": "Success",
