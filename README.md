@@ -217,6 +217,13 @@ environment, so they must reference the same database file.
 The Liquidation Monitor also supports runtime changes via the
 [Monitor Settings API](docs/backend_api_spec.md#monitor-settings-api-monitor_settings_apipy).
 
+### Market monitor defaults
+
+The fallback blast radius values used when seeding the Market Monitor are
+defined in `backend/core/constants.py` as
+`MARKET_MONITOR_BLAST_RADIUS_DEFAULTS`. Adjust this mapping if you need to
+change the default BTC, ETH or SOL prices used by the monitor.
+
 ## Maintenance operations
 
 `CycloneMaintenanceService` provides helpers for wiping stored data during tests

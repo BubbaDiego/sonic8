@@ -16,6 +16,10 @@ CYCLONE_LOG_FILE = LOG_DIR / "cyclone_log.txt"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 JUPITER_API_BASE = "https://perps-api.jup.ag"
 
+# Default prices used when seeding the Market Monitor config. Update here to
+# change the fallback blast radius values for BTC, ETH and SOL.
+MARKET_MONITOR_BLAST_RADIUS_DEFAULTS = {"BTC": 8000.0, "ETH": 300.0, "SOL": 13.0}
+
 __all__ = [
     "BASE_DIR",
     "MOTHER_DB_PATH",
@@ -27,4 +31,5 @@ __all__ = [
     "CYCLONE_LOG_FILE",
     "LOG_DATE_FORMAT",
     "JUPITER_API_BASE",
+    "MARKET_MONITOR_BLAST_RADIUS_DEFAULTS",
 ]
