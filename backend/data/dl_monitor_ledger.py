@@ -66,17 +66,18 @@ class DLMonitorLedgerManager:
             log.error("❌ DB unavailable, cannot fetch ledger entry", source="DLMonitorLedger")
             return {}
 
-        cursor.execute(
-            """
+        try:
+            cursor.execute(
+                """
 
-            SELECT timestamp, status, metadata
-            FROM monitor_ledger
-            WHERE monitor_name = ?
-            ORDER BY timestamp DESC
-            LIMIT 1
-            """,
-            (str(monitor_name),),
-        )
+                SELECT timestamp, status, metadata
+                FROM monitor_ledger
+                WHERE monitor_name = ?
+                ORDER BY timestamp DESC
+                LIMIT 1
+                """,
+                (str(monitor_name),),
+            )
 
             row = cursor.fetchone()
         except sqlite3.Error as e:
