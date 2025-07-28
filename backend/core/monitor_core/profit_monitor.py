@@ -2,7 +2,7 @@ from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
 from backend.core.positions_core.position_core import PositionCore
 from backend.core.xcom_core.xcom_core import XComCore
-from backend.core.constants import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.logging import log
 from backend.core.alert_core.threshold_service import ThresholdService
 from datetime import datetime, timezone

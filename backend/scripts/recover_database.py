@@ -7,8 +7,8 @@ Database** option from the interactive menu.
 """
 from __future__ import annotations
 
-from core.constants import MOTHER_DB_PATH
-from core.core_imports import configure_console_log
+from core.core_constants import MOTHER_DB_PATH
+from core.logging import configure_console_log
 from data.data_locker import DataLocker
 
 

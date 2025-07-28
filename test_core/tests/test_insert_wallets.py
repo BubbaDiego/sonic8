@@ -1,6 +1,5 @@
 import os
-import core.constants as const
-import core.core_imports as ci
+import core.core_constants as const
 from pathlib import Path
 from data.data_locker import DataLocker
 from scripts.insert_wallets import load_wallets, upsert_wallets
@@ -17,8 +16,6 @@ def setup_service(tmp_path, monkeypatch):
     os.environ["MOTHER_DB_PATH"] = str(db_path)
     const.MOTHER_DB_PATH = db_path
     const.DB_PATH = db_path
-    ci.MOTHER_DB_PATH = db_path
-    ci.DB_PATH = db_path
     from wallets import wallet_repository
     monkeypatch.setattr(wallet_repository, "MOTHER_DB_PATH", db_path, raising=False)
     for name in SEED_PATCHES:

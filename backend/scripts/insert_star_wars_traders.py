@@ -4,8 +4,8 @@ from backend.utils.time_utils import iso_utc_now
 
 from typing import List, Dict
 
-from backend.core.constants import MOTHER_DB_PATH
-from backend.core.core_imports import configure_console_log
+from backend.core.core_constants import MOTHER_DB_PATH
+from backend.core.logging import configure_console_log
 from backend.data.data_locker import DataLocker
 from backend.core.oracle_core.persona_manager import PersonaManager
 from backend.core.trader_core.persona_avatars import AVATARS

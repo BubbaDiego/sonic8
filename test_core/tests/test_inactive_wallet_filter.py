@@ -1,6 +1,5 @@
 import os
-import core.constants as const
-import core.core_imports as ci
+import core.core_constants as const
 from data.data_locker import DataLocker
 from backend.core.positions_core.position_core import PositionCore
 from backend.core.calc_core.calc_services import CalcServices
@@ -18,8 +17,6 @@ def setup_db(tmp_path, monkeypatch):
     os.environ["MOTHER_DB_PATH"] = str(db_path)
     const.MOTHER_DB_PATH = db_path
     const.DB_PATH = db_path
-    ci.MOTHER_DB_PATH = db_path
-    ci.DB_PATH = db_path
     for name in SEED_PATCHES:
         monkeypatch.setattr(DataLocker, name, lambda self: None)
     return db_path

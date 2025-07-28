@@ -22,7 +22,7 @@ from backend.core.wallet_core import WalletService
 from test_core import TestCoreRunner, formatter, get_console_ui
 from backend.data.data_locker import DataLocker
 from backend.models.session import Session
-from backend.core.constants import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.logging import log, configure_console_log
 from datetime import datetime
 from backend.utils.time_utils import normalize_iso_timestamp

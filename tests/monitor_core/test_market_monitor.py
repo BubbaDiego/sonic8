@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.data.data_locker import DataLocker
-from backend.core.constants import MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
+from backend.core.core_constants import MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
 import backend.sonic_backend_app as app_module
 from backend.core.monitor_core import market_monitor
 

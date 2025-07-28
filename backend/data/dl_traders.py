@@ -18,8 +18,8 @@ from backend.utils.time_utils import iso_utc_now, normalize_iso_timestamp
 
 import os
 from datetime import datetime
-from backend.core.core_imports import log
-from backend.core.constants import CONFIG_DIR
+from backend.core.logging import log
+from backend.core.core_constants import CONFIG_DIR
 
 ACTIVE_TRADERS_JSON_PATH = CONFIG_DIR / "active_traders.json"
 

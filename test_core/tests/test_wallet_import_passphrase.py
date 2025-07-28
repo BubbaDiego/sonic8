@@ -1,7 +1,6 @@
 import os
 import importlib
-import core.constants as const
-import core.core_imports as ci
+import core.core_constants as const
 from data.data_locker import DataLocker
 import wallets.wallet_service  # ensure module is importable for reload
 
@@ -18,8 +17,6 @@ def setup_service(tmp_path, monkeypatch):
     os.environ["MOTHER_DB_PATH"] = str(db_path)
     const.MOTHER_DB_PATH = db_path
     const.DB_PATH = db_path
-    ci.MOTHER_DB_PATH = db_path
-    ci.DB_PATH = db_path
     from wallets import wallet_repository
     importlib.reload(wallet_repository)
     monkeypatch.setattr(wallet_repository, "MOTHER_DB_PATH", db_path, raising=False)
@@ -52,5 +49,3 @@ def test_import_wallets_from_json_with_passphrase(tmp_path, monkeypatch):
     os.environ["MOTHER_DB_PATH"] = "/tmp/test_wallet.db"
     const.MOTHER_DB_PATH = "/tmp/test_wallet.db"
     const.DB_PATH = "/tmp/test_wallet.db"
-    ci.MOTHER_DB_PATH = "/tmp/test_wallet.db"
-    ci.DB_PATH = "/tmp/test_wallet.db"

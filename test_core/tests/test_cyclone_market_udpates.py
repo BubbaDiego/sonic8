@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 from cyclone.cyclone_engine import Cyclone
-from core.core_imports import log
+from core.logging import log
 
 @pytest.fixture
 def cyclone_instance():

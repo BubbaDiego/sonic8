@@ -9,7 +9,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from data.data_locker import DataLocker
 from xcom.xcom_core import XComCore
-from core.constants import MOTHER_DB_PATH
+from core.core_constants import MOTHER_DB_PATH
 from core.logging import log
 
 # ---- NEW: Import your Flask app ----

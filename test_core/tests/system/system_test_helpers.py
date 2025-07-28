@@ -1,7 +1,7 @@
 
 import json
 import os
-from core.core_imports import retry_on_locked
+from backend.utils.db_retry import retry_on_locked
 
 @retry_on_locked()
 def create_temp_alert_thresholds_json(filepath="alert_thresholds.json"):

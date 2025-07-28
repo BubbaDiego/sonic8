@@ -11,7 +11,7 @@ from backend.core.xcom_core.voice_service import VoiceService
 from backend.core.xcom_core.sound_service import SoundService
 from backend.core.xcom_core.tts_service import TTSService
 from backend.data.data_locker import DataLocker
-from core.constants import MOTHER_DB_PATH
+from core.core_constants import MOTHER_DB_PATH
 from data.dl_monitor_ledger import DLMonitorLedgerManager
 from backend.core.logging import log
 

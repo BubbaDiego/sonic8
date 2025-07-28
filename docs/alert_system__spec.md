@@ -120,8 +120,7 @@ sonic1/
 │   │   │   ├── wallet_schema.py
 │   │   │   └── wallet_service.py
 │   │   ├── __init__.py
-│   │   ├── constants.py
-│   │   ├── core_imports.py
+│   │   ├── core_constants.py
 │   │   ├── locker_factory.py
 │   │   └── logging.py
 │   ├── data

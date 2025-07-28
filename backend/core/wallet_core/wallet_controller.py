@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 from wallets.wallet_service import WalletService
 from wallets.wallet_core import WalletCore
 from wallets.wallet_schema import WalletIn
-from core.core_imports import retry_on_locked
+from backend.utils.db_retry import retry_on_locked
 
 wallet_bp = Blueprint("wallets", __name__, url_prefix="/wallets")
 service = WalletService()

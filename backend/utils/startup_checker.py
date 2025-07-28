@@ -1,6 +1,6 @@
 # utils/startup_checker.py
 
-from core.constants import (
+from core.core_constants import (
     MOTHER_DB_PATH,
     DB_PATH,
     CONFIG_PATH,

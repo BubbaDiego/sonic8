@@ -6,7 +6,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-from backend.core.core_imports import log
+from backend.core.logging import log
 from backend.core.positions_core.position_store import PositionStore
 from backend.core.positions_core.position_enrichment_service import PositionEnrichmentService
 from backend.core.positions_core.position_enrichment_service import validate_enriched_position

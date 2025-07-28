@@ -4,8 +4,8 @@ import os
 import json
 import jsonschema
 from jsonschema import validate
-from backend.core.core_imports import log
-from backend.core.constants import ALERT_THRESHOLDS_PATH
+from backend.core.logging import log
+from backend.core.core_constants import ALERT_THRESHOLDS_PATH
 
 class SchemaValidationService:
     """

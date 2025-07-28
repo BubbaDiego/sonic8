@@ -12,10 +12,10 @@ from uuid import uuid4
 import traceback  # PATCH: for full stack info
 
 from backend.data.data_locker import DataLocker
-from backend.core.constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
+from backend.core.core_constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
 from backend.core.alert_core.config.loader import load_thresholds
 from backend.core.logging import log, configure_console_log
-from core.constants import CYCLONE_LOG_FILE
+from core.core_constants import CYCLONE_LOG_FILE
 import json
 from backend.core.trader_core.trader_loader import TraderLoader
 from backend.data.learning_database.learning_event_logger import log_learning_event

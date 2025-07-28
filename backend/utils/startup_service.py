@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 
-from backend.core.constants import (
+from backend.core.core_constants import (
     DB_PATH,
     CONFIG_PATH,
     ALERT_THRESHOLDS_PATH,
@@ -75,7 +75,7 @@ class DotSpinner:
         sys.stdout.flush()
 
 from backend.config.config_loader import save_config
-from backend.core.core_imports import log
+from backend.core.logging import log
 
 if _loaded_env:
     log.info(f"Loaded environment from {_loaded_env}", source="StartUpService")

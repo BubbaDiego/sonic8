@@ -9,7 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from core.constants import MOTHER_DB_PATH
+from core.core_constants import MOTHER_DB_PATH
 from data.data_locker import DataLocker
 from cyclone.cyclone_engine import Cyclone
 from core.logging import log

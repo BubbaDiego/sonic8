@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 
 from data.data_locker import DataLocker
-from core.constants import MOTHER_DB_PATH
+from core.core_constants import MOTHER_DB_PATH
 # Alert V2 imports removed – SonicMonitor now relies solely on classic monitors
 # and no longer executes the event‑oriented AlertOrchestrator pipeline.
 # from backend.alert_v2.orchestrator import (

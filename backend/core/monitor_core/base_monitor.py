@@ -3,7 +3,7 @@ import traceback
 
 from backend.core.logging import log
 from backend.data.data_locker import DataLocker
-from backend.core.constants import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 
 
 class BaseMonitor:

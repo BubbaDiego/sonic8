@@ -25,7 +25,7 @@ from backend.core.positions_core.position_sync_service import PositionSyncServic
 from backend.models.alert import AlertType, Condition
 from backend.core.logging import log
 from backend.core.alert_core.utils import log_alert_summary
-from backend.core.constants import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 
 print("👁 Viewer using DB path:", os.path.abspath(MOTHER_DB_PATH))
 

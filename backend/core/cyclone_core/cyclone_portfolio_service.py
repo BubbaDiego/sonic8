@@ -12,7 +12,7 @@ from uuid import uuid4
 from backend.data.data_locker import DataLocker
 from backend.models.alert import AlertType, Condition
 from backend.core.alert_core.utils import log_alert_summary
-from backend.core.core_imports import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.logging import log
 
 

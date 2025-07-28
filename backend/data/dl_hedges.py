@@ -14,7 +14,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - fallback to new path
     from backend.core.positions_core.hedge_manager import HedgeManager
 from backend.models.hedge import Hedge
-from backend.core.core_imports import log
+from backend.core.logging import log
 
 
 class DLHedgeManager:

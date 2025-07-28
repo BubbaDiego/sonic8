@@ -3,7 +3,7 @@
 from flask import current_app, has_app_context
 
 from backend.data.data_locker import DataLocker
-from backend.core.constants import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 
 
 def get_app_locker() -> DataLocker:

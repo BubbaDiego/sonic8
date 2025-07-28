@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import datetime
 from backend.utils.time_utils import PACIFIC_TZ
-from backend.core.core_imports import log
+from backend.core.logging import log
 from backend.data.learning_database.learning_data_locker import LearningDataLocker
 
 SAMPLING_SEC = int(os.getenv("LEARNING_SAMPLING_SEC", "60"))

@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from core.core_imports import log
+from core.logging import log
 from backend.data.data_locker import DataLocker
 import backend.sonic_backend_app as app_module
 

@@ -53,7 +53,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     AlertThresholdSeeder = None
 
 # Corrected explicitly absolute import
-from backend.core.constants import (
+from backend.core.core_constants import (
     SONIC_SAUCE_PATH,
     BASE_DIR,
     MOTHER_DB_PATH,
@@ -62,7 +62,7 @@ from backend.core.constants import (
     MARKET_MONITOR_BLAST_RADIUS_DEFAULTS,
 )
 
-from backend.core.core_imports import log  # Corrected clearly
+from backend.core.logging import log  # Corrected clearly
 from backend.utils.env_utils import _resolve_env
 
 try:
