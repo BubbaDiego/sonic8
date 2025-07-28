@@ -3,7 +3,10 @@ from datetime import datetime, timezone
 from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
 from backend.core.market_core.daily_swing_service import DailySwingService
-from backend.core.constants import MOTHER_BRAIN_DB_PATH
+from backend.core.constants import (
+    MOTHER_BRAIN_DB_PATH,
+    MARKET_MONITOR_BLAST_RADIUS_DEFAULTS,
+)
 
 
 
@@ -26,8 +29,10 @@ class MarketMonitor(BaseMonitor):
         cfg.setdefault("baseline", {})
         cfg.setdefault("thresholds", {})
         cfg.setdefault("blast_radius", {})
-        cfg.setdefault("blast_filters", {"window": "24h", "exchange": "coingecko"})
-        defaults = {"BTC": 8000.0, "ETH": 300.0, "SOL": 13.0}
+        cfg.setdefault(
+            "blast_filters", {"window": "24h", "exchange": "coingecko"}
+        )
+        defaults = MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
         # ensure nested defaults
         for asset in self.ASSETS:
             cfg["baseline"].setdefault(asset, {

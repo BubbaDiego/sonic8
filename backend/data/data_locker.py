@@ -59,6 +59,7 @@ from backend.core.constants import (
     MOTHER_DB_PATH,
     ALERT_THRESHOLDS_PATH,
     CONFIG_DIR,
+    MARKET_MONITOR_BLAST_RADIUS_DEFAULTS,
 )
 
 from backend.core.core_imports import log  # Corrected clearly
@@ -1000,7 +1001,6 @@ class DataLocker:
             baseline = {}
             thresholds = {}
             blast_radius = {}
-            price_defaults = {"BTC": 8000.0, "ETH": 300.0, "SOL": 13.0}
 
             for asset in assets:
                 price = self.get_latest_price(asset).get("current_price") or 0
@@ -1010,7 +1010,7 @@ class DataLocker:
                     "mode": "EITHER",
                 }
                 thresholds[asset] = 5.0
-                blast_radius[asset] = price_defaults.get(asset, 0.0)
+                blast_radius[asset] = MARKET_MONITOR_BLAST_RADIUS_DEFAULTS.get(asset, 0.0)
 
             config = {
                 "baseline": baseline,

@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.data.data_locker import DataLocker
+from backend.core.constants import MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
 import backend.sonic_backend_app as app_module
 from backend.core.monitor_core import market_monitor
 
@@ -47,9 +48,9 @@ def test_market_settings_defaults(tmp_path, monkeypatch):
     assert resp.status_code == 200
     data = resp.json()
 
-    assert data["blast_radius"]["BTC"] == pytest.approx(8000.0)
-    assert data["blast_radius"]["ETH"] == pytest.approx(300.0)
-    assert data["blast_radius"]["SOL"] == pytest.approx(13.0)
+    assert data["blast_radius"]["BTC"] == pytest.approx(MARKET_MONITOR_BLAST_RADIUS_DEFAULTS["BTC"])
+    assert data["blast_radius"]["ETH"] == pytest.approx(MARKET_MONITOR_BLAST_RADIUS_DEFAULTS["ETH"])
+    assert data["blast_radius"]["SOL"] == pytest.approx(MARKET_MONITOR_BLAST_RADIUS_DEFAULTS["SOL"])
 
 
 def test_do_work_updates_blast_and_threshold(monkeypatch):
@@ -61,7 +62,7 @@ def test_do_work_updates_blast_and_threshold(monkeypatch):
             "SOL": {"price": 100.0, "timestamp": "2024-01-01T00:00:00+00:00", "mode": "EITHER"},
         },
         "thresholds": {"BTC": 5.0, "ETH": 5.0, "SOL": 5.0},
-        "blast_radius": {"BTC": 8000.0, "ETH": 300.0, "SOL": 13.0},
+        "blast_radius": MARKET_MONITOR_BLAST_RADIUS_DEFAULTS.copy(),
         "blast_filters": {"window": "24h", "exchange": "coingecko"},
     }
 
