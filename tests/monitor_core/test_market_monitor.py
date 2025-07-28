@@ -53,6 +53,19 @@ def test_market_settings_defaults(tmp_path, monkeypatch):
     assert data["blast_radius"]["SOL"] == pytest.approx(MARKET_MONITOR_BLAST_RADIUS_DEFAULTS["SOL"])
 
 
+def test_market_settings_constant_change(tmp_path, monkeypatch):
+    """Updated blast radius defaults should be returned when config is stale."""
+    client, _ = _setup(tmp_path, monkeypatch)
+
+    new_defaults = {"BTC": 9000.0, "ETH": 400.0, "SOL": 20.0}
+    monkeypatch.setattr(market_monitor, "MARKET_MONITOR_BLAST_RADIUS_DEFAULTS", new_defaults)
+
+    resp = client.get("/api/monitor-settings/market")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["blast_radius"] == new_defaults
+
+
 def test_do_work_updates_blast_and_threshold(monkeypatch):
     price_map = {"BTC": 110.0, "ETH": 102.0, "SOL": 98.0}
     cfg = {

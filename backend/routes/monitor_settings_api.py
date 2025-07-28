@@ -26,13 +26,18 @@ def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
     monitor = market_monitor.MarketMonitor()
     monitor.dl = dl
 
-    cfg = dl.system.get_var("market_monitor")
-    if cfg is None:
-        return monitor._cfg()
+    cfg = monitor._cfg()
+    # Merge persisted settings so unknown keys are preserved
+    stored = dl.system.get_var("market_monitor") or {}
+    cfg.update(stored)
 
-    defaults = monitor._cfg()
-    defaults.update(cfg)
-    return defaults
+    # Ensure blast radius reflects latest defaults unless monitor updated it
+    cfg["blast_radius"] = {
+        **market_monitor.MARKET_MONITOR_BLAST_RADIUS_DEFAULTS,
+        **cfg.get("blast_radius", {}),
+    }
+
+    return cfg
 
 
 @router.post("/market")
