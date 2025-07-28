@@ -40,7 +40,11 @@ backend/config/theme_config.json
 
 Provider entries in `comm_config.json` may reference environment variables using
 the `${VAR}` syntax. These placeholders are expanded when the backend loads the
-configuration so secrets can be injected without editing the file.
+configuration so secrets can be injected without editing the file. The
+`communication.providers` section is merged into the `xcom_providers` entry in
+the database each time the backend starts. Existing provider settings remain
+unless the file specifies an override, allowing updates to propagate on the next
+launch.
 
 ### Text-to-speech configuration
 

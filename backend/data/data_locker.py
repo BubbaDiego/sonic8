@@ -1030,7 +1030,7 @@ class DataLocker:
             )
 
     def _seed_xcom_providers_if_empty(self):
-        """Seed XCom provider defaults into the system table if missing."""
+        """Seed or update XCom providers from ``comm_config.json``."""
         if self.system is None:
             log.warning(
                 "⚠️ System data manager unavailable; skipping xcom provider seed",
@@ -1038,30 +1038,21 @@ class DataLocker:
             )
             return
         try:
-            current = self.system.get_var("xcom_providers")
-            if current:
-                return
+            current = self.system.get_var("xcom_providers") or {}
 
             json_path = os.path.join(CONFIG_DIR, "comm_config.json")
-            defaults = {}
+            overrides = {}
             if os.path.exists(json_path):
                 with open(json_path, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
                     if isinstance(cfg, Mapping):
                         comm = cfg.get("communication")
                         if isinstance(comm, Mapping):
-                            defaults = comm.get("providers") or {}
+                            overrides = comm.get("providers") or {}
 
-            if not isinstance(defaults, Mapping):
-                defaults = {}
+            if not isinstance(overrides, Mapping):
+                overrides = {}
 
-            tts = defaults.get("tts") or {}
-            if not isinstance(tts, Mapping):
-                tts = {}
-            tts.setdefault("enabled", True)
-            tts.setdefault("voice", "Zira")
-            tts.setdefault("speed", 140)
-            defaults["tts"] = tts
 
             env_map = {
                 "email": {
@@ -1092,12 +1083,32 @@ class DataLocker:
                         data[k] = _resolve_env(v, env_key)
                 return data
 
-            for pname, cfg in list(defaults.items()):
+            for pname, cfg in list(overrides.items()):
                 mapping = env_map.get(pname, {})
                 if isinstance(cfg, Mapping):
-                    defaults[pname] = apply_env(dict(cfg), mapping)
+                    overrides[pname] = apply_env(dict(cfg), mapping)
 
-            self.system.set_var("xcom_providers", defaults)
+            merged = dict(current)
+            for pname, cfg in overrides.items():
+                if pname in merged and isinstance(merged[pname], Mapping) and isinstance(cfg, Mapping):
+                    new_cfg = dict(merged[pname])
+                    new_cfg.update(cfg)
+                    merged[pname] = new_cfg
+                else:
+                    merged[pname] = cfg
+
+            tts = merged.get("tts") or {}
+            if not isinstance(tts, Mapping):
+                tts = {}
+            tts.setdefault("enabled", True)
+            tts.setdefault("voice", "Zira")
+            tts.setdefault("speed", 140)
+            merged["tts"] = tts
+            if merged != current:
+                self.system.set_var("xcom_providers", merged)
+            else:
+                if not current:
+                    self.system.set_var("xcom_providers", merged)
             log.debug(
                 "XCom providers seeded from comm_config.json",
                 source="DataLocker",
