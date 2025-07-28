@@ -31,7 +31,12 @@ export default function ThemeCustomization({ children }) {
 
   const theme = useMemo(() => Palette(resolvedMode, presetColor), [resolvedMode, presetColor]);
 
-  const themeTypography = useMemo(() => Typography(theme, borderRadius, fontFamily), [theme, borderRadius, fontFamily]);
+  const effectiveFontFamily = resolvedMode === ThemeMode.SYSTEM ? `'Roboto', sans-serif` : fontFamily;
+
+  const themeTypography = useMemo(
+    () => Typography(theme, borderRadius, effectiveFontFamily),
+    [theme, borderRadius, effectiveFontFamily]
+  );
   const themeCustomShadows = useMemo(() => customShadows(resolvedMode, theme), [resolvedMode, theme]);
 
 
