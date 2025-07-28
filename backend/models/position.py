@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 try:
-    from pydantic import BaseModel, Field, constr
+    from pydantic import BaseModel, Field, constr, ConfigDict
     if not hasattr(BaseModel, "__fields__"):
         raise ImportError("stub")
 except Exception:  # pragma: no cover - fallback when pydantic isn't available
@@ -27,6 +27,8 @@ except Exception:  # pragma: no cover - fallback when pydantic isn't available
     def constr(*_, **__):  # type: ignore
         return str
 
+    ConfigDict = dict  # type: ignore
+
 class Position(BaseModel):
     id: constr(min_length=1)
     asset_type: str
@@ -37,8 +39,7 @@ class Position(BaseModel):
     wallet_name: str
     last_updated: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PositionDB(BaseModel):
@@ -66,8 +67,7 @@ class PositionDB(BaseModel):
     status: str = "ACTIVE"
     stale: int = 0
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 __all__ = ["Position", "PositionDB"]

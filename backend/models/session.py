@@ -13,7 +13,7 @@ from typing import Optional
 from uuid import uuid4
 
 try:
-    from pydantic import BaseModel, Field
+    from pydantic import BaseModel, Field, ConfigDict
 except ImportError:  # pragma: no cover – for stubbed environments
     class BaseModel:  # type: ignore
         def __init__(self, **data):
@@ -25,6 +25,8 @@ except ImportError:  # pragma: no cover – for stubbed environments
 
     def Field(default=None, **_):  # type: ignore
         return default
+
+    ConfigDict = dict  # type: ignore
 
 
 # --------------------------------------------------------------------------- #
@@ -65,8 +67,7 @@ class Session(_SessionBase):
         description="Auto‑updated timestamp whenever the row mutates",
     )
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --------------------------------------------------------------------------- #
