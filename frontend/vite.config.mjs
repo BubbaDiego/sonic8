@@ -47,6 +47,7 @@ export default defineConfig(({ mode }) => {
         }
       }
     },
+    publicDir: 'static',
     build: {
       chunkSizeWarningLimit: 1600
     },
