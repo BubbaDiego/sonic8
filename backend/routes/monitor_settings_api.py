@@ -113,6 +113,9 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
     )
     cfg["enabled"] = to_bool(payload.get("enabled", cfg.get("enabled", True)))
 
+    # Enabled flag ----------------------------------------------------
+    cfg["enabled"] = to_bool(payload.get("enabled", cfg.get("enabled", True)))
+
     # --- Thresholds dict ---------------------------------------------
     thresholds = payload.get("thresholds")
     if thresholds is None:
@@ -124,7 +127,7 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
                     thresholds[sym.upper()] = float(payload[k])
                 except Exception:
                     pass
-    else:
+    elif isinstance(thresholds, dict):
         # Cast each provided value to float when merging
         casted = {}
         for sym, value in thresholds.items():
@@ -134,12 +137,14 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
                 # Skip values that cannot be converted
                 pass
         thresholds = casted
+    else:
+        thresholds = {}
 
     cfg["thresholds"] = thresholds or cfg.get("thresholds", {})
 
     # --- Notifications ----------------------------------------------
     notifications = payload.get("notifications")
-    if notifications is None:
+    if notifications is None or not isinstance(notifications, dict):
         # Map any flat keys so that UI relying on old names still works
         notifications = {
             "system": to_bool(
@@ -213,13 +218,16 @@ def get_profit_settings(dl: DataLocker = Depends(get_app_locker)):
         "sms": False,
         "tts": True,
     }
+    enabled = cfg.get("enabled", True)
     return {
         "portfolio_low": getattr(portfolio_th, "low", None),
         "portfolio_high": getattr(portfolio_th, "high", None),
         "single_low": getattr(single_th, "low", None),
         "single_high": getattr(single_th, "high", None),
         "notifications": notifications,
+
         "enabled": cfg.get("enabled", True),
+
     }
 
 
@@ -238,6 +246,7 @@ def update_profit_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
     )
 
     cfg = dl.system.get_var("profit_monitor") or {}
+
     changed = False
 
     def to_bool(v):
@@ -257,6 +266,7 @@ def update_profit_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
             "sms": to_bool(notifs.get("sms")),
             "tts": to_bool(notifs.get("tts")),
         }
+
         changed = True
 
     if changed:

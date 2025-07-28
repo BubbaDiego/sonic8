@@ -92,16 +92,17 @@ curl -X POST http://localhost:5000/session/reset
 ## Monitor Settings API (`monitor_settings_api.py`)
 **Base path**: `/api/monitor-settings`
 
-- `GET /liquidation` – Return the liquidation monitor configuration.
+- `GET /liquidation` – Return the liquidation monitor configuration including an `enabled` flag.
 - `POST /liquidation` – Update liquidation settings. Accepts a JSON body with:
   - `threshold_percent` – default percent distance from liquidation to trigger alerts.
   - `snooze_seconds` – cooldown between alerts.
   - `thresholds` – optional per‑asset overrides.
   - `notifications` – `{ "system": bool, "voice": bool, "sms": bool }`.
+  - `enabled` – optional boolean to toggle the monitor.
     Environment variable `LIQ_MON_SMS_ALERT` overrides the `sms` flag when set.
-- `GET /profit` – Return profit monitor threshold settings.
+- `GET /profit` – Return profit monitor threshold settings including `enabled`.
 - `POST /profit` – Update profit thresholds with `portfolio_low`, `portfolio_high`,
-  `single_low` and `single_high` fields.
+  `single_low` and `single_high` fields. Payload may include an optional `enabled` boolean.
 
 Example `notifications` payload:
 
@@ -154,10 +155,10 @@ Example `notifications` payload:
 ## Monitor Settings API (`monitor_settings_api.py`)
 **Base path**: `/monitor-settings`
 
-- `GET /liquidation` – Return the current liquidation monitor configuration.
-- `POST /liquidation` – Update liquidation monitor settings.
-- `GET /profit` – Return the profit monitor thresholds.
-- `POST /profit` – Update profit monitor thresholds.
+- `GET /liquidation` – Return the current liquidation monitor configuration including `enabled`.
+- `POST /liquidation` – Update liquidation monitor settings. Payload may include an optional `enabled` boolean.
+- `GET /profit` – Return the profit monitor thresholds including `enabled`.
+- `POST /profit` – Update profit monitor thresholds. Payload may include an optional `enabled` boolean.
 
 The liquidation payload accepts a nested `notifications` dict but still honors
 legacy keys like `voice_alert` for backward compatibility.
