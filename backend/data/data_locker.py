@@ -962,12 +962,13 @@ class DataLocker:
             if current:
                 return
             config = {
+                "enabled": True,
                 "notifications": {
                     "system": True,
                     "voice": True,
                     "sms": False,
                     "tts": True,
-                }
+                },
             }
             self.system.set_var("profit_monitor", config)
             log.debug(
