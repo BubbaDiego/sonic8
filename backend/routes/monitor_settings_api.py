@@ -111,6 +111,7 @@ def _merge_liq_config(cfg: dict, payload: dict) -> dict:
     cfg["snooze_seconds"] = int(
         payload.get("snooze_seconds", cfg.get("snooze_seconds", 300))
     )
+    cfg["enabled"] = to_bool(payload.get("enabled", cfg.get("enabled", True)))
 
     # --- Thresholds dict ---------------------------------------------
     thresholds = payload.get("thresholds")
@@ -176,6 +177,7 @@ def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
         "notifications",
         {"system": True, "voice": True, "sms": False, "tts": True},
     )
+    cfg.setdefault("enabled", True)
     return cfg
 
 
@@ -217,6 +219,7 @@ def get_profit_settings(dl: DataLocker = Depends(get_app_locker)):
         "single_low": getattr(single_th, "low", None),
         "single_high": getattr(single_th, "high", None),
         "notifications": notifications,
+        "enabled": cfg.get("enabled", True),
     }
 
 
@@ -235,23 +238,31 @@ def update_profit_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
     )
 
     cfg = dl.system.get_var("profit_monitor") or {}
+    changed = False
+
+    def to_bool(v):
+        if isinstance(v, str):
+            return v.lower() in ("1", "true", "yes", "on")
+        return bool(v)
+
+    if "enabled" in payload:
+        cfg["enabled"] = to_bool(payload.get("enabled"))
+        changed = True
+
     notifs = payload.get("notifications")
     if isinstance(notifs, dict):
-
-        def to_bool(v):
-            if isinstance(v, str):
-                return v.lower() in ("1", "true", "yes", "on")
-            return bool(v)
-
         cfg["notifications"] = {
             "system": to_bool(notifs.get("system")),
             "voice": to_bool(notifs.get("voice")),
             "sms": to_bool(notifs.get("sms")),
             "tts": to_bool(notifs.get("tts")),
         }
+        changed = True
+
+    if changed:
         dl.system.set_var("profit_monitor", cfg)
 
-    return {"success": True}
+    return {"success": True, "config": cfg}
 
 
 __all__ = ["router"]
