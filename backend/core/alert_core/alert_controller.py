@@ -1,5 +1,5 @@
-from core.locker_factory import get_locker
-from core.logging import log
+from backend.data.locker_factory import get_locker
+from backend.core.logging import log
 from .infrastructure.stores import AlertStore, _DBAdapter
 
 class AlertController:

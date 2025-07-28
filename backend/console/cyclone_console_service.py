@@ -1,29 +1,19 @@
 import asyncio
 import os
-import sys
-from pathlib import Path
 from uuid import uuid4
 
 # NOTE: CycloneConsoleService is designed for interactive use.  Expose a helper
 # function ``run_cyclone_console`` so callers don't need to manually construct a
 # ``Cyclone`` instance.
-from backend.core.cyclone_core.cyclone_engine import Cyclone
-from backend.data.data_locker import DataLocker
-
-from backend.core.cyclone_core.cyclone_engine import Cyclone
-from backend.data.data_locker import DataLocker
-from backend.core.locker_factory import get_locker
 
 # Import HedgeManager from the actual implementation location
 from backend.core.positions_core.hedge_manager import HedgeManager
-from backend.core.logging import log
 from backend.core.cyclone_core.cyclone_position_service import CyclonePositionService
 from backend.core.cyclone_core.cyclone_portfolio_service import CyclonePortfolioService
 # Alert V2 hybrid repo
 from backend.alert_v2 import AlertRepo
 from backend.alert_v2.models import (
     AlertConfig,
-    Threshold,
     Condition,
     NotificationType,
 )
@@ -552,7 +542,7 @@ def run_cyclone_console(poll_interval: int = 60) -> None:
 if __name__ == "__main__":
     from backend.core.cyclone_core.cyclone_engine import Cyclone
 
-    from backend.core.locker_factory import get_locker
+    from backend.data.locker_factory import get_locker
     cyclone = Cyclone(poll_interval=60)
     helper = CycloneConsoleService(cyclone)
     helper.run_console()

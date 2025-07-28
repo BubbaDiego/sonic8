@@ -116,7 +116,7 @@ class ProfitMonitor(BaseMonitor):
         badge_value = f"{max_profit:.2f}" if max_profit > badge_limit else None
         self._update_profit_badge(badge_value)
 
-        single_hit = 1 #max_profit >= single_limit
+        single_hit = max_profit >= single_limit
         portfolio_hit = total_profit >= portfolio_limit
 
         log.info(

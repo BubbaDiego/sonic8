@@ -1,6 +1,6 @@
 """Central factory for obtaining the shared :class:`DataLocker` instance."""
 
-from .core_constants import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 
 
 def get_locker(db_path: str | None = None):

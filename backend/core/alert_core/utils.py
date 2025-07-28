@@ -1,4 +1,4 @@
-from core.locker_factory import get_locker
+from backend.data.locker_factory import get_locker
 from core.logging import log
 from backend.models.alert import (
     AlertType,

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends
 from backend.data.data_locker import DataLocker  # type: ignore
-from backend.core.notification_service import NotificationService  # type: ignore
+from backend.core.xcom_core.notification_service import NotificationService  # type: ignore
 from backend.deps import get_app_locker
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])

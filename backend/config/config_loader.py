@@ -1,10 +1,9 @@
 import json
 import os
 from pathlib import Path
-from core.core_constants import ALERT_THRESHOLDS_PATH
-from core.logging import log
-from core.locker_factory import get_locker
-from core.core_constants import CONFIG_DIR
+from backend.core.core_imports import ALERT_THRESHOLDS_PATH, log
+from backend.data.locker_factory import get_locker
+from backend.core.constants import CONFIG_DIR
 from typing import Optional
 
 

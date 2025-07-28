@@ -9,7 +9,7 @@ from .core_constants import (
     JUPITER_API_BASE,
 )
 from .logging import log, configure_console_log
-from .locker_factory import get_locker
+from backend.data.locker_factory import get_locker
 
 __all__ = [
     "BASE_DIR",

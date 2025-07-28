@@ -25,7 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover - for type hints only
     from data.data_locker import DataLocker
 from models.hedge import Hedge
 from core.core_constants import MOTHER_DB_PATH
-from hedge_core.hedge_core import HedgeCore
+from backend.core.hedge_core.hedge_core import HedgeCore
 
 
 class HedgeManager:

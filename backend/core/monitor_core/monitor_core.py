@@ -1,5 +1,4 @@
 import sys
-import os
 from typing import Optional
 from pathlib import Path
 
@@ -24,7 +23,7 @@ from backend.core.monitor_core.liquidation_monitor import LiquidationMonitor
 from backend.core.monitor_core.market_monitor import MarketMonitor
 #from backend.core.monitor_core.oracle_monitor.oracle_monitor import OracleMonitor
 from backend.core.monitor_core.monitor_registry import MonitorRegistry
-from backend.core.locker_factory import get_locker
+
 
 class MonitorCore:
     """Central controller for all registered monitors."""
