@@ -1,4 +1,4 @@
-@import './_sonic-themes';
-@import './_sonic-header';
-@import './_sonic-dashboard';
-@import './_sonic-titles';
+@use './sonic-themes';
+@use './sonic-header';
+@use './sonic-dashboard';
+@use './sonic-titles';
