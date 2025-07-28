@@ -66,7 +66,7 @@ def test_market_settings_constant_change(tmp_path, monkeypatch):
     assert data["blast_radius"] == new_defaults
 
 
-def test_do_work_updates_blast_and_threshold(monkeypatch):
+def test_do_work_triggers_without_updating_blast_radius(monkeypatch):
     price_map = {"BTC": 110.0, "ETH": 102.0, "SOL": 98.0}
     cfg = {
         "baseline": {
@@ -93,13 +93,12 @@ def test_do_work_updates_blast_and_threshold(monkeypatch):
     dl = FakeDL()
     monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls: dl))
 
-    swing_data = {
-        "BTC": {"high": 120.0, "low": 100.0},
-        "ETH": {"high": 110.0, "low": 100.0},
-        "SOL": {"high": 105.0, "low": 95.0},
-    }
+
+    # The swing service is not used when blast radius defaults are enforced
     monkeypatch.setattr(
-        market_monitor, "DailySwingService", lambda: types.SimpleNamespace(fetch=lambda assets: swing_data)
+        market_monitor,
+        "DailySwingService",
+        lambda: types.SimpleNamespace(fetch=lambda assets: {})
     )
 
     monitor = market_monitor.MarketMonitor()
@@ -107,6 +106,6 @@ def test_do_work_updates_blast_and_threshold(monkeypatch):
 
     assert result["trigger_any"] is True
     updated = dl.system.get_var("market_monitor")
-    assert updated["blast_radius"]["BTC"] == pytest.approx(20.0)
+    assert updated["blast_radius"] == MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
     assert result["details"][0]["trigger"] is True
     assert result["details"][1]["trigger"] is False
