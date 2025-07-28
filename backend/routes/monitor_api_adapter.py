@@ -6,13 +6,12 @@ from fastapi import APIRouter, HTTPException, status, BackgroundTasks
 import asyncio
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.sonic_monitor import sonic_cycle
-from backend.core.monitor_core.monitor_registry import MonitorRegistry
 from backend.core.monitor_core.monitor_core import MonitorCore
 
 router = APIRouter(prefix="/monitors", tags=["Monitors"])
 
-_registry = MonitorRegistry()           # Registers defaults (XComMonitor, TwilioMonitor, etc.)
-_core = MonitorCore(registry=_registry)
+_core = MonitorCore()  # default monitors registered
+_registry = _core.registry
 
 @router.get("/", response_model=list[str])
 def list_monitors():
