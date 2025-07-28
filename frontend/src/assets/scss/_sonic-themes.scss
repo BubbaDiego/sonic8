@@ -82,7 +82,7 @@
   wallpaper image behind the dashboard cards.
 */
 :root[data-theme="system"] {
-  --body-bg-image: url('#{import.meta.env.BASE_URL}images/abstract_mural.png');
+  --body-bg-image: url('#{var(--asset-base)}images/abstract_mural.png');
 }
 
 
@@ -105,8 +105,8 @@
   --primary-hover: #4e87f0; /* accent on hover                         */
   --accent: #f4eef4;        /* secondary accent                        */
   --container-bg: #ffffff;  /* base container backgrounds              */
-  --body-bg-image: url('#{import.meta.env.BASE_URL}images/trader_wallpaper.jpg'); /* page wallpaper */
-  --section-bg-image: url('#{import.meta.env.BASE_URL}images/wally2.png');        /* overlay within cards */
+  --body-bg-image: url('#{var(--asset-base)}images/trader_wallpaper.jpg'); /* page wallpaper */
+  --section-bg-image: url('#{var(--asset-base)}images/wally2.png');        /* overlay within cards */
 }
 
 /* === Main Background Styling === */
@@ -223,8 +223,8 @@ body {
   --primary-hover: #4e87f0;
   --accent: #f4eef4;
   --container-bg: #ffffff;
-  --body-bg-image: url('#{import.meta.env.BASE_URL}images/trader_wallpaper.jpg');
-  --section-bg-image: url('#{import.meta.env.BASE_URL}images/wally2.png');
+  --body-bg-image: url('#{var(--asset-base)}images/trader_wallpaper.jpg');
+  --section-bg-image: url('#{var(--asset-base)}images/wally2.png');
 }
 
 /* === Main Background Styling === */
