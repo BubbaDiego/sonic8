@@ -4,8 +4,7 @@ import types
 import pytest
 from backend.data.data_locker import DataLocker
 from backend.core.positions_core.position_sync_service import PositionSyncService
-import core.constants as const
-import core.core_imports as ci
+import core.core_constants as const
 
 SEED_PATCHES = [
     "_seed_modifiers_if_empty",
@@ -39,8 +38,6 @@ def setup_db(tmp_path, monkeypatch):
     os.environ["MOTHER_DB_PATH"] = str(db_path)
     const.MOTHER_DB_PATH = db_path
     const.DB_PATH = db_path
-    ci.MOTHER_DB_PATH = db_path
-    ci.DB_PATH = db_path
     for attr in SEED_PATCHES:
         monkeypatch.setattr(DataLocker, attr, lambda self: None)
     return db_path

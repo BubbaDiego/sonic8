@@ -11,8 +11,8 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 from typing import Sequence
 
-from backend.core.constants import MOTHER_DB_PATH
-from backend.core.core_imports import configure_console_log
+from backend.core.core_constants import MOTHER_DB_PATH
+from backend.core.logging import configure_console_log
 from backend.data.data_locker import DataLocker
 
 

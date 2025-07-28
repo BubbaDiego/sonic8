@@ -28,12 +28,9 @@ rich_logger_stub.ModuleFilter = ModuleFilter
 sys.modules["utils.rich_logger"] = rich_logger_stub
 sys.modules["winsound"] = types.ModuleType("winsound")
 
-import core.constants as const
-import core.core_imports as ci
+import core.core_constants as const
 const.MOTHER_DB_PATH = TEST_DB
 const.DB_PATH = TEST_DB
-ci.MOTHER_DB_PATH = TEST_DB
-ci.DB_PATH = TEST_DB
 
 import wallets.wallet_repository as wr
 import wallets.wallet_service as ws

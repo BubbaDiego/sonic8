@@ -1,4 +1,4 @@
-from .constants import (
+from .core_constants import (
     BASE_DIR,
     MOTHER_DB_PATH,
     SONIC_SAUCE_PATH,

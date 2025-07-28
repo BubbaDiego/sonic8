@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 # until runtime or when type checking.
 if TYPE_CHECKING:  # pragma: no cover - used for type hints only
     from backend.core.positions_core.hedge_manager import HedgeManager
-from backend.core.core_imports import log
+from backend.core.logging import log
 
 class HedgeCore:
     """High level orchestration for hedge operations"""

@@ -1,7 +1,7 @@
 # dl_thresholds.py
 import os
-from backend.core.core_imports import log
-from backend.core.constants import CONFIG_DIR
+from backend.core.logging import log
+from backend.core.core_constants import CONFIG_DIR
 from datetime import datetime, timezone
 from backend.models.alert_thresholds import AlertThreshold
 from uuid import uuid4

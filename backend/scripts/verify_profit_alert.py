@@ -11,7 +11,7 @@ from __future__ import annotations
 from uuid import uuid4
 from datetime import datetime
 
-from core.constants import MOTHER_DB_PATH
+from core.core_constants import MOTHER_DB_PATH
 from data.data_locker import DataLocker
 from monitor.profit_monitor import ProfitMonitor
 

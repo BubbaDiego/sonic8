@@ -8,7 +8,7 @@ def test_cyclone_loads_json_when_db_missing(tmp_path, monkeypatch):
     dummy_config = {"dummy": True}
 
     # Redirect MOTHER_DB_PATH to a temporary location
-    import core.constants as constants
+    import core.core_constants as constants
     tmp_db = tmp_path / "temp.db"
     monkeypatch.setattr(constants, "MOTHER_DB_PATH", tmp_db)
     monkeypatch.setattr(constants, "DB_PATH", tmp_db)

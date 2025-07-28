@@ -80,7 +80,7 @@ def refresh_alerts(dl: DataLocker = Depends(get_app_locker)):
 @alerts_router.post("/create_all")
 def create_all_alerts(dl: DataLocker = Depends(get_app_locker)):
     import json
-    from backend.core.constants import CONFIG_DIR
+    from backend.core.core_constants import CONFIG_DIR
 
     path = CONFIG_DIR / "sample_alerts.json"
     try:

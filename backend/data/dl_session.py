@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Optional, Mapping, Any
 from uuid import uuid4
 
-from backend.core.core_imports import log
+from backend.core.logging import log
 from backend.models.session import Session, SessionUpdate
 
 

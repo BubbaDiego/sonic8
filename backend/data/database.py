@@ -3,7 +3,7 @@
 import sqlite3
 import os
 import threading
-from backend.core.core_imports import log
+from backend.core.logging import log
 
 try:
     from system.death_nail_service import DeathNailService

@@ -8,7 +8,7 @@ if str(REPO_ROOT) not in sys.path:
 from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
 from backend.core.positions_core.position_core import PositionCore
-from backend.core.constants import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 from datetime import datetime, timezone
 from backend.core.logging import log
 

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from core.core_imports import log
+from core.logging import log
 
 try:  # pragma: no cover - optional dependency
     from rich.console import Console

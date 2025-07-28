@@ -3,7 +3,7 @@ import pytest
 
 try:
     from data.data_locker import DataLocker
-    from core.core_imports import get_locker, log
+    from core.locker_factory import get_locker, log
 except Exception:
     pytest.skip("DataLocker dependencies missing", allow_module_level=True)
 

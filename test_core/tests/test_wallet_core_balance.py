@@ -1,8 +1,7 @@
 import os
 import sqlite3
 from data.data_locker import DataLocker
-import core.constants as const
-import core.core_imports as ci
+import core.core_constants as const
 from wallets.wallet_core import WalletCore
 from wallets.wallet_service import WalletService
 from backend.core.positions_core.position_core import PositionCore
@@ -19,8 +18,6 @@ def setup_db(tmp_path, monkeypatch):
     os.environ["MOTHER_DB_PATH"] = str(db_path)
     const.MOTHER_DB_PATH = db_path
     const.DB_PATH = db_path
-    ci.MOTHER_DB_PATH = db_path
-    ci.DB_PATH = db_path
     for name in SEED_PATCHES:
         monkeypatch.setattr(DataLocker, name, lambda self: None)
     return db_path
@@ -144,8 +141,6 @@ def test_initialize_database_adds_value_column(tmp_path, monkeypatch):
     os.environ["MOTHER_DB_PATH"] = str(db_path)
     const.MOTHER_DB_PATH = db_path
     const.DB_PATH = db_path
-    ci.MOTHER_DB_PATH = db_path
-    ci.DB_PATH = db_path
     for name in SEED_PATCHES:
         monkeypatch.setattr(DataLocker, name, lambda self: None)
 

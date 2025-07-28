@@ -8,7 +8,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.core.calc_core.calculation_core import CalculationCore
 from backend.core.logging import log
-from backend.core.constants import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 from backend.data.data_locker import DataLocker
 from backend.utils.fuzzy_wuzzy import fuzzy_match_key
 from backend.core.calc_core.calculation_core import CalculationCore

@@ -8,11 +8,11 @@ from typing import Optional
 from backend.utils.rich_logger import RichLogger
 import re
 from difflib import get_close_matches
-from backend.core.core_imports import ALERT_THRESHOLDS_PATH
+from backend.core.core_constants import ALERT_THRESHOLDS_PATH
 
 
 
-from backend.core.constants import THEME_CONFIG_PATH, SONIC_SAUCE_PATH
+from backend.core.core_constants import THEME_CONFIG_PATH, SONIC_SAUCE_PATH
 
 
 class JsonType(Enum):

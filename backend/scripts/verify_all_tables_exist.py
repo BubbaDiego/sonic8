@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 import os
 
-from core.constants import MOTHER_DB_PATH
+from core.core_constants import MOTHER_DB_PATH
 
 try:  # Optional death signalling
     from system.system_core import SystemCore  # type: ignore

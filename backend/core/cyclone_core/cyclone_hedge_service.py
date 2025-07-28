@@ -1,7 +1,7 @@
 # cyclone/cyclone_hedge_service.py
 
 from hedge_core.hedge_core import HedgeCore
-from core.core_imports import log
+from core.logging import log
 
 
 class CycloneHedgeService:

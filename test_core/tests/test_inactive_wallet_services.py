@@ -2,8 +2,7 @@ import os
 import sys
 import types
 
-import core.constants as const
-import core.core_imports as ci
+import core.core_constants as const
 from data.data_locker import DataLocker
 from backend.core.positions_core.position_core_service import PositionCoreService
 from backend.core.positions_core.position_sync_service import PositionSyncService
@@ -23,8 +22,6 @@ def setup_db(tmp_path, monkeypatch, name="svc.db"):
     os.environ["MOTHER_DB_PATH"] = str(db_path)
     const.MOTHER_DB_PATH = db_path
     const.DB_PATH = db_path
-    ci.MOTHER_DB_PATH = db_path
-    ci.DB_PATH = db_path
     for attr in SEED_PATCHES:
         monkeypatch.setattr(DataLocker, attr, lambda self: None)
     return db_path

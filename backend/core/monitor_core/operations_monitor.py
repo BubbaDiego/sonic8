@@ -18,7 +18,7 @@ from pathlib import Path
 from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
 from backend.core.logging import log
-from backend.core.constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
+from backend.core.core_constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
 from config.config_loader import load_config
 from backend.utils.schema_validation_service import SchemaValidationService
 from jsonschema import validate
@@ -256,7 +256,7 @@ class OperationsMonitor(BaseMonitor):
         return {"config_success": success, "duration_seconds": duration}
 
 if __name__ == "__main__":
-    from core.core_imports import configure_console_log
+    from core.logging import configure_console_log
     log.banner("🚀 SELF-RUN: OperationsMonitor")
     configure_console_log()
 

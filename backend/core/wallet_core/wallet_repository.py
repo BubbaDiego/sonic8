@@ -17,12 +17,12 @@ WALLETS_JSON_PATH = os.path.join(
     os.path.dirname(__file__), "test_wallets", "star_wars_wallets.json"
 )
 
-import backend.core.core_imports as ci
+from backend.core import core_constants as cc
 
 
 class WalletRepository:
     def __init__(self):
-        self.dl = DataLocker.get_instance(str(ci.MOTHER_DB_PATH))
+        self.dl = DataLocker.get_instance(str(cc.MOTHER_DB_PATH))
 
 
     # 🧾 Get all wallets from DB

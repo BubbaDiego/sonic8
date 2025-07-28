@@ -27,8 +27,8 @@ except Exception:  # pragma: no cover - optional dependency
     def load_dotenv(*_a, **_k):
         return False
 
-from backend.core.constants import MOTHER_BRAIN_DB_PATH, BASE_DIR
-from backend.core.core_imports import configure_console_log
+from backend.core.core_constants import MOTHER_BRAIN_DB_PATH, BASE_DIR
+from backend.core.logging import configure_console_log
 from backend.data.data_locker import DataLocker
 from backend.data.reset_database import reset_database
 from backend.scripts.seed_alert_thresholds import seed_thresholds as seed_default_thresholds

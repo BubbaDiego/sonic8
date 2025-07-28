@@ -9,7 +9,7 @@ if str(REPO_ROOT) not in sys.path:
 import asyncio
 from datetime import datetime
 
-from core.constants import MOTHER_DB_PATH
+from core.core_constants import MOTHER_DB_PATH
 from data.data_locker import DataLocker
 from data.alert import AlertType, Condition
 from cyclone.cyclone_engine import Cyclone

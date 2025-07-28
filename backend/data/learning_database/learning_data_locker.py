@@ -1,7 +1,7 @@
 """LearningDataLocker – isolated SQLite DB for telemetry."""
 import os
 from typing import Optional
-from backend.core.core_imports import log
+from backend.core.logging import log
 from backend.data.database import DatabaseManager
 from backend.data.data_locker import DataLocker
 

@@ -4,7 +4,7 @@ Auto‑imports heavy PositionCore helpers on demand so the service is safe to
 import inside FastAPI background tasks.
 """
 from backend.data.data_locker import DataLocker
-from backend.core.core_imports import log
+from backend.core.logging import log
 import asyncio
 
 class CyclonePositionService:

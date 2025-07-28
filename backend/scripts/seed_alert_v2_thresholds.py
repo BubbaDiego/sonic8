@@ -1,6 +1,6 @@
 from backend.alert_v2 import AlertRepo
 from backend.alert_v2.models import Threshold, Condition
-from backend.core.constants import MOTHER_DB_PATH
+from backend.core.core_constants import MOTHER_DB_PATH
 
 
 def main(db_path=str(MOTHER_DB_PATH)):

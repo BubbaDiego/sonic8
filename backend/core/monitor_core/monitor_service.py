@@ -5,7 +5,7 @@ import requests
 import os
 import glob
 from datetime import datetime
-from backend.core.core_imports import log
+from backend.core.logging import log
 
 class MonitorService:
     def fetch_sp500_index(self):

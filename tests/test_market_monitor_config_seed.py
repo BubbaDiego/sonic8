@@ -1,6 +1,6 @@
 import pytest
 from backend.data.data_locker import DataLocker
-from backend.core.constants import MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
+from backend.core.core_constants import MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
 
 
 def test_market_monitor_seed_defaults(tmp_path):

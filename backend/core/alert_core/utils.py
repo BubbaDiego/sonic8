@@ -123,7 +123,7 @@ def log_alert_summary(alert):
 
 def load_alert_thresholds_from_file(data_locker):
     from config.config_loader import load_config
-    from core.constants import ALERT_THRESHOLDS_PATH
+    from core.core_constants import ALERT_THRESHOLDS_PATH
 
     config = load_config(str(ALERT_THRESHOLDS_PATH))
     if not config:
