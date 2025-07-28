@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 try:
-    from pydantic import BaseModel, Field
+    from pydantic import BaseModel, Field, ConfigDict
     if not hasattr(BaseModel, "__fields__"):
         raise ImportError("stub")
 except Exception:  # pragma: no cover - optional dependency or stub detected
@@ -15,6 +15,7 @@ except Exception:  # pragma: no cover - optional dependency or stub detected
 
     def Field(default=None, **_):  # type: ignore
         return default
+    ConfigDict = dict  # type: ignore
 from uuid import uuid4
 
 class PortfolioSnapshot(BaseModel):
@@ -72,6 +73,5 @@ class PortfolioSnapshot(BaseModel):
         0.0, description="Performance delta relative to the session start"
     )
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
