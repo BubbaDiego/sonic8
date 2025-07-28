@@ -58,7 +58,7 @@ export default function ThemeCustomization({ children }) {
   themes.components = useMemo(() => componentStyleOverrides(themes, borderRadius, outlinedFilled), [themes, borderRadius, outlinedFilled]);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', mode);
+    document.documentElement.dataset.theme = mode;
   }, [mode]);
 
   return (

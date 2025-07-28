@@ -15,9 +15,9 @@ function resolveWalletIcon(path, walletName) {
       return '/' + cleaned;
     }
     if (!cleaned.startsWith('images/')) {
-      return '/static/images/' + cleaned;
+      return '/images/' + cleaned;
     }
-    return '/static/' + cleaned;
+    return '/images/' + cleaned;
   }
 
   if (walletName) {
@@ -25,18 +25,18 @@ function resolveWalletIcon(path, walletName) {
       .replace(/\s+/g, '')
       .replace(/vault$/i, '')
       .toLowerCase();
-    return `/static/images/${icon}_icon.jpg`;
+    return `/images/${icon}_icon.jpg`;
   }
 
-  return '/static/images/unknown_wallet.jpg';
+  return '/images/unknown_wallet.jpg';
 }
 
 function resolveAssetIcon(assetType) {
   if (assetType) {
     const icon = String(assetType).toLowerCase();
-    return `/static/images/${icon}_logo.png`;
+    return `/images/${icon}_logo.png`;
   }
-  return '/static/images/unknown.png';
+  return '/images/unknown.png';
 }
 
 const badgeStyle = {

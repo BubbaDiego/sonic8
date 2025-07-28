@@ -29,7 +29,7 @@ AVATARS = {
         "heat": "🌋"
     },
     "R2": {
-        "icon": "/static/images/r2d2_icon.jpg",
+        "icon": "/images/r2d2_icon.jpg",
         "moods": {
             "calm": "🎵",
             "neutral": "🤖",
@@ -38,7 +38,7 @@ AVATARS = {
         "heat": "📟"
     },
     "C3P0": {
-        "icon": "/static/images/c3po_icon.jpg",
+        "icon": "/images/c3po_icon.jpg",
         "moods": {
             "calm": "🤖",
             "neutral": "💬",
@@ -47,7 +47,7 @@ AVATARS = {
         "heat": "⚙️"
     },
     "Jabba": {
-        "icon": "/static/images/jabba_icon.jpg",
+        "icon": "/images/jabba_icon.jpg",
         "moods": {
             "calm": "😋",
             "neutral": "👑",
@@ -56,7 +56,7 @@ AVATARS = {
         "heat": "🌋"
     },
     "Chewbacca": {
-        "icon": "/static/images/chewie_icon.jpg",
+        "icon": "/images/chewie_icon.jpg",
         "moods": {
             "calm": "🐻",
             "neutral": "⚒️",
@@ -65,7 +65,7 @@ AVATARS = {
         "heat": "🔊"
     },
     "Palpatine": {
-        "icon": "/static/images/palpatine_icon.jpg",
+        "icon": "/images/palpatine_icon.jpg",
         "moods": {
             "calm": "😈",
             "neutral": "⚡",
@@ -74,7 +74,7 @@ AVATARS = {
         "heat": "🌩️"
     },
     "Luke": {
-        "icon": "/static/images/luke_icon.jpg",
+        "icon": "/images/luke_icon.jpg",
         "moods": {
             "calm": "🧘",
             "neutral": "💫",
@@ -83,7 +83,7 @@ AVATARS = {
         "heat": "✨"
     },
     "Lando": {
-        "icon": "/static/images/lando_icon.jpg",
+        "icon": "/images/lando_icon.jpg",
         "moods": {
             "calm": "🧘",
             "neutral": "🎯",
@@ -92,7 +92,7 @@ AVATARS = {
         "heat": "🔥"
     },
     "Vader": {
-        "icon": "/static/images/vader_icon.jpg",
+        "icon": "/images/vader_icon.jpg",
         "moods": {
             "calm": "🕳️",
             "neutral": "🛡️",
@@ -101,7 +101,7 @@ AVATARS = {
         "heat": "💀"
     },
     "Yoda": {
-        "icon": "/static/images/yoda_icon.jpg",
+        "icon": "/images/yoda_icon.jpg",
         "moods": {
             "calm": "🌱",
             "neutral": "🧘",
@@ -111,7 +111,7 @@ AVATARS = {
     },
 
     "Boba": {
-        "icon": "/static/images/boba_icon.jpg",
+        "icon": "/images/boba_icon.jpg",
         "moods": {
             "calm": "🎯",
             "neutral": "🤠",
@@ -121,7 +121,7 @@ AVATARS = {
     },
 
     "Leia": {
-        "icon": "/static/images/leia_icon.jpg",
+        "icon": "/images/leia_icon.jpg",
         "moods": {
             "calm": "🌸",
             "neutral": "👑",

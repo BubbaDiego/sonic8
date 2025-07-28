@@ -220,7 +220,7 @@ export default function PositionListCard({ title }) {
                     <TableCell sx={{ px: 0.5, py: 0.5 }}>
                       <Box sx={{ position: 'relative', display: 'inline-block' }}>
                         <Avatar
-                          src={`/static/images/${(pos.wallet_name || 'unknown')
+                          src={`/images/${(pos.wallet_name || 'unknown')
                             .replace(/\s+/g, '')
                             .replace(/vault$/i, '')
                             .toLowerCase()}_icon.jpg`}
@@ -247,7 +247,7 @@ export default function PositionListCard({ title }) {
                     <TableCell sx={{ px: 0.5, py: 0.5 }}>
                       <Stack direction="row" alignItems="center" spacing={0.25}>
                         <Avatar
-                          src={`/static/images/${(pos.asset_type || 'unknown').toLowerCase()}_logo.png`}
+                          src={`/images/${(pos.asset_type || 'unknown').toLowerCase()}_logo.png`}
                           alt={pos.asset_type}
                           sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
                         />

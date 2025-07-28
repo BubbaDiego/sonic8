@@ -1,7 +1,7 @@
 {
   "name": "Chewie",
   "profile": "Loyal",
-  "avatar": "/static/images/chewie_icon.jpg",
+  "avatar": "/images/chewie_icon.jpg",
   "strategy_weights": {
     "dynamic_hedging": 0.5,
     "profit_management": 0.5

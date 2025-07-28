@@ -7,7 +7,7 @@ import Avatar from '@mui/material/Avatar';
 
 const Logo = () => (
     <Avatar
-        src="/static/images/logo.png"
+        src="/images/logo.png"
         alt="Sonic"
         title="Sonic"
         sx={{ width: 40, height: 40 }}
