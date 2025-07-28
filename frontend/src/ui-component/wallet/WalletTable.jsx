@@ -20,7 +20,7 @@ const WalletTable = ({ rows, onEdit, onDelete }) => (
           <TableCell>
             <Avatar
               alt={w.name}
-              src={w.image_path || '/static/images/unknown_wallet.jpg'}
+              src={w.image_path || '/images/unknown_wallet.jpg'}
               sx={{ width: 32, height: 32 }}
             />
           </TableCell>

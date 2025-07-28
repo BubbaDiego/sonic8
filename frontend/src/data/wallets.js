@@ -2,7 +2,7 @@ export const wallets = [
   {
     name: 'VaderVault',
     public_address: '0xVADER000000000000000000000000000000000000',
-    image_path: '/static/images/vadervault.jpg',
+    image_path: '/images/vadervault.jpg',
     balance: 150000.0,
     is_active: true,
     type: 'personal'
@@ -10,7 +10,7 @@ export const wallets = [
   {
     name: 'LukeVault',
     public_address: '0xLUKE000000000000000000000000000000000000',
-    image_path: '/static/images/lukevault.jpg',
+    image_path: '/images/lukevault.jpg',
     balance: 87000.5,
     is_active: true,
     type: 'personal'
@@ -18,7 +18,7 @@ export const wallets = [
   {
     name: 'BobaVault',
     public_address: '0xBOBA000000000000000000000000000000000000',
-    image_path: '/static/images/bobavault.jpg',
+    image_path: '/images/bobavault.jpg',
     balance: 42000.25,
     is_active: false,
     type: 'bot'

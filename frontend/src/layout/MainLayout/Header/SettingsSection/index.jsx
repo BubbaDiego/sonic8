@@ -27,7 +27,7 @@ import useConfig from 'hooks/useConfig';
 import { IconLogout, IconSettings, IconUser, IconDatabase, IconAntennaBars5 } from '@tabler/icons-react';
 
 // Updated to new icon
-const SonicBurstIcon = "/static/images/sonic_burst.png";
+const SonicBurstIcon = "/images/sonic_burst.png";
 
 
 // SettingsSection component

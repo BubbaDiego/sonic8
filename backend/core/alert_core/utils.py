@@ -59,7 +59,7 @@ def resolve_wallet_metadata(alert, data_locker=None):
     wallet = data_locker.get_wallet_by_name(wallet_name) if wallet_name else None
     return {
         "wallet_name": wallet.get("name") if wallet else wallet_name,
-        "wallet_image": wallet.get("image_path") if wallet else f"/static/images/{wallet_name.lower()}.jpg",
+        "wallet_image": wallet.get("image_path") if wallet else f"/images/{wallet_name.lower()}.jpg",
         "wallet_id": wallet_id,
     }
 
