@@ -12,6 +12,7 @@ import reportWebVitals from 'reportWebVitals';
 import { ConfigProvider } from 'contexts/ConfigContext';
 
 // style + assets
+import 'assets/scss/index.scss';
 import 'assets/scss/style.scss';
 import 'assets/scss/_liquidation-bars.scss';
 import './tailwind.output.css';
