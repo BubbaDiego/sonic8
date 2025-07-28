@@ -1,9 +1,8 @@
 import json
 import os
 from pathlib import Path
-from backend.core.core_imports import ALERT_THRESHOLDS_PATH, log
+from backend.core import ALERT_THRESHOLDS_PATH, CONFIG_DIR, log
 from backend.data.locker_factory import get_locker
-from backend.core.constants import CONFIG_DIR
 from typing import Optional
 
 
