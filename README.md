@@ -222,8 +222,10 @@ The Liquidation Monitor also supports runtime changes via the
 The fallback blast radius values used when seeding the Market Monitor are
 defined in `backend/core/core_constants.py` as `MARKET_MONITOR_BLAST_RADIUS_DEFAULTS`.
 Adjust this mapping if you need to change the default BTC, ETH or SOL prices
-used by the monitor. These values also control the blast radius displayed on the
-Monitor Manager until the monitor calculates fresh data.
+used by the monitor. The monitor settings API now always returns these defaults
+unless the monitor itself updates the blast radius, so any stored configuration
+is ignored until a new value is calculated. These values also control the blast
+radius displayed on the Monitor Manager until fresh data is fetched.
 
 ## Maintenance operations
 
