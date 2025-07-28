@@ -71,7 +71,7 @@ To start the frontend:
 
 ```bash
 cd frontend
-npm install
+npm install  # or `yarn install`
 npm run build:css  # or `yarn build:css`
 npm run start
 ```
@@ -87,6 +87,24 @@ server: { hmr: { overlay: true } }
 ```
 
 Production builds can omit this overlay configuration.
+
+### Theme CSS
+
+Compile the themed stylesheet whenever you change
+`frontend/src/assets/scss/_sonic-themes.scss`:
+
+```bash
+npx sass src/assets/scss/_sonic-themes.scss src/hedge-report/styles/sonic_themes.css
+```
+
+Add `--watch` to rebuild automatically while editing.
+
+### Serving from a subdirectory
+
+If the app runs under a sub‑directory set `VITE_APP_BASE_NAME` in
+`frontend/.env` (e.g. `/ui/`). The same value becomes Vite's
+`import.meta.env.BASE_URL` so theme images referenced in SCSS resolve
+correctly.
 
 ### Tailwind CSS
 
@@ -214,12 +232,13 @@ development dependencies and run the test suite from the `frontend` folder:
 
 ```bash
 cd frontend
-yarn install
+yarn install  # or `npm install`
 yarn test
 ```
 
 This executes Jest using the configuration provided in
 `frontend/jest.config.js`.
+Make sure to install dependencies once before running tests or the build.
 
 ## Backend tests
 
