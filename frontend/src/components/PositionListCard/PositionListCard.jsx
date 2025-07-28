@@ -236,7 +236,7 @@ export default function PositionListCard({ title }) {
                             borderRadius: '50%',
                             pointerEvents: 'none',
                             boxSizing: 'border-box',
-                            border: '2px solid',
+                            border: '4px solid',
                             borderColor: ring
                           }}
                         />
