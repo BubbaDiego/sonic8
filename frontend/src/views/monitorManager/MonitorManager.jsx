@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'utils/axios';
+import MarketMovementCard from '../../components/MarketMovementCard';
 import {
   Box,
   Card,
@@ -491,6 +492,7 @@ export default function MonitorManager() {
   const [liqCfg, setLiqCfg] = useState({});
   const [profitCfg, setProfitCfg] = useState({});
   const [marketCfg, setMarketCfg] = useState({});
+  const [pctMoves, setPctMoves] = useState({});
   const [loopSec, setLoopSec] = useState('');
   const [nearestLiq, setNearestLiq] = useState({});
   const [toast, setToast] = useState('');
@@ -500,6 +502,7 @@ export default function MonitorManager() {
     axios.get('/api/monitor-settings/liquidation').then((r) => setLiqCfg(r.data));
     axios.get('/api/monitor-settings/profit').then((r) => setProfitCfg(r.data));
     axios.get('/api/monitor-settings/market').then((r) => setMarketCfg(r.data));
+    axios.get('/api/market/latest').then((r) => setPctMoves(r.data));
     axios.get('/api/monitor-settings/sonic').then((r) => {
       setLoopSec(String(r.data.interval_seconds ?? ''));
     });
@@ -539,6 +542,10 @@ export default function MonitorManager() {
         {/* Row 2: Global snooze settings */}
         <Grid item xs={12}>
           <GlobalSnoozeCard cfg={liqCfg} setCfg={setLiqCfg} loop={loopSec} setLoop={setLoopSec} />
+        </Grid>
+
+        <Grid item xs={12} md={12}>
+          <MarketMovementCard cfg={marketCfg} setCfg={setMarketCfg} live={pctMoves} />
         </Grid>
 
         {/* Save button */}

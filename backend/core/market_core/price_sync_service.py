@@ -41,8 +41,8 @@ class PriceSyncService:
                 if price is None:
                     log.warning(f"No price for {asset}", source="PriceSyncService")
                     continue
-                if asset == "SP500":
-                    self.dl.insert_or_update_price("SP500", price, source=source)
+                if asset == "SPX":
+                    self.dl.insert_or_update_price("SPX", price, source=source)
                 else:
                     self.dl.insert_or_update_price(asset, price, source=source)
                 log.info(f"💾 Saved {asset} = ${price:,.4f}", source="PriceSyncService")

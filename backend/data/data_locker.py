@@ -997,7 +997,7 @@ class DataLocker:
 
             from datetime import timezone
 
-            assets = ["BTC", "ETH", "SOL"]
+            assets = ["SPX", "BTC", "ETH", "SOL"]
             baseline = {}
             thresholds = {}
             blast_radius = {}

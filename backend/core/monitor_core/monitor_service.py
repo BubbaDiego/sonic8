@@ -33,7 +33,7 @@ class MonitorService:
                 "BTC": data.get("bitcoin", {}).get("usd"),
                 "ETH": data.get("ethereum", {}).get("usd"),
                 "SOL": data.get("solana", {}).get("usd"),
-                "SP500": self.fetch_sp500_index(),
+                "SPX": self.fetch_sp500_index(),
             }
         except Exception as e:
             log.error(f"[PriceFetch] failed: {e}")
