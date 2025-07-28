@@ -18,7 +18,7 @@ JUPITER_API_BASE = "https://perps-api.jup.ag"
 
 # Default prices used when seeding the Market Monitor config. Update here to
 # change the fallback blast radius values for BTC, ETH and SOL.
-MARKET_MONITOR_BLAST_RADIUS_DEFAULTS = {"BTC": 8000.0, "ETH": 300.0, "SOL": 13.0}
+MARKET_MONITOR_BLAST_RADIUS_DEFAULTS = {"BTC": 1800.0, "ETH": 100.0, "SOL": 8.0}
 
 __all__ = [
     "BASE_DIR",

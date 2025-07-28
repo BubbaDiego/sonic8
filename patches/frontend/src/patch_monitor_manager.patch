@@ -1,0 +1,23 @@
+diff --git a/frontend/src/pages/MonitorManager.jsx b/frontend/src/pages/MonitorManager.jsx
+@@
+ import axios from 'axios';
++import MarketMovementCard from '../components/MarketMovementCard';
+
+ export default function MonitorManager() {
+   // existing state ...
++  const [marketCfg, setMarketCfg] = useState({});
++  const [pctMoves, setPctMoves] = useState({});
++
++  useEffect(() => {
++    axios.get('/api/monitor-settings/market').then(r => setMarketCfg(r.data));
++    axios.get('/api/market/latest').then(r => setPctMoves(r.data));
++  }, []);
+@@
++      <Grid item xs={12} md={12}>
++        <MarketMovementCard cfg={marketCfg} setCfg={setMarketCfg} live={pctMoves}/>
++      </Grid>
+@@
+   const saveAll = async () => {
++    await axios.post('/api/monitor-settings/market', marketCfg);
+   };
+ }
