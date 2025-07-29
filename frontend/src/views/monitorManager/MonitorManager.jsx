@@ -1,12 +1,21 @@
 
 import React, { useEffect, useState } from 'react';
 import axios from 'utils/axios';
-import { Box, Typography, Grid, Snackbar, Alert } from '@mui/material';
+import { Box, Typography, Snackbar, Alert } from '@mui/material';
 
 import LiquidationMonitorCard from './LiquidationMonitorCard';
-import ProfitMonitorCard from './ProfitMonitorCard';
-import SonicMonitorCard from './SonicMonitorCard';
-import MarketMonitorCard from './MarketMonitorCard';
+import ProfitMonitorCard      from './ProfitMonitorCard';
+import SonicMonitorCard       from './SonicMonitorCard';
+import MarketMonitorCard      from './MarketMonitorCard';
+
+/* ------------------------------------------------------------------ */
+/*  Layout constants – tweak to taste                                 */
+/* ------------------------------------------------------------------ */
+export const COLUMN_B_START = 600; // px – where column-B starts
+export const ROW_A_HEIGHT   = 340; // px – height of first row
+export const ROW_B_HEIGHT   = 340; // px – height of second row
+export const GRID_GAP       = 24;  // px – gap between cards
+/* ------------------------------------------------------------------ */
 
 export default function MonitorManager() {
   const [liqCfg, setLiqCfg] = useState({});
@@ -56,9 +65,19 @@ export default function MonitorManager() {
         Monitor Manager
       </Typography>
 
-      <Grid container spacing={3}>
-        {/* ---------- 1st Row ---------- */}
-        <Grid item xs={12} md={6}>
+      {/* 2×2 card grid */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: `${COLUMN_B_START}px 1fr`,
+          gridTemplateRows: `${ROW_A_HEIGHT}px ${ROW_B_HEIGHT}px`,
+          gap: `${GRID_GAP}px`,
+          width: '100%',
+          boxSizing: 'border-box'
+        }}
+      >
+        {/* Row A / Col A */}
+        <Box sx={{ gridColumn: 1, gridRow: 1 }}>
           <SonicMonitorCard
             cfg={liqCfg}
             setCfg={setLiqCfg}
@@ -66,24 +85,28 @@ export default function MonitorManager() {
             setLoop={setLoopSec}
             saveAll={saveAll}
           />
-        </Grid>
-        <Grid item xs={12} md={6}>
+        </Box>
+
+        {/* Row A / Col B */}
+        <Box sx={{ gridColumn: 2, gridRow: 1 }}>
           <LiquidationMonitorCard
             cfg={liqCfg}
             setCfg={setLiqCfg}
             blast={marketCfg.blast_radius}
             nearest={nearestLiq}
           />
-        </Grid>
+        </Box>
 
-        {/* ---------- 2nd Row ---------- */}
-        <Grid item xs={12} md={6}>
+        {/* Row B / Col A */}
+        <Box sx={{ gridColumn: 1, gridRow: 2 }}>
           <ProfitMonitorCard cfg={profitCfg} setCfg={setProfitCfg} />
-        </Grid>
-        <Grid item xs={12} md={6}>
+        </Box>
+
+        {/* Row B / Col B */}
+        <Box sx={{ gridColumn: 2, gridRow: 2 }}>
           <MarketMonitorCard cfg={marketCfg} setCfg={setMarketCfg} live={pctMoves} />
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       <Snackbar
         open={!!toast}
