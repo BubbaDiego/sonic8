@@ -3,7 +3,7 @@ import AssetLogo from './AssetLogo';         // ← same component used in Liqui
 import {
   Card, CardHeader, CardContent,
   Table, TableHead, TableBody, TableRow, TableCell,
-  TextField, Typography
+  TextField, Typography, Stack
 } from '@mui/material';
 
 export default function MarketMovementCard({ cfg, setCfg, live }) {
@@ -50,33 +50,25 @@ export default function MarketMovementCard({ cfg, setCfg, live }) {
                 </TableCell>
                 {WINDOWS.map(w => (
                   <TableCell key={w} align="center">
-                    <TextField
-                      type="number"
-                      size="small"
-                      value={norm[a][w]}
-                      onChange={onChange(a, w)}
-                      sx={{ width: 72, mb: .5 }}
-                    />
-                    {(() => {
-                      const pct = live?.[a]?.[w]?.pct_move;
-                      const colour =
-                        pct == null
-                          ? 'text.secondary'
-                          : Math.abs(pct) > 100
-                            ? 'success.main'      // > 100 % → green
-                            : Math.abs(pct) > 50
-                              ? 'warning.main'    // 50‑100 % → yellow
-                              : 'error.main';     // < 50 % → red
-                      return (
-                        <Typography
-                          variant="caption"
-                          sx={{ fontWeight: 700 }}
-                          color={colour}
-                        >
-                          {pct != null ? `(${pct.toFixed(2)}%)` : '—'}
-                        </Typography>
-                      );
-                    })()}
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={norm[a][w]}
+                        onChange={onChange(a, w)}
+                        sx={{ width: 72 }}
+                      />
+                      <Typography variant="caption" sx={{ fontWeight: 700 }}
+                        color={
+                          Math.abs(live?.[a]?.[w]?.pct_move || 0) >= (norm[a][w] || 0)
+                            ? 'success.main'
+                            : Math.abs(live?.[a]?.[w]?.pct_move || 0) >= (norm[a][w] || 0) * 0.5
+                            ? 'warning.main'
+                            : 'error.main'
+                        }>
+                        ({live?.[a]?.[w]?.pct_move?.toFixed(2) ?? '—'}%)
+                      </Typography>
+                    </Stack>
                   </TableCell>
                 ))}
               </TableRow>
