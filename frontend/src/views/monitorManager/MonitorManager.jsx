@@ -248,8 +248,11 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
 
                   {/* current distance (icon removed) */}
                   <TableCell align="center" sx={{ width: 170, color: getDistColour(code) }}>
-                    <Typography variant="body2" sx={{ textAlign: 'center' }}>
-                      {fmtWithPercent(code, dist, normCfg.blast_radius[code])}
+                    <Typography variant="body2" sx={{ textAlign: 'center', fontWeight: 700 }}>
+                      {typeof dist === 'number' && typeof normCfg.blast_radius[code] === 'number'
+                        ? `${fmtDistance(code, dist)} (${((dist / normCfg.blast_radius[code]) * 100).toFixed(1)}%)`
+                        : fmtDistance(code, dist)
+                      }
                     </Typography>
                   </TableCell>
 
