@@ -18,18 +18,6 @@ def list_monitors():
     """Return sorted list of monitor keys."""
     return sorted(_registry.get_all_monitors())
 
-@router.post("/{name}")
-def run_monitor(name: str):
-    if name not in _registry.get_all_monitors():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Monitor '{name}' not found")
-    monitor = _registry.get(name)
-    try:
-        monitor.run_cycle()
-        return {"status": "success", "monitor": name}
-    except Exception as exc:  # pragma: no cover
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
-
-
 @router.post("/sonic_cycle", status_code=202)
 def run_sonic_cycle(bg: BackgroundTasks):
     """Execute the Sonic monitor cycle asynchronously."""
@@ -40,3 +28,15 @@ def run_sonic_cycle(bg: BackgroundTasks):
 
     bg.add_task(_runner)
     return {"status": "sonic cycle started"}
+
+
+@router.post("/{name}")
+def run_monitor(name: str):
+    if name not in _registry.get_all_monitors():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Monitor '{name}' not found")
+    monitor = _registry.get(name)
+    try:
+        monitor.run_cycle()
+        return {"status": "success", "monitor": name}
+    except Exception as exc:  # pragma: no cover
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
