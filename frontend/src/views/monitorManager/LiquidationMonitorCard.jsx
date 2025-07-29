@@ -1,8 +1,20 @@
-
 import React, { useMemo } from 'react';
 import {
-  Card, CardContent, CardHeader, TextField, Button, Table, TableHead,
-  TableRow, TableCell, TableBody, Typography, Tooltip, Switch, Stack, Box
+  Card,
+  CardContent,
+  CardHeader,
+  TextField,
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Typography,
+  Tooltip,
+  Switch,
+  Stack,
+  Box
 } from '@mui/material';
 
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
@@ -35,11 +47,7 @@ function NotificationBar({ cfg, toggle }) {
       <Stack direction="row" spacing={3}>
         {items.map(({ key, label, icon: Icon, color }) => (
           <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Button
-              size="small"
-              variant={cfg[key] ? 'contained' : 'outlined'}
-              onClick={() => toggle(key)}
-            >
+            <Button size="small" variant={cfg[key] ? 'contained' : 'outlined'} onClick={() => toggle(key)}>
               {label}
             </Button>
             <Icon fontSize="small" sx={{ mt: 0.5 }} color={cfg[key] ? color : 'disabled'} />
@@ -107,22 +115,27 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
     return { dist: v.dist, side: v.side };
   };
 
-  const getDistColour = (code) => {
+  // Choose a reference radius for percentage and colour. Prefer the
+  // API-supplied blast radius; fall back to the user-entered threshold so
+  // the display is always meaningful.
+  const refRadius = (code) => {
     const br = normCfg.blast_radius[code];
+    const th = Number(normCfg.thresholds[code]);
+    return typeof br === 'number' ? br : typeof th === 'number' ? th : null;
+  };
+
+  const getDistColour = (code) => {
     const d = getNearestObj(code).dist;
-    if (typeof d !== 'number' || typeof br !== 'number') return 'text.primary';
-    if (d > br) return 'success.main';
-    if (d > br * 0.5) return 'warning.main';
+    const r = refRadius(code);
+    if (typeof d !== 'number' || r == null) return 'text.primary';
+    if (d > r) return 'success.main';
+    if (d > r * 0.5) return 'warning.main';
     return 'error.main';
   };
 
   const fmtDistance = (code, val) => {
     if (val == null || val === '—') return val;
-    return ['BTC', 'ETH'].includes(code)
-      ? Math.round(val)
-      : code === 'SOL'
-      ? Number(val).toFixed(2)
-      : val;
+    return ['BTC', 'ETH'].includes(code) ? Math.round(val) : code === 'SOL' ? Number(val).toFixed(2) : val;
   };
 
   /* ----------------------------------------------------------------------- */
@@ -191,26 +204,17 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
                     </Stack>
                   </TableCell>
                   <TableCell align="center" sx={{ width: 170 }}>
-                    <Typography
-                      variant="body2"
-                      sx={{ fontWeight: 700 }}
-                      color={getDistColour(code)}
-                    >
-                      {typeof dist === 'number' && typeof normCfg.blast_radius[code] === 'number'
-                        ? `${fmtDistance(code, dist)} (${(
-                            (dist / normCfg.blast_radius[code]) *
-                            100
-                          ).toFixed(1)}%)`
-                        : fmtDistance(code, dist)}
+                    <Typography variant="body2" sx={{ fontWeight: 700 }} color={getDistColour(code)}>
+                      {(() => {
+                        if (typeof dist !== 'number') return fmtDistance(code, dist);
+                        const r = refRadius(code);
+                        if (r == null) return fmtDistance(code, dist);
+                        return `${fmtDistance(code, dist)} (${((dist / r) * 100).toFixed(1)}%)`;
+                      })()}
                     </Typography>
                   </TableCell>
                   <TableCell align="center" sx={{ width: 100 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      sx={{ minWidth: 70 }}
-                      onClick={applyBlast(code)}
-                    >
+                    <Button variant="outlined" size="small" sx={{ minWidth: 70 }} onClick={applyBlast(code)}>
                       {normCfg.blast_radius[code]?.toFixed(1) || '—'}
                     </Button>
                   </TableCell>

@@ -1,9 +1,5 @@
-
 import React, { useMemo } from 'react';
-import {
-  Card, CardHeader, CardContent, Grid, Stack, TextField, Typography,
-  Tooltip, Switch
-} from '@mui/material';
+import { Card, CardHeader, CardContent, Grid, Stack, TextField, Typography, Tooltip, Switch } from '@mui/material';
 
 import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 
@@ -27,11 +23,7 @@ function NotificationBar({ cfg, toggle }) {
       <Stack direction="row" spacing={3}>
         {items.map(({ key, label, icon: Icon, color }) => (
           <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Button
-              size="small"
-              variant={cfg[key] ? 'contained' : 'outlined'}
-              onClick={() => toggle(key)}
-            >
+            <Button size="small" variant={cfg[key] ? 'contained' : 'outlined'} onClick={() => toggle(key)}>
               {label}
             </Button>
             <Icon fontSize="small" sx={{ mt: 0.5 }} color={cfg[key] ? color : 'disabled'} />
@@ -71,8 +63,7 @@ export default function ProfitMonitorCard({ cfg, setCfg }) {
     }));
   };
 
-  const handleEnabledChange = (e) =>
-    setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
+  const handleEnabledChange = (e) => setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
 
   return (
     <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -94,44 +85,45 @@ export default function ProfitMonitorCard({ cfg, setCfg }) {
       <CardContent>
         <Grid container spacing={2}>
           <Grid item xs={6}>
-            <Stack spacing={2}>
-              <TextField
-                fullWidth
-                label="PORTFOLIO HIGH ($)"
-                name="portfolio_high"
-                type="number"
-                value={normCfg.portfolio_high ?? ''}
-                onChange={handleChange}
-              />
-              <TextField
-                fullWidth
-                label="PORTFOLIO LOW ($)"
-                name="portfolio_low"
-                type="number"
-                value={normCfg.portfolio_low ?? ''}
-                onChange={handleChange}
-              />
-            </Stack>
+            <TextField
+              fullWidth
+              label="PORTFOLIO HIGH ($)"
+              name="portfolio_high"
+              type="number"
+              value={normCfg.portfolio_high ?? ''}
+              onChange={handleChange}
+            />
           </Grid>
           <Grid item xs={6}>
-            <Stack spacing={2}>
-              <TextField
-                fullWidth
-                label="SINGLE HIGH ($)"
-                name="single_high"
-                type="number"
-                value={normCfg.single_high ?? ''}
-                onChange={handleChange}
-              />
-              <TextField
-                fullWidth
-                label="SINGLE LOW ($)"
-                name="single_low"
-                type="number"
-                value={normCfg.single_low ?? ''}
-                onChange={handleChange}
-              />
-            </Stack>
+            <TextField
+              fullWidth
+              label="SINGLE HIGH ($)"
+              name="single_high"
+              type="number"
+              value={normCfg.single_high ?? ''}
+              onChange={handleChange}
+            />
+          </Grid>
+
+          <Grid item xs={6}>
+            <TextField
+              fullWidth
+              label="PORTFOLIO LOW ($)"
+              name="portfolio_low"
+              type="number"
+              value={normCfg.portfolio_low ?? ''}
+              onChange={handleChange}
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <TextField
+              fullWidth
+              label="SINGLE LOW ($)"
+              name="single_low"
+              type="number"
+              value={normCfg.single_low ?? ''}
+              onChange={handleChange}
+            />
           </Grid>
         </Grid>
 
