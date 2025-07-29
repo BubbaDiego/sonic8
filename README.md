@@ -118,8 +118,6 @@ Feel free to explore each directory for more details.
 
 See [docs/alert_thresholds_api.md](docs/alert_thresholds_api.md) for the alert thresholds API.
 See [docs/backend_api_spec.md](docs/backend_api_spec.md) for a complete list of backend routes.
-The new alert data layer is documented in [docs/alert_v2_spec.md](docs/alert_v2_spec.md).
-The event-oriented extension lives in [docs/alert_v2_hybrid_spec.md](docs/alert_v2_hybrid_spec.md).
 
 The `/portfolio/latest` endpoint will only return data after a portfolio snapshot is
 recorded. You can create a snapshot using `POST /positions/snapshot` or by running

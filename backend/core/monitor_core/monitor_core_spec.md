@@ -119,7 +119,7 @@ This design makes **Sonic Monitor** the single source of truth for:
 | `xcom_monitor` | `XComMonitor` | Sends low‑level ping via XComCore. fileciteturn0file68 |  ‑ | XCom (LOW) |
 | `twilio_monitor` | `TwilioMonitor` | Verifies provider creds. fileciteturn0file69 |  ‑ | Ledger only |
 | `market_monitor` | `MarketMonitor` | Price %‑move triggers + blast‑radius calc. |  | Ledger only |
-| `sonic_monitor` | (see §4) | Orchestrator loop. | HB Row | Slack (AlertV2) |
+| `sonic_monitor` | (see §4) | Orchestrator loop. | HB Row | Slack via MonitorCore |
 
 ---
 <a name="utils"></a>
