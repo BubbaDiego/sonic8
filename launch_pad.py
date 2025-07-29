@@ -17,7 +17,6 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from pyfiglet import Figlet
-from backend.console.cyclone_console_service import run_cyclone_console
 from backend.core.wallet_core import WalletService
 from test_core import TestCoreRunner, formatter, get_console_ui
 from backend.data.data_locker import DataLocker
@@ -328,9 +327,8 @@ def main():
                 f"6. {ICON['verify_db']} Verify Database",
                 f"7. {ICON['tests']} Run Unit Tests",
                 f"8. {ICON['wallet']} Wallet Manager",
-                f"9. {ICON['cyclone']} Cyclone Console",
-                f"10. {ICON['test_ui']} Test Console UI",
-                f"11. {ICON['goals']} Session / Goals",
+                f"9. {ICON['test_ui']} Test Console UI",
+                f"10. {ICON['goals']} Session / Goals",
                 f"0. {ICON['exit']} Exit",
             ]
         )
@@ -355,10 +353,8 @@ def main():
         elif choice == "8":
             wallet_menu()
         elif choice == "9":
-            run_cyclone_console()
-        elif choice == "10":
             run_test_console()
-        elif choice == "11":
+        elif choice == "10":
             goals_menu()
         elif choice == "0":
             console.print("[bold green]Exiting...[/]")
