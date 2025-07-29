@@ -1,26 +1,14 @@
-# 2×2 Layout — width tweak & disabled‑state visuals
+# Sonic Monitor – control layout update
 
-## Summary
-* **First column width reduced by 25 %** (`600 → 450 px`) via `COLUMN_A_WIDTH` constant in *MonitorManager.jsx*.
-* Removed per‑card enable/disable switches from **Liquidation** and **Profit** cards.
-* Cards now receive a `disabled` prop; when `true` they render at 40 % opacity and ignore pointer events (gives a greyed‑out look).
-* `MonitorManager.jsx` passes the correct disabled flags derived from the Sonic Monitor toggles.
+* Snooze field now sits directly **under** the Sonic Loop field.
+* **Save All** button moved to the right of the Sonic Loop field.
+* Snooze action button renamed to **“Snooze”** and sits under **Save All**.
 
-## Patches
-| Patch | Target |
-|-------|--------|
-| MonitorManager.patch | `src/pages/MonitorManager.jsx` |
-| LiquidationMonitorCard.patch | `src/components/LiquidationMonitorCard.jsx` |
-| ProfitMonitorCard.patch | `src/components/ProfitMonitorCard.jsx` |
-| MarketMonitorCard.patch | `src/components/MarketMonitorCard.jsx` |
-
-## Apply
+Apply with:
 ```bash
-unzip sonic_disable_visuals.zip -d /tmp/patches
+unzip sonic_monitor_relayout.zip -d /tmp/patches
 cd <repo>
-git apply /tmp/patches/*.patch
+git apply /tmp/patches/SonicMonitorCard.patch
 ```
 
-Adjust `COLUMN_A_WIDTH` anytime to fine‑tune the left‑hand column size.
-
-Generated 2025-07-29 23:20 UTC
+Generated 2025-07-29 23:53 UTC
