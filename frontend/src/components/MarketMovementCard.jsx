@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import AssetLogo from './AssetLogo';         // ← same component used in Liquidation card
 import {
   Card, CardHeader, CardContent,
   Table, TableHead, TableBody, TableRow, TableCell,
@@ -7,7 +8,7 @@ import {
 
 export default function MarketMovementCard({ cfg, setCfg, live }) {
   const ASSETS  = ['SPX', 'BTC', 'ETH', 'SOL'];
-  const WINDOWS = ['15m', '1h', '3h', '6h', '12h', '24h'];
+  const WINDOWS = ['1h', '6h', '24h'];      // trimmed columns
 
   const norm = useMemo(() => {
     const t = cfg.thresholds || {};
@@ -44,7 +45,9 @@ export default function MarketMovementCard({ cfg, setCfg, live }) {
           <TableBody>
             {ASSETS.map(a => (
               <TableRow key={a}>
-                <TableCell>{a}</TableCell>
+                <TableCell>
+                  <AssetLogo symbol={a} size={20}/>
+                </TableCell>
                 {WINDOWS.map(w => (
                   <TableCell key={w} align="center">
                     <TextField
@@ -54,16 +57,26 @@ export default function MarketMovementCard({ cfg, setCfg, live }) {
                       onChange={onChange(a, w)}
                       sx={{ width: 72, mb: .5 }}
                     />
-                    <Typography
-                      variant="caption"
-                      color={
-                        Math.abs(live?.[a]?.[w]?.pct_move || 0) >= (norm[a][w] || 0)
-                          ? 'error.main'
-                          : 'text.secondary'
-                      }
-                    >
-                      {live?.[a]?.[w]?.pct_move?.toFixed(2) ?? '—'}%
-                    </Typography>
+                    {(() => {
+                      const pct = live?.[a]?.[w]?.pct_move;
+                      const colour =
+                        pct == null
+                          ? 'text.secondary'
+                          : Math.abs(pct) > 100
+                            ? 'success.main'      // > 100 % → green
+                            : Math.abs(pct) > 50
+                              ? 'warning.main'    // 50‑100 % → yellow
+                              : 'error.main';     // < 50 % → red
+                      return (
+                        <Typography
+                          variant="caption"
+                          sx={{ fontWeight: 700 }}
+                          color={colour}
+                        >
+                          {pct != null ? `(${pct.toFixed(2)}%)` : '—'}
+                        </Typography>
+                      );
+                    })()}
                   </TableCell>
                 ))}
               </TableRow>
