@@ -11,7 +11,7 @@ const menuItems = {
   items: [
     {
       id: 'main-pages',
-      title: 'Main Pages',
+      // omit title so sidebar has no heading
       type: 'group',
       children: [
         sonic,
