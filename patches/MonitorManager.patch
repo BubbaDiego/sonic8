@@ -1,0 +1,58 @@
+--- a/src/pages/MonitorManager.jsx
++++ b/src/pages/MonitorManager.jsx
+@@
+-      <Grid container spacing={3}>
+-        <Grid item xs={12} md={6}>
+-          <LiquidationMonitorCard
+-            cfg={liqCfg}
+-            setCfg={setLiqCfg}
+-            blast={marketCfg.blast_radius}
+-            nearest={nearestLiq}
+-          />
+-        </Grid>
+-        <Grid item xs={12} md={6}>
+-          <ProfitMonitorCard cfg={profitCfg} setCfg={setProfitCfg} />
+-        </Grid>
+-
+-        <Grid item xs={12}>
+-          <GlobalSettingCard
+-            cfg={liqCfg}
+-            setCfg={setLiqCfg}
+-            loop={loopSec}
+-            setLoop={setLoopSec}
+-            saveAll={saveAll}
+-          />
+-        </Grid>
+-
+-        <Grid item xs={12}>
+-          <MarketMonitorCard cfg={marketCfg} setCfg={setMarketCfg} live={pctMoves} />
+-        </Grid>
+-      </Grid>
++      <Grid container spacing={3}>
++        {/* ---------- 1st Row ---------- */}
++        <Grid item xs={12} md={6}>
++          <GlobalSettingCard
++            cfg={liqCfg}
++            setCfg={setLiqCfg}
++            loop={loopSec}
++            setLoop={setLoopSec}
++            saveAll={saveAll}
++          />
++        </Grid>
++        <Grid item xs={12} md={6}>
++          <LiquidationMonitorCard
++            cfg={liqCfg}
++            setCfg={setLiqCfg}
++            blast={marketCfg.blast_radius}
++            nearest={nearestLiq}
++          />
++        </Grid>
++
++        {/* ---------- 2nd Row ---------- */}
++        <Grid item xs={12} md={6}>
++          <ProfitMonitorCard cfg={profitCfg} setCfg={setProfitCfg} />
++        </Grid>
++        <Grid item xs={12} md={6}>
++          <MarketMonitorCard cfg={marketCfg} setCfg={setMarketCfg} live={pctMoves} />
++        </Grid>
++      </Grid>

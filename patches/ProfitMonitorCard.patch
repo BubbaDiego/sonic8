@@ -1,0 +1,35 @@
+--- a/src/components/ProfitMonitorCard.jsx
++++ b/src/components/ProfitMonitorCard.jsx
+@@
+-import { Card, CardHeader, CardContent, Grid, Stack, TextField, Typography,
+-  Tooltip, Switch } from '@mui/material';
++import { Card, CardHeader, CardContent, Grid, Stack, TextField, Typography } from '@mui/material';
+@@
+-  const handleEnabledChange = (e) =>
+-    setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
+@@
+-      <CardHeader
+-        title={
+-          <Stack direction="row" spacing={1} alignItems="center">
+-            <Typography variant="h4" fontWeight={600}>
+-              Profit Monitor
+-            </Typography>
+-            <TrendingUpTwoToneIcon fontSize="small" />
+-          </Stack>
+-        }
+-        action={
+-          <Tooltip title={normCfg.enabled ? 'Monitor enabled' : 'Monitor disabled'}>
+-            <Switch size="small" checked={normCfg.enabled} onChange={handleEnabledChange} />
+-          </Tooltip>
+-        }
+-      />
++      <CardHeader
++        title={
++          <Stack direction="row" spacing={1} alignItems="center">
++            <Typography variant="h4" fontWeight={600}>
++              Profit Monitor
++            </Typography>
++            <TrendingUpTwoToneIcon fontSize="small" />
++          </Stack>
++        }
++      />

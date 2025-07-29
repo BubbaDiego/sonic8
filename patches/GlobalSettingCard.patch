@@ -1,0 +1,101 @@
+--- a/src/components/GlobalSettingCard.jsx
++++ b/src/components/GlobalSettingCard.jsx
+@@
+-import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
++import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
++import WaterDropIcon from '@mui/icons-material/WaterDrop';
++import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
++import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
+@@
+-  const thresh = cfg.threshold_percent ?? '';
+   const snooze = cfg.snooze_seconds ?? '';
+   const loopSec = loop ?? '';
++
++  // Track which monitors the Sonic loop should poll
++  const monitors = {
++    sonic: cfg.enabled_sonic ?? true,
++    liquid: cfg.enabled_liquid ?? true,
++    profit: cfg.enabled_profit ?? true,
++    market: cfg.enabled_market ?? true
++  };
+@@
+-  const onChange = (e) => {
+-    const { name, value } = e.target;
+-    setCfg((prev) => ({ ...prev, [name]: value }));
+-  };
++  const onChange = (e) => {
++    const { name, value } = e.target;
++    setCfg((prev) => ({ ...prev, [name]: value }));
++  };
++
++  const toggleMonitor = (key) => {
++    const field = `enabled_${key}`;
++    setCfg((prev) => ({ ...prev, [field]: !prev[field] }));
++  };
+@@
+-            <Typography variant="h4" fontWeight={600}>
+-              Global Settings
++            <Typography variant="h4" fontWeight={600}>
++              Sonic Monitor
+             </Typography>
+             <SettingsTwoToneIcon fontSize="small" />
+@@
+-              <TextField
+-                label={
+-                  <Stack direction="row" spacing={1} alignItems="center">
+-                    <Typography>Sonic Loop</Typography>
+-                    <img src="/images/hedgehog_icon.png" width={16} alt="Loop" />
+-                  </Stack>
+-                }
+-                type="number"
+-                value={loopSec}
+-                onChange={onLoopChange}
+-              />
+-              <TextField
+-                label="Threshold %"
+-                type="number"
+-                name="threshold_percent"
+-                value={thresh}
+-                onChange={onChange}
+-                inputProps={{ step: '0.1' }}
+-              />
++              <TextField
++                label={
++                  <Stack direction="row" spacing={1} alignItems="center">
++                    <Typography>Sonic Loop</Typography>
++                    <img src="/images/hedgehog_icon.png" width={16} alt="Loop" />
++                  </Stack>
++                }
++                type="number"
++                value={loopSec}
++                onChange={onLoopChange}
++              />
+@@
+         <Box sx={{ mt: 3, textAlign: 'right' }}>
+           <Button variant="contained" onClick={saveAll}>
+             Save All
+           </Button>
+         </Box>
++
++        {/* Monitor enable / disable buttons */}
++        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
++          <Stack direction="row" spacing={3}>
++            {[
++              { key: 'sonic',  label: 'Sonic',  icon: SettingsTwoToneIcon },
++              { key: 'liquid', label: 'Liquid', icon: WaterDropIcon },
++              { key: 'profit', label: 'Profit', icon: TrendingUpTwoToneIcon },
++              { key: 'market', label: 'Market', icon: ShowChartTwoToneIcon }
++            ].map(({ key, label, icon: Icon }) => (
++              <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
++                <Button
++                  size="small"
++                  variant={monitors[key] ? 'contained' : 'outlined'}
++                  onClick={() => toggleMonitor(key)}
++                >
++                  {label}
++                </Button>
++                <Icon fontSize="small" sx={{ mt: 0.5 }} color={monitors[key] ? 'primary' : 'disabled'} />
++              </Box>
++            ))}
++          </Stack>
++        </Box>
