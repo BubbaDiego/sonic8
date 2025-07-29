@@ -55,24 +55,32 @@ def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
 
 @router.get("/sonic")
 def get_sonic_settings(dl: DataLocker = Depends(get_app_locker)):
-    """Return current Sonic monitor loop interval."""
+    """Return current Sonic monitor settings."""
 
     cursor = dl.db.get_cursor()
     if cursor is None:
-        return {"interval_seconds": DEFAULT_INTERVAL}
-    cursor.execute(
-        "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name = ?",
-        (MONITOR_NAME,),
-    )
-    row = cursor.fetchone()
-    if row and row[0] is not None:
-        return {"interval_seconds": int(row[0])}
-    return {"interval_seconds": DEFAULT_INTERVAL}
+        interval = DEFAULT_INTERVAL
+    else:
+        cursor.execute(
+            "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name = ?",
+            (MONITOR_NAME,),
+        )
+        row = cursor.fetchone()
+        interval = int(row[0]) if row and row[0] is not None else DEFAULT_INTERVAL
+
+    cfg = dl.system.get_var("sonic_monitor") or {}
+    return {
+        "interval_seconds": interval,
+        "enabled_sonic": cfg.get("enabled_sonic", True),
+        "enabled_liquid": cfg.get("enabled_liquid", True),
+        "enabled_profit": cfg.get("enabled_profit", True),
+        "enabled_market": cfg.get("enabled_market", True),
+    }
 
 
 @router.post("/sonic")
 def update_sonic_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
-    """Update Sonic monitor loop interval."""
+    """Update Sonic monitor settings."""
 
     interval = int(payload.get("interval_seconds", DEFAULT_INTERVAL))
 
@@ -94,7 +102,23 @@ def update_sonic_settings(payload: dict, dl: DataLocker = Depends(get_app_locker
         (MONITOR_NAME, last_run, interval),
     )
     dl.db.commit()
-    return {"success": True}
+
+    cfg = dl.system.get_var("sonic_monitor") or {}
+
+    def to_bool(value):
+        if isinstance(value, str):
+            return value.lower() in ("1", "true", "yes", "on")
+        return bool(value)
+
+    for key in ["enabled_sonic", "enabled_liquid", "enabled_profit", "enabled_market"]:
+        if key in payload:
+            cfg[key] = to_bool(payload.get(key))
+        else:
+            cfg.setdefault(key, True)
+
+    dl.system.set_var("sonic_monitor", cfg)
+
+    return {"success": True, "config": {"interval_seconds": interval, **cfg}}
 
 
 # ------------------------------------------------------------------ #

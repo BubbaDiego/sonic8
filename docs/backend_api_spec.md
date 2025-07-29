@@ -103,6 +103,13 @@ curl -X POST http://localhost:5000/session/reset
 - `GET /profit` – Return profit monitor threshold settings including `enabled`.
 - `POST /profit` – Update profit thresholds with `portfolio_low`, `portfolio_high`,
   `single_low` and `single_high` fields. Payload may include an optional `enabled` boolean.
+- `GET /sonic` – Retrieve the Sonic monitor settings including enabled toggles.
+- `POST /sonic` – Update the Sonic monitor loop. Payload fields:
+  - `interval_seconds` – loop interval in seconds.
+  - `enabled_sonic` – master enable flag.
+  - `enabled_liquid` – include the liquidation monitor.
+  - `enabled_profit` – include the profit monitor.
+  - `enabled_market` – include the market monitor.
 
 Example `notifications` payload:
 

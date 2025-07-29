@@ -71,17 +71,28 @@ def heartbeat(loop_counter: int):
 
 
 async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
-    """Run a full Cyclone cycle and then execute key monitors."""
+    """Run a full Cyclone cycle and then execute enabled monitors."""
     logging.info("🔄 SonicMonitor cycle #%d starting", loop_counter)
+
+    dl = DataLocker.get_instance()
+    cfg = dl.system.get_var("sonic_monitor") or {}
+
+    if not cfg.get("enabled_sonic", True):
+        logging.info("Sonic loop disabled via config")
+        heartbeat(loop_counter)
+        return
 
     # Execute the complete Cyclone pipeline
     await cyclone.run_cycle()
 
-    # Run price, profit and risk monitors after the Cyclone cycle
-    await asyncio.to_thread(cyclone.monitor_core.run_by_name, "price_monitor")
-    await asyncio.to_thread(cyclone.monitor_core.run_by_name, "profit_monitor")
-   # await asyncio.to_thread(cyclone.monitor_core.run_by_name, "risk_monitor")
-    await asyncio.to_thread(cyclone.monitor_core.run_by_name, "liquid_monitor")
+    # Run monitors based on config
+    if cfg.get("enabled_market", True):
+        await asyncio.to_thread(cyclone.monitor_core.run_by_name, "price_monitor")
+    if cfg.get("enabled_profit", True):
+        await asyncio.to_thread(cyclone.monitor_core.run_by_name, "profit_monitor")
+    # await asyncio.to_thread(cyclone.monitor_core.run_by_name, "risk_monitor")
+    if cfg.get("enabled_liquid", True):
+        await asyncio.to_thread(cyclone.monitor_core.run_by_name, "liquid_monitor")
 
     # Alert V2 pipeline disabled
 

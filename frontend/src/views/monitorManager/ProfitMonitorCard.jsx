@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Card, CardHeader, CardContent, Grid, Stack, TextField, Typography, Tooltip, Switch } from '@mui/material';
+import { Card, CardHeader, CardContent, Grid, Stack, TextField, Typography } from '@mui/material';
 
 import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 
@@ -63,7 +63,6 @@ export default function ProfitMonitorCard({ cfg, setCfg }) {
     }));
   };
 
-  const handleEnabledChange = (e) => setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
 
   return (
     <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -75,11 +74,6 @@ export default function ProfitMonitorCard({ cfg, setCfg }) {
             </Typography>
             <TrendingUpTwoToneIcon fontSize="small" />
           </Stack>
-        }
-        action={
-          <Tooltip title={normCfg.enabled ? 'Monitor enabled' : 'Monitor disabled'}>
-            <Switch size="small" checked={normCfg.enabled} onChange={handleEnabledChange} />
-          </Tooltip>
         }
       />
       <CardContent>
