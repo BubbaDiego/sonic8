@@ -1,0 +1,40 @@
+--- a/src/components/LiquidationMonitorCard.jsx
++++ b/src/components/LiquidationMonitorCard.jsx
+@@
+-  Card, CardContent, CardHeader, TextField, Button, Table, TableHead,
+-  TableRow, TableCell, TableBody, Typography, Tooltip, Switch, Stack, Box
++  Card, CardContent, CardHeader, TextField, Button, Table, TableHead,
++  TableRow, TableCell, TableBody, Typography, Stack, Box
+ } from '@mui/material';
+@@
+-import Tooltip, Switch, Stack, Box
++  // Note: per‑card enable switch removed – Sonic Monitor toggles instead
+@@
+-export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, nearest = {} }) {
++export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, nearest = {}, disabled = false }) {
+@@
+-  const handleEnabledChange = (e) => {
+-    setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
+-  };
+@@
+-    <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
++    <Card
++      variant="outlined"
++      sx={{
++        display: 'flex',
++        flexDirection: 'column',
++        height: '100%',
++        opacity: disabled ? 0.4 : 1,
++        pointerEvents: disabled ? 'none' : 'auto',
++        transition: 'opacity 0.2s ease'
++      }}
++    >
+@@
+-        }
+-        action={
+-          <Tooltip title={normCfg.enabled ? 'Monitor enabled' : 'Monitor disabled'}>
+-            <Switch size="small" checked={normCfg.enabled} onChange={handleEnabledChange} />
+-          </Tooltip>
+-        }
++        }
+       />

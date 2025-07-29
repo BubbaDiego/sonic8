@@ -1,0 +1,20 @@
+--- a/src/components/MarketMonitorCard.jsx
++++ b/src/components/MarketMonitorCard.jsx
+@@
+-export default function MarketMonitorCard({ cfg, setCfg, live = {} }) {
++export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false }) {
+@@
+-  return (
+-    <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
++  return (
++    <Card
++      variant="outlined"
++      sx={{
++        display: 'flex',
++        flexDirection: 'column',
++        height: '100%',
++        opacity: disabled ? 0.4 : 1,
++        pointerEvents: disabled ? 'none' : 'auto',
++        transition: 'opacity 0.2s ease'
++      }}
++    >
