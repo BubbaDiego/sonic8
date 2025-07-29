@@ -286,9 +286,6 @@ class ConsoleLogger:
     def critical(cls, msg: str, source: str | None = None, payload: dict | None = None) -> None:
         cls._print(Level.CRITICAL, msg, source, payload)
 
-    # Alias for v2
-    death = critical
-
     # ------------- Structured helpers & extras ---------------------------
 
     @classmethod
