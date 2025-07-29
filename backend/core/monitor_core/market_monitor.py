@@ -6,12 +6,9 @@ from backend.data.data_locker import DataLocker
 class MarketMonitor(BaseMonitor):
     name    = "market_monitor"
     ASSETS  = ["SPX", "BTC", "ETH", "SOL"]
-    WINDOWS = {
-        "15m": 15 * 60,
+    WINDOWS = {                                   # we keep it lean for now
         "1h" : 60 * 60,
-        "3h" : 3  * 60 * 60,
         "6h" : 6  * 60 * 60,
-        "12h": 12 * 60 * 60,
         "24h": 24 * 60 * 60,
     }
 
