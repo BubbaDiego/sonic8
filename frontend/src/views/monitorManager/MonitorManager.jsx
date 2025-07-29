@@ -11,7 +11,9 @@ import MarketMonitorCard      from './MarketMonitorCard';
 /* ------------------------------------------------------------------ */
 /*  Layout constants – tweak to taste                                 */
 /* ------------------------------------------------------------------ */
-export const COLUMN_B_START = 600; // px – where column-B starts
+// Width of the first (left) column.  Reduced by 25% from the previous
+// 600 px => 450 px to give the right column more breathing room.
+export const COLUMN_A_WIDTH = 450; // px
 export const ROW_A_HEIGHT   = 340; // px – height of first row
 export const ROW_B_HEIGHT   = 340; // px – height of second row
 export const GRID_GAP       = 24;  // px – gap between cards
@@ -69,7 +71,7 @@ export default function MonitorManager() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: `${COLUMN_B_START}px 1fr`,
+          gridTemplateColumns: `${COLUMN_A_WIDTH}px 1fr`,
           gridTemplateRows: `${ROW_A_HEIGHT}px ${ROW_B_HEIGHT}px`,
           gap: `${GRID_GAP}px`,
           width: '100%',
@@ -94,17 +96,27 @@ export default function MonitorManager() {
             setCfg={setLiqCfg}
             blast={marketCfg.blast_radius}
             nearest={nearestLiq}
+            disabled={!liqCfg.enabled_liquid}
           />
         </Box>
 
         {/* Row B / Col A */}
         <Box sx={{ gridColumn: 1, gridRow: 2 }}>
-          <ProfitMonitorCard cfg={profitCfg} setCfg={setProfitCfg} />
+          <ProfitMonitorCard
+            cfg={profitCfg}
+            setCfg={setProfitCfg}
+            disabled={!liqCfg.enabled_profit}
+          />
         </Box>
 
         {/* Row B / Col B */}
         <Box sx={{ gridColumn: 2, gridRow: 2 }}>
-          <MarketMonitorCard cfg={marketCfg} setCfg={setMarketCfg} live={pctMoves} />
+          <MarketMonitorCard
+            cfg={marketCfg}
+            setCfg={setMarketCfg}
+            live={pctMoves}
+            disabled={!liqCfg.enabled_market}
+          />
         </Box>
       </Box>
 
