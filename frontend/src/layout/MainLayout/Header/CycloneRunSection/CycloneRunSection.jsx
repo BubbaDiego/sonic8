@@ -20,7 +20,7 @@ import { openSnackbar } from 'store/slices/snackbar';
 
 // assets
 import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-react';
-const SonicBurstIcon = '/images/sonic_burst.png';
+const SonicBurstIcon = '/static/images/super_sonic.png';
 
 export const spin = keyframes`
   from { transform: rotate(0deg); }
@@ -241,7 +241,12 @@ export default function CycloneRunSection() {
             }}
             onClick={handleSonicCycle}
           >
-            <Box component="img" src={SonicBurstIcon} alt="sonic" sx={{ width: '20px' }} />
+            <Box
+              component="img"
+              src={SonicBurstIcon}
+              alt="sonic"
+              sx={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+            />
           </Avatar>
         </Tooltip>
         <Tooltip title="Price Update">
