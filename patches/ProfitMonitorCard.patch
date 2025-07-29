@@ -8,28 +8,10 @@
 -  const handleEnabledChange = (e) =>
 -    setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
 @@
--      <CardHeader
--        title={
--          <Stack direction="row" spacing={1} alignItems="center">
--            <Typography variant="h4" fontWeight={600}>
--              Profit Monitor
--            </Typography>
--            <TrendingUpTwoToneIcon fontSize="small" />
--          </Stack>
--        }
 -        action={
 -          <Tooltip title={normCfg.enabled ? 'Monitor enabled' : 'Monitor disabled'}>
 -            <Switch size="small" checked={normCfg.enabled} onChange={handleEnabledChange} />
 -          </Tooltip>
 -        }
--      />
-+      <CardHeader
-+        title={
-+          <Stack direction="row" spacing={1} alignItems="center">
-+            <Typography variant="h4" fontWeight={600}>
-+              Profit Monitor
-+            </Typography>
-+            <TrendingUpTwoToneIcon fontSize="small" />
-+          </Stack>
-+        }
-+      />
++        /* Enable/disable now controlled by Sonic Monitor card */
+       />

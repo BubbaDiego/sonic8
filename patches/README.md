@@ -1,43 +1,22 @@
-# Sonic‑layout refactor – integration guide
+# Monitor Manager ‑ 2×2 layout refactor
 
-## Files
-| Patch file | Target | Purpose |
-|------------|--------|---------|
-| GlobalSettingCard.patch | `src/components/GlobalSettingCard.jsx` | Renames card to **Sonic Monitor**, removes Threshold % field, and adds 4 monitor‑enable buttons |
-| MonitorManager.patch    | `src/pages/MonitorManager.jsx`         | Re‑arranges layout into two rows (Sonic + Liquid) / (Profit + Market) |
-| ProfitMonitorCard.patch | `src/components/ProfitMonitorCard.jsx` | Removes individual enable/disable switch (now controlled by Sonic Monitor) |
+This bundle defines a **clean 2 × 2 grid** for the dashboard and moves the size
+controls into named constants so you can tweak dimensions quickly.
 
-## Apply
+| Patch | Target | Highlights |
+|-------|--------|------------|
+| `MonitorManager.patch` | `src/pages/MonitorManager.jsx` | * Adds constants `ROW_A_HEIGHT`, `ROW_B_HEIGHT`, `COLUMN_B_START`, `GRID_GAP`.<br/>* Replaces the old `<Grid/>`‑based layout with a CSS‑grid based 2 × 2 card arrangement. |
+| `ProfitMonitorCard.patch` | `src/components/ProfitMonitorCard.jsx` | Removes the per‑card enable/disable **Switch** (the Sonic Monitor now governs this). |
+
+## Quick apply
+
 ```bash
+unzip sonic_2x2_layout.zip -d /tmp/patches
 cd <your‑repo>
-git apply sonic_layout_patches/GlobalSettingCard.patch
-git apply sonic_layout_patches/MonitorManager.patch
-git apply sonic_layout_patches/ProfitMonitorCard.patch
+git apply /tmp/patches/*.patch
 ```
 
-or, to apply all at once:
+The constants live at the top of **MonitorManager.jsx** – change the pixel
+values to fine‑tune spacing or card sizes without hunting through JSX.
 
-```bash
-unzip ./sonic_layout_patches.zip -d /tmp/sonic_layout_patches
-git apply /tmp/sonic_layout_patches/*.patch
-```
-
-## Notes for backend / Codex
-* The **Sonic Monitor** card now toggles which monitors participate in the Sonic loop.  
-  Four new boolean fields are written into the same payload as `threshold_percent` previously was (which has been removed):
-
-  | field | default |
-  |-------|---------|
-  | `enabled_sonic`  | `true` |
-  | `enabled_liquid` | `true` |
-  | `enabled_profit` | `true` |
-  | `enabled_market` | `true` |
-
-* `POST /api/monitor-settings/sonic` should be extended to accept/return these booleans.
-
-* The front‑end continues to send `interval_seconds` alongside the new toggles.
-
-* No other API contracts have changed.
-
----
-Generated 2025-07-29T18:33:09.529008 UTC
+Generated 2025-07-29 22:56:53 UTC

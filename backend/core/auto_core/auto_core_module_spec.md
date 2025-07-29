@@ -41,7 +41,7 @@ AutoCore(
 
 ### 🔮 `phantom_workflow` Helpers
 - `connect_wallet(page)` – Clicks the Jupiter connect button then approves in Phantom. 【F:auto_core/phantom_workflow.py†L10-L18】
-- `approve_popup(page)` – Confirms Phantom approval pop‑ups. 【F:auto_core/phantom_workflow.py†L21-L27】
+- `approve_popup(page)` – Confirms Phantom approval pop‑ups[jupiter_integration_spec.md](jupiter_integration_spec.md). 【F:auto_core/phantom_workflow.py†L21-L27】
 - `confirm_transaction(page, timeout=30000)` – Waits for a Jupiter confirmation message. 【F:auto_core/phantom_workflow.py†L30-L32】
 [auto_core.py](auto_core.py)
 ### ✅ Design Notes

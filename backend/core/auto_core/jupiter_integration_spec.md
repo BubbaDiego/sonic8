@@ -11,7 +11,7 @@ UI Automation vs. On-Chain Integration: How to use Playwright for transaction ap
 Environment Setup: Installing Rust, Solana CLI, and Anchor CLI on Windows (or via WSL) and generating a wallet keypair.
 
 Python-Based Client with AnchorPy: A step-by-step guide to creating a client that sends order requests to Jupiter Perps.
-
+[auto_core_module_spec.md](auto_core_module_spec.md)
 Key Account Addresses for Jupiter Perps (SOL): Unofficial but community-supported public keys and PDAs for the integration.
 
 2. Automation-Friendly Wallet Options on Solana
