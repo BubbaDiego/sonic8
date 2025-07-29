@@ -51,7 +51,7 @@ Benefits:
 Higher control and reliability.
 
 Lower latency as you don’t rely on browser rendering.
-
+[MarketMonitorCard.jsx](../../../frontend/src/views/monitorManager/MarketMonitorCard.jsx)
 Key Instruction Example:
 
 typescript
