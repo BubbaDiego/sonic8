@@ -177,16 +177,6 @@ function AssetThresholdCard({ cfg, setCfg, blast, nearest = {} }) {
       : val;
   }
 
-  /** Combine distance + % of blast-radius, e.g. "711 (8.8%)". */
-  function fmtWithPercent(code, dist, br) {
-    if (typeof dist !== 'number' || typeof br !== 'number' || br === 0)
-      return fmtDistance(code, dist);
-
-    const pct = (dist / br) * 100;
-    const pctStr = pct.toFixed(1).replace(/\.0$/, '');
-    return `${fmtDistance(code, dist)} (${pctStr}%)`;
-  }
-
   return (
     <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <CardHeader
