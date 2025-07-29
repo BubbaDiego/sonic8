@@ -5,7 +5,7 @@ import { Box, Typography, Grid, Snackbar, Alert } from '@mui/material';
 
 import LiquidationMonitorCard from './LiquidationMonitorCard';
 import ProfitMonitorCard from './ProfitMonitorCard';
-import GlobalSettingCard from './GlobalSettingCard';
+import SonicMonitorCard from './SonicMonitorCard';
 import MarketMonitorCard from './MarketMonitorCard';
 
 export default function MonitorManager() {
@@ -59,7 +59,7 @@ export default function MonitorManager() {
       <Grid container spacing={3}>
         {/* ---------- 1st Row ---------- */}
         <Grid item xs={12} md={6}>
-          <GlobalSettingCard
+          <SonicMonitorCard
             cfg={liqCfg}
             setCfg={setLiqCfg}
             loop={loopSec}

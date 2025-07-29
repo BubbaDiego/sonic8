@@ -37,7 +37,7 @@ function CircularCountdown({ remaining, total }) {
 }
 
 /* ------------------------------------------------------------------------- */
-export default function GlobalSettingCard({
+export default function SonicMonitorCard({
   cfg,
   setCfg,
   loop,
