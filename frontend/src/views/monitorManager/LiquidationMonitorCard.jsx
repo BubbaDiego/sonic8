@@ -11,8 +11,6 @@ import {
   TableCell,
   TableBody,
   Typography,
-  Tooltip,
-  Switch,
   Stack,
   Box
 } from '@mui/material';
@@ -70,7 +68,8 @@ const ASSETS = [
 /* ------------------------------------------------------------------------- */
 /*  Main card                                                                 */
 /* ------------------------------------------------------------------------- */
-export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, nearest = {} }) {
+// Note: per-card enable switch removed – Sonic Monitor toggles instead
+export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, nearest = {}, disabled = false }) {
   const normCfg = useMemo(
     () => ({
       thresholds: { BTC: '', ETH: '', SOL: '', ...(cfg.thresholds || {}) },
@@ -95,9 +94,6 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
     }));
   };
 
-  const handleEnabledChange = (e) => {
-    setCfg((prev) => ({ ...prev, enabled: e.target.checked }));
-  };
 
   const applyBlast = (asset) => () => {
     const br = normCfg.blast_radius[asset];
@@ -140,7 +136,17 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
 
   /* ----------------------------------------------------------------------- */
   return (
-    <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Card
+      variant="outlined"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
+        transition: 'opacity 0.2s ease'
+      }}
+    >
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
@@ -149,11 +155,6 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
             </Typography>
             <WaterDropIcon fontSize="small" color="primary" />
           </Stack>
-        }
-        action={
-          <Tooltip title={normCfg.enabled ? 'Monitor enabled' : 'Monitor disabled'}>
-            <Switch size="small" checked={normCfg.enabled} onChange={handleEnabledChange} />
-          </Tooltip>
         }
       />
       <CardContent>

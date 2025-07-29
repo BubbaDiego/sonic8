@@ -35,7 +35,7 @@ function NotificationBar({ cfg, toggle }) {
 }
 
 /* ------------------------------------------------------------------------- */
-export default function ProfitMonitorCard({ cfg, setCfg }) {
+export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
   const normCfg = useMemo(
     () => ({
       enabled: cfg.enabled ?? true,
@@ -65,7 +65,17 @@ export default function ProfitMonitorCard({ cfg, setCfg }) {
 
 
   return (
-    <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Card
+      variant="outlined"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
+        transition: 'opacity 0.2s ease'
+      }}
+    >
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
