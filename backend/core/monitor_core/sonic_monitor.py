@@ -13,38 +13,9 @@ from backend.core.cyclone_core.cyclone_engine import Cyclone
 
 from data.data_locker import DataLocker
 from core.core_constants import MOTHER_DB_PATH
-# Alert V2 imports removed – SonicMonitor now relies solely on classic monitors
-# and no longer executes the event‑oriented AlertOrchestrator pipeline.
-# from backend.alert_v2.orchestrator import (
-#     AlertOrchestrator,
-#     MetricFeedAdapter,
-#     NotificationRouter,
-# )
-# from backend.alert_v2 import AlertRepo
-# from backend.alert_v2.notifiers.slack import send_slack
 
 MONITOR_NAME = "sonic_monitor"
 DEFAULT_INTERVAL = 60  # fallback if nothing set in DB
-
-
-def my_metric_resolver(cfg):
-    dl = DataLocker.get_instance(str(MOTHER_DB_PATH))
-    if cfg.alert_type == "Price":
-        price = dl.prices.get_latest_price(cfg.position_reference_id)
-        return price.get("current_price") if price else 0.0
-    if cfg.alert_type == "TravelPercent":
-        pos = dl.positions.get_position_by_id(cfg.position_reference_id)
-        return getattr(pos, "travel_percent", 0.0) if pos else 0.0
-    return 0.0
-
-
-# The Alert V2 orchestrator is disabled. Classic monitors remain in use for
-# notifications until the new system is fully adopted.
-# repo = AlertRepo()
-# metrics = MetricFeedAdapter(metric_fn=my_metric_resolver)
-# router = NotificationRouter(send_fn=lambda ev: asyncio.create_task(send_slack(ev)))
-# orch = AlertOrchestrator(repo, metrics, router)
-
 
 def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
     dl = DataLocker(str(db_path))
@@ -113,7 +84,6 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     await asyncio.to_thread(cyclone.monitor_core.run_by_name, "liquid_monitor")
 
     # Alert V2 pipeline disabled
-    # await asyncio.to_thread(orch.run_cycle)
 
     heartbeat(loop_counter)
     logging.info("✅ SonicMonitor cycle #%d complete", loop_counter)
