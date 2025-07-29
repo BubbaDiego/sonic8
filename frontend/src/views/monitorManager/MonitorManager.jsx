@@ -25,6 +25,7 @@ export default function MonitorManager() {
     axios.get('/api/market/latest').then((r) => setPctMoves(r.data));
     axios.get('/api/monitor-settings/sonic').then((r) => {
       setLoopSec(String(r.data.interval_seconds ?? ''));
+      setLiqCfg((prev) => ({ ...prev, ...r.data }));
     });
 
     axios
@@ -39,7 +40,11 @@ export default function MonitorManager() {
     await axios.post('/api/monitor-settings/profit', profitCfg);
     await axios.post('/api/monitor-settings/market', marketCfg);
     await axios.post('/api/monitor-settings/sonic', {
-      interval_seconds: parseInt(loopSec || '0', 10)
+      interval_seconds: parseInt(loopSec || '0', 10),
+      enabled_sonic: liqCfg.enabled_sonic,
+      enabled_liquid: liqCfg.enabled_liquid,
+      enabled_profit: liqCfg.enabled_profit,
+      enabled_market: liqCfg.enabled_market
     });
     setToast('Settings saved');
   };
@@ -52,19 +57,8 @@ export default function MonitorManager() {
       </Typography>
 
       <Grid container spacing={3}>
+        {/* ---------- 1st Row ---------- */}
         <Grid item xs={12} md={6}>
-          <LiquidationMonitorCard
-            cfg={liqCfg}
-            setCfg={setLiqCfg}
-            blast={marketCfg.blast_radius}
-            nearest={nearestLiq}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <ProfitMonitorCard cfg={profitCfg} setCfg={setProfitCfg} />
-        </Grid>
-
-        <Grid item xs={12}>
           <GlobalSettingCard
             cfg={liqCfg}
             setCfg={setLiqCfg}
@@ -73,8 +67,20 @@ export default function MonitorManager() {
             saveAll={saveAll}
           />
         </Grid>
+        <Grid item xs={12} md={6}>
+          <LiquidationMonitorCard
+            cfg={liqCfg}
+            setCfg={setLiqCfg}
+            blast={marketCfg.blast_radius}
+            nearest={nearestLiq}
+          />
+        </Grid>
 
-        <Grid item xs={12}>
+        {/* ---------- 2nd Row ---------- */}
+        <Grid item xs={12} md={6}>
+          <ProfitMonitorCard cfg={profitCfg} setCfg={setProfitCfg} />
+        </Grid>
+        <Grid item xs={12} md={6}>
           <MarketMonitorCard cfg={marketCfg} setCfg={setMarketCfg} live={pctMoves} />
         </Grid>
       </Grid>
