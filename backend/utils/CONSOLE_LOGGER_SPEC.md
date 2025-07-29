@@ -89,10 +89,9 @@ Each JSON log line contains:
 ---
 ## 6. Migration notes
 
-* All previous APIs (`info`, `success`, `warning`, `error`, `debug`, `death`)
+* All previous APIs (`info`, `success`, `warning`, `error`, `debug`)
   remain unchanged.
 * Colour constants and group‑based muting still work.
-* `death()` is now an alias of `critical()`.
 
 No code changes are required for existing call‑sites – only the improved
 features described above are new.
