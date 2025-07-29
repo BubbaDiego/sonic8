@@ -1,6 +1,10 @@
 from datetime import datetime, timezone
 from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
+from backend.core.core_constants import MARKET_MONITOR_BLAST_RADIUS_DEFAULTS as _BLAST_DEFAULTS
+
+# Re-export constant for backwards compatibility
+MARKET_MONITOR_BLAST_RADIUS_DEFAULTS = _BLAST_DEFAULTS
 
 
 class MarketMonitor(BaseMonitor):
@@ -84,4 +88,7 @@ class MarketMonitor(BaseMonitor):
             results.append({"asset": asset, "windows": windows_data})
 
         return {"triggered": flagged, "details": results}
+
+
+__all__ = ["MarketMonitor", "MARKET_MONITOR_BLAST_RADIUS_DEFAULTS"]
 
