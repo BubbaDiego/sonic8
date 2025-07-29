@@ -27,7 +27,7 @@ import useConfig from 'hooks/useConfig';
 import { IconLogout, IconSettings, IconUser, IconDatabase, IconAntennaBars5 } from '@tabler/icons-react';
 
 // Updated to new icon
-const SonicBurstIcon = '/static/images/super_sonic.png';
+const SonicBurstIcon = '/static/images/bubba_icon.png';
 
 
 // SettingsSection component
@@ -97,7 +97,7 @@ export default function SettingsSection() {
         icon={
           <Avatar
             src={SonicBurstIcon} // replaced icon clearly
-            alt="sonic-icon"
+            alt="bubba-icon"
             sx={{
               ...theme.typography.mediumAvatar,
               margin: '8px 0 8px 8px !important',
