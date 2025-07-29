@@ -6,6 +6,10 @@ import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 
 // project imports
 import { ThemeMode } from 'config';
@@ -34,6 +38,16 @@ export default function CycloneRunSection() {
   const dispatch = useDispatch();
   const { cycloneRefreshDelay = 6000 } = useConfig();
   const [sonicRunning, setSonicRunning] = useState(false);
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  const menuOpen = Boolean(menuAnchorEl);
+
+  /* ----------  update-menu helpers ---------- */
+  const handleMenuOpen = (event) => setMenuAnchorEl(event.currentTarget);
+  const handleMenuClose = () => setMenuAnchorEl(null);
+  const withMenuClose = (fn) => () => {
+    handleMenuClose();
+    fn();
+  };
 
   const avatarSX = {
     ...theme.typography.commonAvatar,
@@ -249,32 +263,37 @@ export default function CycloneRunSection() {
             />
           </Avatar>
         </Tooltip>
-        <Tooltip title="Price Update">
-          <Avatar variant="rounded" sx={avatarSX} onClick={handlePriceUpdate}>
+        {/* single “Update“ avatar that shows the dropdown */}
+        <Tooltip title="Update">
+          <Avatar variant="rounded" sx={avatarSX} onClick={handleMenuOpen}>
             <IconRefresh size="20px" />
           </Avatar>
         </Tooltip>
-        <Tooltip title="Position Update">
-          <Avatar variant="rounded" sx={avatarSX} onClick={handlePositionUpdate}>
-            <IconEdit size="20px" />
-          </Avatar>
-        </Tooltip>
-        <Tooltip title="Delete">
-          <Avatar variant="rounded" sx={avatarSX} onClick={handleDeleteAllData}>
-            <IconTrash size="20px" />
-          </Avatar>
-        </Tooltip>
 
-
-
-
-
-
-        <Tooltip title="Full Cyclone">
-          <Avatar variant="rounded" sx={avatarSX} onClick={handleFullCycle}>
-            <IconTornado size="20px" />
-          </Avatar>
-        </Tooltip>
+        <Menu
+          anchorEl={menuAnchorEl}
+          open={menuOpen}
+          onClose={handleMenuClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <MenuItem onClick={withMenuClose(handleDeleteAllData)}>
+            <ListItemIcon><IconTrash size="18px" /></ListItemIcon>
+            <ListItemText primary="Delete\u202fAll" />
+          </MenuItem>
+          <MenuItem onClick={withMenuClose(handlePositionUpdate)}>
+            <ListItemIcon><IconEdit size="18px" /></ListItemIcon>
+            <ListItemText primary="Update\u202fPositions" />
+          </MenuItem>
+          <MenuItem onClick={withMenuClose(handlePriceUpdate)}>
+            <ListItemIcon><IconRefresh size="18px" /></ListItemIcon>
+            <ListItemText primary="Update\u202fPrices" />
+          </MenuItem>
+          <MenuItem onClick={withMenuClose(handleFullCycle)}>
+            <ListItemIcon><IconTornado size="18px" /></ListItemIcon>
+            <ListItemText primary="Cyclone\u202fCycle" />
+          </MenuItem>
+        </Menu>
       </Stack>
     </Box>
   );
