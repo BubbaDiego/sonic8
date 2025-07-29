@@ -182,7 +182,7 @@ reportWebVitals();
 
 - `README.md` contains setup inst[data_locker.py](../backend/data/data_locker.py)ructions including backend and frontend launch commands.
 - `launch_pad.py` starts both services for local development.
-- Multiple `*_spec.md` files under `backend/core/` provide detailed design notes for each subsystem. Additional docs such as `docs/alert_v2_spec.md` and `docs/alert_v2_hybrid_spec.md` describe the evolving alert data model.
+- Multiple `*_spec.md` files under `backend/core/` provide detailed design notes for each subsystem.
 - `docs/repo_map.md` enumerates the complete repository tree for reference.
 
 ### Test Harness
