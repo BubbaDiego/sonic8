@@ -19,8 +19,11 @@ clone (e.g. ``sonic2``) can load mismatched modules and cause import errors.
 ```bash
 python backend/scripts/create_virtual_env.py
 .venv/bin/pip install -r requirements.txt  # ``.venv\Scripts\pip`` on Windows
+.venv/bin/playwright install  # download browsers required for AutoCore features and backend tests that rely on Playwright
 uvicorn backend.sonic_backend_app:app --app-dir backend --host 0.0.0.0 --port 5000 --reload
 ```
+
+`playwright install` downloads the browsers needed by AutoCore features and backend tests that rely on Playwright.
 
 The backend expects several JSON configuration files under
 `backend/config/`. The repo includes empty placeholders for most of them,
@@ -256,9 +259,12 @@ requirements before running Pytest:
 ```bash
 python backend/scripts/create_virtual_env.py
 .venv/bin/pip install -r requirements.txt  # .venv\Scripts\pip on Windows
+.venv/bin/playwright install  # download browsers required for AutoCore features and backend tests that rely on Playwright
 .venv/bin/pip install -r requirements-dev.txt
 pytest
 ```
+
+`playwright install` downloads the browsers needed by AutoCore features and backend tests that rely on Playwright.
 
 Run `pip install -r requirements.txt` whenever the dependencies change so
 Pytest can locate modules such as `cyclone`, `monitor` and `data`.
