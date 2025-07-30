@@ -44,7 +44,11 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
 
       <Box sx={{ flexGrow: 1 }} />
 
-      <MonitorUpdateBar cfg={normCfg.notifications} toggle={toggleNotification} />
+      <MonitorUpdateBar
+        cfg={normCfg.notifications}
+        toggle={toggleNotification}
+        sx={{ mx: 2, mb: 2 }}
+      />
     </Card>
   );
 }

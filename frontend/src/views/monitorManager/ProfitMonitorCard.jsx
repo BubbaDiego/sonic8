@@ -104,8 +104,15 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
           </Grid>
         </Grid>
 
-        <MonitorUpdateBar cfg={normCfg.notifications} toggle={toggleNotification} />
       </CardContent>
+
+      <Box sx={{ flexGrow: 1 }} />
+
+      <MonitorUpdateBar
+        cfg={normCfg.notifications}
+        toggle={toggleNotification}
+        sx={{ mx: 2, mb: 2 }}
+      />
     </Card>
   );
 }

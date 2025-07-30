@@ -206,16 +206,21 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
           </TableBody>
         </Table>
 
-        <MonitorUpdateBar
-          cfg={normCfg.notifications}
-          toggle={(k) =>
-            setCfg((prev) => ({
-              ...prev,
-              notifications: { ...prev.notifications, [k]: !prev.notifications[k] }
-            }))
-          }
-        />
       </CardContent>
+
+      {/* spacer pushes the bar to the bottom */}
+      <Box sx={{ flexGrow: 1 }} />
+
+      <MonitorUpdateBar
+        cfg={normCfg.notifications}
+        toggle={(k) =>
+          setCfg(prev => ({
+            ...prev,
+            notifications: { ...prev.notifications, [k]: !prev.notifications[k] }
+          }))
+        }
+        sx={{ mx: 2, mb: 2 }}
+      />
     </Card>
   );
 }
