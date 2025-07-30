@@ -47,6 +47,10 @@ class PlaywrightHelper:
         except Exception as e:  # pragma: no cover - startup issues depend on env
             msg = "Playwright failed to start – are browsers installed?"
             log.error(f"{msg}: {e}", source="PlaywrightHelper")
+            if "executable doesn't exist" in str(e).lower():
+                raise RuntimeError(
+                    "Playwright browsers not installed. Run 'playwright install' and retry."
+                ) from e
             raise
 
     async def __aexit__(self, exc_type, exc, tb):
