@@ -5,12 +5,9 @@ import asyncio
 
 # --- WINDOWS EVENT‑LOOP PATCH --------------------------------------------- #
 
-if sys.platform == "win32":                       # only needed on Windows
+# Only needed on Windows: Playwright requires the selector loop
+if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-# --------------------------------------------------------------------------- #
-
-if sys.platform.startswith("win"):
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 try:  # pragma: no cover - optional dependency
     from dotenv import load_dotenv
