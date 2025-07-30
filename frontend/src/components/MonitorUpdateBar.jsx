@@ -21,9 +21,22 @@ const ITEMS = [
   { key: 'tts',    label: 'TTS',    icon: CampaignIcon,       color: 'error'   }
 ];
 
-export default function MonitorUpdateBar({ cfg = {}, toggle }) {
+export default function MonitorUpdateBar({ cfg = {}, toggle, sx = {} }) {
   return (
-    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+    <Box
+      /* framed wrapper */
+      sx={{
+        mt: 3,
+        p: 2,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        backgroundColor: 'background.paper',
+        display: 'flex',
+        justifyContent: 'center',
+        ...sx
+      }}
+    >
       <Stack direction="row" spacing={3}>
         {ITEMS.map(({ key, label, icon: Icon, color }) => (
           <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
