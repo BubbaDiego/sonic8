@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from pydantic import BaseModel
 from backend.core.auto_core import AutoCore
 from backend.core.auto_core.requests.web_browser import WebBrowserRequest
@@ -18,6 +19,9 @@ async def open_browser(req: BrowserOpenRequest):
     try:
         result = await core.run(WebBrowserRequest(url=req.url or "https://example.org"))
         return result
+    except RuntimeError as e:
+        log.error(f"open_browser failed: {e}", source="auto_core_api")
+        raise HTTPException(status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     except Exception as e:
         log.error(f"open_browser failed: {e}", source="auto_core_api")
         raise HTTPException(status_code=500, detail=str(e))
