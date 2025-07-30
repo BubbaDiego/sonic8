@@ -10,10 +10,11 @@ None of that is necessary for the v1 spike.
 """
 from pathlib import Path
 from typing import List
+import os
 from playwright.async_api import async_playwright, Browser, Page
 from backend.core.logging import log
 
-SOLFLARE_CRX = Path("alpha/jupiter_core/solflare_extension.crx")
+SOLFLARE_CRX = Path(os.getenv("SOLFLARE_CRX", "alpha/jupiter_core/solflare_extension.crx"))
 USER_DATA_DIR = Path(".cache/solflare_profile")  # persisted between runs
 
 
@@ -26,13 +27,21 @@ class PlaywrightHelper:
     async def __aenter__(self):
         try:
             self._play = await async_playwright().start()
+            args = []
+            if SOLFLARE_CRX.exists():
+                args.extend([
+                    f"--disable-extensions-except={SOLFLARE_CRX}",
+                    f"--load-extension={SOLFLARE_CRX}",
+                ])
+            else:
+                log.warning(
+                    f"Solflare extension not found at {SOLFLARE_CRX}; running without it",
+                    source="PlaywrightHelper",
+                )
             self._browser = await self._play.chromium.launch_persistent_context(
                 USER_DATA_DIR,
                 headless=self.headless,
-                args=[
-                    f"--disable-extensions-except={SOLFLARE_CRX}",
-                    f"--load-extension={SOLFLARE_CRX}",
-                ],
+                args=args,
             )
             return self
         except Exception as e:  # pragma: no cover - startup issues depend on env
