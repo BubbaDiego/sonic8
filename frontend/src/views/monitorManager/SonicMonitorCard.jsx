@@ -105,53 +105,63 @@ export default function SonicMonitorCard({
         }
       />
       <CardContent>
+        {/* Two‑by‑two control grid */}
         <Grid container spacing={2}>
+          {/* ── Row 1 ───────────────────────────────── */}
           <Grid item xs={6}>
-            <Stack spacing={2}>
-              <TextField
-                label={
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography>Sonic Loop</Typography>
-                    <img src="/images/hedgehog_icon.png" width={16} alt="Loop" />
-                  </Stack>
-                }
-                type="number"
-                value={loopSec}
-                onChange={onLoopChange}
-              />
-            </Stack>
+            <TextField
+              fullWidth
+              label={
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography>Sonic Loop</Typography>
+                  <img src="/images/hedgehog_icon.png" width={16} alt="Loop" />
+                </Stack>
+              }
+              type="number"
+              value={loopSec}
+              onChange={onLoopChange}
+            />
           </Grid>
+          <Grid
+            item
+            xs={6}
+            sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}
+          >
+            <Button variant="contained" onClick={saveAll}>
+              Save All
+            </Button>
+          </Grid>
+
+          {/* ── Row 2 ───────────────────────────────── */}
           <Grid item xs={6}>
-            <Stack spacing={2}>
-              <TextField
-                label={
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography>Snooze</Typography>
-                    <img src="/images/zzz_icon.png" width={16} alt="Zzz" />
-                  </Stack>
-                }
-                type="number"
-                name="snooze_seconds"
-                value={snooze}
-                onChange={onChange}
-              />
-              {running ? (
-                <CircularCountdown remaining={remaining} total={snooze || 1} />
-              ) : (
-                <Button variant="outlined" onClick={start}>
-                  Start Snooze Countdown
-                </Button>
-              )}
-            </Stack>
+            <TextField
+              fullWidth
+              label={
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography>Snooze</Typography>
+                  <img src="/images/zzz_icon.png" width={16} alt="Zzz" />
+                </Stack>
+              }
+              type="number"
+              name="snooze_seconds"
+              value={snooze}
+              onChange={onChange}
+            />
+          </Grid>
+          <Grid
+            item
+            xs={6}
+            sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}
+          >
+            {running ? (
+              <CircularCountdown remaining={remaining} total={snooze || 1} />
+            ) : (
+              <Button variant="outlined" onClick={start}>
+                Snooze
+              </Button>
+            )}
           </Grid>
         </Grid>
-
-        {/* Save-all lives here now */}
-        <Box sx={{ mt: 3, textAlign: 'right' }}>
-          <Button variant="contained" onClick={saveAll}>
-            Save All
-          </Button>
-        </Box>
 
         {/* Monitor enable / disable buttons */}
         <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
