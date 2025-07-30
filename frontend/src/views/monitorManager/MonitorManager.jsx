@@ -14,6 +14,7 @@ import MarketMonitorCard      from './MarketMonitorCard';
 // Width of the first (left) column.  Reduced by 25% from the previous
 // 600 px => 450 px to give the right column more breathing room.
 export const COLUMN_A_WIDTH = 450; // px
+export const COLUMN_B_WIDTH = 450; // px – width of second column
 export const ROW_A_HEIGHT   = 380; // px – height of first row
 export const ROW_B_HEIGHT   = 540; // px – height of second row
 export const GRID_GAP       = 24;  // px – gap between cards
@@ -71,7 +72,7 @@ export default function MonitorManager() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: `${COLUMN_A_WIDTH}px 1fr`,
+          gridTemplateColumns: `${COLUMN_A_WIDTH}px ${COLUMN_B_WIDTH}px`,
           gridTemplateRows: `${ROW_A_HEIGHT}px ${ROW_B_HEIGHT}px`,
           gap: `${GRID_GAP}px`,
           width: '100%',
@@ -97,8 +98,6 @@ export default function MonitorManager() {
             blast={marketCfg.blast_radius}
             nearest={nearestLiq}
             disabled={!liqCfg.enabled_liquid}
-            monitors={liqCfg}
-            setMonitors={setLiqCfg}
           />
         </Box>
 
@@ -108,8 +107,6 @@ export default function MonitorManager() {
             cfg={profitCfg}
             setCfg={setProfitCfg}
             disabled={!liqCfg.enabled_profit}
-            monitors={liqCfg}
-            setMonitors={setLiqCfg}
           />
         </Box>
 
@@ -120,8 +117,6 @@ export default function MonitorManager() {
             setCfg={setMarketCfg}
             live={pctMoves}
             disabled={!liqCfg.enabled_market}
-            monitors={liqCfg}
-            setMonitors={setLiqCfg}
           />
         </Box>
       </Box>

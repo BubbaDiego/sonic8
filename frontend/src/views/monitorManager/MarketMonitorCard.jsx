@@ -1,43 +1,68 @@
-import React from 'react';
-import {
-  Card,
-  CardHeader,
-  CardContent,
-  Typography,
-  Stack,
-  Box,
-  Button,
-  Divider
-} from '@mui/material';
+import React, { useMemo } from 'react';
+import { Card, CardHeader, CardContent, Typography, Stack, Box, Button } from '@mui/material';
 import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
-import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
-import WaterDropIcon from '@mui/icons-material/WaterDrop';
-import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
+import MemoryIcon from '@mui/icons-material/Memory';
+import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
+import SmsIcon from '@mui/icons-material/Sms';
+import CampaignIcon from '@mui/icons-material/Campaign';
 
 import MarketMovementCard from '../../components/MarketMovementCard';
 
-export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false, monitors, setMonitors }) {
-  const toggleMonitor = (key) => {
-    setMonitors(prev => ({ ...prev, [`enabled_${key}`]: !prev[`enabled_${key}`] }));
+function NotificationBar({ cfg, toggle }) {
+  const items = [
+    { key: 'system', label: 'System', icon: MemoryIcon, color: 'info' },
+    { key: 'voice', label: 'Voice', icon: RecordVoiceOverIcon, color: 'success' },
+    { key: 'sms', label: 'SMS', icon: SmsIcon, color: 'warning' },
+    { key: 'tts', label: 'TTS', icon: CampaignIcon, color: 'error' }
+  ];
+
+  return (
+    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+      <Stack direction="row" spacing={3}>
+        {items.map(({ key, label, icon: Icon, color }) => (
+          <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Button size="small" variant={cfg[key] ? 'contained' : 'outlined'} onClick={() => toggle(key)}>
+              {label}
+            </Button>
+            <Icon fontSize="small" sx={{ mt: 0.5 }} color={cfg[key] ? color : 'disabled'} />
+          </Box>
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
+export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false }) {
+  const normCfg = useMemo(
+    () => ({
+      notifications: {
+        system: true,
+        voice: true,
+        sms: false,
+        tts: true,
+        ...(cfg.notifications || {})
+      },
+      ...cfg
+    }),
+    [cfg]
+  );
+
+  const toggleNotification = (key) => {
+    setCfg(prev => ({
+      ...prev,
+      notifications: { ...prev.notifications, [key]: !prev.notifications[key] }
+    }));
   };
 
   return (
-    <Card
-      variant="outlined"
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        opacity: disabled ? 0.4 : 1,
-        pointerEvents: disabled ? 'none' : 'auto',
-        transition: 'opacity 0.2s ease'
-      }}
-    >
+    <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', height: '100%', opacity: disabled ? 0.4 : 1 }}>
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h4" fontWeight={600}>Market Monitor</Typography>
-            <ShowChartTwoToneIcon fontSize="small" />
+            <Typography variant="h4" fontWeight={700} sx={{ fontSize: '1.6rem' }}>
+              Market Monitor
+            </Typography>
+            <ShowChartTwoToneIcon fontSize="medium" />
           </Stack>
         }
       />
@@ -46,37 +71,8 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
       </CardContent>
 
       <Box sx={{ flexGrow: 1 }} />
-      <Divider sx={{ my: 2 }} />
 
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-around',
-          alignItems: 'flex-end',
-          gap: 3,
-          px: 1,
-          pb: 2
-        }}
-      >
-        {[
-          { key: 'sonic', label: 'Sonic', icon: SettingsTwoToneIcon },
-          { key: 'liquid', label: 'Liquid', icon: WaterDropIcon },
-          { key: 'profit', label: 'Profit', icon: TrendingUpTwoToneIcon },
-          { key: 'market', label: 'Market', icon: ShowChartTwoToneIcon }
-        ].map(({ key, label, icon: Icon }) => (
-          <Stack key={key} spacing={0.5} sx={{ minWidth: 64, alignItems: 'center' }}>
-            <Button
-              size="small"
-              variant={monitors[`enabled_${key}`] ? 'contained' : 'outlined'}
-              sx={{ px: 2, minWidth: 'auto' }}
-              onClick={() => toggleMonitor(key)}
-            >
-              {label}
-            </Button>
-            <Icon fontSize="medium" color={monitors[`enabled_${key}`] ? 'primary' : 'disabled'} />
-          </Stack>
-        ))}
-      </Box>
+      <NotificationBar cfg={normCfg.notifications} toggle={toggleNotification} />
     </Card>
   );
 }
