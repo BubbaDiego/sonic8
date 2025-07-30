@@ -59,6 +59,10 @@ class MonitorStatus(BaseModel):
 
     sonic_next: Optional[int] = Field(0, description="Seconds until the next Sonic monitor run")
     liquid_snooze: Optional[int] = Field(0, description="Seconds remaining for liquidation snooze timer")
+    sonic_last_complete: Optional[str] = Field(
+        None,
+        description="Timestamp of the last successful Sonic monitor completion in UTC ISO format",
+    )
 
     def update_monitor(self, monitor_type: MonitorType, status: MonitorHealth, metadata: Dict = None):
         """
@@ -103,5 +107,6 @@ class MonitorStatus(BaseModel):
                 } for monitor, detail in self.monitors.items()
             },
             "sonic_next": self.sonic_next,
-            "liquid_snooze": self.liquid_snooze
+            "liquid_snooze": self.liquid_snooze,
+            "sonic_last_complete": self.sonic_last_complete,
         }

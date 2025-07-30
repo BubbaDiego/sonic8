@@ -134,9 +134,9 @@ def main():
             loop_counter += 1
 
             start_time = time.time()
-            update_heartbeat(MONITOR_NAME, interval)
             try:
                 loop.run_until_complete(sonic_cycle(loop_counter, cyclone))
+                update_heartbeat(MONITOR_NAME, interval)
                 write_ledger("Success")
             except Exception as exc:
                 logging.exception("SonicMonitor cycle failure")
