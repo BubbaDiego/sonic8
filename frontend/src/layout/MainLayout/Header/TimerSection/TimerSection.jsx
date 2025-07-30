@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Box, Stack, Popover, Typography, Button } from '@mui/material';
 import DonutCountdown from './DonutCountdown';
 import axios from 'utils/axios';
@@ -25,6 +25,9 @@ export default function TimerSection() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [activeLabel, setActiveLabel] = useState('');
 
+  // Track the last sonic completion timestamp we've seen
+  const lastSonicCompleteRef = useRef(null);
+
   const openPopover = Boolean(anchorEl);
 
   // ---------------- Fetch snooze duration once on mount ---------------
@@ -48,6 +51,18 @@ export default function TimerSection() {
         const now = Date.now();
         setSonicNextTs(now + (data?.sonic_next ?? 0) * 1000);
         setSnoozeEndTs(now + (data?.liquid_snooze ?? 0) * 1000);
+
+        // Detect Sonic completion and trigger refresh if changed
+        const lastComplete = data?.sonic_last_complete ?? null;
+        if (lastSonicCompleteRef.current === null) {
+          lastSonicCompleteRef.current = lastComplete;
+        } else if (lastComplete && lastComplete !== lastSonicCompleteRef.current) {
+          lastSonicCompleteRef.current = lastComplete;
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+          refreshMonitorStatus();
+        }
       } catch (err) {
         console.error('Failed to fetch monitor status:', err);
       }
