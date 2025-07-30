@@ -97,6 +97,8 @@ export default function MonitorManager() {
             blast={marketCfg.blast_radius}
             nearest={nearestLiq}
             disabled={!liqCfg.enabled_liquid}
+            monitors={liqCfg}
+            setMonitors={setLiqCfg}
           />
         </Box>
 
@@ -106,6 +108,8 @@ export default function MonitorManager() {
             cfg={profitCfg}
             setCfg={setProfitCfg}
             disabled={!liqCfg.enabled_profit}
+            monitors={liqCfg}
+            setMonitors={setLiqCfg}
           />
         </Box>
 
@@ -116,6 +120,8 @@ export default function MonitorManager() {
             setCfg={setMarketCfg}
             live={pctMoves}
             disabled={!liqCfg.enabled_market}
+            monitors={liqCfg}
+            setMonitors={setLiqCfg}
           />
         </Box>
       </Box>
