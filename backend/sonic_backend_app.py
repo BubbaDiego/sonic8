@@ -1,6 +1,10 @@
 import sys
 import os
 from pathlib import Path
+import asyncio
+
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 try:  # pragma: no cover - optional dependency
     from dotenv import load_dotenv
