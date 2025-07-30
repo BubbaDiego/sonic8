@@ -15,13 +15,13 @@ const menuItems = {
       type: 'group',
       children: [
         sonic,
-        dashboardDefault,
+        monitorManager,
         positions,
         walletManager,
-        monitorManager,
         kanban,
         sonicLabs,
-        traderFactory
+        traderFactory,
+        dashboardDefault
       ]
     }
   ]
