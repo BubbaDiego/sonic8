@@ -4,7 +4,7 @@
 * Buttons now `size="small"` with tighter padding (`px:2`), while icons use `fontSize="medium"` for better emphasis.
 
 Apply:
-
+[sonic_backend_app.py](../backend/sonic_backend_app.py)
 ```bash
 git apply SonicMonitorCard-toggle-container.patch
 ```

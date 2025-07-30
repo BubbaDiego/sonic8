@@ -3,6 +3,12 @@ import os
 from pathlib import Path
 import asyncio
 
+# --- WINDOWS EVENT‑LOOP PATCH --------------------------------------------- #
+
+if sys.platform == "win32":                       # only needed on Windows
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+# --------------------------------------------------------------------------- #
+
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
