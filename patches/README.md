@@ -1,14 +1,12 @@
-# Sonic Monitor – control layout update
+# Sonic Monitor – enable/disable button container
 
-* Snooze field now sits directly **under** the Sonic Loop field.
-* **Save All** button moved to the right of the Sonic Loop field.
-* Snooze action button renamed to **“Snooze”** and sits under **Save All**.
+* Wraps the four monitor toggles in a **Divider‑separated** container for clearer visual grouping.
+* Buttons now `size="small"` with tighter padding (`px:2`), while icons use `fontSize="medium"` for better emphasis.
 
-Apply with:
+Apply:
+
 ```bash
-unzip sonic_monitor_relayout.zip -d /tmp/patches
-cd <repo>
-git apply /tmp/patches/SonicMonitorCard.patch
+git apply SonicMonitorCard-toggle-container.patch
 ```
 
-Generated 2025-07-29 23:53 UTC
+Generated 2025-07-30 00:25 UTC
