@@ -268,3 +268,15 @@ pytest
 
 Run `pip install -r requirements.txt` whenever the dependencies change so
 Pytest can locate modules such as `cyclone`, `monitor` and `data`.
+
+## AutoCore
+
+AutoCore uses Playwright to drive a Chromium browser with the Solflare wallet
+extension preloaded. Set the `SOLFLARE_CRX` environment variable to the
+extension's `.crx` file if you want to enable this behaviour.
+When the file is missing or the variable is unset, AutoCore starts without the
+extension loaded.
+
+```bash
+export SOLFLARE_CRX=/path/to/solflare_extension.crx
+```
