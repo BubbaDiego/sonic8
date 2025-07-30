@@ -24,7 +24,7 @@ import { openSnackbar } from 'store/slices/snackbar';
 
 // assets
 import { IconRefresh, IconEdit, IconTrash, IconTornado } from '@tabler/icons-react';
-const SonicBurstIcon = '/images/super_sonic.png';
+const SonicBurstIcon = '/static/images/super_sonic.png';
 
 export const spin = keyframes`
   from { transform: rotate(0deg); }
