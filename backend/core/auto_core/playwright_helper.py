@@ -11,6 +11,7 @@ None of that is necessary for the v1 spike.
 from pathlib import Path
 from typing import List
 from playwright.async_api import async_playwright, Browser, Page
+from backend.core.logging import log
 
 SOLFLARE_CRX = Path("alpha/jupiter_core/solflare_extension.crx")
 USER_DATA_DIR = Path(".cache/solflare_profile")  # persisted between runs
@@ -23,16 +24,21 @@ class PlaywrightHelper:
         self._browser: Browser | None = None
 
     async def __aenter__(self):
-        self._play = await async_playwright().start()
-        self._browser = await self._play.chromium.launch_persistent_context(
-            USER_DATA_DIR,
-            headless=self.headless,
-            args=[
-                f"--disable-extensions-except={SOLFLARE_CRX}",
-                f"--load-extension={SOLFLARE_CRX}",
-            ],
-        )
-        return self
+        try:
+            self._play = await async_playwright().start()
+            self._browser = await self._play.chromium.launch_persistent_context(
+                USER_DATA_DIR,
+                headless=self.headless,
+                args=[
+                    f"--disable-extensions-except={SOLFLARE_CRX}",
+                    f"--load-extension={SOLFLARE_CRX}",
+                ],
+            )
+            return self
+        except Exception as e:  # pragma: no cover - startup issues depend on env
+            msg = "Playwright failed to start – are browsers installed?"
+            log.error(f"{msg}: {e}", source="PlaywrightHelper")
+            raise
 
     async def __aexit__(self, exc_type, exc, tb):
         if self._browser:
