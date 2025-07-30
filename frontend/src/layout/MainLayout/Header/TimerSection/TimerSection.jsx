@@ -25,6 +25,8 @@ export default function TimerSection() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [activeLabel, setActiveLabel] = useState('');
 
+  const [lastSonicComplete, setLastSonicComplete] = useState(null);
+
   // Track the last sonic completion timestamp we've seen
   const lastSonicCompleteRef = useRef(null);
 
@@ -54,6 +56,7 @@ export default function TimerSection() {
 
         // Detect Sonic completion and trigger refresh if changed
         const lastComplete = data?.sonic_last_complete ?? null;
+        setLastSonicComplete(lastComplete);
         if (lastSonicCompleteRef.current === null) {
           lastSonicCompleteRef.current = lastComplete;
         } else if (lastComplete && lastComplete !== lastSonicCompleteRef.current) {
@@ -117,6 +120,10 @@ export default function TimerSection() {
     }
   };
 
+  const sonicTooltip = lastSonicComplete
+    ? `Last update: ${new Date(lastSonicComplete).toLocaleString()}`
+    : 'Last update: never';
+
   return (
     <>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mx: 1 }}>
@@ -126,6 +133,7 @@ export default function TimerSection() {
           label="Next Sonic"
           paletteKey="success"
           onClick={handleDonutClick('Next Sonic')}
+          tooltip={sonicTooltip}
         />
         <DonutCountdown
           remaining={snooze}

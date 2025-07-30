@@ -16,6 +16,7 @@ import NotificationsPausedIcon from '@mui/icons-material/NotificationsPaused';
  *  - size        : number (diameter in px, default 48)
  *  - thickness   : number (stroke width, default 4)
  *  - onClick     : function (optional click handler, e.g. to open a pop‑over)
+ *  - tooltip     : string (optional custom hover text)
  */
 function DonutCountdown({
   remaining,
@@ -25,13 +26,18 @@ function DonutCountdown({
   size = 48,
   thickness = 4,
   onClick,
+  tooltip,
 }) {
   const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
   const finished = remaining <= 0;
 
+  const defaultTitle = finished
+    ? `${label}: completed`
+    : `${label}: ${Math.floor(remaining)}s`;
+
   return (
     <Tooltip
-      title={finished ? `${label}: completed` : `${label}: ${Math.floor(remaining)}s`}
+      title={tooltip ?? defaultTitle}
       arrow
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
