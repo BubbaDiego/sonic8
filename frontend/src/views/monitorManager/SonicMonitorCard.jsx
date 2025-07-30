@@ -106,7 +106,7 @@ export default function SonicMonitorCard({
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h4" fontWeight={600}>
+            <Typography variant="h4" fontWeight={600} sx={{ fontSize: '1.6rem' }}>
               Sonic Monitor
             </Typography>
             <SettingsTwoToneIcon fontSize="small" />
