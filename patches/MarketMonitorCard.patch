@@ -1,0 +1,130 @@
+--- MarketMonitorCard.jsx
+
++++ MarketMonitorCard.jsx
+
+@@ -1,41 +1,67 @@
+
+-
+-import React from 'react';
++import React, { useMemo } from 'react';
+ import {
+-  Card,
+-  CardHeader,
+-  CardContent,
+-  Typography,
+-  Stack,
+-  Box,
+-  Button,
+-  Divider
++  Card, CardHeader, CardContent, Typography, Stack, Box, Button
+ } from '@mui/material';
+ import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
++import MemoryIcon from '@mui/icons-material/Memory';
++import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
++import SmsIcon from '@mui/icons-material/Sms';
++import CampaignIcon from '@mui/icons-material/Campaign';
++
+ import MarketMovementCard from '../../components/MarketMovementCard';
+ 
+-/**
+- * Simple wrapper so we have a named file‑level component. This keeps the
+- * existing MarketMovementCard (which already shows 1h/6h/24h moves) while
+- * aligning with the new card naming scheme requested by the user.
+- */
+-export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false, monitors, setMonitors }) {
++function NotificationBar({ cfg, toggle }) {
++  const items = [
++    { key: 'system', label: 'System', icon: MemoryIcon, color: 'info' },
++    { key: 'voice', label: 'Voice', icon: RecordVoiceOverIcon, color: 'success' },
++    { key: 'sms', label: 'SMS', icon: SmsIcon, color: 'warning' },
++    { key: 'tts', label: 'TTS', icon: CampaignIcon, color: 'error' }
++  ];
++
+   return (
+-    <Card
+-      variant="outlined"
+-      sx={{
+-        display: 'flex',
+-        flexDirection: 'column',
+-        height: '100%',
+-        opacity: disabled ? 0.4 : 1,
+-        pointerEvents: disabled ? 'none' : 'auto',
+-        transition: 'opacity 0.2s ease'
+-      }}
+-    >
++    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
++      <Stack direction="row" spacing={3}>
++        {items.map(({ key, label, icon: Icon, color }) => (
++          <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
++            <Button size="small" variant={cfg[key] ? 'contained' : 'outlined'} onClick={() => toggle(key)}>
++              {label}
++            </Button>
++            <Icon fontSize="small" sx={{ mt: 0.5 }} color={cfg[key] ? color : 'disabled'} />
++          </Box>
++        ))}
++      </Stack>
++    </Box>
++  );
++}
++
++export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false }) {
++  const normCfg = useMemo(() => ({
++    notifications: {
++      system: true,
++      voice: true,
++      sms: false,
++      tts: true,
++      ...(cfg.notifications || {})
++    },
++    ...cfg
++  }), [cfg]);
++
++  const toggleNotification = (key) => {
++    setCfg(prev => ({
++      ...prev,
++      notifications: { ...prev.notifications, [key]: !prev.notifications[key] }
++    }));
++  };
++
++  return (
++    <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', height: '100%', opacity: disabled ? 0.4 : 1 }}>
+       <CardHeader
+         title={
+           <Stack direction="row" spacing={1} alignItems="center">
+-            <Typography variant="h4" fontWeight={600}>Market Monitor</Typography>
+-            <ShowChartTwoToneIcon fontSize="small" />
++            <Typography variant="h4" fontWeight={700} sx={{ fontSize: '1.6rem' }}>
++              Market Monitor
++            </Typography>
++            <ShowChartTwoToneIcon fontSize="medium" />
+           </Stack>
+         }
+       />
+@@ -44,24 +70,8 @@
+
+       </CardContent>
+ 
+       <Box sx={{ flexGrow: 1 }} />
+-      <Divider sx={{ my: 1 }} />
+-      <Box sx={{ display: 'flex', justifyContent: 'space-around', pb: 2 }}>
+-        {['sonic', 'liquid', 'profit', 'market'].map((key) => (
+-          <Button
+-            key={key}
+-            size="small"
+-            variant={monitors[`enabled_${key}`] ? 'contained' : 'outlined'}
+-            onClick={() =>
+-              setMonitors((prev) => ({
+-                ...prev,
+-                [`enabled_${key}`]: !prev[`enabled_${key}`]
+-              }))
+-            }
+-          >
+-            {key.charAt(0).toUpperCase() + key.slice(1)}
+-          </Button>
+-        ))}
+-      </Box>
++
++      <NotificationBar cfg={normCfg.notifications} toggle={toggleNotification} />
+     </Card>
+   );
+ }

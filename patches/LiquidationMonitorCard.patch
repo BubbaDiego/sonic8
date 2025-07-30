@@ -1,14 +1,14 @@
---- SonicMonitorCard.jsx
+--- LiquidationMonitorCard.jsx
 
-+++ SonicMonitorCard.jsx
++++ LiquidationMonitorCard.jsx
 
-@@ -106,7 +106,7 @@
+@@ -150,7 +150,7 @@
 
        <CardHeader
          title={
            <Stack direction="row" spacing={1} alignItems="center">
 -            <Typography variant="h4" fontWeight={600}>
 +            <Typography variant="h4" fontWeight={600} sx={{ fontSize: \'1.6rem\' }}>
-               Sonic Monitor
+               Liquidation Monitor
              </Typography>
-             <SettingsTwoToneIcon fontSize="small" />
+             <WaterDropIcon fontSize="small" color="primary" />

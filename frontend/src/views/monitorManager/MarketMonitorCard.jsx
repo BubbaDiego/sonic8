@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   Card,
@@ -11,14 +10,17 @@ import {
   Divider
 } from '@mui/material';
 import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
+import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
+
 import MarketMovementCard from '../../components/MarketMovementCard';
 
-/**
- * Simple wrapper so we have a named file‑level component. This keeps the
- * existing MarketMovementCard (which already shows 1h/6h/24h moves) while
- * aligning with the new card naming scheme requested by the user.
- */
 export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false, monitors, setMonitors }) {
+  const toggleMonitor = (key) => {
+    setMonitors(prev => ({ ...prev, [`enabled_${key}`]: !prev[`enabled_${key}`] }));
+  };
+
   return (
     <Card
       variant="outlined"
@@ -44,22 +46,35 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
       </CardContent>
 
       <Box sx={{ flexGrow: 1 }} />
-      <Divider sx={{ my: 1 }} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-around', pb: 2 }}>
-        {['sonic', 'liquid', 'profit', 'market'].map((key) => (
-          <Button
-            key={key}
-            size="small"
-            variant={monitors[`enabled_${key}`] ? 'contained' : 'outlined'}
-            onClick={() =>
-              setMonitors((prev) => ({
-                ...prev,
-                [`enabled_${key}`]: !prev[`enabled_${key}`]
-              }))
-            }
-          >
-            {key.charAt(0).toUpperCase() + key.slice(1)}
-          </Button>
+      <Divider sx={{ my: 2 }} />
+
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-around',
+          alignItems: 'flex-end',
+          gap: 3,
+          px: 1,
+          pb: 2
+        }}
+      >
+        {[
+          { key: 'sonic', label: 'Sonic', icon: SettingsTwoToneIcon },
+          { key: 'liquid', label: 'Liquid', icon: WaterDropIcon },
+          { key: 'profit', label: 'Profit', icon: TrendingUpTwoToneIcon },
+          { key: 'market', label: 'Market', icon: ShowChartTwoToneIcon }
+        ].map(({ key, label, icon: Icon }) => (
+          <Stack key={key} spacing={0.5} sx={{ minWidth: 64, alignItems: 'center' }}>
+            <Button
+              size="small"
+              variant={monitors[`enabled_${key}`] ? 'contained' : 'outlined'}
+              sx={{ px: 2, minWidth: 'auto' }}
+              onClick={() => toggleMonitor(key)}
+            >
+              {label}
+            </Button>
+            <Icon fontSize="medium" color={monitors[`enabled_${key}`] ? 'primary' : 'disabled'} />
+          </Stack>
         ))}
       </Box>
     </Card>

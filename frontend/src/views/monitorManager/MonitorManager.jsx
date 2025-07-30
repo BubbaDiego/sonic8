@@ -15,7 +15,7 @@ import MarketMonitorCard      from './MarketMonitorCard';
 // 600 px => 450 px to give the right column more breathing room.
 export const COLUMN_A_WIDTH = 450; // px
 export const ROW_A_HEIGHT   = 380; // px – height of first row
-export const ROW_B_HEIGHT   = 340; // px – height of second row
+export const ROW_B_HEIGHT   = 540; // px – height of second row
 export const GRID_GAP       = 24;  // px – gap between cards
 /* ------------------------------------------------------------------ */
 
