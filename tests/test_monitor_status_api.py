@@ -19,8 +19,14 @@ def test_monitor_status_update(monkeypatch, tmp_path):
     assert resp.status_code == 200
     data = resp.json()
     assert data["monitors"]["Sonic Monitoring"]["status"] == "Offline"
+    assert data["sonic_last_complete"] is None
 
     dl.ledger.insert_ledger_entry("sonic_monitor", status="Success", metadata={})
+
+    resp = client.get("/monitor_status/")
+    assert resp.status_code == 200
+    updated = resp.json()
+    assert updated["sonic_last_complete"] is not None
 
     resp = client.get("/monitor_status/SONIC")
     assert resp.status_code == 200

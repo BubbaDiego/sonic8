@@ -79,11 +79,21 @@ def get_status(dl: DataLocker = Depends(get_app_locker)) -> MonitorStatus:
     except Exception:
         liquid_snooze = 0
 
+    try:
+        last_entry = dl.ledger.get_last_entry("sonic_monitor")
+        if last_entry and (last_entry.get("status") == "Success"):
+            sonic_last_complete = last_entry.get("timestamp")
+        else:
+            sonic_last_complete = None
+    except Exception:
+        sonic_last_complete = None
+
     # Return safely populated MonitorStatus
     return MonitorStatus(
         monitors=status_summary.monitors,
         sonic_next=sonic_next,
-        liquid_snooze=liquid_snooze
+        liquid_snooze=liquid_snooze,
+        sonic_last_complete=sonic_last_complete,
     )
 
 
