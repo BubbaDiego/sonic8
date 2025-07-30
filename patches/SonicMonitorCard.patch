@@ -8,7 +8,7 @@
 -        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
 -          <Stack direction="row" spacing={3}>
 -            {[
--              { key: 'sonic',  label: 'Sonic',  icon: SettingsTwoToneIcon },
+-              { key: 'sonic',  label: 'Sonic',  icon: SettingsTwoToneIcon },  
 -              { key: 'liquid', label: 'Liquid', icon: WaterDropIcon },
 -              { key: 'profit', label: 'Profit', icon: TrendingUpTwoToneIcon },
 -              { key: 'market', label: 'Market', icon: ShowChartTwoToneIcon }
