@@ -20,41 +20,13 @@ import TuneTwoToneIcon from '@mui/icons-material/TuneTwoTone';
 import InsightsTwoToneIcon from '@mui/icons-material/InsightsTwoTone';
 import BlurCircularTwoToneIcon from '@mui/icons-material/BlurCircularTwoTone';
 
-import MemoryIcon from '@mui/icons-material/Memory';
-import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
-import SmsIcon from '@mui/icons-material/Sms';
-import CampaignIcon from '@mui/icons-material/Campaign';
+// Notification icons removed – handled by shared component
+
+import MonitorUpdateBar from '../../components/MonitorUpdateBar';
 
 import btcLogo from '/images/btc_logo.png';
 import ethLogo from '/images/eth_logo.png';
 import solLogo from '/images/sol_logo.png';
-
-/* ------------------------------------------------------------------------- */
-/*  Helper components                                                         */
-/* ------------------------------------------------------------------------- */
-function NotificationBar({ cfg, toggle }) {
-  const items = [
-    { key: 'system', label: 'System', icon: MemoryIcon, color: 'info' },
-    { key: 'voice', label: 'Voice', icon: RecordVoiceOverIcon, color: 'success' },
-    { key: 'sms', label: 'SMS', icon: SmsIcon, color: 'warning' },
-    { key: 'tts', label: 'TTS', icon: CampaignIcon, color: 'error' }
-  ];
-
-  return (
-    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-      <Stack direction="row" spacing={3}>
-        {items.map(({ key, label, icon: Icon, color }) => (
-          <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Button size="small" variant={cfg[key] ? 'contained' : 'outlined'} onClick={() => toggle(key)}>
-              {label}
-            </Button>
-            <Icon fontSize="small" sx={{ mt: 0.5 }} color={cfg[key] ? color : 'disabled'} />
-          </Box>
-        ))}
-      </Stack>
-    </Box>
-  );
-}
 
 /* ------------------------------------------------------------------------- */
 /*  Constants                                                                 */
@@ -205,12 +177,21 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
                     </Stack>
                   </TableCell>
                   <TableCell align="center" sx={{ width: 170 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }} color={getDistColour(code)}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {/* plain number (theme text colour) */}
+                      <Box component="span" color="text.primary">
+                        {fmtDistance(code, dist)}
+                      </Box>
+
+                      {/* coloured percentage */}
                       {(() => {
-                        if (typeof dist !== 'number') return fmtDistance(code, dist);
                         const r = refRadius(code);
-                        if (r == null) return fmtDistance(code, dist);
-                        return `${fmtDistance(code, dist)} (${((dist / r) * 100).toFixed(1)}%)`;
+                        if (typeof dist !== 'number' || r == null) return null;
+                        return (
+                          <Box component="span" color={getDistColour(code)}>
+                            {` (${((dist / r) * 100).toFixed(1)}%)`}
+                          </Box>
+                        );
                       })()}
                     </Typography>
                   </TableCell>
@@ -225,7 +206,7 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
           </TableBody>
         </Table>
 
-        <NotificationBar
+        <MonitorUpdateBar
           cfg={normCfg.notifications}
           toggle={(k) =>
             setCfg((prev) => ({

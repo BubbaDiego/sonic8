@@ -3,37 +3,10 @@ import { Card, CardHeader, CardContent, Grid, Stack, TextField, Typography } fro
 
 import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 
-import MemoryIcon from '@mui/icons-material/Memory';
-import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
-import SmsIcon from '@mui/icons-material/Sms';
-import CampaignIcon from '@mui/icons-material/Campaign';
 import { Box, Button } from '@mui/material';
+import MonitorUpdateBar    from '../../components/MonitorUpdateBar';
 
 /* ------------------------------------------------------------------------- */
-function NotificationBar({ cfg, toggle }) {
-  const items = [
-    { key: 'system', label: 'System', icon: MemoryIcon, color: 'info' },
-    { key: 'voice', label: 'Voice', icon: RecordVoiceOverIcon, color: 'success' },
-    { key: 'sms', label: 'SMS', icon: SmsIcon, color: 'warning' },
-    { key: 'tts', label: 'TTS', icon: CampaignIcon, color: 'error' }
-  ];
-
-  return (
-    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-      <Stack direction="row" spacing={3}>
-        {items.map(({ key, label, icon: Icon, color }) => (
-          <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Button size="small" variant={cfg[key] ? 'contained' : 'outlined'} onClick={() => toggle(key)}>
-              {label}
-            </Button>
-            <Icon fontSize="small" sx={{ mt: 0.5 }} color={cfg[key] ? color : 'disabled'} />
-          </Box>
-        ))}
-      </Stack>
-    </Box>
-  );
-}
-
 /* ------------------------------------------------------------------------- */
 export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
   const normCfg = useMemo(
@@ -131,7 +104,7 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
           </Grid>
         </Grid>
 
-        <NotificationBar cfg={normCfg.notifications} toggle={toggleNotification} />
+        <MonitorUpdateBar cfg={normCfg.notifications} toggle={toggleNotification} />
       </CardContent>
     </Card>
   );
