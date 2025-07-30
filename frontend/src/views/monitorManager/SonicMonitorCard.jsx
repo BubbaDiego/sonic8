@@ -172,42 +172,53 @@ export default function SonicMonitorCard({
           </Grid>
         </Grid>
 
-        {/* ───────── Enable / disable toggles ───────── */}
+        {/* divider stays, but toggle bar moves below the content */}
         <Divider sx={{ mt: 4, mb: 2 }} />
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-around',
-            alignItems: 'flex-start',
-            flexWrap: 'wrap',
-            gap: 3,
-            px: 1
-          }}
-        >
-          {[
-            { key: 'sonic',  label: 'Sonic',  icon: SettingsTwoToneIcon },
-            { key: 'liquid', label: 'Liquid', icon: WaterDropIcon },
-            { key: 'profit', label: 'Profit', icon: TrendingUpTwoToneIcon },
-            { key: 'market', label: 'Market', icon: ShowChartTwoToneIcon }
-          ].map(({ key, label, icon: Icon }) => (
-            <Stack
-              key={key}
-              spacing={0.5}
-              sx={{ minWidth: 64, alignItems: 'center' }}
-            >
-              <Button
-                size="small"
-                variant={monitors[key] ? 'contained' : 'outlined'}
-                sx={{ px: 2, minWidth: 'auto' }}
-                onClick={() => toggleMonitor(key)}
-              >
-                {label}
-              </Button>
-              <Icon fontSize="medium" color={monitors[key] ? 'primary' : 'disabled'} />
-            </Stack>
-          ))}
-        </Box>
       </CardContent>
+
+      {/* spacer forces the next box to the card's foot */}
+      <Box sx={{ flexGrow: 1 }} />
+
+      {/* ───────── Enable / disable toggles (framed) ───────── */}
+      <Box
+        sx={{
+          mx: 2,
+          mb: 2,
+          p: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          backgroundColor: 'background.paper',
+          display: 'flex',
+          justifyContent: 'space-around',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 3
+        }}
+      >
+        {[
+          { key: 'sonic',  label: 'Sonic',  icon: SettingsTwoToneIcon },
+          { key: 'liquid', label: 'Liquid', icon: WaterDropIcon },
+          { key: 'profit', label: 'Profit', icon: TrendingUpTwoToneIcon },
+          { key: 'market', label: 'Market', icon: ShowChartTwoToneIcon }
+        ].map(({ key, label, icon: Icon }) => (
+          <Stack
+            key={key}
+            spacing={0.5}
+            sx={{ minWidth: 64, alignItems: 'center' }}
+          >
+            <Button
+              size="small"
+              variant={monitors[key] ? 'contained' : 'outlined'}
+              sx={{ px: 2, minWidth: 'auto' }}
+              onClick={() => toggleMonitor(key)}
+            >
+              {label}
+            </Button>
+            <Icon fontSize="medium" color={monitors[key] ? 'primary' : 'disabled'} />
+          </Stack>
+        ))}
+      </Box>
     </Card>
   );
 }
