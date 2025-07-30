@@ -145,7 +145,6 @@ export default function SettingsSection() {
                           </Typography>
                         </Stack>
                         {/* ---------- end dynamic greeting ---------- */}
-                        <Typography variant="subtitle2">Project Admin</Typography>
                       </Stack>
                       <Divider />
                     </Box>
