@@ -27,7 +27,11 @@ export default function MonitorUpdateBar({ cfg = {}, toggle, sx = {} }) {
       /* framed wrapper */
       sx={{
         mt: 3,
-        p: 2,
+        // Standard padding with slightly reduced bottom space
+        // Tweak `pb` to adjust the bottom padding if needed
+        pt: 2,
+        pb: 1.5,
+        px: 2,
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 1,
