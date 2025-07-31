@@ -278,20 +278,28 @@ export default function CycloneRunSection() {
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         >
           <MenuItem onClick={withMenuClose(handleDeleteAllData)}>
-            <ListItemIcon><IconTrash size="18px" /></ListItemIcon>
-            <ListItemText primary="Delete\u202fAll" />
+            <ListItemIcon>
+              <IconTrash size="18px" />
+            </ListItemIcon>
+            <ListItemText primary="Delete" />
           </MenuItem>
           <MenuItem onClick={withMenuClose(handlePositionUpdate)}>
-            <ListItemIcon><IconEdit size="18px" /></ListItemIcon>
-            <ListItemText primary="Update\u202fPositions" />
+            <ListItemIcon>
+              <IconEdit size="18px" />
+            </ListItemIcon>
+            <ListItemText primary="Positions" />
           </MenuItem>
           <MenuItem onClick={withMenuClose(handlePriceUpdate)}>
-            <ListItemIcon><IconRefresh size="18px" /></ListItemIcon>
-            <ListItemText primary="Update\u202fPrices" />
+            <ListItemIcon>
+              <IconRefresh size="18px" />
+            </ListItemIcon>
+            <ListItemText primary="Prices" />
           </MenuItem>
           <MenuItem onClick={withMenuClose(handleFullCycle)}>
-            <ListItemIcon><IconTornado size="18px" /></ListItemIcon>
-            <ListItemText primary="Cyclone\u202fCycle" />
+            <ListItemIcon>
+              <IconTornado size="18px" />
+            </ListItemIcon>
+            <ListItemText primary="Cyclone" />
           </MenuItem>
         </Menu>
       </Stack>
