@@ -16,3 +16,9 @@ def test_sonic_cycle_runs_liquid_monitor():
     node = _get_sonic_cycle_node()
     consts = [n.value for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
     assert "liquid_monitor" in consts
+
+
+def test_sonic_cycle_uses_market_monitor():
+    node = _get_sonic_cycle_node()
+    consts = [n.value for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+    assert "market_monitor" in consts
