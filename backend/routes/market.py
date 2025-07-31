@@ -10,6 +10,7 @@ def market_latest(dl: DataLocker = Depends(get_app_locker)):
     row = dl.db.execute(
         "SELECT metadata FROM monitor_ledger "
         "WHERE monitor_name = 'market_monitor' "
+        "AND status = 'Success' "
         "ORDER BY created_at DESC LIMIT 1"
     ).fetchone()
     if not row:
