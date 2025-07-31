@@ -49,8 +49,17 @@ from backend.routes.liquidation_distance_api import router as liquidation_distan
 # 🔥 NEW ROUTER IMPORT
 from backend.routes.monitor_api_adapter import router as monitor_router
 from backend.routes.auto_core_api import router as auto_core_router
+from backend.core.fun_core.fun_router import router as fun_core_router
+try:
+    from backend.core.fun_core.monitor import prewarm
+except Exception:  # pragma: no cover - optional
+    prewarm = None
 
 app = FastAPI(title="Sonic API")
+
+if prewarm and os.getenv("FUN_CORE_MONITOR") == "1":
+    loop = asyncio.get_event_loop()
+    loop.create_task(prewarm())
 
 app.add_middleware(
     CORSMiddleware,
@@ -96,6 +105,7 @@ app.add_api_route("/monitor_status/", _monitor_status_get, methods=["GET"])
 # 🔥 REGISTER THE NEW ROUTER
 app.include_router(monitor_router)
 app.include_router(auto_core_router)
+app.include_router(fun_core_router)
 
 @app.get("/api/status")
 async def status():

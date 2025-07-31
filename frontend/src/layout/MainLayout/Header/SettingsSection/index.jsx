@@ -2,12 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import Avatar from '@mui/material/Avatar';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
+import FunCard from 'ui-component/fun/FunCard';
 import Chip from '@mui/material/Chip';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Divider from '@mui/material/Divider';
-import Grid from '@mui/material/Grid';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -15,7 +13,6 @@ import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import Popper from '@mui/material/Popper';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { FormattedMessage } from 'react-intl';
@@ -35,8 +32,6 @@ export default function SettingsSection() {
   const theme = useTheme();
   const { mode, borderRadius } = useConfig();
   const navigate = useNavigate();
-  const [sdm, setSdm] = useState(true);
-  const [notification, setNotification] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const { logout, user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -149,29 +144,7 @@ export default function SettingsSection() {
                       <Divider />
                     </Box>
                     <Box sx={{ p: 2, py: 0, height: '100%', overflowX: 'hidden' }}>
-                      <Card sx={{ bgcolor: mode === ThemeMode.DARK ? 'dark.800' : 'primary.light', my: 2 }}>
-                        <CardContent>
-                          <Grid container spacing={3} direction="column">
-                            <Grid container justifyContent="space-between" alignItems="center">
-                              <Typography variant="subtitle1">Start DND Mode</Typography>
-                              <Switch
-                                color="primary"
-                                checked={sdm}
-                                onChange={(e) => setSdm(e.target.checked)}
-                                size="small"
-                              />
-                            </Grid>
-                            <Grid container justifyContent="space-between" alignItems="center">
-                              <Typography variant="subtitle1">Allow Notifications</Typography>
-                              <Switch
-                                checked={notification}
-                                onChange={(e) => setNotification(e.target.checked)}
-                                size="small"
-                              />
-                            </Grid>
-                          </Grid>
-                        </CardContent>
-                      </Card>
+                      <FunCard />
                       <Divider />
                       <List sx={{ width: '100%', maxWidth: 350, borderRadius: `${borderRadius}px` }}>
                         <ListItemButton selected={selectedIndex === 0} onClick={(event) => handleListItemClick(event, 0)}>
