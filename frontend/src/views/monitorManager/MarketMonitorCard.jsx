@@ -31,7 +31,7 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h4" fontWeight={700} sx={{ fontSize: '1.6rem' }}>
+            <Typography variant="h4" fontWeight={700} sx={{ fontSize: '1.3rem' }}>
               Market Monitor
             </Typography>
             <ShowChartTwoToneIcon fontSize="medium" />
