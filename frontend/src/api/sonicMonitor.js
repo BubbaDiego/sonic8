@@ -12,3 +12,6 @@ export async function runSonicCycle() {
 export const runSonicMonitor = () =>
   axios.post('/monitors/sonic_monitor').then(r => r.data);
 
+export const resetLiquidSnooze = () =>
+  axios.post('/api/monitor-status/reset-liquid-snooze').then(r => r.data);
+
