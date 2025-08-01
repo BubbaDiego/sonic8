@@ -1,17 +1,10 @@
+from __future__ import annotations
 
 import os
 import sys
-import ctypes
-
-
-
-from __future__ import annotations
-
-
 
 
 def set_console_title(title: str) -> None:
-
     """Set the terminal title bar if not disabled."""
     if os.getenv("NO_CONSOLE_TITLE") == "1":
         return
@@ -35,5 +28,3 @@ def set_console_title(title: str) -> None:
 
 
 __all__ = ["set_console_title"]
-
-
