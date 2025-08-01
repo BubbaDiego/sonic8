@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 import asyncio
 
+from utils.console_title import set_console_title
+set_console_title("Sonic Backend")
+
 # --- WINDOWS EVENT‑LOOP PATCH --------------------------------------------- #
 
 # Only needed on Windows: Playwright requires the selector loop
