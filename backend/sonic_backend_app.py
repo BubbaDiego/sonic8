@@ -4,7 +4,7 @@ from pathlib import Path
 import asyncio
 
 from utils.console_title import set_console_title
-set_console_title("Sonic Backend")
+set_console_title("Sonic - FastAPI Backend")
 
 # --- WINDOWS EVENT‑LOOP PATCH --------------------------------------------- #
 

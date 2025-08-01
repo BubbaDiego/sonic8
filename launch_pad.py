@@ -103,7 +103,7 @@ def launch_backend():
     run_background(
         [PYTHON_EXEC, "-m", "uvicorn", "sonic_backend_app:app", "--reload", "--port", "5000"],
         BACKEND_DIR,
-        title="Backend",
+        title="Sonic - FastAPI Backend",
     )
     wait_and_open("http://localhost:5000/docs")
     console.log("[green]Backend running at http://localhost:5000[/]")

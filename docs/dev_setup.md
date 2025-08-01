@@ -18,7 +18,7 @@ The title string is chosen in the following order:
 Example output on launch:
 
 ```
-Sonic Launch Pad – backend:5000
+Sonic - FastAPI Backend
 ```
 
 Set `NO_CONSOLE_TITLE=1` to disable updating the window title.
