@@ -1,36 +1,52 @@
 """
-WebBrowserRequest powered by Playwright + Solflare.
+WebBrowserRequest
+-----------------
+Opens a URL in a real Chromium instance via Playwright.  Uses Playwright’s
+*synchronous* API under the hood, executed in a worker thread, so it works
+fine on Windows without forcing the Selector‑event‑loop hack.
 """
-from typing import List, Dict, Any
-from ..playwright_helper import PlaywrightHelper
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Dict, Any
+
+from playwright.sync_api import sync_playwright
+
 from .base import AutoRequest
+
+_SOLFLARE_CRX = Path("alpha/jupiter_core/solflare_extension.crx")
+_USER_DATA_DIR = Path(".cache/solflare_profile")
+_EXECUTOR = ThreadPoolExecutor(max_workers=1)
+
+
+def _sync_launch(url: str, headless: bool) -> Dict[str, Any]:
+    with sync_playwright() as pw:
+        args = []
+        if _SOLFLARE_CRX.exists():
+            args.extend([
+                f"--disable-extensions-except={_SOLFLARE_CRX}",
+                f"--load-extension={_SOLFLARE_CRX}",
+            ])
+        ctx = pw.chromium.launch_persistent_context(
+            _USER_DATA_DIR,
+            headless=headless,
+            args=args,
+        )
+        page = ctx.new_page()
+        page.goto(url)
+        title = page.title()
+        if headless:
+            ctx.close()
+        return {"url": page.url, "title": title}
 
 
 class WebBrowserRequest(AutoRequest):
-    """
-    Navigate to ``url`` inside a Chromium profile that already has the
-    Solflare wallet extension loaded.
-
-    Parameters
-    ----------
-    url : str
-        Initial URL to load.
-    steps : list[str], optional
-        Simple imperative commands, e.g. ``["click:#login", "wait:2000"]``.
-        This *very* naïve format is good enough for smoke tests. Replace it
-        with a richer domain‑specific language once requirements grow.
-    """
-
-    def __init__(self, url: str, steps: List[str] | None = None):
+    def __init__(self, url: str, *, headless: bool = False):
         self.url = url
-        self.steps = steps or []
+        self.headless = headless
 
     async def execute(self) -> Dict[str, Any]:
-        async with PlaywrightHelper() as helper:
-            page = await helper.open(self.url)
-            await helper.run_steps(page, self.steps)
-            return {
-                "url": page.url,
-                "title": await page.title(),
-                "steps_ran": self.steps,
-            }
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            _EXECUTOR, _sync_launch, self.url, self.headless
+        )
