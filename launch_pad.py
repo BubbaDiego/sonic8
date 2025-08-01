@@ -57,15 +57,32 @@ def banner():
 def clear_screen():
     os.system("cls" if os.name == "nt" else "clear")
 
-def run_background(cmd, cwd):
+def run_background(cmd, cwd, title: str | None = None):
+    """Run a command in a background terminal window.
+
+    Parameters
+    ----------
+    cmd : list[str]
+        Command and arguments to execute.
+    cwd : Path | str
+        Working directory for the spawned process.
+    title : str | None, optional
+        Optional descriptive title set via ``CONSOLE_TITLE`` environment
+        variable so the child process can identify its origin.
+    """
+
+    env = os.environ.copy()
+    if title:
+        env["CONSOLE_TITLE"] = title
+
     system_platform = platform.system()
 
     if system_platform == "Windows":
-        subprocess.Popen(["start", "cmd", "/k"] + cmd, cwd=cwd, shell=True)
+        subprocess.Popen(["start", "cmd", "/k"] + cmd, cwd=cwd, env=env, shell=True)
     elif system_platform == "Darwin":  # macOS
-        subprocess.Popen(["open", "-a", "Terminal.app"] + cmd, cwd=cwd)
+        subprocess.Popen(["open", "-a", "Terminal.app"] + cmd, cwd=cwd, env=env)
     elif system_platform == "Linux":
-        subprocess.Popen(["gnome-terminal", "--"] + cmd, cwd=cwd)
+        subprocess.Popen(["gnome-terminal", "--"] + cmd, cwd=cwd, env=env)
     else:
         raise RuntimeError(f"Unsupported OS: {system_platform}")
 
@@ -76,14 +93,18 @@ def wait_and_open(url, secs=3):
 # Actions
 def launch_frontend():
     console.log("🚀 Launching Sonic/Vite frontend...")
-    run_background(["npm", "run", "start"], FRONTEND_DIR)
+    run_background(["npm", "run", "start"], FRONTEND_DIR, title="Frontend")
     # Vite's `server.open` option opens the browser automatically
     # wait_and_open("http://localhost:3000")
     console.log("[green]Frontend running at http://localhost:3000[/]")
 
 def launch_backend():
     console.log("🚀 Launching FastAPI backend...")
-    run_background([PYTHON_EXEC, "-m", "uvicorn", "sonic_backend_app:app", "--reload", "--port", "5000"], BACKEND_DIR)
+    run_background(
+        [PYTHON_EXEC, "-m", "uvicorn", "sonic_backend_app:app", "--reload", "--port", "5000"],
+        BACKEND_DIR,
+        title="Backend",
+    )
     wait_and_open("http://localhost:5000/docs")
     console.log("[green]Backend running at http://localhost:5000[/]")
 
@@ -94,7 +115,11 @@ def launch_full_stack():
 
 def launch_sonic_monitor():
     console.log("📡 Launching Sonic Monitor...")
-    run_background([PYTHON_EXEC, "sonic_monitor.py"], BACKEND_DIR / "core" / "monitor_core")
+    run_background(
+        [PYTHON_EXEC, "sonic_monitor.py"],
+        BACKEND_DIR / "core" / "monitor_core",
+        title="Sonic Monitor",
+    )
     console.log("[green]Sonic Monitor started in background.[/]")
 
 def launch_sonic_apps():
