@@ -177,20 +177,23 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
                     </Stack>
                   </TableCell>
                   <TableCell align="center" sx={{ width: 170 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                       {/* plain number (theme text colour) */}
                       <Box component="span" color="text.primary">
                         {fmtDistance(code, dist)}
                       </Box>
 
-                      {/* coloured percentage */}
+                      {/* coloured percentage on new line */}
                       {(() => {
                         const r = refRadius(code);
                         if (typeof dist !== 'number' || r == null) return null;
                         return (
-                          <Box component="span" color={getDistColour(code)}>
-                            {` (${((dist / r) * 100).toFixed(1)}%)`}
-                          </Box>
+                          <>
+                            <br />
+                            <Box component="span" color={getDistColour(code)}>
+                              {`(${((dist / r) * 100).toFixed(1)}%)`}
+                            </Box>
+                          </>
                         );
                       })()}
                     </Typography>
