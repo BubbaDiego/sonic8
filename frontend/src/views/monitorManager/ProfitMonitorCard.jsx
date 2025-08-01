@@ -52,7 +52,7 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h4" fontWeight={600} sx={{ fontSize: '1.3rem' }}>
+            <Typography variant="h4" fontWeight={600} sx={{ fontSize: '1.1rem' }}>
               Profit Monitor
             </Typography>
             <TrendingUpTwoToneIcon fontSize="small" />

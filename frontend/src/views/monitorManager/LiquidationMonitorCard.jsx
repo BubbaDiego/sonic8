@@ -122,7 +122,7 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
       <CardHeader
         title={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h4" fontWeight={600} sx={{ fontSize: '1.3rem' }}>
+            <Typography variant="h4" fontWeight={600} sx={{ fontSize: '1.1rem' }}>
               Liquidation Monitor
             </Typography>
             <WaterDropIcon fontSize="small" color="primary" />
