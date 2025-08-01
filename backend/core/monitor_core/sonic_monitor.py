@@ -7,6 +7,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 import asyncio
 import logging
+from utils.console_title import set_console_title
+set_console_title("Sonic Monitor")
 import time
 from datetime import datetime, timezone
 from backend.core.cyclone_core.cyclone_engine import Cyclone

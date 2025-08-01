@@ -1,20 +1,39 @@
+
 import os
 import sys
 import ctypes
 
 
+
+from __future__ import annotations
+
+
+
+
 def set_console_title(title: str) -> None:
-    """Best-effort set of the terminal window title."""
+
+    """Set the terminal title bar if not disabled."""
     if os.getenv("NO_CONSOLE_TITLE") == "1":
         return
+
+    env_title = os.getenv("CONSOLE_TITLE")
+    final_title = env_title if env_title else title
+
     try:
-        if os.name == "nt":
-            ctypes.windll.kernel32.SetConsoleTitleW(title)
-        else:
-            sys.stdout.write(f"\x1b]0;{title}\x07")
-            sys.stdout.flush()
+        sys.stdout.write(f"\033]0;{final_title}\a")
+        sys.stdout.flush()
     except Exception:
         pass
 
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            ctypes.windll.kernel32.SetConsoleTitleW(str(final_title))
+        except Exception:
+            pass
+
 
 __all__ = ["set_console_title"]
+
+
