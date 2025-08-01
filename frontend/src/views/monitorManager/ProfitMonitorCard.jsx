@@ -4,7 +4,7 @@ import { Card, CardHeader, CardContent, Grid, Stack, TextField, Typography } fro
 import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 
 import { Box, Button } from '@mui/material';
-import MonitorUpdateBar    from '../../components/MonitorUpdateBar';
+import MonitorUpdateBar    from './MonitorUpdateBar';
 
 /* ------------------------------------------------------------------------- */
 /* ------------------------------------------------------------------------- */

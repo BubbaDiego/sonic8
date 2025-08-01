@@ -42,7 +42,7 @@ from backend.routes.xcom_api import router as xcom_router
 from backend.routes.session_api import router as session_router
 from backend.routes.notification_api import router as notification_router
 from backend.routes.monitor_settings_api import router as monitor_settings_router
-from backend.routes.market import router as market_router
+from backend.routes.market_api import router as market_router
 
 from backend.routes.liquidation_distance_api import router as liquidation_distance_router
 

@@ -22,7 +22,7 @@ import BlurCircularTwoToneIcon from '@mui/icons-material/BlurCircularTwoTone';
 
 // Notification icons removed – handled by shared component
 
-import MonitorUpdateBar from '../../components/MonitorUpdateBar';
+import MonitorUpdateBar from './MonitorUpdateBar';
 
 import btcLogo from '/images/btc_logo.png';
 import ethLogo from '/images/eth_logo.png';

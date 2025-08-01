@@ -1,29 +1,17 @@
-from fastapi import APIRouter, HTTPException
-from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
+from fastapi import APIRouter
 from pydantic import BaseModel
-from backend.core.auto_core import AutoCore
-from backend.core.auto_core.requests.web_browser import WebBrowserRequest
-from backend.core.logging import log
+from backend.core.auto_core import AutoCore, WebBrowserRequest
 
 router = APIRouter(prefix="/api/auto-core", tags=["auto_core"])
-
 
 class BrowserOpenRequest(BaseModel):
     url: str | None = None
 
-
 @router.post("/open-browser")
 async def open_browser(req: BrowserOpenRequest):
-    """Launch a Chromium instance via AutoCore and return the page info."""
+    """
+    Launches Chromium with (optional) Solflare extension and returns page meta.
+    """
     core = AutoCore()
-    try:
-        result = await core.run(WebBrowserRequest(url=req.url or "https://example.org"))
-        return result
-    except RuntimeError as e:
-        log.error(f"open_browser failed: {e}", source="auto_core_api")
-        raise HTTPException(status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    except Exception as e:
-        log.error(f"open_browser failed: {e}", source="auto_core_api")
-        raise HTTPException(status_code=500, detail=str(e))
-
-__all__ = ["router"]
+    result = await core.run(WebBrowserRequest(url=req.url or "https://example.org"))
+    return result

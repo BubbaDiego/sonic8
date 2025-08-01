@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Card, CardHeader, CardContent, Typography, Stack, Box, Button } from '@mui/material';
 import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
 import MarketMovementCard from '../../components/MarketMovementCard';
-import MonitorUpdateBar    from '../../components/MonitorUpdateBar';
+import MonitorUpdateBar    from './MonitorUpdateBar';
 
 export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false }) {
   const normCfg = useMemo(
