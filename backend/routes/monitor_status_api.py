@@ -109,4 +109,20 @@ def update_monitor(monitor_type: str, payload: UpdatePayload) -> MonitorDetail:
     _status.update_monitor(mtype, payload.status, payload.metadata)
     return _status.get_monitor_status(mtype)
 
+
+@router.post("/reset-liquid-snooze")
+def reset_liquid_snooze(dl: DataLocker = Depends(get_app_locker)):
+    """Clear the liquidation monitor snooze timer and run a check."""
+    cfg = dl.system.get_var("liquid_monitor") or {}
+    cfg.pop("_last_alert_ts", None)
+    dl.system.set_var("liquid_monitor", cfg)
+
+    try:
+        from backend.core.monitor_core.monitor_core import MonitorCore
+        MonitorCore().run_by_name("liquid_monitor")
+    except Exception:
+        pass
+
+    return {"success": True}
+
 __all__ = ["router"]

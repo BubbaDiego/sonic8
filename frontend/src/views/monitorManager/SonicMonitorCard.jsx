@@ -8,6 +8,7 @@ import {
   Stack,
   TextField,
   Button,
+  IconButton,
   Typography,
   CircularProgress,
   Box,
@@ -18,6 +19,8 @@ import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
+import ShieldTwoToneIcon from '@mui/icons-material/ShieldTwoTone';
+import { resetLiquidSnooze } from 'api/sonicMonitor';
 
 /* ------------------------------------------------------------------------- */
 function CircularCountdown({ remaining, total }) {
@@ -72,6 +75,16 @@ export default function SonicMonitorCard({
     if (sec > 0) {
       setRemaining(sec);
       setRunning(true);
+    }
+  };
+
+  const handleResetSnooze = async () => {
+    try {
+      await resetLiquidSnooze();
+      setRemaining(0);
+      setRunning(false);
+    } catch (err) {
+      console.error('Failed to reset snooze', err);
     }
   };
 
@@ -160,14 +173,19 @@ export default function SonicMonitorCard({
           <Grid
             item
             xs={6}
-            sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}
+            sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}
           >
             {running ? (
               <CircularCountdown remaining={remaining} total={snooze || 1} />
             ) : (
-              <Button variant="outlined" onClick={start}>
-                Snooze
-              </Button>
+              <>
+                <Button variant="outlined" onClick={start}>
+                  Snooze
+                </Button>
+                <IconButton color="primary" onClick={handleResetSnooze}>
+                  <ShieldTwoToneIcon />
+                </IconButton>
+              </>
             )}
           </Grid>
         </Grid>
