@@ -120,6 +120,7 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
       }}
     >
       <CardHeader
+        sx={{ pt: 1, pb: 0.5 }}
         title={
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="h4" fontWeight={600} sx={{ fontSize: '1.1rem' }}>
@@ -129,7 +130,7 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
           </Stack>
         }
       />
-      <CardContent>
+      <CardContent sx={{ pt: 0.5, pb: 1 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -211,8 +212,8 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
 
       </CardContent>
 
-      {/* spacer pushes the bar to the bottom */}
-      <Box sx={{ flexGrow: 1 }} />
+      {/* tiny spacer keeps some visual separation */}
+      <Box sx={{ flexGrow: 0, height: 6 }} />
 
       <MonitorUpdateBar
         cfg={normCfg.notifications}
