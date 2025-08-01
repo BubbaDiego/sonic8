@@ -69,7 +69,7 @@ try:
     from system.death_nail_service import DeathNailService
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     DeathNailService = None
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class DataLocker:
@@ -543,7 +543,7 @@ class DataLocker:
             "asset_type": asset_type,
             "current_price": price,
             "previous_price": 0.0,
-            "last_update_time": datetime.now().isoformat(),
+            "last_update_time": datetime.now(timezone.utc).isoformat(),
             "previous_update_time": None,
             "source": source,
         }
