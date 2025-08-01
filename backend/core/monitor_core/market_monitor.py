@@ -45,8 +45,7 @@ class MarketMonitor(BaseMonitor):
             return 0.0
         cur.execute(
             "SELECT current_price FROM prices "
-            "WHERE asset_type = ? "
-            "AND strftime('%s', last_update_time) <= ? "
+            "WHERE asset_type = ? AND last_update_time <= ? "
             "ORDER BY last_update_time DESC LIMIT 1",
             (asset, ts_cut),
         )
