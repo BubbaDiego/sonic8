@@ -118,7 +118,7 @@ def launch_sonic_monitor():
     run_background(
         [PYTHON_EXEC, "sonic_monitor.py"],
         BACKEND_DIR / "core" / "monitor_core",
-        title="Sonic Monitor",
+        title="🦔 Sonic Monitor 🦔",
     )
     console.log("[green]Sonic Monitor started in background.[/]")
 
