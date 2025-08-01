@@ -11,6 +11,8 @@ None of that is necessary for the v1 spike.
 from pathlib import Path
 from typing import List
 import os
+import sys
+import asyncio
 from playwright.async_api import async_playwright, Browser, Page
 from backend.core.logging import log
 
@@ -20,6 +22,8 @@ USER_DATA_DIR = Path(".cache/solflare_profile")  # persisted between runs
 
 class PlaywrightHelper:
     def __init__(self, headless: bool = False):
+        if sys.platform == "win32":  # Playwright needs the selector loop on Windows
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         self.headless = headless
         self._play = None
         self._browser: Browser | None = None
