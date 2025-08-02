@@ -88,6 +88,8 @@ curl -X POST http://localhost:5000/session/reset
 - `POST /{monitor_type}` – Update health metadata for a monitor.
   - **Body**: `{ "status": MonitorHealth, "metadata": Optional[dict] }`
   - **Response model**: `MonitorDetail`
+- `POST /api/monitor-status/reset-liquid-snooze` – Clears the liquidation monitor
+  snooze timer and triggers an immediate re-check.
 
 ## Monitor Settings API (`monitor_settings_api.py`)
 **Base path**: `/api/monitor-settings`
