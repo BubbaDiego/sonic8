@@ -6,22 +6,19 @@ class AlexaService:
         self.config = config
 
     def send(self, message: str) -> bool:
-        access_code = self.config.get("access_code")
-        if not self.config.get("enabled") or not access_code:
-            log.warning("Alexa provider disabled or missing access code", source="AlexaService")
+        webhook_url = self.config.get("webhook_url")
+        if not self.config.get("enabled") or not webhook_url:
+            log.warning("Alexa provider disabled or missing webhook URL", source="AlexaService")
             return False
 
-        url = "https://api.notifymyecho.com/v1/NotifyMe"
-        headers = {"Content-Type": "application/json"}
         data = {
-            "notification": message,
-            "accessCode": access_code
+            "value1": message
         }
 
         try:
-            response = requests.post(url, json=data, headers=headers)
+            response = requests.post(webhook_url, json=data)
             response.raise_for_status()
-            log.success("✅ Alexa notification sent", source="AlexaService")
+            log.success("✅ Alexa notification via IFTTT sent", source="AlexaService")
             return True
         except Exception as e:
             log.error(f"❌ Alexa notification failed: {e}", source="AlexaService")
