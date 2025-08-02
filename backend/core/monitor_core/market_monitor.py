@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
 from backend.core.core_constants import MARKET_MONITOR_BLAST_RADIUS_DEFAULTS as _BLAST_DEFAULTS
@@ -39,7 +39,7 @@ class MarketMonitor(BaseMonitor):
     # Helpers
     # ------------------------------------------------------------------ #
     def _price_at(self, asset: str, seconds_ago: int) -> float:
-        ts_cut = datetime.now(timezone.utc).timestamp() - seconds_ago
+        ts_cut = (datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)).isoformat()
         cur = self.dl.db.get_cursor()
         if cur is None:
             return 0.0
