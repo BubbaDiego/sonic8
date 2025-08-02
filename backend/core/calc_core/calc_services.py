@@ -201,14 +201,31 @@ class CalcServices:
         )
         return result
 
-    def calculate_liquid_distance(self, current_price: float, liquidation_price: float) -> float:
-        distance = round(abs(liquidation_price - current_price), 2)
-        log.debug(
-            "Calculated liquidation distance",
-            source="calculate_liquid_distance",
-            payload={"distance": distance},
-        )
-        return distance
+    def calculate_liquid_distance(self, current_price: float, liquidation_price: float) -> Optional[float]:
+        try:
+            if current_price is None or liquidation_price is None:
+                log.warning(
+                    "Cannot calculate liquidation distance — missing price",
+                    source="calculate_liquid_distance",
+                    payload={
+                        "current_price": current_price,
+                        "liquidation_price": liquidation_price,
+                    },
+                )
+                return None
+            distance = round(abs(liquidation_price - current_price), 2)
+            log.debug(
+                "Calculated liquidation distance",
+                source="calculate_liquid_distance",
+                payload={"distance": distance},
+            )
+            return distance
+        except Exception as e:
+            log.error(
+                f"Failed to calculate liquidation distance: {e}",
+                source="calculate_liquid_distance",
+            )
+            return None
 
     def calculate_heat_index(self, position: dict) -> Optional[float]:
         try:
@@ -339,7 +356,7 @@ class CalcServices:
             float(position.get("liquidation_price", 0.0)),
         )
 
-    def liquid_distance_at_price(self, position: dict, price: float) -> float:
+    def liquid_distance_at_price(self, position: dict, price: float) -> Optional[float]:
         """Liquidation distance using ``price`` as the current price."""
         return self.calculate_liquid_distance(
             price, float(position.get("liquidation_price", 0.0))
