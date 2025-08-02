@@ -6,9 +6,12 @@ router = APIRouter(prefix="/api/liquidation", tags=["liquidation"])
 
 @router.get("/nearest-distance")
 def nearest_liq(dl: DataLocker = Depends(get_app_locker)):
+    result = {"BTC": None, "ETH": None, "SOL": None}
+
     cursor = dl.db.get_cursor()
     if not cursor:
-        return {}
+        return result
+
     cursor.execute(
         """
         WITH ranked AS (
@@ -21,6 +24,7 @@ def nearest_liq(dl: DataLocker = Depends(get_app_locker)):
                 ) AS rnk
             FROM positions
             WHERE status = 'ACTIVE'
+              AND liquidation_distance IS NOT NULL
         )
         SELECT asset_type, position_type, dist
           FROM ranked
@@ -28,10 +32,10 @@ def nearest_liq(dl: DataLocker = Depends(get_app_locker)):
         """
     )
     rows = cursor.fetchall() or []
-    return {
-        row["asset_type"]: {
+    for row in rows:
+        result[row["asset_type"]] = {
             "dist": round(row["dist"], 2),
             "side": row["position_type"],
         }
-        for row in rows
-    }
+
+    return result
