@@ -248,7 +248,7 @@ export default function CycloneRunSection() {
 
         <Tooltip title="Sonic Cycle">
           <Avatar
-            variant="circular"
+            variant="rounded"
             sx={{
               ...avatarSX,
               animation: sonicRunning ? `${spin} 2s linear infinite` : 'none'
@@ -259,7 +259,7 @@ export default function CycloneRunSection() {
               component="img"
               src={SonicBurstIcon}
               alt="sonic"
-              sx={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+              sx={{ width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'cover' }}
             />
           </Avatar>
         </Tooltip>
