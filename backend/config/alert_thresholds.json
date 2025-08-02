@@ -2,37 +2,7 @@
   "source": "db",
   "thresholds": [
     {
-      "id": "36e4a0f3-3cec-4e1d-aedf-a9dd49d38346",
-      "alert_type": "Profit",
-      "alert_class": "Position",
-      "metric_key": "pnl_after_fees_usd",
-      "condition": "ABOVE",
-      "low": 5.0,
-      "medium": 0.0,
-      "high": 50.0,
-      "enabled": 1,
-      "last_modified": "2025-08-01T23:19:48.121520+00:00",
-      "low_notify": null,
-      "medium_notify": null,
-      "high_notify": null
-    },
-    {
-      "id": "16f038f5-9570-4454-be46-6596b1713e58",
-      "alert_type": "TotalProfit",
-      "alert_class": "Portfolio",
-      "metric_key": "pnl_after_fees_usd",
-      "condition": "ABOVE",
-      "low": 90.0,
-      "medium": 0.0,
-      "high": 100.0,
-      "enabled": 1,
-      "last_modified": "2025-08-01T23:19:48.116519+00:00",
-      "low_notify": null,
-      "medium_notify": null,
-      "high_notify": null
-    },
-    {
-      "id": "ab9f9e70-53d9-4968-9cb2-dede4d7fc485",
+      "id": "bfa529b7-9bae-4c5b-81cf-164c4af8a8aa",
       "alert_type": "TravelPercent",
       "alert_class": "Position",
       "metric_key": "travel_percent",
@@ -41,7 +11,7 @@
       "medium": 70.0,
       "high": 90.0,
       "enabled": 1,
-      "last_modified": "2025-07-26T02:36:19.018342+00:00",
+      "last_modified": "2025-08-02T13:17:44.489049+00:00",
       "low_notify": null,
       "medium_notify": null,
       "high_notify": null
