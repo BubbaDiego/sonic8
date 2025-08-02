@@ -72,7 +72,7 @@ Exports:
 
 Fetches monitor health summaries.
 
-Constants: `summary` → `/monitor_status/`.
+Constants: `summary` → `/api/monitor-status/`.
 
 Exports:
 

@@ -15,7 +15,7 @@ def test_monitor_status_update(monkeypatch, tmp_path):
 
     client = TestClient(app_module.app)
 
-    resp = client.get("/monitor_status/")
+    resp = client.get("/api/monitor-status/")
     assert resp.status_code == 200
     data = resp.json()
     assert data["monitors"]["Sonic Monitoring"]["status"] == "Offline"
@@ -23,12 +23,12 @@ def test_monitor_status_update(monkeypatch, tmp_path):
 
     dl.ledger.insert_ledger_entry("sonic_monitor", status="Success", metadata={})
 
-    resp = client.get("/monitor_status/")
+    resp = client.get("/api/monitor-status/")
     assert resp.status_code == 200
     updated = resp.json()
     assert updated["sonic_last_complete"] is not None
 
-    resp = client.get("/monitor_status/SONIC")
+    resp = client.get("/api/monitor-status/SONIC")
     assert resp.status_code == 200
     detail = resp.json()
     assert detail["status"] == "Healthy"
@@ -74,7 +74,7 @@ def test_liquid_snooze_countdown(monkeypatch, tmp_path):
     assert result["alert_sent"] is True
 
     client = TestClient(app_module.app)
-    resp = client.get("/monitor_status/")
+    resp = client.get("/api/monitor-status/")
     assert resp.status_code == 200
     data = resp.json()
     assert data["liquid_snooze"] > 0
@@ -94,7 +94,7 @@ def test_sonic_next_positive(monkeypatch, tmp_path):
     dl.db.commit()
 
     client = TestClient(app_module.app)
-    resp = client.get("/monitor_status/")
+    resp = client.get("/api/monitor-status/")
     assert resp.status_code == 200
     data = resp.json()
     assert data["sonic_next"] > 0
