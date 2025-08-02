@@ -117,3 +117,40 @@ def test_monitor_status_handles_query_failure(monkeypatch, tmp_path):
     assert resp.status_code == 200
     assert resp.json() == {}
 
+
+def test_reset_liquid_snooze(monkeypatch, tmp_path):
+    """POSTing to reset-liquid-snooze clears the timestamp."""
+    db_path = tmp_path / "test.db"
+    dl = DataLocker(str(db_path))
+    monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls: dl))
+
+    # Pre-populate config with a snooze timestamp
+    dl.system.set_var(
+        "liquid_monitor",
+        {
+            "threshold_percent": 5.0,
+            "snooze_seconds": 60,
+            "thresholds": {"BTC": 5.0},
+            "notifications": {
+                "system": False,
+                "voice": False,
+                "sms": False,
+                "tts": False,
+            },
+            "_last_alert_ts": 1,
+        },
+    )
+
+    # Avoid running the real monitor cycle
+    monkeypatch.setattr(
+        "backend.core.monitor_core.monitor_core.MonitorCore.run_by_name", lambda self, name: None
+    )
+
+    client = TestClient(app_module.app)
+    resp = client.post("/api/monitor-status/reset-liquid-snooze")
+    assert resp.status_code == 200
+    assert resp.json() == {"success": True}
+
+    cfg = dl.system.get_var("liquid_monitor") or {}
+    assert "_last_alert_ts" not in cfg
+
