@@ -10,6 +10,7 @@ from backend.core.xcom_core.sms_service import SMSService
 from backend.core.xcom_core.voice_service import VoiceService
 from backend.core.xcom_core.sound_service import SoundService
 from backend.core.xcom_core.tts_service import TTSService
+from backend.core.xcom_core.alexa_service import AlexaService
 from backend.data.data_locker import DataLocker
 from core.core_constants import MOTHER_DB_PATH
 from data.dl_monitor_ledger import DLMonitorLedgerManager
@@ -34,8 +35,16 @@ class XComCore:
         sms_cfg = self.config_service.get_provider("sms") or {}
         voice_cfg = self.config_service.get_provider("api") or {}
         tts_cfg = self.config_service.get_provider("tts") or {}
+        alexa_cfg = self.config_service.get_provider("alexa") or {}
 
-        results = {"email": False, "sms": False, "voice": False, "sound": None, "tts": False}
+        results = {
+            "email": False,
+            "sms": False,
+            "voice": False,
+            "sound": None,
+            "tts": False,
+            "alexa": False,
+        }
         error_msg = None
 
         # ------------------------------------------------------------------ #
@@ -115,6 +124,10 @@ class XComCore:
                     tts_cfg.get("speed"),
                 ).send(recipient, body)
 
+            if "alexa" in requested:
+                alexa_message = f"{subject}. {body}"
+                results["alexa"] = AlexaService(alexa_cfg).send(alexa_message)
+
             log.success(f"✅ Notification dispatched [{level}]", source="XComCore", payload=results)
 
         except Exception as e:
@@ -137,7 +150,7 @@ class XComCore:
         success = error_msg is None  # only fail when an exception occurs
 
         comm_type = ",".join(
-            [k for k in ("email", "sms", "voice", "sound", "tts") if results.get(k)]
+            [k for k in ("email", "sms", "voice", "sound", "tts", "alexa") if results.get(k)]
         ) or "system"
 
         dl = DataLocker.get_instance()
@@ -190,7 +203,7 @@ def get_latest_xcom_monitor_entry(data_locker):
         except Exception:
             meta = {}
     results = meta.get("results", {}) or {}
-    comm_types = [("sms", "sms"), ("voice", "voice"), ("email", "email"), ("sound", "sound"), ("tts", "tts")]
+    comm_types = [("sms", "sms"), ("voice", "voice"), ("email", "email"), ("sound", "sound"), ("tts", "tts"), ("alexa", "alexa")]
     comm_type = "system"
     for key, value in comm_types:
         if results.get(key):

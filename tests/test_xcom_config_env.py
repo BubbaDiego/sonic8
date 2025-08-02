@@ -52,3 +52,37 @@ def test_xcom_config_resolves_env(tmp_path, monkeypatch):
     assert smtp["username"] == "user"
     assert smtp["password"] == "pass"
     assert smtp["default_recipient"] == "to@example.com"
+
+
+def test_xcom_config_resolves_alexa_env(tmp_path, monkeypatch):
+    config_dir = tmp_path
+    (config_dir / "comm_config.json").write_text(
+        json.dumps(
+            {
+                "communication": {
+                    "providers": {
+                        "alexa": {
+                            "enabled": "${ALEXA_ENABLED}",
+                            "access_code": "${ALEXA_ACCESS_CODE}",
+                        }
+                    }
+                }
+            }
+        )
+    )
+    monkeypatch.setattr("backend.data.data_locker.CONFIG_DIR", config_dir)
+
+    monkeypatch.setenv("ALEXA_ENABLED", "true")
+    monkeypatch.setenv("ALEXA_ACCESS_CODE", "code123")
+
+    orig = env_utils._resolve_env
+    monkeypatch.setattr(env_utils, "_resolve_env", lambda v, k: v)
+    monkeypatch.setattr("backend.data.data_locker._resolve_env", lambda v, k: v)
+    dl = DataLocker(str(tmp_path / "test.db"))
+    monkeypatch.setattr(env_utils, "_resolve_env", orig)
+    monkeypatch.setattr("backend.data.data_locker._resolve_env", orig)
+
+    svc = XComConfigService(dl)
+    provider = svc.get_provider("alexa")
+    assert provider["enabled"] == "true"
+    assert provider["access_code"] == "code123"

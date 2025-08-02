@@ -29,6 +29,10 @@ ENV_MAP = {
         "default_to_phone": "MY_PHONE_NUMBER",
         "default_from_phone": "TWILIO_PHONE_NUMBER",
     },
+    "alexa": {
+        "enabled": "ALEXA_ENABLED",
+        "access_code": "ALEXA_ACCESS_CODE",
+    },
 }
 
 class XComConfigService:
