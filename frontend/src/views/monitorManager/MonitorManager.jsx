@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'utils/axios';
-import { Box, Typography, Snackbar, Alert } from '@mui/material';
+import { Box, Typography, Snackbar, Alert, Button } from '@mui/material';
 
 import LiquidationMonitorCard from './LiquidationMonitorCard';
 import ProfitMonitorCard      from './ProfitMonitorCard';
@@ -28,6 +28,12 @@ export default function MonitorManager() {
   const [loopSec, setLoopSec] = useState('');
   const [nearestLiq, setNearestLiq] = useState({});
   const [toast, setToast] = useState('');
+  const [dirty, setDirty] = useState(false);
+
+  const markDirty = useCallback((setter) => (value) => {
+    setDirty(true);
+    setter(value);
+  }, []);
 
   /* ------------------------- initial fetch ------------------------------- */
   useEffect(() => {
@@ -68,6 +74,17 @@ export default function MonitorManager() {
         Monitor Manager
       </Typography>
 
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-start' }}>
+        <Button
+          variant="contained"
+          color={dirty ? 'success' : 'primary'}
+          onClick={() => { saveAll(); setDirty(false); }}
+          sx={{ fontWeight: 'bold', textTransform: 'none' }}
+        >
+          Save All
+        </Button>
+      </Box>
+
       {/* 2×2 card grid */}
       <Box
         sx={{
@@ -83,10 +100,9 @@ export default function MonitorManager() {
         <Box sx={{ gridColumn: 1, gridRow: 1 }}>
           <SonicMonitorCard
             cfg={liqCfg}
-            setCfg={setLiqCfg}
+            setCfg={markDirty(setLiqCfg)}
             loop={loopSec}
-            setLoop={setLoopSec}
-            saveAll={saveAll}
+            setLoop={markDirty(setLoopSec)}
           />
         </Box>
 
@@ -94,7 +110,7 @@ export default function MonitorManager() {
         <Box sx={{ gridColumn: 2, gridRow: 1 }}>
           <LiquidationMonitorCard
             cfg={liqCfg}
-            setCfg={setLiqCfg}
+            setCfg={markDirty(setLiqCfg)}
             blast={marketCfg.blast_radius}
             nearest={nearestLiq}
             disabled={!liqCfg.enabled_liquid}
@@ -105,7 +121,7 @@ export default function MonitorManager() {
         <Box sx={{ gridColumn: 1, gridRow: 2 }}>
           <ProfitMonitorCard
             cfg={profitCfg}
-            setCfg={setProfitCfg}
+            setCfg={markDirty(setProfitCfg)}
             disabled={!liqCfg.enabled_profit}
           />
         </Box>
@@ -114,7 +130,7 @@ export default function MonitorManager() {
         <Box sx={{ gridColumn: 2, gridRow: 2 }}>
           <MarketMonitorCard
             cfg={marketCfg}
-            setCfg={setMarketCfg}
+            setCfg={markDirty(setMarketCfg)}
             live={pctMoves}
             disabled={!liqCfg.enabled_market}
           />

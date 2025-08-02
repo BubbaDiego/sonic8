@@ -53,8 +53,7 @@ export default function SonicMonitorCard({
   cfg,
   setCfg,
   loop,
-  setLoop,
-  saveAll
+  setLoop
 }) {
   const [remaining, setRemaining] = useState(0);
   const [running, setRunning] = useState(false);
@@ -144,14 +143,8 @@ export default function SonicMonitorCard({
               onChange={onLoopChange}
             />
           </Grid>
-          <Grid
-            item
-            xs={6}
-            sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}
-          >
-            <Button variant="contained" onClick={saveAll}>
-              Save All
-            </Button>
+          <Grid item xs={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+            {/* Save All button removed */}
           </Grid>
 
           {/* ── Row 2 ───────────────────────────────── */}

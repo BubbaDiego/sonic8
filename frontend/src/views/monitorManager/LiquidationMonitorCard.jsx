@@ -213,7 +213,7 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
       </CardContent>
 
       {/* tiny spacer keeps some visual separation */}
-      <Box sx={{ flexGrow: 0, height: 6 }} />
+      <Box sx={{ height: 4 }} />
 
       <MonitorUpdateBar
         cfg={normCfg.notifications}
