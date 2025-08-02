@@ -1,6 +1,6 @@
 # dl_prices.py
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.core.logging import log
 
 class DLPriceManager:
@@ -17,7 +17,12 @@ class DLPriceManager:
             if "id" not in price_data:
                 price_data["id"] = str(uuid4())
             if "last_update_time" not in price_data:
-                price_data["last_update_time"] = datetime.now().isoformat()
+                price_data["last_update_time"] = datetime.now(timezone.utc).timestamp()
+            else:
+                price_data["last_update_time"] = float(price_data["last_update_time"])
+
+            if "previous_update_time" in price_data and price_data["previous_update_time"] is not None:
+                price_data["previous_update_time"] = float(price_data["previous_update_time"])
 
             cursor.execute("""
                 INSERT INTO prices (
@@ -40,14 +45,24 @@ class DLPriceManager:
             if cursor is None:
                 log.error("DB unavailable while fetching price", source="DLPriceManager")
                 return {}
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM prices
                 WHERE asset_type = ?
                 ORDER BY last_update_time DESC
                 LIMIT 1
-            """, (asset_type,))
+                """,
+                (asset_type,),
+            )
             row = cursor.fetchone()
-            return dict(row) if row else {}
+            if not row:
+                return {}
+            result = dict(row)
+            if result.get("last_update_time") is not None:
+                result["last_update_time"] = float(result["last_update_time"])
+            if result.get("previous_update_time") is not None:
+                result["previous_update_time"] = float(result["previous_update_time"])
+            return result
         except Exception as e:
             log.error(f"Error retrieving price for {asset_type}: {e}", source="DLPriceManager")
             return {}
@@ -60,7 +75,15 @@ class DLPriceManager:
                 return []
             cursor.execute("SELECT * FROM prices ORDER BY last_update_time DESC")
             rows = cursor.fetchall()
-            return [dict(row) for row in rows]
+            result = []
+            for row in rows:
+                d = dict(row)
+                if d.get("last_update_time") is not None:
+                    d["last_update_time"] = float(d["last_update_time"])
+                if d.get("previous_update_time") is not None:
+                    d["previous_update_time"] = float(d["previous_update_time"])
+                result.append(d)
+            return result
         except Exception as e:
             log.error(f"Failed to retrieve all prices: {e}", source="DLPriceManager")
             return []

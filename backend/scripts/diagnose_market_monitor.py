@@ -122,15 +122,18 @@ else:
         print("  • Run your price‑sync service for a few hours *or* use the"
               " bulk back‑fill script (CoinGecko market_chart) to seed history.")
     if any("_price_at()" in i for i in issues):
-        print(dedent("""
+        print(
+            dedent(
+                """
             • Patch backend/core/monitor_core/market_monitor.py
               Replace the current `_price_at()` with:
 
-                  ts_cut = (datetime.now(timezone.utc)
-                            - timedelta(seconds=seconds_ago)).isoformat()
+                  ts_cut = datetime.now(timezone.utc).timestamp() - seconds_ago
                   …
-                  WHERE asset_type=? AND last_update_time<=?
-                  ORDER BY last_update_time DESC
+                  WHERE asset_type=? AND CAST(last_update_time AS REAL)<=?
+                  ORDER BY CAST(last_update_time AS REAL) DESC
 
-              so both sides of the comparison are ISO strings.
-        """))
+              to compare numeric timestamps.
+        """
+            )
+        )

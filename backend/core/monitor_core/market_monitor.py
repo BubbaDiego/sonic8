@@ -45,8 +45,8 @@ class MarketMonitor(BaseMonitor):
             return 0.0
         cur.execute(
             "SELECT current_price FROM prices "
-            "WHERE asset_type = ? AND last_update_time <= ? "
-            "ORDER BY last_update_time DESC LIMIT 1",
+            "WHERE asset_type = ? AND CAST(last_update_time AS REAL) <= ? "
+            "ORDER BY CAST(last_update_time AS REAL) DESC LIMIT 1",
             (asset, ts_cut),
         )
         row = cur.fetchone()

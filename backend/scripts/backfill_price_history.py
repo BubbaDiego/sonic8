@@ -18,11 +18,14 @@ end = datetime.now(timezone.utc)
 start = end - timedelta(hours=LOOKBACK_HOURS)
 
 def get_price_at(asset, ts):
-    cur.execute("""
+    cur.execute(
+        """
         SELECT current_price FROM prices
-        WHERE asset_type = ? AND last_update_time <= ?
-        ORDER BY last_update_time DESC LIMIT 1
-    """, (asset, ts.isoformat()))
+        WHERE asset_type = ? AND CAST(last_update_time AS REAL) <= ?
+        ORDER BY CAST(last_update_time AS REAL) DESC LIMIT 1
+        """,
+        (asset, ts.timestamp()),
+    )
     row = cur.fetchone()
     return row["current_price"] if row else None
 

@@ -316,8 +316,8 @@ class DataLocker:
                     asset_type TEXT,
                     current_price REAL,
                     previous_price REAL,
-                    last_update_time TEXT,
-                    previous_update_time TEXT,
+                    last_update_time REAL,
+                    previous_update_time REAL,
                     source TEXT
                 )
             """,
@@ -536,14 +536,14 @@ class DataLocker:
 
     def insert_or_update_price(self, asset_type, price, source="PriceMonitor"):
         from uuid import uuid4
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         price_data = {
             "id": str(uuid4()),
             "asset_type": asset_type,
             "current_price": price,
             "previous_price": 0.0,
-            "last_update_time": datetime.now(timezone.utc).isoformat(),
+            "last_update_time": datetime.now(timezone.utc).timestamp(),
             "previous_update_time": None,
             "source": source,
         }
