@@ -21,6 +21,7 @@ import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
 import ShieldTwoToneIcon from '@mui/icons-material/ShieldTwoTone';
 import { resetLiquidSnooze } from 'api/sonicMonitor';
+import { refreshMonitorStatus } from 'api/monitorStatus';
 
 /* ------------------------------------------------------------------------- */
 function CircularCountdown({ remaining, total }) {
@@ -80,6 +81,7 @@ export default function SonicMonitorCard({
   const handleResetSnooze = async () => {
     try {
       await resetLiquidSnooze();
+      refreshMonitorStatus();
       setRemaining(0);
       setRunning(false);
     } catch (err) {
