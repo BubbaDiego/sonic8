@@ -23,7 +23,18 @@ class PositionEnrichmentService:
         from utils.fuzzy_wuzzy import fuzzy_match_key
 
         pos_id = position.get('id', 'UNKNOWN')
-        asset = position.get('asset_type', '??')
+        # Ensure the asset type is present and normalized
+        asset = position.get('asset_type') or position.get('asset')
+        if asset:
+            asset = str(asset).upper()
+            position['asset_type'] = asset
+        else:
+            asset = 'UNKNOWN'
+            position['asset_type'] = asset
+            log.warning(
+                f"⚠️ No asset_type for [{pos_id}] — defaulted to UNKNOWN",
+                source="Enrichment",
+            )
 
         log.info(f"\n📥 Enriching position [{pos_id}] — Asset: {asset}", source="Enrichment")
 
@@ -101,6 +112,11 @@ class PositionEnrichmentService:
             position['liquidation_distance'] = self.calc_core.calc_services.calculate_liquid_distance(
                 position['current_price'], position['liquidation_price']
             )
+            if position.get('liquidation_distance') is None:
+                log.warning(
+                    f"⚠️ liquidation_distance is NULL for [{pos_id}] asset {asset}",
+                    source="Enrichment",
+                )
             try:
                 risk = self.calc_core.get_heat_index(position)
             except Exception as e:
