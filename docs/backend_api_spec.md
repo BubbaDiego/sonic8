@@ -79,7 +79,7 @@ curl -X POST http://localhost:5000/session/reset
   - **Response**: `{"status": "inserted", "count": <int>}` (HTTP 201)
 
 ## Monitor Status API (`monitor_status_api.py`)
-**Base path**: `/monitor_status`
+**Base path**: `/api/monitor-status`
 
 - `GET /` – Return a `MonitorStatus` snapshot summarizing all monitors.
 - `GET /{monitor_type}` – Retrieve details for a single monitor.

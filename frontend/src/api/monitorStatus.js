@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { fetcher } from 'utils/axios';
 
 const endpoints = {
-  summary: '/monitor_status/'
+  summary: '/api/monitor-status/'
 };
 
 export function useGetMonitorStatus() {
