@@ -22,8 +22,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import List
 
-# Make sure we can import scripts.twilio_test when executed from repo root
+# Ensure project root is on sys.path for backend imports
 SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.append(str(SCRIPT_DIR.parent.parent))
 
 from backend.scripts.twilio_test import main as twilio_test_main
 
