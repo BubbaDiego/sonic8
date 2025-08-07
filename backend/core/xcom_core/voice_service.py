@@ -28,10 +28,7 @@ class VoiceService:
 
         Errors are logged and the method returns ``False``. A death nail will
         only be triggered if ``suppress_death_on_error`` in the provider
-        configuration is explicitly set to ``False``.
-        """
-        """  THIS MUST BE REMOVED """
-        """ return False """
+        configuration is explicitly set to ``False``."""
 
         if not self.config.get("enabled"):
             log.warning("Voice provider disabled", source="VoiceService")
