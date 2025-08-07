@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Run Twilio authentication and optional flow using environment variables.
 
-This script loads credentials and flow parameters from environment variables.
-If a `.env` file exists at the repository root, it is loaded before delegating
-to ``scripts.twilio_test`` to perform authentication and optionally trigger a
-Twilio Studio Flow.
+This helper ensures the repository's ``.env`` file is loaded even when the
+script is executed from outside the project root.  Credentials are then
+forwarded to :mod:`backend.scripts.twilio_test` which performs the actual
+Twilio authentication and (optionally) triggers a Studio Flow.
 
 Expected environment variables:
     TWILIO_ACCOUNT_SID   - Twilio Account SID
@@ -27,6 +27,21 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.append(str(SCRIPT_DIR.parent.parent))
 
 from backend.scripts.twilio_test import main as twilio_test_main
+
+
+def load_root_env() -> None:
+    """Load a ``.env`` file located at the repository root.
+
+    Falls back to ``.env.example`` so the script can still run with placeholder
+    values during development.  Environment variables already set take
+    precedence over values from the files.
+    """
+    root_dir = SCRIPT_DIR.parents[1]
+    env_path = root_dir / ".env"
+    example_path = root_dir / ".env.example"
+
+    if not load_dotenv(env_path):
+        load_dotenv(example_path)
 
 
 def build_argv() -> List[str]:
@@ -52,9 +67,7 @@ def build_argv() -> List[str]:
 
 
 def main() -> int:
-    env_file = Path(__file__).resolve().parents[2] / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
+    load_root_env()
     argv = build_argv()
     return twilio_test_main(argv)
 
