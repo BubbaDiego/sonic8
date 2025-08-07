@@ -1,22 +1,64 @@
+import os
+import argparse
+
 from twilio.rest import Client
 
 # ───────────────────────────────────────────────────────────────────
-# 🔧 Your provided Twilio credentials (explicitly pasted here)
+# 🔧 Load Twilio credentials from environment variables
+#     or provide them via command-line arguments.
+#
+#     Required environment variables:
+#       - TWILIO_ACCOUNT_SID
+#       - TWILIO_AUTH_TOKEN
+#       - TWILIO_PHONE_NUMBER
+#       - RECIPIENT (destination phone number)
+#
+#     Example:
+#       export TWILIO_ACCOUNT_SID="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#       export TWILIO_AUTH_TOKEN="your_auth_token"
+#       export TWILIO_PHONE_NUMBER="+1234567890"
+#       export RECIPIENT="+10987654321"
+#       python backend/scripts/send_sms_demo.py --dry-run
 # ───────────────────────────────────────────────────────────────────
-TWILIO_ACCOUNT_SID = "ACb606788ada5dccbfeeebed0f440099b3"
-TWILIO_AUTH_TOKEN = "e6cbb9c3274d3aff9766e1e51e8b87bc"
-TWILIO_PHONE_NUMBER = "+18336913467"  # Twilio verified number
 
-RECIPIENT = "+16199804758"  # ⚠️ CHANGE THIS to your actual phone number!
-MESSAGE = "✅ Twilio SMS verification successful."
+
+def parse_args():
+    """Parse command-line arguments, falling back to environment variables."""
+    parser = argparse.ArgumentParser(description="Send a demo SMS using Twilio")
+    parser.add_argument(
+        "--account-sid",
+        default=os.getenv("TWILIO_ACCOUNT_SID"),
+        help="Twilio Account SID or set TWILIO_ACCOUNT_SID env var",
+    )
+    parser.add_argument(
+        "--auth-token",
+        default=os.getenv("TWILIO_AUTH_TOKEN"),
+        help="Twilio Auth Token or set TWILIO_AUTH_TOKEN env var",
+    )
+    parser.add_argument(
+        "--from-number",
+        default=os.getenv("TWILIO_PHONE_NUMBER"),
+        help="Twilio phone number or set TWILIO_PHONE_NUMBER env var",
+    )
+    parser.add_argument(
+        "--to-number",
+        default=os.getenv("RECIPIENT"),
+        help="Destination phone number or set RECIPIENT env var",
+    )
+    parser.add_argument(
+        "--message",
+        default="✅ Twilio SMS verification successful.",
+        help="Message body",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate the SMS send without contacting Twilio",
+    )
+    return parser.parse_args()
 
 # ───────────────────────────────────────────────────────────────────
-# 🚩 DRY RUN Flag (True = simulate, False = send actual SMS)
-# ───────────────────────────────────────────────────────────────────
-DRY_RUN = False  # Change to False to actually send SMS!
-
-# ───────────────────────────────────────────────────────────────────
-# SMS sending logic (no modification needed below)
+# SMS sending logic
 # ───────────────────────────────────────────────────────────────────
 def send_sms(sid, token, from_, to, body, dry_run=True):
     if dry_run:
@@ -28,18 +70,20 @@ def send_sms(sid, token, from_, to, body, dry_run=True):
         message = client.messages.create(
             body=body,
             from_=from_,
-            to=to
+            to=to,
         )
         print(f"✅ SMS sent successfully, SID: {message.sid}")
     except Exception as e:
         print(f"❌ Failed to send SMS: {e}")
 
+
 if __name__ == "__main__":
+    args = parse_args()
     send_sms(
-        TWILIO_ACCOUNT_SID,
-        TWILIO_AUTH_TOKEN,
-        TWILIO_PHONE_NUMBER,
-        RECIPIENT,
-        MESSAGE,
-        dry_run=DRY_RUN
+        args.account_sid,
+        args.auth_token,
+        args.from_number,
+        args.to_number,
+        args.message,
+        dry_run=args.dry_run,
     )
