@@ -64,8 +64,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"HTTP Status: {exc.status}")
         print(f"Error Code: {exc.code}")
         print(f"Message: {exc.msg}")
-        if exc.more_info:
-            print(f"More Info: {exc.more_info}")
+        more_info = getattr(exc, "more_info", None)
+        if more_info:
+            print(f"More Info: {more_info}")
         return 1
     except requests.exceptions.RequestException as exc:
         print("❌ Network error while contacting Twilio")
@@ -85,8 +86,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"HTTP Status: {exc.status}")
             print(f"Error Code: {exc.code}")
             print(f"Message: {exc.msg}")
-            if exc.more_info:
-                print(f"More Info: {exc.more_info}")
+            more_info = getattr(exc, "more_info", None)
+            if more_info:
+                print(f"More Info: {more_info}")
             return 1
         except Exception as exc:
             print("❌ Unexpected error triggering flow")
