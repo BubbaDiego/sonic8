@@ -1,3 +1,5 @@
+"""SoundService plays MP3 alerts using playsound; install the "playsound" package for full audio support."""
+
 import sys
 import os
 
@@ -63,7 +65,7 @@ class SoundService:
             if playsound:
                 playsound(path)
             else:
-                raise RuntimeError("playsound dependency missing")
+                raise RuntimeError("playsound dependency missing. Install the 'playsound' package for MP3 playback")
 
             log.success("✅ System sound played", source="SoundService")
             return True
