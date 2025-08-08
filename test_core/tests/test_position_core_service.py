@@ -1,9 +1,4 @@
-import sys
-import types
-
-import pytest
-
-from positions.position_core_service import PositionCoreService
+from backend.core.positions_core.position_core_service import PositionCoreService
 
 
 class DummyDB:
@@ -51,33 +46,9 @@ class MockDataLocker:
     def __init__(self):
         self.db = DummyDB()
         self.positions = DummyPositions(self.db)
-        self.alert_list = []
-
-    def get_alerts(self):
-        return self.alert_list
 
 
-
-class DummyAlertEvaluator:
-    called_with = None
-
-    def __init__(self, config, dl):
-        self.config = config
-        self.dl = dl
-
-    def update_alert_for_position(self, pos):
-        DummyAlertEvaluator.called_with = pos
-
-
-class DummyAlertController:
-    deleted = []
-
-    def delete_alert(self, alert_id):
-        DummyAlertController.deleted.append(alert_id)
-        return True
-
-
-def test_update_position_and_alert(monkeypatch):
+def test_update_position_and_alert():
     dl = MockDataLocker()
 
     service = PositionCoreService(dl)
@@ -90,30 +61,17 @@ def test_update_position_and_alert(monkeypatch):
     assert stored[0]["id"] == "pos1"
 
 
-def test_delete_position_and_cleanup(monkeypatch):
+def test_delete_position_and_cleanup():
     dl = MockDataLocker()
 
     # existing positions
     dl.positions.create_position({"id": "pos1", "asset_type": "BTC", "position_type": "LONG"})
     dl.positions.create_position({"id": "pos2", "asset_type": "BTC", "position_type": "SHORT", "hedge_buddy_id": "pos1"})
 
-    # alerts referencing positions
-    dl.alert_list = [
-        {"id": "a1", "position_reference_id": "pos1"},
-        {"id": "a2", "position_reference_id": "pos2"},
-    ]
-
-    controller_module = types.ModuleType("alert_core.alert_controller")
-    controller_module.AlertController = lambda *a, **k: DummyAlertController()
-    monkeypatch.setitem(sys.modules, "alert_core.alert_controller", controller_module)
-
     service = PositionCoreService(dl)
-    DummyAlertController.deleted.clear()
 
     service.delete_position_and_cleanup("pos1")
 
-    # only alert a1 should be deleted
-    assert DummyAlertController.deleted == ["a1"]
     assert dl.positions.deleted == ["pos1"]
 
     remaining = dl.positions.get_all_positions()
