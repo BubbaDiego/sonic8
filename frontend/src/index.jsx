@@ -36,6 +36,10 @@ import '@fontsource/poppins/500.css';
 import '@fontsource/poppins/600.css';
 import '@fontsource/poppins/700.css';
 
+// Ensure theme asset URLs resolve correctly at runtime
+const base = import.meta.env.BASE_URL || '/';
+document.documentElement.style.setProperty('--asset-base', base);
+
 // ==============================|| REACT DOM RENDER ||============================== //
 
 const container = document.getElementById('root');
