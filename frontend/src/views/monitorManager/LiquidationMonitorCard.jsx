@@ -134,19 +134,19 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <TuneTwoToneIcon fontSize="inherit" />
+              <TableCell align="center">
+                <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
+                  <InsightsTwoToneIcon fontSize="inherit" />
                   <Typography variant="subtitle2" fontWeight={700}>
-                    Threshold
+                    Current
                   </Typography>
                 </Stack>
               </TableCell>
               <TableCell>
                 <Stack direction="row" spacing={0.5} alignItems="center">
-                  <InsightsTwoToneIcon fontSize="inherit" />
+                  <TuneTwoToneIcon fontSize="inherit" />
                   <Typography variant="subtitle2" fontWeight={700}>
-                    Current
+                    Threshold
                   </Typography>
                 </Stack>
               </TableCell>
@@ -165,18 +165,6 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
               const { dist } = getNearestObj(code);
               return (
                 <TableRow key={code}>
-                  <TableCell sx={{ width: 160 }}>
-                    <Stack direction="row" spacing={1.5} alignItems="center">
-                      <img src={icon} width={22} alt={code} style={{ flexShrink: 0 }} />
-                      <TextField
-                        type="number"
-                        size="small"
-                        value={normCfg.thresholds[code]}
-                        onChange={handleThresholdChange(code)}
-                        sx={{ width: 110 }}
-                      />
-                    </Stack>
-                  </TableCell>
                   <TableCell align="center" sx={{ width: 170 }}>
                     <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                       {/* plain number (theme text colour) */}
@@ -198,6 +186,18 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
                         );
                       })()}
                     </Typography>
+                  </TableCell>
+                  <TableCell sx={{ width: 160 }}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <img src={icon} width={22} alt={code} style={{ flexShrink: 0 }} />
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={normCfg.thresholds[code]}
+                        onChange={handleThresholdChange(code)}
+                        sx={{ width: 110 }}
+                      />
+                    </Stack>
                   </TableCell>
                   <TableCell align="center" sx={{ width: 100 }}>
                     <Button variant="outlined" size="small" sx={{ minWidth: 70 }} onClick={applyBlast(code)}>
