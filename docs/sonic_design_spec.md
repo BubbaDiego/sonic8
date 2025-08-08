@@ -34,8 +34,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.positions_api import router as positions_router
 from backend.routes.portfolio_api import (
-    router as portfolio_router,
-    api_router as portfolio_api_router,
+    router as por[send_test_sms.py](../../Users/bubba/Downloads/send_test_sms.py)tfolio_router,
+    api_router as portfolio_api_router,[send_test_sms.py](../../Users/bubba/Downloads/send_test_sms.py)
 )
 from backend.routes.cyclone_api import router as cyclone_router
 from backend.routes.wallet_api import router as wallet_router

@@ -25,7 +25,8 @@ from typing import List
 from dotenv import load_dotenv
 from pathlib import Path
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
 
 
 # Ensure project root is on sys.path for backend imports
@@ -36,18 +37,19 @@ from backend.scripts.twilio_test import main as twilio_test_main
 
 
 def load_root_env() -> None:
-    """Load a ``.env`` file located at the repository root.
+    """Load a `.env` file located at the repository root.
 
-    Falls back to ``.env.example`` so the script can still run with placeholder
-    values during development.  Environment variables already set take
+    Falls back to `.env.example` so the script can still run with placeholder
+    values during development. Environment variables already set take
     precedence over values from the files.
     """
-    root_dir = SCRIPT_DIR.parents[1]
+    root_dir = SCRIPT_DIR  # <-- this line updated
     env_path = root_dir / ".env"
     example_path = root_dir / ".env.example"
 
     if not load_dotenv(env_path):
         load_dotenv(example_path)
+
 
 
 def build_argv() -> List[str]:
