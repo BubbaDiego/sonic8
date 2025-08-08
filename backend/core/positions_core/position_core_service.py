@@ -39,17 +39,6 @@ class PositionCoreService:
 
     def delete_position_and_cleanup(self, position_id: str):
         try:
-            from alert_core.alert_controller import AlertController
-            alert_ctrl = AlertController(self.dl)
-
-            alerts = self.dl.get_alerts()
-            alerts_deleted = 0
-            for alert in alerts:
-                if alert.get("position_reference_id") == position_id:
-                    if alert_ctrl.delete_alert(alert["id"]):
-                        alerts_deleted += 1
-            log.success(f"🗑 Deleted {alerts_deleted} alerts for position {position_id}", source="PositionCoreService")
-
             cursor = self.dl.db.get_cursor()
             cursor.execute("UPDATE positions SET hedge_buddy_id = NULL WHERE hedge_buddy_id = ?", (position_id,))
             self.dl.db.commit()
