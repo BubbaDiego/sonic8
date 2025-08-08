@@ -5,6 +5,9 @@
    panel border colors and widths.
    =========================================================== */
 
+// Use Vite base path at runtime (only defines if not already set)
+$asset-base: unquote('var(--asset-base)') !default;
+
 :root {
   /*
     Global fallback values.
@@ -85,8 +88,6 @@
 // `--asset-base` custom property, which is populated at runtime from
 // `import.meta.env.BASE_URL`. Sass needs a separate variable to correctly
 // interpolate the CSS variable within the url() function.
-$asset-base: unquote('var(--asset-base)');
-
 :root[data-theme="system"] {
   --body-bg-image: url('#{$asset-base}images/abstract_mural.png');
 }
@@ -111,8 +112,10 @@ $asset-base: unquote('var(--asset-base)');
   --primary-hover: #4e87f0; /* accent on hover                         */
   --accent: #f4eef4;        /* secondary accent                        */
   --container-bg: #ffffff;  /* base container backgrounds              */
-  --body-bg-image: url('#{$asset-base}images/trader_wallpaper.jpg'); /* page wallpaper */
-  --section-bg-image: url('#{$asset-base}images/wally2.png');        /* overlay within cards */
+  /* new mural */
+  --body-bg-image: url('#{$asset-base}images/abstract_mural.png');
+  /* disable card overlays for now (optional) */
+  --section-bg-image: none;
 }
 
 /* === Main Background Styling === */
@@ -229,8 +232,10 @@ body {
   --primary-hover: #4e87f0;
   --accent: #f4eef4;
   --container-bg: #ffffff;
-  --body-bg-image: url('#{$asset-base}images/trader_wallpaper.jpg');
-  --section-bg-image: url('#{$asset-base}images/wally2.png');
+  /* new mural */
+  --body-bg-image: url('#{$asset-base}images/abstract_mural.png');
+  /* disable card overlays for now (optional) */
+  --section-bg-image: none;
 }
 
 /* === Main Background Styling === */

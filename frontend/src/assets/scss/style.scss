@@ -10,6 +10,17 @@
 @use 'react-responsive-carousel/lib/styles/carousel.min.css';
 @use './scrollbar.scss';
 
+@import './_sonic-themes.scss';
+
+/* Apply the background image variable globally */
+html, body, #root {
+  background-image: var(--body-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
 // ==============================|| TAP HIGHLIGHT ||============================== //
 
 * {
