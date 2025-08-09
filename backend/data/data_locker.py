@@ -59,7 +59,6 @@ from backend.core.core_constants import (
     MOTHER_DB_PATH,
     ALERT_THRESHOLDS_PATH,
     CONFIG_DIR,
-    MARKET_MONITOR_BLAST_RADIUS_DEFAULTS,
 )
 
 from backend.core.logging import log  # Corrected clearly
@@ -983,7 +982,7 @@ class DataLocker:
             )
 
     def _seed_market_monitor_config_if_empty(self):
-        """Seed MarketMonitor defaults if missing."""
+        """Seed MarketMovementMonitor defaults if missing."""
         if self.system is None:
             log.warning(
                 "⚠️ System data manager unavailable; skipping market monitor seed",
@@ -995,31 +994,11 @@ class DataLocker:
             if current:
                 return
 
-            from datetime import timezone
+            from backend.core.monitor_core.market_monitor import MarketMonitor
 
-            assets = ["SPX", "BTC", "ETH", "SOL"]
-            baseline = {}
-            thresholds = {}
-            blast_radius = {}
-
-            for asset in assets:
-                price = self.get_latest_price(asset).get("current_price") or 0
-                baseline[asset] = {
-                    "price": price,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "mode": "EITHER",
-                }
-                thresholds[asset] = 5.0
-                blast_radius[asset] = MARKET_MONITOR_BLAST_RADIUS_DEFAULTS.get(asset, 0.0)
-
-            config = {
-                "baseline": baseline,
-                "thresholds": thresholds,
-                "blast_radius": blast_radius,
-                "blast_filters": {"window": "24h", "exchange": "coingecko"},
-            }
-
-            self.system.set_var("market_monitor", config)
+            mon = MarketMonitor(self)
+            cfg = mon._cfg()
+            self.system.set_var(mon.name, cfg)
             log.debug(
                 "Market monitor config seeded from defaults",
                 source="DataLocker",

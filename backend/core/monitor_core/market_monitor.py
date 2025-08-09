@@ -1,94 +1,210 @@
-from datetime import datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any, Dict
+
 from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
-from backend.core.core_constants import MARKET_MONITOR_BLAST_RADIUS_DEFAULTS as _BLAST_DEFAULTS
-
-# Re-export constant for backwards compatibility
-MARKET_MONITOR_BLAST_RADIUS_DEFAULTS = _BLAST_DEFAULTS
 
 
-class MarketMonitor(BaseMonitor):
-    name    = "market_monitor"
-    ASSETS  = ["SPX", "BTC", "ETH", "SOL"]
-    WINDOWS = {                                   # we keep it lean for now
-        "1h" : 60 * 60,
-        "6h" : 6  * 60 * 60,
-        "24h": 24 * 60 * 60,
-    }
+@dataclass
+class Anchor:
+    value: float = 0.0
+    time: str = ""  # ISO8601 timestamp
+
+
+class MarketMovementMonitor(BaseMonitor):
+    """Monitor absolute price movement for configured assets.
+
+    For each asset, an anchor price is recorded. When the latest price moves up or
+    down by the configured dollar ``delta`` from that anchor, the monitor triggers
+    a notification.
+
+    Rearm behaviour:
+
+    ``ladder`` – move the anchor by ``±delta`` after each trigger so alerts fire
+    every ``delta`` dollars.
+
+    ``reset`` – reset the anchor to the current price after a trigger (one alert
+    per leg).
+
+    ``single`` – trigger once and disarm until anchors are manually reset.
+    """
+
+    name = "market_monitor"
+    ASSETS = ["SPX", "BTC", "ETH", "SOL"]
 
     def __init__(self, dl: DataLocker | None = None):
         super().__init__(name=self.name)
         self.dl = dl or DataLocker.get_instance()
 
-    def _cfg(self):
+    # ------------------------------------------------------------------
+    # Config helpers
+    # ------------------------------------------------------------------
+    def _cfg(self) -> Dict[str, Any]:
         cfg = self.dl.system.get_var(self.name) or {}
-        cfg.setdefault("thresholds", {})
-        cfg.setdefault("baseline", {})
+
+        cfg.setdefault(
+            "notifications",
+            {"system": True, "voice": True, "sms": False, "tts": True},
+        )
+        cfg.setdefault("rearm_mode", "ladder")  # ladder | reset | single
+        cfg.setdefault("thresholds", {})  # per asset: {delta, direction}
+        cfg.setdefault("anchors", {})  # per asset: {value, time}
+        cfg.setdefault("armed", {})  # per asset: bool for 'single' mode
 
         for asset in self.ASSETS:
-            cfg["baseline"].setdefault(asset, {"value": 0, "time": 0})
-            cur = cfg["thresholds"].get(asset, 5.0)
-            if isinstance(cur, (int, float, str)):
-                cur = {"24h": float(cur)}
-            cfg["thresholds"][asset] = {**{w: 2.0 for w in self.WINDOWS}, **cur}
+            t = cfg["thresholds"].get(asset) or {}
+            t.setdefault("delta", 5.0)
+            t.setdefault("direction", "both")  # up | down | both
+            cfg["thresholds"][asset] = t
+
+            a = cfg["anchors"].get(asset) or {}
+            a.setdefault("value", 0.0)
+            a.setdefault("time", "")
+            cfg["anchors"][asset] = a
+
+            cfg["armed"].setdefault(asset, True)
 
         self.dl.system.set_var(self.name, cfg)
         return cfg
 
-    # ------------------------------------------------------------------ #
-    # Helpers
-    # ------------------------------------------------------------------ #
-    def _price_at(self, asset: str, seconds_ago: int) -> float:
-        ts_cut = (datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)).isoformat()
+    # ------------------------------------------------------------------
+    # Data helpers
+    # ------------------------------------------------------------------
+    def _latest_prices(self) -> Dict[str, float]:
         cur = self.dl.db.get_cursor()
         if cur is None:
-            return 0.0
-        cur.execute(
-            "SELECT current_price FROM prices "
-            "WHERE asset_type = ? AND CAST(last_update_time AS REAL) <= ? "
-            "ORDER BY CAST(last_update_time AS REAL) DESC LIMIT 1",
-            (asset, ts_cut),
-        )
-        row = cur.fetchone()
-        return float(row["current_price"]) if row else 0.0
+            return {a: 0.0 for a in self.ASSETS}
 
-    # ------------------------------------------------------------------ #
+        prices: Dict[str, float] = {}
+        for asset in self.ASSETS:
+            cur.execute(
+                "SELECT current_price FROM prices "
+                "WHERE asset_type = ? "
+                "ORDER BY CAST(last_update_time AS REAL) DESC LIMIT 1",
+                (asset,),
+            )
+            row = cur.fetchone()
+            prices[asset] = float(row["current_price"]) if row else 0.0
+        return prices
+
+    # ------------------------------------------------------------------
     # Core
-    # ------------------------------------------------------------------ #
-    def _latest_prices(self) -> dict:
-        return {
-            a: (self.dl.get_latest_price(a).get("current_price") or 0.0)
-            for a in self.ASSETS
-        }
-
+    # ------------------------------------------------------------------
     def _do_work(self):
         cfg = self._cfg()
         prices = self._latest_prices()
-        results = []
-        flagged = False
+        now = datetime.now(timezone.utc).isoformat()
+
+        triggered_any = False
+        details = []
+        changed = False
+
+        rearm_mode = str(cfg.get("rearm_mode", "ladder")).lower()
 
         for asset in self.ASSETS:
-            cur = prices[asset]
-            windows_data = {}
-            for win, secs in self.WINDOWS.items():
-                prev = self._price_at(asset, secs) or cur
-                if prev == 0:
-                    pct = 0.0
-                else:
-                    pct = (cur - prev) / prev * 100.0
-                thr = cfg["thresholds"][asset][win]
-                hit = abs(pct) >= thr
-                windows_data[win] = {
-                    "pct_move": round(pct, 4),
-                    "threshold": thr,
-                    "trigger": hit,
-                }
-                flagged |= hit
+            cur_price = float(prices.get(asset, 0.0))
+            anc = Anchor(**cfg["anchors"].get(asset, {}))
 
-            results.append({"asset": asset, "windows": windows_data})
+            # Seed anchor on first run
+            if not anc.value:
+                cfg["anchors"][asset] = {"value": cur_price, "time": now}
+                cfg["armed"][asset] = True
+                changed = True
+                details.append(
+                    {
+                        "asset": asset,
+                        "status": "anchored",
+                        "anchor": cur_price,
+                        "current": cur_price,
+                    }
+                )
+                continue
 
-        return {"triggered": flagged, "details": results}
+            # Single mode disarms after first alert
+            if rearm_mode == "single" and not cfg["armed"].get(asset, True):
+                details.append(
+                    {
+                        "asset": asset,
+                        "status": "disarmed",
+                        "anchor": anc.value,
+                        "current": cur_price,
+                    }
+                )
+                continue
+
+            thr = cfg["thresholds"][asset]
+            delta = abs(float(thr.get("delta", 0.0)))
+            direction = str(thr.get("direction", "both")).lower()
+
+            if delta <= 0:
+                details.append(
+                    {
+                        "asset": asset,
+                        "status": "disabled",
+                        "anchor": anc.value,
+                        "current": cur_price,
+                    }
+                )
+                continue
+
+            diff = cur_price - anc.value
+            move_up = diff >= delta
+            move_down = (-diff) >= delta
+
+            hit = (
+                (direction == "up" and move_up)
+                or (direction == "down" and move_down)
+                or (direction == "both" and (move_up or move_down))
+            )
+
+            info = {
+                "asset": asset,
+                "anchor": round(anc.value, 6),
+                "current": round(cur_price, 6),
+                "delta": delta,
+                "direction": direction,
+                "move": round(diff, 6),
+                "trigger": bool(hit),
+            }
+            details.append(info)
+
+            if not hit:
+                continue
+
+            triggered_any = True
+            side = "up" if diff > 0 else "down"
+            subject = f"📈 {asset} moved {side} ${abs(diff):.2f} (≥ ${delta:.2f})"
+            body = (
+                f"{asset}: {anc.value:.2f} → {cur_price:.2f} | anchor @ {anc.value:.2f},"
+                f" mode={rearm_mode}/{direction}"
+            )
+            self._notify("HIGH", subject, body, metadata=info)
+
+            if rearm_mode == "ladder":
+                step = delta if side == "up" else -delta
+                cfg["anchors"][asset] = {"value": anc.value + step, "time": now}
+                changed = True
+            elif rearm_mode == "reset":
+                cfg["anchors"][asset] = {"value": cur_price, "time": now}
+                changed = True
+            elif rearm_mode == "single":
+                cfg["armed"][asset] = False
+                changed = True
+
+        if changed:
+            self.dl.system.set_var(self.name, cfg)
+
+        return {
+            "triggered": triggered_any,
+            "details": details,
+            "anchors": cfg.get("anchors", {}),
+            "prices": prices,
+        }
 
 
-__all__ = ["MarketMonitor", "MARKET_MONITOR_BLAST_RADIUS_DEFAULTS"]
+# Backwards compatibility export
+MarketMonitor = MarketMovementMonitor
+
+__all__ = ["MarketMovementMonitor", "MarketMonitor"]
 

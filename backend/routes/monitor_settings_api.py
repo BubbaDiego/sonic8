@@ -15,37 +15,42 @@ from backend.deps import get_app_locker
 router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
 
 # ------------------------------------------------------------------ #
-# Market Monitor settings
+# Market Movement Monitor settings
 # ------------------------------------------------------------------ #
 
 
 @router.get("/market")
 def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
-    """Return current MarketMonitor configuration with defaults."""
+    """Return current MarketMovementMonitor configuration with defaults."""
 
-    monitor = market_monitor.MarketMonitor()
-    monitor.dl = dl
-
-    cfg = monitor._cfg()
-    # Merge persisted settings so unknown keys are preserved
-    stored = dl.system.get_var("market_monitor") or {}
-    # Drop persisted blast radius so defaults are returned
-    stored.pop("blast_radius", None)
-    cfg.update(stored)
-
-    # Ensure blast radius reflects latest defaults unless monitor updated it
-    cfg["blast_radius"] = {
-        **market_monitor.MARKET_MONITOR_BLAST_RADIUS_DEFAULTS,
-        **cfg.get("blast_radius", {}),
-    }
-
-    return cfg
+    mon = market_monitor.MarketMonitor(dl)
+    return mon._cfg()
 
 
 @router.post("/market")
 def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
-    dl.system.set_var("market_monitor", payload)
-    return {"success": True}
+    mon = market_monitor.MarketMonitor(dl)
+    cfg = mon._cfg()
+    for key in ("notifications", "thresholds", "rearm_mode", "anchors", "armed"):
+        if key in payload:
+            cfg[key] = payload[key]
+    dl.system.set_var(mon.name, cfg)
+    return cfg
+
+
+@router.post("/market/reset-anchors")
+def reset_market_anchors(dl: DataLocker = Depends(get_app_locker)):
+    mon = market_monitor.MarketMonitor(dl)
+    cfg = mon._cfg()
+    prices = mon._latest_prices()
+    now = datetime.now(timezone.utc).isoformat()
+
+    for asset, price in prices.items():
+        cfg["anchors"][asset] = {"value": float(price), "time": now}
+        cfg["armed"][asset] = True
+
+    dl.system.set_var(mon.name, cfg)
+    return cfg
 
 
 # ------------------------------------------------------------------ #

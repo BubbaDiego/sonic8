@@ -1,11 +1,10 @@
-import types
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.data.data_locker import DataLocker
-from backend.core.core_constants import MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
 import backend.sonic_backend_app as app_module
-from backend.core.monitor_core import market_monitor
+from backend.data.data_locker import DataLocker
 
 
 def _setup(tmp_path, monkeypatch):
@@ -16,96 +15,48 @@ def _setup(tmp_path, monkeypatch):
     return client, dl
 
 
-def test_market_settings_persists(tmp_path, monkeypatch):
+def test_settings_roundtrip(tmp_path, monkeypatch):
     client, dl = _setup(tmp_path, monkeypatch)
 
     payload = {
-        "thresholds": {"BTC": 2.5},
-        "baseline": {
-            "BTC": {"price": 100.0, "timestamp": "2024-01-01T00:00:00+00:00", "mode": "EITHER"}
-        },
-        "blast_filters": {"window": "24h", "exchange": "binance"},
+        "thresholds": {"BTC": {"delta": 15.0, "direction": "up"}},
+        "rearm_mode": "reset",
+        "notifications": {"system": False, "voice": False, "sms": False, "tts": True},
     }
 
     resp = client.post("/api/monitor-settings/market", json=payload)
     assert resp.status_code == 200
 
-    cfg = dl.system.get_var("market_monitor")
-    assert cfg["thresholds"]["BTC"] == pytest.approx(2.5)
-    assert cfg["baseline"]["BTC"]["price"] == pytest.approx(100.0)
+    data = resp.json()
+    assert data["thresholds"]["BTC"]["delta"] == pytest.approx(15.0)
+    assert data["thresholds"]["BTC"]["direction"] == "up"
+    assert data["rearm_mode"] == "reset"
+    assert data["notifications"]["system"] is False
 
     resp = client.get("/api/monitor-settings/market")
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["thresholds"]["BTC"] == pytest.approx(2.5)
-    assert data["baseline"]["BTC"]["price"] == pytest.approx(100.0)
+    fetched = resp.json()
+    assert fetched["thresholds"]["BTC"]["delta"] == pytest.approx(15.0)
+    assert fetched["rearm_mode"] == "reset"
 
 
-def test_market_settings_defaults(tmp_path, monkeypatch):
-    client, _ = _setup(tmp_path, monkeypatch)
+def test_reset_anchors(tmp_path, monkeypatch):
+    client, dl = _setup(tmp_path, monkeypatch)
 
-    resp = client.get("/api/monitor-settings/market")
-    assert resp.status_code == 200
-    data = resp.json()
-
-    assert data["blast_radius"]["BTC"] == pytest.approx(MARKET_MONITOR_BLAST_RADIUS_DEFAULTS["BTC"])
-    assert data["blast_radius"]["ETH"] == pytest.approx(MARKET_MONITOR_BLAST_RADIUS_DEFAULTS["ETH"])
-    assert data["blast_radius"]["SOL"] == pytest.approx(MARKET_MONITOR_BLAST_RADIUS_DEFAULTS["SOL"])
-
-
-def test_market_settings_constant_change(tmp_path, monkeypatch):
-    """Updated blast radius defaults should be returned when config is stale."""
-    client, _ = _setup(tmp_path, monkeypatch)
-
-    new_defaults = {"BTC": 9000.0, "ETH": 400.0, "SOL": 20.0}
-    monkeypatch.setattr(market_monitor, "MARKET_MONITOR_BLAST_RADIUS_DEFAULTS", new_defaults)
-
-    resp = client.get("/api/monitor-settings/market")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["blast_radius"] == new_defaults
-
-
-def test_do_work_triggers_without_updating_blast_radius(monkeypatch):
-    price_map = {"BTC": 110.0, "ETH": 102.0, "SOL": 98.0}
-    cfg = {
-        "baseline": {
-            "BTC": {"price": 100.0, "timestamp": "2024-01-01T00:00:00+00:00", "mode": "EITHER"},
-            "ETH": {"price": 100.0, "timestamp": "2024-01-01T00:00:00+00:00", "mode": "EITHER"},
-            "SOL": {"price": 100.0, "timestamp": "2024-01-01T00:00:00+00:00", "mode": "EITHER"},
-        },
-        "thresholds": {"BTC": 5.0, "ETH": 5.0, "SOL": 5.0},
-        "blast_radius": MARKET_MONITOR_BLAST_RADIUS_DEFAULTS.copy(),
-        "blast_filters": {"window": "24h", "exchange": "coingecko"},
-    }
-
-    class FakeDL:
-        def __init__(self):
-            self.config = {"market_monitor": cfg}
-            self.system = types.SimpleNamespace(
-                get_var=lambda key: self.config.get(key),
-                set_var=lambda key, val: self.config.__setitem__(key, val),
-            )
-
-        def get_latest_price(self, asset):
-            return {"current_price": price_map[asset]}
-
-    dl = FakeDL()
-    monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls: dl))
-
-
-    # The swing service is not used when blast radius defaults are enforced
-    monkeypatch.setattr(
-        market_monitor,
-        "DailySwingService",
-        lambda: types.SimpleNamespace(fetch=lambda assets: {})
+    now = datetime.now(timezone.utc).isoformat()
+    dl.prices.insert_price(
+        {
+            "asset_type": "BTC",
+            "current_price": 100.0,
+            "previous_price": 0.0,
+            "previous_update_time": None,
+            "last_update_time": now,
+            "source": "test",
+        }
     )
 
-    monitor = market_monitor.MarketMonitor()
-    result = monitor._do_work()
-
-    assert result["trigger_any"] is True
-    updated = dl.system.get_var("market_monitor")
-    assert updated["blast_radius"] == MARKET_MONITOR_BLAST_RADIUS_DEFAULTS
-    assert result["details"][0]["trigger"] is True
-    assert result["details"][1]["trigger"] is False
+    resp = client.post("/api/monitor-settings/market/reset-anchors")
+    assert resp.status_code == 200
+    cfg = resp.json()
+    assert cfg["anchors"]["BTC"]["value"] == pytest.approx(100.0)
+    assert cfg["armed"]["BTC"] is True
