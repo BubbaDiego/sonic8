@@ -1,78 +1,134 @@
 import React, { useMemo } from 'react';
-import AssetLogo from './AssetLogo';         // ← same component used in Liquidation card
+import axios from 'utils/axios';
 import {
-  Table, TableHead, TableBody, TableRow, TableCell,
-  TextField, Typography, Stack
+  Box,
+  Stack,
+  Typography,
+  TextField,
+  Select,
+  MenuItem,
+  Button,
+  FormControl,
+  InputLabel,
+  Divider,
+  Tooltip
 } from '@mui/material';
 
-export default function MarketMovementCard({ cfg, setCfg, live }) {
-  const ASSETS  = ['SPX', 'BTC', 'ETH', 'SOL'];
-  const WINDOWS = ['1h', '6h', '24h'];      // trimmed columns
-
-  const norm = useMemo(() => {
-    const t = cfg.thresholds || {};
-    return Object.fromEntries(
-      ASSETS.map(a => [
-        a,
-        WINDOWS.reduce((o, w) => ({ ...o, [w]: t?.[a]?.[w] ?? '' }), {})
-      ])
-    );
+/**
+ * Inputs for the Market Movement Monitor.
+ * Props:
+ *   cfg:  monitor settings object
+ *   setCfg: setter from MonitorManager (markDirty wrapper)
+ *   live: optional live readout (unused for now)
+ */
+export default function MarketMovementCard({ cfg = {}, setCfg, live = {} }) {
+  const assets = useMemo(() => {
+    const keys = Object.keys(cfg?.thresholds || {});
+    return keys.length ? keys : ['SPX', 'BTC', 'ETH', 'SOL'];
   }, [cfg]);
 
-  const onChange = (asset, win) => e =>
-    setCfg(p => ({
-      ...p,
+  const thresholds = cfg?.thresholds || {};
+  const rearmMode = cfg?.rearm_mode || 'ladder';
+
+  const updateThreshold = (asset, patch) => {
+    setCfg((prev) => ({
+      ...prev,
       thresholds: {
-        ...p.thresholds,
-        [asset]: { ...(p.thresholds?.[asset] || {}), [win]: e.target.value }
+        ...(prev.thresholds || {}),
+        [asset]: {
+          ...(prev.thresholds?.[asset] || { delta: 5, direction: 'both' }),
+          ...patch
+        }
       }
     }));
+  };
+
+  const updateRearm = (value) => {
+    setCfg((prev) => ({ ...prev, rearm_mode: value }));
+  };
+
+  const resetAnchors = async () => {
+    const { data } = await axios.post('/api/monitor-settings/market/reset-anchors');
+    setCfg((prev) => ({ ...prev, anchors: data.anchors, armed: data.armed }));
+  };
 
   return (
-    <Table size="small">
-      <TableHead>
-        <TableRow>
-          <TableCell>Asset</TableCell>
-          {WINDOWS.map(w => (
-            <TableCell key={w} align="center">{w}</TableCell>
-          ))}
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {ASSETS.map(a => (
-          <TableRow key={a}>
-            <TableCell>
-              <AssetLogo symbol={a} size={20} />
-            </TableCell>
-            {WINDOWS.map(w => (
-              <TableCell key={w} align="center">
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <TextField
-                    type="number"
-                    size="small"
-                    value={norm[a][w]}
-                    onChange={onChange(a, w)}
-                    sx={{ width: 72 }}
-                  />
-                  <Typography
-                    variant="caption"
-                    sx={{ fontWeight: 700 }}
-                    color={
-                      Math.abs(live?.[a]?.[w]?.pct_move || 0) >= (norm[a][w] || 0)
-                        ? 'success.main'
-                        : Math.abs(live?.[a]?.[w]?.pct_move || 0) >= (norm[a][w] || 0) * 0.5
-                          ? 'warning.main'
-                          : 'error.main'
-                    }
-                  >
-                    ({live?.[a]?.[w]?.pct_move?.toFixed(2) ?? '—'}%)
-                  </Typography>
-                </Stack>
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <Box sx={{ p: 2 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+        <Typography variant="subtitle2">
+          Trigger when price moves by the configured dollar amount from the last anchor.
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <FormControl size="small">
+            <InputLabel id="rearm-label">Rearm</InputLabel>
+            <Select
+              labelId="rearm-label"
+              label="Rearm"
+              value={rearmMode}
+              onChange={(e) => updateRearm(e.target.value)}
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="ladder">Ladder</MenuItem>
+              <MenuItem value="reset">Reset to Current</MenuItem>
+              <MenuItem value="single">Single (disarm)</MenuItem>
+            </Select>
+          </FormControl>
+          <Tooltip title="Set all anchors to current prices and re-arm">
+            <Button variant="outlined" size="small" onClick={resetAnchors}>
+              Reset Anchors
+            </Button>
+          </Tooltip>
+        </Stack>
+      </Stack>
+
+      <Divider sx={{ mb: 1 }} />
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: '110px 1fr 160px',
+          columnGap: 1.5,
+          rowGap: 1.2,
+          alignItems: 'center'
+        }}
+      >
+        <Typography variant="overline">Asset</Typography>
+        <Typography variant="overline">Δ (USD)</Typography>
+        <Typography variant="overline">Direction</Typography>
+
+        {assets.map((asset) => {
+          const t = thresholds[asset] || { delta: 5, direction: 'both' };
+          return (
+            <React.Fragment key={asset}>
+              <Typography sx={{ fontWeight: 600 }}>{asset}</Typography>
+
+              <TextField
+                size="small"
+                type="number"
+                inputProps={{ step: '0.01', min: 0 }}
+                value={t.delta ?? ''}
+                onChange={(e) =>
+                  updateThreshold(asset, {
+                    delta: e.target.value === '' ? '' : Number(e.target.value)
+                  })
+                }
+              />
+
+              <FormControl size="small">
+                <Select
+                  value={t.direction || 'both'}
+                  onChange={(e) => updateThreshold(asset, { direction: e.target.value })}
+                >
+                  <MenuItem value="both">Both</MenuItem>
+                  <MenuItem value="up">Up only</MenuItem>
+                  <MenuItem value="down">Down only</MenuItem>
+                </Select>
+              </FormControl>
+            </React.Fragment>
+          );
+        })}
+      </Box>
+    </Box>
   );
 }
+
