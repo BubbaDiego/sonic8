@@ -51,10 +51,12 @@ class XComStatusService:
     def probe_sound(self) -> str:
         """Attempt to play a short sound/beep."""
         try:
-            SoundService().play()
-            return "ok"
-        except Exception as exc:  # pragma: no cover - platform dependent
-            return str(exc)
+            played = SoundService().play()
+            return "ok" if played else "playback failed"
+        except ModuleNotFoundError:
+            return "playsound missing"
+        except Exception:  # pragma: no cover - platform dependent
+            return "playback failed"
 
     # ------------------------------------------------------------------ #
     # Public API                                                         #
