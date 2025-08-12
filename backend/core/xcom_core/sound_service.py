@@ -59,17 +59,19 @@ class SoundService:
             self._fallback_beep()
             return False
 
+        if playsound is None:
+            log.warning(
+                "playsound dependency missing. Install the 'playsound' package for MP3 playback",
+                source="SoundService",
+            )
+            self._fallback_beep()
+            return False
+
         try:
             log.info(f"🔊 Playing sound: {path}", source="SoundService")
-
-            if playsound:
-                playsound(path)
-            else:
-                raise RuntimeError("playsound dependency missing. Install the 'playsound' package for MP3 playback")
-
+            playsound(path)
             log.success("✅ System sound played", source="SoundService")
             return True
-
         except Exception as e:
             log.error(f"❌ Playback failed: {e}", source="SoundService")
             self._fallback_beep()
