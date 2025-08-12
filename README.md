@@ -64,6 +64,21 @@ The sample file [`backend/config/comm_config.json`](backend/config/comm_config.j
 illustrates the full provider layout. Text-to-speech only works if the host
 machine has a compatible speech engine.
 
+### Optional sound and TTS dependencies
+
+Sound playback and spoken alerts rely on extra packages.
+
+- **playsound** – enables MP3 playback for alert sounds. When it is missing the
+  system falls back to emitting a simple ASCII bell.
+- **pyttsx3** – provides local text-to-speech. If the package is absent the
+  TTS service logs a warning and no voice is produced.
+
+Install the libraries to enable full audio support:
+
+```bash
+pip install playsound pyttsx3
+```
+
 The API routes access the persistence layer through a `DataLocker` instance.
 Each router declares route parameters like `dl: DataLocker = Depends(get_locker)`
 so FastAPI injects the locker for every request.  The helper
