@@ -10,7 +10,7 @@
 - `idempotency-key` (header, optional): 
 
 **Request Body**
-- application/json → LiquidationAlertRequest
+- application/json → [LiquidationAlertRequest](../schemas/liquidation_alert_request.json)
 
 **Responses**
 - **200**: Successful Response
@@ -26,7 +26,7 @@
 - `idempotency-key` (header, optional): 
 
 **Request Body**
-- application/json → OrderCreate
+- application/json → [OrderCreate](../schemas/order_create.json)
 
 **Responses**
 - **200**: Successful Response
@@ -43,7 +43,7 @@
 - `idempotency-key` (header, optional): 
 
 **Request Body**
-- application/json → PositionAdjustRequest
+- application/json → [PositionAdjustRequest](../schemas/position_adjust_request.json)
 
 **Responses**
 - **200**: Successful Response

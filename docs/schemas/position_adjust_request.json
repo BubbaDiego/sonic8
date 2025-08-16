@@ -1,0 +1,11 @@
+{
+  "properties": {
+    "delta": {
+      "title": "Delta",
+      "type": "string"
+    }
+  },
+  "required": ["delta"],
+  "title": "PositionAdjustRequest",
+  "type": "object"
+}

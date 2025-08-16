@@ -1,0 +1,11 @@
+{
+  "properties": {
+    "position_id": {
+      "title": "Position Id",
+      "type": "string"
+    }
+  },
+  "required": ["position_id"],
+  "title": "LiquidationAlertRequest",
+  "type": "object"
+}

@@ -2,7 +2,7 @@
 
 ## Create Order
 - **Trigger**: User submits trade.
-- **Input**: [OrderCreate](../schemas/order.json)
+- **Input**: [OrderCreate](../schemas/order_create.json)
 - **Output**: [Order](../schemas/order.json)
 - **Invariants**: `qty` must be positive.
 - **Failure Modes**: `AUTH_REQUIRED`, `IDEMPOTENCY_REQUIRED`.
@@ -10,7 +10,7 @@
 
 ## Adjust Collateral
 - **Trigger**: Margin update requested.
-- **Input**: [PositionAdjustRequest](../schemas/position.json)
+- **Input**: [PositionAdjustRequest](../schemas/position_adjust_request.json)
 - **Output**: [Position](../schemas/position.json)
 - **Invariants**: `delta` non-negative.
 - **Failure Modes**: `AUTH_REQUIRED`, `NEGATIVE_DELTA`.
@@ -26,7 +26,7 @@
 
 ## Liquidation Alerts
 - **Trigger**: Position approaches margin call.
-- **Input**: [LiquidationAlertRequest](../schemas/alert.json)
+- **Input**: [LiquidationAlertRequest](../schemas/liquidation_alert_request.json)
 - **Output**: [Alert](../schemas/alert.json)
 - **Invariants**: Position must exist.
 - **Failure Modes**: `AUTH_REQUIRED`.
