@@ -1,4 +1,56 @@
 {
+
+  "properties": {
+    "instrument": {
+      "title": "Instrument",
+      "type": "string"
+    },
+    "side": {
+      "title": "Side",
+      "type": "string",
+      "enum": ["buy", "sell"]
+    },
+    "type": {
+      "title": "Type",
+      "type": "string",
+      "enum": ["market", "limit"]
+    },
+    "qty": {
+      "title": "Qty",
+      "type": "string"
+    },
+    "price": {
+      "anyOf": [
+        {"type": "string"},
+        {"type": "null"}
+      ],
+      "default": null,
+      "title": "Price"
+    },
+    "account_id": {
+      "title": "Account Id",
+      "type": "string"
+    },
+    "client_ref": {
+      "anyOf": [
+        {"type": "string"},
+        {"type": "null"}
+      ],
+      "default": null,
+      "title": "Client Ref"
+    }
+  },
+  "required": [
+    "instrument",
+    "side",
+    "type",
+    "qty",
+    "account_id"
+  ],
+  "title": "OrderCreate",
+  "type": "object"
+}
+=======
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/schemas/order_create.json",
   "title": "OrderCreate",
@@ -50,3 +102,4 @@
     }
   }
 }
+
