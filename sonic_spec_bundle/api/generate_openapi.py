@@ -5,15 +5,17 @@ Assumes your FastAPI app is exposed as `app` in api/main.py (adjust import if ne
 """
 from __future__ import annotations
 from pathlib import Path
+import sys
 import yaml
 
-# TODO: adjust import path to your app
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
 try:
     from api.main import app  # e.g., api/main.py -> app = FastAPI(...)
 except Exception as e:
     raise SystemExit(f"Could not import FastAPI app: {e}")
 
-ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "api" / "openapi.yaml"
 
 def main():
