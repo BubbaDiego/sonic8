@@ -1,4 +1,5 @@
 {
+
   "properties": {
     "position_id": {
       "title": "Position Id",
@@ -8,4 +9,14 @@
   "required": ["position_id"],
   "title": "LiquidationAlertRequest",
   "type": "object"
+
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/liquidation_alert_request.json",
+  "title": "LiquidationAlertRequest",
+  "type": "object",
+  "required": ["position_id"],
+  "properties": {
+    "position_id": {"type": "string"}
+  }
+
 }

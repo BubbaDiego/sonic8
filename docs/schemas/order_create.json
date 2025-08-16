@@ -1,4 +1,5 @@
 {
+
   "properties": {
     "instrument": {
       "title": "Instrument",
@@ -49,3 +50,56 @@
   "title": "OrderCreate",
   "type": "object"
 }
+=======
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/order_create.json",
+  "title": "OrderCreate",
+  "type": "object",
+  "required": [
+    "instrument",
+    "side",
+    "type",
+    "qty",
+    "account_id"
+  ],
+  "properties": {
+    "instrument": {
+      "type": "string"
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "buy",
+        "sell"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "market",
+        "limit"
+      ]
+    },
+    "price": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Required for `limit`"
+    },
+    "qty": {
+      "type": "string",
+      "description": "Decimal as string"
+    },
+    "account_id": {
+      "type": "string"
+    },
+    "client_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+

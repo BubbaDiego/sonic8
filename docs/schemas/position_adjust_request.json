@@ -1,4 +1,5 @@
 {
+
   "properties": {
     "delta": {
       "title": "Delta",
@@ -8,4 +9,20 @@
   "required": ["delta"],
   "title": "PositionAdjustRequest",
   "type": "object"
+
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/position_adjust_request.json",
+  "title": "PositionAdjustRequest",
+  "type": "object",
+  "required": [
+    "delta"
+  ],
+  "properties": {
+    "delta": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Collateral change; must be non-negative"
+    }
+  }
+
 }
