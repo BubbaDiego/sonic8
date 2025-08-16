@@ -23,6 +23,23 @@ def create_order(
         raise HTTPException(status_code=401, detail={"error": {"code": "AUTH_REQUIRED", "message": "Missing bearer token"}})
     if not idempotency_key:
         raise HTTPException(status_code=400, detail={"error": {"code": "IDEMPOTENCY_REQUIRED", "message": "Provide Idempotency-Key"}})
+    if payload.type == "limit":
+        if payload.price is None:
+            raise HTTPException(
+                status_code=422,
+                detail={"error": {"code": "PRICE_REQUIRED", "message": "Price required for limit orders"}},
+            )
+        try:
+            if float(payload.price) <= 0:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"error": {"code": "INVALID_PRICE", "message": "Price must be positive"}},
+                )
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail={"error": {"code": "INVALID_PRICE", "message": "Price must be numeric"}},
+            )
     return Order(id="ord_001", **payload.model_dump())
 
 
@@ -35,8 +52,17 @@ def adjust_position(
 ):
     if not authorization:
         raise HTTPException(status_code=401, detail={"error": {"code": "AUTH_REQUIRED", "message": "Missing bearer token"}})
+    MAX_DELTA = 100
     if payload.delta < 0:
-        raise HTTPException(status_code=400, detail={"error": {"code": "NEGATIVE_DELTA", "message": "Delta must be positive"}})
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "NEGATIVE_DELTA", "message": "Delta must be positive"}},
+        )
+    if payload.delta > MAX_DELTA:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "EXCESSIVE_DELTA", "message": f"Delta cannot exceed {MAX_DELTA}"}},
+        )
     return Position(id=position_id, instrument="BTC-PERP", qty=str(payload.delta), account_id="acc_123")
 
 
