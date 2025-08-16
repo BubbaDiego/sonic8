@@ -1,0 +1,28 @@
+{
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "instrument": {
+      "title": "Instrument",
+      "type": "string"
+    },
+    "qty": {
+      "title": "Qty",
+      "type": "string"
+    },
+    "account_id": {
+      "title": "Account Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "instrument",
+    "qty",
+    "account_id"
+  ],
+  "title": "Position",
+  "type": "object"
+}
