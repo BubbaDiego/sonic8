@@ -177,9 +177,15 @@ components:
         side:
           type: string
           title: Side
+          enum:
+          - buy
+          - sell
         type:
           type: string
           title: Type
+          enum:
+          - market
+          - limit
         qty:
           type: string
           title: Qty
@@ -212,9 +218,15 @@ components:
         side:
           type: string
           title: Side
+          enum:
+          - buy
+          - sell
         type:
           type: string
           title: Type
+          enum:
+          - market
+          - limit
         qty:
           type: string
           title: Qty
@@ -263,7 +275,7 @@ components:
     PositionAdjustRequest:
       properties:
         delta:
-          type: integer
+          type: string
           title: Delta
       type: object
       required:

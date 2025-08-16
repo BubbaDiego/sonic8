@@ -7,7 +7,7 @@ client = TestClient(app)
 def test_adjust_collateral_minimum_guardrail():
     r = client.post(
         "/positions/pos_abc/adjust",
-        json={"delta": 50},
+        json={"delta": "50"},
         headers={
             "Authorization": "Bearer dev-token",
             "Idempotency-Key": "golden-002"
