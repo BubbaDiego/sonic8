@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+
 
 class Position(BaseModel):
     id: str
@@ -7,5 +7,6 @@ class Position(BaseModel):
     qty: str
     account_id: str
 
+
 class PositionAdjustRequest(BaseModel):
-    delta: int
+    delta: str

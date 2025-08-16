@@ -35,9 +35,15 @@ def adjust_position(
 ):
     if not authorization:
         raise HTTPException(status_code=401, detail={"error": {"code": "AUTH_REQUIRED", "message": "Missing bearer token"}})
-    if payload.delta < 0:
+    if not idempotency_key:
+        raise HTTPException(status_code=400, detail={"error": {"code": "IDEMPOTENCY_REQUIRED", "message": "Provide Idempotency-Key"}})
+    try:
+        delta_val = int(payload.delta)
+    except ValueError:
+        raise HTTPException(status_code=400, detail={"error": {"code": "INVALID_DELTA", "message": "Delta must be numeric"}})
+    if delta_val < 0:
         raise HTTPException(status_code=400, detail={"error": {"code": "NEGATIVE_DELTA", "message": "Delta must be positive"}})
-    return Position(id=position_id, instrument="BTC-PERP", qty=str(payload.delta), account_id="acc_123")
+    return Position(id=position_id, instrument="BTC-PERP", qty=payload.delta, account_id="acc_123")
 
 
 @app.post("/alerts/liquidations", response_model=Alert)
@@ -48,4 +54,6 @@ def create_liquidation_alert(
 ):
     if not authorization:
         raise HTTPException(status_code=401, detail={"error": {"code": "AUTH_REQUIRED", "message": "Missing bearer token"}})
+    if not idempotency_key:
+        raise HTTPException(status_code=400, detail={"error": {"code": "IDEMPOTENCY_REQUIRED", "message": "Provide Idempotency-Key"}})
     return Alert(id="alrt_001", position_id=payload.position_id)
