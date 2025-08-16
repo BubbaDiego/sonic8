@@ -1,0 +1,16 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Sonic API",
+  "name_for_model": "sonic_api",
+  "description_for_model": "Interact with Sonic. Only call endpoints defined in this OpenAPI. Use idempotency keys for writes. Never send floats for money/price.",
+  "auth": {
+    "type": "bearer"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "http://localhost:8000/openapi.json"
+  },
+  "rate_limit": {
+    "rpm": 30
+  }
+}

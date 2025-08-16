@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/order.json",
+  "title": "Order",
+  "type": "object",
+  "required": [
+    "id",
+    "instrument",
+    "side",
+    "type",
+    "qty",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "instrument": {
+      "type": "string"
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "buy",
+        "sell"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "market",
+        "limit"
+      ]
+    },
+    "price": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Decimal as string"
+    },
+    "qty": {
+      "type": "string",
+      "description": "Decimal as string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "filled",
+        "canceled"
+      ]
+    },
+    "account_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
