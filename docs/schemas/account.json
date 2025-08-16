@@ -1,0 +1,18 @@
+{
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "balance": {
+      "title": "Balance",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "balance"
+  ],
+  "title": "Account",
+  "type": "object"
+}

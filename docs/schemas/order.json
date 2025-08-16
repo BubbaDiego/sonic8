@@ -1,0 +1,55 @@
+{
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "instrument": {
+      "title": "Instrument",
+      "type": "string"
+    },
+    "side": {
+      "title": "Side",
+      "type": "string"
+    },
+    "type": {
+      "title": "Type",
+      "type": "string"
+    },
+    "qty": {
+      "title": "Qty",
+      "type": "string"
+    },
+    "price": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Price"
+    },
+    "status": {
+      "default": "open",
+      "title": "Status",
+      "type": "string"
+    },
+    "account_id": {
+      "title": "Account Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "instrument",
+    "side",
+    "type",
+    "qty",
+    "account_id"
+  ],
+  "title": "Order",
+  "type": "object"
+}
