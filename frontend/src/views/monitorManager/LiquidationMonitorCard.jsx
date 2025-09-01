@@ -180,7 +180,7 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
                           <>
                             <br />
                             <Box component="span" color={getDistColour(code)}>
-                              {`(${((dist / r) * 100).toFixed(1)}%)`}
+                              {`(${Math.ceil((dist / r) * 100)}%)`}
                             </Box>
                           </>
                         );
