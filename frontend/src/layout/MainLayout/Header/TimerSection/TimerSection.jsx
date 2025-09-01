@@ -121,7 +121,7 @@ export default function TimerSection() {
       refreshPortfolioHistory();
       refreshPositions();
       refreshMonitorStatus();
-    } else if (activeLabel === 'Liq Snooze') {
+    } else if (activeLabel === 'Snooze') {
       // Could expose explicit API; for now just refresh monitor
       refreshMonitorStatus();
     }
@@ -148,9 +148,9 @@ export default function TimerSection() {
           <DonutCountdown
             remaining={snooze}
             total={fullSnooze}
-            label="Liq Snooze"
+            label="Snooze"
             paletteKey="warning"
-            onClick={handleDonutClick('Liq Snooze')}
+            onClick={handleDonutClick('Snooze')}
           />
         ) : (
           <Tooltip
@@ -162,8 +162,8 @@ export default function TimerSection() {
           >
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <IconButton
-                aria-label="Liq Snooze status"
-                onClick={handleDonutClick('Liq Snooze')}
+                aria-label="Snooze status"
+                onClick={handleDonutClick('Snooze')}
                 sx={{ p: 0, width: 48, height: 48 }}
                 disableRipple
               >
@@ -173,9 +173,6 @@ export default function TimerSection() {
                   <IconShieldOff size={48} color={theme.palette.error.main} />
                 )}
               </IconButton>
-              <Typography variant="caption" sx={{ mt: 0.25, userSelect: 'none' }}>
-                Liq Snooze
-              </Typography>
             </Box>
           </Tooltip>
         )}
