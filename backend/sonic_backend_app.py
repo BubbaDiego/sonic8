@@ -8,9 +8,10 @@ set_console_title("Sonic - FastAPI Backend")
 
 # --- WINDOWS EVENT‑LOOP PATCH --------------------------------------------- #
 
-# Only needed on Windows: Playwright requires the selector loop
+# Ensure the Proactor policy is used on Windows (Python 3 default, but explicit
+# for clarity).
 if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 try:  # pragma: no cover - optional dependency
     from dotenv import load_dotenv
