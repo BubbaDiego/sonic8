@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import Divider from '@mui/material/Divider';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -18,16 +17,16 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import AccountBalanceWalletTwoToneIcon from '@mui/icons-material/AccountBalanceWalletTwoTone';
-import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';   // Profit
-import BuildTwoToneIcon from '@mui/icons-material/BuildTwoTone';            // Leverage
+import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone'; // Profit
+import BuildTwoToneIcon from '@mui/icons-material/BuildTwoTone'; // Leverage
 import MonetizationOnTwoToneIcon from '@mui/icons-material/MonetizationOnTwoTone';
 import WaterDropTwoToneIcon from '@mui/icons-material/WaterDropTwoTone';
 import PercentTwoToneIcon from '@mui/icons-material/PercentTwoTone';
 
 /* --- Configurable Variables --- */
-const HEADER_ROW_HEIGHT = 20;   // Height of the header row with icons (px)
+const HEADER_ROW_HEIGHT = 20; // Height of the header row with icons (px)
 const POSITION_ROW_HEIGHT = 28; // Height of each position row (px)
-const TABLE_MAX_HEIGHT = 320;   // Maximum height of the whole table/card (px)
+const TABLE_MAX_HEIGHT = 320; // Maximum height of the whole table/card (px)
 
 /**
  * Any profit **strictly greater** than this value (in USD)
@@ -57,8 +56,8 @@ export default function PositionListCard({ title }) {
     p.pnl_after_fees_usd != null
       ? Number(p.pnl_after_fees_usd)
       : p.value != null && p.collateral != null
-      ? Number(p.value) - Number(p.collateral)
-      : undefined;
+        ? Number(p.value) - Number(p.collateral)
+        : undefined;
 
   const sortedPositions = useMemo(() => {
     return [...positions].sort((a, b) => {
@@ -148,6 +147,17 @@ export default function PositionListCard({ title }) {
                 {/* Spacer for asset & type column */}
                 <TableCell sx={{ px: 0.5 }} />
 
+                {/* Value */}
+                <TableCell align="right" sx={{ py: 0.5 }}>
+                  <TableSortLabel
+                    active={orderBy === 'value'}
+                    direction={orderBy === 'value' ? order : 'asc'}
+                    onClick={() => handleSort('value')}
+                  >
+                    <MonetizationOnTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
+                  </TableSortLabel>
+                </TableCell>
+
                 {/* Profit - reduced padding */}
                 <TableCell align="right" sx={{ px: 0.5, py: 0.5 }}>
                   <TableSortLabel
@@ -167,17 +177,6 @@ export default function PositionListCard({ title }) {
                     onClick={() => handleSort('leverage')}
                   >
                     <BuildTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
-                  </TableSortLabel>
-                </TableCell>
-
-                {/* Value */}
-                <TableCell align="right" sx={{ py: 0.5 }}>
-                  <TableSortLabel
-                    active={orderBy === 'value'}
-                    direction={orderBy === 'value' ? order : 'asc'}
-                    onClick={() => handleSort('value')}
-                  >
-                    <MonetizationOnTwoToneIcon color="primary" sx={{ verticalAlign: 'middle' }} />
                   </TableSortLabel>
                 </TableCell>
 
@@ -251,13 +250,15 @@ export default function PositionListCard({ title }) {
                           alt={pos.asset_type}
                           sx={{ width: POSITION_ROW_HEIGHT - 4, height: POSITION_ROW_HEIGHT - 4 }}
                         />
-                        <Typography
-                          variant="subtitle2"
-                          sx={{ fontSize: POSITION_ROW_HEIGHT * 0.5, lineHeight: 1 }}
-                        >
+                        <Typography variant="subtitle2" sx={{ fontSize: POSITION_ROW_HEIGHT * 0.5, lineHeight: 1 }}>
                           {pos.position_type?.toUpperCase()}
                         </Typography>
                       </Stack>
+                    </TableCell>
+
+                    {/* Value */}
+                    <TableCell align="right" sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>
+                      ${Number(pos.value || 0).toLocaleString()}
                     </TableCell>
 
                     {/* Profit (color + bold if above mark) - reduced padding */}
@@ -279,65 +280,48 @@ export default function PositionListCard({ title }) {
                     </TableCell>
 
                     {/* Leverage */}
-                    <TableCell
-                      align="right"
-                      sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
-                    >
+                    <TableCell align="right" sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>
                       {Number(pos.leverage || 0).toFixed(2)}
                     </TableCell>
 
-                    {/* Value */}
-                    <TableCell
-                      align="right"
-                      sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
-                    >
-                      ${Number(pos.value || 0).toLocaleString()}
-                    </TableCell>
-
                     {/* Liquidation distance */}
-                    <TableCell
-                      align="right"
-                      sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
-                    >
+                    <TableCell align="right" sx={{ py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>
                       {pos.liquidation_distance}
                     </TableCell>
 
                     {/* Travel percent */}
-                    <TableCell
-                      align="right"
-                      sx={{ pr: 1, py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}
-                    >
+                    <TableCell align="right" sx={{ pr: 1, py: 0.5, fontSize: POSITION_ROW_HEIGHT * 0.5 }}>
                       {`${Number(pos.travel_percent || 0).toFixed(2)}%`}
                     </TableCell>
-                </TableRow>
-              );
-            })}
-            <TableRow>
-              <TableCell sx={{ px: 0.5, fontWeight: 700 }}>Totals</TableCell>
-              <TableCell sx={{ px: 0.5 }} />
-              <TableCell align="right" sx={{ px: 0.5, fontWeight: 700 }}>
-                {totals.profit.toLocaleString(undefined, {
-                  style: 'currency',
-                  currency: 'USD',
-                  minimumFractionDigits: 2
-                })}
-              </TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700 }}>
-                {Number(totals.leverage).toFixed(2)}
-              </TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700 }}>
-                ${Number(totals.value).toLocaleString()}
-              </TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700 }}>
-                {Number(totals.liqDist).toFixed(2)}
-              </TableCell>
-              <TableCell align="right" sx={{ pr: 1, fontWeight: 700 }}>
-                {`${Number(totals.travel).toFixed(2)}%`}
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  </TableRow>
+                );
+              })}
+              <TableRow>
+                <TableCell sx={{ px: 0.5, fontWeight: 700 }}>Totals</TableCell>
+                <TableCell sx={{ px: 0.5 }} />
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  ${Number(totals.value).toLocaleString()}
+                </TableCell>
+                <TableCell align="right" sx={{ px: 0.5, fontWeight: 700 }}>
+                  {totals.profit.toLocaleString(undefined, {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2
+                  })}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  {Number(totals.leverage).toFixed(2)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  {Number(totals.liqDist).toFixed(2)}
+                </TableCell>
+                <TableCell align="right" sx={{ pr: 1, fontWeight: 700 }}>
+                  {`${Number(totals.travel).toFixed(2)}%`}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
       </PerfectScrollbar>
     </MainCard>
   );
