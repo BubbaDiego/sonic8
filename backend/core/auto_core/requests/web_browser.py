@@ -1,7 +1,7 @@
 """Web‑browser request for Auto Core (Playwright + Chrome).
 
-* Ensures the Windows SelectorEventLoopPolicy is active BOTH in the main
-  thread and inside the worker thread that actually runs Playwright.
+* Ensures the Windows ProactorEventLoopPolicy is active inside the worker
+  thread that runs Playwright.
 * Loads Solflare extension only when present.
 """
 
@@ -17,17 +17,15 @@ from .base import AutoRequest
 # ---------------------------------------------------------------------------
 # Event‑loop policy helper
 # ---------------------------------------------------------------------------
-def _ensure_selector_policy():
-    """Switch to SelectorEventLoopPolicy on Windows if still using Proactor."""
+def _ensure_proactor_policy():
+    """Ensure Windows uses ProactorEventLoopPolicy."""
     if (
         sys.platform.startswith("win")
-        and isinstance(asyncio.get_event_loop_policy(), asyncio.WindowsProactorEventLoopPolicy)
+        and not isinstance(
+            asyncio.get_event_loop_policy(), asyncio.WindowsProactorEventLoopPolicy
+        )
     ):
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-
-# Apply at import‑time for the main thread.
-_ensure_selector_policy()
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -51,8 +49,8 @@ def _chrome_args() -> list[str]:
 
 
 def _open_chrome_sync(url: str):
-    """Runs inside a thread; make *sure* the selector policy is active here too."""
-    _ensure_selector_policy()
+    """Runs inside a thread; ensure the proactor policy is active here too."""
+    _ensure_proactor_policy()
 
     with sync_playwright() as p:
         browser = p.chromium.launch_persistent_context(
