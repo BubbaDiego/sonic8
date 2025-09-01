@@ -2,7 +2,7 @@
 import sys
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from backend.core.xcom_core.xcom_config_service import XComConfigService
 from backend.core.xcom_core.email_service import EmailService
@@ -109,6 +109,14 @@ class XComCore:
                             system_mgr.set_var(
                                 "phone_last_call", datetime.utcnow().isoformat()
                             )
+                        except Exception:
+                            pass
+                    if results["voice"]:
+                        try:
+                            dl = DataLocker.get_instance()
+                            cfg = dl.system.get_var("liquid_monitor") or {}
+                            cfg["_last_alert_ts"] = datetime.now(timezone.utc).timestamp()
+                            dl.system.set_var("liquid_monitor", cfg)
                         except Exception:
                             pass
                 else:

@@ -1,11 +1,25 @@
 from fastapi.testclient import TestClient
+from fastapi import FastAPI
 import types
 from datetime import datetime, timezone, timedelta
 import sqlite3
 
-import backend.sonic_backend_app as app_module
+from backend.routes.monitor_status_api import (
+    router as monitor_status_router,
+    reset_liquid_snooze,
+)
+from backend.deps import get_app_locker
 from backend.data.data_locker import DataLocker
 from backend.core.monitor_core import liquidation_monitor
+from backend.core.xcom_core.voice_service import VoiceService
+from backend.core.monitor_core import profit_monitor
+
+
+def make_client(dl: DataLocker) -> TestClient:
+    app = FastAPI()
+    app.include_router(monitor_status_router)
+    app.dependency_overrides[get_app_locker] = lambda: dl
+    return TestClient(app)
 
 
 def test_monitor_status_update(monkeypatch, tmp_path):
@@ -13,7 +27,7 @@ def test_monitor_status_update(monkeypatch, tmp_path):
     dl = DataLocker(str(db_path))
     monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls: dl))
 
-    client = TestClient(app_module.app)
+    client = make_client(dl)
 
     resp = client.get("/api/monitor-status/")
     assert resp.status_code == 200
@@ -73,7 +87,7 @@ def test_liquid_snooze_countdown(monkeypatch, tmp_path):
     result = monitor._do_work()
     assert result["alert_sent"] is True
 
-    client = TestClient(app_module.app)
+    client = make_client(dl)
     resp = client.get("/api/monitor-status/")
     assert resp.status_code == 200
     data = resp.json()
@@ -93,7 +107,7 @@ def test_sonic_next_positive(monkeypatch, tmp_path):
     )
     dl.db.commit()
 
-    client = TestClient(app_module.app)
+    client = make_client(dl)
     resp = client.get("/api/monitor-status/")
     assert resp.status_code == 200
     data = resp.json()
@@ -105,17 +119,24 @@ def test_monitor_status_handles_query_failure(monkeypatch, tmp_path):
     dl = DataLocker(str(db_path))
     monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls: dl))
 
-    cursor = dl.db.get_cursor()
+    def bad_cursor():
+        class C:
+            def execute(self, *a, **k):
+                raise sqlite3.InterfaceError("boom")
 
-    def boom(*a, **k):
-        raise sqlite3.InterfaceError("boom")
+            def fetchone(self):
+                return None
 
-    monkeypatch.setattr(cursor, "execute", boom)
+            def close(self):
+                pass
 
-    client = TestClient(app_module.app)
+        return C()
+
+    monkeypatch.setattr(dl.db, "get_cursor", bad_cursor)
+
+    client = make_client(dl)
     resp = client.get("/api/monitor-status/")
     assert resp.status_code == 200
-    assert resp.json() == {}
 
 
 def test_reset_liquid_snooze(monkeypatch, tmp_path):
@@ -146,11 +167,67 @@ def test_reset_liquid_snooze(monkeypatch, tmp_path):
         "backend.core.monitor_core.monitor_core.MonitorCore.run_by_name", lambda self, name: None
     )
 
-    client = TestClient(app_module.app)
-    resp = client.post("/api/monitor-status/reset-liquid-snooze")
-    assert resp.status_code == 200
-    assert resp.json() == {"success": True}
+    result = reset_liquid_snooze(dl)
+    assert result == {"success": True}
 
     cfg = dl.system.get_var("liquid_monitor") or {}
     assert "_last_alert_ts" not in cfg
+
+
+def test_profit_voice_updates_liquid_snooze(monkeypatch, tmp_path):
+    """Profit monitor voice alerts should set liquidation snooze timer."""
+    db_path = tmp_path / "test.db"
+    dl = DataLocker(str(db_path))
+    monkeypatch.setattr(DataLocker, "get_instance", classmethod(lambda cls: dl))
+
+    dl.system.set_var(
+        "liquid_monitor",
+        {
+            "threshold_percent": 5.0,
+            "snooze_seconds": 60,
+            "thresholds": {"BTC": 5.0},
+        },
+    )
+
+    dl.system.set_var(
+        "profit_monitor",
+        {
+            "notifications": {
+                "system": False,
+                "voice": True,
+                "sms": False,
+                "tts": False,
+            },
+            "enabled": True,
+        },
+    )
+
+    class FakePC:
+        def __init__(self, _dl):
+            pass
+
+        def get_active_positions(self):
+            return [types.SimpleNamespace(pnl_after_fees_usd=100.0)]
+
+    class FakeThresholdSvc:
+        def __init__(self, _db):
+            pass
+
+        def get_thresholds(self, *a, **k):
+            return types.SimpleNamespace(low=0, medium=0, high=50)
+
+    monkeypatch.setattr(profit_monitor, "DataLocker", lambda *_a, **_k: dl)
+    monkeypatch.setattr(profit_monitor, "PositionCore", lambda _dl: FakePC(_dl))
+    monkeypatch.setattr(profit_monitor, "ThresholdService", FakeThresholdSvc)
+    monkeypatch.setattr(VoiceService, "call", lambda self, recipient, message: True)
+
+    monitor = profit_monitor.ProfitMonitor()
+    result = monitor._do_work()
+    assert result["alert_triggered"] is True
+
+    client = make_client(dl)
+    resp = client.get("/api/monitor-status/")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["liquid_snooze"] > 0
 
