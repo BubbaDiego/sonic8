@@ -127,10 +127,10 @@ class ProfitMonitor(BaseMonitor):
             f"Highest Single Profit: {max_profit:.2f}  Threshold: {single_limit:.2f}  Result: {'BREACH' if single_hit else 'NO BREACH'}",
             source="ProfitMonitor",
         )
+        notification_result = []
 
         if single_hit or portfolio_hit:
             alert_msg = f"💰 Total profit is ${total_profit:.2f}."
-            notification_result = None
             if self.should_notify():
                 notif = cfg["notifications"]
                 if notif.get("system"):
@@ -144,32 +144,42 @@ class ProfitMonitor(BaseMonitor):
                         )
 
                 if notif.get("tts", True):
-                    self.xcom_core.send_notification(
-                        level="HIGH",
-                        subject="Profit Ready to Harvest",
-                        body=alert_msg,
-                        initiator="ProfitMonitor",
-                        mode="tts",
+                    notification_result.append(
+                        self.xcom_core.send_notification(
+                            level="HIGH",
+                            subject="Profit Ready to Harvest",
+                            body=alert_msg,
+                            initiator="ProfitMonitor",
+                            mode="tts",
+                        )
                     )
                 if notif.get("voice"):
-                    self.xcom_core.send_notification(
-                        level="HIGH",
-                        subject="Profit Ready to Harvest",
-                        body=alert_msg,
-                        initiator="ProfitMonitor",
-                        mode="voice",
+                    notification_result.append(
+                        self.xcom_core.send_notification(
+                            level="HIGH",
+                            subject="Profit Ready to Harvest",
+                            body=alert_msg,
+                            initiator="ProfitMonitor",
+                            mode="voice",
+                        )
                     )
                 if notif.get("sms"):
-                    self.xcom_core.send_notification(
-                        level="HIGH",
-                        subject="Profit Ready to Harvest",
-                        body=alert_msg,
-                        initiator="ProfitMonitor",
-                        mode="sms",
+                    notification_result.append(
+                        self.xcom_core.send_notification(
+                            level="HIGH",
+                            subject="Profit Ready to Harvest",
+                            body=alert_msg,
+                            initiator="ProfitMonitor",
+                            mode="sms",
+                        )
                     )
 
                 log.success(
                     f"Profit alert sent: ${total_profit:.2f}.", source="ProfitMonitor"
+                )
+                log.debug(
+                    f"Notification results: {notification_result}",
+                    source="ProfitMonitor",
                 )
                 self._set_silenced(False)
             else:
@@ -189,6 +199,7 @@ class ProfitMonitor(BaseMonitor):
         return {
             "alert_triggered": False,
             "total_profit": total_profit,
+            "notification_result": notification_result,
         }
 
     def _update_profit_badge(self, badge_value):

@@ -95,6 +95,8 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
         await asyncio.to_thread(cyclone.monitor_core.run_by_name, "market_monitor")
     if cfg.get("enabled_profit", True):
         await asyncio.to_thread(cyclone.monitor_core.run_by_name, "profit_monitor")
+    else:
+        logging.info("Profit monitor disabled via configuration")
     # await asyncio.to_thread(cyclone.monitor_core.run_by_name, "risk_monitor")
     if cfg.get("enabled_liquid", True):
         await asyncio.to_thread(cyclone.monitor_core.run_by_name, "liquid_monitor")
