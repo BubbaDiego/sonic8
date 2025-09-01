@@ -34,7 +34,7 @@ def run_step(cmd: List[str], title: str, cwd: Path, halt: bool) -> int:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--only", choices=["openapi", "sync", "validate"])
+    parser.add_argument("--only", choices=["openapi  ", "sync", "validate"])
     parser.add_argument("--skip-openapi", action="store_true")
     parser.add_argument("--skip-sync", action="store_true")
     parser.add_argument("--skip-validate", action="store_true")
