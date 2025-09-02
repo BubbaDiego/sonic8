@@ -10,6 +10,7 @@ import sys
 import asyncio
 import atexit
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -115,6 +116,100 @@ def _open_detached(url: str, channel: Optional[str]) -> Dict[str, Any]:
             **_session_status(),
         }
 
+# ---------------------------------------------------------------------------
+# Jupiter: open and click "Connect" (optionally choose a wallet)
+# ---------------------------------------------------------------------------
+def _jupiter_connect(target_url: str, select_wallet: Optional[str], channel: Optional[str]) -> Dict[str, Any]:
+    """
+    Navigate to Jupiter and click the 'Connect' button.
+    If select_wallet is provided (e.g., 'solflare'), try to click that option in the wallet modal.
+    Returns a structured status payload.
+    """
+    try:
+        _ensure_session(channel=channel)
+        page = _CONTEXT.new_page()
+        page.goto(target_url, wait_until="domcontentloaded")
+
+        # Dismiss common banners quietly (best-effort)
+        for label in [r"Accept", r"I (agree|understand)", r"Continue", r"OK"]:
+            try:
+                page.get_by_role("button", name=re.compile(label, re.I)).first.click(timeout=1200)
+            except Exception:
+                pass
+
+        # Prefer a proper role'd button named 'Connect'
+        connect = None
+        try:
+            connect = page.get_by_role("button", name=re.compile(r"^Connect$", re.I)).first
+            connect.wait_for(state="visible", timeout=5000)
+        except Exception:
+            # Fallbacks (header may render differently; bottom CTA also exists)
+            try:
+                connect = page.locator("button:has-text('Connect')").first
+                connect.wait_for(state="visible", timeout=4000)
+            except Exception:
+                try:
+                    connect = page.locator("text=Connect").first
+                    connect.wait_for(state="visible", timeout=3000)
+                except Exception:
+                    return {
+                        "error": "connect_button_not_found",
+                        "url": page.url,
+                        "title": page.title(),
+                        **_session_status(),
+                    }
+
+        connect.click()
+
+        modal_open = False
+        wallet_clicked = False
+
+        # If a wallet modal appears and a wallet was requested, click it
+        try:
+            # A tiny wait so the modal can animate in
+            page.wait_for_timeout(500)
+            # Heuristic: if any wallet option is visible, assume modal is open
+            if page.locator("text=/Wallet|Connect Wallet|Solflare/i").first.is_visible(timeout=1500):
+                modal_open = True
+        except Exception:
+            pass
+
+        if modal_open and select_wallet:
+            labels = []
+            if select_wallet.lower() == "solflare":
+                labels = [r"^Solflare$", r"Solflare.*Extension", r"Solflare Wallet"]
+            else:
+                labels = [re.escape(select_wallet)]
+            for lb in labels:
+                try:
+                    page.get_by_role("button", name=re.compile(lb, re.I)).first.click(timeout=2500)
+                    wallet_clicked = True
+                    break
+                except Exception:
+                    try:
+                        page.locator(f"text=/{lb}/i").first.click(timeout=1200)
+                        wallet_clicked = True
+                        break
+                    except Exception:
+                        pass
+
+        return {
+            "status": "clicked_connect",
+            "modal_open": modal_open,
+            "wallet_clicked": wallet_clicked,
+            "selected_wallet": (select_wallet if wallet_clicked else None),
+            "url": page.url,
+            "title": page.title(),
+            **_session_status(),
+        }
+    except Exception as e:
+        return {
+            "error": "jupiter_connect_failed",
+            "etype": type(e).__name__,
+            "detail": str(e),
+            **_session_status(),
+        }
+
 def _close_session() -> Dict[str, Any]:
     """Close the persistent context and stop Playwright."""
     global _PLAYWRIGHT, _CONTEXT
@@ -179,6 +274,21 @@ class BrowserStatusRequest(AutoRequest):
     async def execute(self) -> Dict[str, Any]:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(_EXECUTOR, _session_status)
+
+class JupiterConnectRequest(AutoRequest):
+    """
+    Opens Jupiter (default https://jup.ag/perps), clicks 'Connect',
+    and optionally clicks a wallet option (default: 'solflare').
+    """
+
+    def __init__(self, url: str = "https://jup.ag/perps", wallet: Optional[str] = "solflare", channel: Optional[str] = None):
+        self.url = url
+        self.wallet = wallet
+        self.channel = channel
+
+    async def execute(self) -> Dict[str, Any]:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_EXECUTOR, _jupiter_connect, self.url, self.wallet, self.channel)
 
 # Notes
 #
