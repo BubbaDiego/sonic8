@@ -17,8 +17,7 @@ import useConfig from 'hooks/useConfig';
 import { runFullCycle, runPositionUpdate, runPriceUpdate, deleteAllData } from 'api/cyclone';
 import { refreshPositions } from 'api/positions';
 import { refreshLatestPortfolio, refreshPortfolioHistory } from 'api/portfolio';
-import { runSonicCycle } from 'api/sonicMonitor';
-import { refreshMonitorStatus } from 'api/monitorStatus';
+import useRunSonicMonitor from 'hooks/useRunSonicMonitor';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/slices/snackbar';
 
@@ -40,6 +39,7 @@ export default function CycloneRunSection() {
   const [sonicRunning, setSonicRunning] = useState(false);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const menuOpen = Boolean(menuAnchorEl);
+  const runSonicMonitor = useRunSonicMonitor('cycle', cycloneRefreshDelay);
 
   /* ----------  update-menu helpers ---------- */
   const handleMenuOpen = (event) => setMenuAnchorEl(event.currentTarget);
@@ -66,13 +66,11 @@ export default function CycloneRunSection() {
 
   const handleSonicCycle = () => {
     setSonicRunning(true);
-    runSonicCycle()
+    runSonicMonitor()
       .then(() => {
         setTimeout(() => {
           refreshLatestPortfolio();
           refreshPortfolioHistory();
-          refreshPositions();
-          refreshMonitorStatus();
           setSonicRunning(false);
         }, cycloneRefreshDelay);
 
