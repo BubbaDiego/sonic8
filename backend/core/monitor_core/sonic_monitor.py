@@ -15,6 +15,7 @@ from backend.core.cyclone_core.cyclone_engine import Cyclone
 
 from data.data_locker import DataLocker
 from core.core_constants import MOTHER_DB_PATH
+from backend.core.monitor_core.sonic_events import notify_listeners
 
 MONITOR_NAME = "sonic_monitor"
 DEFAULT_INTERVAL = 60  # fallback if nothing set in DB
@@ -105,6 +106,8 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
 
     heartbeat(loop_counter)
     logging.info("✅ SonicMonitor cycle #%d complete", loop_counter)
+
+    await notify_listeners()
 
 
 def main():

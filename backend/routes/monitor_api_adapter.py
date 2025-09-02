@@ -2,10 +2,12 @@
 """Adapter layer that re‑exports the legacy Flask monitor API through FastAPI."""
 
 from __future__ import annotations
-from fastapi import APIRouter, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, HTTPException, status, BackgroundTasks, Request
 import asyncio
+from sse_starlette.sse import EventSourceResponse
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.sonic_monitor import sonic_cycle
+from backend.core.monitor_core.sonic_events import register_listener, unregister_listener
 from backend.core.monitor_core.monitor_core import MonitorCore
 
 router = APIRouter(prefix="/monitors", tags=["Monitors"])
@@ -28,6 +30,29 @@ def run_sonic_cycle(bg: BackgroundTasks):
 
     bg.add_task(_runner)
     return {"status": "sonic cycle started"}
+
+
+@router.get("/sonic_events")
+async def sonic_events(request: Request):
+    """Server-Sent Events stream for Sonic cycle completion."""
+    queue: asyncio.Queue[str] = asyncio.Queue()
+
+    async def _push_event():
+        await queue.put("done")
+
+    register_listener(_push_event)
+
+    async def event_generator():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                data = await queue.get()
+                yield {"event": "sonic_complete", "data": data}
+        finally:
+            unregister_listener(_push_event)
+
+    return EventSourceResponse(event_generator())
 
 
 @router.post("/{name}")

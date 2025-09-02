@@ -9,7 +9,11 @@ import {
 } from 'api/portfolio';
 import { refreshPositions } from 'api/positions';
 import { refreshMonitorStatus } from 'api/monitorStatus';
+
+import { subscribeToSonicEvents } from 'api/sonicMonitor';
+
 import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
+
 import { IconShieldCheck, IconShieldOff } from '@tabler/icons-react';
 
 const FULL_SONIC = 3600; // 60 min
@@ -43,7 +47,51 @@ export default function TimerSection() {
     })();
   }, []);
 
+
+  // ---------------- Subscribe to Sonic completion events -------------
+  useEffect(() => {
+    const es = subscribeToSonicEvents(() => {
+      refreshPositions();
+      refreshMonitorStatus();
+    });
+    return () => es.close();
+  }, []);
+
+  // ---------------- Poll backend for fresh timestamps -----------------
+  useEffect(() => {
+    let id;
+    const poll = async () => {
+      try {
+        const { data } = await axios.get('/api/monitor-status/');
+        const now = Date.now();
+        setSonicNextTs(now + (data?.sonic_next ?? 0) * 1000);
+        setSnoozeEndTs(now + (data?.liquid_snooze ?? 0) * 1000);
+        const sonicStatus = data?.monitors?.['Sonic Monitoring']?.status;
+        setSonicActive(sonicStatus === 'Healthy');
+
+        // Detect Sonic completion and trigger refresh if changed
+        const lastComplete = data?.sonic_last_complete ?? null;
+        setLastSonicComplete(lastComplete);
+        if (lastSonicCompleteRef.current === null) {
+          lastSonicCompleteRef.current = lastComplete;
+        } else if (lastComplete && lastComplete !== lastSonicCompleteRef.current) {
+          lastSonicCompleteRef.current = lastComplete;
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+          refreshMonitorStatus();
+        }
+      } catch (err) {
+        console.error('Failed to fetch monitor status:', err);
+      }
+      id = setTimeout(poll, POLL_MS);
+    };
+    poll();
+    return () => clearTimeout(id);
+  }, []);
+
   // polling handled by useSonicStatusPolling
+
 
   // ---------------- Local countdown animation ------------------------
   useEffect(() => {
