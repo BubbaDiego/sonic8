@@ -4,6 +4,10 @@ from importlib import import_module
 from typing import Any, Dict
 
 from backend.core.auto_core import AutoCore, WebBrowserRequest
+from backend.core.auto_core.requests import (
+    JupiterConnectRequest,
+    CloseBrowserRequest,
+)
 
 router = APIRouter(prefix="/api/auto-core", tags=["auto_core"])
 
@@ -18,6 +22,31 @@ async def open_browser(req: BrowserOpenRequest):
     core = AutoCore()
     result = await core.run(WebBrowserRequest(url=req.url or "https://example.org"))
     return result
+
+
+# --- New: one-click Jupiter connect ----------------------------------------
+class JupiterParams(BaseModel):
+    url: str | None = "https://jup.ag/perps"
+    wallet: str | None = "solflare"
+    channel: str | None = None
+
+
+@router.post("/connect-jupiter")
+async def connect_jupiter(req: JupiterParams):
+    core = AutoCore()
+    req_obj = JupiterConnectRequest(
+        url=req.url or "https://jup.ag/perps",
+        wallet=req.wallet,
+        channel=req.channel,
+    )
+    return await core.run(req_obj)
+
+
+# --- New: close the persistent browser -------------------------------------
+@router.post("/close-browser")
+async def close_browser():
+    core = AutoCore()
+    return await core.run(CloseBrowserRequest())
 
 
 class AutoCoreRunRequest(BaseModel):
