@@ -6,11 +6,8 @@ from fastapi import APIRouter, HTTPException, status, BackgroundTasks, Request
 import asyncio
 from sse_starlette.sse import EventSourceResponse
 from backend.core.cyclone_core.cyclone_engine import Cyclone
-from backend.core.monitor_core.sonic_monitor import (
-    sonic_cycle,
-    register_listener,
-    unregister_listener,
-)
+from backend.core.monitor_core.sonic_monitor import sonic_cycle
+from backend.core.monitor_core.sonic_events import register_listener, unregister_listener
 from backend.core.monitor_core.monitor_core import MonitorCore
 
 router = APIRouter(prefix="/monitors", tags=["Monitors"])
