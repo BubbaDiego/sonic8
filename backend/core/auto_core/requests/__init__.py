@@ -3,6 +3,7 @@ from .web_browser import (
     WebBrowserRequest,
     CloseBrowserRequest,
     BrowserStatusRequest,
+    JupiterConnectRequest,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "WebBrowserRequest",
     "CloseBrowserRequest",
     "BrowserStatusRequest",
+    "JupiterConnectRequest",
 ]
