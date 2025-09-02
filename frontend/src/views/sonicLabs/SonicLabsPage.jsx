@@ -1,39 +1,60 @@
 import MainCard from 'ui-component/cards/MainCard';
-import { Typography, Button } from '@mui/material';
+import { Typography, Button, Stack } from '@mui/material';
 import { useState } from 'react';
 
 const SonicLabsPage = () => {
   const [status, setStatus] = useState('');
 
-  const handleClick = async () => {
-    setStatus('⏳ launching…');
+  const openJupiter = async () => {
+    setStatus('⏳ Opening Jupiter and clicking Connect…');
     try {
-      const res = await fetch('/api/auto-core/open-browser', {
+      const res = await fetch('/api/auto-core/connect-jupiter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: 'https://example.com' })
+        body: JSON.stringify({
+          url: 'https://jup.ag/perps',
+          wallet: 'solflare'
+        })
       });
       const data = await res.json();
-      setStatus(`✅ opened → ${data.title}`);
+      if (data.error) {
+        setStatus(`❌ ${data.error}: ${data.detail || ''}`);
+      } else {
+        const wallet = data.wallet_clicked ? ` (wallet: ${data.selected_wallet})` : '';
+        setStatus(`✅ ${data.status}${wallet} → ${data.title}`);
+      }
     } catch (err) {
       console.error(err);
       setStatus('❌ failed – see console');
     }
   };
 
+  const closeBrowser = async () => {
+    setStatus('⏳ Closing browser…');
+    try {
+      const res = await fetch('/api/auto-core/close-browser', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) setStatus(`❌ ${data.error}: ${data.detail || ''}`);
+      else setStatus('✅ Browser closed');
+    } catch (err) {
+      console.error(err);
+      setStatus('❌ failed to close – see console');
+    }
+  };
+
   return (
     <MainCard title="Sonic Labs">
-      <Typography variant="body1" gutterBottom>
-        Welcome to Sonic Labs.
+      <Typography variant="body1" sx={{ mb: 2 }}>
+        {status || 'Ready'}
       </Typography>
-      <Button variant="contained" onClick={handleClick}>
-        Launch test browser
-      </Button>
-      {status && (
-        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-          {status}
-        </Typography>
-      )}
+      <Stack direction="row" spacing={2}>
+        <Button variant="contained" color="primary" onClick={openJupiter}>
+          Open Jupiter & Connect
+        </Button>
+        <Button variant="outlined" color="secondary" onClick={closeBrowser}>
+          Close Browser
+        </Button>
+      </Stack>
     </MainCard>
   );
 };
