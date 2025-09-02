@@ -99,19 +99,19 @@ $asset-base: unquote('var(--asset-base)') !default;
   URLs or colors here to completely change the vibe.
 */
 :root[data-theme="funky"] {
-  --bg: #1e1e40;            /* dark purple/blue background             */
-  --text: #fff;             /* lighter text color                      */
-  --card-bg: #131315;       /* cards use near-black background         */
-  --card-border: #e5eff3;   /* light border around cards               */
-  --panel-border: #e5eff3;  /* border color for panels                 */
+  --bg: #4b0082;            /* deep purple background                  */
+  --text: #ffd700;          /* bright gold text                        */
+  --card-bg: #6a0dad;       /* card background in purple               */
+  --card-border: #c8a2c8;   /* light purple border around cards        */
+  --panel-border: #c8a2c8;  /* border color for panels                 */
   --panel-border-width: 2px;/* thicker borders for extra emphasis      */
-  --navbar: #8db5e1;        /* navbar background                       */
-  --title-bar-bg: #0e141b;  /* header/title bar background             */
-  --panel-title: #b3b2b0;   /* panel title text color                  */
-  --primary: #e4e7f1;       /* primary accent                          */
-  --primary-hover: #4e87f0; /* accent on hover                         */
-  --accent: #f4eef4;        /* secondary accent                        */
-  --container-bg: #ffffff;  /* base container backgrounds              */
+  --navbar: #800080;        /* navbar background                       */
+  --title-bar-bg: #551a8b;  /* header/title bar background             */
+  --panel-title: #fff176;   /* panel title text color                  */
+  --primary: #ffd700;       /* primary accent                          */
+  --primary-hover: #e6c200; /* accent on hover                         */
+  --accent: #ffea00;        /* secondary accent                        */
+  --container-bg: #f3e5f5;  /* base container backgrounds              */
   /* new mural */
   --body-bg-image: url('#{$asset-base}images/abstract_mural.png');
   /* disable card overlays for now (optional) */
@@ -219,19 +219,19 @@ body {
   copy — the browser will simply use the last definition.
 */
 :root[data-theme="funky"] {
-  --bg: #1e1e40;
-  --text: #fff;
-  --card-bg: #131313;
-  --card-border: #e5eff3;
-  --panel-border: #e5eff3;
+  --bg: #4b0082;
+  --text: #ffd700;
+  --card-bg: #6a0dad;
+  --card-border: #c8a2c8;
+  --panel-border: #c8a2c8;
   --panel-border-width: 2px;
-  --navbar: #8db5e1;
-  --title-bar-bg: #0c0c0c;
-  --panel-title: #252c32;
-  --primary: #e4e7f1;
-  --primary-hover: #4e87f0;
-  --accent: #f4eef4;
-  --container-bg: #ffffff;
+  --navbar: #800080;
+  --title-bar-bg: #551a8b;
+  --panel-title: #fff176;
+  --primary: #ffd700;
+  --primary-hover: #e6c200;
+  --accent: #ffea00;
+  --container-bg: #f3e5f5;
   /* new mural */
   --body-bg-image: url('#{$asset-base}images/abstract_mural.png');
   /* disable card overlays for now (optional) */
