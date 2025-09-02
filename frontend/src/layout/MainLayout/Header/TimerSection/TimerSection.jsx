@@ -9,6 +9,7 @@ import {
 } from 'api/portfolio';
 import { refreshPositions } from 'api/positions';
 import { refreshMonitorStatus } from 'api/monitorStatus';
+import { subscribeToSonicEvents } from 'api/sonicMonitor';
 import { IconShieldCheck, IconShieldOff } from '@tabler/icons-react';
 
 const FULL_SONIC = 3600; // 60 min
@@ -47,6 +48,15 @@ export default function TimerSection() {
         console.error('Failed to fetch liquidation settings:', err);
       }
     })();
+  }, []);
+
+  // ---------------- Subscribe to Sonic completion events -------------
+  useEffect(() => {
+    const es = subscribeToSonicEvents(() => {
+      refreshPositions();
+      refreshMonitorStatus();
+    });
+    return () => es.close();
   }, []);
 
   // ---------------- Poll backend for fresh timestamps -----------------

@@ -19,6 +19,35 @@ from core.core_constants import MOTHER_DB_PATH
 MONITOR_NAME = "sonic_monitor"
 DEFAULT_INTERVAL = 60  # fallback if nothing set in DB
 
+# ---------------------------------------------------------------------------
+# Event listener registry
+# ---------------------------------------------------------------------------
+_listeners: list[callable] = []
+
+
+def register_listener(callback: callable):
+    """Register a callback invoked after each successful Sonic cycle."""
+    _listeners.append(callback)
+    return callback
+
+
+def unregister_listener(callback: callable):
+    """Remove a previously registered listener."""
+    try:
+        _listeners.remove(callback)
+    except ValueError:
+        pass
+
+
+async def _notify_listeners():
+    for cb in list(_listeners):
+        try:
+            result = cb()
+            if asyncio.iscoroutine(result):
+                await result
+        except Exception:  # pragma: no cover - listener errors shouldn't break cycle
+            logging.exception("Error in sonic monitor listener")
+
 def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
     dl = DataLocker(str(db_path))
     cursor = dl.db.get_cursor()
@@ -105,6 +134,8 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
 
     heartbeat(loop_counter)
     logging.info("✅ SonicMonitor cycle #%d complete", loop_counter)
+
+    await _notify_listeners()
 
 
 def main():
