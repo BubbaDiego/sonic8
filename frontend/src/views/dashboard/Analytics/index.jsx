@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 import Grid from '@mui/material/Grid';
 import MarketShareAreaChartCard from 'views/dashboard/PerformanceGraphCard';
 import TraderListCard from 'views/dashboard/TraderListCard';
@@ -10,6 +11,7 @@ import CompositionPieCard from 'views/dashboard/CompositionPieCard';
 import { gridSpacing } from 'store/constant';
 
 export default function Analytics() {
+  useSonicStatusPolling();
   const { portfolio } = useGetLatestPortfolio();
   const { positions: positionsData } = useGetPositions();
   const [avgHeatIndex, setAvgHeatIndex] = useState(0);

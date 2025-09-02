@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 
 // material-ui
 import Grid from '@mui/material/Grid';
@@ -19,6 +20,7 @@ import StorefrontTwoToneIcon from '@mui/icons-material/StorefrontTwoTone';
 // ==============================|| DEFAULT DASHBOARD ||============================== //
 
 export default function Dashboard() {
+  useSonicStatusPolling();
   const [isLoading, setLoading] = useState(true);
 
   useEffect(() => {
