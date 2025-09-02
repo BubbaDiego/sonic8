@@ -9,6 +9,7 @@ Loads Solflare extension only when present.
 import sys
 import asyncio
 import atexit
+import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -35,11 +36,11 @@ def _ensure_proactor_policy() -> None:
 # -----------------------------------------------------------------------------
 _EXECUTOR: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=1)
 
-# Persist Solflare login/state across runs
-_USER_DATA_DIR: Path = Path(".cache/solflare_profile").resolve()
+# Persist Solflare login/state across runs (override with SOLFLARE_PROFILE_DIR)
+_USER_DATA_DIR: Path = Path(os.getenv("SOLFLARE_PROFILE_DIR", ".cache/solflare_profile")).resolve()
 
-# Optional Solflare extension (only loaded if it exists)
-_SOLFLARE_CRX: Path = Path("alpha/jupiter_core/solflare_extension.crx").resolve()
+# Optional Solflare extension (loaded if present; override with SOLFLARE_CRX_PATH)
+_SOLFLARE_CRX: Path = Path(os.getenv("SOLFLARE_CRX_PATH", "alpha/jupiter_core/solflare_extension.crx")).resolve()
 
 # Live session handles that exist only inside the worker thread
 _PLAYWRIGHT = None  # type: Any
@@ -94,15 +95,25 @@ def _session_status() -> Dict[str, Any]:
 
 def _open_detached(url: str, channel: Optional[str]) -> Dict[str, Any]:
     """Open URL in a new page and return immediately (window stays open)."""
-    _ensure_session(channel=channel)
-    page = _CONTEXT.new_page()
-    page.goto(url, wait_until="domcontentloaded")
-    return {
-        "mode": "detached",
-        "url": page.url,
-        "title": page.title(),
-        **_session_status(),
-    }
+    try:
+        _ensure_session(channel=channel)
+        page = _CONTEXT.new_page()
+        page.goto(url, wait_until="domcontentloaded")
+        return {
+            "mode": "detached",
+            "url": page.url,
+            "title": page.title(),
+            **_session_status(),
+        }
+    except Exception as e:
+        etype = type(e).__name__
+        # Keep responses structured even on failure; do not raise.
+        return {
+            "error": "open_failed",
+            "etype": etype,
+            "detail": str(e),
+            **_session_status(),
+        }
 
 def _close_session() -> Dict[str, Any]:
     """Close the persistent context and stop Playwright."""
@@ -121,9 +132,17 @@ def _close_session() -> Dict[str, Any]:
 
 # Ensure cleanup at interpreter exit (best-effort)
 def _cleanup_at_exit():
+    """
+    Best-effort cleanup at interpreter exit.
+    IMPORTANT: run close *in the worker thread* that owns Playwright.
+    If the executor is already shut down, ignore errors (process is exiting).
+    """
     try:
-        _close_session()
+        fut = _EXECUTOR.submit(_close_session)
+        # Keep this timeout short; we don't want to hang on interpreter shutdown.
+        fut.result(timeout=2)
     except Exception:
+        # Executor may be gone or session already closed; ignore on exit.
         pass
 
 atexit.register(_cleanup_at_exit)

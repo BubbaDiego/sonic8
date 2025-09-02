@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Box, Stack, Popover, Typography, Button, Tooltip, IconButton } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import DonutCountdown from './DonutCountdown';
@@ -9,32 +9,29 @@ import {
 } from 'api/portfolio';
 import { refreshPositions } from 'api/positions';
 import { refreshMonitorStatus } from 'api/monitorStatus';
+
 import { subscribeToSonicEvents } from 'api/sonicMonitor';
+
+import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
+
 import { IconShieldCheck, IconShieldOff } from '@tabler/icons-react';
 
 const FULL_SONIC = 3600; // 60 min
 const DEFAULT_SNOOZE = 600; // 10 min fallback
 
-const POLL_MS = 5000;
 const SONIC_REFRESH_DELAY_MS = 5000;
 
 export default function TimerSection() {
   const theme = useTheme();
   const [sonic, setSonic] = useState(0);
   const [snooze, setSnooze] = useState(0);
-  const [sonicNextTs, setSonicNextTs] = useState(Date.now());
-  const [snoozeEndTs, setSnoozeEndTs] = useState(Date.now());
   const [fullSnooze, setFullSnooze] = useState(DEFAULT_SNOOZE);
 
-  const [sonicActive, setSonicActive] = useState(false);
+  const { sonicNextTs, snoozeEndTs, sonicActive, lastSonicComplete } =
+    useSonicStatusPolling();
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [activeLabel, setActiveLabel] = useState('');
-
-  const [lastSonicComplete, setLastSonicComplete] = useState(null);
-
-  // Track the last sonic completion timestamp we've seen
-  const lastSonicCompleteRef = useRef(null);
 
   const openPopover = Boolean(anchorEl);
 
@@ -49,6 +46,7 @@ export default function TimerSection() {
       }
     })();
   }, []);
+
 
   // ---------------- Subscribe to Sonic completion events -------------
   useEffect(() => {
@@ -91,6 +89,9 @@ export default function TimerSection() {
     poll();
     return () => clearTimeout(id);
   }, []);
+
+  // polling handled by useSonicStatusPolling
+
 
   // ---------------- Local countdown animation ------------------------
   useEffect(() => {
