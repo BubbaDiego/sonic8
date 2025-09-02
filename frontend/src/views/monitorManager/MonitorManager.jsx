@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
+import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 import axios from 'utils/axios';
 import { Box, Typography, Snackbar, Alert, Button } from '@mui/material';
 
@@ -21,6 +22,7 @@ export const GRID_GAP       = 24;  // px – gap between cards
 /* ------------------------------------------------------------------ */
 
 export default function MonitorManager() {
+  useSonicStatusPolling();
   const [liqCfg, setLiqCfg] = useState({});
   const [profitCfg, setProfitCfg] = useState({});
   const [marketCfg, setMarketCfg] = useState({});
