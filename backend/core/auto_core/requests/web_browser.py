@@ -1,45 +1,52 @@
-"""Web‑browser request for Auto Core (Playwright + Chrome).
+"""
+Web-browser requests for Auto Core (Playwright + persistent Chrome).
 
-* Ensures the Windows ProactorEventLoopPolicy is active inside the worker
-  thread that runs Playwright.
-* Loads Solflare extension only when present.
+Detachable persistent context so the window stays open after the request returns.
+Enforces Windows Proactor event loop (correct for Playwright).
+Loads Solflare extension only when present.
 """
 
 import sys
 import asyncio
+import atexit
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 from playwright.sync_api import sync_playwright
 
-from .base import AutoRequest
+from .base import AutoRequest  # abstract request interface
 
-# ---------------------------------------------------------------------------
-# Event‑loop policy helper
-# ---------------------------------------------------------------------------
-def _ensure_proactor_policy():
-    """Ensure Windows uses ProactorEventLoopPolicy."""
-    if (
-        sys.platform.startswith("win")
-        and not isinstance(
-            asyncio.get_event_loop_policy(), asyncio.WindowsProactorEventLoopPolicy
-        )
-    ):
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+# -----------------------------------------------------------------------------
+# Windows event loop: keep Proactor (required by Playwright subprocess handling)
+# -----------------------------------------------------------------------------
+def _ensure_proactor_policy() -> None:
+    """Ensure Windows uses ProactorEventLoopPolicy; no-ops on other OSes."""
+    if not sys.platform.startswith("win"):
+        return
+    WP = getattr(asyncio, "WindowsProactorEventLoopPolicy", None)
+    if WP is None:
+        return
+    if not isinstance(asyncio.get_event_loop_policy(), WP):
+        asyncio.set_event_loop_policy(WP())
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Globals: one thread and one Playwright session for the whole process
+# -----------------------------------------------------------------------------
 _EXECUTOR: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=1)
 
-_USER_DATA_DIR: Path = Path(".cache/solflare_profile")
+# Persist Solflare login/state across runs
+_USER_DATA_DIR: Path = Path(".cache/solflare_profile").resolve()
+
+# Optional Solflare extension (only loaded if it exists)
 _SOLFLARE_CRX: Path = Path("alpha/jupiter_core/solflare_extension.crx").resolve()
 
+# Live session handles that exist only inside the worker thread
+_PLAYWRIGHT = None  # type: Any
+_CONTEXT = None     # type: Any
 
-# ---------------------------------------------------------------------------
-# Helper utilities
-# ---------------------------------------------------------------------------
 def _chrome_args() -> list[str]:
+    """Build Chrome args, loading the Solflare CRX if present."""
     if _SOLFLARE_CRX.exists():
         return [
             f"--disable-extensions-except={_SOLFLARE_CRX}",
@@ -47,31 +54,117 @@ def _chrome_args() -> list[str]:
         ]
     return []
 
-
-def _open_chrome_sync(url: str):
-    """Runs inside a thread; ensure the proactor policy is active here too."""
+def _ensure_session(channel: Optional[str] = None) -> None:
+    """
+    Start Playwright and a persistent context if not already running.
+    All calls happen inside the single worker thread.
+    """
+    global _PLAYWRIGHT, _CONTEXT
     _ensure_proactor_policy()
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch_persistent_context(
+    if _PLAYWRIGHT is None:
+        _PLAYWRIGHT = sync_playwright().start()
+
+    if _CONTEXT is None or _CONTEXT.is_closed():
+        kwargs = dict(
             user_data_dir=_USER_DATA_DIR,
             headless=False,
             args=_chrome_args(),
         )
-        page = browser.new_page()
-        page.goto(url)
-        return {"url": page.url, "title": page.title()}
+        if channel:
+            kwargs["channel"] = channel  # e.g., "chrome" to use system Chrome
 
+        _CONTEXT = _PLAYWRIGHT.chromium.launch_persistent_context(**kwargs)
 
-# ---------------------------------------------------------------------------
-# Public Auto Core request
-# ---------------------------------------------------------------------------
+def _session_status() -> Dict[str, Any]:
+    """Return current session status (for debugging/telemetry)."""
+    status = {
+        "playwright_started": _PLAYWRIGHT is not None,
+        "context_open": bool(_CONTEXT and not _CONTEXT.is_closed()),
+        "profile_dir": str(_USER_DATA_DIR),
+        "extension_loaded": bool(_chrome_args()),
+        "pages_open": 0,
+    }
+    try:
+        if _CONTEXT and not _CONTEXT.is_closed():
+            status["pages_open"] = len(_CONTEXT.pages)
+    except Exception:
+        pass
+    return status
+
+def _open_detached(url: str, channel: Optional[str]) -> Dict[str, Any]:
+    """Open URL in a new page and return immediately (window stays open)."""
+    _ensure_session(channel=channel)
+    page = _CONTEXT.new_page()
+    page.goto(url, wait_until="domcontentloaded")
+    return {
+        "mode": "detached",
+        "url": page.url,
+        "title": page.title(),
+        **_session_status(),
+    }
+
+def _close_session() -> Dict[str, Any]:
+    """Close the persistent context and stop Playwright."""
+    global _PLAYWRIGHT, _CONTEXT
+    try:
+        if _CONTEXT and not _CONTEXT.is_closed():
+            _CONTEXT.close()
+    finally:
+        _CONTEXT = None
+        if _PLAYWRIGHT is not None:
+            try:
+                _PLAYWRIGHT.stop()
+            finally:
+                _PLAYWRIGHT = None
+    return {"closed": True, **_session_status()}
+
+# Ensure cleanup at interpreter exit (best-effort)
+def _cleanup_at_exit():
+    try:
+        _close_session()
+    except Exception:
+        pass
+
+atexit.register(_cleanup_at_exit)
+
+# -----------------------------------------------------------------------------
+# Requests
+# -----------------------------------------------------------------------------
 class WebBrowserRequest(AutoRequest):
-    """Opens *url* in a persistent Chrome profile."""
+    """
+    Opens *url* in a persistent Chrome/Chromium profile (DETACHED).
+    The call returns immediately; the browser window remains open.
+    Optional *channel* = "chrome" to use system Chrome instead of bundled Chromium.
+    """
 
-    def __init__(self, url: str):
+    def __init__(self, url: str, channel: Optional[str] = None):
         self.url = url
+        self.channel = channel  # None (default) = use bundled Chromium
 
-    async def execute(self):
+    async def execute(self) -> Dict[str, Any]:
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(_EXECUTOR, _open_chrome_sync, self.url)
+        return await loop.run_in_executor(_EXECUTOR, _open_detached, self.url, self.channel)
+
+class CloseBrowserRequest(AutoRequest):
+    """Closes the persistent browser/context (if running)."""
+
+    async def execute(self) -> Dict[str, Any]:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_EXECUTOR, _close_session)
+
+# Optional: quick status probe without opening/closing
+class BrowserStatusRequest(AutoRequest):
+    """Returns current browser/context status."""
+
+    async def execute(self) -> Dict[str, Any]:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_EXECUTOR, _session_status)
+
+# Notes
+#
+# Do not use with sync_playwright() in this design — that closes the browser when the block exits.
+#
+# All Playwright calls happen in one worker thread to avoid cross-thread access to the context.
+#
+# The persistent user profile keeps Solflare’s state (logged-in/unlocked) between runs.
