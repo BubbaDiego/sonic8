@@ -200,12 +200,9 @@ def _get_wallet_context(wallet_id: str | None, cfg: dict) -> Any:
         user_data_dir=pdir,
         headless=False,
         args=args,
-        ignore_default_args=[
-            "--disable-extensions",
-            "--disable-component-extensions-with-background-pages",
-            "--password-store=basic",
-            "--use-mock-keychain",
-        ],
+        # IMPORTANT: drop ALL Playwright default flags; keep only ours.
+        # Playwright will still pass the debugging pipe it needs internally.
+        ignore_default_args=True,
     )
 
     exe = None
