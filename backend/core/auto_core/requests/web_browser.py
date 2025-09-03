@@ -47,6 +47,12 @@ _CONTEXT = None     # type: Any
 _CONTEXTS: dict[str, Any] = {}
 
 
+def _norm(wid: str | None) -> str | None:
+    if wid is None:
+        return None
+    return wid.strip().lower().replace(" ", "-")
+
+
 def _context_is_closed(ctx: Any) -> bool:
     """Return True if a Playwright ``BrowserContext`` appears closed."""
     try:
@@ -111,6 +117,7 @@ def _resolve_wallet_profile(wallet_id: str | None, overrides: dict | None = None
     Returns dict with: profile_dir, channel (optional), chrome_profile_directory (optional)
     """
     overrides = overrides or {}
+    wallet_id = _norm(wallet_id)
     if not wallet_id:
         # Back-compat default profile
         return {
@@ -142,7 +149,7 @@ def _get_wallet_context(wallet_id: str | None, cfg: dict) -> Any:
         _PLAYWRIGHT = sync_playwright().start()
 
     # Use a key even for None -> "default"
-    key = wallet_id or "default"
+    key = (_norm(wallet_id) or "default")
     ctx = _CONTEXTS.get(key)
     if ctx and not _context_is_closed(ctx):
         return ctx
@@ -270,7 +277,7 @@ def _close_session() -> Dict[str, Any]:
 
 
 def _close_wallet(wallet_id: Optional[str]) -> Dict[str, Any]:
-    key = wallet_id or "default"
+    key = (_norm(wallet_id) or "default")
     ctx = _CONTEXTS.get(key)
     if not ctx or _context_is_closed(ctx):
         return {
@@ -328,6 +335,19 @@ class BrowserStatusRequest(AutoRequest):
         return await loop.run_in_executor(_EXECUTOR, _session_status)
 
 
+# ---- List registered wallets ------------------------------------------------
+class ListWalletsRequest(AutoRequest):
+    """Return registry contents and which wallet contexts are currently open."""
+
+    async def execute(self):
+        def _do():
+            reg = _load_registry()  # reads .cache/wallet_registry.json
+            return {"wallets": reg, **_session_status()}
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_EXECUTOR, _do)
+
+
 # -------- Wallet-aware requests ---------------------------------------------
 class RegisterWalletRequest(AutoRequest):
     """Persist a mapping for wallet_id → profile_dir/channel/chrome_profile_directory."""
@@ -347,19 +367,20 @@ class RegisterWalletRequest(AutoRequest):
     async def execute(self) -> Dict[str, Any]:
         def _do():
             reg = _load_registry()
-            cfg = reg.get(self.wallet_id, {})
+            wid = _norm(self.wallet_id)
+            cfg = reg.get(wid, {})
             if self.profile_dir:
                 cfg["profile_dir"] = str(Path(self.profile_dir).resolve())
             else:
-                (_WALLETS_ROOT / self.wallet_id).mkdir(parents=True, exist_ok=True)
-                cfg["profile_dir"] = str((_WALLETS_ROOT / self.wallet_id).resolve())
+                (_WALLETS_ROOT / wid).mkdir(parents=True, exist_ok=True)
+                cfg["profile_dir"] = str((_WALLETS_ROOT / wid).resolve())
             if self.channel is not None:
                 cfg["channel"] = self.channel
             if self.chrome_profile_directory is not None:
                 cfg["chrome_profile_directory"] = self.chrome_profile_directory
-            reg[self.wallet_id] = cfg
+            reg[wid] = cfg
             _save_registry(reg)
-            return {"registered": True, "wallet_id": self.wallet_id, "config": cfg}
+            return {"registered": True, "wallet_id": wid, "config": cfg}
 
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(_EXECUTOR, _do)

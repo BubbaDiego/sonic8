@@ -7,6 +7,7 @@ from .web_browser import (
     RegisterWalletRequest,
     WebBrowserWithWalletRequest,
     CloseWalletRequest,
+    ListWalletsRequest,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "RegisterWalletRequest",
     "WebBrowserWithWalletRequest",
     "CloseWalletRequest",
+    "ListWalletsRequest",
 ]
