@@ -1,4 +1,4 @@
-import os, re
+import json, os, re
 
 _BAD_PROFILE_FLAG = re.compile(r"^--profile-directory(?:=|\s).*", re.I)
 
@@ -10,3 +10,28 @@ def sanitize_profile_settings(user_data_dir: str, args: list[str]) -> tuple[str,
         udd = udd[:-len(suffix)].rstrip("\\/")
     clean_args = [a for a in (args or []) if not _BAD_PROFILE_FLAG.match(a)]
     return udd, clean_args
+
+
+def set_profile_display_name(user_data_dir: str, alias: str) -> None:
+    """Set Chrome profile display name in the 'Local State' file.
+
+    Ensures the user data directory exists, updates the profile name for the
+    default profile, and marks it as the last used profile.
+    """
+    os.makedirs(user_data_dir, exist_ok=True)
+    state_path = os.path.join(user_data_dir, "Local State")
+
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+
+    profile = data.setdefault("profile", {})
+    info_cache = profile.setdefault("info_cache", {})
+    default = info_cache.setdefault("Default", {})
+    default["name"] = alias
+    profile["last_used"] = "Default"
+
+    with open(state_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
