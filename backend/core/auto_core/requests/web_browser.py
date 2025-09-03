@@ -43,8 +43,9 @@ _WALLETS_ROOT = Path(".cache/wallets").resolve()
 # Live session handles (valid only inside the worker thread)
 _PLAYWRIGHT = None  # type: Any
 _CONTEXT = None     # type: Any
-# Multi-wallet contexts (one per wallet_id)
+# Multi-wallet contexts (one per wallet_id) + metadata
 _CONTEXTS: dict[str, Any] = {}
+_CONTEXT_META: dict[str, dict] = {}
 
 
 def _norm(wid: str | None) -> str | None:
@@ -169,28 +170,39 @@ def _get_wallet_context(wallet_id: str | None, cfg: dict) -> Any:
 
     ctx = _PLAYWRIGHT.chromium.launch_persistent_context(**kwargs)
     _CONTEXTS[key] = ctx
+    _CONTEXT_META[key] = {
+        "profile_dir": str(Path(cfg["profile_dir"]).resolve()),
+        "channel": cfg.get("channel"),
+        "chrome_profile_directory": cfg.get("chrome_profile_directory"),
+        "args": args,
+    }
     return ctx
 
 def _session_status() -> Dict[str, Any]:
     status = {
         "playwright_started": _PLAYWRIGHT is not None,
         "context_open": bool(_CONTEXT and not _context_is_closed(_CONTEXT)),  # legacy
-        "profile_dir": str(_USER_DATA_DIR),
+        "profile_dir": str(_USER_DATA_DIR),   # legacy default (may differ from wallet)
         "extension_loaded": _SOLFLARE_CRX.exists(),
         "pages_open": 0,
-        "wallet_contexts": {
-            k: {
-                "open": (v is not None and not _context_is_closed(v)),
-                "pages_open": (len(v.pages) if v and not _context_is_closed(v) else 0),
-            }
-            for k, v in list(_CONTEXTS.items())
-        },
+        "wallet_contexts": {}
     }
     try:
         if _CONTEXT and not _context_is_closed(_CONTEXT):
             status["pages_open"] = len(_CONTEXT.pages)
     except Exception:
         pass
+    # Add per-wallet meta
+    for k, v in list(_CONTEXTS.items()):
+        open_ = (v is not None and not _context_is_closed(v))
+        meta = _CONTEXT_META.get(k, {})
+        status["wallet_contexts"][k] = {
+            "open": open_,
+            "pages_open": (len(v.pages) if open_ else 0),
+            "profile_dir": meta.get("profile_dir"),
+            "channel": meta.get("channel"),
+            "chrome_profile_directory": meta.get("chrome_profile_directory"),
+        }
     return status
 
 def _open_detached(url: str, channel: Optional[str]) -> Dict[str, Any]:
@@ -233,14 +245,18 @@ def _open_with_wallet(
         ctx = _get_wallet_context(wallet_id, cfg)
         page = ctx.new_page()
         page.goto(url, wait_until="domcontentloaded")
-        return {
+        info = _session_status()
+        # ensure wallet info is not masked by legacy status fields
+        info.update({
             "mode": "detached",
             "wallet_id": wallet_id or "default",
             "profile_dir": cfg["profile_dir"],
+            "channel": cfg.get("channel"),
+            "chrome_profile_directory": cfg.get("chrome_profile_directory"),
             "url": page.url,
             "title": page.title(),
-            **_session_status(),
-        }
+        })
+        return info
     except Exception as e:
         return {
             "error": "open_with_wallet_failed",
@@ -494,17 +510,26 @@ def _jupiter_connect(
                     except Exception:
                         pass
 
-        return {
+        ua = ""
+        try:
+            ua = page.evaluate("navigator.userAgent")
+        except Exception:
+            pass
+        info = _session_status()
+        info.update({
             "status": "clicked_connect",
             "modal_open": modal_open,
             "wallet_clicked": wallet_clicked,
             "selected_wallet": selected,
             "wallet_id": wallet_id or "default",
             "profile_dir": cfg["profile_dir"],
+            "channel": cfg.get("channel"),
+            "chrome_profile_directory": cfg.get("chrome_profile_directory"),
+            "engine_user_agent": ua,
             "url": page.url,
             "title": page.title(),
-            **_session_status(),
-        }
+        })
+        return info
     except Exception as e:
         return {
             "error": "jupiter_connect_failed",
