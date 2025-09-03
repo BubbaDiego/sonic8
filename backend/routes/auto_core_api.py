@@ -10,6 +10,7 @@ from backend.core.auto_core.requests import (
     RegisterWalletRequest,
     WebBrowserWithWalletRequest,
     CloseWalletRequest,
+    ListWalletsRequest,
 )
 
 router = APIRouter(prefix="/api/auto-core", tags=["auto_core"])
@@ -61,6 +62,13 @@ async def connect_jupiter(req: JupiterParams):
         chrome_profile_directory=req.chrome_profile_directory,
     )
     return await core.run(req_obj)
+
+
+# --- Wallet registry/listing -------------------------------------------------
+@router.post("/list-wallets")
+async def list_wallets():
+    core = AutoCore()
+    return await core.run(ListWalletsRequest())
 
 
 # --- New: close the persistent browser -------------------------------------
