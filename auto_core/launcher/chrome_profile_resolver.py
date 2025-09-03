@@ -2,10 +2,8 @@ import json
 import os
 from pathlib import Path
 
-
 class ChromeProfileError(RuntimeError):
     pass
-
 
 def load_alias_map(config_path: str) -> dict:
     p = Path(config_path)
@@ -14,29 +12,18 @@ def load_alias_map(config_path: str) -> dict:
     with p.open("r", encoding="utf-8") as f:
         return json.load(f)
 
-
-def resolve_profile_dir(
-    wallet_id: str,
-    alias_map: dict,
-    chrome_user_data_root: str = r"C:\\Users\\bubba\\AppData\\Local\\Google\\Chrome\\User Data"
-) -> str:
+def resolve_profile_dir(wallet_id: str, alias_map: dict) -> str:
     """
-    Returns the absolute path to the Chrome profile folder to use with Playwright's
-    launch_persistent_context (e.g. ...\User Data\Profile 3).
+    Return the absolute user-data directory to use for this alias.
+    The alias_map should contain absolute Windows paths for each alias.
+    If the user typed an absolute path directly, allow pass-through.
     """
     if not wallet_id:
         raise ChromeProfileError("Wallet ID is empty.")
-
-    folder_name = alias_map.get(wallet_id)
-    if not folder_name:
-        # allow direct pass-through if user typed the actual folder name
-        # (e.g., "Profile 3" or "Default")
-        folder_name = wallet_id
-
-    profile_path = os.path.join(chrome_user_data_root, folder_name)
-    if not os.path.isdir(profile_path):
+    path = alias_map.get(wallet_id) or wallet_id
+    if not os.path.isabs(path):
         raise ChromeProfileError(
-            f'Chrome profile folder not found: "{profile_path}". '
-            f'Check chrome_profiles.json or create the profile in Chrome first.'
+            f'Expected absolute user data dir for alias "{wallet_id}". Got: {path}'
         )
-    return profile_path
+    os.makedirs(path, exist_ok=True)
+    return path
