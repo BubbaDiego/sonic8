@@ -7,11 +7,11 @@
       "alert_class": "Position",
       "metric_key": "pnl_after_fees_usd",
       "condition": "ABOVE",
-      "low": 1.0,
+      "low": 11.0,
       "medium": 0.0,
-      "high": 50.0,
+      "high": 44.0,
       "enabled": 1,
-      "last_modified": "2025-08-29T18:18:49.979651+00:00",
+      "last_modified": "2025-09-03T01:59:06.928586+00:00",
       "low_notify": null,
       "medium_notify": null,
       "high_notify": null
@@ -26,7 +26,7 @@
       "medium": 0.0,
       "high": 100.0,
       "enabled": 1,
-      "last_modified": "2025-08-29T18:18:49.966136+00:00",
+      "last_modified": "2025-09-03T01:59:06.918551+00:00",
       "low_notify": null,
       "medium_notify": null,
       "high_notify": null

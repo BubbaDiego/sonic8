@@ -1,12 +1,12 @@
 """
 Web-browser requests for Auto Core (Playwright + persistent Chrome).
 
-- Detached persistent context so the window stays open after the request returns
+- Detached persistent contexts so the window stays open after the request returns
 - Enforces Windows Proactor event loop for Playwright
-- Loads Solflare extension only when present
+- Supports wallet-specific Chrome profiles (Option A/B)
 """
 
-import os, json, shutil
+import os, json
 import sys
 import re
 import atexit
@@ -47,12 +47,13 @@ _CONTEXT = None     # type: Any
 _CONTEXTS: dict[str, Any] = {}
 _CONTEXT_META: dict[str, dict] = {}
 
-
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
 def _norm(wid: str | None) -> str | None:
     if wid is None:
         return None
     return wid.strip().lower().replace(" ", "-")
-
 
 def _context_is_closed(ctx: Any) -> bool:
     """Return True if a Playwright ``BrowserContext`` appears closed."""
@@ -62,48 +63,55 @@ def _context_is_closed(ctx: Any) -> bool:
             return bool(attr())
         if attr is not None:
             return bool(attr)
-        # Fallback for very old versions
         return bool(getattr(ctx, "closed", False))
     except Exception:
         return True
 
-def _chrome_args() -> list[str]:
-    if _SOLFLARE_CRX.exists():
-        return [
+def _find_chrome_exe() -> Optional[str]:
+    """Locate system Chrome on Windows (user-level first, then Program Files)."""
+    for p in (
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    ):
+        if os.path.exists(p):
+            return p
+    return None
+
+def _chrome_args_for_channel(channel: Optional[str]) -> list[str]:
+    """
+    Safe flags for launch. For system Chrome we DO NOT inject extensions here
+    (profiles manage their own). For bundled Chromium, only inject an unpacked
+    extension directory (never a .crx file).
+    """
+    base = ["--no-first-run", "--no-default-browser-check", "--no-service-autorun"]
+    if channel == "chrome":
+        return base
+    if _SOLFLARE_CRX.exists() and _SOLFLARE_CRX.is_dir():
+        return base + [
             f"--disable-extensions-except={_SOLFLARE_CRX}",
             f"--load-extension={_SOLFLARE_CRX}",
         ]
-    return []
+    return base
 
+# -----------------------------------------------------------------------------
+# Registry I/O
+# -----------------------------------------------------------------------------
+def _load_registry() -> dict:
+    try:
+        if _WALLET_REGISTRY.exists():
+            return json.loads(_WALLET_REGISTRY.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
 
-def _find_chrome_exe() -> Optional[str]:
-    """Locate a system Chrome/Chromium executable if present."""
-    candidates: list[str] = []
-    if sys.platform.startswith("win"):
-        roots = [
-            os.environ.get("PROGRAMFILES"),
-            os.environ.get("PROGRAMFILES(X86)"),
-            os.environ.get("LOCALAPPDATA"),
-        ]
-        for root in roots:
-            if root:
-                candidates.append(os.path.join(root, "Google", "Chrome", "Application", "chrome.exe"))
-                candidates.append(os.path.join(root, "Chromium", "Application", "chrome.exe"))
-    elif sys.platform == "darwin":
-        candidates = [
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-            "/Applications/Chromium.app/Contents/MacOS/Chromium",
-        ]
-    else:
-        for name in ("google-chrome-stable", "google-chrome", "chromium-browser", "chromium"):
-            exe = shutil.which(name)
-            if exe:
-                return exe
-    for path in candidates:
-        if path and os.path.exists(path):
-            return path
-    return None
+def _save_registry(reg: dict) -> None:
+    _WALLET_REGISTRY.parent.mkdir(parents=True, exist_ok=True)
+    _WALLET_REGISTRY.write_text(json.dumps(reg, indent=2), encoding="utf-8")
 
+# -----------------------------------------------------------------------------
+# Default (legacy) single-context path
+# -----------------------------------------------------------------------------
 def _ensure_session(channel: Optional[str] = None) -> None:
     """
     Start Playwright and a persistent context if not already running.
@@ -116,40 +124,35 @@ def _ensure_session(channel: Optional[str] = None) -> None:
         _PLAYWRIGHT = sync_playwright().start()
 
     if _CONTEXT is None or _context_is_closed(_CONTEXT):
-        kwargs = dict(
+        args = _chrome_args_for_channel(channel)
+        kwargs: Dict[str, Any] = dict(
             user_data_dir=_USER_DATA_DIR,
             headless=False,
-            args=_chrome_args(),
+            args=args,
         )
-        if channel:
-            kwargs["channel"] = channel  # e.g., "chrome" for system Chrome
+        if channel == "chrome":
+            exe = _find_chrome_exe()
+            if exe:
+                kwargs["executable_path"] = exe
+            else:
+                kwargs["channel"] = "chrome"
+        elif channel:
+            kwargs["channel"] = channel
+
         _CONTEXT = _PLAYWRIGHT.chromium.launch_persistent_context(**kwargs)
     # NOTE: kept for backward-compat "default" single-context flows
 
-
-def _load_registry() -> dict:
-    try:
-        if _WALLET_REGISTRY.exists():
-            return json.loads(_WALLET_REGISTRY.read_text(encoding="utf-8"))
-    except Exception:
-        pass
-    return {}
-
-
-def _save_registry(reg: dict) -> None:
-    _WALLET_REGISTRY.parent.mkdir(parents=True, exist_ok=True)
-    _WALLET_REGISTRY.write_text(json.dumps(reg, indent=2), encoding="utf-8")
-
-
+# -----------------------------------------------------------------------------
+# Wallet context management
+# -----------------------------------------------------------------------------
 def _resolve_wallet_profile(wallet_id: str | None, overrides: dict | None = None) -> dict:
     """
     Decide which profile to use for this wallet.
-    Returns dict with: profile_dir, channel (optional), chrome_profile_directory (optional)
+    Returns dict with keys: profile_dir, channel (optional), chrome_profile_directory (optional)
     """
     overrides = overrides or {}
     wallet_id = _norm(wallet_id)
     if not wallet_id:
-        # Back-compat default profile
         return {
             "profile_dir": str(_USER_DATA_DIR),
             "channel": overrides.get("channel"),
@@ -157,16 +160,13 @@ def _resolve_wallet_profile(wallet_id: str | None, overrides: dict | None = None
         }
     reg = _load_registry()
     cfg = reg.get(wallet_id, {}).copy()
-    # Build a safe default if missing
     if not cfg.get("profile_dir"):
         (_WALLETS_ROOT / wallet_id).mkdir(parents=True, exist_ok=True)
         cfg["profile_dir"] = str((_WALLETS_ROOT / wallet_id).resolve())
-    # Apply per-call overrides
     for k in ("channel", "chrome_profile_directory"):
         if overrides.get(k) is not None:
             cfg[k] = overrides[k]
     return cfg
-
 
 def _get_wallet_context(wallet_id: str | None, cfg: dict) -> Any:
     """
@@ -178,52 +178,63 @@ def _get_wallet_context(wallet_id: str | None, cfg: dict) -> Any:
     if _PLAYWRIGHT is None:
         _PLAYWRIGHT = sync_playwright().start()
 
-    # Use a key even for None -> "default"
     key = (_norm(wallet_id) or "default")
     ctx = _CONTEXTS.get(key)
     if ctx and not _context_is_closed(ctx):
         return ctx
 
-    args = _chrome_args()
-    # If caller wants a specific Chrome subprofile inside a user_data_dir:
-    if cfg.get("chrome_profile_directory"):
-        args = args + [f'--profile-directory={cfg["chrome_profile_directory"]}']
+    # Preflight paths
+    pdir = Path(cfg["profile_dir"])
+    if not pdir.exists():
+        raise RuntimeError(f"profile_dir does not exist: {pdir}")
+    sub = cfg.get("chrome_profile_directory")
+    if sub and not (pdir / sub).exists():
+        raise RuntimeError(f"chrome_profile_directory not found under profile_dir: {(pdir / sub)}")
 
-    kwargs = dict(
-        user_data_dir=Path(cfg["profile_dir"]),
+    # Build args/kwargs
+    args = _chrome_args_for_channel(cfg.get("channel"))
+    if sub:
+        args.append(f'--profile-directory={sub}')
+
+    kwargs: Dict[str, Any] = dict(
+        user_data_dir=pdir,
         headless=False,
         args=args,
-        ignore_default_args=[
-            "--disable-extensions",
-            "--disable-component-extensions-with-background-pages",
-            "--password-store=basic",
-            "--use-mock-keychain",
-        ],
     )
+
+    exe = None
     if cfg.get("channel") == "chrome":
-        chrome_exe = _find_chrome_exe()
-        if chrome_exe:
-            kwargs["executable_path"] = chrome_exe
+        exe = _find_chrome_exe()
+        if exe:
+            kwargs["executable_path"] = exe
         else:
             kwargs["channel"] = "chrome"
     elif cfg.get("channel"):
-        kwargs["channel"] = cfg["channel"]  # e.g., "chrome"
+        kwargs["channel"] = cfg["channel"]
 
-    ctx = _PLAYWRIGHT.chromium.launch_persistent_context(**kwargs)
+    try:
+        ctx = _PLAYWRIGHT.chromium.launch_persistent_context(**kwargs)
+    except Exception as e:
+        raise RuntimeError(
+            f"failed to launch Chrome with user_data_dir={pdir}, profile={sub}, "
+            f"exe={exe}, channel={cfg.get('channel')}, args={args}: {e}"
+        ) from e
+
     _CONTEXTS[key] = ctx
     _CONTEXT_META[key] = {
-        "profile_dir": str(Path(cfg["profile_dir"]).resolve()),
+        "profile_dir": str(pdir.resolve()),
         "channel": cfg.get("channel"),
-        "chrome_profile_directory": cfg.get("chrome_profile_directory"),
+        "chrome_profile_directory": sub,
         "args": args,
+        "executable_path": exe,
     }
     return ctx
 
 def _session_status() -> Dict[str, Any]:
     status = {
         "playwright_started": _PLAYWRIGHT is not None,
-        "context_open": bool(_CONTEXT and not _context_is_closed(_CONTEXT)),  # legacy
-        "profile_dir": str(_USER_DATA_DIR),   # legacy default (may differ from wallet)
+        "context_open": bool(_CONTEXT and not _context_is_closed(_CONTEXT)),  # legacy default
+        "profile_dir": str(_USER_DATA_DIR),
         "extension_loaded": _SOLFLARE_CRX.exists(),
         "pages_open": 0,
         "wallet_contexts": {}
@@ -233,7 +244,6 @@ def _session_status() -> Dict[str, Any]:
             status["pages_open"] = len(_CONTEXT.pages)
     except Exception:
         pass
-    # Add per-wallet meta
     for k, v in list(_CONTEXTS.items()):
         open_ = (v is not None and not _context_is_closed(v))
         meta = _CONTEXT_META.get(k, {})
@@ -243,32 +253,38 @@ def _session_status() -> Dict[str, Any]:
             "profile_dir": meta.get("profile_dir"),
             "channel": meta.get("channel"),
             "chrome_profile_directory": meta.get("chrome_profile_directory"),
+            "executable_path": meta.get("executable_path"),
         }
     return status
 
+# -----------------------------------------------------------------------------
+# Default open (legacy)
+# -----------------------------------------------------------------------------
 def _open_detached(url: str, channel: Optional[str]) -> Dict[str, Any]:
     """Open URL in a new page and return immediately (window stays open)."""
     try:
-        # Back-compat default (no wallet_id); keep existing behavior
         _ensure_session(channel=channel)
         page = _CONTEXT.new_page()
         page.goto(url, wait_until="domcontentloaded")
-        return {
+        ua = ""
+        try:
+            ua = page.evaluate("navigator.userAgent")
+        except Exception:
+            pass
+        info = _session_status()
+        info.update({
             "mode": "detached",
             "url": page.url,
             "title": page.title(),
-            **_session_status(),
-        }
+            "engine_user_agent": ua,
+        })
+        return info
     except Exception as e:
-        return {
-            "error": "open_failed",
-            "etype": type(e).__name__,
-            "detail": str(e),
-            **_session_status(),
-        }
+        return {"error": "open_failed", "etype": type(e).__name__, "detail": str(e), **_session_status()}
 
-
-# Wallet-aware open (uses a specific wallet_id/profile)
+# -----------------------------------------------------------------------------
+# Wallet-aware open
+# -----------------------------------------------------------------------------
 def _open_with_wallet(
     url: str,
     wallet_id: Optional[str],
@@ -278,34 +294,37 @@ def _open_with_wallet(
     try:
         cfg = _resolve_wallet_profile(
             wallet_id,
-            {
-                "channel": channel,
-                "chrome_profile_directory": chrome_profile_directory,
-            },
+            {"channel": channel, "chrome_profile_directory": chrome_profile_directory},
         )
         ctx = _get_wallet_context(wallet_id, cfg)
         page = ctx.new_page()
         page.goto(url, wait_until="domcontentloaded")
+        ua = ""
+        try:
+            ua = page.evaluate("navigator.userAgent")
+        except Exception:
+            pass
+        meta = _CONTEXT_META.get(_norm(wallet_id) or "default", {})
         info = _session_status()
-        # ensure wallet info is not masked by legacy status fields
         info.update({
             "mode": "detached",
             "wallet_id": wallet_id or "default",
             "profile_dir": cfg["profile_dir"],
             "channel": cfg.get("channel"),
             "chrome_profile_directory": cfg.get("chrome_profile_directory"),
+            "launch_args": meta.get("args"),
+            "executable_path": meta.get("executable_path"),
+            "engine_user_agent": ua,
             "url": page.url,
             "title": page.title(),
         })
         return info
     except Exception as e:
-        return {
-            "error": "open_with_wallet_failed",
-            "etype": type(e).__name__,
-            "detail": str(e),
-            **_session_status(),
-        }
+        return {"error": "open_with_wallet_failed", "etype": type(e).__name__, "detail": str(e), **_session_status()}
 
+# -----------------------------------------------------------------------------
+# Close contexts
+# -----------------------------------------------------------------------------
 def _close_session() -> Dict[str, Any]:
     """Close the persistent context and stop Playwright."""
     global _PLAYWRIGHT, _CONTEXT
@@ -319,7 +338,6 @@ def _close_session() -> Dict[str, Any]:
                 _PLAYWRIGHT.stop()
             finally:
                 _PLAYWRIGHT = None
-    # Also close all wallet contexts
     closed_wallets = []
     for k, ctx in list(_CONTEXTS.items()):
         try:
@@ -330,31 +348,21 @@ def _close_session() -> Dict[str, Any]:
             pass
         finally:
             _CONTEXTS.pop(k, None)
+            _CONTEXT_META.pop(k, None)
     return {"closed": True, "closed_wallets": closed_wallets, **_session_status()}
-
 
 def _close_wallet(wallet_id: Optional[str]) -> Dict[str, Any]:
     key = (_norm(wallet_id) or "default")
     ctx = _CONTEXTS.get(key)
     if not ctx or _context_is_closed(ctx):
-        return {
-            "closed": False,
-            "wallet_id": key,
-            "reason": "not_open",
-            **_session_status(),
-        }
+        return {"closed": False, "wallet_id": key, "reason": "not_open", **_session_status()}
     try:
         ctx.close()
         _CONTEXTS.pop(key, None)
+        _CONTEXT_META.pop(key, None)
         return {"closed": True, "wallet_id": key, **_session_status()}
     except Exception as e:
-        return {
-            "error": "close_wallet_failed",
-            "etype": type(e).__name__,
-            "detail": str(e),
-            "wallet_id": key,
-            **_session_status(),
-        }
+        return {"error": "close_wallet_failed", "etype": type(e).__name__, "detail": str(e), "wallet_id": key, **_session_status()}
 
 def _cleanup_at_exit():
     """Run cleanup in the worker thread to avoid cross-thread closes on exit."""
@@ -391,24 +399,19 @@ class BrowserStatusRequest(AutoRequest):
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(_EXECUTOR, _session_status)
 
-
 # ---- List registered wallets ------------------------------------------------
 class ListWalletsRequest(AutoRequest):
     """Return registry contents and which wallet contexts are currently open."""
-
     async def execute(self):
         def _do():
             reg = _load_registry()  # reads .cache/wallet_registry.json
             return {"wallets": reg, **_session_status()}
-
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(_EXECUTOR, _do)
-
 
 # -------- Wallet-aware requests ---------------------------------------------
 class RegisterWalletRequest(AutoRequest):
     """Persist a mapping for wallet_id → profile_dir/channel/chrome_profile_directory."""
-
     def __init__(
         self,
         wallet_id: str,
@@ -438,14 +441,11 @@ class RegisterWalletRequest(AutoRequest):
             reg[wid] = cfg
             _save_registry(reg)
             return {"registered": True, "wallet_id": wid, "config": cfg}
-
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(_EXECUTOR, _do)
 
-
 class WebBrowserWithWalletRequest(AutoRequest):
     """Open URL using the persistent context bound to wallet_id."""
-
     def __init__(
         self,
         url: str,
@@ -508,21 +508,13 @@ def _jupiter_connect(
                 pass
 
         if connect is None:
-            return {
-                "error": "connect_button_not_found",
-                "url": page.url,
-                "title": page.title(),
-                **_session_status(),
-            }
+            return {"error": "connect_button_not_found", "url": page.url, "title": page.title(), **_session_status()}
 
         connect.click()
-
-        # Give modal time to animate
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(500)  # modal animation
 
         modal_open = False
         try:
-            # Any of these hints indicate a wallet modal
             if page.locator("text=/Wallet|Connect Wallet|Solflare/i").first.is_visible(timeout=1500):
                 modal_open = True
         except Exception:
@@ -556,6 +548,7 @@ def _jupiter_connect(
             ua = page.evaluate("navigator.userAgent")
         except Exception:
             pass
+        meta = _CONTEXT_META.get(_norm(wallet_id) or "default", {})
         info = _session_status()
         info.update({
             "status": "clicked_connect",
@@ -567,24 +560,20 @@ def _jupiter_connect(
             "channel": cfg.get("channel"),
             "chrome_profile_directory": cfg.get("chrome_profile_directory"),
             "engine_user_agent": ua,
+            "launch_args": meta.get("args"),
+            "executable_path": meta.get("executable_path"),
             "url": page.url,
             "title": page.title(),
         })
         return info
     except Exception as e:
-        return {
-            "error": "jupiter_connect_failed",
-            "etype": type(e).__name__,
-            "detail": str(e),
-            **_session_status(),
-        }
+        return {"error": "jupiter_connect_failed", "etype": type(e).__name__, "detail": str(e), **_session_status()}
 
 class JupiterConnectRequest(AutoRequest):
     """
     Opens Jupiter (default https://jup.ag/perps), clicks 'Connect',
     and optionally clicks a wallet option (default: 'solflare').
     """
-
     def __init__(
         self,
         url: str = "https://jup.ag/perps",
@@ -611,14 +600,11 @@ class JupiterConnectRequest(AutoRequest):
             self.chrome_profile_directory,
         )
 
-
 class CloseWalletRequest(AutoRequest):
     """Close only the wallet-specific context."""
-
     def __init__(self, wallet_id: Optional[str]):
         self.wallet_id = wallet_id
 
     async def execute(self) -> Dict[str, Any]:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(_EXECUTOR, _close_wallet, self.wallet_id)
-
