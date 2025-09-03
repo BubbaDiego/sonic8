@@ -4,6 +4,9 @@ from .web_browser import (
     CloseBrowserRequest,
     BrowserStatusRequest,
     JupiterConnectRequest,
+    RegisterWalletRequest,
+    WebBrowserWithWalletRequest,
+    CloseWalletRequest,
 )
 
 __all__ = [
@@ -12,4 +15,7 @@ __all__ = [
     "CloseBrowserRequest",
     "BrowserStatusRequest",
     "JupiterConnectRequest",
+    "RegisterWalletRequest",
+    "WebBrowserWithWalletRequest",
+    "CloseWalletRequest",
 ]
