@@ -155,7 +155,6 @@ def test_launch_route_opens_browser(monkeypatch):
     assert result == 'Launching BTC in Default'
     assert popen_args == [[
         'C:/Program Files/Google/Chrome/Application/chrome.exe',
-        '--profile-directory=Default',
         'https://jup.ag/perpetuals/BTC',
     ]]
 

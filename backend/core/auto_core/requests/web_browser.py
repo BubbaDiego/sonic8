@@ -193,8 +193,6 @@ def _get_wallet_context(wallet_id: str | None, cfg: dict) -> Any:
 
     # Build args/kwargs
     args = _chrome_args_for_channel(cfg.get("channel"))
-    if sub:
-        args.append(f'--profile-directory={sub}')
 
     kwargs: Dict[str, Any] = dict(
         user_data_dir=pdir,
