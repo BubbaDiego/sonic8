@@ -98,7 +98,7 @@ class XComCore:
             if "voice" in requested:
                 if allow_call:
                     voice_message = (
-                        f"New High Priority Alert received at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}. "
+                        f"New High Priority Alert. "
                         f"Initiated by {initiator}. "
                         f"Subject: {subject}. "
                         f"Details: {body}."
