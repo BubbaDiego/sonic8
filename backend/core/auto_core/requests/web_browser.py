@@ -46,6 +46,20 @@ _CONTEXT = None     # type: Any
 # Multi-wallet contexts (one per wallet_id)
 _CONTEXTS: dict[str, Any] = {}
 
+
+def _context_is_closed(ctx: Any) -> bool:
+    """Return True if a Playwright ``BrowserContext`` appears closed."""
+    try:
+        attr = getattr(ctx, "is_closed", None)
+        if callable(attr):
+            return bool(attr())
+        if attr is not None:
+            return bool(attr)
+        # Fallback for very old versions
+        return bool(getattr(ctx, "closed", False))
+    except Exception:
+        return True
+
 def _chrome_args() -> list[str]:
     if _SOLFLARE_CRX.exists():
         return [
@@ -65,7 +79,7 @@ def _ensure_session(channel: Optional[str] = None) -> None:
     if _PLAYWRIGHT is None:
         _PLAYWRIGHT = sync_playwright().start()
 
-    if _CONTEXT is None or _CONTEXT.is_closed():
+    if _CONTEXT is None or _context_is_closed(_CONTEXT):
         kwargs = dict(
             user_data_dir=_USER_DATA_DIR,
             headless=False,
@@ -130,7 +144,7 @@ def _get_wallet_context(wallet_id: str | None, cfg: dict) -> Any:
     # Use a key even for None -> "default"
     key = wallet_id or "default"
     ctx = _CONTEXTS.get(key)
-    if ctx and not ctx.is_closed():
+    if ctx and not _context_is_closed(ctx):
         return ctx
 
     args = _chrome_args()
@@ -153,20 +167,20 @@ def _get_wallet_context(wallet_id: str | None, cfg: dict) -> Any:
 def _session_status() -> Dict[str, Any]:
     status = {
         "playwright_started": _PLAYWRIGHT is not None,
-        "context_open": bool(_CONTEXT and not _CONTEXT.is_closed()),  # legacy
+        "context_open": bool(_CONTEXT and not _context_is_closed(_CONTEXT)),  # legacy
         "profile_dir": str(_USER_DATA_DIR),
         "extension_loaded": _SOLFLARE_CRX.exists(),
         "pages_open": 0,
         "wallet_contexts": {
             k: {
-                "open": (v is not None and not v.is_closed()),
-                "pages_open": (len(v.pages) if v and not v.is_closed() else 0),
+                "open": (v is not None and not _context_is_closed(v)),
+                "pages_open": (len(v.pages) if v and not _context_is_closed(v) else 0),
             }
             for k, v in list(_CONTEXTS.items())
         },
     }
     try:
-        if _CONTEXT and not _CONTEXT.is_closed():
+        if _CONTEXT and not _context_is_closed(_CONTEXT):
             status["pages_open"] = len(_CONTEXT.pages)
     except Exception:
         pass
@@ -232,7 +246,7 @@ def _close_session() -> Dict[str, Any]:
     """Close the persistent context and stop Playwright."""
     global _PLAYWRIGHT, _CONTEXT
     try:
-        if _CONTEXT and not _CONTEXT.is_closed():
+        if _CONTEXT and not _context_is_closed(_CONTEXT):
             _CONTEXT.close()
     finally:
         _CONTEXT = None
@@ -245,7 +259,7 @@ def _close_session() -> Dict[str, Any]:
     closed_wallets = []
     for k, ctx in list(_CONTEXTS.items()):
         try:
-            if ctx and not ctx.is_closed():
+            if ctx and not _context_is_closed(ctx):
                 ctx.close()
                 closed_wallets.append(k)
         except Exception:
@@ -258,7 +272,7 @@ def _close_session() -> Dict[str, Any]:
 def _close_wallet(wallet_id: Optional[str]) -> Dict[str, Any]:
     key = wallet_id or "default"
     ctx = _CONTEXTS.get(key)
-    if not ctx or ctx.is_closed():
+    if not ctx or _context_is_closed(ctx):
         return {
             "closed": False,
             "wallet_id": key,
