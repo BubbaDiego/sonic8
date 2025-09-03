@@ -6,7 +6,7 @@ Web-browser requests for Auto Core (Playwright + persistent Chrome).
 - Loads Solflare extension only when present
 """
 
-import os, json
+import os, json, shutil
 import sys
 import re
 import atexit
@@ -74,6 +74,35 @@ def _chrome_args() -> list[str]:
             f"--load-extension={_SOLFLARE_CRX}",
         ]
     return []
+
+
+def _find_chrome_exe() -> Optional[str]:
+    """Locate a system Chrome/Chromium executable if present."""
+    candidates: list[str] = []
+    if sys.platform.startswith("win"):
+        roots = [
+            os.environ.get("PROGRAMFILES"),
+            os.environ.get("PROGRAMFILES(X86)"),
+            os.environ.get("LOCALAPPDATA"),
+        ]
+        for root in roots:
+            if root:
+                candidates.append(os.path.join(root, "Google", "Chrome", "Application", "chrome.exe"))
+                candidates.append(os.path.join(root, "Chromium", "Application", "chrome.exe"))
+    elif sys.platform == "darwin":
+        candidates = [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ]
+    else:
+        for name in ("google-chrome-stable", "google-chrome", "chromium-browser", "chromium"):
+            exe = shutil.which(name)
+            if exe:
+                return exe
+    for path in candidates:
+        if path and os.path.exists(path):
+            return path
+    return None
 
 def _ensure_session(channel: Optional[str] = None) -> None:
     """
@@ -164,8 +193,20 @@ def _get_wallet_context(wallet_id: str | None, cfg: dict) -> Any:
         user_data_dir=Path(cfg["profile_dir"]),
         headless=False,
         args=args,
+        ignore_default_args=[
+            "--disable-extensions",
+            "--disable-component-extensions-with-background-pages",
+            "--password-store=basic",
+            "--use-mock-keychain",
+        ],
     )
-    if cfg.get("channel"):
+    if cfg.get("channel") == "chrome":
+        chrome_exe = _find_chrome_exe()
+        if chrome_exe:
+            kwargs["executable_path"] = chrome_exe
+        else:
+            kwargs["channel"] = "chrome"
+    elif cfg.get("channel"):
         kwargs["channel"] = cfg["channel"]  # e.g., "chrome"
 
     ctx = _PLAYWRIGHT.chromium.launch_persistent_context(**kwargs)
