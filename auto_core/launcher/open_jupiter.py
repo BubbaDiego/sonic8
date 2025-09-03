@@ -30,7 +30,7 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
         page = ctx.new_page()
         page.goto(url or DEFAULT_URL, wait_until="domcontentloaded")
         page.bring_to_front()
-        print(f"[OK] wallet='{wallet_id}' user_data_dir='{user_data_dir}' args={args}")
+        print(f"[launcher] using user_data_dir='{user_data_dir}' args={args}")
         while True:
             page.wait_for_timeout(60_000)
 
