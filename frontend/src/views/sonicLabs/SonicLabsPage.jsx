@@ -7,23 +7,18 @@ const SonicLabsPage = () => {
   const [walletId, setWalletId] = useState('default'); // pick your alias (e.g., "connie")
 
   const openJupiter = async () => {
-    setStatus('⏳ Opening Jupiter and clicking Connect…');
+    setStatus('⏳ Opening Jupiter…');
     try {
-      const res = await fetch('/api/auto-core/connect-jupiter', {
+      const res = await fetch('/jupiter/open', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: 'https://jup.ag/perps',
-          wallet: 'solflare',
-          wallet_id: walletId
-        })
+        body: JSON.stringify({ walletId })
       });
       const data = await res.json();
-      if (data.error) {
-        setStatus(`❌ ${data.error}: ${data.detail || ''}`);
+      if (res.ok && data.ok) {
+        setStatus(`✅ launched ${data.launched}`);
       } else {
-        const wallet = data.wallet_clicked ? ` (wallet: ${data.selected_wallet})` : '';
-        setStatus(`✅ ${data.status}${wallet} → ${data.title}`);
+        setStatus(`❌ failed to launch`);
       }
     } catch (err) {
       console.error(err);

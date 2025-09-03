@@ -1,6 +1,0 @@
-diff --git a/backend/sonic_backend_app.py b/backend/sonic_backend_app.py
---- a/backend/sonic_backend_app.py
-+++ b/backend/sonic_backend_app.py
-@@
-+from backend.routers import jupiter
-+app.include_router(jupiter.router)
