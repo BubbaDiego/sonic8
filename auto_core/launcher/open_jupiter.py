@@ -1,9 +1,15 @@
-import os, sys
+import os, sys, logging
 from typing import Optional
 
 from playwright.sync_api import sync_playwright
 
-from .profile_utils import sanitize_profile_settings
+try:
+    from auto_core.launcher.profile_utils import (
+        sanitize_profile_settings,
+        set_profile_display_name,
+    )
+except ImportError:  # pragma: no cover
+    from profile_utils import sanitize_profile_settings, set_profile_display_name
 
 CHROME_EXE = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 DEFAULT_URL = "https://jup.ag"
@@ -22,6 +28,10 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
 
     # HARD SANITIZE (protects us even if upstream tries to inject junk)
     user_data_dir, args = sanitize_profile_settings(raw_user_data_dir, args)
+    try:
+        set_profile_display_name(user_data_dir, wallet_id)
+    except Exception as e:  # pragma: no cover
+        logging.warning("Failed to set profile display name: %s", e)
 
     with sync_playwright() as p:
         kw = dict(user_data_dir=user_data_dir, channel="chrome", headless=headless, args=args)
