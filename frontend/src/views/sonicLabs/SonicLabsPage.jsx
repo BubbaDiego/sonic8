@@ -1,9 +1,10 @@
 import MainCard from 'ui-component/cards/MainCard';
-import { Typography, Button, Stack } from '@mui/material';
+import { Typography, Button, Stack, TextField } from '@mui/material';
 import { useState } from 'react';
 
 const SonicLabsPage = () => {
   const [status, setStatus] = useState('');
+  const [walletId, setWalletId] = useState('default'); // pick your alias (e.g., "connie")
 
   const openJupiter = async () => {
     setStatus('⏳ Opening Jupiter and clicking Connect…');
@@ -13,7 +14,8 @@ const SonicLabsPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: 'https://jup.ag/perps',
-          wallet: 'solflare'
+          wallet: 'solflare',
+          wallet_id: walletId
         })
       });
       const data = await res.json();
@@ -32,7 +34,12 @@ const SonicLabsPage = () => {
   const closeBrowser = async () => {
     setStatus('⏳ Closing browser…');
     try {
-      const res = await fetch('/api/auto-core/close-browser', { method: 'POST' });
+      // Close only the selected wallet context; keep the global close as a separate button if you want.
+      const res = await fetch('/api/auto-core/close-wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet_id: walletId })
+      });
       const data = await res.json();
       if (data.error) setStatus(`❌ ${data.error}: ${data.detail || ''}`);
       else setStatus('✅ Browser closed');
@@ -47,6 +54,15 @@ const SonicLabsPage = () => {
       <Typography variant="body1" sx={{ mb: 2 }}>
         {status || 'Ready'}
       </Typography>
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        <TextField
+          label="Wallet ID"
+          size="small"
+          value={walletId}
+          onChange={(e) => setWalletId(e.target.value)}
+          helperText="Choose an alias you registered (e.g., connie, a0, jup-main)"
+        />
+      </Stack>
       <Stack direction="row" spacing={2}>
         <Button variant="contained" color="primary" onClick={openJupiter}>
           Open Jupiter & Connect
