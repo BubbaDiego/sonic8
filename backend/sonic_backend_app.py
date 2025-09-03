@@ -55,6 +55,7 @@ from backend.routes.liquidation_distance_api import router as liquidation_distan
 from backend.routes.monitor_api_adapter import router as monitor_router
 from backend.routes.auto_core_api import router as auto_core_router
 from backend.core.fun_core.fun_router import router as fun_core_router
+from backend.routers import jupiter
 try:
     from backend.core.fun_core.monitor import prewarm
 except Exception:  # pragma: no cover - optional
@@ -96,6 +97,7 @@ app.include_router(monitor_settings_router)
 app.include_router(liquidation_distance_router)
 app.include_router(market_router)
 app.include_router(prices_router)
+app.include_router(jupiter.router)
 
 # 🔥 FIXED HERE: REMOVED EXTRA PREFIX "/api"
 app.include_router(monitor_status_router)
