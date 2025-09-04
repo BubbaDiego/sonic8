@@ -6,7 +6,9 @@ import sys, os, json, time
 
 router = APIRouter(prefix="/jupiter", tags=["jupiter"])
 
-SESSIONS_FILE = Path("auto_core/state/jupiter_sessions.json")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+LAUNCHER = (REPO_ROOT / "auto_core/launcher/open_jupiter.py").resolve()
+SESSIONS_FILE = (REPO_ROOT / "auto_core/state/jupiter_sessions.json").resolve()
 
 
 def _load_sessions() -> dict:
@@ -39,7 +41,7 @@ def open_jupiter(req: OpenReq):
     if not wallet:
         raise HTTPException(status_code=400, detail="walletId is required")
 
-    launcher = Path("auto_core/launcher/open_jupiter.py").resolve()
+    launcher = LAUNCHER
     if not launcher.exists():
         raise HTTPException(status_code=500, detail="launcher not found")
 
@@ -80,3 +82,13 @@ def close_jupiter(req: CloseReq):
 @router.get("/status")
 def status():
     return _load_sessions()
+
+
+@router.get("/debug-paths")
+def debug_paths():
+    return {
+        "repo_root": str(REPO_ROOT),
+        "launcher": str(LAUNCHER),
+        "launcher_exists": LAUNCHER.exists(),
+        "sessions_file": str(SESSIONS_FILE),
+    }
