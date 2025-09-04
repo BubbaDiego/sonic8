@@ -6,8 +6,9 @@ import sys, os, json, time, logging
 
 router = APIRouter(prefix="/jupiter", tags=["jupiter"])
 
+# Anchor all paths to the repo root so CWD doesn't matter
 REPO_ROOT = Path(__file__).resolve().parents[2]
-LAUNCHER = (REPO_ROOT / "auto_core" / "launcher" / "open_jupiter.py").resolve()
+LAUNCHER  = (REPO_ROOT / "auto_core" / "launcher" / "open_jupiter.py").resolve()
 STATE_DIR = REPO_ROOT / "auto_core" / "state"
 SESSIONS_FILE = STATE_DIR / "jupiter_sessions.json"
 
@@ -44,15 +45,16 @@ def open_jupiter(req: OpenReq):
         raise HTTPException(status_code=400, detail="walletId is required")
 
     if not LAUNCHER.exists():
-        raise HTTPException(status_code=500, detail="launcher not found")
+        raise HTTPException(status_code=500, detail=f"launcher not found at {LAUNCHER}")
 
-    cmd = [sys.executable, str(LAUNCHER), "--wallet-id", wallet]
+    cmd = [sys.executable or "python", str(LAUNCHER), "--wallet-id", wallet]
     if req.url:
         cmd += ["--url", req.url]
     if req.headless:
         cmd += ["--headless"]
 
     try:
+        # Use repo root as working dir to stabilize relative imports/paths
         proc = Popen(cmd, cwd=str(REPO_ROOT))
     except Exception as e:
         logging.exception("failed to launch jupiter")
@@ -93,3 +95,13 @@ def close_jupiter(req: CloseReq):
 @router.get("/status")
 def status():
     return _load_sessions()
+
+
+@router.get("/debug-paths")
+def debug_paths():
+    return {
+        "repo_root": str(REPO_ROOT),
+        "launcher": str(LAUNCHER),
+        "launcher_exists": LAUNCHER.exists(),
+        "sessions_file": str(SESSIONS_FILE),
+    }
