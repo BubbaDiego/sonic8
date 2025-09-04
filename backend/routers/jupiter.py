@@ -2,26 +2,29 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from pathlib import Path
 from subprocess import Popen
-import sys, os, json, time
+import sys, os, json, time, logging
 
 router = APIRouter(prefix="/jupiter", tags=["jupiter"])
 
+# Anchor all paths to the repo root so CWD doesn't matter
 REPO_ROOT = Path(__file__).resolve().parents[2]
-LAUNCHER = (REPO_ROOT / "auto_core/launcher/open_jupiter.py").resolve()
-SESSIONS_FILE = (REPO_ROOT / "auto_core/state/jupiter_sessions.json").resolve()
+LAUNCHER  = (REPO_ROOT / "auto_core" / "launcher" / "open_jupiter.py").resolve()
+STATE_DIR = REPO_ROOT / "auto_core" / "state"
+SESSIONS_FILE = STATE_DIR / "jupiter_sessions.json"
 
 
 def _load_sessions() -> dict:
-    if not SESSIONS_FILE.exists():
-        return {}
     try:
-        return json.loads(SESSIONS_FILE.read_text(encoding="utf-8"))
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        if SESSIONS_FILE.exists():
+            return json.loads(SESSIONS_FILE.read_text(encoding="utf-8"))
     except Exception:
-        return {}
+        pass
+    return {}
 
 
 def _save_sessions(s: dict) -> None:
-    SESSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
     SESSIONS_FILE.write_text(json.dumps(s, indent=2), encoding="utf-8")
 
 
@@ -41,19 +44,29 @@ def open_jupiter(req: OpenReq):
     if not wallet:
         raise HTTPException(status_code=400, detail="walletId is required")
 
-    launcher = LAUNCHER
-    if not launcher.exists():
-        raise HTTPException(status_code=500, detail="launcher not found")
+    if not LAUNCHER.exists():
+        raise HTTPException(status_code=500, detail=f"launcher not found at {LAUNCHER}")
 
-    cmd = [sys.executable or "python", str(launcher), "--wallet-id", wallet]
+    cmd = [sys.executable or "python", str(LAUNCHER), "--wallet-id", wallet]
     if req.url:
         cmd += ["--url", req.url]
     if req.headless:
         cmd += ["--headless"]
 
-    proc = Popen(cmd)
+    try:
+        # Use repo root as working dir to stabilize relative imports/paths
+        proc = Popen(cmd, cwd=str(REPO_ROOT))
+    except Exception as e:
+        logging.exception("failed to launch jupiter")
+        raise HTTPException(status_code=500, detail=f"failed to launch: {e}") from e
+
     sessions = _load_sessions()
-    sessions[wallet.lower()] = {"pid": proc.pid, "cmd": cmd, "started_at": int(time.time())}
+    sessions[wallet.lower()] = {
+        "pid": proc.pid,
+        "cmd": cmd,
+        "cwd": str(REPO_ROOT),
+        "started_at": int(time.time()),
+    }
     _save_sessions(sessions)
     return {"ok": True, "launched": wallet, "pid": proc.pid}
 
