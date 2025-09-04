@@ -2,45 +2,81 @@ import MainCard from 'ui-component/cards/MainCard';
 import { Typography, Button, Stack, TextField } from '@mui/material';
 import { useState } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? '/api' : '');
+
+async function openWallet(walletId) {
+  const res = await fetch(`${API_BASE}/jupiter/open`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ walletId })
+  });
+
+  const raw = await res.text();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (err) {
+    console.error('openWallet: invalid JSON', raw);
+    throw err;
+  }
+
+  if (!res.ok) {
+    console.error('openWallet failed', res.status, data);
+    throw new Error(data.detail || data.error || raw || res.statusText);
+  }
+
+  return data;
+}
+
+async function closeWallet(walletId) {
+  const res = await fetch(`${API_BASE}/jupiter/close`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(walletId ? { walletId } : {})
+  });
+
+  const raw = await res.text();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (err) {
+    console.error('closeWallet: invalid JSON', raw);
+    throw err;
+  }
+
+  if (!res.ok) {
+    console.error('closeWallet failed', res.status, data);
+    throw new Error(data.detail || data.error || raw || res.statusText);
+  }
+
+  return data;
+}
+
 const SonicLabsPage = () => {
   const [status, setStatus] = useState('');
   const [walletId, setWalletId] = useState('default'); // pick your alias (e.g., "connie")
 
-  const openJupiter = async () => {
+  const onOpenClick = async () => {
     setStatus('⏳ Opening Jupiter…');
     try {
-      const res = await fetch('/jupiter/open', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletId })
-      });
-      const data = await res.json();
-      if (res.ok && data.ok) {
-        setStatus(`✅ launched ${data.launched}`);
-      } else {
-        setStatus(`❌ failed to launch`);
-      }
+      const data = await openWallet(walletId);
+      setStatus(`✅ launched ${data.pid ?? data.launched}`);
     } catch (err) {
       console.error(err);
-      setStatus('❌ failed – see console');
+      if (err instanceof Error && err.message) setStatus(`❌ ${err.message}`);
+      else setStatus('❌ failed – see console');
     }
   };
 
-  const closeBrowser = async () => {
+  const onCloseClick = async () => {
     setStatus('⏳ Closing browser…');
     try {
-      // Close only the selected wallet context; keep the global close as a separate button if you want.
-      const res = await fetch('/api/auto-core/close-wallet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_id: walletId })
-      });
-      const data = await res.json();
-      if (data.error) setStatus(`❌ ${data.error}: ${data.detail || ''}`);
-      else setStatus('✅ Browser closed');
+      await closeWallet(walletId || undefined);
+      setStatus('✅ closed');
     } catch (err) {
       console.error(err);
-      setStatus('❌ failed to close – see console');
+      if (err instanceof Error && err.message) setStatus(`❌ ${err.message}`);
+      else setStatus('❌ failed – see console');
     }
   };
 
@@ -59,10 +95,10 @@ const SonicLabsPage = () => {
         />
       </Stack>
       <Stack direction="row" spacing={2}>
-        <Button variant="contained" color="primary" onClick={openJupiter}>
+        <Button variant="contained" color="primary" onClick={onOpenClick}>
           Open Jupiter & Connect
         </Button>
-        <Button variant="outlined" color="secondary" onClick={closeBrowser}>
+        <Button variant="outlined" color="secondary" onClick={onCloseClick}>
           Close Browser
         </Button>
       </Stack>
