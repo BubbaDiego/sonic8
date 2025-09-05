@@ -20,8 +20,10 @@ except Exception:
 
 CHROME_EXE = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 DEFAULT_URL = "https://jup.ag"
-BASE_DIR   = r"C:\\sonic5\\profiles"  # per-alias dirs (Leia, R2, etc.)
+BASE_DIR   = r"C:\\sonic5\\profiles"   # all automation profiles live here
 
+# OPTIONAL: load Solflare from an unpacked folder so web store isn't needed
+EXT_DIR = r"C:\\sonic5\\extensions\\solflare"  # must contain manifest.json
 
 def _resolve_user_data_dir(wallet_id: str) -> str:
     if not wallet_id:
@@ -33,16 +35,17 @@ def _resolve_user_data_dir(wallet_id: str) -> str:
 
 def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless: bool = False) -> None:
     raw_user_data_dir = _resolve_user_data_dir(wallet_id)
+
     args = ["--no-first-run", "--no-default-browser-check", "--no-service-autorun"]
+    if os.path.isdir(EXT_DIR):
+        args += [f"--disable-extensions-except={EXT_DIR}", f"--load-extension={EXT_DIR}"]
 
-    # Harden against any stray upstream flags/paths
+    # Harden & set visible name
     user_data_dir, args = sanitize_profile_settings(raw_user_data_dir, args)
-
-    # Set the visible profile name in Chrome’s bubble
     try:
         set_profile_display_name(user_data_dir, wallet_id)
     except Exception as e:
-        print(f"[warn] could not set profile display name: {e}")
+        print(f"[warn] set_profile_display_name failed: {e}")
 
     with sync_playwright() as p:
         kw = dict(user_data_dir=user_data_dir, channel="chrome", headless=headless, args=args)
