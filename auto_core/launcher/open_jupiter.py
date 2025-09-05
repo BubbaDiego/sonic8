@@ -23,6 +23,11 @@ DEFAULT_URL = "https://jup.ag"
 BASE_DIR   = r"C:\\sonic5\\profiles"   # all automation profiles live here
 DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
 
+IGNORE_DEFAULT_ARGS = [
+    "--disable-extensions",
+    "--disable-component-extensions-with-background-pages",
+]
+
 # OPTIONAL: load Solflare from an unpacked folder so web store isn't needed
 EXT_DIR = r"C:\\sonic5\\extensions\\solflare"  # must contain manifest.json
 
@@ -51,7 +56,13 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
         print(f"[warn] set_profile_display_name failed: {e}")
 
     with sync_playwright() as p:
-        kw = dict(user_data_dir=user_data_dir, channel="chrome", headless=headless, args=args)
+        kw = dict(
+            user_data_dir=user_data_dir,
+            channel="chrome",
+            headless=headless,
+            args=args,
+            ignore_default_args=IGNORE_DEFAULT_ARGS,
+        )
         if os.path.exists(CHROME_EXE):
             kw["executable_path"] = CHROME_EXE
 
