@@ -43,12 +43,12 @@ function useStepLibrary(log) {
       }
     },
     {
-      id: 'connect-solflare',
-      title: 'Connect to Jupiter (Solflare)',
-      desc: 'Click Connect → Solflare and approve in the extension popup.',
+      id: 'connect',
+      title: 'Connect Solflare',
+      desc: 'Attach to jup.ag and connect the Solflare wallet.',
       run: async () => {
-        const r = await apiPost('/jupiter/connect/solflare');
-        log(JSON.stringify(r));
+        const r = await apiPost('/jupiter/connect', {});
+        log(`connected=${r.connected} already=${r.alreadyConnected}`);
         return r;
       }
     },
@@ -124,7 +124,7 @@ function LogConsole({ lines }) {
 export default function SonicLabsPage() {
   const [busy, setBusy] = useState(false);
   const [logs, setLogs] = useState([]);
-  const [workflow, setWorkflow] = useState([]); // array of step ids in order
+  const [workflow, setWorkflow] = useState(['open', 'connect']);
 
   const log = (msg) => setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   const { steps, byId } = useStepLibrary(log);
