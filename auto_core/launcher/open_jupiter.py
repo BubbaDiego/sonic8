@@ -23,8 +23,9 @@ except Exception:
 CHROME_EXE = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 DEFAULT_URL = "https://jup.ag"
 BASE_DIR   = r"C:\\sonic5\\profiles"   # all automation profiles live here
-DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
-CONTROL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "state")
+DEDICATED_ALIAS   = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
+CONTROL_DIR       = os.path.join(os.path.dirname(os.path.dirname(__file__)), "state")
+CDP_PORT          = int(os.getenv("SONIC_CDP_PORT", "9224"))  # fixed port for attach
 
 # --- helpers to suppress/dismiss the "Restore pages?" bubble ---
 def _merge_disable_feature(args: list[str], feature: str) -> list[str]:
@@ -108,6 +109,7 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
     control_flag = os.path.join(CONTROL_DIR, f"shutdown__{wallet_id.replace(os.sep,'_')}.flag")
 
     args = ["--no-first-run", "--no-default-browser-check", "--no-service-autorun"]
+    args.append(f"--remote-debugging-port={CDP_PORT}")  # allow connect_over_cdp
     # Try to suppress the bubble at the source.
     args = _merge_disable_feature(args, "SessionCrashedBubble")
     if os.path.isdir(EXT_DIR):
@@ -137,6 +139,16 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
             kw["executable_path"] = CHROME_EXE
 
         ctx = p.chromium.launch_persistent_context(**kw)
+
+        # Publish CDP attach info for other routes
+        try:
+            os.makedirs(CONTROL_DIR, exist_ok=True)
+            with open(os.path.join(CONTROL_DIR, "jupiter_cdp.json"), "w", encoding="utf-8") as f:
+                import json
+                json.dump({"alias": wallet_id, "port": CDP_PORT}, f)
+        except Exception:
+            pass
+
         # Install the auto-dismiss watcher for the restore bubble.
         _install_restore_dismisser(ctx)
         page = ctx.new_page()

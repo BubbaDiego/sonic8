@@ -134,3 +134,120 @@ def debug_paths():
         "launcher_exists": LAUNCHER.exists(),
         "sessions_file": str(SESSIONS_FILE),
     }
+
+from playwright.sync_api import sync_playwright
+import re
+
+
+@router.post("/connect/solflare")
+def connect_solfare():
+    """Attach to the running Chrome via CDP and connect Solflare on jup.ag."""
+    # Read CDP port published by the launcher
+    cdp_path = REPO_ROOT / "auto_core" / "state" / "jupiter_cdp.json"
+    if not cdp_path.exists():
+        raise HTTPException(status_code=409, detail="Browser not running. Open it first.")
+    try:
+        info = json.loads(cdp_path.read_text(encoding="utf-8"))
+        port = int(info.get("port", 0))
+        if not port:
+            raise ValueError("missing port")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Invalid CDP info: {e}")
+
+    with sync_playwright() as p:
+        browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
+        # Use the first context (persistent)
+        ctx = browser.contexts[0] if browser.contexts else browser.new_context()
+        page = None
+        # Prefer an existing jup.ag tab
+        for pg in ctx.pages:
+            if "jup.ag" in (pg.url or ""):
+                page = pg
+                break
+        if not page:
+            page = ctx.new_page()
+            page.goto("https://jup.ag", wait_until="domcontentloaded")
+
+        def already_connected() -> bool:
+            try:
+                # If a "Connect" button is visible, not connected.
+                if page.get_by_role("button", name=re.compile("connect", re.I)).first.is_visible(timeout=500):
+                    return False
+            except Exception:
+                pass
+            # Heuristic: wallet chip / avatar present, or Disconnect entry exists
+            try:
+                page.get_by_text(re.compile("Disconnect", re.I)).first  # might throw if not found
+                return True
+            except Exception:
+                # Fallback: no "Connect" button visible implies connected
+                return True
+
+        if already_connected():
+            return {"ok": True, "alreadyConnected": True}
+
+        # Click "Connect" (header or modal)
+        try:
+            page.get_by_role("button", name=re.compile("connect", re.I)).first.click(timeout=3000)
+        except Exception:
+            # Alternate selector
+            page.locator("text=Connect").first.click(timeout=3000)
+
+        # Choose Solflare in wallet list
+        try:
+            page.get_by_role("button", name=re.compile("solflare", re.I)).first.click(timeout=3000)
+        except Exception:
+            page.locator("text=Solflare").first.click(timeout=3000)
+
+        # Handle Solflare extension popup (new page)
+        solflare_id = os.getenv("SOLFLARE_ID", "bhhhlbepdkbapadjdnnojkbgioiodbic")
+        ext_page = None
+
+        def _on_page(p):
+            nonlocal ext_page
+            try:
+                if p.url.startswith(f"chrome-extension://{solflare_id}"):
+                    ext_page = p
+            except Exception:
+                pass
+
+        browser.on("page", _on_page)
+        ctx.on("page", _on_page)
+
+        # Wait up to ~8s for popup
+        for _ in range(32):
+            if ext_page:
+                break
+            page.wait_for_timeout(250)
+
+        if not ext_page:
+            # Some flows connect silently if already approved once
+            if already_connected():
+                return {"ok": True, "alreadyConnected": True, "popup": "none"}
+            raise HTTPException(status_code=504, detail="Solflare popup did not appear")
+
+        # In the Solflare popup, approve/next/connect
+        try:
+            # common buttons across versions
+            for label in ["Connect", "Approve", "Next", "Continue", "Confirm"]:
+                try:
+                    ext_page.get_by_role("button", name=re.compile(f"^{label}$", re.I)).first.click(timeout=1200)
+                except Exception:
+                    pass
+            # If there is a permissions list, accept
+            try:
+                ext_page.get_by_role("button", name=re.compile("Allow|Approve", re.I)).first.click(timeout=1200)
+            except Exception:
+                pass
+        except Exception:
+            # ignore; popup may auto-close
+            pass
+
+        # Wait a moment for jup.ag to reflect connection
+        page.bring_to_front()
+        page.wait_for_timeout(1000)
+
+        if not already_connected():
+            raise HTTPException(status_code=500, detail="Wallet still not connected")
+
+        return {"ok": True, "connected": True}
