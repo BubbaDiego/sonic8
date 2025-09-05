@@ -26,6 +26,64 @@ BASE_DIR   = r"C:\\sonic5\\profiles"   # all automation profiles live here
 DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
 CONTROL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "state")
 
+# --- helpers to suppress/dismiss the "Restore pages?" bubble ---
+def _merge_disable_feature(args: list[str], feature: str) -> list[str]:
+    """
+    Ensure --disable-features includes the given feature.
+    If Chrome sees two --disable-features flags, the *last* wins, so we prefer
+    patching an existing flag; otherwise we append a new one.
+    """
+    for i, a in enumerate(args):
+        if a.startswith("--disable-features="):
+            payload = a.split("=", 1)[1]
+            parts = [p.strip() for p in payload.split(",") if p.strip()]
+            if feature not in parts:
+                parts.append(feature)
+                args[i] = f"--disable-features={','.join(parts)}"
+            return args
+    args.append(f"--disable-features={feature}")
+    return args
+
+
+def _install_restore_dismisser(ctx):
+    """
+    Attach a tiny watcher that closes the 'Restore pages?' bubble if it appears.
+    Runs on the first page and any new pages in the context.
+    """
+    import re
+
+    def _dismiss_on(page):
+        # Try several selectors; click the Close/X, never the 'Restore' button.
+        # We retry a few times in case the bubble animates in.
+        candidates = [
+            page.get_by_role("button", name=re.compile(r"^(Close|Dismiss)$", re.I)),
+            page.locator('button[aria-label="Close"], button[aria-label="Dismiss"]'),
+            # fallback: a button in a dialog that contains 'Restore pages?'
+            page.locator('div:has-text("Restore pages")').locator('button[aria-label="Close"], button[aria-label="Dismiss"]'),
+        ]
+        for _ in range(10):
+            for loc in candidates:
+                try:
+                    if loc.first.is_visible(timeout=200):
+                        try:
+                            loc.first.click(timeout=200)
+                            return True
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            page.wait_for_timeout(250)
+        return False
+
+    # install on existing/new pages
+    for p in ctx.pages:
+        try:
+            p.once("domcontentloaded", lambda _: _dismiss_on(p))
+        except Exception:
+            pass
+
+    ctx.on("page", lambda p: p.once("domcontentloaded", lambda _: _dismiss_on(p)))
+
 IGNORE_DEFAULT_ARGS = [
     "--disable-extensions",
     "--disable-component-extensions-with-background-pages",
@@ -50,6 +108,8 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
     control_flag = os.path.join(CONTROL_DIR, f"shutdown__{wallet_id.replace(os.sep,'_')}.flag")
 
     args = ["--no-first-run", "--no-default-browser-check", "--no-service-autorun"]
+    # Try to suppress the bubble at the source.
+    args = _merge_disable_feature(args, "SessionCrashedBubble")
     if os.path.isdir(EXT_DIR):
         args += [f"--disable-extensions-except={EXT_DIR}", f"--load-extension={EXT_DIR}"]
 
@@ -77,6 +137,8 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
             kw["executable_path"] = CHROME_EXE
 
         ctx = p.chromium.launch_persistent_context(**kw)
+        # Install the auto-dismiss watcher for the restore bubble.
+        _install_restore_dismisser(ctx)
         page = ctx.new_page()
         page.goto(url or DEFAULT_URL, wait_until="domcontentloaded")
         page.bring_to_front()
