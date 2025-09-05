@@ -7,6 +7,7 @@ try:
     from auto_core.launcher.profile_utils import (
         sanitize_profile_settings,
         set_profile_display_name,
+        mark_last_exit_clean,
     )
 except Exception:
     THIS_DIR = os.path.dirname(__file__)
@@ -16,12 +17,14 @@ except Exception:
     from auto_core.launcher.profile_utils import (
         sanitize_profile_settings,
         set_profile_display_name,
+        mark_last_exit_clean,
     )
 
 CHROME_EXE = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 DEFAULT_URL = "https://jup.ag"
 BASE_DIR   = r"C:\\sonic5\\profiles"   # all automation profiles live here
 DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
+CONTROL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "state")
 
 IGNORE_DEFAULT_ARGS = [
     "--disable-extensions",
@@ -43,6 +46,8 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
     # Ignore incoming value; always use the canonical alias
     wallet_id = DEDICATED_ALIAS
     raw_user_data_dir = _resolve_user_data_dir(wallet_id)
+    os.makedirs(CONTROL_DIR, exist_ok=True)
+    control_flag = os.path.join(CONTROL_DIR, f"shutdown__{wallet_id.replace(os.sep,'_')}.flag")
 
     args = ["--no-first-run", "--no-default-browser-check", "--no-service-autorun"]
     if os.path.isdir(EXT_DIR):
@@ -50,6 +55,11 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
 
     # Harden & set visible name
     user_data_dir, args = sanitize_profile_settings(raw_user_data_dir, args)
+    # Pre-clear crash markers so we don't get 'Restore pages?'
+    try:
+        mark_last_exit_clean(user_data_dir, "Default")
+    except Exception as e:
+        print(f"[warn] mark_last_exit_clean failed: {e}")
     try:
         set_profile_display_name(user_data_dir, wallet_id)
     except Exception as e:
@@ -71,9 +81,24 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
         page.goto(url or DEFAULT_URL, wait_until="domcontentloaded")
         page.bring_to_front()
         print(f"[OK] wallet='{wallet_id}' user_data_dir='{user_data_dir}' args={args}")
-        # Keep alive; the Close endpoint will kill by PID.
-        while True:
-            page.wait_for_timeout(60_000)
+
+        # Lightweight IPC loop — closes gracefully when the flag file appears
+        import time
+        try:
+            while True:
+                if os.path.exists(control_flag):
+                    try:
+                        os.remove(control_flag)
+                    except Exception:
+                        pass
+                    break
+                time.sleep(0.5)
+        finally:
+            # Graceful close to ensure Chrome records a clean exit
+            try:
+                ctx.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
