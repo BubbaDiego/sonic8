@@ -17,27 +17,26 @@ def sanitize_profile_settings(user_data_dir: str, args: list[str]) -> tuple[str,
 
 def set_profile_display_name(user_data_dir: str, alias: str) -> None:
     """
-    Make Chrome's profile bubble display the alias (e.g., 'Leia') by updating
-    'Local State' → profile.info_cache['Default'].name and last_used.
-    Safe to call repeatedly.
+    Make Chrome's bubble show the alias (e.g., 'Sonic - Auto').
+    Writes Local State: profile.info_cache['Default'].name + last_used.
     """
     os.makedirs(user_data_dir, exist_ok=True)
-    state_path = os.path.join(user_data_dir, "Local State")
+    path = os.path.join(user_data_dir, "Local State")
 
     data = {}
-    if os.path.exists(state_path):
+    if os.path.exists(path):
         try:
-            with open(state_path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except Exception:
             data = {}
 
-    profile = data.setdefault("profile", {})
-    info_cache = profile.setdefault("info_cache", {})
-    default = info_cache.setdefault("Default", {})
+    prof = data.setdefault("profile", {})
+    cache = prof.setdefault("info_cache", {})
+    default = cache.setdefault("Default", {})
     default["name"] = alias
     default["is_using_default_name"] = False
-    profile["last_used"] = "Default"
+    prof["last_used"] = "Default"
 
-    with open(state_path, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
