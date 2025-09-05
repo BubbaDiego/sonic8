@@ -1,106 +1,86 @@
 import MainCard from 'ui-component/cards/MainCard';
-import { Typography, Button, Stack, TextField } from '@mui/material';
-import { useState } from 'react';
+import { Typography, Button, Stack } from '@mui/material';
+import { useState, useMemo } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? '/api' : '');
+const DEDICATED_ALIAS = import.meta.env.VITE_AUTOPROFILE || 'Sonic - Auto';
 
-async function openWallet(walletId) {
-  const res = await fetch(`${API_BASE}/jupiter/open`, {
+async function apiPost(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ walletId })
+    body: body ? JSON.stringify(body) : undefined
   });
-
   const raw = await res.text();
   let data;
   try {
     data = JSON.parse(raw);
   } catch (err) {
-    console.error('openWallet: invalid JSON', raw);
+    console.error('apiPost: invalid JSON', raw);
     throw err;
   }
-
   if (!res.ok) {
-    console.error('openWallet failed', res.status, data);
+    console.error('apiPost failed', res.status, data);
     throw new Error(data.detail || data.error || raw || res.statusText);
   }
-
   return data;
 }
 
-async function closeWallet(walletId) {
-  const res = await fetch(`${API_BASE}/jupiter/close`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(walletId ? { walletId } : {})
-  });
-
-  const raw = await res.text();
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch (err) {
-    console.error('closeWallet: invalid JSON', raw);
-    throw err;
-  }
-
-  if (!res.ok) {
-    console.error('closeWallet failed', res.status, data);
-    throw new Error(data.detail || data.error || raw || res.statusText);
-  }
-
-  return data;
+function useStepLibrary(log) {
+  const steps = useMemo(() => ([
+    {
+      id: 'connect-solflare',
+      title: 'Connect to Jupiter (Solflare)',
+      desc: 'Click Connect → Solflare and approve in the extension popup.',
+      run: async () => {
+        const r = await apiPost('/jupiter/connect/solflare');
+        log(JSON.stringify(r));
+        return r;
+      }
+    },
+    {
+      id: 'open',
+      title: 'Open dedicated browser',
+      desc: `Launch Chrome with profile "${DEDICATED_ALIAS}" and open Jupiter.`,
+      run: async () => {
+        const r = await apiPost('/jupiter/open', { walletId: DEDICATED_ALIAS });
+        log(JSON.stringify(r));
+        return r;
+      }
+    },
+    {
+      id: 'close',
+      title: 'Close browser',
+      desc: 'Close the automation browser.',
+      run: async () => {
+        const r = await apiPost('/jupiter/close', { walletId: DEDICATED_ALIAS });
+        log(JSON.stringify(r));
+        return r;
+      }
+    }
+  ]), [log]);
+  return steps;
 }
 
 const SonicLabsPage = () => {
   const [status, setStatus] = useState('');
-  const [walletId, setWalletId] = useState('default'); // pick your alias (e.g., "connie")
-
-  const onOpenClick = async () => {
-    setStatus('⏳ Opening Jupiter…');
-    try {
-      const data = await openWallet(walletId);
-      setStatus(`✅ launched ${data.pid ?? data.launched}`);
-    } catch (err) {
-      console.error(err);
-      if (err instanceof Error && err.message) setStatus(`❌ ${err.message}`);
-      else setStatus('❌ failed – see console');
-    }
-  };
-
-  const onCloseClick = async () => {
-    setStatus('⏳ Closing browser…');
-    try {
-      await closeWallet(walletId || undefined);
-      setStatus('✅ closed');
-    } catch (err) {
-      console.error(err);
-      if (err instanceof Error && err.message) setStatus(`❌ ${err.message}`);
-      else setStatus('❌ failed – see console');
-    }
-  };
+  const steps = useStepLibrary((msg) => setStatus(msg));
 
   return (
     <MainCard title="Sonic Labs">
       <Typography variant="body1" sx={{ mb: 2 }}>
         {status || 'Ready'}
       </Typography>
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-        <TextField
-          label="Wallet ID"
-          size="small"
-          value={walletId}
-          onChange={(e) => setWalletId(e.target.value)}
-          helperText="Choose an alias you registered (e.g., connie, a0, jup-main)"
-        />
-      </Stack>
-      <Stack direction="row" spacing={2}>
-        <Button variant="contained" color="primary" onClick={onOpenClick}>
-          Open Jupiter & Connect
-        </Button>
-        <Button variant="outlined" color="secondary" onClick={onCloseClick}>
-          Close Browser
-        </Button>
+      <Stack spacing={2}>
+        {steps.map((s) => (
+          <Stack key={s.id} direction="row" spacing={2} alignItems="center">
+            <Stack sx={{ flexGrow: 1 }}>
+              <Typography variant="h6">{s.title}</Typography>
+              <Typography variant="body2">{s.desc}</Typography>
+            </Stack>
+            <Button variant="contained" onClick={s.run}>Run</Button>
+          </Stack>
+        ))}
       </Stack>
     </MainCard>
   );
