@@ -11,6 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 LAUNCHER  = (REPO_ROOT / "auto_core" / "launcher" / "open_jupiter.py").resolve()
 STATE_DIR = REPO_ROOT / "auto_core" / "state"
 SESSIONS_FILE = STATE_DIR / "jupiter_sessions.json"
+DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
 
 
 def _load_sessions() -> dict:
@@ -29,7 +30,7 @@ def _save_sessions(s: dict) -> None:
 
 
 class OpenReq(BaseModel):
-    walletId: str
+    walletId: str  # ignored; kept for compatibility
     url: str | None = None
     headless: bool = False
 
@@ -40,9 +41,8 @@ class CloseReq(BaseModel):
 
 @router.post("/open")
 def open_jupiter(req: OpenReq):
-    wallet = (req.walletId or "").strip()
-    if not wallet:
-        raise HTTPException(status_code=400, detail="walletId is required")
+    # Force canonical alias so we never create new folders by accident
+    wallet = DEDICATED_ALIAS
 
     if not LAUNCHER.exists():
         raise HTTPException(status_code=500, detail=f"launcher not found at {LAUNCHER}")

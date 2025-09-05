@@ -21,6 +21,7 @@ except Exception:
 CHROME_EXE = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 DEFAULT_URL = "https://jup.ag"
 BASE_DIR   = r"C:\\sonic5\\profiles"   # all automation profiles live here
+DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
 
 # OPTIONAL: load Solflare from an unpacked folder so web store isn't needed
 EXT_DIR = r"C:\\sonic5\\extensions\\solflare"  # must contain manifest.json
@@ -34,6 +35,8 @@ def _resolve_user_data_dir(wallet_id: str) -> str:
 
 
 def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless: bool = False) -> None:
+    # Ignore incoming value; always use the canonical alias
+    wallet_id = DEDICATED_ALIAS
     raw_user_data_dir = _resolve_user_data_dir(wallet_id)
 
     args = ["--no-first-run", "--no-default-browser-check", "--no-service-autorun"]
