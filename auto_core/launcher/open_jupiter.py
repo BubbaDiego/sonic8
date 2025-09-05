@@ -22,6 +22,7 @@ CHROME_EXE = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 DEFAULT_URL = "https://jup.ag"
 BASE_DIR    = r"C:\sonic5\profiles"
 DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
+DEBUG_PORT = int(os.getenv("SONIC_CHROME_PORT", "9230"))
 
 # Allow store extensions by removing these Playwright defaults when possible
 IGNORE_DEFAULT_ARGS = [
@@ -63,7 +64,12 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
     # Canonical alias only
     user_data_dir_raw = _resolve_user_data_dir(DEDICATED_ALIAS)
 
-    args = ["--no-first-run", "--no-default-browser-check", "--no-service-autorun"]
+    args = [
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--no-service-autorun",
+        f"--remote-debugging-port={DEBUG_PORT}",
+    ]
     if UNPACKED and os.path.isdir(UNPACKED):
         args += [f"--disable-extensions-except={UNPACKED}", f"--load-extension={UNPACKED}"]
 
@@ -91,7 +97,9 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
         page = ctx.new_page()
         page.goto(url or DEFAULT_URL, wait_until="domcontentloaded")
         page.bring_to_front()
-        print(f"[OK] user_data_dir='{user_data_dir}' args={args} ignore_default_args={IGNORE_DEFAULT_ARGS}")
+        print(
+            f"[OK] user_data_dir='{user_data_dir}' port={DEBUG_PORT} args={args} ignore_default_args={IGNORE_DEFAULT_ARGS}"
+        )
         while True:
             page.wait_for_timeout(60_000)
 
