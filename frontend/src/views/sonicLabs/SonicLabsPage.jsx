@@ -131,10 +131,80 @@ export default function SonicLabsPage() {
 
   const addToWorkflow = (step) => setWorkflow((prev) => [...prev, step.id]);
   const clearWorkflow = () => setWorkflow([]);
+  const removeFromWorkflow = (index) =>
+    setWorkflow((prev) => prev.filter((_, i) => i !== index));
 
   const runStep = async (step) => {
     setBusy(true);
     try {
       log(`▶︎ ${step.title}`);
       await step.run();
-      log(`✔ ${step.id} do
+      log(`✔ ${step.id} done`);
+    } catch (e) {
+      console.error(e);
+      log(`✖ ${step.id} failed: ${e.message || e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runWorkflow = async () => {
+    for (const id of workflow) {
+      await runStep(byId[id]);
+    }
+  };
+
+  return (
+    <MainCard title="Sonic Labs">
+      <Stack spacing={2}>
+        <Typography variant="h6">Step Library</Typography>
+        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+          {steps.map((s) => (
+            <StepCard
+              key={s.id}
+              step={s}
+              onRun={runStep}
+              onAdd={addToWorkflow}
+              disabled={busy}
+            />
+          ))}
+        </Stack>
+
+        <Divider />
+
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Workflow
+          </Typography>
+          <Button
+            size="small"
+            onClick={runWorkflow}
+            disabled={busy || workflow.length === 0}
+          >
+            Run
+          </Button>
+          <Button
+            size="small"
+            onClick={clearWorkflow}
+            disabled={busy || workflow.length === 0}
+          >
+            Clear
+          </Button>
+        </Stack>
+
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          {workflow.map((id, idx) => (
+            <Chip
+              key={`${id}-${idx}`}
+              label={byId[id].title}
+              onDelete={() => removeFromWorkflow(idx)}
+            />
+          ))}
+        </Stack>
+
+        <LogConsole lines={logs} />
+      </Stack>
+    </MainCard>
+  );
+}
+
