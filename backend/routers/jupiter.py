@@ -81,10 +81,39 @@ def close_jupiter(req: CloseReq):
     for alias, entry in targets:
         pid = entry.get("pid")
         try:
-            if os.name == "nt":
-                os.system(f"taskkill /PID {pid} /T /F >NUL 2>&1")
-            else:
-                os.kill(pid, 9)
+            # 1) Graceful: signal the launcher loop via flag file
+            control_dir = STATE_DIR
+            flag = control_dir / f"shutdown__{alias}.flag"
+            try:
+                control_dir.mkdir(parents=True, exist_ok=True)
+                flag.write_text("close", encoding="utf-8")
+            except Exception:
+                pass
+
+            # Wait up to ~4s for the process to exit cleanly
+            import time
+            try:
+                import psutil  # type: ignore
+            except Exception:
+                psutil = None
+            end = time.time() + 4.0
+            exited = False
+            if psutil is not None:
+                try:
+                    while time.time() < end:
+                        if not psutil.pid_exists(pid):
+                            exited = True
+                            break
+                        time.sleep(0.2)
+                except Exception:
+                    pass
+
+            # 2) Fallback: hard kill if still alive
+            if not exited:
+                if os.name == "nt":
+                    os.system(f"taskkill /PID {pid} /T /F >NUL 2>&1")
+                else:
+                    os.kill(pid, 9)
             sessions.pop(alias, None)
         except Exception as e:
             failed.append({"alias": alias, "error": str(e)})
