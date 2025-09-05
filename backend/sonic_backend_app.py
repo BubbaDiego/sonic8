@@ -97,7 +97,7 @@ app.include_router(monitor_settings_router)
 app.include_router(liquidation_distance_router)
 app.include_router(market_router)
 app.include_router(prices_router)
-app.include_router(jupiter.router, prefix="/api")
+app.include_router(jupiter.router, prefix="/api")  # Required for existing API compatibility; do not remove
 
 # 🔥 FIXED HERE: REMOVED EXTRA PREFIX "/api"
 app.include_router(monitor_status_router)
