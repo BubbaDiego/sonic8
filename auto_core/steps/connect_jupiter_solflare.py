@@ -32,17 +32,21 @@ def _button_not_visible(page) -> bool:
 
 
 def _find_extension_page(browser):
-    # Look for a Solflare extension page/popup
+    # Look for all existing Solflare extension pages/popup and return the latest
+    ext_pages = []
     for ctx in browser.contexts:
         for pg in ctx.pages:
             url = pg.url or ""
             if url.startswith("chrome-extension://"):
-                return pg
+                ext_pages.append(pg)
+    if ext_pages:
+        return ext_pages[-1]
     try:
+        # Otherwise wait for a new extension page to appear
         return browser.wait_for_event(
             "page",
             predicate=lambda pg: (pg.url or "").startswith("chrome-extension://"),
-            timeout=5000,
+            timeout=6000,
         )
     except PWTimeout:
         return None
@@ -85,29 +89,25 @@ def main():
         # S4: unlock if prompted
         pop = _find_extension_page(browser)
         if pop:
-            # try to detect "Unlock Your Wallet"
-            unlocked = False
+            pop.bring_to_front()
             try:
-                # Use placeholder or type=password
-                pwd = None
+                pop.locator('[data-testid="form-unlock"]').wait_for(state="visible", timeout=2500)
                 try:
-                    pwd = pop.get_by_placeholder(re.compile(r"enter.*password", re.I))
-                    pwd.wait_for(state="visible", timeout=1500)
-                except Exception:
-                    pwd = pop.locator('input[type="password"]').first
-                # Click to focus, then fill
-                try:
-                    pwd.click(timeout=800)
+                    pwd = pop.locator('[data-testid="input-password"]').first
+                    try:
+                        pwd.click(timeout=800)
+                    except Exception:
+                        pass
+                    pwd.fill(PASS, timeout=1500)
+                    pop.locator('[data-testid="btn-unlock"]').first.click(timeout=1500)
+                    time.sleep(0.5)
                 except Exception:
                     pass
-
-                pwd.fill(PASS, timeout=1500)
-                pop.get_by_role("button", name=re.compile(r"unlock", re.I)).first.click(timeout=1500)
-                time.sleep(0.5)
-                unlocked = True
-            except Exception:
-                # maybe no unlock prompt (some sessions)
-                pass
+            except PWTimeout:
+                # If no unlock form appears and Connect button missing, assume already connected
+                if _button_not_visible(page):
+                    print("[connect] already connected")
+                    return 0
 
             # Some variants show approve/allow after unlock
             for label in [r"connect", r"approve", r"allow", r"continue", r"ok"]:
