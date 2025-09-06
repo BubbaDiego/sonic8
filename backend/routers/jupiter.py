@@ -9,12 +9,12 @@ router = APIRouter(prefix="/jupiter", tags=["jupiter"])
 # Anchor all paths to the repo root so CWD doesn't matter
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LAUNCHER = (REPO_ROOT / "auto_core" / "launcher" / "open_jupiter.py").resolve()
-STEP_CONNECT = (REPO_ROOT / "auto_core" / "steps" / "connect_jupiter.py").resolve()
+STEP_CONNECT = (REPO_ROOT / "auto_core" / "steps" / "connect_jupiter_solflare.py").resolve()
 STATE_DIR = REPO_ROOT / "auto_core" / "state"
 SESSIONS_FILE = STATE_DIR / "jupiter_sessions.json"
 DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
-ENV_BASE = os.environ.copy()
-ENV_BASE.setdefault("SONIC_CHROME_PORT", "9230")
+ENV_BASE = dict(os.environ)
+ENV_BASE.setdefault("SONIC_CHROME_PORT", "9230")  # must match launcher
 
 
 def _load_sessions() -> dict:
@@ -43,7 +43,7 @@ class CloseReq(BaseModel):
 
 
 class ConnectReq(BaseModel):
-    url: str | None = None
+    url: str | None = None  # optional override for tests
 
 
 @router.post("/open")
@@ -144,26 +144,27 @@ def debug_paths():
 
 
 @router.post("/connect")
-def connect_jupiter(req: ConnectReq):
+def connect_wallet(req: ConnectReq):
+    if not STEP_CONNECT.exists():
+        raise HTTPException(status_code=500, detail=f"connect step not found at {STEP_CONNECT}")
+
     env = ENV_BASE.copy()
     if req.url:
         env["SONIC_JUPITER_URL"] = req.url
+
     try:
-        proc = run(
+        r = run(
             [sys.executable or "python", str(STEP_CONNECT)],
             cwd=str(REPO_ROOT),
             env=env,
             stdout=PIPE,
             stderr=PIPE,
-            timeout=60,
+            text=True,
+            timeout=90,
         )
     except Exception as e:
-        return {"ok": False, "code": -1, "detail": str(e)}
+        raise HTTPException(status_code=500, detail=f"connect runner failed: {e}")
 
-    ok = proc.returncode == 0
-    detail = (
-        proc.stdout.decode("utf-8", errors="ignore")
-        if ok
-        else proc.stderr.decode("utf-8", errors="ignore")
-    )
-    return {"ok": ok, "code": proc.returncode, "detail": detail}
+    ok = (r.returncode == 0)
+    detail = (r.stdout or "") + ("\n" + r.stderr if r.stderr else "")
+    return {"ok": ok, "code": r.returncode, "detail": detail.strip()}

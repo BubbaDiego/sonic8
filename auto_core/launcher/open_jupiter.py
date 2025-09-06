@@ -22,9 +22,9 @@ CHROME_EXE = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 DEFAULT_URL = "https://jup.ag"
 BASE_DIR    = r"C:\sonic5\profiles"
 DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
-DEBUG_PORT = int(os.getenv("SONIC_CHROME_PORT", "9230"))
+DEBUG_PORT  = int(os.getenv("SONIC_CHROME_PORT", "9230"))  # used by connect step
 
-# Allow store extensions by removing these Playwright defaults when possible
+# Allow store extensions by removing these Playwright defaults when supported
 IGNORE_DEFAULT_ARGS = [
     "--disable-extensions",
     "--disable-component-extensions-with-background-pages",
@@ -42,13 +42,11 @@ def _resolve_user_data_dir(alias: str) -> str:
 def _launch_with_fallback(p, kw: dict):
     """
     Try to launch with ignore_default_args to allow store extensions.
-    If the Playwright build doesn't support it (UI-only crash), retry without it
-    and force-enable extensions explicitly.
+    If the Playwright build doesn't support it, retry without and force-enable extensions.
     """
     try:
         return p.chromium.launch_persistent_context(**kw)
     except TypeError:
-        # Older Playwright that doesn't support ignore_default_args here
         kw.pop("ignore_default_args", None)
         kw["args"] = kw.get("args", []) + ["--enable-extensions"]
         return p.chromium.launch_persistent_context(**kw)
@@ -61,19 +59,18 @@ def _launch_with_fallback(p, kw: dict):
         raise
 
 def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless: bool = False) -> None:
-    # Canonical alias only
     user_data_dir_raw = _resolve_user_data_dir(DEDICATED_ALIAS)
 
     args = [
         "--no-first-run",
         "--no-default-browser-check",
         "--no-service-autorun",
-        f"--remote-debugging-port={DEBUG_PORT}",
+        f"--remote-debugging-port={DEBUG_PORT}",  # expose CDP for /connect step
     ]
     if UNPACKED and os.path.isdir(UNPACKED):
         args += [f"--disable-extensions-except={UNPACKED}", f"--load-extension={UNPACKED}"]
 
-    # Sanitize any stray junk and set visible bubble name
+    # Sanitize and set visible bubble name
     user_data_dir, args = sanitize_profile_settings(user_data_dir_raw, args)
     try:
         set_profile_display_name(user_data_dir, DEDICATED_ALIAS)
@@ -86,10 +83,8 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
             channel="chrome",
             headless=headless,
             args=args,
+            ignore_default_args=IGNORE_DEFAULT_ARGS,
         )
-        # Allow store extensions if supported by this Playwright build
-        kw["ignore_default_args"] = IGNORE_DEFAULT_ARGS
-
         if os.path.exists(CHROME_EXE):
             kw["executable_path"] = CHROME_EXE
 
@@ -97,9 +92,7 @@ def open_jupiter_with_wallet(wallet_id: str, url: Optional[str] = None, headless
         page = ctx.new_page()
         page.goto(url or DEFAULT_URL, wait_until="domcontentloaded")
         page.bring_to_front()
-        print(
-            f"[OK] user_data_dir='{user_data_dir}' port={DEBUG_PORT} args={args} ignore_default_args={IGNORE_DEFAULT_ARGS}"
-        )
+        print(f"[OK] user_data_dir='{user_data_dir}' port={DEBUG_PORT} args={args}")
         while True:
             page.wait_for_timeout(60_000)
 
@@ -111,3 +104,4 @@ if __name__ == "__main__":
     ap.add_argument("--headless", action="store_true")
     a = ap.parse_args()
     open_jupiter_with_wallet(a.wallet_id, a.url, a.headless)
+

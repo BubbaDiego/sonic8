@@ -45,10 +45,11 @@ function useStepLibrary(log) {
     {
       id: 'connect',
       title: 'Connect Solflare',
-      desc: 'Attach to jup.ag and connect the Solflare wallet.',
+      desc: 'Click Connect → Solflare (Recently Used). Unlock if prompted.',
       run: async () => {
         const r = await apiPost('/jupiter/connect', {});
-        log(`connected=${r.connected} already=${r.alreadyConnected}`);
+        log(r.detail || JSON.stringify(r));
+        if (!r.ok) throw new Error(`connect failed (code ${r.code})`);
         return r;
       }
     },
