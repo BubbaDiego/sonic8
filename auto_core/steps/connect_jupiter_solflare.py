@@ -1,6 +1,7 @@
-import os, re, sys, time
+import os, re, sys
 from typing import Optional
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+import time
 
 PORT = int(os.getenv("SONIC_CHROME_PORT", "9230"))
 TARGET = os.getenv("SONIC_JUPITER_URL", "https://jup.ag")
@@ -31,25 +32,33 @@ def _button_not_visible(page) -> bool:
         return True
 
 
-def _find_extension_page(browser):
-    # Look for all existing Solflare extension pages/popup and return the latest
-    ext_pages = []
+def _find_extension_page(browser, timeout_ms: int = 7000):
+    """
+    Look across all contexts for a Solflare extension page (chrome-extension://...).
+    Polls rather than using browser.wait_for_event('page') which doesn't exist.
+    """
+    deadline = time.time() + (timeout_ms / 1000.0)
+    # quick pass: do we already have one?
     for ctx in browser.contexts:
         for pg in ctx.pages:
-            url = pg.url or ""
-            if url.startswith("chrome-extension://"):
-                ext_pages.append(pg)
-    if ext_pages:
-        return ext_pages[-1]
-    try:
-        # Otherwise wait for a new extension page to appear
-        return browser.wait_for_event(
-            "page",
-            predicate=lambda pg: (pg.url or "").startswith("chrome-extension://"),
-            timeout=6000,
-        )
-    except PWTimeout:
-        return None
+            if (pg.url or "").startswith("chrome-extension://"):
+                return pg
+    # otherwise poll briefly
+    while time.time() < deadline:
+        for ctx in browser.contexts:
+            # rescan existing pages
+            for pg in ctx.pages:
+                if (pg.url or "").startswith("chrome-extension://"):
+                    return pg
+            # also try to catch brand-new pages via context event
+            try:
+                new_pg = ctx.wait_for_event("page", timeout=250)
+                if (new_pg.url or "").startswith("chrome-extension://"):
+                    return new_pg
+            except Exception:
+                pass
+        time.sleep(0.1)
+    return None
 
 
 def main():
