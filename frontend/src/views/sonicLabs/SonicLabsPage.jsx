@@ -55,7 +55,7 @@ function useStepLibrary(log, asset) {
     },
     {
       id: 'select-asset',
-      title: 'Select Asset',
+      title: `Select Asset (${asset})`,
       desc: 'Click the asset chip in Perps (SOL / ETH / WBTC).',
       run: async () => {
         const r = await apiPost('/jupiter/select-asset', { symbol: asset });
@@ -174,6 +174,7 @@ export default function SonicLabsPage() {
           <Typography variant="body2">Profile</Typography>
           <Chip label={DEDICATED_ALIAS} size="small" />
           <Box sx={{ flexGrow: 1 }} />
+          <Typography variant="body2" sx={{ ml: 1 }}>Asset:</Typography>
           <ToggleButtonGroup
             value={asset}
             exclusive

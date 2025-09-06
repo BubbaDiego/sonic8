@@ -4,7 +4,7 @@ from typing import Optional
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
 PORT   = int(os.getenv("SONIC_CHROME_PORT", "9230"))
-TARGET = os.getenv("SONIC_JUPITER_URL", "https://jup.ag")
+TARGET = os.getenv("SONIC_JUPITER_URL", "https://jup.ag/perps")
 
 def _norm_symbol(sym: str) -> str:
     sym = (sym or "").strip().upper()

@@ -19,7 +19,8 @@ except Exception:
     )
 
 CHROME_EXE = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-DEFAULT_URL = "https://jup.ag"
+# Default landing page for the session (can be overridden via SONIC_JUPITER_URL)
+DEFAULT_URL = os.getenv("SONIC_JUPITER_URL", "https://jup.ag/perps")
 BASE_DIR    = r"C:\sonic5\profiles"
 DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
 DEBUG_PORT  = int(os.getenv("SONIC_CHROME_PORT", "9230"))  # used by connect step

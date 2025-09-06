@@ -4,7 +4,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 import time
 
 PORT = int(os.getenv("SONIC_CHROME_PORT", "9230"))
-TARGET = os.getenv("SONIC_JUPITER_URL", "https://jup.ag")
+TARGET = os.getenv("SONIC_JUPITER_URL", "https://jup.ag/perps")
 # Use hardcoded password for Solflare unlock (can still be overridden by env)
 PASS   = (os.getenv("SOLFLARE_PASS") or "1492braxx").strip()
 
