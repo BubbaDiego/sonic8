@@ -1,5 +1,5 @@
 import MainCard from 'ui-component/cards/MainCard';
-import { Typography, Button, Stack, Card, CardContent, CardActions, Chip, Divider, Box } from '@mui/material';
+import { Typography, Button, Stack, Card, CardContent, CardActions, Chip, Divider, Box, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { useMemo, useRef, useState } from 'react';
 
 // Backend base (works in dev and prod)
@@ -29,7 +29,7 @@ const apiGet  = (p)    => api('GET',  p);
 
 /* ---------------- step library ---------------- */
 
-function useStepLibrary(log) {
+function useStepLibrary(log, asset) {
   // Each step is a small, testable unit that only talks to the backend.
   const steps = useMemo(() => ([
     {
@@ -54,6 +54,17 @@ function useStepLibrary(log) {
       }
     },
     {
+      id: 'select-asset',
+      title: 'Select Asset',
+      desc: 'Click the asset chip in Perps (SOL / ETH / WBTC).',
+      run: async () => {
+        const r = await apiPost('/jupiter/select-asset', { symbol: asset });
+        log(r.detail || JSON.stringify(r));
+        if (!r.ok) throw new Error(`select asset failed (code ${r.code})`);
+        return r;
+      }
+    },
+    {
       id: 'status',
       title: 'Show session status',
       desc: 'Fetch tracked Playwright sessions (pid, started_at).',
@@ -73,7 +84,7 @@ function useStepLibrary(log) {
         return r;
       }
     },
-  ]), [log]);
+  ]), [log, asset]);
 
   const byId = useMemo(() => Object.fromEntries(steps.map(s => [s.id, s])), [steps]);
   return { steps, byId };
@@ -125,10 +136,11 @@ function LogConsole({ lines }) {
 export default function SonicLabsPage() {
   const [busy, setBusy] = useState(false);
   const [logs, setLogs] = useState([]);
-  const [workflow, setWorkflow] = useState(['open', 'connect']);
+  const [workflow, setWorkflow] = useState(['open', 'connect', 'select-asset']);
+  const [asset, setAsset] = useState('SOL');
 
   const log = (msg) => setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  const { steps, byId } = useStepLibrary(log);
+  const { steps, byId } = useStepLibrary(log, asset);
 
   const addToWorkflow = (step) => setWorkflow((prev) => [...prev, step.id]);
   const clearWorkflow = () => setWorkflow([]);
@@ -158,6 +170,21 @@ export default function SonicLabsPage() {
   return (
     <MainCard title="Sonic Labs">
       <Stack spacing={2}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body2">Profile</Typography>
+          <Chip label={DEDICATED_ALIAS} size="small" />
+          <Box sx={{ flexGrow: 1 }} />
+          <ToggleButtonGroup
+            value={asset}
+            exclusive
+            size="small"
+            onChange={(_, v) => v && setAsset(v)}
+          >
+            <ToggleButton value="SOL">SOL</ToggleButton>
+            <ToggleButton value="ETH">ETH</ToggleButton>
+            <ToggleButton value="WBTC">WBTC</ToggleButton>
+          </ToggleButtonGroup>
+        </Stack>
         <Typography variant="h6">Step Library</Typography>
         <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
           {steps.map((s) => (
