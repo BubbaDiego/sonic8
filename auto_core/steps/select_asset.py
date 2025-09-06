@@ -1,7 +1,6 @@
 import os, re, sys, time
-from pathlib import Path
 from typing import Optional
-from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+from playwright.sync_api import sync_playwright
 
 PORT   = int(os.getenv("SONIC_CHROME_PORT", "9230"))
 TARGET = os.getenv("SONIC_JUPITER_URL", "https://jup.ag/perps")
@@ -67,34 +66,18 @@ def _find_asset_button(page, symbol: str):
                 box = el.bounding_box()
                 if not box:
                     continue
-                # Near top area; large enough to be a chip
-                if box["y"] < 220 and box["width"] >= 36 and box["height"] >= 24:
+                # Near top-left chip row; large enough to be a chip
+                if (
+                    box["y"] < 180
+                    and box["x"] < 320
+                    and box["width"] >= 44
+                    and box["height"] >= 24
+                ):
                     possibles.append(el)
             except Exception:
                 pass
     # Return the first viable candidate
     return possibles[0] if possibles else None
-
-def _is_selected(el) -> bool:
-    try:
-        sel = el.get_attribute("aria-selected")
-        if sel and sel.lower() == "true":
-            return True
-    except Exception:
-        pass
-    try:
-        ds = el.get_attribute("data-state")
-        if ds and ds.lower() in ("active", "on", "selected"):
-            return True
-    except Exception:
-        pass
-    try:
-        cls = el.get_attribute("class") or ""
-        if re.search(r"(active|selected)", cls, re.I):
-            return True
-    except Exception:
-        pass
-    return False
 
 def main(symbol: Optional[str] = None):
     symbol = _norm_symbol(symbol or os.getenv("SONIC_ASSET", "SOL"))
@@ -106,6 +89,13 @@ def main(symbol: Optional[str] = None):
         # Make sure the page is up
         try:
             page.wait_for_load_state("domcontentloaded", timeout=5000)
+        except Exception:
+            pass
+
+        # Ensure we're on the perps page
+        try:
+            if "/perps" not in (page.url or ""):
+                page.goto(TARGET, wait_until="domcontentloaded")
         except Exception:
             pass
 
@@ -136,19 +126,14 @@ def main(symbol: Optional[str] = None):
                 continue
 
             time.sleep(0.4)
-            # Verify aria-selected
+            # Verify aria-selected becomes true
             try:
-                tab = page.get_by_role("tab", name=re.compile(rf"^{symbol}$", re.I)).first
-                if _is_selected(tab):
+                sel = btn.get_attribute("aria-selected")
+                if sel and sel.lower() == "true":
                     print(f"[asset] selected {symbol}")
                     return 0
             except Exception:
                 pass
-
-            # If no tab role, re-check the clicked element
-            if _is_selected(btn):
-                print(f"[asset] selected {symbol} (no tab role)")
-                return 0
 
             print(f"[asset] candidate at {key} did not become selected; retrying")
             attempts += 1
