@@ -60,6 +60,66 @@ def _find_extension_page(browser, timeout_ms: int = 7000):
         time.sleep(0.1)
     return None
 
+def _connect_modal(page):
+    """Return the Connect modal locator (role=dialog)."""
+    try:
+        modal = page.get_by_role("dialog", name=re.compile(r"connect", re.I))
+        modal.wait_for(state="visible", timeout=3000)
+        return modal
+    except Exception:
+        # Fallback: any visible dialog
+        modal = page.locator('[role="dialog"]')
+        try:
+            modal.first.wait_for(state="visible", timeout=2000)
+            return modal.first
+        except Exception:
+            return None
+
+def _click_solflare_recently_used(page) -> bool:
+    """
+    Inside the Connect modal, click the **Recently Used** Solflare tile.
+    We size-filter to avoid the tiny Quick Account icon row.
+    """
+    modal = _connect_modal(page)
+    if not modal:
+        return False
+
+    # Narrow to the "Recently Used" region when present
+    ru = None
+    try:
+        ru_label = modal.get_by_text(re.compile(r"Recently Used", re.I)).first
+        # parent container for this block
+        ru = ru_label.locator('xpath=ancestor::div[@role!="dialog"][1]')
+    except Exception:
+        ru = modal  # fallback to whole modal
+
+    # Candidate buttons/links that contain "Solflare"
+    # 1) ARIA role with accessible name
+    c1 = ru.get_by_role("button", name=re.compile(r"solflare", re.I))
+    # 2) Buttons/links that contain the text "Solflare"
+    c2 = ru.locator("button,[role=button],a").filter(has_text=re.compile(r"solflare", re.I))
+    # 3) Any element with aria-label mentioning Solflare
+    c3 = ru.locator('[aria-label*="Solflare" i]')
+
+    for cand in (c1, c2, c3):
+        try:
+            count = cand.count()
+        except Exception:
+            count = 0
+        for i in range(count):
+            el = cand.nth(i)
+            try:
+                box = el.bounding_box()
+                if not box:
+                    continue
+                # Prefer the bigger “tile” (avoid 24–32px icon buttons in Quick Account row)
+                if box["width"] >= 56 and box["height"] >= 56:
+                    el.click(timeout=1500)
+                    return True
+            except Exception:
+                pass
+    return False
+
 
 def main():
     with sync_playwright() as p:
@@ -70,26 +130,22 @@ def main():
         if _button_not_visible(page):
             print("[connect] already connected")
             return 0
+        # If a stale Connect modal is open, dismiss and reopen (X button)
+        try:
+            stale = _connect_modal(page)
+            if stale:
+                stale.get_by_role("button", name=re.compile(r"close|×|x", re.I)).first.click(timeout=500)
+                time.sleep(0.2)
+        except Exception:
+            pass
 
         # S2: open Connect modal
         page.get_by_role("button", name=re.compile(r"connect", re.I)).first.click(timeout=3000)
-        try:
-            page.get_by_text(re.compile(r"View More Wallets", re.I)).first.wait_for(state="visible", timeout=3000)
-        except Exception:
-            pass  # modal naming varies; not fatal
+        # Wait for the modal to be visible
+        _connect_modal(page)
 
-        # S3: click Solflare tile (prefer Recently Used)
-        clicked = False
-        for locator in [
-            page.get_by_role("button", name=re.compile(r"solflare", re.I)).first,
-            page.get_by_text(re.compile(r"solflare", re.I)).first,
-        ]:
-            try:
-                locator.click(timeout=2000)
-                clicked = True
-                break
-            except Exception:
-                pass
+        # S3: click Solflare tile **in Recently Used**
+        clicked = _click_solflare_recently_used(page)
 
         if not clicked:
             print("[connect] could not find Solflare tile in modal")

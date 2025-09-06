@@ -34,19 +34,38 @@ def _try_locator_click(page, locator, timeout=1500) -> bool:
         return False
 
 def _find_asset_button(page, symbol: str):
-    # Try ARIA roles first (tab or button named "SOL"/"ETH"/"WBTC")
-    for loc in [
-        page.get_by_role("tab",    name=re.compile(rf"^{symbol}$", re.I)).first,
-        page.get_by_role("button", name=re.compile(rf"^{symbol}$", re.I)).first,
-        page.get_by_text(re.compile(rf"^{symbol}$", re.I)).first,
-    ]:
+    """
+    Return the asset chip at the very top-left of the Perps page.
+    We gather all visible elements named <symbol> and choose the one
+    whose bounding box is closest to the top-left and reasonably sized.
+    """
+    candidates = []
+    locators = [
+        page.get_by_role("tab",    name=re.compile(rf"^{symbol}$", re.I)),
+        page.get_by_role("button", name=re.compile(rf"^{symbol}$", re.I)),
+        page.get_by_text(re.compile(rf"^\s*{symbol}\s*$", re.I)),
+    ]
+    for loc in locators:
         try:
-            # accessing .count() forces a lookup; won’t throw if it exists
-            _ = loc
-            return loc
+            n = loc.count()
         except Exception:
-            pass
-    return None
+            n = 0
+        for i in range(n):
+            el = loc.nth(i)
+            try:
+                box = el.bounding_box()
+                if not box:
+                    continue
+                # Heuristics for the top-left chips row
+                if box["y"] < 180 and box["x"] < 280 and box["width"] >= 36 and box["height"] >= 24:
+                    candidates.append((box["x"] + box["y"], el))  # “distance” from origin
+            except Exception:
+                pass
+    if not candidates:
+        return None
+    # Choose the closest-to-origin candidate
+    candidates.sort(key=lambda t: t[0])
+    return candidates[0][1]
 
 def _is_selected(el) -> bool:
     try:
