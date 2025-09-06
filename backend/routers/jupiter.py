@@ -188,7 +188,7 @@ def select_asset(req: SelectAssetReq):
         r = run(
             [sys.executable or "python", str(STEP_SELECT_ASSET), "--symbol", req.symbol],
             cwd=str(REPO_ROOT), env=env,
-            stdout=PIPE, stderr=PIPE, text=True, timeout=30
+            stdout=PIPE, stderr=PIPE, text=True, timeout=60
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"select_asset runner failed: {e}")
