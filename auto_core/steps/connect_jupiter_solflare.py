@@ -1,115 +1,130 @@
-"""Connect Solflare wallet on jup.ag via an existing Chrome instance."""
-
-import json
-import os
-import re
+import os, re, sys, time
 from typing import Optional
+from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
-from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
+PORT = int(os.getenv("SONIC_CHROME_PORT", "9230"))
+TARGET = os.getenv("SONIC_JUPITER_URL", "https://jup.ag")
+PASS   = os.getenv("SOLFLARE_PASS", "")
 
-JUP_URL = os.getenv("SONIC_JUPITER_URL", "https://jup.ag")
-PORT = int(os.getenv("SONIC_CHROME_PORT", "0"))
 
-
-def _pick_jup_page(ctx: BrowserContext, url: str) -> Page:
-    """Return a page pointing at jup.ag, opening one if necessary."""
-    for pg in ctx.pages:
-        try:
+def _pick_jup_page(browser):
+    # Prefer an existing page on jup.ag
+    for ctx in browser.contexts:
+        for pg in ctx.pages:
             if "jup.ag" in (pg.url or ""):
                 return pg
-        except Exception:
-            pass
-    page = ctx.new_page()
-    page.goto(url, wait_until="domcontentloaded")
-    return page
+    ctx = browser.contexts[0] if browser.contexts else browser.new_context()
+    pg = ctx.new_page()
+    pg.goto(TARGET, wait_until="domcontentloaded")
+    return pg
 
 
-def _already_connected(page: Page) -> bool:
-    """Heuristic check if a wallet is already connected."""
+def _button_not_visible(page) -> bool:
+    # Returns True if Connect button is not visible (assume already connected)
     try:
-        if page.get_by_role("button", name=re.compile("connect", re.I)).first.is_visible(timeout=500):
-            return False
-    except Exception:
-        pass
-    try:
-        page.get_by_text(re.compile("Disconnect", re.I)).first
+        page.get_by_role("button", name=re.compile(r"connect", re.I)).first.wait_for(state="visible", timeout=1200)
+        return False
+    except PWTimeout:
         return True
     except Exception:
-        # If we can't find a Connect button, assume connected
         return True
 
 
-def _find_extension_popup(browser: Browser, ctx: BrowserContext, solflare_id: str, wait_page: Page) -> Optional[Page]:
-    """Listen for a new page matching the Solflare extension."""
-    ext_page: Optional[Page] = None
-
-    def _on_page(p: Page) -> None:
-        nonlocal ext_page
-        try:
-            if p.url.startswith(f"chrome-extension://{solflare_id}"):
-                ext_page = p
-        except Exception:
-            pass
-
-    browser.on("page", _on_page)
-    ctx.on("page", _on_page)
-
-    for _ in range(32):  # ~8s
-        if ext_page:
-            break
-        wait_page.wait_for_timeout(250)
-    return ext_page
+def _find_extension_page(browser):
+    # Look for a Solflare extension page/popup
+    for ctx in browser.contexts:
+        for pg in ctx.pages:
+            url = pg.url or ""
+            if url.startswith("chrome-extension://"):
+                return pg
+    try:
+        return browser.wait_for_event(
+            "page",
+            predicate=lambda pg: (pg.url or "").startswith("chrome-extension://"),
+            timeout=5000,
+        )
+    except PWTimeout:
+        return None
 
 
-def _approve_popup(page: Page) -> None:
-    """Attempt to click through approval buttons in the Solflare popup."""
-    for label in ["Connect", "Approve", "Next", "Continue", "Confirm", "Allow"]:
-        try:
-            page.get_by_role("button", name=re.compile(label, re.I)).first.click(timeout=1200)
-        except Exception:
-            pass
-
-
-def connect_jupiter_solflare() -> dict:
-    """Attach to running Chrome via CDP and connect Solflare on jup.ag."""
-    if not PORT:
-        raise RuntimeError("SONIC_CHROME_PORT not set")
-
+def main():
     with sync_playwright() as p:
         browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{PORT}")
-        ctx = browser.contexts[0] if browser.contexts else browser.new_context()
-        page = _pick_jup_page(ctx, JUP_URL)
+        page = _pick_jup_page(browser)
 
-        if _already_connected(page):
-            return {"ok": True, "alreadyConnected": True}
+        # S1: already connected?
+        if _button_not_visible(page):
+            print("[connect] already connected")
+            return 0
 
+        # S2: open Connect modal
+        page.get_by_role("button", name=re.compile(r"connect", re.I)).first.click(timeout=3000)
         try:
-            page.get_by_role("button", name=re.compile("connect", re.I)).first.click(timeout=3000)
+            page.get_by_text(re.compile(r"View More Wallets", re.I)).first.wait_for(state="visible", timeout=3000)
         except Exception:
-            page.locator("text=Connect").first.click(timeout=3000)
+            pass  # modal naming varies; not fatal
 
-        try:
-            page.get_by_role("button", name=re.compile("solflare", re.I)).first.click(timeout=3000)
-        except Exception:
-            page.locator("text=Solflare").first.click(timeout=3000)
+        # S3: click Solflare tile (prefer Recently Used)
+        clicked = False
+        for locator in [
+            page.get_by_role("button", name=re.compile(r"solflare", re.I)).first,
+            page.get_by_text(re.compile(r"solflare", re.I)).first,
+        ]:
+            try:
+                locator.click(timeout=2000)
+                clicked = True
+                break
+            except Exception:
+                pass
 
-        solflare_id = os.getenv("SOLFLARE_ID", "bhhhlbepdkbapadjdnnojkbgioiodbic")
-        ext_page = _find_extension_popup(browser, ctx, solflare_id, page)
-        if ext_page:
-            _approve_popup(ext_page)
-            page.bring_to_front()
-            page.wait_for_timeout(1000)
+        if not clicked:
+            print("[connect] could not find Solflare tile in modal")
+            return 2
 
-        if not _already_connected(page):
-            raise RuntimeError("Wallet still not connected")
+        # S4: unlock if prompted
+        pop = _find_extension_page(browser)
+        if pop:
+            # try to detect "Unlock Your Wallet"
+            unlocked = False
+            try:
+                # Use placeholder or type=password
+                pwd = None
+                try:
+                    pwd = pop.get_by_placeholder(re.compile(r"enter.*password", re.I))
+                    pwd.wait_for(state="visible", timeout=1500)
+                except Exception:
+                    pwd = pop.locator('input[type="password"]').first
 
-        return {"ok": True, "connected": True}
+                if PASS == "":
+                    print("[connect] unlock required but SOLFLARE_PASS is not set")
+                    return 10
+
+                pwd.fill(PASS, timeout=1500)
+                pop.get_by_role("button", name=re.compile(r"unlock", re.I)).first.click(timeout=1500)
+                time.sleep(0.5)
+                unlocked = True
+            except Exception:
+                # maybe no unlock prompt (some sessions)
+                pass
+
+            # Some variants show approve/allow after unlock
+            for label in [r"connect", r"approve", r"allow", r"continue", r"ok"]:
+                try:
+                    pop.get_by_role("button", name=re.compile(label, re.I)).first.click(timeout=800)
+                    time.sleep(0.2)
+                except Exception:
+                    pass
+
+        # S5: verify connected
+        time.sleep(0.8)
+        if _button_not_visible(page):
+            print("[connect] success")
+            return 0
+
+        print("[connect] failed to verify connection")
+        return 4
 
 
 if __name__ == "__main__":
-    try:
-        result = connect_jupiter_solflare()
-        print(json.dumps(result))
-    except Exception as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}))
-        raise
+    sys.exit(main())
+
