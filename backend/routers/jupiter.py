@@ -10,6 +10,7 @@ router = APIRouter(prefix="/jupiter", tags=["jupiter"])
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LAUNCHER = (REPO_ROOT / "auto_core" / "launcher" / "open_jupiter.py").resolve()
 STEP_CONNECT = (REPO_ROOT / "auto_core" / "steps" / "connect_jupiter_solflare.py").resolve()
+STEP_SELECT_ASSET = (REPO_ROOT / "auto_core" / "steps" / "select_asset.py").resolve()
 STATE_DIR = REPO_ROOT / "auto_core" / "state"
 SESSIONS_FILE = STATE_DIR / "jupiter_sessions.json"
 DEDICATED_ALIAS = os.getenv("SONIC_AUTOPROFILE", "Sonic - Auto")
@@ -44,6 +45,10 @@ class CloseReq(BaseModel):
 
 class ConnectReq(BaseModel):
     url: str | None = None  # optional override for tests
+
+
+class SelectAssetReq(BaseModel):
+    symbol: str
 
 
 @router.post("/open")
@@ -164,6 +169,29 @@ def connect_wallet(req: ConnectReq):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"connect runner failed: {e}")
+
+    ok = (r.returncode == 0)
+    detail = (r.stdout or "") + ("\n" + r.stderr if r.stderr else "")
+    return {"ok": ok, "code": r.returncode, "detail": detail.strip()}
+
+
+@router.post("/select-asset")
+def select_asset(req: SelectAssetReq):
+    if not STEP_SELECT_ASSET.exists():
+        raise HTTPException(status_code=500, detail=f"select_asset step not found at {STEP_SELECT_ASSET}")
+
+    env = dict(os.environ)
+    env.setdefault("SONIC_CHROME_PORT", "9230")  # keep in sync with launcher
+    env["SONIC_ASSET"] = req.symbol
+
+    try:
+        r = run(
+            [sys.executable or "python", str(STEP_SELECT_ASSET), "--symbol", req.symbol],
+            cwd=str(REPO_ROOT), env=env,
+            stdout=PIPE, stderr=PIPE, text=True, timeout=30
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"select_asset runner failed: {e}")
 
     ok = (r.returncode == 0)
     detail = (r.stdout or "") + ("\n" + r.stderr if r.stderr else "")
