@@ -1,10 +1,19 @@
-import time, re, os, sys
+import time, re, os, sys, socket
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
 PORT = int(os.getenv("SONIC_CHROME_PORT", "9230"))
 TARGET = os.getenv("SONIC_JUPITER_URL", "https://jup.ag/perps")
 # Use hardcoded password for Solflare unlock (can still be overridden by env)
 PASS   = (os.getenv("SOLFLARE_PASS") or "1492braxx").strip()
+
+
+def _port_open(port: int, host: str = "127.0.0.1", timeout: float = 0.4) -> bool:
+    """Return True if the local port is reachable."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
 def _pick_jup_page(browser):
@@ -58,17 +67,17 @@ def _find_extension_page(browser, timeout_ms: int = 7000):
         time.sleep(0.1)
     return None
 
-def _connect_modal(page):
+def _connect_modal(page, timeout_ms: int = 5000):
     """Return the Connect modal locator (role=dialog)."""
     try:
         modal = page.get_by_role("dialog", name=re.compile(r"connect", re.I))
-        modal.wait_for(state="visible", timeout=3000)
+        modal.wait_for(state="visible", timeout=timeout_ms)
         return modal
     except Exception:
         # Fallback: any visible dialog
         modal = page.locator('[role="dialog"]')
         try:
-            modal.first.wait_for(state="visible", timeout=2000)
+            modal.first.wait_for(state="visible", timeout=timeout_ms)
             return modal.first
         except Exception:
             return None
@@ -83,11 +92,11 @@ def _click_solflare_recently_used(page) -> bool:
         print("[connect] modal not visible")
         return False
 
-    # Locate the "Recently Used" container (label then closest ancestor/section)
+    # Locate the "Recently Used" container (label then nearest ancestor)
     try:
         ru_label = modal.get_by_text(re.compile(r"Recently Used", re.I)).first
-        # nearest block-level ancestor of the label and following region
-        ru = ru_label.locator('xpath=ancestor::div[1]/following::div[1]')
+        ru_label.wait_for(state="visible", timeout=2000)
+        ru = ru_label.locator("xpath=ancestor::div[1]")
     except Exception:
         ru = modal  # fallback: whole modal
 
@@ -163,6 +172,10 @@ def _fallback_click_solflare_from_list(page) -> bool:
 
 
 def main():
+    if not _port_open(PORT):
+        print(f"[connect] Chrome port {PORT} is not open")
+        return 11
+
     with sync_playwright() as p:
         browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{PORT}")
         page = _pick_jup_page(browser)
@@ -180,10 +193,20 @@ def main():
         except Exception:
             pass
 
-        # S2: open Connect modal
-        page.get_by_role("button", name=re.compile(r"connect", re.I)).first.click(timeout=3000)
-        # Wait for the modal to be visible
-        _connect_modal(page)
+        # S2: open Connect modal (retry twice)
+        modal = None
+        for attempt in range(2):
+            try:
+                page.get_by_role("button", name=re.compile(r"connect", re.I)).first.click(timeout=3000)
+            except Exception as e:
+                print(f"[connect] Connect click attempt {attempt+1} failed: {e}")
+            modal = _connect_modal(page)
+            if modal:
+                break
+            time.sleep(0.3)
+        if not modal:
+            print("[connect] connect modal did not appear")
+            return 12
 
         # S3: click Solflare tile **in Recently Used**; fallback to wallet list
         clicked = _click_solflare_recently_used(page)
