@@ -78,46 +78,89 @@ def _connect_modal(page):
 def _click_solflare_recently_used(page) -> bool:
     """
     Inside the Connect modal, click the **Recently Used** Solflare tile.
-    We size-filter to avoid the tiny Quick Account icon row.
+    We size-filter to avoid the tiny Quick Account icons.
     """
     modal = _connect_modal(page)
     if not modal:
+        print("[connect] modal not visible")
         return False
 
-    # Narrow to the "Recently Used" region when present
-    ru = None
+    # Locate the "Recently Used" container (label then closest ancestor/section)
     try:
         ru_label = modal.get_by_text(re.compile(r"Recently Used", re.I)).first
-        # parent container for this block
-        ru = ru_label.locator('xpath=ancestor::div[@role!="dialog"][1]')
+        # nearest block-level ancestor of the label and following region
+        ru = ru_label.locator('xpath=ancestor::div[1]/following::div[1]')
     except Exception:
-        ru = modal  # fallback to whole modal
+        ru = modal  # fallback: whole modal
 
-    # Candidate buttons/links that contain "Solflare"
-    # 1) ARIA role with accessible name
-    c1 = ru.get_by_role("button", name=re.compile(r"solflare", re.I))
-    # 2) Buttons/links that contain the text "Solflare"
-    c2 = ru.locator("button,[role=button],a").filter(has_text=re.compile(r"solflare", re.I))
-    # 3) Any element with aria-label mentioning Solflare
-    c3 = ru.locator('[aria-label*="Solflare" i]')
-
-    for cand in (c1, c2, c3):
+    # Collect clickable candidates that mention Solflare
+    # (role buttons first, then generic clickable elements with text/aria-label)
+    cands = []
+    for loc in [
+        ru.get_by_role("button", name=re.compile(r"solflare", re.I)),
+        ru.locator('[role="button"][aria-label*="Solflare" i]'),
+        ru.locator('button,[role=button],a').filter(has_text=re.compile(r"solflare", re.I)),
+    ]:
         try:
-            count = cand.count()
+            n = loc.count()
         except Exception:
-            count = 0
-        for i in range(count):
-            el = cand.nth(i)
+            n = 0
+        for i in range(n):
+            el = loc.nth(i)
             try:
                 box = el.bounding_box()
                 if not box:
                     continue
-                # Prefer the bigger “tile” (avoid 24–32px icon buttons in Quick Account row)
-                if box["width"] >= 56 and box["height"] >= 56:
-                    el.click(timeout=1500)
-                    return True
+                # prefer larger, tile-like buttons (avoid 24–32px icons)
+                area = box["width"] * box["height"]
+                if box["width"] >= 48 and box["height"] >= 48 and area >= 2400:
+                    cands.append((area, el))
             except Exception:
                 pass
+
+    if not cands:
+        print("[connect] RU Solflare tile not found (will try fallback list)")
+        return False
+
+    # Click the largest candidate (most likely the tile)
+    cands.sort(key=lambda t: t[0], reverse=True)
+    try:
+        cands[0][1].click(timeout=1500)
+        print("[connect] clicked RU Solflare tile")
+        return True
+    except Exception as e:
+        print(f"[connect] RU tile click failed: {e}")
+        return False
+
+def _fallback_click_solflare_from_list(page) -> bool:
+    """
+    If RU tile isn’t present, open 'View More Wallets' and click Solflare (Extension).
+    """
+    modal = _connect_modal(page)
+    if not modal:
+        return False
+    # Open the wallet list
+    try:
+        modal.get_by_text(re.compile(r"View More Wallets", re.I)).first.click(timeout=1500)
+        time.sleep(0.2)
+    except Exception:
+        pass
+    # Sometimes there’s a “Standard wallets” / “I already have a wallet” toggle
+    for lab in [r"Standard", r"I already have a wallet", r"Wallets"]:
+        try:
+            modal.get_by_text(re.compile(lab, re.I)).first.click(timeout=800)
+            time.sleep(0.1)
+        except Exception:
+            pass
+    # Click Solflare (Extension) if present; otherwise any Solflare entry
+    for pat in [r"Solflare.*Extension", r"Solflare"]:
+        try:
+            modal.get_by_role("button", name=re.compile(pat, re.I)).first.click(timeout=1500)
+            print(f"[connect] clicked list item: {pat}")
+            return True
+        except Exception:
+            pass
+    print("[connect] fallback list did not contain Solflare")
     return False
 
 
@@ -144,8 +187,10 @@ def main():
         # Wait for the modal to be visible
         _connect_modal(page)
 
-        # S3: click Solflare tile **in Recently Used**
+        # S3: click Solflare tile **in Recently Used**; fallback to wallet list
         clicked = _click_solflare_recently_used(page)
+        if not clicked:
+            clicked = _fallback_click_solflare_from_list(page)
 
         if not clicked:
             print("[connect] could not find Solflare tile in modal")

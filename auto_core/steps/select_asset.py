@@ -35,17 +35,28 @@ def _try_locator_click(page, locator, timeout=1500) -> bool:
 
 def _find_asset_button(page, symbol: str):
     """
-    Return the asset chip at the very top-left of the Perps page.
-    We gather all visible elements named <symbol> and choose the one
-    whose bounding box is closest to the top-left and reasonably sized.
+    Return the asset chip from the top-left chips row (SOL / ETH / WBTC).
+    Strategy:
+      1) Prefer role=tab with exact name (common in top chip row).
+      2) Otherwise, collect all elements named <symbol> near the top bar,
+         filter out tiny controls (token pickers), and choose the one
+         that updates aria-selected after click.
     """
-    candidates = []
-    locators = [
-        page.get_by_role("tab",    name=re.compile(rf"^{symbol}$", re.I)),
+    # 1) Try role=tab first — usually the chip row
+    try:
+        tab = page.get_by_role("tab", name=re.compile(rf"^{symbol}$", re.I)).first
+        # Accessing its bbox ensures it exists
+        if tab.bounding_box():
+            return tab
+    except Exception:
+        pass
+
+    # 2) Heuristic collection near the top bar
+    possibles = []
+    for loc in [
         page.get_by_role("button", name=re.compile(rf"^{symbol}$", re.I)),
         page.get_by_text(re.compile(rf"^\s*{symbol}\s*$", re.I)),
-    ]
-    for loc in locators:
+    ]:
         try:
             n = loc.count()
         except Exception:
@@ -56,16 +67,13 @@ def _find_asset_button(page, symbol: str):
                 box = el.bounding_box()
                 if not box:
                     continue
-                # Heuristics for the top-left chips row
-                if box["y"] < 180 and box["x"] < 280 and box["width"] >= 36 and box["height"] >= 24:
-                    candidates.append((box["x"] + box["y"], el))  # “distance” from origin
+                # Near top area; large enough to be a chip
+                if box["y"] < 220 and box["width"] >= 36 and box["height"] >= 24:
+                    possibles.append(el)
             except Exception:
                 pass
-    if not candidates:
-        return None
-    # Choose the closest-to-origin candidate
-    candidates.sort(key=lambda t: t[0])
-    return candidates[0][1]
+    # Return the first viable candidate
+    return possibles[0] if possibles else None
 
 def _is_selected(el) -> bool:
     try:
@@ -101,27 +109,52 @@ def main(symbol: Optional[str] = None):
         except Exception:
             pass
 
-        btn = _find_asset_button(page, symbol)
-        if not btn:
-            print(f"[asset] could not find asset chip for '{symbol}'")
-            return 2
+        # Try up to 3 candidates; verify aria-selected flips true
+        attempts = 0
+        tried = set()
+        while attempts < 3:
+            btn = _find_asset_button(page, symbol)
+            if not btn:
+                print(f"[asset] chip not found for '{symbol}' (attempt {attempts+1})")
+                attempts += 1
+                time.sleep(0.25)
+                continue
+            # Avoid re-clicking the same underlying handle
+            try:
+                key = btn.bounding_box() or {"x":0,"y":0}
+                key = (round(key["x"]), round(key["y"]))
+            except Exception:
+                key = (attempts, 0)
+            if key in tried:
+                attempts += 1
+                continue
+            tried.add(key)
 
-        # Click the asset chip
-        if not _try_locator_click(page, btn, timeout=2000):
-            print(f"[asset] failed to click asset chip '{symbol}'")
-            return 3
+            if not _try_locator_click(page, btn, timeout=2000):
+                print(f"[asset] click failed on candidate at {key}")
+                attempts += 1
+                continue
 
-        # Small settle; then verify it's selected
-        time.sleep(0.4)
-        # Re-locate to avoid stale reference
-        btn2 = _find_asset_button(page, symbol) or btn
-        if _is_selected(btn2):
-            print(f"[asset] selected {symbol}")
-            return 0
+            time.sleep(0.4)
+            # Verify aria-selected
+            try:
+                tab = page.get_by_role("tab", name=re.compile(rf"^{symbol}$", re.I)).first
+                if _is_selected(tab):
+                    print(f"[asset] selected {symbol}")
+                    return 0
+            except Exception:
+                pass
 
-        # Some UIs don't expose selection state; fall back to OK after click
-        print(f"[asset] clicked {symbol} (selection state not exposed)")
-        return 0
+            # If no tab role, re-check the clicked element
+            if _is_selected(btn):
+                print(f"[asset] selected {symbol} (no tab role)")
+                return 0
+
+            print(f"[asset] candidate at {key} did not become selected; retrying")
+            attempts += 1
+
+        print(f"[asset] failed to select {symbol}")
+        return 4
 
 if __name__ == "__main__":
     import argparse
