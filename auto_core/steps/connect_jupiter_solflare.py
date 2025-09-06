@@ -4,7 +4,8 @@ from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
 PORT = int(os.getenv("SONIC_CHROME_PORT", "9230"))
 TARGET = os.getenv("SONIC_JUPITER_URL", "https://jup.ag")
-PASS   = os.getenv("SOLFLARE_PASS", "")
+# Use hardcoded password for Solflare unlock (can still be overridden by env)
+PASS   = (os.getenv("SOLFLARE_PASS") or "1492braxx").strip()
 
 
 def _pick_jup_page(browser):
@@ -94,10 +95,11 @@ def main():
                     pwd.wait_for(state="visible", timeout=1500)
                 except Exception:
                     pwd = pop.locator('input[type="password"]').first
-
-                if PASS == "":
-                    print("[connect] unlock required but SOLFLARE_PASS is not set")
-                    return 10
+                # Click to focus, then fill
+                try:
+                    pwd.click(timeout=800)
+                except Exception:
+                    pass
 
                 pwd.fill(PASS, timeout=1500)
                 pop.get_by_role("button", name=re.compile(r"unlock", re.I)).first.click(timeout=1500)
