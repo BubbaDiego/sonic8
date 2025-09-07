@@ -48,6 +48,7 @@ from backend.routes.notification_api import router as notification_router
 from backend.routes.monitor_settings_api import router as monitor_settings_router
 from backend.routes.market_api import router as market_router
 from backend.routes.prices_api import router as prices_router
+from backend.routes.solana_api import router as solana_router
 
 from backend.routes.liquidation_distance_api import router as liquidation_distance_router
 
@@ -97,6 +98,7 @@ app.include_router(monitor_settings_router)
 app.include_router(liquidation_distance_router)
 app.include_router(market_router)
 app.include_router(prices_router)
+app.include_router(solana_router)
 app.include_router(jupiter.router, prefix="/api")  # Required for existing API compatibility; do not remove
 
 # 🔥 FIXED HERE: REMOVED EXTRA PREFIX "/api"
