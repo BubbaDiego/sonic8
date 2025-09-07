@@ -47,10 +47,18 @@ const WalletManager = () => {
       const json = await res.json();
       setVerifiedMap((m) => ({
         ...m,
-        [a]: { data: json, at: Date.now(), error: json?.error ? json.detail || 'error' : null }
+        [a]: {
+          data: json,
+          at: Date.now(),
+          error: json?.error || null,
+          detail: json?.detail || null
+        }
       }));
     } catch (e) {
-      setVerifiedMap((m) => ({ ...m, [a]: { data: null, at: Date.now(), error: String(e) } }));
+      setVerifiedMap((m) => ({
+        ...m,
+        [a]: { data: null, at: Date.now(), error: String(e), detail: String(e) }
+      }));
     } finally {
       setVerifyingAddr(a, false);
     }
@@ -70,14 +78,19 @@ const WalletManager = () => {
       const now = Date.now();
       const next = {};
       addrs.forEach((a) => {
-        next[a] = { data: json[a], at: now, error: json[a]?.error ? json[a].detail || 'error' : null };
+        next[a] = {
+          data: json[a],
+          at: now,
+          error: json[a]?.error || null,
+          detail: json[a]?.detail || null
+        };
       });
       setVerifiedMap((m) => ({ ...m, ...next }));
     } catch (e) {
       const now = Date.now();
       const next = {};
       addrs.forEach((a) => {
-        next[a] = { data: null, at: now, error: String(e) };
+        next[a] = { data: null, at: now, error: String(e), detail: String(e) };
       });
       setVerifiedMap((m) => ({ ...m, ...next }));
     } finally {
@@ -95,6 +108,7 @@ const WalletManager = () => {
       const top = d?.top || [];
       const at = v?.at || null;
       const error = v?.error || null;
+      const detail = v?.detail || null;
       const isVerifying = verifying.has(a);
       const stale = at ? Date.now() - at > STALE_MS : false;
       return {
@@ -105,6 +119,7 @@ const WalletManager = () => {
         top,
         verifiedAt: at,
         verifyError: error,
+        verifyErrorDetail: detail,
         isVerifying,
         stale
       };

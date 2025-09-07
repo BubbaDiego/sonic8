@@ -54,7 +54,13 @@ function TopCell({ row }) {
 }
 
 function StatusCell({ row }) {
-  return <VerifiedStatusCell verifiedAt={row.verifiedAt} error={row.verifyError} />;
+  return (
+    <VerifiedStatusCell
+      verifiedAt={row.verifiedAt}
+      error={row.verifyError}
+      detail={row.verifyErrorDetail || row.detail}
+    />
+  );
 }
 
 function ActionsCell({ row, onEdit, onDelete, onVerifyOne }) {
