@@ -21,7 +21,7 @@ const WalletManager = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editWallet, setEditWallet] = useState(null);
 
-  // verified state: { [address]: { data, at, error } }
+  // verified state: { [address]: { data, at, error, detail } }
   const [verifiedMap, setVerifiedMap] = useState({});
   const [verifying, setVerifying] = useState(new Set());
   const [pieSource, setPieSource] = useState('positions'); // 'positions' | 'verified'
@@ -49,22 +49,27 @@ const WalletManager = () => {
         ...m,
         [a]: {
           data: json,
-          at: Date.now(),
-          error: json?.error || null,
-          detail: json?.detail ?? null
+          at: json?.fetchedAt || Date.now(),
+          error: json?.error ? json.detail || 'error' : null,
+          detail: json?.detail || null
         }
       }));
     } catch (e) {
       setVerifiedMap((m) => ({
         ...m,
-        [a]: { data: null, at: Date.now(), error: String(e), detail: String(e) }
+        [a]: {
+          data: null,
+          at: Date.now(),
+          error: 'Request failed',
+          detail: String(e)
+        }
       }));
     } finally {
       setVerifyingAddr(a, false);
     }
   };
 
-  const verifyAll = async () => {
+  const verifyAll = async (force = false) => {
     const addrs = wallets.map((w) => (w.public_address || '').trim()).filter(Boolean);
     if (!addrs.length) return;
     addrs.forEach((a) => setVerifyingAddr(a, true));
@@ -72,7 +77,7 @@ const WalletManager = () => {
       const res = await fetch('/api/wallets/verify-bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addresses: addrs, force: false })
+        body: JSON.stringify({ addresses: addrs, force })
       });
       const json = await res.json();
       const now = Date.now();
@@ -80,9 +85,9 @@ const WalletManager = () => {
       addrs.forEach((a) => {
         next[a] = {
           data: json[a],
-          at: now,
-          error: json[a]?.error || null,
-          detail: json[a]?.detail ?? null
+          at: json[a]?.fetchedAt || now,
+          error: json[a]?.error ? (json[a].detail || 'error') : null,
+          detail: json[a]?.detail || null
         };
       });
       setVerifiedMap((m) => ({ ...m, ...next }));
@@ -90,7 +95,7 @@ const WalletManager = () => {
       const now = Date.now();
       const next = {};
       addrs.forEach((a) => {
-        next[a] = { data: null, at: now, error: String(e), detail: String(e) };
+        next[a] = { data: null, at: now, error: 'Request failed', detail: String(e) };
       });
       setVerifiedMap((m) => ({ ...m, ...next }));
     } finally {
