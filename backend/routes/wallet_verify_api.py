@@ -19,7 +19,7 @@ MINT_SYMBOL = {
 
 # ── tiny in-memory cache (address → {expires, payload}) ───────────────────────
 _CACHE: Dict[str, Dict[str, Any]] = {}
-_CACHE_TTL = 60  # seconds
+_CACHE_TTL = 600  # seconds (10 min)
 
 def _rpc_call(rpc: str, method: str, params: list) -> dict:
     body = json.dumps({"jsonrpc":"2.0","id":1,"method":method,"params":params}).encode()
@@ -62,11 +62,11 @@ def _normalize_top_tokens(entry: dict) -> List[dict]:
     top.sort(key=key_fn)
     return top
 
-def _fetch_one(address: str, rpc: str, commitment: str) -> dict:
+def _fetch_one(address: str, rpc: str, commitment: str, force: bool = False) -> dict:
     # cache check
     now = time.time()
     c = _CACHE.get(address)
-    if c and c["exp"] > now:
+    if not force and c and c["exp"] > now:
         return c["val"]
 
     # SOL balance
@@ -111,6 +111,7 @@ def _fetch_one(address: str, rpc: str, commitment: str) -> dict:
         "solIncludingRent": (lamports + ta_lamports_sum) / LAMPORTS_PER_SOL
     }
     out["top"] = _normalize_top_tokens(out)
+    out["fetchedAt"] = int(now * 1000)
 
     # cache store
     _CACHE[address] = {"exp": now + _CACHE_TTL, "val": out}
@@ -121,16 +122,18 @@ class VerifyBody(BaseModel):
     address: str = Field(..., description="Solana base58 address")
     rpc_url: Optional[str] = None
     commitment: str = "finalized"
+    force: bool = False
 
 class VerifyBulkBody(BaseModel):
     addresses: List[str]
     rpc_url: Optional[str] = None
     commitment: str = "finalized"
+    force: bool = False
 
 @router.post("/verify")
 def verify_one(body: VerifyBody):
     rpc = body.rpc_url or DEFAULT_RPC
-    return _fetch_one(body.address.strip(), rpc, body.commitment)
+    return _fetch_one(body.address.strip(), rpc, body.commitment, force=body.force)
 
 @router.post("/verify-bulk")
 def verify_bulk(body: VerifyBulkBody):
@@ -138,10 +141,10 @@ def verify_bulk(body: VerifyBulkBody):
     out = {}
     for addr in body.addresses:
         a = addr.strip()
-        if not a: 
+        if not a:
             continue
         try:
-            out[a] = _fetch_one(a, rpc, body.commitment)
+            out[a] = _fetch_one(a, rpc, body.commitment, force=body.force)
         except HTTPException as e:
             out[a] = {"error": True, "detail": e.detail}
         except Exception as e:

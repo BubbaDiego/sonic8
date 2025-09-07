@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import MainCard from 'ui-component/cards/MainCard';
 import { Grid, Button, IconButton, Avatar, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import WalletTable from 'ui-component/wallet/WalletTable';
@@ -12,6 +12,8 @@ import {
   refreshWallets,
   insertStarWarsWallets
 } from 'api/wallets';
+
+const STALE_MS = 10 * 60 * 1000;
 
 const WalletManager = () => {
   const { wallets = [], walletsLoading } = useGetWallets();
@@ -32,7 +34,7 @@ const WalletManager = () => {
     });
   };
 
-  const verifyOne = async (addr) => {
+  const verifyOne = async (addr, { force = false } = {}) => {
     const a = (addr || '').trim();
     if (!a) return;
     setVerifyingAddr(a, true);
@@ -40,7 +42,7 @@ const WalletManager = () => {
       const res = await fetch('/api/wallets/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: a })
+        body: JSON.stringify({ address: a, force })
       });
       const json = await res.json();
       setVerifiedMap((m) => ({
@@ -62,7 +64,7 @@ const WalletManager = () => {
       const res = await fetch('/api/wallets/verify-bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addresses: addrs })
+        body: JSON.stringify({ addresses: addrs, force: false })
       });
       const json = await res.json();
       const now = Date.now();
@@ -94,7 +96,7 @@ const WalletManager = () => {
       const at = v?.at || null;
       const error = v?.error || null;
       const isVerifying = verifying.has(a);
-      const stale = at ? Date.now() - at > 5 * 60 * 1000 : false;
+      const stale = at ? Date.now() - at > STALE_MS : false;
       return {
         ...w,
         _addr: a,
@@ -108,6 +110,14 @@ const WalletManager = () => {
       };
     });
   }, [wallets, verifiedMap, verifying]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      verifyAll();
+    }, 10 * 60 * 1000);
+    verifyAll();
+    return () => clearInterval(id);
+  }, [rows.length]);
 
   const walletsForPie = useMemo(() => {
     if (pieSource === 'positions') return wallets;

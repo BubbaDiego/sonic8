@@ -54,7 +54,7 @@ function TopCell({ row }) {
 }
 
 function StatusCell({ row }) {
-  return <VerifiedStatusCell verifiedAt={row.verifiedAt} error={row.verifyError} staleMs={5 * 60 * 1000} />;
+  return <VerifiedStatusCell verifiedAt={row.verifiedAt} error={row.verifyError} />;
 }
 
 function ActionsCell({ row, onEdit, onDelete, onVerifyOne }) {
@@ -63,7 +63,7 @@ function ActionsCell({ row, onEdit, onDelete, onVerifyOne }) {
     <Stack direction="row" spacing={0.5}>
       <Tooltip title="Verify now">
         <span>
-          <IconButton size="small" onClick={() => onVerifyOne(a)} disabled={!a || row.isVerifying}>
+          <IconButton size="small" onClick={() => onVerifyOne(a, { force: true })} disabled={!a || row.isVerifying}>
             {row.isVerifying ? <CircularProgress size={16} /> : <RefreshIcon fontSize="inherit" />}
           </IconButton>
         </span>
