@@ -69,7 +69,7 @@ const WalletManager = () => {
     }
   };
 
-  const verifyAll = async () => {
+  const verifyAll = async (force = false) => {
     const addrs = wallets.map((w) => (w.public_address || '').trim()).filter(Boolean);
     if (!addrs.length) return;
     addrs.forEach((a) => setVerifyingAddr(a, true));
@@ -77,7 +77,7 @@ const WalletManager = () => {
       const res = await fetch('/api/wallets/verify-bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addresses: addrs, force: false })
+        body: JSON.stringify({ addresses: addrs, force })
       });
       const json = await res.json();
       const now = Date.now();
