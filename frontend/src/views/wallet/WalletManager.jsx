@@ -18,6 +18,7 @@ const STALE_MS = 10 * 60 * 1000;
 const WalletManager = () => {
   const { wallets = [], walletsLoading } = useGetWallets();
   const loading = walletsLoading;
+  const [stalled, setStalled] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editWallet, setEditWallet] = useState(null);
 
@@ -172,8 +173,38 @@ const WalletManager = () => {
     await insertStarWarsWallets();
     refreshWallets();
   };
+  // --- watchdog: mark as stalled if loading takes too long (8s)
+  useEffect(() => {
+    if (!loading) { setStalled(false); return; }
+    const t = setTimeout(() => setStalled(true), 8000);
+    return () => clearTimeout(t);
+  }, [loading]);
 
-  if (loading) return <MainCard><Typography>Loading…</Typography></MainCard>;
+  // basic debug (remove later)
+  useEffect(() => {
+    console.debug('[WalletManager] loading:', loading, 'wallets:', wallets?.length ?? 0);
+  }, [loading, wallets?.length]);
+
+  if (loading && !stalled) {
+    return (
+      <MainCard>
+        <Typography>Loading…</Typography>
+      </MainCard>
+    );
+  }
+  if (loading && stalled) {
+    return (
+      <MainCard>
+        <Stack spacing={1} direction="row" alignItems="center" justifyContent="space-between">
+          <Typography>Still loading wallets…</Typography>
+          <Button onClick={() => refreshWallets()} variant="contained">Retry</Button>
+        </Stack>
+        <Typography variant="caption" color="text.secondary">
+          If this persists, open DevTools → Network and check the request for /api/wallets (or the route your hook uses).
+        </Typography>
+      </MainCard>
+    );
+  }
 
   return (
     <Grid container spacing={2}>
