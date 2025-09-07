@@ -80,9 +80,12 @@ function ActionsCell({ row, onEdit, onDelete, onVerifyOne }) {
 
 const WalletTable = ({ rows, onEdit, onDelete, onVerifyAll, onVerifyOne }) => (
   <Stack spacing={1}>
-    <Stack direction="row" justifyContent="flex-start">
+    <Stack direction="row" spacing={1} justifyContent="flex-start">
       <Button variant="contained" size="small" onClick={onVerifyAll}>
         Verify All
+      </Button>
+      <Button variant="outlined" size="small" onClick={() => onVerifyAll(true)}>
+        Force Verify All
       </Button>
     </Stack>
     <Table size="small">
