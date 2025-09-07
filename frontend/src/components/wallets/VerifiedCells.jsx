@@ -41,7 +41,7 @@ export function TopTokensChips({ top = [], limit = 4 }) {
   );
 }
 
-export function VerifiedStatusCell({ verifiedAt, error, staleMs = 5 * 60 * 1000 }) {
+export function VerifiedStatusCell({ verifiedAt, error, staleMs = 10 * 60 * 1000 }) {
   if (error) return <Chip color="error" size="small" label="Error" />;
   if (!verifiedAt) return <Chip variant="outlined" size="small" label="Not verified" />;
   const age = Date.now() - verifiedAt;
