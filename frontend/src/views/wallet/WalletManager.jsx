@@ -21,7 +21,7 @@ const WalletManager = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editWallet, setEditWallet] = useState(null);
 
-  // verified state: { [address]: { data, at, error } }
+  // verified state: { [address]: { data, at, error, detail } }
   const [verifiedMap, setVerifiedMap] = useState({});
   const [verifying, setVerifying] = useState(new Set());
   const [pieSource, setPieSource] = useState('positions'); // 'positions' | 'verified'
@@ -47,10 +47,23 @@ const WalletManager = () => {
       const json = await res.json();
       setVerifiedMap((m) => ({
         ...m,
-        [a]: { data: json, at: Date.now(), error: json?.error ? json.detail || 'error' : null }
+        [a]: {
+          data: json,
+          at: json?.fetchedAt || Date.now(),
+          error: json?.error ? json.detail || 'error' : null,
+          detail: json?.detail || null
+        }
       }));
     } catch (e) {
-      setVerifiedMap((m) => ({ ...m, [a]: { data: null, at: Date.now(), error: String(e) } }));
+      setVerifiedMap((m) => ({
+        ...m,
+        [a]: {
+          data: null,
+          at: Date.now(),
+          error: 'Request failed',
+          detail: String(e)
+        }
+      }));
     } finally {
       setVerifyingAddr(a, false);
     }
