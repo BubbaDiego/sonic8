@@ -1,6 +1,6 @@
 import MainCard from 'ui-component/cards/MainCard';
-import { Typography, Button, Stack, Card, CardContent, CardActions, Chip, Divider, Box, ToggleButtonGroup, ToggleButton } from '@mui/material';
-import { useMemo, useRef, useState } from 'react';
+import { Typography, Button, Stack, Card, CardContent, CardActions, Chip, Divider, Box, ToggleButtonGroup, ToggleButton, TextField } from '@mui/material';
+import { useMemo, useRef, useState, useEffect } from 'react';
 
 // Backend base (works in dev and prod)
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? '/api' : '');
@@ -138,6 +138,12 @@ export default function SonicLabsPage() {
   const [logs, setLogs] = useState([]);
   const [workflow, setWorkflow] = useState(['open', 'connect', 'select-asset']);
   const [asset, setAsset] = useState('SOL');
+  const [status, setStatus] = useState('');
+  const [walletId, setWalletId] = useState('default');
+  const [addr, setAddr] = useState('V8iveiirFvX7m7psPHWBJW85xPk1ZB6U4Ep9GUV2THW');
+  const [bal, setBal] = useState(null);
+  const [loadingBal, setLoadingBal] = useState(false);
+  const [loadingAddr, setLoadingAddr] = useState(false);
 
   const log = (msg) => setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   const { steps, byId } = useStepLibrary(log, asset);
@@ -146,6 +152,88 @@ export default function SonicLabsPage() {
   const clearWorkflow = () => setWorkflow([]);
   const removeFromWorkflow = (index) =>
     setWorkflow((prev) => prev.filter((_, i) => i !== index));
+
+  const openJupiter = async () => {
+    try {
+      setStatus('Opening Jupiter...');
+      await apiPost('/auto-core/connect-jupiter', { wallet_id: walletId });
+      setStatus(`✅ Opened Jupiter for "${walletId}"`);
+    } catch (e) {
+      console.error(e);
+      setStatus('❌ Failed to open Jupiter');
+    }
+  };
+
+  const closeBrowser = async () => {
+    try {
+      await apiPost('/auto-core/close-browser', {});
+      setStatus('✅ Browser closed');
+    } catch (e) {
+      console.error(e);
+      setStatus('❌ Failed to close browser');
+    }
+  };
+
+  const checkBalance = async () => {
+    if (!addr) return;
+    setLoadingBal(true);
+    try {
+      const res = await fetch('/api/solana/balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: addr })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBal(data);
+        setStatus('✅ Balance loaded');
+      } else {
+        setStatus(`❌ ${data.detail?.message || data.detail || 'Failed to check balance'}`);
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus('❌ Failed to check balance');
+    } finally {
+      setLoadingBal(false);
+    }
+  };
+
+  // Auto-fill address whenever Wallet ID changes (if mapping exists)
+  useEffect(() => {
+    const wid = (walletId || '').trim();
+    if (!wid) return;
+    setLoadingAddr(true);
+    fetch(`/api/auto-core/wallet-address?wallet_id=${encodeURIComponent(wid)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && data.address) {
+          setAddr(data.address);
+          setStatus(`✅ Loaded address for "${wid}"`);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingAddr(false));
+  }, [walletId]);
+
+  const saveWalletAddress = async () => {
+    if (!walletId || !addr) {
+      setStatus('❌ Wallet ID and address required');
+      return;
+    }
+    try {
+      const res = await fetch('/api/auto-core/register-wallet-address', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet_id: walletId, address: addr })
+      });
+      const data = await res.json();
+      if (res.ok) setStatus(`✅ Saved mapping for "${walletId}"`);
+      else setStatus(`❌ ${data.detail?.message || data.detail || 'Failed to save'}`);
+    } catch (e) {
+      console.error(e);
+      setStatus('❌ Failed to save wallet address');
+    }
+  };
 
   const runStep = async (step) => {
     setBusy(true);
@@ -170,6 +258,51 @@ export default function SonicLabsPage() {
   return (
     <MainCard title="Sonic Labs">
       <Stack spacing={2}>
+        {status && <Typography variant="body2">{status}</Typography>}
+        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+          <TextField
+            label="Wallet ID"
+            size="small"
+            value={walletId}
+            onChange={(e) => setWalletId(e.target.value)}
+            helperText={loadingAddr ? 'Loading address…' : 'Choose a wallet alias (e.g., Sonic - Leia)'}
+          />
+        </Stack>
+        <Stack direction="row" spacing={2}>
+          <Button variant="contained" color="primary" onClick={openJupiter}>
+            Open Jupiter & Connect
+          </Button>
+          <Button variant="outlined" color="secondary" onClick={closeBrowser}>
+            Close Browser
+          </Button>
+        </Stack>
+
+        <Divider sx={{ my: 3 }} />
+        <Typography variant="h6" sx={{ mb: 1 }}>Check On-Chain Balance</Typography>
+        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+          <TextField
+            label="Solana Address"
+            size="small"
+            fullWidth
+            value={addr}
+            onChange={(e) => setAddr(e.target.value.trim())}
+          />
+          <Button variant="outlined" onClick={saveWalletAddress} disabled={!walletId || !addr}>
+            Save Wallet Address
+          </Button>
+          <Button variant="contained" onClick={checkBalance} disabled={loadingBal || !addr}>
+            {loadingBal ? 'Checking…' : 'Check Balance'}
+          </Button>
+        </Stack>
+        {bal && (
+          <Card variant="outlined">
+            <CardContent>
+              <pre style={{ margin: 0 }}>{JSON.stringify(bal, null, 2)}</pre>
+            </CardContent>
+          </Card>
+        )}
+
+        <Divider sx={{ my: 3 }} />
         <Stack direction="row" spacing={1} alignItems="center">
           <Typography variant="body2">Profile</Typography>
           <Chip label={DEDICATED_ALIAS} size="small" />

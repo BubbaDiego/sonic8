@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from importlib import import_module
 from typing import Any, Dict
+from pathlib import Path
+import json, re
 
 from backend.core.auto_core import AutoCore, WebBrowserRequest
 from backend.core.auto_core.requests import (
@@ -14,6 +16,64 @@ from backend.core.auto_core.requests import (
 )
 
 router = APIRouter(prefix="/api/auto-core", tags=["auto_core"])
+
+# ---------------- Wallet ID → Address registry ------------------------------
+ADDR_REG_PATH = Path(".cache/wallet_addresses.json")
+BASE58 = set("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+
+def _norm(wid: str | None) -> str | None:
+    if wid is None:
+        return None
+    return wid.strip().lower().replace(" ", "-")
+
+def _addr_load() -> dict:
+    try:
+        if ADDR_REG_PATH.exists():
+            return json.loads(ADDR_REG_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+def _addr_save(d: dict) -> None:
+    ADDR_REG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    ADDR_REG_PATH.write_text(json.dumps(d, indent=2), encoding="utf-8")
+
+def _is_probably_base58(s: str) -> bool:
+    return 32 <= len(s) <= 44 and all(c in BASE58 for c in s)
+
+class WalletAddressRegisterBody(BaseModel):
+    wallet_id: str
+    address: str
+
+@router.get("/wallet-address")
+async def get_wallet_address(wallet_id: str):
+    reg = _addr_load()
+    key = _norm(wallet_id)
+    addr = reg.get(key)
+    if not addr:
+        raise HTTPException(status_code=404, detail=f"No address found for wallet_id={wallet_id}")
+    return {"wallet_id": wallet_id, "normalized_wallet_id": key, "address": addr}
+
+@router.post("/register-wallet-address")
+async def register_wallet_address(body: WalletAddressRegisterBody):
+    if not _is_probably_base58(body.address):
+        raise HTTPException(status_code=400, detail="address does not look like a valid base58 Solana public key")
+    reg = _addr_load()
+    key = _norm(body.wallet_id)
+    reg[key] = body.address
+    _addr_save(reg)
+    return {"registered": True, "wallet_id": body.wallet_id, "normalized_wallet_id": key, "address": body.address}
+
+class WalletAddressDeleteBody(BaseModel):
+    wallet_id: str
+
+@router.post("/unregister-wallet-address")
+async def unregister_wallet_address(body: WalletAddressDeleteBody):
+    reg = _addr_load()
+    key = _norm(body.wallet_id)
+    existed = reg.pop(key, None) is not None
+    _addr_save(reg)
+    return {"removed": existed, "wallet_id": body.wallet_id, "normalized_wallet_id": key}
 
 class BrowserOpenRequest(BaseModel):
     url: str | None = None
