@@ -4,6 +4,7 @@ import { Grid, Button, IconButton, Avatar, Stack } from '@mui/material';
 import WalletTable from 'ui-component/wallet/WalletTable';
 import WalletFormModal from 'ui-component/wallet/WalletFormModal';
 import BalanceBreakdownCard from './BalanceBreakdownCard';
+import VerifiedBalancesPanel from './VerifiedBalancesPanel';
 import {
   useGetWallets,
   createWallet,
@@ -78,6 +79,7 @@ const WalletManager = () => {
       </Grid>
       <Grid item xs={12} md={4}>
         <BalanceBreakdownCard wallets={wallets} />
+        <VerifiedBalancesPanel wallets={wallets} />
       </Grid>
     </Grid>
   );
