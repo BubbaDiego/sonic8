@@ -51,7 +51,7 @@ const WalletManager = () => {
           data: json,
           at: Date.now(),
           error: json?.error || null,
-          detail: json?.detail || null
+          detail: json?.detail ?? null
         }
       }));
     } catch (e) {
@@ -82,7 +82,7 @@ const WalletManager = () => {
           data: json[a],
           at: now,
           error: json[a]?.error || null,
-          detail: json[a]?.detail || null
+          detail: json[a]?.detail ?? null
         };
       });
       setVerifiedMap((m) => ({ ...m, ...next }));
@@ -108,7 +108,7 @@ const WalletManager = () => {
       const top = d?.top || [];
       const at = v?.at || null;
       const error = v?.error || null;
-      const detail = v?.detail || null;
+      const detail = v?.detail ?? null;
       const isVerifying = verifying.has(a);
       const stale = at ? Date.now() - at > STALE_MS : false;
       return {

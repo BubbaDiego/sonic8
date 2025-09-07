@@ -43,7 +43,7 @@ export function TopTokensChips({ top = [], limit = 4 }) {
 
 export function VerifiedStatusCell({ verifiedAt, error, detail, staleMs = 10 * 60 * 1000 }) {
   if (error) return (
-    <Tooltip title={detail || error}>
+    <Tooltip title={detail ?? error}>
       <Chip color="error" size="small" label="Error" />
     </Tooltip>
   );

@@ -58,7 +58,7 @@ function StatusCell({ row }) {
     <VerifiedStatusCell
       verifiedAt={row.verifiedAt}
       error={row.verifyError}
-      detail={row.verifyErrorDetail || row.detail}
+      detail={row.verifyErrorDetail ?? row.detail}
     />
   );
 }
