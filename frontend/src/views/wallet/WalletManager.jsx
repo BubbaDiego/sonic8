@@ -83,14 +83,19 @@ const WalletManager = () => {
       const now = Date.now();
       const next = {};
       addrs.forEach((a) => {
-        next[a] = { data: json[a], at: now, error: json[a]?.error ? json[a].detail || 'error' : null };
+        next[a] = {
+          data: json[a],
+          at: json[a]?.fetchedAt || now,
+          error: json[a]?.error ? (json[a].detail || 'error') : null,
+          detail: json[a]?.detail || null
+        };
       });
       setVerifiedMap((m) => ({ ...m, ...next }));
     } catch (e) {
       const now = Date.now();
       const next = {};
       addrs.forEach((a) => {
-        next[a] = { data: null, at: now, error: String(e) };
+        next[a] = { data: null, at: now, error: 'Request failed', detail: String(e) };
       });
       setVerifiedMap((m) => ({ ...m, ...next }));
     } finally {
@@ -108,6 +113,7 @@ const WalletManager = () => {
       const top = d?.top || [];
       const at = v?.at || null;
       const error = v?.error || null;
+      const detail = v?.detail ?? null;
       const isVerifying = verifying.has(a);
       const stale = at ? Date.now() - at > STALE_MS : false;
       return {
@@ -118,6 +124,7 @@ const WalletManager = () => {
         top,
         verifiedAt: at,
         verifyError: error,
+        verifyErrorDetail: detail,
         isVerifying,
         stale
       };
