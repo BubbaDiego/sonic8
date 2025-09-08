@@ -1,0 +1,12 @@
+{
+  "leia": {
+    "profile_dir": "C:\\sonic5\\profiles\\leia\\User Data",
+    "channel": "chrome",
+    "chrome_profile_directory": "Profile 3"
+  },
+  "sonic---leia": {
+    "profile_dir": "C:\\sonic5\\profiles\\Sonic - Leia",
+    "channel": "chrome",
+    "chrome_profile_directory": "Default"
+  }
+}

@@ -1,1 +1,13 @@
-{}
+{
+  "sonic - auto": {
+    "pid": 26236,
+    "cmd": [
+      "C:\\sonic5\\.venv\\Scripts\\python.exe",
+      "C:\\sonic5\\auto_core\\launcher\\open_jupiter.py",
+      "--wallet-id",
+      "Sonic - Auto"
+    ],
+    "cwd": "C:\\sonic5",
+    "started_at": 1757281664
+  }
+}

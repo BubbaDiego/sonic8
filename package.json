@@ -1,0 +1,36 @@
+{
+  "name": "sonic5",
+  "version": "1.0.0",
+  "description": "This repository contains the code for the Sonic1 project. It is organized into\r three main parts:",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bubbadiego/sonic5.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/bubbadiego/sonic5/issues"
+  },
+  "homepage": "https://github.com/bubbadiego/sonic5#readme",
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/web3.js": "^1.98.4",
+    "bip39": "^3.1.0",
+    "bn.js": "^5.2.2",
+    "bs58": "^6.0.0",
+    "cross-fetch": "^4.1.0",
+    "dotenv": "^17.2.2",
+    "ed25519-hd-key": "^1.3.0",
+    "tweetnacl": "^1.0.3"
+  }
+}
