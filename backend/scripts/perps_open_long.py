@@ -853,10 +853,7 @@ async def _amain():
         kp=kp,
         idl=idl,
         size_usd_6dp=size_6,
-        collateral_atoms=coll_6,
-        max_price_usd_6dp=maxp_6,
-        dry_run=bool(args.dry_run),
-    )
+        collateral_atoms=coll_6,f
 
 if __name__ == "__main__":
     asyncio.run(_amain())
