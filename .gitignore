@@ -44,3 +44,4 @@ frontend/src/tailwind.output.css
 # OS generated files
 .DS_Store
 Thumbs.db
+/signer.txt
