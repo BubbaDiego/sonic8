@@ -1,14 +1,14 @@
 import MainCard from 'ui-component/cards/MainCard';
-import { Typography, Button, Stack, Card, CardContent, CardActions, Chip, Divider, Box, ToggleButtonGroup, ToggleButton, TextField } from '@mui/material';
+import {
+  Typography, Button, Stack, Card, CardContent, CardActions, Chip, Divider, Box,
+  ToggleButtonGroup, ToggleButton, TextField
+} from '@mui/material';
 import { useMemo, useRef, useState, useEffect } from 'react';
 
-// Backend base (works in dev and prod)
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? '/api' : '');
-// Dedicated automation profile
 const DEDICATED_ALIAS = 'Sonic - Auto';
 
-/* ---------------- helpers ---------------- */
-
+/* helpers */
 async function api(method, path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
@@ -27,29 +27,27 @@ async function api(method, path, body) {
 const apiPost = (p, b) => api('POST', p, b);
 const apiGet  = (p)    => api('GET',  p);
 
-/* ---------------- step library ---------------- */
-
+/* steps */
 function useStepLibrary(log, asset) {
-  // Each step is a small, testable unit that only talks to the backend.
   const steps = useMemo(() => ([
     {
       id: 'open',
       title: 'Open dedicated browser',
       desc: `Launch Chrome with profile "${DEDICATED_ALIAS}" and open Jupiter.`,
       run: async () => {
-        const r = await apiPost('/jupiter/open', { walletId: DEDICATED_ALIAS });
-        log(`launched pid=${r.pid} alias=${r.launched}`);
-        return r;
+        await apiPost('/auto-core/open-browser', { wallet_id: DEDICATED_ALIAS, url: 'https://jup.ag/perps' });
+        log('launched persistent context; connecting…');
+        await apiPost('/auto-core/connect-jupiter', { url: 'https://jup.ag/perps' });
+        return { ok: true };
       }
     },
     {
       id: 'connect',
       title: 'Connect Solflare',
-      desc: 'Click Connect → Solflare (Recently Used). Unlock if prompted.',
+      desc: 'Open Connect → pick Solflare. Unlock/Approve if prompted.',
       run: async () => {
-        const r = await apiPost('/jupiter/connect', {});
+        const r = await apiPost('/auto-core/connect-jupiter', { url: 'https://jup.ag/perps' });
         log(r.detail || JSON.stringify(r));
-        if (!r.ok) throw new Error(`connect failed (code ${r.code})`);
         return r;
       }
     },
@@ -58,9 +56,9 @@ function useStepLibrary(log, asset) {
       title: `Select Asset (${asset})`,
       desc: 'Click the asset chip in Perps (SOL / ETH / WBTC).',
       run: async () => {
-        const r = await apiPost('/jupiter/select-asset', { symbol: asset });
-        log(r.detail || JSON.stringify(r));
-        if (!r.ok) throw new Error(`select asset failed (code ${r.code})`);
+        const r = await apiPost('/auto-core/select-asset', { symbol: asset });
+        log(`select-asset rc=${r.rc} ok=${r.ok}`);
+        if (!r.ok) throw new Error(`select asset failed (code ${r.rc})`);
         return r;
       }
     },
@@ -69,7 +67,7 @@ function useStepLibrary(log, asset) {
       title: 'Show session status',
       desc: 'Fetch tracked Playwright sessions (pid, started_at).',
       run: async () => {
-        const r = await apiGet('/jupiter/status');
+        const r = await apiGet('/auto-core/jupiter-status');
         log(JSON.stringify(r, null, 2));
         return r;
       }
@@ -79,7 +77,7 @@ function useStepLibrary(log, asset) {
       title: 'Close browser',
       desc: `Close Chrome for "${DEDICATED_ALIAS}" if running.`,
       run: async () => {
-        const r = await apiPost('/jupiter/close', { walletId: DEDICATED_ALIAS });
+        const r = await apiPost('/auto-core/close-browser', {});
         log(JSON.stringify(r));
         return r;
       }
@@ -90,8 +88,7 @@ function useStepLibrary(log, asset) {
   return { steps, byId };
 }
 
-/* ---------------- UI components ---------------- */
-
+/* UI bits */
 function StepCard({ step, onRun, onAdd, disabled }) {
   return (
     <Card variant="outlined" sx={{ minWidth: 280, flex: 1 }}>
@@ -106,37 +103,28 @@ function StepCard({ step, onRun, onAdd, disabled }) {
     </Card>
   );
 }
-
 function LogConsole({ lines }) {
   const ref = useRef(null);
-  if (ref.current) {
-    setTimeout(() => { ref.current.scrollTop = ref.current.scrollHeight; }, 0);
-  }
+  if (ref.current) setTimeout(() => { ref.current.scrollTop = ref.current.scrollHeight; }, 0);
   return (
     <Box sx={{
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       bgcolor: 'background.default',
       border: '1px solid rgba(255,255,255,0.12)',
       borderRadius: 1,
-      p: 1.5,
-      height: 220,
-      overflow: 'auto'
+      p: 1.5, height: 220, overflow: 'auto'
     }} ref={ref}>
-      {lines.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">Logs will appear here…</Typography>
-      ) : (
-        lines.map((l, i) => <div key={i}>{l}</div>)
-      )}
+      {lines.length ? lines.map((l, i) => <div key={i}>{l}</div>)
+                     : <Typography variant="body2" color="text.secondary">Logs will appear here…</Typography>}
     </Box>
   );
 }
 
-/* ---------------- main page ---------------- */
-
+/* page */
 export default function SonicLabsPage() {
   const [busy, setBusy] = useState(false);
   const [logs, setLogs] = useState([]);
-  const [workflow, setWorkflow] = useState(['open', 'connect', 'select-asset']);
+  const [workflow, setWorkflow] = useState(['open', 'select-asset']);
   const [asset, setAsset] = useState('SOL');
   const [status, setStatus] = useState('');
   const [walletId, setWalletId] = useState('default');
@@ -150,115 +138,66 @@ export default function SonicLabsPage() {
 
   const addToWorkflow = (step) => setWorkflow((prev) => [...prev, step.id]);
   const clearWorkflow = () => setWorkflow([]);
-  const removeFromWorkflow = (index) =>
-    setWorkflow((prev) => prev.filter((_, i) => i !== index));
+  const removeFromWorkflow = (index) => setWorkflow((prev) => prev.filter((_, i) => i !== index));
 
   const openJupiter = async () => {
     try {
-      setStatus('Opening Jupiter...');
-      await apiPost('/auto-core/connect-jupiter', { wallet_id: walletId });
-      setStatus(`✅ Opened Jupiter for "${walletId}"`);
+      setStatus('Opening Jupiter…');
+      await apiPost('/auto-core/open-browser', { wallet_id: walletId, url: 'https://jup.ag/perps' });
+      await apiPost('/auto-core/connect-jupiter', { url: 'https://jup.ag/perps' });
+      setStatus(`✅ Opened & (attempted) Connect for "${walletId}"`);
     } catch (e) {
       console.error(e);
-      setStatus('❌ Failed to open Jupiter');
+      setStatus('❌ Failed to open/connect');
     }
   };
-
   const closeBrowser = async () => {
-    try {
-      await apiPost('/auto-core/close-browser', {});
-      setStatus('✅ Browser closed');
-    } catch (e) {
-      console.error(e);
-      setStatus('❌ Failed to close browser');
-    }
+    try { await apiPost('/auto-core/close-browser', {}); setStatus('✅ Browser closed'); }
+    catch (e) { console.error(e); setStatus('❌ Failed to close browser'); }
   };
 
   const checkBalance = async () => {
     if (!addr) return;
     setLoadingBal(true);
     try {
-      const res = await fetch('/api/solana/balance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${API_BASE}/solana/balance`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr })
       });
       const data = await res.json();
-      if (res.ok) {
-        setBal(data);
-        setStatus('✅ Balance loaded');
-      } else {
-        setStatus(`❌ ${data.detail?.message || data.detail || 'Failed to check balance'}`);
-      }
-    } catch (e) {
-      console.error(e);
-      setStatus('❌ Failed to check balance');
-    } finally {
-      setLoadingBal(false);
-    }
+      if (res.ok) { setBal(data); setStatus('✅ Balance loaded'); }
+      else setStatus(`❌ ${data.detail?.message || data.detail || 'Failed to check balance'}`);
+    } catch (e) { console.error(e); setStatus('❌ Failed to check balance'); }
+    finally { setLoadingBal(false); }
   };
 
-  // Auto-fill address whenever Wallet ID changes (if mapping exists)
+  // auto-fill address from wallet ID mapping
   useEffect(() => {
     const wid = (walletId || '').trim();
     if (!wid) return;
     setLoadingAddr(true);
-    fetch(`/api/auto-core/wallet-address?wallet_id=${encodeURIComponent(wid)}`)
+    fetch(`${API_BASE}/auto-core/wallet-address?wallet_id=${encodeURIComponent(wid)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data && data.address) {
-          setAddr(data.address);
-          setStatus(`✅ Loaded address for "${wid}"`);
-        }
-      })
+      .then((data) => { if (data?.address) { setAddr(data.address); setStatus(`✅ Loaded address for "${wid}"`); } })
       .catch(() => {})
       .finally(() => setLoadingAddr(false));
   }, [walletId]);
 
-  const saveWalletAddress = async () => {
-    if (!walletId || !addr) {
-      setStatus('❌ Wallet ID and address required');
-      return;
-    }
-    try {
-      const res = await fetch('/api/auto-core/register-wallet-address', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_id: walletId, address: addr })
-      });
-      const data = await res.json();
-      if (res.ok) setStatus(`✅ Saved mapping for "${walletId}"`);
-      else setStatus(`❌ ${data.detail?.message || data.detail || 'Failed to save'}`);
-    } catch (e) {
-      console.error(e);
-      setStatus('❌ Failed to save wallet address');
-    }
-  };
-
   const runStep = async (step) => {
     setBusy(true);
-    try {
-      log(`▶︎ ${step.title}`);
-      await step.run();
-      log(`✔ ${step.id} done`);
-    } catch (e) {
-      console.error(e);
-      log(`✖ ${step.id} failed: ${e.message || e}`);
-    } finally {
-      setBusy(false);
-    }
+    try { log(`▶︎ ${step.title}`); await step.run(); log(`✔ ${step.id} done`); }
+    catch (e) { console.error(e); log(`✖ ${step.id} failed: ${e.message || e}`); }
+    finally { setBusy(false); }
   };
-
   const runWorkflow = async () => {
-    for (const id of workflow) {
-      await runStep(byId[id]);
-    }
+    for (const id of workflow) await runStep(byId[id]);
   };
 
   return (
     <MainCard title="Sonic Labs">
       <Stack spacing={2}>
         {status && <Typography variant="body2">{status}</Typography>}
+
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           <TextField
             label="Wallet ID"
@@ -269,38 +208,31 @@ export default function SonicLabsPage() {
           />
         </Stack>
         <Stack direction="row" spacing={2}>
-          <Button variant="contained" color="primary" onClick={openJupiter}>
-            Open Jupiter & Connect
-          </Button>
-          <Button variant="outlined" color="secondary" onClick={closeBrowser}>
-            Close Browser
-          </Button>
+          <Button variant="contained" color="primary" onClick={openJupiter}>Open Jupiter & Connect</Button>
+          <Button variant="outlined" color="secondary" onClick={closeBrowser}>Close Browser</Button>
         </Stack>
 
         <Divider sx={{ my: 3 }} />
         <Typography variant="h6" sx={{ mb: 1 }}>Check On-Chain Balance</Typography>
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-          <TextField
-            label="Solana Address"
-            size="small"
-            fullWidth
-            value={addr}
-            onChange={(e) => setAddr(e.target.value.trim())}
-          />
-          <Button variant="outlined" onClick={saveWalletAddress} disabled={!walletId || !addr}>
-            Save Wallet Address
-          </Button>
+          <TextField label="Solana Address" size="small" fullWidth value={addr} onChange={(e) => setAddr(e.target.value.trim())} />
+          <Button variant="outlined" onClick={async () => {
+            if (!walletId || !addr) return setStatus('❌ Wallet ID and address required');
+            try {
+              const res = await fetch(`${API_BASE}/auto-core/register-wallet-address`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ wallet_id: walletId, address: addr })
+              });
+              const data = await res.json();
+              if (res.ok) setStatus(`✅ Saved mapping for "${walletId}"`);
+              else setStatus(`❌ ${data.detail?.message || data.detail || 'Failed to save'}`);
+            } catch (e) { console.error(e); setStatus('❌ Failed to save wallet address'); }
+          }}>Save Wallet Address</Button>
           <Button variant="contained" onClick={checkBalance} disabled={loadingBal || !addr}>
             {loadingBal ? 'Checking…' : 'Check Balance'}
           </Button>
         </Stack>
-        {bal && (
-          <Card variant="outlined">
-            <CardContent>
-              <pre style={{ margin: 0 }}>{JSON.stringify(bal, null, 2)}</pre>
-            </CardContent>
-          </Card>
-        )}
+        {bal && <Card variant="outlined"><CardContent><pre style={{ margin: 0 }}>{JSON.stringify(bal, null, 2)}</pre></CardContent></Card>}
 
         <Divider sx={{ my: 3 }} />
         <Stack direction="row" spacing={1} alignItems="center">
@@ -308,59 +240,30 @@ export default function SonicLabsPage() {
           <Chip label={DEDICATED_ALIAS} size="small" />
           <Box sx={{ flexGrow: 1 }} />
           <Typography variant="body2" sx={{ ml: 1 }}>Asset:</Typography>
-          <ToggleButtonGroup
-            value={asset}
-            exclusive
-            size="small"
-            onChange={(_, v) => v && setAsset(v)}
-          >
+          <ToggleButtonGroup value={asset} exclusive size="small" onChange={(_, v) => v && setAsset(v)}>
             <ToggleButton value="SOL">SOL</ToggleButton>
             <ToggleButton value="ETH">ETH</ToggleButton>
             <ToggleButton value="WBTC">WBTC</ToggleButton>
           </ToggleButtonGroup>
         </Stack>
+
         <Typography variant="h6">Step Library</Typography>
         <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
           {steps.map((s) => (
-            <StepCard
-              key={s.id}
-              step={s}
-              onRun={runStep}
-              onAdd={addToWorkflow}
-              disabled={busy}
-            />
+            <StepCard key={s.id} step={s} onRun={runStep} onAdd={(st)=>setWorkflow((w)=>[...w, st.id])} disabled={busy} />
           ))}
         </Stack>
 
         <Divider />
-
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Workflow
-          </Typography>
-          <Button
-            size="small"
-            onClick={runWorkflow}
-            disabled={busy || workflow.length === 0}
-          >
-            Run
-          </Button>
-          <Button
-            size="small"
-            onClick={clearWorkflow}
-            disabled={busy || workflow.length === 0}
-          >
-            Clear
-          </Button>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>Workflow</Typography>
+          <Button size="small" onClick={runWorkflow} disabled={busy || workflow.length === 0}>Run</Button>
+          <Button size="small" onClick={clearWorkflow} disabled={busy || workflow.length === 0}>Clear</Button>
         </Stack>
-
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
           {workflow.map((id, idx) => (
-            <Chip
-              key={`${id}-${idx}`}
-              label={byId[id].title}
-              onDelete={() => removeFromWorkflow(idx)}
-            />
+            <Chip key={`${id}-${idx}`} label={(steps.find(s=>s.id===id)||{title:id}).title}
+                  onDelete={() => setWorkflow((w)=>w.filter((_,i)=>i!==idx))}/>
           ))}
         </Stack>
 
@@ -369,4 +272,3 @@ export default function SonicLabsPage() {
     </MainCard>
   );
 }
-
