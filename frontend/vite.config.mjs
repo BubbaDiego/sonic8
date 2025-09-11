@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   // Sub‑folder where the built site will live, or '/' for root.
   const BASE_NAME = env.VITE_APP_BASE_NAME || '/';
   // FastAPI host that the dev server should proxy to.
-  const API_URL = env.VITE_APP_API_URL || 'http://localhost:5000';
+  const API_URL = env.VITE_APP_API_URL || 'http://127.0.0.1:8000';
   const PORT = 3000;
 
   return {
