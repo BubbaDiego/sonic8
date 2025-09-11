@@ -7,6 +7,7 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? '/api' : '');
 const DEDICATED_ALIAS = 'Sonic - Auto';
+const JUP_PERPS_URL = 'https://jup.ag/perps';
 
 /* helpers */
 async function api(method, path, body) {
@@ -35,9 +36,9 @@ function useStepLibrary(log, asset) {
       title: 'Open dedicated browser',
       desc: `Launch Chrome with profile "${DEDICATED_ALIAS}" and open Jupiter.`,
       run: async () => {
-        await apiPost('/auto-core/open-browser', { wallet_id: DEDICATED_ALIAS, url: 'https://jup.ag/perps' });
+        await apiPost('/auto-core/open-browser', { wallet_id: DEDICATED_ALIAS, url: JUP_PERPS_URL });
         log('launched persistent context; connecting…');
-        await apiPost('/auto-core/connect-jupiter', { url: 'https://jup.ag/perps' });
+        await apiPost('/auto-core/connect-jupiter', { url: JUP_PERPS_URL });
         return { ok: true };
       }
     },
@@ -46,7 +47,7 @@ function useStepLibrary(log, asset) {
       title: 'Connect Solflare',
       desc: 'Open Connect → pick Solflare. Unlock/Approve if prompted.',
       run: async () => {
-        const r = await apiPost('/auto-core/connect-jupiter', { url: 'https://jup.ag/perps' });
+        const r = await apiPost('/auto-core/connect-jupiter', { url: JUP_PERPS_URL });
         log(r.detail || JSON.stringify(r));
         return r;
       }
@@ -143,8 +144,8 @@ export default function SonicLabsPage() {
   const openJupiter = async () => {
     try {
       setStatus('Opening Jupiter…');
-      await apiPost('/auto-core/open-browser', { wallet_id: walletId, url: 'https://jup.ag/perps' });
-      await apiPost('/auto-core/connect-jupiter', { url: 'https://jup.ag/perps' });
+      await apiPost('/auto-core/open-browser', { wallet_id: walletId, url: JUP_PERPS_URL });
+      await apiPost('/auto-core/connect-jupiter', { url: JUP_PERPS_URL });
       setStatus(`✅ Opened & (attempted) Connect for "${walletId}"`);
     } catch (e) {
       console.error(e);
