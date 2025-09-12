@@ -1,9 +1,9 @@
 // src/views/jupiter/JupiterPage.jsx
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import MainCard from 'ui-component/cards/MainCard';
-import { createSpotTrigger, listSpotTriggers, cancelSpotTrigger, swapQuote, swapExecute } from 'api/jupiter';
+import { createSpotTrigger, listSpotTriggers, cancelSpotTrigger, swapQuote, swapExecute, getUsdPrice } from 'api/jupiter';
 import {
   Box, Button, Chip, Divider, Grid, Stack, Tab, Tabs, TextField, Typography, MenuItem, FormControlLabel, Switch
 } from '@mui/material';
@@ -188,7 +188,29 @@ function SwapsTab() {
   const [quote,setQuote]=useState(null);
   const [sig,setSig]=useState('');
   const [sending,setSending]=useState(false);
+
+  // NEW: live USD price & computed USD amount
+  const [usdPrice, setUsdPrice] = useState(null);
   const sym=(s)=>TOKENS.find(t=>t.sym===s);
+
+  // fetch USD price whenever Token In changes (debounced)
+  useEffect(() => {
+    let alive = true;
+    const t = setTimeout(async () => {
+      try {
+        const r = await getUsdPrice(sym(inSym).mint, 'USDC');
+        if (alive) setUsdPrice(Number(r.price));
+      } catch {
+        if (alive) setUsdPrice(null);
+      }
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [inSym]);
+
+  const amountUsd = (() => {
+    const a = Number(amountUi || 0);
+    return usdPrice ? a * usdPrice : null;
+  })();
 
   async function doQuote() {
     setSig('');
@@ -207,10 +229,10 @@ function SwapsTab() {
   async function doSwap() {
     if(!quote) return;
     setSending(true);
-    try{
+    try {
       const r = await swapExecute({ quoteResponse: quote });
       setSig(r.signature);
-    } catch(e){ enqueueSnackbar(e.message || 'Swap failed',{variant:'error'}); }
+    } catch(e) { enqueueSnackbar(e.message || 'Swap failed',{variant:'error'}); }
     setSending(false);
   }
 
@@ -229,7 +251,18 @@ function SwapsTab() {
             </TextField>
           </Grid>
           <Grid item xs={12} md={2}>
-            <TextField fullWidth label="Amount (in)" value={amountUi} onChange={e=>setAmountUi(e.target.value)} />
+            <TextField
+              fullWidth
+              label="Amount (in)"
+              value={amountUi}
+              onChange={e=>setAmountUi(e.target.value)}
+              // NEW: show USD equiv directly under the input
+              helperText={
+                amountUsd !== null
+                  ? `≈ $${amountUsd.toLocaleString(undefined,{maximumFractionDigits: 2})}`
+                  : ' '
+              }
+            />
           </Grid>
           <Grid item xs={12} md={2}>
             <TextField fullWidth label="Slippage (bps)" value={slip} onChange={e=>setSlip(e.target.value)} />
