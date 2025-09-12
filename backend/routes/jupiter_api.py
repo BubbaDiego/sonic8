@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
 import time
+import requests
 
 from backend.services.signer_loader import load_signer
 from backend.services.jupiter_trigger import (
@@ -14,6 +15,37 @@ from backend.services.jupiter_swap import get_quote, build_swap_tx, sign_and_sen
 from backend.services.profit_watcher import WATCHER
 
 router = APIRouter(prefix="/api/jupiter", tags=["jupiter"])
+
+# --- Price API passthrough (USD estimate for UI) ---
+@router.get('/price')
+def jup_price(id: str, vs: str = 'USDC'):
+    """
+    Returns USD price for a mint or symbol via Jupiter Price API.
+    Example: /api/jupiter/price?id=So11111111111111111111111111111111111111112
+             /api/jupiter/price?id=SOL
+    """
+    try:
+        r = requests.get(
+            'https://price.jup.ag/v6/price',
+            params={'ids': id, 'vsToken': vs},
+            timeout=15
+        )
+        r.raise_for_status()
+        payload = r.json()
+        data = payload.get('data', {})
+        entry = data.get(id) or (list(data.values())[0] if data else None)
+        if not entry or 'price' not in entry:
+            raise HTTPException(404, f'Price not found for id={id}')
+        return {
+            'id': entry.get('id', id),
+            'vs': entry.get('vsToken', vs),
+            'price': float(entry['price'])
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f'Price service error: {e}')
+
 
 class SpotTriggerRequest(BaseModel):
     inputMint: Optional[str] = None

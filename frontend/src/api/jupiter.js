@@ -36,3 +36,8 @@ export async function listPerpPositions() {
   const { data } = await client.get('/api/jupiter/perps/positions');
   return data;
 }
+
+export async function getUsdPrice(id, vs = 'USDC') {
+  const { data } = await client.get('/api/jupiter/price', { params: { id, vs } });
+  return data;
+}
