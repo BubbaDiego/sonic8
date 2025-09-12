@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import MainCard from 'ui-component/cards/MainCard';
-import { createSpotTrigger, listSpotTriggers, cancelSpotTrigger } from 'api/jupiter';
+import { createSpotTrigger, listSpotTriggers, cancelSpotTrigger, swapQuote, swapExecute } from 'api/jupiter';
 import {
   Box, Button, Chip, Divider, Grid, Stack, Tab, Tabs, TextField, Typography, MenuItem, FormControlLabel, Switch
 } from '@mui/material';
@@ -172,13 +172,102 @@ function PerpsTabPlaceholder() {
   );
 }
 
-function SwapsTabPlaceholder() {
+function SwapsTab() {
+  const TOKENS = [
+    { sym:'SOL',  mint:'So11111111111111111111111111111111111111112', dec:9 },
+    { sym:'USDC', mint:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', dec:6 },
+    { sym:'mSOL', mint:'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', dec:9 },
+    { sym:'JitoSOL', mint:'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', dec:9 }
+  ];
+  const [inSym,setInSym]=useState('SOL');
+  const [outSym,setOutSym]=useState('USDC');
+  const [amountUi,setAmountUi]=useState('0.1');
+  const [slip,setSlip]=useState('50');
+  const [mode,setMode]=useState('ExactIn');
+  const [restrict,setRestrict]=useState(true);
+  const [quote,setQuote]=useState(null);
+  const [sig,setSig]=useState('');
+  const [sending,setSending]=useState(false);
+  const sym=(s)=>TOKENS.find(t=>t.sym===s);
+
+  async function doQuote() {
+    setSig('');
+    setQuote(null);
+    const amt = Math.floor(Number(amountUi) * 10 ** sym(inSym).dec);
+    const q = await swapQuote({
+      inputMint: sym(inSym).mint,
+      outputMint: sym(outSym).mint,
+      amount: amt,
+      slippageBps: Number(slip||50),
+      swapMode: mode,
+      restrictIntermediates: restrict
+    });
+    setQuote(q);
+  }
+  async function doSwap() {
+    if(!quote) return;
+    setSending(true);
+    try{
+      const r = await swapExecute({ quoteResponse: quote });
+      setSig(r.signature);
+    } catch(e){ enqueueSnackbar(e.message || 'Swap failed',{variant:'error'}); }
+    setSending(false);
+  }
+
   return (
-    <MainCard title="Swaps">
-      <Typography variant="body2">
-        Simple swap UI powered by Jupiter /quote & /swap will live here. Placeholder for now.
-      </Typography>
-    </MainCard>
+    <Stack spacing={2}>
+      <MainCard title="Headless Swap">
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}>
+            <TextField select fullWidth label="Token In" value={inSym} onChange={e=>setInSym(e.target.value)}>
+              {TOKENS.map(t=><MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField select fullWidth label="Token Out" value={outSym} onChange={e=>setOutSym(e.target.value)}>
+              {TOKENS.map(t=><MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField fullWidth label="Amount (in)" value={amountUi} onChange={e=>setAmountUi(e.target.value)} />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField fullWidth label="Slippage (bps)" value={slip} onChange={e=>setSlip(e.target.value)} />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField select fullWidth label="Mode" value={mode} onChange={e=>setMode(e.target.value)}>
+              <MenuItem value="ExactIn">ExactIn</MenuItem>
+              <MenuItem value="ExactOut">ExactOut</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={12}>
+            <FormControlLabel control={<Switch checked={restrict} onChange={e=>setRestrict(e.target.checked)} />} label="Restrict intermediate tokens" />
+          </Grid>
+          <Grid item xs={12}>
+            <Stack direction="row" spacing={1}>
+              <Button variant="outlined" onClick={doQuote}>Quote</Button>
+              <Button variant="contained" disabled={!quote || sending} onClick={doSwap}>
+                {sending ? 'Swapping…' : 'Swap'}
+              </Button>
+            </Stack>
+          </Grid>
+        </Grid>
+      </MainCard>
+
+      {quote && (
+        <MainCard title="Quote">
+          <Typography variant="body2">outAmount (atoms): <b>{quote.outAmount}</b></Typography>
+          <Typography variant="body2">otherAmountThreshold: <b>{quote.otherAmountThreshold}</b></Typography>
+          <Typography variant="body2">priceImpactPct: <b>{quote.priceImpactPct}</b></Typography>
+        </MainCard>
+      )}
+
+      {sig && (
+        <MainCard title="Broadcast">
+          <Typography variant="body2">Signature: <code>{sig}</code></Typography>
+        </MainCard>
+      )}
+    </Stack>
   );
 }
 
@@ -201,7 +290,7 @@ export default function JupiterPage() {
         </Stack>
       )}
       {tab === 1 && <PerpsTabPlaceholder />}
-      {tab === 2 && <SwapsTabPlaceholder />}
+      {tab === 2 && <SwapsTab />}
     </Stack>
   );
 }

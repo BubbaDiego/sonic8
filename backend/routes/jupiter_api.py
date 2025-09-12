@@ -10,6 +10,8 @@ from backend.services.jupiter_trigger import (
     MINTS, compute_amounts, create_order_and_tx, sign_tx_b64,
     broadcast_via_rpc, broadcast_via_execute, get_orders, cancel_order
 )
+from backend.services.jupiter_swap import get_quote, build_swap_tx, sign_and_send
+from backend.services.profit_watcher import WATCHER
 
 router = APIRouter(prefix="/api/jupiter", tags=["jupiter"])
 
@@ -99,3 +101,77 @@ def perps_attach_trigger(_req: PerpAttachRequest):
 def perps_positions():
     # Placeholder list
     return {'positions': []}
+
+# --- SWAP API (headless) ---
+class SwapQuoteReq(BaseModel):
+    inputMint: str
+    outputMint: str
+    amount: int           # atomic units (respect inputMint decimals)
+    slippageBps: int = 50
+    swapMode: str = "ExactIn"
+    restrictIntermediates: bool = True
+
+
+@router.post('/swap/quote')
+def swap_quote(req: SwapQuoteReq):
+    return get_quote(
+        input_mint=req.inputMint,
+        output_mint=req.outputMint,
+        amount=req.amount,
+        swap_mode=req.swapMode,
+        slippage_bps=req.slippageBps,
+        restrict_intermediates=req.restrictIntermediates,
+    )
+
+
+class SwapExecReq(BaseModel):
+    # Either pass {inputMint, outputMint, amount,...} to auto-quote,
+    # or provide a full quoteResponse you obtained earlier.
+    inputMint: Optional[str] = None
+    outputMint: Optional[str] = None
+    amount: Optional[int] = None
+    slippageBps: int = 50
+    swapMode: str = "ExactIn"
+    restrictIntermediates: bool = True
+    quoteResponse: Optional[dict] = None
+    dynamicSlippageMaxBps: Optional[int] = None
+    jitoTipLamports: Optional[int] = None
+
+
+@router.post('/swap/execute')
+def swap_execute(req: SwapExecReq):
+    wallet = load_signer()
+    qr = req.quoteResponse or get_quote(
+        input_mint=req.inputMint, output_mint=req.outputMint, amount=req.amount,
+        swap_mode=req.swapMode, slippage_bps=req.slippageBps,
+        restrict_intermediates=req.restrictIntermediates,
+    )
+    tx_resp = build_swap_tx(
+        quote_response=qr,
+        user_pubkey=str(wallet.pubkey()),
+        dynamic_slippage_max_bps=req.dynamicSlippageMaxBps,
+        jito_tip_lamports=req.jitoTipLamports,
+        wrap_unwrap_sol=True,
+    )
+    tx_b64 = tx_resp.get('swapTransaction') or tx_resp.get('transaction')
+    if not tx_b64:
+        raise HTTPException(500, f"Jupiter swap build had no transaction field: {tx_resp}")
+    sent = sign_and_send(tx_b64, wallet)
+    return {"signature": sent["signature"], "quote": qr, "txMeta": {k: v for k, v in tx_resp.items() if k not in ('swapTransaction', 'transaction')}}
+
+
+@router.post('/swap/watcher/start')
+def watcher_start():
+    WATCHER.start()
+    return WATCHER.status()
+
+
+@router.post('/swap/watcher/stop')
+def watcher_stop():
+    WATCHER.stop()
+    return WATCHER.status()
+
+
+@router.get('/swap/watcher/status')
+def watcher_status():
+    return WATCHER.status()
