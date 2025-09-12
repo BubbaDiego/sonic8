@@ -6,6 +6,7 @@ import sonicLabs from './sonic-labs';
 import traderFactory from './traderFactory';
 import kanban from './kanban';
 import sonic from './sonic';
+import jupiter from './jupiter';
 
 const menuItems = {
   items: [
@@ -20,6 +21,7 @@ const menuItems = {
         walletManager,
         kanban,
         sonicLabs,
+        jupiter,
         traderFactory,
         dashboardDefault
       ]
