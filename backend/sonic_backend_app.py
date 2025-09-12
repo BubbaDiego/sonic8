@@ -6,21 +6,17 @@ import asyncio
 from utils.console_title import set_console_title
 set_console_title("Sonic - FastAPI Backend")
 
-# --- WINDOWS EVENT‑LOOP PATCH --------------------------------------------- #
-
-# Ensure the Proactor policy is used on Windows (Python 3 default, but explicit
-# for clarity).
+# --- WINDOWS EVENT-LOOP PATCH --------------------------------------------- #
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-try:  # pragma: no cover - optional dependency
+# dotenv (optional)
+try:
     from dotenv import load_dotenv
-except Exception:  # pragma: no cover - fallback if dotenv is missing
-
+except Exception:  # no dotenv available
     def load_dotenv(*_a, **_k):
         return False
 
-# Load environment variables before importing modules that rely on them
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if not load_dotenv(ROOT_DIR / ".env"):
     load_dotenv(ROOT_DIR / ".env.example")
@@ -28,6 +24,7 @@ if not load_dotenv(ROOT_DIR / ".env"):
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Routers (imports only; include AFTER app = FastAPI)
 from backend.routes.positions_api import router as positions_router
 from backend.routes.portfolio_api import (
     router as portfolio_router,
@@ -50,19 +47,21 @@ from backend.routes.market_api import router as market_router
 from backend.routes.prices_api import router as prices_router
 from backend.routes.solana_api import router as solana_router
 from backend.routes.wallet_verify_api import router as wallet_verify_router
-
 from backend.routes.liquidation_distance_api import router as liquidation_distance_router
-
-# 🔥 NEW ROUTER IMPORT
 from backend.routes.monitor_api_adapter import router as monitor_router
-from backend.routes.auto_core_api import router as auto_core_router
+from backend.routes.auto_core_api import router as auto_core_router  # <-- Auto Core routes
 from backend.core.fun_core.fun_router import router as fun_core_router
 from backend.routers import jupiter
+
+# Optional prewarm
 try:
     from backend.core.fun_core.monitor import prewarm
-except Exception:  # pragma: no cover - optional
+except Exception:
     prewarm = None
 
+# --------------------------------------------------------------------------
+# Create app FIRST, then include routers
+# --------------------------------------------------------------------------
 app = FastAPI(title="Sonic API")
 
 if prewarm and os.getenv("FUN_CORE_MONITOR") == "1":
@@ -75,7 +74,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:3002",
-        "*"
+        "*",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -101,22 +100,20 @@ app.include_router(market_router)
 app.include_router(prices_router)
 app.include_router(solana_router)
 app.include_router(wallet_verify_router)
-app.include_router(jupiter.router, prefix="/api")  # Required for existing API compatibility; do not remove
 
-# 🔥 FIXED HERE: REMOVED EXTRA PREFIX "/api"
+# Jupiter legacy API stays under /api for compatibility
+app.include_router(jupiter.router, prefix="/api")
+
+# Monitor status without extra /api prefix (as in your existing setup)
 app.include_router(monitor_status_router)
 
-# ------------------------------------------------------------------ #
-# Alias so /monitor_status/ works (underscores, no /api) – temporary
-# ------------------------------------------------------------------ #
+# Temporary alias route for /monitor_status/ (underscore path)
 from backend.routes.monitor_status_api import get_status as _monitor_status_get
 app.add_api_route("/monitor_status/", _monitor_status_get, methods=["GET"])
 
-
-
-# 🔥 REGISTER THE NEW ROUTER
+# NEW /api/auto-core/* routes (Open/Connect/Status etc.)
 app.include_router(monitor_router)
-app.include_router(auto_core_router)
+app.include_router(auto_core_router)  # <-- mounted once, after app is defined
 app.include_router(fun_core_router)
 
 @app.get("/api/status")

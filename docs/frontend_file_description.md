@@ -47,7 +47,7 @@ files.
 - **lib/** – Domain specific utilities and helper libraries.
 - **menu-items/** – Definitions used to build the sidebar navigation menu.
 - **reportWebVitals.js** – Vite's performance reporting helper.
-- **routes/** – React Router route groupings for authentication and dashboard pages.
+- **routes/** – React Router route groupings for authentica[SonicLabsPage.jsx](../frontend/src/views/sonicLabs/SonicLabsPage.jsx)tion and dashboard pages.
 - **serviceWorker.jsx** – Register/unregister functions for PWA service worker.
 - **store/** – Redux store setup and slice definitions.
   - **slices/** – Reducer logic for features like snackbar notifications.
