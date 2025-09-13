@@ -7,7 +7,7 @@ import MainCard from 'ui-component/cards/MainCard';
 import {
   // triggers (stubs kept for completeness)
   createSpotTrigger, listSpotTriggers, cancelSpotTrigger,
-  // swaps
+  // swaps  HI MOM
   swapQuote, swapExecute, getUsdPrice,
   // wallet & portfolio
   whoami, signerInfo, walletPortfolio, estimateSolSpend,
