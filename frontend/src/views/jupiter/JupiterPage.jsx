@@ -83,7 +83,8 @@ function WalletCard() {
         <Stack spacing={1}>
           <Typography variant="body2">Pubkey: <code>{short(pub)}</code></Typography>
           {portfolio.data?.items?.map((it) => {
-            const usdText = it.usd == null ? '—' : `$${(it.usd).toFixed(2)}`;
+            const usdValue = it.usd ?? it.amount;
+            const usdText = usdValue == null ? '—' : `$${usdValue.toFixed(2)}`;
             return (
               <Typography key={it.mint} variant="body2">
                 {it.sym}: <b>{fmt(it.amount)}</b>{' '}
