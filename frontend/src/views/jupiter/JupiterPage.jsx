@@ -5,13 +5,11 @@ import { enqueueSnackbar } from 'notistack';
 
 import MainCard from 'ui-component/cards/MainCard';
 import {
-  // triggers (stubs kept for completeness)
-  createSpotTrigger, listSpotTriggers, cancelSpotTrigger,
-  // swaps  HI MOM
+  // swaps + helpers
   swapQuote, swapExecute, getUsdPrice,
   // wallet & portfolio
   whoami, signerInfo, walletPortfolio, estimateSolSpend,
-  // txlog
+  // txlog (projected vs actual profit)
   txlogLatest, txlogList
 } from 'api/jupiter';
 
@@ -20,11 +18,9 @@ import {
   MenuItem, FormControlLabel, Switch, Divider, Tooltip, IconButton
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import MarketsPanel from 'components/jupiter/Perps/MarketsPanel';
-import PositionsPanel from 'components/jupiter/Perps/PositionsPanel';
 
 /* ------------------------------------------------------------------ */
-/* Tokens                                                              */
+/* Token directory                                                     */
 /* ------------------------------------------------------------------ */
 const TOKENS = [
   { sym: 'SOL',     mint: 'So11111111111111111111111111111111111111112', decimals: 9 },
@@ -40,7 +36,7 @@ const fmt = (n, dp = 6) => Number(n || 0).toLocaleString(undefined, { maximumFra
 const pct = (x) => (Number(x || 0) * 100).toLocaleString(undefined, { maximumFractionDigits: 4 }) + '%';
 
 /* ------------------------------------------------------------------ */
-/* Spot Triggers — compact stubs                                       */
+/* Stubs for the other tabs                                            */
 /* ------------------------------------------------------------------ */
 function SpotTriggerForm() { return null; }
 function SpotTriggerTable() { return null; }
@@ -119,7 +115,11 @@ function QuoteCard({ quote, rt, inSym, outSym }) {
     return { text: `${e.toFixed(2)} bps`, color: 'error', tip };
   })();
 
-  const Pill = <Tooltip title={pill.tip}><Chip color={pill.color} label={pill.text} /></Tooltip>;
+  const Pill = (
+    <Tooltip title={pill.tip}>
+      <Chip color={pill.color} label={pill.text} />
+    </Tooltip>
+  );
 
   return (
     <MainCard title="Quote" secondary={Pill}>
@@ -128,7 +128,9 @@ function QuoteCard({ quote, rt, inSym, outSym }) {
           <Stack direction="row" alignItems="center" spacing={0.5}>
             <Typography variant="body2">
               outAmount (atoms): <b>{quote.outAmount}</b>{' '}
-              <span style={{ opacity: 0.8 }}>({fmt(atomsToUi(quote.outAmount, outDec))} {outSym})</span>
+              <span style={{ opacity: 0.8 }}>
+                ({fmt(atomsToUi(quote.outAmount, outDec))} {outSym})
+              </span>
             </Typography>
             <Tooltip title="Estimated output for A→B at quote time (not guaranteed by slippage).">
               <IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton>
@@ -138,7 +140,9 @@ function QuoteCard({ quote, rt, inSym, outSym }) {
           <Stack direction="row" alignItems="center" spacing={0.5}>
             <Typography variant="body2">
               otherAmountThreshold: <b>{quote.otherAmountThreshold}</b>{' '}
-              <span style={{ opacity: 0.8 }}>({fmt(atomsToUi(quote.otherAmountThreshold, outDec))} {outSym})</span>
+              <span style={{ opacity: 0.8 }}>
+                ({fmt(atomsToUi(quote.otherAmountThreshold, outDec))} {outSym})
+              </span>
             </Typography>
             <Tooltip title="Guaranteed min-out for A→B given your slippage (we rely on this).">
               <IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton>
@@ -156,37 +160,17 @@ function QuoteCard({ quote, rt, inSym, outSym }) {
             <>
               <Divider sx={{ my: 1 }} />
               <Typography variant="subtitle2">Round-trip (A→B→A) analysis</Typography>
-
-              <Stack direction="row" alignItems="center" spacing={0.5}>
-                <Typography variant="body2">
-                  A→B minOut (B): <b>{rt.a2bMinOut}</b>{' '}
-                  <span style={{ opacity: 0.8 }}>({fmt(atomsToUi(rt.a2bMinOut, outDec))} {outSym})</span>
-                </Typography>
-                <Tooltip title="We use A→B's minOut as the input for the reverse leg.">
-                  <IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton>
-                </Tooltip>
-              </Stack>
-
-              <Stack direction="row" alignItems="center" spacing={0.5}>
-                <Typography variant="body2">
-                  B→A minOut (A): <b>{rt.b2aMinOut}</b>{' '}
-                  <span style={{ opacity: 0.8 }}>({fmt(atomsToUi(rt.b2aMinOut, inDec))} {inSym})</span>
-                </Typography>
-                <Tooltip title="Guaranteed minOut for the reverse leg using that input.">
-                  <IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton>
-                </Tooltip>
-              </Stack>
-
-              <Stack direction="row" alignItems="center" spacing={0.5}>
-                <Typography variant="body2">
-                  Edge: <b>{(rt.edgeTokens ?? 0).toLocaleString()}</b> atoms of {inSym}{' '}
-                  <span style={{ opacity: 0.8 }}>(~ ${fmt(rt.edgeUsd ?? 0, 3)})</span>
-                </Typography>
-                <Tooltip title="Edge atoms = (B→A minOut) − initial A. Edge bps = Edge atoms ÷ initial A × 10,000.">
-                  <IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton>
-                </Tooltip>
-              </Stack>
-
+              <Typography variant="body2">
+                A→B minOut (B): <b>{rt.a2bMinOut}</b>{' '}
+                <span style={{ opacity: 0.8 }}>({fmt(atomsToUi(rt.a2bMinOut, outDec))} {outSym})</span>
+              </Typography>
+              <Typography variant="body2">
+                B→A minOut (A): <b>{rt.b2aMinOut}</b>{' '}
+                <span style={{ opacity: 0.8 }}>({fmt(atomsToUi(rt.b2aMinOut, inDec))} {inSym})</span>
+              </Typography>
+              <Typography variant="body2">
+                Edge: <b>{(rt.edgeTokens ?? 0).toLocaleString()}</b> atoms of {inSym} (~ ${fmt(rt.edgeUsd ?? 0, 3)})
+              </Typography>
               <Typography variant="caption" color="textSecondary">
                 Uses <b>strict minOut</b> on both legs; sequential, not atomic (may fail if price moves).
               </Typography>
@@ -222,8 +206,9 @@ function TransactionCard({ log, onClear, onCopy }) {
 
       {tab === 0 && (
         <Box ref={boxRef} sx={{ fontFamily:'ui-monospace, Menlo, Consolas, monospace', fontSize:12, lineHeight:1.4, maxHeight:220, overflowY:'auto', p:1, bgcolor:'background.default', borderRadius:1, border:(t)=>`1px solid ${t.palette.divider}` }}>
-          {log.length === 0 ? <Typography variant="body2" color="textSecondary">No activity yet.</Typography> :
-            log.map((r,i)=>(<div key={i} style={{whiteSpace:'pre-wrap'}}><span style={{color:'#888'}}>{r.ts}</span> <b>[{r.level}]</b> <span>{r.msg}</span></div>))}
+          {log.length === 0
+            ? <Typography variant="body2" color="textSecondary">No activity yet.</Typography>
+            : log.map((r,i)=>(<div key={i} style={{whiteSpace:'pre-wrap'}}><span style={{color:'#888'}}>{r.ts}</span> <b>[{r.level}]</b> <span>{r.msg}</span></div>))}
         </Box>
       )}
 
@@ -307,12 +292,6 @@ function SwapsTab() {
 
   const [txLog, setTxLog] = useState([]);
   const pushLog = (msg, level = 'info') => setTxLog((p) => [...p, { ts: new Date().toLocaleTimeString(), level, msg }]);
-  const clearLog = () => setTxLog([]);
-  const copyLog  = async () => {
-    const text = txLog.map((r) => `${r.ts} [${r.level}] ${r.msg}`).join('\n');
-    try { await navigator.clipboard.writeText(text); enqueueSnackbar('Transaction log copied', { variant: 'success' }); }
-    catch { enqueueSnackbar('Copy failed', { variant: 'error' }); }
-  };
 
   const [est, setEst] = useState(null);
   useEffect(() => {
@@ -327,8 +306,15 @@ function SwapsTab() {
     })();
     return () => { alive = false; };
   }, [inSym, outSym]);
+
   const overMax = est && inSym === 'SOL' && Number(amountUi || 0) > (est.safeMaxSol || 0);
-  const setMax  = () => { if (est?.safeMaxSol) { const v = Math.max(0, est.safeMaxSol - 0.0005); setAmountUi(v.toFixed(6)); pushLog(`Set amount to safe max: ${v.toFixed(6)} SOL`); } };
+  const setMax  = () => {
+    if (est?.safeMaxSol) {
+      const v = Math.max(0, est.safeMaxSol - 0.0005);
+      setAmountUi(v.toFixed(6));
+      enqueueSnackbar(`Set to safe max: ${v.toFixed(6)} SOL`, { variant: 'info' });
+    }
+  };
 
   async function computeRoundTrip(a2bQuote, amountAtoms) {
     try {
@@ -374,10 +360,6 @@ function SwapsTab() {
       pushLog('Swap: building + sending…');
       const r = await swapExecute({ quoteResponse: quote });
       setSig(r.signature); pushLog(`Swap sent: ${r.signature}`, 'success');
-      await Promise.allSettled([
-        queryClient.invalidateQueries({ queryKey: ['txlogLatest'] }),
-        queryClient.invalidateQueries({ queryKey: ['txlogList'] })
-      ]);
       enqueueSnackbar('Swap sent', { variant: 'success' });
     } catch (e) {
       pushLog(`Swap error: ${e?.message || String(e)}`, 'error');
@@ -388,50 +370,107 @@ function SwapsTab() {
 
   return (
     <Stack spacing={2}>
+      {/* SWAP FORM (no tabs here; tabs live in JupiterPage wrapper) */}
       <MainCard title="Headless Swap">
         <Grid container spacing={2}>
-          <Grid item xs={12} md={3}><TextField select fullWidth label="Token In" value={inSym} onChange={(e)=>setInSym(e.target.value)}>{TOKENS.map(t => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}</TextField></Grid>
-          <Grid item xs={12} md={3}><TextField select fullWidth label="Token Out" value={outSym} onChange={(e)=>setOutSym(e.target.value)}>{TOKENS.map(t => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}</TextField></Grid>
-          <Grid item xs={12} md={2}><TextField fullWidth label="Amount (in)" value={amountUi} onChange={(e)=>setAmountUi(e.target.value)} helperText={usdPrice?`≈ $${(Number(amountUi||0)*usdPrice).toLocaleString(undefined,{maximumFractionDigits:2})}`:' '} /></Grid>
+          <Grid item xs={12} md={3}>
+            <TextField select fullWidth label="Token In" value={inSym} onChange={(e)=>setInSym(e.target.value)}>
+              {TOKENS.map((t) => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField select fullWidth label="Token Out" value={outSym} onChange={(e)=>setOutSym(e.target.value)}>
+              {TOKENS.map((t) => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField fullWidth label="Amount (in)" value={amountUi} onChange={(e)=>setAmountUi(e.target.value)}
+              helperText={usdPrice ? `≈ $${(Number(amountUi || 0) * usdPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ' '} />
+          </Grid>
           <Grid item xs={12} md={2}><TextField fullWidth label="Slippage (bps)" value={slip} onChange={(e)=>setSlip(e.target.value)} /></Grid>
-          <Grid item xs={12} md={2}><TextField fullWidth label="Profit thresh (bps)" value={thresh} onChange={(e)=>setThresh(Number(e.target.value||0))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth label="Profit thresh (bps)" value={thresh} onChange={(e)=>setThresh(Number(e.target.value || 0))} /></Grid>
           <Grid item xs={12}><FormControlLabel control={<Switch checked={restrict} onChange={(e)=>setRestrict(e.target.checked)} />} label="Restrict intermediate tokens" /></Grid>
-          <Grid item xs={12}><Stack direction="row" spacing={1} alignItems="center"><Button variant="outlined" onClick={doQuote} disabled={overMax}>Quote</Button><Button variant="contained" onClick={doSwap} disabled={!quote||sending||overMax}>{sending?'Swapping…':'Swap'}</Button>{inSym==='SOL'&&est&&<Button variant="text" onClick={setMax}>Max (safe)</Button>}{overMax&&<Chip color="warning" label="Over safe max — lower amount" />}</Stack></Grid>
+          <Grid item xs={12}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Button variant="outlined" onClick={doQuote} disabled={overMax}>Quote</Button>
+              <Button variant="contained" onClick={doSwap} disabled={!quote || sending || overMax}>
+                {sending ? 'Swapping…' : 'Swap'}
+              </Button>
+              {inSym === 'SOL' && est && <Button variant="text" onClick={setMax}>Max (safe)</Button>}
+              {overMax && <Chip color="warning" label="Over safe max — lower amount" />}
+            </Stack>
+          </Grid>
         </Grid>
-        {inSym==='SOL'&&est&&(<Box sx={{mt:1}}><Typography variant="caption" color="textSecondary">Available to swap (est): <b>{est.safeMaxSol.toFixed(6)} SOL</b> • Rent WSOL: {(est.rentWsolLamports/1e9).toFixed(6)}{est.needOutAta?` • Rent ${outSym} ATA: ${(est.rentOutAtaLamports/1e9).toFixed(6)}`:''} • Buffer: {(est.bufferLamports/1e9).toFixed(6)}</Typography></Box>)}
+        {inSym === 'SOL' && est && (
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="caption" color="textSecondary">
+              Available to swap (est): <b>{est.safeMaxSol.toFixed(6)} SOL</b> • Rent WSOL: {(est.rentWsolLamports/1e9).toFixed(6)}
+              {est.needOutAta ? ` • Rent ${outSym} ATA: ${(est.rentOutAtaLamports/1e9).toFixed(6)}` : ''} • Buffer: {(est.bufferLamports/1e9).toFixed(6)}
+            </Typography>
+          </Box>
+        )}
       </MainCard>
 
+      {/* Three equal cards: Quote | Wallet | Transaction */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={4}><QuoteCard quote={quote} rt={rt&&{...rt, ok:(rt.edgeBps??-1)>=thresh}} inSym={inSym} outSym={outSym} /></Grid>
+        <Grid item xs={12} md={4}><QuoteCard quote={quote} rt={rt && { ...rt, ok: (rt.edgeBps ?? -1) >= thresh }} inSym={inSym} outSym={outSym} /></Grid>
         <Grid item xs={12} md={4}><WalletCard /></Grid>
-        <Grid item xs={12} md={4}><TransactionCard log={txLog} onClear={clearLog} onCopy={copyLog} /></Grid>
+        <Grid item xs={12} md={4}>
+          <TransactionCard
+            log={txLog}
+            onClear={() => setTxLog([])}
+            onCopy={async () => {
+              const text = txLog.map((r) => `${r.ts} [${r.level}] ${r.msg}`).join('\n');
+              try { await navigator.clipboard.writeText(text); enqueueSnackbar('Transaction log copied', { variant: 'success' }); }
+              catch { enqueueSnackbar('Copy failed', { variant: 'error' }); }
+            }}
+          />
+        </Grid>
       </Grid>
-
-      {sig && <MainCard title="Broadcast"><Typography variant="body2">Signature: <code>{sig}</code></Typography></MainCard>}
     </Stack>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Page wrapper                                                        */
+/* Page wrapper (header with image + tabs lives here)                  */
 /* ------------------------------------------------------------------ */
 export default function JupiterPage() {
-  const [tab, setTab] = useState(2);
+  const [tab, setTab] = useState(2); // land on Swaps by default
+
   return (
     <Stack spacing={2}>
-      <MainCard title="Jupiter" secondary={<Chip color="primary" label="Headless" />}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable">
+      {/* Header WITHOUT breadcrumbs + Jupiter image on the left */}
+      <MainCard content={false}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 2 }}>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <img
+              src="/static/images/jupiter.jpg"   // ensure file exists at /static/images/jupiter.jpg
+              alt="Jupiter"
+              width={28}
+              height={28}
+              style={{ objectFit: 'cover', borderRadius: 6 }}
+            />
+            <Typography variant="h5" fontWeight={700}>Jupiter</Typography>
+          </Stack>
+          <Chip color="primary" label="Headless" />
+        </Box>
+
+        <Divider sx={{ mt: 2 }} />
+
+        {/* Tabs live here so 'tab' is in scope */}
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" sx={{ px: 2 }}>
           <Tab label="Spot Triggers" />
           <Tab label="Perps TP/SL" />
           <Tab label="Swaps" />
         </Tabs>
       </MainCard>
-      {tab === 0 && <><SpotTriggerForm/><SpotTriggerTable/></>}
+
+      {/* Tab content */}
+      {tab === 0 && <><SpotTriggerForm /><SpotTriggerTable /></>}
       {tab === 1 && (
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}><MarketsPanel /></Grid>
-          <Grid item xs={12} md={6}><PositionsPanel /></Grid>
-        </Grid>
+        <MainCard title="Perps TP / SL">
+          <Typography variant="body2">Read-only perps is coming online. We’ll populate Markets & Positions here.</Typography>
+        </MainCard>
       )}
       {tab === 2 && <SwapsTab />}
     </Stack>

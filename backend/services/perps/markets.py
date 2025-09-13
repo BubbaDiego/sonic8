@@ -1,64 +1,77 @@
+# backend/services/perps/markets.py
 from __future__ import annotations
 
 from typing import Any, Dict
+from dataclasses import asdict, is_dataclass
 
 from backend.services.perps.client import get_perps_program
-from backend.services.perps.util import (
-    fetch_accounts_of_type,
-    idl_account_names,
-)
+
+
+def _to_jsonish(x: Any) -> Any:
+    try:
+        if is_dataclass(x):
+            return asdict(x)
+    except Exception:
+        pass
+    try:
+        return x.__dict__
+    except Exception:
+        return x
+
+
+def _account_client(program, target_name: str):
+    """
+    Return program.account[<name>] by case-insensitive match, with a good error if missing.
+    """
+    names = [acc.name for acc in (program.idl.accounts or [])]
+    for n in names:
+        if n.lower() == target_name.lower():
+            return program.account[n]
+    raise RuntimeError(f"IDL has no account '{target_name}'. Available: {names}")
 
 
 async def list_markets() -> Dict[str, Any]:
     """
-    Reads Perps 'Pool' and 'Custody' accounts using raw getProgramAccounts +
-    Anchor decode (works with Helius or standard RPC).
+    Reads Perps 'Pool' and 'Custody' accounts and returns a compact markets view.
     """
     program, client = await get_perps_program()
     try:
-        names = idl_account_names(program)
-        pools, custodies = [], []
-
-        # choose best matching account names (case-insensitive)
-        pool_name = next((n for n in names if n.lower() == "pool"), None)
-        custody_name = next((n for n in names if n.lower() == "custody"), None)
-
-        if not pool_name or not custody_name:
-            return {"ok": False, "error": f"IDL accounts not found. Have: {names}"}
+        pools = []
+        custodies = []
 
         try:
-            rows = await fetch_accounts_of_type(program, pool_name)
-            pools = [{"pubkey": pk, "data": row} for pk, row in rows]
+            pool_client = _account_client(program, "Pool")
+            acc = await pool_client.all()
+            for a in acc:
+                pools.append({
+                    "pubkey": str(a.pubkey),
+                    "data": _to_jsonish(a.account),
+                })
         except Exception as e:
             pools = [{"error": f"Pool fetch failed: {type(e).__name__}: {e}"}]
 
         try:
-            rows = await fetch_accounts_of_type(program, custody_name)
-            custodies = []
-            for pk, row in rows:
-                mint = row.get("mint") if isinstance(row, dict) else None
-                decimals = row.get("decimals") if isinstance(row, dict) else None
-                custodies.append(
-                    {
-                        "pubkey": pk,
-                        "mint": mint,
-                        "decimals": decimals,
-                        "data": row,
-                    }
-                )
+            custody_client = _account_client(program, "Custody")
+            acc = await custody_client.all()
+            for a in acc:
+                j = _to_jsonish(a.account)
+                mint = j.get("mint") if isinstance(j, dict) else None
+                decimals = j.get("decimals") if isinstance(j, dict) else None
+                custodies.append({
+                    "pubkey": str(a.pubkey),
+                    "mint": mint,
+                    "decimals": decimals,
+                    "data": j,
+                })
         except Exception as e:
-            custodies = [
-                {"error": f"Custody fetch failed: {type(e).__name__}: {e}"}
-            ]
+            custodies = [{"error": f"Custody fetch failed: {type(e).__name__}: {e}"}]
 
         return {
             "ok": True,
-            "accounts": names,
-            "poolsCount": len(pools),
-            "custodiesCount": len(custodies),
+            "poolsCount": len(pools) if isinstance(pools, list) else 0,
+            "custodiesCount": len(custodies) if isinstance(custodies, list) else 0,
             "pools": pools,
             "custodies": custodies,
         }
     finally:
         await client.close()
-

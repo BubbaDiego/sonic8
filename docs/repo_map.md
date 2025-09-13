@@ -157,7 +157,7 @@ sonic1/
 │   │   ├── scan_imports.py
 │   │   ├── send_sms_demo.py
 │   │   ├── setup_test_env.py
-│   │   ├── twilio_run.py
+│   │   ├── twilio_run.py[04_api_quick.md](teaching_pack/04_api_quick.md)
 │   │   ├── verify_all_tables_exist.py
 │   │   ├── verify_position_schema.py
 │   │   ├── verify_profit_alert.py

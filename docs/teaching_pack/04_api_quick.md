@@ -7,4 +7,4 @@
 
 - **POST /alerts/liquidations** — Create Liquidation Alert
 - **POST /orders** — Create Order
-- **POST /positions/{position_id}/adjust** — Adjust Position
+- **POST /positions/{positi[frontend_file_description.md](../frontend_file_description.md)on_id}/adjust** — Adjust Position

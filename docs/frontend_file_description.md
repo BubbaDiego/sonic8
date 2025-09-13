@@ -57,7 +57,7 @@ files.
 - **ui-component/** – Shared UI components used across pages (cards, forms, third‑party widgets).
 - **utils/** – Helper functions, localization files, and route guards.
   - **locales/** – JSON translation files (en, fr, etc.).
-  - **route-guard/** – Higher order components enforcing auth/guest access.
+  - **route-guard/** – Hig[repo_map.md](repo_map.md)her order components enforcing auth/guest access.
 - **views/** – Page level React components organized by domain.
   - **pages/** – Authentication and maintenance pages.
   - **overview/** – Blank page template for new routes.
