@@ -1,43 +1,50 @@
-// src/api/jupiter.js
-import client from 'lib/api/sonicClient';
+async function http(method, path, body, params) {
+  const url = new URL(path, window.location.origin);
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+    });
+  }
+  const res = await fetch(url.toString(), {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
 
-export async function createSpotTrigger(payload) {
-  const { data } = await client.post('/api/jupiter/trigger/create', payload);
+  const text = await res.text();
+  let data = {};
+  if (text) {
+    try { data = JSON.parse(text); }
+    catch { if (!res.ok) throw new Error(text || `HTTP ${res.status}`); return text; }
+  }
+  if (!res.ok) throw new Error(data?.detail || data?.message || `HTTP ${res.status}`);
   return data;
 }
 
-export async function listSpotTriggers(params = {}) {
-  const { data } = await client.get('/api/jupiter/trigger/orders', { params });
-  return data;
-}
+/* Triggers */
+export const createSpotTrigger = (payload) => http('POST', '/api/jupiter/trigger/create', payload);
+export const listSpotTriggers = (params = {}) => http('GET', '/api/jupiter/trigger/orders', null, params);
+export const cancelSpotTrigger = (payload) => http('POST', '/api/jupiter/trigger/cancel', payload);
 
-export async function cancelSpotTrigger(payload) {
-  const { data } = await client.post('/api/jupiter/trigger/cancel', payload);
-  return data;
-}
+/* Swaps */
+export const swapQuote   = (payload) => http('POST', '/api/jupiter/swap/quote', payload);
+export const swapExecute = (payload) => http('POST', '/api/jupiter/swap/execute', payload);
 
-export async function swapQuote(payload) {
-  const { data } = await client.post('/api/jupiter/swap/quote', payload);
-  return data;
-}
+/* Prices / Wallet */
+export const getUsdPrice      = (id, vs = 'USDC') => http('GET', '/api/jupiter/price', null, { id, vs });
+export const whoami           = () => http('GET', '/api/jupiter/whoami');
+export const walletBalance    = () => http('GET', '/api/jupiter/wallet/balance');
+export const estimateSolSpend = (outMint) => http('GET', '/api/jupiter/wallet/estimate-sol-spend', null, { outMint });
+export const walletPortfolio  = (mintsCsv) => http('GET', '/api/jupiter/wallet/portfolio', null, mintsCsv ? { mints: mintsCsv } : undefined);
 
-export async function swapExecute(payload) {
-  const { data } = await client.post('/api/jupiter/swap/execute', payload);
-  return data;
-}
+/* Txlog */
+export const txlogList   = (limit=50) => http('GET', '/api/jupiter/txlog', null, { limit });
+export const txlogLatest = () => http('GET', '/api/jupiter/txlog/latest');
+export const txlogBySig  = (sig) => http('GET', '/api/jupiter/txlog/by-sig', null, { sig });
 
-// Perps (skeleton)
-export async function attachPerpTrigger(payload) {
-  const { data } = await client.post('/api/jupiter/perps/attach-trigger', payload);
-  return data;
-}
-
-export async function listPerpPositions() {
-  const { data } = await client.get('/api/jupiter/perps/positions');
-  return data;
-}
-
-export async function getUsdPrice(id, vs = 'USDC') {
-  const { data } = await client.get('/api/jupiter/price', { params: { id, vs } });
-  return data;
-}
+export default {
+  createSpotTrigger, listSpotTriggers, cancelSpotTrigger,
+  swapQuote, swapExecute, getUsdPrice,
+  whoami, walletBalance, estimateSolSpend, walletPortfolio,
+  txlogList, txlogLatest, txlogBySig
+};
