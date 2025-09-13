@@ -7,7 +7,7 @@ const jupiter = {
   type: 'item',
   url: '/jupiter',
   icon: 'icon-jupiter', // your icon resolver or leave as string
-  breadcrumbs: true
+  breadcrumbs: false
 };
 
 export default jupiter;
