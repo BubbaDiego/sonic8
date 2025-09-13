@@ -2,81 +2,63 @@
 from __future__ import annotations
 
 import base64
-import hashlib
 from typing import Dict, List
 
 from backend.services.perps.raw_rpc import _rpc, get_program_id, get_idl_account_names
+from backend.services.perps.config import get_disc, get_account_name
 
 
-def _disc(name: str) -> bytes:
-    # Anchor discriminator = first 8 bytes of sha256(b"account:" + name)
-    return hashlib.sha256(f"account:{name}".encode("utf-8")).digest()[:8]
-
-
-def _data_bytes(acc: dict) -> bytes:
-    """
-    Accept both Solana and Helius shapes:
-      - ["<b64>", "base64"]
-      - {"encoded":"<b64>", "encoding":"base64"}
-    """
-    data = acc.get("account", {}).get("data")
-    if isinstance(data, list) and data:
-        # ["<b64>", "base64"]
-        try:
-            return base64.b64decode(data[0])
-        except Exception:
-            return b""
-    if isinstance(data, dict) and "encoded" in data:
-        # {"encoded":"<b64>", "encoding":"base64"}
-        try:
-            return base64.b64decode(data["encoded"])
-        except Exception:
-            return b""
-    return b""
+def _filter_params(disc: bytes) -> dict:
+    """getProgramAccounts params object with memcmp filter on discriminator (offset=0)."""
+    return {
+        "encoding": "base64",
+        "filters": [
+            {"memcmp": {"offset": 0, "bytes": base64.b64encode(disc).decode("utf-8")}}
+        ],
+        "commitment": "confirmed"
+    }
 
 
 def list_markets_sync() -> Dict[str, object]:
     """
-    SAFE FALLBACK: return ONLY pubkeys of Pool and Custody accounts.
-    No Anchor decode (avoids IDL mismatch errors).
+    SAFE, FAST: return ONLY pubkeys of Pool and Custody accounts using
+    server-side memcmp filter on the Anchor discriminator. No Anchor decode.
     """
     program_id = get_program_id()
     idl_accounts = get_idl_account_names()
 
-    pool_name = next((n for n in idl_accounts if n.lower() == "pool"), None)
-    custody_name = next((n for n in idl_accounts if n.lower() == "custody"), None)
-    if not pool_name or not custody_name:
-        # still try with common names even if IDL is missing
-        pool_name = pool_name or "Pool"
-        custody_name = custody_name or "Custody"
+    # Allow overrides via env
+    pool_name_cfg = get_account_name("pool", "Pool")
+    cust_name_cfg = get_account_name("custody", "Custody")
+    pool_disc = get_disc("pool", pool_name_cfg)
+    cust_disc = get_disc("custody", cust_name_cfg)
 
-    res = _rpc("getProgramAccounts", [program_id, {"encoding": "base64"}])
-    rows = res or []
-
-    disc_pool = _disc(pool_name)
-    disc_cust = _disc(custody_name)
-
+    # Query Pool accounts
     pools: List[dict] = []
-    custodies: List[dict] = []
+    try:
+        res_pool = _rpc("getProgramAccounts", [program_id, _filter_params(pool_disc)])
+        for it in (res_pool or []):
+            pools.append({"pubkey": it.get("pubkey")})
+    except Exception as e:
+        return {"ok": False, "error": f"Pool GPA failed: {e}"}
 
-    for it in rows:
-        pk = it.get("pubkey")
-        raw = _data_bytes(it)
-        if len(raw) < 8:
-            continue
-        head = raw[:8]
-        if head == disc_pool:
-            pools.append({"pubkey": pk})
-        elif head == disc_cust:
-            custodies.append({"pubkey": pk})
+    # Query Custody accounts
+    custodies: List[dict] = []
+    try:
+        res_cust = _rpc("getProgramAccounts", [program_id, _filter_params(cust_disc)])
+        for it in (res_cust or []):
+            custodies.append({"pubkey": it.get("pubkey")})
+    except Exception as e:
+        return {"ok": False, "error": f"Custody GPA failed: {e}"}
 
     return {
         "ok": True,
         "programId": program_id,
-        "accounts": idl_accounts,
+        "accountsFromIDL": idl_accounts,
+        "usingAccountNames": {"pool": pool_name_cfg, "custody": cust_name_cfg},
         "poolsCount": len(pools),
         "custodiesCount": len(custodies),
         "pools": pools,
         "custodies": custodies,
-        "note": "pubkey-only fallback; replace IDL with canonical JSON to re-enable decode",
+        "note": "pubkey-only fallback with configurable discriminators; set PERPS_* envs if needed."
     }
