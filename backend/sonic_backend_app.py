@@ -53,6 +53,7 @@ from backend.routes.auto_core_api import router as auto_core_router  # <-- Auto 
 from backend.core.fun_core.fun_router import router as fun_core_router
 from backend.routers import jupiter
 from backend.routes.jupiter_api import router as jupiter_router
+from backend.routes.jupiter_perps_api import router as perps_router
 
 # Optional prewarm
 try:
@@ -102,6 +103,7 @@ app.include_router(prices_router)
 app.include_router(solana_router)
 app.include_router(wallet_verify_router)
 app.include_router(jupiter_router)
+app.include_router(perps_router)
 
 # Jupiter legacy API stays under /api for compatibility
 app.include_router(jupiter.router, prefix="/api")

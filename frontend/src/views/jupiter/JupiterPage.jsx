@@ -20,6 +20,8 @@ import {
   MenuItem, FormControlLabel, Switch, Divider, Tooltip, IconButton
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import MarketsPanel from 'components/jupiter/Perps/MarketsPanel';
+import PositionsPanel from 'components/jupiter/Perps/PositionsPanel';
 
 /* ------------------------------------------------------------------ */
 /* Tokens                                                              */
@@ -425,7 +427,12 @@ export default function JupiterPage() {
         </Tabs>
       </MainCard>
       {tab === 0 && <><SpotTriggerForm/><SpotTriggerTable/></>}
-      {tab === 1 && <MainCard title="Perps TP / SL"><Typography>Coming soon.</Typography></MainCard>}
+      {tab === 1 && (
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}><MarketsPanel /></Grid>
+          <Grid item xs={12} md={6}><PositionsPanel /></Grid>
+        </Grid>
+      )}
       {tab === 2 && <SwapsTab />}
     </Stack>
   );
