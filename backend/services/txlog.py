@@ -1,3 +1,4 @@
+# backend/services/txlog.py
 from __future__ import annotations
 
 import json
@@ -5,7 +6,7 @@ import os
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 TXLOG_DIR = Path(os.getenv("SONIC_DATA_DIR", "backend/data"))
 TXLOG_FILE = TXLOG_DIR / "jupiter_txlog.jsonl"
@@ -18,9 +19,8 @@ def _ensure_dir() -> None:
 
 
 def _jsonable(obj: Any) -> Any:
-    """Convert solders/solana/objects to JSON-serializable primitives."""
+    """Convert objects (solders, dataclasses, bytes…) to JSON-serializable primitives."""
     try:
-        import solders  # type: ignore
         from solders.signature import Signature as Sig  # type: ignore
         from solders.pubkey import Pubkey  # type: ignore
         if isinstance(obj, Sig) or isinstance(obj, Pubkey):
@@ -42,17 +42,17 @@ def _jsonable(obj: Any) -> Any:
 
 
 def append(entry: Dict[str, Any]) -> None:
-    """Append a single tx entry as JSONL (atomic enough for our usage)."""
+    """Append one entry to JSONL (atomic enough for our usage)."""
     _ensure_dir()
-    # add timestamp if missing
-    entry = {"ts": datetime.now(timezone.utc).isoformat(), **entry}
+    if "ts" not in entry:
+        entry["ts"] = datetime.now(timezone.utc).isoformat()
     line = json.dumps(_jsonable(entry), separators=(",", ":"))
     with open(TXLOG_FILE, "a", encoding="utf-8") as f:
         f.write(line + "\n")
 
 
 def read_last(limit: int = 50) -> List[Dict[str, Any]]:
-    """Read last N entries (simple reverse scan)."""
+    """Read last N entries (reverse scan)."""
     _ensure_dir()
     try:
         with open(TXLOG_FILE, "rb") as f:
@@ -84,14 +84,14 @@ def read_last(limit: int = 50) -> List[Dict[str, Any]]:
 
 
 def find_by_signature(sig: str) -> Optional[Dict[str, Any]]:
-    """Linear scan from end; fast enough for typical log sizes."""
+    """Linear scan from end; fine for our typical log sizes."""
     _ensure_dir()
     try:
         with open(TXLOG_FILE, "r", encoding="utf-8") as f:
             for line in reversed(f.readlines()):
                 try:
                     obj = json.loads(line)
-                    if obj.get("execution", {}).get("sig") == sig or obj.get("sig") == sig:
+                    if obj.get("execution", {}).get("sig") == sig or obj.get("signature") == sig:
                         return obj
                 except Exception:
                     continue

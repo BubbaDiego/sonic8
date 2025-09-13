@@ -1,9 +1,10 @@
+# backend/routes/jupiter_api.py
 from __future__ import annotations
 
 import os
 import time
 import requests
-from typing import Optional, Literal, List
+from typing import Optional, Literal, List, Tuple
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -11,16 +12,15 @@ from pydantic import BaseModel
 from backend.services.signer_loader import load_signer, signer_info, diagnose_signer
 from backend.services.jupiter_swap import (
     get_quote, build_swap_tx, sign_and_send,
-    get_wallet_balance_lamports, estimate_sol_spend_lamports,
-    get_portfolio, TOKENS, RPC_URL, project_round_trip, log_swap
+    get_wallet_balance_lamports, estimate_sol_spend_lamports, get_portfolio,
+    TOKENS, RPC_URL, project_round_trip, log_swap
 )
 from backend.services import txlog
 
 # Trigger API (optional)
 try:
     from backend.services.jupiter_trigger import (
-        MINTS, create_order_and_tx, sign_tx_b64,
-        broadcast_via_rpc, broadcast_via_execute, get_orders, cancel_order
+        MINTS, create_order_and_tx, sign_tx_b64, broadcast_via_rpc, broadcast_via_execute, get_orders, cancel_order
     )
     _TRIGGER_AVAILABLE = True
 except Exception:
@@ -28,17 +28,40 @@ except Exception:
 
 router = APIRouter(prefix="/api/jupiter", tags=["jupiter"])
 
-# ---------- health / signer / debug ----------
+# ---------- helpers ----------
+def _resolve_from_quote(qr: dict, fallback_in: Optional[str], fallback_out: Optional[str],
+                        fallback_amount: Optional[int]) -> Tuple[str, str, int]:
+    if not isinstance(qr, dict):
+        raise HTTPException(400, "quoteResponse must be an object")
+    in_mint  = qr.get("inputMint") or qr.get("inMint") or fallback_in
+    out_mint = qr.get("outputMint") or qr.get("outMint") or fallback_out
+    if not in_mint or not out_mint:
+        raise HTTPException(400, "inputMint/outputMint missing (quoteResponse or request)")
+    if "inAmount" in qr:
+        v = qr["inAmount"]
+        amount_atoms = int(v.get("amount") if isinstance(v, dict) else v)
+    elif "amount" in qr:
+        amount_atoms = int(qr["amount"])
+    else:
+        amount_atoms = int(fallback_amount or 0)
+    if amount_atoms <= 0:
+        raise HTTPException(400, "amount must be > 0 (atoms)")
+    return str(in_mint), str(out_mint), int(amount_atoms)
+
+def _is_minout_fail(err: Exception) -> bool:
+    s = str(err)
+    # Jupiter aggregator min-out (0x1788 / Custom(6024)) and pool RequireGteViolated (0x9ce… / 2506)
+    return ("0x1788" in s or "Custom(6024)" in s or "RequireGteViolated" in s or "0x9ce" in s or " 2506" in s)
+
+# ---------- health / signer ----------
 @router.get("/health")
 def health():
     return {"ok": True, "triggerApi": _TRIGGER_AVAILABLE, "rpcUrl": RPC_URL}
 
 @router.get("/signer/info")
 def api_signer_info():
-    try:
-        _ = load_signer()
-    except Exception:
-        pass
+    try: _ = load_signer()
+    except Exception: pass
     return signer_info()
 
 @router.get("/debug/signer")
@@ -57,13 +80,13 @@ def api_debug_config():
         "SONIC_SIGNER_PATH": os.getenv("SONIC_SIGNER_PATH", "signer.txt"),
         "SONIC_MNEMONIC_DERIVE_CMD": os.getenv("SONIC_MNEMONIC_DERIVE_CMD", ""),
         "HELIUS_API_KEY_set": bool(os.getenv("HELIUS_API_KEY")),
-        "RPC_URL": os.getenv("RPC_URL", ""),
-        "resolvedRpcUrl": RPC_URL,
+        "RPC_URL": os.getenv("RPC_URL", ""), "resolvedRpcUrl": RPC_URL,
         "JUP_BASE_URL": os.getenv("JUP_BASE_URL", "https://lite-api.jup.ag"),
         "JUP_API_KEY_set": bool(os.getenv("JUP_API_KEY")),
+        "JITO_TIP_LAMPORTS": os.getenv("JITO_TIP_LAMPORTS", "0"),
     }
 
-# ---------- wallet helpers ----------
+# ---------- wallet ----------
 @router.get("/whoami")
 def whoami():
     try:
@@ -104,20 +127,16 @@ def wallet_portfolio(mints: Optional[str] = None):
 @router.get("/price")
 def jup_price(id: str, vs: str = "USDC"):
     try:
-        r = requests.get("https://price.jup.ag/v6/price",
-                         params={"ids": id, "vsToken": vs}, timeout=15)
+        r = requests.get("https://price.jup.ag/v6/price", params={"ids": id, "vsToken": vs}, timeout=15)
         r.raise_for_status()
         payload = r.json().get("data", {})
         entry = payload.get(id) or (list(payload.values())[0] if payload else None)
-        if not entry or "price" not in entry:
-            raise HTTPException(404, f"Price not found for id={id}")
+        if not entry or "price" not in entry: raise HTTPException(404, f"Price not found for id={id}")
         return {"id": entry.get("id", id), "vs": entry.get("vsToken", vs), "price": float(entry["price"])}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(502, f"Price service error: {e}")
+    except HTTPException: raise
+    except Exception as e: raise HTTPException(502, f"Price service error: {e}")
 
-# ---------- Trigger API (optional — unchanged other than imports) ----------
+# ---------- trigger (optional) ----------
 class SpotTriggerRequest(BaseModel):
     inputMint: Optional[str] = None
     outputMint: Optional[str] = None
@@ -132,21 +151,17 @@ class SpotTriggerRequest(BaseModel):
 
 @router.post("/trigger/create")
 def create_trigger(req: SpotTriggerRequest):
-    if not _TRIGGER_AVAILABLE:
-        raise HTTPException(501, "Trigger API not wired on server.")
+    if not _TRIGGER_AVAILABLE: raise HTTPException(501, "Trigger API not wired on server.")
     wallet = load_signer()
-    if req.amount <= 0 or req.stopPrice <= 0:
-        raise HTTPException(400, "amount and stopPrice must be > 0")
+    if req.amount <= 0 or req.stopPrice <= 0: raise HTTPException(400, "amount and stopPrice must be > 0")
 
     if req.inputMint and req.outputMint:
         in_mint, out_mint = req.inputMint, req.outputMint
         in_dec = 9 if in_mint == TOKENS["SOL"]["mint"] else 6 if in_mint == TOKENS["USDC"]["mint"] else 9
         out_dec = 6 if out_mint == TOKENS["USDC"]["mint"] else 9
     else:
-        in_sym = (req.inputSymbol or "SOL").upper()
-        out_sym = (req.outputSymbol or "USDC").upper()
-        if in_sym not in MINTS or out_sym not in MINTS:
-            raise HTTPException(400, "Unsupported symbols; provide inputMint/outputMint explicitly.")
+        in_sym = (req.inputSymbol or "SOL").upper(); out_sym = (req.outputSymbol or "USDC").upper()
+        if in_sym not in MINTS or out_sym not in MINTS: raise HTTPException(400, "Unsupported symbols; provide mints")
         in_mint, out_mint = MINTS[in_sym]["mint"], MINTS[out_sym]["mint"]
         in_dec, out_dec = MINTS[in_sym]["decimals"], MINTS[out_sym]["decimals"]
 
@@ -154,140 +169,110 @@ def create_trigger(req: SpotTriggerRequest):
     taking = int(req.amount * req.stopPrice * (10 ** out_dec))
 
     try:
-        payload = create_order_and_tx(
-            wallet=wallet,
-            input_mint=in_mint,
-            output_mint=out_mint,
-            making_amount=making,
-            taking_amount=taking,
-            slippage_bps=req.slippageBps,
-            expiry_unix=(int(time.time()) + int(req.expirySeconds)) if req.expirySeconds else None,
-            wrap_unwrap_sol=True,
-        )
-        tx_b64 = payload.get("transaction")
-        order = payload.get("order")
-        request_id = payload.get("requestId")
-        if not tx_b64 or not order or not request_id:
-            raise HTTPException(500, f"Jupiter returned no transaction/order/requestId: {payload}")
-
+        payload = create_order_and_tx(wallet=wallet, input_mint=in_mint, output_mint=out_mint,
+                                      making_amount=making, taking_amount=taking, slippage_bps=req.slippageBps,
+                                      expiry_unix=(int(time.time()) + int(req.expirySeconds)) if req.expirySeconds else None,
+                                      wrap_unwrap_sol=True)
+        tx_b64 = payload.get("transaction"); order = payload.get("order"); request_id = payload.get("requestId")
+        if not tx_b64 or not order or not request_id: raise HTTPException(500, f"Jupiter no tx/order/requestId: {payload}")
         signed = sign_tx_b64(tx_b64, wallet)
         if req.sendMode == "rpc":
-            if not req.rpcUrl:
-                raise HTTPException(400, "rpcUrl is required when sendMode=rpc")
+            if not req.rpcUrl: raise HTTPException(400, "rpcUrl required when sendMode=rpc")
             bres = broadcast_via_rpc(signed, req.rpcUrl)
         else:
             bres = broadcast_via_execute(signed, request_id)
         return {"order": order, "requestId": request_id, "broadcast": bres}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(502, f"Trigger create failed: {e}")
+    except HTTPException: raise
+    except Exception as e: raise HTTPException(502, f"Trigger create failed: {e}")
 
 @router.get("/trigger/orders")
 def trigger_orders(status: Optional[str] = None, user: Optional[str] = None):
-    if not _TRIGGER_AVAILABLE:
-        raise HTTPException(501, "Trigger API not wired on server.")
-    target = user or str(load_signer().pubkey())
-    return get_orders(target, status=status)
+    if not _TRIGGER_AVAILABLE: raise HTTPException(501, "Trigger API not wired on server.")
+    target = user or str(load_signer().pubkey()); return get_orders(target, status=status)
 
-class CancelRequest(BaseModel):
-    order: str
+class CancelRequest(BaseModel): order: str
 
 @router.post("/trigger/cancel")
 def trigger_cancel(req: CancelRequest):
-    if not _TRIGGER_AVAILABLE:
-        raise HTTPException(501, "Trigger API not wired on server.")
+    if not _TRIGGER_AVAILABLE: raise HTTPException(501, "Trigger API not wired on server.")
     wallet = load_signer()
-    try:
-        return cancel_order(wallet, req.order)
-    except Exception as e:
-        raise HTTPException(502, f"Cancel failed: {e}")
+    try: return cancel_order(wallet, req.order)
+    except Exception as e: raise HTTPException(502, f"Cancel failed: {e}")
 
-# ---------- Swap API with logging ----------
+# ---------- swap (re-quote + dynamic slippage + one auto-retry) ----------
 class SwapQuoteReq(BaseModel):
-    inputMint: str
-    outputMint: str
-    amount: int
-    slippageBps: int = 50
-    swapMode: str = "ExactIn"
-    restrictIntermediates: bool = True
+    inputMint: str; outputMint: str; amount: int
+    slippageBps: int = 50; swapMode: str = "ExactIn"; restrictIntermediates: bool = True
 
 @router.post("/swap/quote")
 def swap_quote(req: SwapQuoteReq):
-    if req.amount <= 0:
-        raise HTTPException(400, "Amount must be > 0 (atoms).")
+    if req.amount <= 0: raise HTTPException(400, "Amount must be > 0 (atoms).")
     try:
-        return get_quote(
-            input_mint=req.inputMint, output_mint=req.outputMint,
-            amount=req.amount, swap_mode=req.swapMode,
-            slippage_bps=req.slippageBps, restrict_intermediates=req.restrictIntermediates
-        )
+        return get_quote(input_mint=req.inputMint, output_mint=req.outputMint, amount=req.amount,
+                         swap_mode=req.swapMode, slippage_bps=req.slippageBps,
+                         restrict_intermediates=req.restrictIntermediates)
     except Exception as e:
         raise HTTPException(502, f"Quote failed: {e}")
 
 class SwapExecReq(BaseModel):
-    inputMint: Optional[str] = None
-    outputMint: Optional[str] = None
-    amount: Optional[int] = None
-    slippageBps: int = 50
-    swapMode: str = "ExactIn"
-    restrictIntermediates: bool = True
+    inputMint: Optional[str] = None; outputMint: Optional[str] = None; amount: Optional[int] = None
+    slippageBps: int = 50; swapMode: str = "ExactIn"; restrictIntermediates: bool = True
     quoteResponse: Optional[dict] = None
-    dynamicSlippageMaxBps: Optional[int] = None
-    jitoTipLamports: Optional[int] = None
+    dynamicSlippageMaxBps: Optional[int] = None; jitoTipLamports: Optional[int] = None
 
 @router.post("/swap/execute")
 def swap_execute(req: SwapExecReq):
     wallet = load_signer()
     try:
-        # Projection (for txlog)
         if req.quoteResponse:
-            in_mint = str(req.quoteResponse["inAmount"]["mint"]) if isinstance(req.quoteResponse.get("inAmount", {}), dict) else req.inputMint
-            out_mint = req.quoteResponse.get("outMint") or req.outputMint
-            amt_atoms = int(req.quoteResponse.get("inAmount", {}).get("amount") or (req.amount or 0))
+            in_mint, out_mint, amt_atoms = _resolve_from_quote(req.quoteResponse, req.inputMint, req.outputMint, req.amount)
         else:
-            in_mint = req.inputMint; out_mint = req.outputMint; amt_atoms = int(req.amount or 0)
+            if not req.inputMint or not req.outputMint or not req.amount:
+                raise HTTPException(400, "Provide inputMint, outputMint and amount when quoteResponse is not supplied.")
+            in_mint, out_mint, amt_atoms = req.inputMint, req.outputMint, int(req.amount)
 
-        if not in_mint or not out_mint or not amt_atoms:
-            raise HTTPException(400, "Missing inputMint/outputMint/amount for swap.")
+        # Projection for txlog
+        projection = project_round_trip(str(wallet.pubkey()), in_mint, out_mint, amt_atoms,
+                                        req.slippageBps, req.restrictIntermediates)
 
-        projection = project_round_trip(
-            owner_pubkey=str(wallet.pubkey()),
-            in_mint=in_mint, out_mint=out_mint,
-            amount_atoms=amt_atoms, slippage_bps=req.slippageBps,
-            restrict=req.restrictIntermediates
-        )
+        default_tip = int(os.getenv("JITO_TIP_LAMPORTS", "0") or 0)
+        tip = req.jitoTipLamports if req.jitoTipLamports is not None else default_tip
 
-        # Build + send
-        qr = req.quoteResponse or get_quote(
-            input_mint=in_mint, output_mint=out_mint, amount=amt_atoms,
-            swap_mode=req.swapMode, slippage_bps=req.slippageBps,
-            restrict_intermediates=req.restrictIntermediates
-        )
-        tx_resp = build_swap_tx(
-            quote_response=qr, user_pubkey=str(wallet.pubkey()),
-            dynamic_slippage_max_bps=req.dynamicSlippageMaxBps,
-            jito_tip_lamports=req.jitoTipLamports, wrap_unwrap_sol=True
-        )
-        tx_b64 = tx_resp.get("swapTransaction") or tx_resp.get("transaction")
-        if not tx_b64:
-            raise HTTPException(500, f"Jupiter returned no transaction: {tx_resp}")
-        sent = sign_and_send(tx_b64, wallet)
+        # Attempt #1: fresh quote + dynamic slippage
+        fresh_q = get_quote(input_mint=in_mint, output_mint=out_mint, amount=amt_atoms,
+                            swap_mode=req.swapMode, slippage_bps=req.slippageBps,
+                            restrict_intermediates=req.restrictIntermediates)
+        tx1 = build_swap_tx(quote_response=fresh_q, user_pubkey=str(wallet.pubkey()),
+                            dynamic_slippage_max_bps=req.slippageBps, jito_tip_lamports=tip, wrap_unwrap_sol=True)
+        tx1_b64 = tx1.get("swapTransaction") or tx1.get("transaction")
+        if not tx1_b64: raise HTTPException(500, f"Jupiter returned no transaction: {tx1}")
+        try:
+            sent = sign_and_send(tx1_b64, wallet)
+            entry = log_swap(str(wallet.pubkey()), str(sent["signature"]), in_mint, out_mint, amt_atoms, projection)
+            return {"signature": sent["signature"], "quote": fresh_q, "txlog": entry}
+        except Exception as e1:
+            if not _is_minout_fail(e1):  # not a min-out issue, bubble up
+                raise
 
-        # Log actuals
-        entry = log_swap(
-            owner_pubkey=str(wallet.pubkey()), sig=str(sent["signature"]),
-            in_mint=in_mint, out_mint=out_mint, amount_atoms=amt_atoms,
-            projection=projection
-        )
+            # Attempt #2: widen + bump slippage
+            bump = min(req.slippageBps + 50, 300)
+            fresh_q2 = get_quote(input_mint=in_mint, output_mint=out_mint, amount=amt_atoms,
+                                 swap_mode=req.swapMode, slippage_bps=bump,
+                                 restrict_intermediates=False)  # widen
+            tx2 = build_swap_tx(quote_response=fresh_q2, user_pubkey=str(wallet.pubkey()),
+                                dynamic_slippage_max_bps=bump, jito_tip_lamports=tip, wrap_unwrap_sol=True)
+            tx2_b64 = tx2.get("swapTransaction") or tx2.get("transaction")
+            if not tx2_b64: raise HTTPException(500, f"Jupiter returned no transaction (retry): {tx2}")
+            sent2 = sign_and_send(tx2_b64, wallet)
+            entry2 = log_swap(str(wallet.pubkey()), str(sent2["signature"]), in_mint, out_mint, amt_atoms, projection)
+            return {"signature": sent2["signature"], "quote": fresh_q2, "txlog": entry2}
 
-        return {"signature": sent["signature"], "quote": qr, "txlog": entry}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(502, f"Swap failed: {e}")
 
-# ---------- txlog endpoints ----------
+# ---------- txlog ----------
 @router.get("/txlog")
 def txlog_list(limit: int = 50):
     try:
@@ -300,22 +285,16 @@ def txlog_list(limit: int = 50):
 def txlog_by_sig(sig: str):
     try:
         obj = txlog.find_by_signature(sig)
-        if not obj:
-            raise HTTPException(404, "not found")
+        if not obj: raise HTTPException(404, "not found")
         return obj
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, f"txlog error: {e}")
+    except HTTPException: raise
+    except Exception as e: raise HTTPException(500, f"txlog error: {e}")
 
 @router.get("/txlog/latest")
 def txlog_latest():
     try:
         arr = txlog.read_last(1)
-        if not arr:
-            raise HTTPException(404, "empty")
+        if not arr: raise HTTPException(404, "empty")
         return arr[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, f"txlog error: {e}")
+    except HTTPException: raise
+    except Exception as e: raise HTTPException(500, f"txlog error: {e}")

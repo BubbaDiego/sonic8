@@ -1,3 +1,6 @@
+// frontend/src/api/jupiter.js
+// Simple fetch-based API client (no external axios client dependencies)
+
 async function http(method, path, body, params) {
   const url = new URL(path, window.location.origin);
   if (params) {
@@ -21,7 +24,7 @@ async function http(method, path, body, params) {
   return data;
 }
 
-/* Triggers */
+/* Triggers (kept for completeness) */
 export const createSpotTrigger = (payload) => http('POST', '/api/jupiter/trigger/create', payload);
 export const listSpotTriggers = (params = {}) => http('GET', '/api/jupiter/trigger/orders', null, params);
 export const cancelSpotTrigger = (payload) => http('POST', '/api/jupiter/trigger/cancel', payload);
@@ -30,15 +33,20 @@ export const cancelSpotTrigger = (payload) => http('POST', '/api/jupiter/trigger
 export const swapQuote   = (payload) => http('POST', '/api/jupiter/swap/quote', payload);
 export const swapExecute = (payload) => http('POST', '/api/jupiter/swap/execute', payload);
 
-/* Prices / Wallet */
+/* Prices / Wallet / Portfolio */
 export const getUsdPrice      = (id, vs = 'USDC') => http('GET', '/api/jupiter/price', null, { id, vs });
 export const whoami           = () => http('GET', '/api/jupiter/whoami');
 export const walletBalance    = () => http('GET', '/api/jupiter/wallet/balance');
 export const estimateSolSpend = (outMint) => http('GET', '/api/jupiter/wallet/estimate-sol-spend', null, { outMint });
 export const walletPortfolio  = (mintsCsv) => http('GET', '/api/jupiter/wallet/portfolio', null, mintsCsv ? { mints: mintsCsv } : undefined);
 
+/* Signer / Debug */
+export const signerInfo  = () => http('GET', '/api/jupiter/signer/info');
+export const debugSigner = () => http('GET', '/api/jupiter/debug/signer');
+export const debugConfig = () => http('GET', '/api/jupiter/debug/config');
+
 /* Txlog */
-export const txlogList   = (limit=50) => http('GET', '/api/jupiter/txlog', null, { limit });
+export const txlogList   = (limit = 25) => http('GET', '/api/jupiter/txlog', null, { limit });
 export const txlogLatest = () => http('GET', '/api/jupiter/txlog/latest');
 export const txlogBySig  = (sig) => http('GET', '/api/jupiter/txlog/by-sig', null, { sig });
 
@@ -46,5 +54,6 @@ export default {
   createSpotTrigger, listSpotTriggers, cancelSpotTrigger,
   swapQuote, swapExecute, getUsdPrice,
   whoami, walletBalance, estimateSolSpend, walletPortfolio,
+  signerInfo, debugSigner, debugConfig,
   txlogList, txlogLatest, txlogBySig
 };
