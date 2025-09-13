@@ -1,65 +1,58 @@
 # backend/services/perps/positions.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-from dataclasses import asdict, is_dataclass
+import base64
+import hashlib
+from typing import Dict, List, Optional
 
-from backend.services.perps.client import get_perps_program
-
-
-def _to_jsonish(x: Any) -> Any:
-    try:
-        if is_dataclass(x):
-            return asdict(x)
-    except Exception:
-        pass
-    try:
-        return x.__dict__
-    except Exception:
-        return x
+from backend.services.perps.raw_rpc import _rpc, get_program_id, get_idl_account_names
 
 
-def _account_client(program, target_name: str):
-    names = [acc.name for acc in (program.idl.accounts or [])]
-    for n in names:
-        if n.lower() == target_name.lower():
-            return program.account[n]
-    raise RuntimeError(f"IDL has no account '{target_name}'. Available: {names}")
+def _disc(name: str) -> bytes:
+    return hashlib.sha256(f"account:{name}".encode("utf-8")).digest()[:8]
 
 
-async def list_positions(owner: Optional[str]) -> Dict[str, Any]:
+def _data_bytes(acc: dict) -> bytes:
+    data = acc.get("account", {}).get("data")
+    if isinstance(data, list) and data:
+        try:
+            return base64.b64decode(data[0])
+        except Exception:
+            return b""
+    if isinstance(data, dict) and "encoded" in data:
+        try:
+            return base64.b64decode(data["encoded"])
+        except Exception:
+            return b""
+    return b""
+
+
+def list_positions_sync(owner: Optional[str]) -> Dict[str, object]:
     """
-    Reads Position accounts; filters by owner if provided.
-    Returns raw decoded account dicts so we can map fields after we inspect IDL.
+    SAFE FALLBACK: return ONLY pubkeys for Position accounts (no decode).
+    Owner filtering is disabled in fallback mode.
     """
-    program, client = await get_perps_program()
-    try:
-        pos_client = _account_client(program, "Position")
-        accs = await pos_client.all()
+    program_id = get_program_id()
+    idl_accounts = get_idl_account_names()
 
-        items = []
-        for a in accs:
-            aj = _to_jsonish(a.account)
+    pos_name = next((n for n in idl_accounts if n.lower() == "position"), None) or "Position"
 
-            # best-effort detection of owner field in IDL struct
-            pos_owner = None
-            if isinstance(aj, dict):
-                for k in ("owner", "authority", "user", "trader"):
-                    if k in aj:
-                        pos_owner = str(aj[k])
-                        break
+    res = _rpc("getProgramAccounts", [program_id, {"encoding": "base64"}])
+    rows = res or []
 
-            include = True
-            if owner and pos_owner:
-                include = (pos_owner == owner)
+    disc_pos = _disc(pos_name)
+    items: List[dict] = []
 
-            if include:
-                items.append({
-                    "pubkey": str(a.pubkey),
-                    "owner": pos_owner,
-                    "data": aj
-                })
+    for it in rows:
+        pk = it.get("pubkey")
+        raw = _data_bytes(it)
+        if len(raw) >= 8 and raw[:8] == disc_pos:
+            items.append({"pubkey": pk})
 
-        return {"ok": True, "count": len(items), "items": items}
-    finally:
-        await client.close()
+    return {
+        "ok": True,
+        "programId": program_id,
+        "count": len(items),
+        "items": items,
+        "note": "pubkey-only fallback; replace IDL with canonical JSON to re-enable decode",
+    }
