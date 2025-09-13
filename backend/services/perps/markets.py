@@ -1,68 +1,64 @@
 from __future__ import annotations
 
 from typing import Any, Dict
-from dataclasses import asdict, is_dataclass
 
 from backend.services.perps.client import get_perps_program
-
-
-def _to_jsonish(x: Any) -> Any:
-    # AnchorPy returns dataclass-like objects; make them JSON friendly.
-    try:
-        if is_dataclass(x):
-            return asdict(x)
-    except Exception:
-        pass
-    try:
-        return x.__dict__
-    except Exception:
-        return x
+from backend.services.perps.util import (
+    fetch_accounts_of_type,
+    idl_account_names,
+)
 
 
 async def list_markets() -> Dict[str, Any]:
     """
-    Reads Perps 'Pool' and 'Custody' accounts and returns a compact markets view.
-    NOTE: Field names depend on the exact IDL. We keep it defensive:
-    - We attempt program.account["Pool"].all() & program.account["Custody"].all()
-    - We emit a minimal set of attributes (+ raw address) so the UI has something now.
+    Reads Perps 'Pool' and 'Custody' accounts using raw getProgramAccounts +
+    Anchor decode (works with Helius or standard RPC).
     """
     program, client = await get_perps_program()
     try:
-        pools = []
+        names = idl_account_names(program)
+        pools, custodies = [], []
+
+        # choose best matching account names (case-insensitive)
+        pool_name = next((n for n in names if n.lower() == "pool"), None)
+        custody_name = next((n for n in names if n.lower() == "custody"), None)
+
+        if not pool_name or not custody_name:
+            return {"ok": False, "error": f"IDL accounts not found. Have: {names}"}
+
         try:
-            acc = await program.account["Pool"].all()
-            for a in acc:
-                pools.append({
-                    "pubkey": str(a.pubkey),
-                    "data": _to_jsonish(a.account),
-                })
+            rows = await fetch_accounts_of_type(program, pool_name)
+            pools = [{"pubkey": pk, "data": row} for pk, row in rows]
         except Exception as e:
             pools = [{"error": f"Pool fetch failed: {type(e).__name__}: {e}"}]
 
-        custodies = []
         try:
-            acc = await program.account["Custody"].all()
-            for a in acc:
-                j = _to_jsonish(a.account)
-                # Try to surface a token mint and decimals if present
-                mint = j.get("mint") if isinstance(j, dict) else None
-                decimals = j.get("decimals") if isinstance(j, dict) else None
-                custodies.append({
-                    "pubkey": str(a.pubkey),
-                    "mint": mint,
-                    "decimals": decimals,
-                    "data": j,
-                })
+            rows = await fetch_accounts_of_type(program, custody_name)
+            custodies = []
+            for pk, row in rows:
+                mint = row.get("mint") if isinstance(row, dict) else None
+                decimals = row.get("decimals") if isinstance(row, dict) else None
+                custodies.append(
+                    {
+                        "pubkey": pk,
+                        "mint": mint,
+                        "decimals": decimals,
+                        "data": row,
+                    }
+                )
         except Exception as e:
-            custodies = [{"error": f"Custody fetch failed: {type(e).__name__}: {e}"}]
+            custodies = [
+                {"error": f"Custody fetch failed: {type(e).__name__}: {e}"}
+            ]
 
-        # Minimal market summary. You can enrich later (funding, OI, fee previews)
         return {
             "ok": True,
-            "poolsCount": len(pools) if isinstance(pools, list) else 0,
-            "custodiesCount": len(custodies) if isinstance(custodies, list) else 0,
+            "accounts": names,
+            "poolsCount": len(pools),
+            "custodiesCount": len(custodies),
             "pools": pools,
             "custodies": custodies,
         }
     finally:
         await client.close()
+
