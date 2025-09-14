@@ -53,14 +53,16 @@ async def perps_positions(owner: Optional[str] = Query(None, description="owner 
 async def perps_positions_detailed(owner: str, limit: int = 50):
     """
     Decode fields for owner positions (size, entry, mark, est PnL).
-    Requires PERPS_POSITION_OWNER_OFFSET=<offset>.
+    Uses v2 decoder (never throws). Requires PERPS_POSITION_OWNER_OFFSET.
     """
-    from backend.services.perps.detail import fetch_positions_detailed
+    from backend.services.perps.detail import fetch_positions_detailed_v2
     import anyio
     try:
-        return await anyio.to_thread.run_sync(fetch_positions_detailed, owner, limit)
+        # run sync wrapper in a worker thread
+        return await anyio.to_thread.run_sync(fetch_positions_detailed_v2, owner, limit)
     except Exception as e:
-        raise HTTPException(502, f"detailed positions failed: {e}")
+        # We shouldn't hit this, but keep a guard
+        return {"ok": False, "version": "v2", "error": f"unexpected route error: {e}"}
 
 
 @router.get("/debug/idl")
