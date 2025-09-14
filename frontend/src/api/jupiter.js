@@ -1,73 +1,115 @@
 // frontend/src/api/jupiter.js
-// Simple fetch-based API client (no external axios client dependencies)
+//
+// Single place for Jupiter/Wallet API calls used by the Jupiter UI.
+// All functions return parsed JSON or throw an Error with a helpful message.
+//
+// If you rename backend routes, update the paths here in one place.
 
-async function http(method, path, body, params) {
-  const url = new URL(path, window.location.origin);
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => {
-      if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
-    });
-  }
-  const res = await fetch(url.toString(), {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined
-  });
-
+const _json = async (url, opts = {}) => {
+  const res = await fetch(url, opts);
   const text = await res.text();
-  let data = {};
-  if (text) {
-    try { data = JSON.parse(text); }
-    catch { if (!res.ok) throw new Error(text || `HTTP ${res.status}`); return text; }
+  let body = {};
+  try { body = text ? JSON.parse(text) : {}; } catch { /* ignore parse error */ }
+  if (!res.ok) {
+    // Surface a useful message
+    const msg = body.detail || body.error || body.message || `HTTP ${res.status}`;
+    throw new Error(msg);
   }
-  if (!res.ok) throw new Error(data?.detail || data?.message || `HTTP ${res.status}`);
-  return data;
-}
-
-/* Triggers (kept for completeness) */
-export const createSpotTrigger = (payload) => http('POST', '/api/jupiter/trigger/create', payload);
-export const listSpotTriggers = (params = {}) => http('GET', '/api/jupiter/trigger/orders', null, params);
-export const cancelSpotTrigger = (payload) => http('POST', '/api/jupiter/trigger/cancel', payload);
-
-/* Swaps */
-export const swapQuote   = (payload) => http('POST', '/api/jupiter/swap/quote', payload);
-export const swapExecute = (payload) => http('POST', '/api/jupiter/swap/execute', payload);
-
-/* Prices / Wallet / Portfolio */
-export const getUsdPrice      = (id, vs = 'USDC') => http('GET', '/api/jupiter/price', null, { id, vs });
-export const whoami           = () => http('GET', '/api/jupiter/whoami');
-export const walletBalance    = () => http('GET', '/api/jupiter/wallet/balance');
-export const estimateSolSpend = (outMint) => http('GET', '/api/jupiter/wallet/estimate-sol-spend', null, { outMint });
-export const walletPortfolio  = (mintsCsv) => http('GET', '/api/jupiter/wallet/portfolio', null, mintsCsv ? { mints: mintsCsv } : undefined);
-
-// send token (SOL or SPL) — backend should create recipient ATA if needed
-export async function sendToken({ mint, to, amountAtoms }) {
-  const r = await fetch('/api/wallet/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mint, to, amountAtoms })
-  });
-  const txt = await r.text();
-  let j = {};
-  try { j = txt ? JSON.parse(txt) : {}; } catch {}
-  if (!r.ok) throw new Error(j.detail || j.error || j.message || `HTTP ${r.status}`);
-  return j; // expect { signature }
-}
-
-/* Signer / Debug */
-export const signerInfo  = () => http('GET', '/api/jupiter/signer/info');
-export const debugSigner = () => http('GET', '/api/jupiter/debug/signer');
-export const debugConfig = () => http('GET', '/api/jupiter/debug/config');
-
-/* Txlog */
-export const txlogList   = (limit = 25) => http('GET', '/api/jupiter/txlog', null, { limit });
-export const txlogLatest = () => http('GET', '/api/jupiter/txlog/latest');
-export const txlogBySig  = (sig) => http('GET', '/api/jupiter/txlog/by-sig', null, { sig });
-
-export default {
-  createSpotTrigger, listSpotTriggers, cancelSpotTrigger,
-  swapQuote, swapExecute, getUsdPrice,
-  whoami, walletBalance, estimateSolSpend, walletPortfolio, sendToken,
-  signerInfo, debugSigner, debugConfig,
-  txlogList, txlogLatest, txlogBySig
+  return body;
 };
+
+const _get = (url) =>
+  _json(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+
+const _post = (url, data) =>
+  _json(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(data ?? {})
+  });
+
+/* -------------------------------------------------------------------------- */
+/* Wallet / identity                                                          */
+/* -------------------------------------------------------------------------- */
+
+// Who am I (wallet pubkey + cluster etc.)
+export const whoami = () => _get('/api/jupiter/whoami');
+
+// Human-readable signer info (method, path, derivation)
+export const signerInfo = () => _get('/api/jupiter/signer/info');
+
+// Portfolio balances for a set of mints (pass ?mints=<comma-separated> on server)
+export const walletPortfolio = (mints = []) => {
+  const qs = mints.length ? `?mints=${encodeURIComponent(mints.join(','))}` : '';
+  return _get(`/api/jupiter/wallet/portfolio${qs}`);
+};
+
+// Estimate how much SOL is safe to spend for a swap (fees + rent buffers)
+export const estimateSolSpend = ({ outMint }) =>
+  _get(`/api/jupiter/wallet/estimate-sol-spend?outMint=${encodeURIComponent(outMint)}`);
+
+/* -------------------------------------------------------------------------- */
+/* Swap                                                                       */
+/* -------------------------------------------------------------------------- */
+
+// Quote a headless swap
+// payload: { inMint, outMint, amountInAtoms, slippageBps, mode, restrictIntermediateTokens }
+export const swapQuote = (payload) => _post('/api/jupiter/swap/quote', payload);
+
+// Execute a previously quoted swap
+// payload: whatever your backend expects (often the quote + selected route)
+export const swapExecute = (payload) => _post('/api/jupiter/swap/execute', payload);
+
+/* -------------------------------------------------------------------------- */
+/* Tx log                                                                      */
+/* -------------------------------------------------------------------------- */
+
+export const txlogLatest = () => _get('/api/jupiter/txlog/latest');
+
+export const txlogList = (limit = 25) =>
+  _get(`/api/jupiter/txlog?limit=${encodeURIComponent(limit)}`);
+
+/* -------------------------------------------------------------------------- */
+/* Price helper (Jupiter price API)                                           */
+/* -------------------------------------------------------------------------- */
+
+// Fetch USD price for a mint; returns { price } or { price: null }
+export async function getUsdPrice(mint, vsToken = 'USDC') {
+  try {
+    const u = new URL('https://price.jup.ag/v6/price');
+    u.searchParams.set('ids', mint);
+    u.searchParams.set('vsToken', vsToken);
+    const res = await fetch(u.toString(), { method: 'GET' });
+    const j = await res.json();
+    const data = j?.data || {};
+    // The key is usually the mint address itself; fallback to first key
+    const k = data[mint] ? mint : Object.keys(data)[0];
+    const price = k ? Number(data[k]?.price) : null;
+    return { price: Number.isFinite(price) ? price : null };
+  } catch {
+    return { price: null };
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Send (SOL + SPL)                                                           */
+/* -------------------------------------------------------------------------- */
+
+// Send tokens (SOL or SPL). The backend route auto-creates the recipient ATA if needed.
+// payload: { mint, to, amountAtoms }
+// - mint may be 'So1111...' for SOL (or your backend can accept "SOL")
+// - to is a base58 pubkey (UI normalizes; backend validates too)
+export const sendToken = ({ mint, to, amountAtoms }) =>
+  _post('/api/wallet/send', { mint, to, amountAtoms });
+
+/* -------------------------------------------------------------------------- */
+/* Convenience / tiny utils for consumers                                     */
+/* -------------------------------------------------------------------------- */
+
+// Helper to format numbers safely in the UI
+export const fmt = (n, dp = 6) =>
+  Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: dp });
+
+// Convert atoms -> ui amount given decimals
+export const atomsToUi = (atoms, decimals) =>
+  Number(atoms || 0) / 10 ** Number(decimals || 0);

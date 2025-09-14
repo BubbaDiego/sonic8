@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 import asyncio
 
+
+
 from utils.console_title import set_console_title
 set_console_title("Sonic - FastAPI Backend")
 
@@ -66,6 +68,9 @@ except Exception:
 # Create app FIRST, then include routers
 # --------------------------------------------------------------------------
 app = FastAPI(title="Sonic API")
+
+from backend.routes.wallet_send import router as wallet_send_router
+app.include_router(wallet_send_router)
 
 if prewarm and os.getenv("FUN_CORE_MONITOR") == "1":
     loop = asyncio.get_event_loop()

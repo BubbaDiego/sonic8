@@ -40,6 +40,28 @@ const fmt = (n, dp = 6) => Number(n || 0).toLocaleString(undefined, { maximumFra
 const pct = (x) => (Number(x || 0) * 100).toLocaleString(undefined, { maximumFractionDigits: 4 }) + '%';
 
 /* ------------------------------------------------------------------ */
+/* Base58 normalization / validation                                  */
+/* ------------------------------------------------------------------ */
+// accept plain base58, solana:<pk>?..., explorer URLs .../address/<pk>, or longest base58 token (>=32)
+const BASE58_RE   = /^[1-9A-HJ-NP-Za-km-z]+$/;
+const BASE58_FIND = /[1-9A-HJ-NP-Za-km-z]{32,}/g;
+const extractPubkey = (s) => {
+  if (!s) return '';
+  s = String(s).trim();
+  const low = s.toLowerCase();
+  if (low.startsWith('solana:')) {
+    return s.split(':', 1)[1].split('?', 1)[0];
+  }
+  const m = s.match(/address\/([1-9A-HJ-NP-Za-km-z]+)/i);
+  if (m && m[1]) return m[1];
+  const s0 = s.split(/[?#\s]/)[0];
+  if (BASE58_RE.test(s0)) return s0;
+  const hits = s.match(BASE58_FIND);
+  if (hits && hits.length) { hits.sort((a,b)=>b.length-a.length); return hits[0]; }
+  return s0;
+};
+
+/* ------------------------------------------------------------------ */
 /* Send Tokens card                                                    */
 /* ------------------------------------------------------------------ */
 function SendCard({ onLog }) {
@@ -68,13 +90,23 @@ function SendCard({ onLog }) {
   const doSend = async () => {
     try {
       setSending(true);
-      const atoms = Math.floor(Number(amtUi || 0) * 10 ** tok.decimals);
-      if (!to || !atoms || atoms <= 0) {
-        enqueueSnackbar('Enter recipient and amount', { variant: 'warning' });
+      const toNorm = extractPubkey(to);
+      if (!toNorm || !BASE58_RE.test(toNorm)) {
+        enqueueSnackbar('Invalid recipient (base58 only; no 0/O/I/l, no ":" "/" etc.)', { variant: 'warning' });
         return;
       }
-      onLog?.(`Send: ${mintSym} ${amtUi} → ${to}`);
-      const r = await sendToken({ mint: tok.mint, to, amountAtoms: atoms });
+      const ui = Number(amtUi || 0);
+      if (!ui || ui <= 0) {
+        enqueueSnackbar('Enter a positive amount', { variant: 'warning' });
+        return;
+      }
+      const atoms = Math.floor(ui * 10 ** tok.decimals);
+      if (!atoms) {
+        enqueueSnackbar('Amount too small for this token', { variant: 'warning' });
+        return;
+      }
+      onLog?.(`Send: ${mintSym} ${ui} → ${toNorm}`);
+      const r = await sendToken({ mint: tok.mint, to: toNorm, amountAtoms: atoms });
       enqueueSnackbar('Send submitted', { variant: 'success' });
       onLog?.(`Send sent: ${r.signature}`, 'success');
     } catch (e) {
@@ -95,7 +127,15 @@ function SendCard({ onLog }) {
           </TextField>
         </Grid>
         <Grid item xs={12} md={5}>
-          <TextField fullWidth label="Recipient (pubkey)" placeholder="8h1… or CofTL…" value={to} onChange={(e)=>setTo(e.target.value)} />
+          <TextField
+            fullWidth
+            label="Recipient (pubkey)"
+            placeholder="8h1… or solana:<pubkey> or explorer URL"
+            value={to}
+            onChange={(e)=>setTo(extractPubkey(e.target.value))}
+            error={!!to && !BASE58_RE.test(extractPubkey(to))}
+            helperText={!!to && !BASE58_RE.test(extractPubkey(to)) ? 'Invalid address (base58 only; no 0/O/I/l)' : ' '}
+          />
         </Grid>
         <Grid item xs={12} md={2}>
           <TextField
@@ -118,7 +158,7 @@ function SendCard({ onLog }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Stubs for the other tabs                                            */
+/* Stubs for the other tabs (keep placeholders)                        */
 /* ------------------------------------------------------------------ */
 function SpotTriggerForm() { return null; }
 function SpotTriggerTable() { return null; }
@@ -500,11 +540,10 @@ function SwapsTab() {
         <Grid item xs={12} md={4}><WalletCard /></Grid>
         <Grid item xs={12} md={4}>
           <TransactionCard
-            log={txLog}
-            onClear={() => setTxLog([])}
+            log={[]}
+            onClear={() => {}}
             onCopy={async () => {
-              const text = txLog.map((r) => `${r.ts} [${r.level}] ${r.msg}`).join('\n');
-              try { await navigator.clipboard.writeText(text); enqueueSnackbar('Transaction log copied', { variant: 'success' }); }
+              try { await navigator.clipboard.writeText(''); enqueueSnackbar('Transaction log copied', { variant: 'success' }); }
               catch { enqueueSnackbar('Copy failed', { variant: 'error' }); }
             }}
           />
@@ -527,7 +566,7 @@ export default function JupiterPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 2 }}>
           <Stack direction="row" spacing={1.5} alignItems="center">
             <img
-              src="/static/images/jupiter.jpg"   // ensure file exists at /static/images/jupiter.jpg
+              src="/static/images/jupiter.jpg"
               alt="Jupiter"
               width={28}
               height={28}
@@ -550,16 +589,17 @@ export default function JupiterPage() {
 
       {/* Tab content */}
       {tab === 0 && <><SpotTriggerForm /><SpotTriggerTable /></>}
+
       {tab === 1 && (
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}><MarketsPanel /></Grid>
           <Grid item xs={12} md={6}><PositionsPanel /></Grid>
         </Grid>
       )}
+
       {tab === 2 && (
         <Stack spacing={2}>
           <SendCard onLog={(msg, level='info')=>{
-            // optional: you can plumb this into your TransactionCard if you want to share logs
             enqueueSnackbar(msg, { variant: level === 'error' ? 'error' : (level === 'success' ? 'success' : 'info') });
           }}/>
           <SwapsTab />

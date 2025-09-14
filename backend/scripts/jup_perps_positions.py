@@ -25,7 +25,7 @@ from collections import Counter
 # ===========================
 # CONFIG — EDIT IF YOU WANT
 # ===========================
-OWNER_PUBKEY   = "6wSkEGWYpdztSdHgxjjXwY8WJF8NjXuiRSbsC9RXckWP"
+OWNER_PUBKEY   = "CzRzD26vfaSgNVxM93Hpy2VHtiaLmQrVNCRbSWd1ikR7"
 PROGRAM_ID     = "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu"  # verified via pool owner
 HELIUS_API_KEY = "a8809bee-20ba-48e9-b841-0bd2bafd60b9"
 RPC_URL        = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
