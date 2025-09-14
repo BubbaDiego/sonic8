@@ -52,13 +52,12 @@ async def perps_positions(owner: Optional[str] = Query(None, description="owner 
 @router.get("/positions/detailed")
 async def perps_positions_detailed(owner: str, limit: int = 50):
     """
-    Return decoded positions for `owner` (size, entry, mark, est PnL).
-    Requires PERPS_POSITION_OWNER_OFFSET to be set.
+    Decode fields for owner positions (size, entry, mark, est PnL).
+    Requires PERPS_POSITION_OWNER_OFFSET=<offset>.
     """
     from backend.services.perps.detail import fetch_positions_detailed
+    import anyio
     try:
-        # run in a worker because the AnchorPy fetch loop does IO
-        import anyio
         return await anyio.to_thread.run_sync(fetch_positions_detailed, owner, limit)
     except Exception as e:
         raise HTTPException(502, f"detailed positions failed: {e}")
