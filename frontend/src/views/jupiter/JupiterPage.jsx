@@ -10,7 +10,9 @@ import {
   // wallet & portfolio
   whoami, signerInfo, walletPortfolio, estimateSolSpend,
   // txlog (projected vs actual profit)
-  txlogLatest, txlogList
+  txlogLatest, txlogList,
+  // sending
+  sendToken
 } from 'api/jupiter';
 
 import {
@@ -36,6 +38,84 @@ const sym = (s) => TOKENS.find((t) => t.sym === s);
 const atomsToUi = (atoms, decimals) => Number(atoms || 0) / 10 ** decimals;
 const fmt = (n, dp = 6) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: dp });
 const pct = (x) => (Number(x || 0) * 100).toLocaleString(undefined, { maximumFractionDigits: 4 }) + '%';
+
+/* ------------------------------------------------------------------ */
+/* Send Tokens card                                                    */
+/* ------------------------------------------------------------------ */
+function SendCard({ onLog }) {
+  const [mintSym, setMintSym] = useState('USDC');
+  const [to, setTo] = useState('');
+  const [amtUi, setAmtUi] = useState('');
+  const [sending, setSending] = useState(false);
+  const [usd, setUsd] = useState(null);
+
+  const tok = sym(mintSym);
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const r = await getUsdPrice(tok.mint, 'USDC');
+        if (live) setUsd(Number(r.price));
+      } catch {
+        if (live) setUsd(null);
+      }
+    })();
+    return () => { live = false; };
+  }, [mintSym]);
+
+  const amtUsd = usd ? (Number(amtUi || 0) * usd) : null;
+
+  const doSend = async () => {
+    try {
+      setSending(true);
+      const atoms = Math.floor(Number(amtUi || 0) * 10 ** tok.decimals);
+      if (!to || !atoms || atoms <= 0) {
+        enqueueSnackbar('Enter recipient and amount', { variant: 'warning' });
+        return;
+      }
+      onLog?.(`Send: ${mintSym} ${amtUi} → ${to}`);
+      const r = await sendToken({ mint: tok.mint, to, amountAtoms: atoms });
+      enqueueSnackbar('Send submitted', { variant: 'success' });
+      onLog?.(`Send sent: ${r.signature}`, 'success');
+    } catch (e) {
+      const msg = e?.message || String(e);
+      enqueueSnackbar(msg, { variant: 'error' });
+      onLog?.(`Send error: ${msg}`, 'error');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <MainCard title="Send Tokens">
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={3}>
+          <TextField select fullWidth label="Token" value={mintSym} onChange={(e)=>setMintSym(e.target.value)}>
+            {TOKENS.map((t) => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
+          </TextField>
+        </Grid>
+        <Grid item xs={12} md={5}>
+          <TextField fullWidth label="Recipient (pubkey)" placeholder="8h1… or CofTL…" value={to} onChange={(e)=>setTo(e.target.value)} />
+        </Grid>
+        <Grid item xs={12} md={2}>
+          <TextField
+            fullWidth label="Amount"
+            value={amtUi} onChange={(e)=>setAmtUi(e.target.value)}
+            helperText={amtUsd != null ? `≈ $${amtUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ' '}
+          />
+        </Grid>
+        <Grid item xs={12} md={2}>
+          <Button fullWidth variant="contained" onClick={doSend} disabled={sending}>
+            {sending ? 'Sending…' : 'Send'}
+          </Button>
+        </Grid>
+      </Grid>
+      <Typography variant="caption" color="textSecondary">
+        If the recipient doesn’t have an ATA for this mint, we’ll create it automatically (uses a small amount of SOL).
+      </Typography>
+    </MainCard>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Stubs for the other tabs                                            */
@@ -476,7 +556,15 @@ export default function JupiterPage() {
           <Grid item xs={12} md={6}><PositionsPanel /></Grid>
         </Grid>
       )}
-      {tab === 2 && <SwapsTab />}
+      {tab === 2 && (
+        <Stack spacing={2}>
+          <SendCard onLog={(msg, level='info')=>{
+            // optional: you can plumb this into your TransactionCard if you want to share logs
+            enqueueSnackbar(msg, { variant: level === 'error' ? 'error' : (level === 'success' ? 'success' : 'info') });
+          }}/>
+          <SwapsTab />
+        </Stack>
+      )}
     </Stack>
   );
 }
