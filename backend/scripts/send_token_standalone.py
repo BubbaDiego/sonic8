@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import base64, json, os, re, sys, requests
+from typing import Any, Dict, List, Optional, Tuple
 
-from typing import Any, Dict, List
 from solders.pubkey import Pubkey
 from solders.keypair import Keypair
 from solders.hash import Hash
@@ -15,14 +15,14 @@ from solders.compute_budget import set_compute_unit_limit, set_compute_unit_pric
 HELIUS_API_KEY = "a8809bee-20ba-48e9-b841-0bd2bafd60b9"
 RPC_URL        = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 
-SIGNER_FILE    = r"C:\sonic5\backend\signer.txt"  # id.json OR key=value with mnemonic/base58 OR raw base58
+SIGNER_FILE    = r"C:\sonic5\backend\signer.txt"   # id.json OR key=value with address=/public_address=/mnemonic=/base58= OR raw base58
 
 TOKEN          = "USDC"            # 'SOL', 'USDC', or a mint address
-AMOUNT_UI      = 1.0               # human units (1 USDC, 0.005 SOL, …)
-RECIPIENT      = "89YeqPcCey8h9Vzg9nCdzw1gCixA2nLg9jKgCtw2b9CZ"  # base58 OR solana:<pk>?… OR explorer URL
+AMOUNT_UI      = 1.0               # 1 USDC (or 0.005 SOL, etc.)
+RECIPIENT      = "89YeqPcCey8h9Vzg9nCdzw1gCixA2nLg9jKgCtw2b9CZ"  # base58 OR solana:<pk>?… OR .../address/<pk>
 
 CU_LIMIT       = 800_000
-CU_PRICE       = 100_000           # microlamports per CU (0.0001 SOL / 1e6 CU)
+CU_PRICE       = 100_000           # microlamports / CU
 # ================================================================
 
 SYSTEM_PROGRAM        = Pubkey.from_string("11111111111111111111111111111111")
@@ -83,7 +83,7 @@ def get_balance(pub: Pubkey) -> int:
 def get_min_rent_exempt(size: int) -> int:
     return int(rpc("getMinimumBalanceForRentExemption", [size]))
 
-# ----------------------- signer loading -----------------------
+# ----------------------- signer loading (address-aware) -----------------------
 def _b58decode(s: str) -> bytes:
     idx = {ch:i for i,ch in enumerate(BASE58_ALPH)}
     n = 0
@@ -106,34 +106,7 @@ def parse_signer_txt(path: str) -> Dict[str, str]:
         kv[k.strip().lower()] = v.strip().strip('"').strip("'")
     return kv
 
-def keypair_from_base58(sec_b58: str) -> Keypair:
-    raw = _b58decode(sec_b58)
-    if len(raw)==64: return Keypair.from_bytes(raw)
-    if len(raw)==32:
-        try: return Keypair.from_seed(raw)
-        except Exception:
-            import nacl.signing as ns
-            sk = ns.SigningKey(raw)
-            sec64 = sk.encode() + sk.verify_key.encode()
-            return Keypair.from_bytes(sec64)
-    die(f"base58 secret length {len(raw)} not 32/64")
-
-def derive_from_mnemonic(mnemonic: str, passphrase: str = "") -> Keypair:
-    try:
-        from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
-    except ImportError:
-        die("Mnemonic present but 'bip_utils' not installed. Install: pip install bip_utils pynacl")
-    seed = Bip39SeedGenerator(mnemonic).Generate(passphrase)
-    node = (Bip44.FromSeed(seed, Bip44Coins.SOLANA)
-            .Purpose().Coin().Account(0).Change(Bip44Changes.CHAIN_EXT).AddressIndex(0))
-    pkobj = node.PrivateKey()
-    priv = None
-    for attr in ("RawUncompressed","RawCompressed","Raw"):
-        if hasattr(pkobj, attr):
-            priv = getattr(pkobj, attr)().ToBytes(); break
-    if not priv or len(priv) < 32:
-        die("could not extract 32-byte seed from bip_utils")
-    seed32 = priv[:32]
+def kp_from_seed32(seed32: bytes) -> Keypair:
     try:
         return Keypair.from_seed(seed32)
     except Exception:
@@ -142,25 +115,132 @@ def derive_from_mnemonic(mnemonic: str, passphrase: str = "") -> Keypair:
         sec64 = sk.encode() + sk.verify_key.encode()
         return Keypair.from_bytes(sec64)
 
-def load_signer_from_file(path: str) -> Keypair:
-    # JSON id.json first
+def keypair_from_any_bytes(raw: bytes) -> Optional[Keypair]:
+    """Try common interpretations of a byte blob as a Solana secret."""
+    # Exact 64 bytes: secret(32)+pub(32)
+    if len(raw) == 64:
+        try: return Keypair.from_bytes(raw)
+        except Exception: return None
+    # Exact 32 bytes: seed
+    if len(raw) == 32:
+        try: return kp_from_seed32(raw)
+        except Exception: return None
+    return None
+
+def keypair_from_base58_any(sec_b58: str, expect_addr: Optional[str]) -> Keypair:
+    """
+    Accepts non-standard base58 secrets:
+      - if 32/64 → normal path
+      - if >64   → scan all 64-byte windows; return the one that matches expect_addr (or first valid)
+    """
+    raw = _b58decode(sec_b58)
+
+    # Fast paths
+    kp = keypair_from_any_bytes(raw)
+    if kp:
+        if expect_addr and str(kp.pubkey()) != expect_addr:
+            die(f"base58 derives {kp.pubkey()} but address={expect_addr}. Paste the base58 for that address.")
+        return kp
+
+    # Non-standard length: scan all 64-byte windows; prefer expect_addr match
+    candidates: List[Keypair] = []
+    for i in range(0, max(0, len(raw) - 63)):
+        chunk = raw[i:i+64]
+        k = keypair_from_any_bytes(chunk)
+        if not k: continue
+        if expect_addr and str(k.pubkey()) == expect_addr:
+            return k
+        candidates.append(k)
+
+    if candidates:
+        # No expected address, just return first valid
+        return candidates[0]
+
+    die(f"base58 secret decoded to {len(raw)} bytes (not 32/64) and no valid 64-byte window found")
+
+def derive_from_mnemonic_path(mnemonic: str, passphrase: str, acct: int, change: int, index: int) -> Keypair:
+    try:
+        from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
+    except ImportError:
+        die("Mnemonic present but 'bip_utils' not installed. Install: pip install bip_utils pynacl")
+    seed = Bip39SeedGenerator(mnemonic).Generate(passphrase)
+    node = (Bip44.FromSeed(seed, Bip44Coins.SOLANA)
+            .Purpose().Coin().Account(acct).Change(Bip44Changes.CHAIN_EXT if change==0 else Bip44Changes.CHAIN_INT)
+            .AddressIndex(index))
+    pkobj = node.PrivateKey()
+    priv = None
+    for attr in ("RawUncompressed","RawCompressed","Raw"):
+        if hasattr(pkobj, attr):
+            priv = getattr(pkobj, attr)().ToBytes(); break
+    if not priv or len(priv) < 32:
+        die("could not extract 32-byte seed from bip_utils")
+    seed32 = priv[:32]
+    return kp_from_seed32(seed32)
+
+def load_signer_matching_address(path: str) -> Tuple[Keypair, str]:
+    """
+    Honor address=/public_address= in signer.txt.
+    Try id.json, base58=, mnemonic= (and brute-force common paths) until we get that pubkey.
+    If no address is provided, use first available material.
+    Returns (keypair, source_desc).
+    """
+    # JSON id.json?
     try:
         obj = json.load(open(path, "r", encoding="utf-8"))
-        if isinstance(obj, list):   # id.json array
-            return Keypair.from_bytes(bytes(obj))
+        if isinstance(obj, list):
+            kp = Keypair.from_bytes(bytes(obj))
+            return kp, "id.json"
         if isinstance(obj, dict) and "secretKey" in obj:
-            return Keypair.from_bytes(bytes(obj["secretKey"]))
+            kp = Keypair.from_bytes(bytes(obj["secretKey"]))
+            return kp, "id.json(object)"
     except Exception:
         pass
-    # key=value
+
     kv = parse_signer_txt(path)
-    mn = kv.get("mnemonic") or kv.get("phrase")
-    if mn: return derive_from_mnemonic(mn, kv.get("passphrase",""))
+    expect_addr = kv.get("address") or kv.get("public_address") or kv.get("pubkey") or ""
+    if expect_addr:
+        expect_addr = extract_pubkey(expect_addr)
+        fail_if_bad_base58("address", expect_addr)
+
+    tried: List[str] = []
+
+    # base58 secret?
     sec = kv.get("base58") or kv.get("secret") or kv.get("private")
-    if sec: return keypair_from_base58(sec)
-    # raw base58
-    try: return keypair_from_base58(open(path,"r",encoding="utf-8").read().strip())
-    except Exception as e: die(f"cannot load signer from '{path}': {e}")
+    if sec:
+        kp = keypair_from_base58_any(sec, expect_addr or None)
+        return kp, "base58"
+
+    # mnemonic?
+    mn = kv.get("mnemonic") or kv.get("phrase")
+    if mn:
+        pp = kv.get("passphrase","")
+        # Standard path first
+        kp = derive_from_mnemonic_path(mn, pp, acct=0, change=0, index=0)
+        if not expect_addr or str(kp.pubkey()) == expect_addr:
+            return kp, "mnemonic m/44'/501'/0'/0'"
+        tried.append(f"m/0/0/0→{kp.pubkey()}")
+        # brute-force common small range
+        for acct in range(0, 6):
+            for change in (0,1):
+                for idx in range(0, 6):
+                    kp2 = derive_from_mnemonic_path(mn, pp, acct, change, idx)
+                    if not expect_addr or str(kp2.pubkey()) == expect_addr:
+                        return kp2, f"mnemonic m/44'/501'/{acct}'/{change}'/{idx}"
+        tried.append("mnemonic: brute-force 0..5 failed")
+
+    # raw base58 in file?
+    try:
+        raw = open(path,"r",encoding="utf-8").read().strip()
+        kp = keypair_from_base58_any(raw, expect_addr or None)
+        return kp, "raw base58"
+    except Exception:
+        pass
+
+    if expect_addr:
+        die("Could not construct a signer that matches address={}\nTried: {}\nFix: put base58=<private key> for that address in signer.txt, or export its id.json.".format(
+            expect_addr, "; ".join(tried)))
+    else:
+        die("No usable key material found in signer file. Put either mnemonic=… or base58=… or id.json array.")
 
 # ----------------------- SPL helpers -----------------------
 def ata(owner: Pubkey, mint: Pubkey) -> Pubkey:
@@ -213,17 +293,16 @@ def main():
     mint_str = resolve_mint_token(TOKEN)
     if mint_str != SOL_MINT:
         fail_if_bad_base58("mint", mint_str)
-
     to_norm  = extract_pubkey(RECIPIENT)
     fail_if_bad_base58("recipient", to_norm)
 
     mint_pub = Pubkey.from_string(mint_str) if mint_str != SOL_MINT else None
     dest     = Pubkey.from_string(to_norm)
 
-    # load signer
-    kp = load_signer_from_file(SIGNER_FILE)
+    # load signer that MATCHES address=/public_address= if present
+    kp, source = load_signer_matching_address(SIGNER_FILE)
     payer = kp.pubkey()
-    print(f"Signer: {payer}")
+    print(f"Signer: {payer}  (source={source})")
     print(f"To    : {dest}")
     print(f"Mint  : {mint_str if mint_str==SOL_MINT else mint_pub}")
 
@@ -235,7 +314,7 @@ def main():
     if amount_atoms <= 0: die("Amount too small for this token")
     print(f"Amount: {AMOUNT_UI} (atoms={amount_atoms}) decimals={decimals}")
 
-    # existence checks for ATAs
+    # build ixs
     ixs: List[Instruction] = []
     ixs.append(set_compute_unit_limit(CU_LIMIT))
     ixs.append(set_compute_unit_price(CU_PRICE))
@@ -244,8 +323,7 @@ def main():
     dest_ata = None
 
     if mint_str == SOL_MINT:
-        # SOL transfer
-        data = b"\x02" + amount_atoms.to_bytes(8, "little")   # SystemProgram::Transfer (tag=2)
+        data = b"\x02" + amount_atoms.to_bytes(8, "little")   # SystemProgram::Transfer
         ixs.append(Instruction(SYSTEM_PROGRAM, data, [
             AccountMeta(payer, True, True),
             AccountMeta(dest,  False, True),
@@ -261,7 +339,7 @@ def main():
         if not dest_exists:
             ixs.append(create_ata_ix(payer, dest,  mint_pub, dest_ata))
 
-        # SPL Token TransferChecked (tag 12): [u64 amount, u8 decimals]
+        # TransferChecked (tag 12): [u64 amount, u8 decimals]
         data = bytes([12]) + amount_atoms.to_bytes(8, "little") + bytes([decimals])
         ixs.append(Instruction(
             SPL_TOKEN_PROGRAM, data,
@@ -273,15 +351,13 @@ def main():
             ]
         ))
 
-    # ---- Preflight: fee & rent, ensure payer SOL is enough ----
-    # Prepare a message for fee estimation (needs a real blockhash)
-    bh_for_fee = recent_blockhash()
+    # ---- Preflight: fee & rent ----
+    bh_for_fee  = recent_blockhash()
     msg_for_fee = MessageV0.try_compile(payer, ixs, [], bh_for_fee)
-    msg_b64 = base64.b64encode(to_bytes_versioned(msg_for_fee)).decode()
-    fee_info = rpc("getFeeForMessage", [msg_b64, {"commitment":"finalized"}])
+    msg_b64     = base64.b64encode(to_bytes_versioned(msg_for_fee)).decode()
+    fee_info    = rpc("getFeeForMessage", [msg_b64, {"commitment":"finalized"}])
     fee_lamports = int(fee_info.get("value") or 5000)
 
-    # Rent for ATAs (165 bytes each)
     rent_token_acct = get_min_rent_exempt(165)
     need_src = (src_ata is not None) and (not account_exists(src_ata))
     need_dst = (dest_ata is not None) and (not account_exists(dest_ata))
