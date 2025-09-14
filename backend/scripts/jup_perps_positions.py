@@ -1,41 +1,49 @@
 #!/usr/bin/env python3
-# Jupiter Perps — standalone (no CLI args)
-# - Uses Helius getProgramAccountsV2 (object shape)
-# - Derives Position discriminator from KNOWN_POSITION_PUBKEY
-# - Learns true owner offset by scanning raw bytes for OWNER pubkey
-# - Lists YOUR positions (disc@0 + owner@offset)
-# - Optional decode (IDL_PATH + anchorpy)
+# Jupiter Perps — standalone console tool (no CLI args)
+# - Uses Helius getProgramAccountsV2 (object shape) everywhere
+# - Filters YOUR positions via memcmp(disc@0) + memcmp(owner@offset)
+# - Optional decode (Side / Size / Entry / Mark / est. PnL) if IDL_PATH set + anchorpy installed
+#
+# Run:  python jup_perps_positions.py
+# Notes:
+# * For decoding, you need a canonical Anchor JSON IDL (pure JSON; no BN()/PublicKey()).
+# * This script will auto-detect the correct IDL account name by matching discriminators.
 
 from __future__ import annotations
 
-import base64, hashlib, json, random, time, requests
-from collections import Counter
+import base64
+import hashlib
+import json
+import random
+import time
 from typing import Any, Dict, List, Optional
 
-
-#setx PERPS_POSITION_OWNER_OFFSET 8
-#setx PERPS_POSITION_DISC 0xaabc8fe47a40f7d0
-#setx PERPS_PROGRAM_ID PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu
+import requests
+from collections import Counter
 
 
-# =============== CONFIG (edit if needed) ===============
+# ===========================
+# CONFIG — EDIT IF YOU WANT
+# ===========================
 OWNER_PUBKEY   = "V8iveiirFvX7m7psPHWBJW85xPk1ZB6U4Ep9GUV2THW"
-PROGRAM_ID     = "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu"  # verified from pool owner
+PROGRAM_ID     = "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu"  # verified via pool owner
 HELIUS_API_KEY = "a8809bee-20ba-48e9-b841-0bd2bafd60b9"
 RPC_URL        = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 
-# >>> Your known Position account (from helper)
-KNOWN_POSITION_PUBKEY = "2ZwGG1dKAHCQErH3cNychmQm6tBWSLdhKQrSc2XKP6hZ"
+# Known Position discriminator & owner offset (derived earlier)
+POSITION_DISC_HEX = "aabc8fe47a40f7d0"
+OWNER_OFFSET      = 8
 
-# Optional: canonical Anchor JSON IDL to enable decode (with anchorpy)
-IDL_PATH       = ""   # e.g. r"C:\sonic5\backend\services\perps\idl\jupiter_perpetuals.json"
+# Optional: canonical Anchor JSON IDL path → enables decode if anchorpy is installed
+IDL_PATH          = ""  # e.g. r"C:\sonic5\backend\services\perps\idl\jupiter_perpetuals.json"
 
-# How many positions to fetch/print
-LIMIT_POS      = 100
-SHOW_MARKETS   = True
-# =======================================================
+# Fetch/print
+LIMIT_POS         = 100  # how many positions to list
+SHOW_MARKETS      = True # small disc inventory from first page
+# ===========================
 
-# --- base58 helpers ---
+
+# -------- base58 helpers (tiny) --------
 _B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 _B58_IDX = {ch:i for i,ch in enumerate(_B58)}
 def b58enc(b: bytes) -> str:
@@ -46,7 +54,6 @@ def b58enc(b: bytes) -> str:
         n,r = divmod(n,58)
         out.append(_B58[r])
     if out: s += "".join(reversed(out))
-    # preserve leading zeros as '1'
     z=0
     for ch in b:
         if ch==0: z+=1
@@ -66,28 +73,32 @@ def b58dec(s: str) -> bytes:
     return (b"\x00"*leading) + full.lstrip(b"\x00")
 
 OWNER_BYTES = b58dec(OWNER_PUBKEY)
+POSITION_DISC = bytes.fromhex(POSITION_DISC_HEX)
 
-# --- robust Helius JSON-RPC ---
+
+# -------- robust Helius JSON-RPC with backoff --------
 def rpc(method: str, params: Any, retries: int = 6, base_delay: float = 0.5) -> Any:
     last=None
     for i in range(retries):
         try:
             r = requests.post(RPC_URL, json={"jsonrpc":"2.0","id":1,"method":method,"params":params}, timeout=30)
-            if r.status_code in (429,502,503,504):
-                time.sleep(base_delay*(2**i)+random.uniform(0,0.25)); continue
+            if r.status_code in (429, 502, 503, 504):
+                time.sleep(base_delay*(2**i) + random.uniform(0,0.25)); continue
             r.raise_for_status()
             data = r.json()
             if data.get("error"):
                 msg = str(data["error"])
                 if "Too many" in msg or "rate" in msg.lower():
-                    time.sleep(base_delay*(2**i)+random.uniform(0,0.25)); continue
+                    time.sleep(base_delay*(2**i) + random.uniform(0,0.25)); continue
                 raise RuntimeError(f"RPC error: {msg}")
             return data.get("result")
         except Exception as e:
-            last=e; time.sleep(base_delay*(2**i)+random.uniform(0,0.25))
+            last=e
+            time.sleep(base_delay*(2**i) + random.uniform(0,0.25))
     raise RuntimeError(f"RPC failed: {last}")
 
-# --- raw helpers ---
+
+# -------- raw/b64 helpers --------
 def raw_from_data(data: Any) -> Optional[bytes]:
     try:
         if isinstance(data, list) and data and isinstance(data[0], str):
@@ -98,25 +109,8 @@ def raw_from_data(data: Any) -> Optional[bytes]:
         return None
     return None
 
-def get_account_info(pubkey: str, encoding: str = "base64", data_slice: Optional[dict] = None) -> Optional[dict]:
-    enc = {"encoding": encoding, "commitment":"confirmed"}
-    if data_slice: enc["dataSlice"] = data_slice
-    res = rpc("getAccountInfo", [pubkey, enc]) or {}
-    v = res.get("value") if isinstance(res, dict) else None
-    return v if isinstance(v, dict) else None
 
-def get_account_space(pubkey: str) -> Optional[int]:
-    # 'space' is present in jsonParsed for most accounts; fallback to a safe cap
-    v = get_account_info(pubkey, encoding="jsonParsed")
-    if v and isinstance(v.get("space"), int):
-        return int(v["space"])
-    return None  # unknown
-
-def get_account_bytes(pubkey: str, length: int) -> Optional[bytes]:
-    v = get_account_info(pubkey, data_slice={"offset":0, "length":length})
-    return raw_from_data(v.get("data")) if v else None
-
-# --- V2 helpers (object shape) ---
+# -------- V2 helpers (object shape: {"accounts":[...],"paginationKey":...}) --------
 def program_has_any_accounts_v2(pid: str) -> bool:
     try:
         res = rpc("getProgramAccountsV2", [pid, {"encoding":"base64","limit":1}]) or {}
@@ -125,13 +119,13 @@ def program_has_any_accounts_v2(pid: str) -> bool:
     except Exception:
         return False
 
-def list_positions_v2(pid: str, disc: bytes, owner: str, owner_off: int, limit: int) -> List[str]:
+def list_positions_v2(pid: str, disc: bytes, owner: str, off: int, limit: int) -> List[str]:
     params = {"encoding":"base64","limit":limit, "filters":[
         {"memcmp":{"offset":0,"bytes": b58enc(disc)}},
-        {"memcmp":{"offset":int(owner_off),"bytes": owner}}
+        {"memcmp":{"offset":int(off),"bytes": owner}}
     ]}
     res = rpc("getProgramAccountsV2", [pid, params]) or {}
-    accs = res.get("accounts") if isinstance(res, dict) else []
+    accs = res.get("accounts") if isinstance(res,dict) else []
     pubs=[]
     if isinstance(accs, list):
         for it in accs:
@@ -139,8 +133,9 @@ def list_positions_v2(pid: str, disc: bytes, owner: str, owner_off: int, limit: 
                 pubs.append(it["pubkey"])
     return pubs
 
-# --- optional decode (console print) ---
-def try_decode_positions(idl_path: str, pubs: List[str]) -> None:
+
+# -------- optional decode (anchorpy + IDL) --------
+def try_decode_positions(idl_path: str, disc: bytes, pubs: List[str]) -> None:
     try:
         from anchorpy import Idl
         from anchorpy.coder.accounts import AccountCoder
@@ -150,9 +145,25 @@ def try_decode_positions(idl_path: str, pubs: List[str]) -> None:
     except Exception as e:
         print(f"\nNOTE: cannot decode (anchorpy/IDL): {e}\n"); return
 
+    # pick the correct IDL account name by matching discriminator
+    def disc_for_name(name: str) -> bytes:
+        return hashlib.sha256(f"account:{name}".encode("utf-8")).digest()[:8]
+    idl_accounts = [a.get("name") for a in (idl_json.get("accounts") or []) if isinstance(a, dict)]
+    account_name = None
+    for name in idl_accounts:
+        try:
+            if disc_for_name(name) == disc:
+                account_name = name
+                break
+        except Exception:
+            continue
+    if not account_name:
+        account_name = "Position"  # fallback guess
+        print(f"NOTE: could not match IDL account by discriminator. Trying '{account_name}'.")
+
+    # minimal field extractors
     def raw_from_multi(v: dict) -> Optional[bytes]:
         return raw_from_data(v.get("data", {})) if isinstance(v, dict) else None
-
     def _num(x):
         try:
             if x is None: return None
@@ -199,6 +210,7 @@ def try_decode_positions(idl_path: str, pubs: List[str]) -> None:
         return side,size_ui,entry,base_mint
 
     print("Decoding positions…")
+    # pull raw via getMultipleAccounts (not a scan)
     for i in range(0, len(pubs), 100):
         batch = pubs[i:i+100]
         try:
@@ -218,24 +230,26 @@ def try_decode_positions(idl_path: str, pubs: List[str]) -> None:
             if not isinstance(raw,(bytes,bytearray)) or len(raw)<=8:
                 print(f"  {pk}: no raw bytes"); continue
             try:
-                decoded = coder.decode("Position", raw)
+                decoded = coder.decode(account_name, raw)
                 d = decoded.__dict__ if hasattr(decoded,"__dict__") else decoded
                 side,size_ui,entry,base_mint = extract_fields(d)
-                # mark
+                # mark price
                 mark=None
                 try:
-                    r=requests.get("https://price.jup.ag/v6/price", params={"ids":base_mint,"vsToken":"USDC"}, timeout=8)
+                    r = requests.get("https://price.jup.ag/v6/price", params={"ids":base_mint,"vsToken":"USDC"}, timeout=8)
                     r.raise_for_status()
-                    data=r.json().get("data",{})
-                    if base_mint in data and "price" in data[base_mint]: mark=float(data[base_mint]["price"])
-                    elif data: mark=float(next(iter(data.values())).get("price"))
+                    dd = r.json().get("data",{})
+                    if base_mint in dd and "price" in dd[base_mint]: mark=float(dd[base_mint]["price"])
+                    elif dd: mark=float(next(iter(dd.values())).get("price"))
                 except Exception: mark=None
                 pnl=None
-                if None not in (side,size_ui,entry,mark): pnl=(mark-entry)*size_ui*(1.0 if side=="LONG" else -1.0)
-                pnl_str=f"{pnl:+.4f}" if pnl is not None else "—"
+                if None not in (side,size_ui,entry,mark):
+                    pnl=(mark-entry)*size_ui*(1.0 if side=="LONG" else -1.0)
+                pnl_str = f"{pnl:+.4f}" if pnl is not None else "—"
                 print(f"  {pk[:6]}…{pk[-6:]} | {side or '—':>5} | size={size_ui or '—'} | entry={entry or '—'} | mark={mark or '—'} | PnL={pnl_str}")
             except Exception as e:
                 print(f"  {pk}: decode failed: {type(e).__name__}: {e}")
+
 
 def main():
     print("== Jupiter Perps (Standalone) ==")
@@ -250,58 +264,16 @@ def main():
         print("This program id returned 0 accounts (V2). Double-check PROGRAM_ID.")
         print("Done."); return
 
-    # A) derive Position discriminator from your known position account
-    if not KNOWN_POSITION_PUBKEY:
-        print("KNOWN_POSITION_PUBKEY is empty. Set it at the top of the script and run again.")
-        print("Done."); return
-
-    # read first 8 bytes (discriminator) from known position
-    raw8 = get_account_bytes(KNOWN_POSITION_PUBKEY, 8)
-    if not (isinstance(raw8,(bytes,bytearray)) and len(raw8)>=8):
-        print("Could not read 8-byte head from KNOWN_POSITION_PUBKEY. Try again.")
-        print("Done."); return
-    pos_disc = raw8[:8]
-    print(f"Derived Position discriminator (hex): {pos_disc.hex()}")
-
-    # B) find true owner offset by scanning the KNOWN_POSITION_PUBKEY's full bytes
-    space = get_account_space(KNOWN_POSITION_PUBKEY) or 4096
-    full = get_account_bytes(KNOWN_POSITION_PUBKEY, min(space, 8192))
-    if not isinstance(full,(bytes,bytearray)):
-        print("Could not fetch full bytes for KNOWN_POSITION_PUBKEY; falling back to offset probe.")
-        owner_off = None
-    else:
-        idx = full.find(OWNER_BYTES)
-        owner_off = idx if idx >= 0 else None
-        print(f"Owner bytes found at offset: {owner_off}" if owner_off is not None else "Owner bytes not found; will probe offsets.")
-
-    # If not found in bytes, probe offsets with disc quickly (8..space step 4)
-    if owner_off is None:
-        for off in range(8, min(space, 2048), 4):
-            params = {"encoding":"base64","limit":1, "filters":[
-                {"memcmp":{"offset":0,"bytes": b58enc(pos_disc)}},
-                {"memcmp":{"offset":off,"bytes": OWNER_PUBKEY}}
-            ]}
-            try:
-                res = rpc("getProgramAccountsV2", [PROGRAM_ID, params]) or {}
-                accs = res.get("accounts") if isinstance(res, dict) else []
-                if isinstance(accs, list) and accs:
-                    owner_off = off; break
-            except Exception:
-                continue
-    if owner_off is None:
-        owner_off = 8
-    print(f"Using owner offset: {owner_off}\n")
-
-    # C) list my positions via V2 filters (disc@0 + owner@offset)
-    pubs = list_positions_v2(PROGRAM_ID, pos_disc, OWNER_PUBKEY, owner_off, LIMIT_POS)
+    # list my positions via V2 filters (we already know disc and offset)
+    pubs = list_positions_v2(PROGRAM_ID, POSITION_DISC, OWNER_PUBKEY, OWNER_OFFSET, LIMIT_POS)
     print(f"Found {len(pubs)} position pubkeys:")
     for pk in pubs: print("  ", pk)
 
-    # D) optional decode
+    # optional decode
     if IDL_PATH and pubs:
-        try_decode_positions(IDL_PATH, pubs)
+        try_decode_positions(IDL_PATH, POSITION_DISC, pubs)
 
-    # E) tiny markets overview (first page discs)
+    # markets disc inventory (first page)
     if SHOW_MARKETS:
         print("\nMarkets (disc inventory first page):")
         try:
