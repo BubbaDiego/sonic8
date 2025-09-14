@@ -50,19 +50,32 @@ async def perps_positions(owner: Optional[str] = Query(None, description="owner 
 
 
 @router.get("/positions/detailed")
-async def perps_positions_detailed(owner: str, limit: int = 50):
+async def perps_positions_detailed(owner: str, limit: int = 50, debug: int = 0):
     """
     Decode fields for owner positions (size, entry, mark, est PnL).
-    Uses v2 decoder (never throws). Requires PERPS_POSITION_OWNER_OFFSET.
+    v2: NEVER throws. Returns JSON with ok/err. Set debug=1 to include traceback.
     """
-    from backend.services.perps.detail import fetch_positions_detailed_v2
-    import anyio
+    import anyio, traceback
     try:
-        # run sync wrapper in a worker thread
-        return await anyio.to_thread.run_sync(fetch_positions_detailed_v2, owner, limit)
+        from backend.services.perps.detail import fetch_positions_detailed_v2
     except Exception as e:
-        # We shouldn't hit this, but keep a guard
-        return {"ok": False, "version": "v2", "error": f"unexpected route error: {e}"}
+        return {"ok": False, "version": "v2", "error": f"import failed: {type(e).__name__}: {e}"}
+
+    try:
+        data = await anyio.to_thread.run_sync(fetch_positions_detailed_v2, owner, limit)
+        # ensure version flag is present so we know this path executed
+        if isinstance(data, dict):
+            data.setdefault("version", "v2")
+            return data
+        # unexpected non-dict return
+        return {"ok": False, "version": "v2", "error": f"unexpected return type: {type(data).__name__}"}
+    except Exception as e:
+        return {
+            "ok": False,
+            "version": "v2",
+            "error": f"{type(e).__name__}: {e}",
+            "trace": traceback.format_exc() if debug else None
+        }
 
 
 @router.get("/debug/idl")
