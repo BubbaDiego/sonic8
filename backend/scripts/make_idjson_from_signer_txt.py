@@ -11,7 +11,7 @@ from solders.pubkey import Pubkey
 # --- CONFIG ---
 SIGNER_TXT = r"C:\sonic5\signer.txt"
 OUT_JSON   = r"C:\sonic5\backend\signer_id.json"
-EXPECT_PUB = "V8iveiirFvX7m7psPHWBJW85xPk1ZB6U4Ep9GUV2THW"  # sanity check
+EXPECT_PUB = "CofTLEqPUXscsigdvP8YWkRTDmCQ6W7GKBVKRsZ6UvLn"  # sanity check
 
 # ---- tiny base58 (no external dep) ----
 _B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"

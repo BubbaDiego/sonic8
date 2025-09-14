@@ -9,6 +9,7 @@ import sys
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
+import hashlib
 
 import requests
 from solders.pubkey import Pubkey
@@ -28,7 +29,7 @@ RPC_URL        = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 PROGRAM_ID     = Pubkey.from_string("PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu")
 
 # Your wallet (the one that owns the position)
-OWNER          = Pubkey.from_string("V8iveiirFvX7m7psPHWBJW85xPk1ZB6U4Ep9GUV2THW")
+OWNER          = Pubkey.from_string("6wSkEGWYpdztSdHgxjjXwY8WJF8NjXuiRSbsC9RXckWP")
 
 # One of your position pubkeys to decrease/close
 POSITION_PUBKEY = Pubkey.from_string("2ZwGG1dKAHCQErH3cNychmQm6tBWSLdhKQrSc2XKP6hZ")  # change to any of your 4
