@@ -1,15 +1,23 @@
 # backend/routes/jupiter_perps_api.py
 from __future__ import annotations
 
-from typing import Optional, Dict
+from typing import Optional, Dict, Literal
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field, validator
 import anyio
 
 from backend.services.perps.markets import list_markets_sync
 from backend.services.perps.positions import list_positions_sync
 from backend.services.perps.raw_rpc import _rpc, get_program_id, get_idl_account_names
 from backend.services.perps.config import get_disc, get_account_name
+
+try:  # optional service (not yet wired everywhere)
+    from backend.services.perps.order_submit import submit_increase_request, submit_close_request
+    _ORDER_SERVICE_AVAILABLE = True
+except Exception:  # pragma: no cover - best effort import guard
+    submit_increase_request = submit_close_request = None
+    _ORDER_SERVICE_AVAILABLE = False
 
 # tiny base58 encoder (same as service)
 _B58_ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
@@ -33,6 +41,25 @@ def _b58encode(b: bytes) -> str:
 router = APIRouter(prefix="/api/perps", tags=["perps"])
 
 
+class PerpOrderRequest(BaseModel):
+    market: str = Field(..., min_length=1)
+    side: Literal['long', 'short']
+    sizeUsd: float = Field(..., gt=0)
+    collateralUsd: float = Field(..., gt=0)
+    tp: Optional[float] = None
+    sl: Optional[float] = None
+
+    @validator('tp', 'sl')
+    def _positive_optional(cls, value):
+        if value is not None and value <= 0:
+            raise ValueError('must be > 0 when provided')
+        return value
+
+
+class PerpCloseRequest(BaseModel):
+    market: str = Field(..., min_length=1)
+
+
 @router.get("/markets")
 async def perps_markets():
     try:
@@ -47,6 +74,36 @@ async def perps_positions(owner: Optional[str] = Query(None, description="owner 
         return await anyio.to_thread.run_sync(list_positions_sync, owner)
     except Exception as e:
         raise HTTPException(502, f"positions fetch failed: {e}")
+
+
+@router.post("/order")
+async def perps_create_order(req: PerpOrderRequest):
+    if not _ORDER_SERVICE_AVAILABLE:
+        raise HTTPException(501, "Perps order submission not configured on server.")
+    try:
+        result = await anyio.to_thread.run_sync(submit_increase_request, req.dict())
+        if result is None:
+            return {"ok": True}
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"perps order failed: {e}")
+
+
+@router.post("/close")
+async def perps_close_position(req: PerpCloseRequest):
+    if not _ORDER_SERVICE_AVAILABLE:
+        raise HTTPException(501, "Perps close submission not configured on server.")
+    try:
+        result = await anyio.to_thread.run_sync(submit_close_request, req.dict())
+        if result is None:
+            return {"ok": True}
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"perps close failed: {e}")
 
 
 @router.get("/positions/detailed")

@@ -23,6 +23,9 @@ import {
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 import MainCard from 'ui-component/cards/MainCard';
+import MarketsPanel from 'components/jupiter/Perps/MarketsPanel.jsx';
+import PositionsPanel from 'components/jupiter/Perps/PositionsPanel.jsx';
+import OrderForm from 'components/jupiter/Perps/OrderForm.jsx';
 import {
   whoami,
   signerInfo,
@@ -448,7 +451,19 @@ export default function JupiterPage() {
       </MainCard>
 
       {tab === 0 && <MainCard><Typography>Spot Triggers coming soon…</Typography></MainCard>}
-      {tab === 1 && <MainCard><Typography>Perps tab placeholder</Typography></MainCard>}
+      {tab === 1 && (
+        <Stack spacing={2}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <MarketsPanel />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <PositionsPanel />
+            </Grid>
+          </Grid>
+          <OrderForm />
+        </Stack>
+      )}
 
       {tab === 2 && (
         <Stack spacing={2}>
