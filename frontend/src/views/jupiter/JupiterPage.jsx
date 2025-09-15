@@ -1,30 +1,43 @@
 // frontend/src/views/jupiter/JupiterPage.jsx
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { enqueueSnackbar } from 'notistack';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSnackbar } from 'notistack';
+
+import {
+  Box,
+  Button,
+  Chip,
+  Divider,
+  Grid,
+  IconButton,
+  MenuItem,
+  Stack,
+  Switch,
+  Tab,
+  Tabs,
+  TextField,
+  Tooltip,
+  Typography,
+  FormControlLabel
+} from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 import MainCard from 'ui-component/cards/MainCard';
 import {
-  // swaps + helpers
-  swapQuote, swapExecute, getUsdPrice,
-  // wallet & portfolio
-  whoami, signerInfo, walletPortfolio, estimateSolSpend,
-  // txlog (projected vs actual profit)
-  txlogLatest, txlogList,
-  // sending
+  whoami,
+  signerInfo,
+  walletPortfolio,
+  estimateSolSpend,
+  swapQuote,
+  swapExecute,
+  getUsdPrice,
+  txlogLatest,
+  txlogList,
   sendToken
 } from 'api/jupiter';
 
-import {
-  Box, Button, Chip, Grid, Stack, Tab, Tabs, TextField, Typography,
-  MenuItem, FormControlLabel, Switch, Divider, Tooltip, IconButton
-} from '@mui/material';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import MarketsPanel from 'components/jupiter/Perps/MarketsPanel';
-import PositionsPanel from 'components/jupiter/Perps/PositionsPanel';
-
 /* ------------------------------------------------------------------ */
-/* Token directory                                                     */
+/* Tokens                                                              */
 /* ------------------------------------------------------------------ */
 const TOKENS = [
   { sym: 'SOL',     mint: 'So11111111111111111111111111111111111111112', decimals: 9 },
@@ -32,26 +45,25 @@ const TOKENS = [
   { sym: 'mSOL',    mint: 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So',  decimals: 9 },
   { sym: 'JitoSOL', mint: 'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', decimals: 9 }
 ];
-const sym = (s) => TOKENS.find((t) => t.sym === s);
+const tokenBySym = (s) => TOKENS.find(t => t.sym === s) || TOKENS[0];
 
 /* helpers */
-const atomsToUi = (atoms, decimals) => Number(atoms || 0) / 10 ** decimals;
-const fmt = (n, dp = 6) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: dp });
-const pct = (x) => (Number(x || 0) * 100).toLocaleString(undefined, { maximumFractionDigits: 4 }) + '%';
+const atomsToUi = (atoms, decimals) => Number(atoms || 0) / 10 ** Number(decimals || 0);
+const fmt       = (n, dp = 6) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: dp });
+const pct       = (x) => (Number(x || 0) * 100).toLocaleString(undefined, { maximumFractionDigits: 4 }) + '%';
 
 /* ------------------------------------------------------------------ */
-/* Base58 normalization / validation                                  */
+/* Base58 sanitation (prevents -32602 from RPC)                        */
 /* ------------------------------------------------------------------ */
-// accept plain base58, solana:<pk>?..., explorer URLs .../address/<pk>, or longest base58 token (>=32)
+const BASE58_ALPH = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const BASE58_RE   = /^[1-9A-HJ-NP-Za-km-z]+$/;
 const BASE58_FIND = /[1-9A-HJ-NP-Za-km-z]{32,}/g;
+
 const extractPubkey = (s) => {
   if (!s) return '';
   s = String(s).trim();
   const low = s.toLowerCase();
-  if (low.startsWith('solana:')) {
-    return s.split(':', 1)[1].split('?', 1)[0];
-  }
+  if (low.startsWith('solana:')) return s.split(':', 1)[1].split('?', 1)[0];
   const m = s.match(/address\/([1-9A-HJ-NP-Za-km-z]+)/i);
   if (m && m[1]) return m[1];
   const s0 = s.split(/[?#\s]/)[0];
@@ -60,62 +72,83 @@ const extractPubkey = (s) => {
   if (hits && hits.length) { hits.sort((a,b)=>b.length-a.length); return hits[0]; }
   return s0;
 };
+// sanitize to base58 only, after extracting pubkey from URI/explorer URL
+const sanitizeBase58 = (s) => extractPubkey(s).replace(/[^1-9A-HJ-NP-Za-km-z]/g, '');
 
 /* ------------------------------------------------------------------ */
-/* Send Tokens card                                                    */
+/* Send Tokens                                                         */
 /* ------------------------------------------------------------------ */
-function SendCard({ onLog }) {
-  const [mintSym, setMintSym] = useState('USDC');
-  const [to, setTo] = useState('');
-  const [amtUi, setAmtUi] = useState('');
-  const [sending, setSending] = useState(false);
-  const [usd, setUsd] = useState(null);
+function SendCard() {
+  const { enqueueSnackbar } = useSnackbar();
+  const [mintSym, setMintSym]   = useState('USDC');
+  const [to, setTo]             = useState('');
+  const [amountUi, setAmountUi] = useState('');
+  const [sending, setSending]   = useState(false);
+  const [usd, setUsd]           = useState(null);
+  const [cleanNote, setCleanNote] = useState('');
 
-  const tok = sym(mintSym);
+  const tok = tokenBySym(mintSym);
+
+  // price
   useEffect(() => {
     let live = true;
     (async () => {
-      try {
-        const r = await getUsdPrice(tok.mint, 'USDC');
-        if (live) setUsd(Number(r.price));
-      } catch {
-        if (live) setUsd(null);
-      }
+      try { const r = await getUsdPrice(tok.mint, 'USDC'); if (live) setUsd(Number(r.price)); }
+      catch { if (live) setUsd(null); }
     })();
     return () => { live = false; };
   }, [mintSym]);
 
-  const amtUsd = usd ? (Number(amtUi || 0) * usd) : null;
+  const amountUsd = useMemo(() => {
+    const ui = Number(amountUi || 0);
+    if (usd == null || !ui || !Number.isFinite(ui)) return null;
+    return ui * usd;
+  }, [amountUi, usd]);
 
-  const doSend = async () => {
+  // block non-base58 keystrokes
+  const onBeforeInput = (e) => {
+    const d = e.nativeEvent?.data;
+    if (!d || d.length !== 1) return;
+    if (!BASE58_ALPH.includes(d)) {
+      e.preventDefault();
+      setCleanNote(`Removed non-base58 character '${d}'.`);
+    }
+  };
+  // sanitize on change/paste
+  const onChangeRecipient = (e) => {
+    const before = e.target.value;
+    const after  = sanitizeBase58(before);
+    setTo(after);
+    setCleanNote(after !== before ? 'Removed non-base58 characters.' : '');
+  };
+  const onPasteRecipient = (e) => {
+    try {
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      const clean = sanitizeBase58(text);
+      setTo(clean);
+      setCleanNote(clean !== text ? 'Removed non-base58 characters from pasted value.' : '');
+      e.preventDefault();
+    } catch {}
+  };
+
+  const toNorm  = sanitizeBase58(to);
+  const invalid = !toNorm || !BASE58_RE.test(toNorm);
+
+  const onSend = async () => {
     try {
       setSending(true);
-      const toNorm = extractPubkey(to);
-      if (!toNorm || !BASE58_RE.test(toNorm)) {
-        enqueueSnackbar('Invalid recipient (base58 only; no 0/O/I/l, no ":" "/" etc.)', { variant: 'warning' });
-        return;
-      }
-      const ui = Number(amtUi || 0);
-      if (!ui || ui <= 0) {
-        enqueueSnackbar('Enter a positive amount', { variant: 'warning' });
-        return;
-      }
+      if (invalid) { enqueueSnackbar('Enter a valid base58 address', { variant: 'warning' }); return; }
+      const ui = Number(amountUi || 0);
+      if (!ui || ui <= 0) { enqueueSnackbar('Enter a positive amount', { variant: 'warning' }); return; }
       const atoms = Math.floor(ui * 10 ** tok.decimals);
-      if (!atoms) {
-        enqueueSnackbar('Amount too small for this token', { variant: 'warning' });
-        return;
-      }
-      onLog?.(`Send: ${mintSym} ${ui} → ${toNorm}`);
+      if (!atoms) { enqueueSnackbar('Amount too small for this token', { variant: 'warning' }); return; }
+
       const r = await sendToken({ mint: tok.mint, to: toNorm, amountAtoms: atoms });
       enqueueSnackbar('Send submitted', { variant: 'success' });
-      onLog?.(`Send sent: ${r.signature}`, 'success');
+      console.log('[SEND] signature:', r.signature);
     } catch (e) {
-      const msg = e?.message || String(e);
-      enqueueSnackbar(msg, { variant: 'error' });
-      onLog?.(`Send error: ${msg}`, 'error');
-    } finally {
-      setSending(false);
-    }
+      enqueueSnackbar(e?.message || String(e), { variant: 'error' });
+    } finally { setSending(false); }
   };
 
   return (
@@ -123,241 +156,149 @@ function SendCard({ onLog }) {
       <Grid container spacing={2}>
         <Grid item xs={12} md={3}>
           <TextField select fullWidth label="Token" value={mintSym} onChange={(e)=>setMintSym(e.target.value)}>
-            {TOKENS.map((t) => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
+            {TOKENS.map((x)=> <MenuItem key={x.sym} value={x.sym}>{x.sym}</MenuItem>)}
           </TextField>
         </Grid>
         <Grid item xs={12} md={5}>
           <TextField
-            fullWidth
-            label="Recipient (pubkey)"
-            placeholder="8h1… or solana:<pubkey> or explorer URL"
-            value={to}
-            onChange={(e)=>setTo(extractPubkey(e.target.value))}
-            error={!!to && !BASE58_RE.test(extractPubkey(to))}
-            helperText={!!to && !BASE58_RE.test(extractPubkey(to)) ? 'Invalid address (base58 only; no 0/O/I/l)' : ' '}
+            fullWidth label="Recipient (pubkey)" value={to}
+            onBeforeInput={onBeforeInput}
+            onChange={onChangeRecipient}
+            onPaste={onPasteRecipient}
+            error={!!to && invalid}
+            helperText={invalid ? (cleanNote || 'Enter a valid base58 address (no 0/O/I/l or punctuation)') : (cleanNote || ' ')}
+            inputProps={{ spellCheck:false, autoCapitalize:'off', autoCorrect:'off' }}
           />
         </Grid>
         <Grid item xs={12} md={2}>
-          <TextField
-            fullWidth label="Amount"
-            value={amtUi} onChange={(e)=>setAmtUi(e.target.value)}
-            helperText={amtUsd != null ? `≈ $${amtUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ' '}
-          />
+          <TextField fullWidth label="Amount" value={amountUi} onChange={(e)=>setAmountUi(e.target.value)}
+            helperText={amountUsd != null ? `≈ $${amountUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ' '} />
         </Grid>
         <Grid item xs={12} md={2}>
-          <Button fullWidth variant="contained" onClick={doSend} disabled={sending}>
+          <Button fullWidth variant="contained" onClick={onSend} disabled={sending || invalid || !amountUi}>
             {sending ? 'Sending…' : 'Send'}
           </Button>
         </Grid>
       </Grid>
-      <Typography variant="caption" color="textSecondary">
-        If the recipient doesn’t have an ATA for this mint, we’ll create it automatically (uses a small amount of SOL).
-      </Typography>
+      <Typography variant="caption" color="textSecondary">If the recipient doesn’t have an ATA, we’ll create it automatically (uses a small amount of SOL).</Typography>
     </MainCard>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Stubs for the other tabs (keep placeholders)                        */
-/* ------------------------------------------------------------------ */
-function SpotTriggerForm() { return null; }
-function SpotTriggerTable() { return null; }
-
-/* ------------------------------------------------------------------ */
-/* Wallet Card (multi-token + green USD)                               */
+/* Wallet card (simple; hook a richer version if you want)             */
 /* ------------------------------------------------------------------ */
 function WalletCard() {
   const qc = useQueryClient();
-  const who  = useQuery({ queryKey: ['jupWho'],        queryFn: whoami,        staleTime: 5000,  retry: 0 });
-  const sinf = useQuery({ queryKey: ['jupSignerInfo'], queryFn: signerInfo,    staleTime: 10000, retry: 0 });
+  const who  = useQuery({ queryKey:['who'],       queryFn: whoami,     staleTime:5000, retry:0 });
+  const sinf = useQuery({ queryKey:['signerInfo'], queryFn: signerInfo, staleTime:10000, retry:0 });
 
-  const mintsCsv = TOKENS.map(t => t.mint).join(',');
-  const portfolio = useQuery({
-    queryKey: ['jupPortfolio'],
-    queryFn: () => walletPortfolio(mintsCsv),
-    staleTime: 5000,
-    retry: 0,
-    enabled: !!who.data
+  const mints = TOKENS.map(t=>t.mint);
+  const port  = useQuery({
+    queryKey:['portfolio', mints.join(',')],
+    queryFn: ()=> walletPortfolio(mints),
+    enabled: !!who.data, staleTime:5000, retry:0
   });
 
-  const short = (s) => (s ? `${s.slice(0,4)}…${s.slice(-4)}` : '');
+  const short = (s)=> s ? `${s.slice(0,4)}…${s.slice(-4)}` : '';
   const pub   = who.data?.pubkey || sinf.data?.pubkey;
 
-  const refresh = () => {
-    qc.invalidateQueries({ queryKey: ['jupWho'] });
-    qc.invalidateQueries({ queryKey: ['jupSignerInfo'] });
-    qc.invalidateQueries({ queryKey: ['jupPortfolio'] });
-  };
-
-  const green = { color: 'var(--mui-palette-success-main, #2e7d32)', fontWeight: 600 };
-
   return (
-    <MainCard title="Wallet" secondary={<Button size="small" onClick={refresh}>Refresh</Button>}>
-      {!who.data ? (
-        <Typography>Loading…</Typography>
-      ) : portfolio.isError ? (
-        <Typography color="error">Portfolio error: {portfolio.error?.message || 'unknown'}</Typography>
-      ) : portfolio.isLoading ? (
-        <Typography>Loading balances…</Typography>
-      ) : (
-        <Stack spacing={1}>
-          <Typography variant="body2">Pubkey: <code>{short(pub)}</code></Typography>
-          {portfolio.data?.items?.map((it) => {
-            const usdValue = it.usd ?? it.amount;
-            const usdText = usdValue == null ? '—' : `$${usdValue.toFixed(2)}`;
-            return (
+    <MainCard title="Wallet" secondary={<Button size="small" onClick={()=>{
+      qc.invalidateQueries({ queryKey:['who'] });
+      qc.invalidateQueries({ queryKey:['signerInfo'] });
+      qc.invalidateQueries({ queryKey:['portfolio'] });
+    }}>Refresh</Button>}>
+      {!who.data ? <Typography>Loading…</Typography>
+        : port.isError ? <Typography color="error">{port.error?.message || 'Portfolio error'}</Typography>
+        : port.isLoading ? <Typography>Loading balances…</Typography>
+        : (
+          <Stack spacing={1}>
+            <Typography variant="body2">Pubkey: <code>{short(pub)}</code></Typography>
+            {(port.data?.items || []).map((it)=>(
               <Typography key={it.mint} variant="body2">
-                {it.sym}: <b>{fmt(it.amount)}</b>{' '}
-                <span style={green}>({usdText})</span>
+                {it.sym}: <b>{fmt(it.amount)}</b> ({it.usd != null ? `$${Number(it.usd).toFixed(2)}` : '—'})
               </Typography>
-            );
-          })}
-          <Typography variant="caption" color="textSecondary">
-            Method: {sinf.data?.method || 'unknown'} — Path: {sinf.data?.path || ''}
-          </Typography>
-          {sinf.data?.note && <Typography variant="caption" color="textSecondary">Note: {sinf.data.note}</Typography>}
-        </Stack>
-      )}
+            ))}
+          </Stack>
+        )}
     </MainCard>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Quote + Round-trip panel (edge pill + details + tooltips)           */
+/* Quote + round-trip card (condensed)                                 */
 /* ------------------------------------------------------------------ */
 function QuoteCard({ quote, rt, inSym, outSym }) {
-  const inDec  = sym(inSym).decimals;
-  const outDec = sym(outSym).decimals;
+  const inDec  = tokenBySym(inSym).decimals;
+  const outDec = tokenBySym(outSym).decimals;
 
   const pill = (() => {
-    if (!rt) return { text: 'no edge', color: 'default', tip: 'No round-trip computed yet.' };
+    if (!rt) return { text: 'no edge', color: 'default', tip: 'No round-trip yet.' };
     const e = rt.edgeBps ?? 0;
-    const tip = `Round-trip edge = ((B→A minOut) − initial A) / initial A × 10,000 bps. Positive = profit, negative = loss.`;
+    const tip = 'Round-trip edge; positive = profit';
     if (e >= 50) return { text: `profit +${e.toFixed(2)} bps`, color: 'success', tip };
     if (e >= 0)  return { text: `near +${e.toFixed(2)} bps`,   color: 'warning', tip };
     return { text: `${e.toFixed(2)} bps`, color: 'error', tip };
   })();
 
-  const Pill = (
-    <Tooltip title={pill.tip}>
-      <Chip color={pill.color} label={pill.text} />
-    </Tooltip>
-  );
-
   return (
-    <MainCard title="Quote" secondary={Pill}>
+    <MainCard title="Quote" secondary={<Tooltip title={pill.tip}><Chip color={pill.color} label={pill.text}/></Tooltip>}>
       {quote ? (
         <Stack spacing={0.75}>
-          <Stack direction="row" alignItems="center" spacing={0.5}>
+          <Stack direction="row" spacing={0.5} alignItems="center">
             <Typography variant="body2">
               outAmount (atoms): <b>{quote.outAmount}</b>{' '}
-              <span style={{ opacity: 0.8 }}>
-                ({fmt(atomsToUi(quote.outAmount, outDec))} {outSym})
-              </span>
+              <span style={{opacity:.8}}>({fmt(atomsToUi(quote.outAmount, outDec))} {outSym})</span>
             </Typography>
-            <Tooltip title="Estimated output for A→B at quote time (not guaranteed by slippage).">
+            <Tooltip title="Estimated output at quote time.">
               <IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton>
             </Tooltip>
           </Stack>
-
-          <Stack direction="row" alignItems="center" spacing={0.5}>
-            <Typography variant="body2">
-              otherAmountThreshold: <b>{quote.otherAmountThreshold}</b>{' '}
-              <span style={{ opacity: 0.8 }}>
-                ({fmt(atomsToUi(quote.otherAmountThreshold, outDec))} {outSym})
-              </span>
-            </Typography>
-            <Tooltip title="Guaranteed min-out for A→B given your slippage (we rely on this).">
-              <IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton>
-            </Tooltip>
-          </Stack>
-
-          <Stack direction="row" alignItems="center" spacing={0.5}>
-            <Typography variant="body2">priceImpactPct: <b>{pct(quote.priceImpactPct)}</b></Typography>
-            <Tooltip title="Single-leg price impact for A→B (not the round-trip edge).">
-              <IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton>
-            </Tooltip>
-          </Stack>
+          <Typography variant="body2">
+            otherAmountThreshold: <b>{quote.otherAmountThreshold}</b>{' '}
+            <span style={{opacity:.8}}>({fmt(atomsToUi(quote.otherAmountThreshold, outDec))} {outSym})</span>
+          </Typography>
+          <Typography variant="body2">priceImpactPct: <b>{pct(quote.priceImpactPct)}</b></Typography>
 
           {rt && (
             <>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2">Round-trip (A→B→A) analysis</Typography>
-              <Typography variant="body2">
-                A→B minOut (B): <b>{rt.a2bMinOut}</b>{' '}
-                <span style={{ opacity: 0.8 }}>({fmt(atomsToUi(rt.a2bMinOut, outDec))} {outSym})</span>
+              <Divider sx={{ my:1 }}/>
+              <Typography variant="subtitle2">Round-trip</Typography>
+              <Typography variant="body2">A→B minOut (B): <b>{rt.a2bMinOut}</b>{' '}
+                <span style={{opacity:.8}}>({fmt(atomsToUi(rt.a2bMinOut, outDec))} {outSym})</span>
               </Typography>
-              <Typography variant="body2">
-                B→A minOut (A): <b>{rt.b2aMinOut}</b>{' '}
-                <span style={{ opacity: 0.8 }}>({fmt(atomsToUi(rt.b2aMinOut, inDec))} {inSym})</span>
+              <Typography variant="body2">B→A minOut (A): <b>{rt.b2aMinOut}</b>{' '}
+                <span style={{opacity:.8}}>({fmt(atomsToUi(rt.b2aMinOut, inDec))} {inSym})</span>
               </Typography>
-              <Typography variant="body2">
-                Edge: <b>{(rt.edgeTokens ?? 0).toLocaleString()}</b> atoms of {inSym} (~ ${fmt(rt.edgeUsd ?? 0, 3)})
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                Uses <b>strict minOut</b> on both legs; sequential, not atomic (may fail if price moves).
-              </Typography>
+              <Typography variant="body2">Edge: <b>{(rt.edgeTokens ?? 0).toLocaleString()}</b> atoms of {inSym}</Typography>
             </>
           )}
         </Stack>
-      ) : (
-        <Typography variant="body2" color="textSecondary">No quote yet.</Typography>
-      )}
+      ) : <Typography variant="body2" color="textSecondary">No quote yet.</Typography>}
     </MainCard>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Transaction card (Live / Details / History)                         */
+/* Transaction card (simple placeholders)                              */
 /* ------------------------------------------------------------------ */
-function TransactionCard({ log, onClear, onCopy }) {
-  const [tab, setTab] = useState(0);
-  const boxRef = useRef(null);
-  useEffect(() => { if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight; }, [log]);
-
+function TransactionCard() {
   const latest  = useQuery({ queryKey: ['txlogLatest'], queryFn: txlogLatest, staleTime: 0, retry: 0 });
   const history = useQuery({ queryKey: ['txlogList'],   queryFn: () => txlogList(25), staleTime: 0, retry: 0 });
 
   return (
-    <MainCard
-      title="Transaction"
-      secondary={<Stack direction="row" spacing={1}><Button size="small" onClick={onCopy}>Copy</Button><Button size="small" onClick={onClear}>Clear</Button></Stack>}
-    >
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 1 }}>
-        <Tab label="Live log" /><Tab label="Details" /><Tab label="History" />
-      </Tabs>
-
-      {tab === 0 && (
-        <Box ref={boxRef} sx={{ fontFamily:'ui-monospace, Menlo, Consolas, monospace', fontSize:12, lineHeight:1.4, maxHeight:220, overflowY:'auto', p:1, bgcolor:'background.default', borderRadius:1, border:(t)=>`1px solid ${t.palette.divider}` }}>
-          {log.length === 0
-            ? <Typography variant="body2" color="textSecondary">No activity yet.</Typography>
-            : log.map((r,i)=>(<div key={i} style={{whiteSpace:'pre-wrap'}}><span style={{color:'#888'}}>{r.ts}</span> <b>[{r.level}]</b> <span>{r.msg}</span></div>))}
-        </Box>
-      )}
-
-      {tab === 1 && (
-        latest.isLoading ? <Typography>Loading…</Typography> :
-        latest.isError   ? <Typography color="error">No recent transaction</Typography> :
-        <Box sx={{ fontFamily:'ui-monospace, Menlo, Consolas, monospace', fontSize:12 }}>
+    <MainCard title="Transaction">
+      {latest.isSuccess && (
+        <>
           <Typography variant="body2"><b>Signature:</b> {latest.data.signature || latest.data.execution?.sig}</Typography>
-          <Divider sx={{ my: 1 }} />
-          <Typography variant="subtitle2">Projected</Typography>
-          <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(latest.data.projection, null, 2)}</pre>
-          <Typography variant="subtitle2">Actual</Typography>
-          <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(latest.data.actual, null, 2)}</pre>
-          <Typography variant="subtitle2">Execution</Typography>
-          <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(latest.data.execution, null, 2)}</pre>
-        </Box>
+          <Divider sx={{ my:1 }}/>
+        </>
       )}
-
-      {tab === 2 && (
-        history.isLoading ? <Typography>Loading…</Typography> :
-        history.isError   ? <Typography color="error">History unavailable</Typography> :
-        <Box sx={{ maxHeight: 240, overflowY: 'auto' }}>
-          <table style={{ width: '100%', fontFamily:'ui-monospace, Menlo, Consolas, monospace', fontSize:12 }}>
-            <thead>
-              <tr><th align="left">Time</th><th align="left">Pair</th><th align="right">Proj bps</th><th align="right">Act bps</th><th align="right">Act USD</th><th align="left">Sig</th></tr>
-            </thead>
+      {history.isSuccess && (
+        <Box sx={{ maxHeight: 240, overflowY:'auto', fontFamily:'ui-monospace, Menlo, Consolas, monospace', fontSize:12 }}>
+          <table style={{ width:'100%' }}>
+            <thead><tr><th align="left">Time</th><th align="left">Pair</th><th align="right">Proj bps</th><th align="right">Act bps</th><th align="right">Act USD</th><th align="left">Sig</th></tr></thead>
             <tbody>
               {(history.data.items || []).map((e,i)=>{
                 const ts  = new Date(e.ts || Date.now()).toLocaleTimeString();
@@ -369,9 +310,9 @@ function TransactionCard({ log, onClear, onCopy }) {
                     <td>{ts}</td>
                     <td>{e.pair?.in}→{e.pair?.out}</td>
                     <td align="right">{prb != null ? prb.toFixed(2) : '—'}</td>
-                    <td align="right">{acb != null ? acb.toFixed(2) : '—'}</td>
-                    <td align="right">{usd != null ? usd.toFixed(3) : '—'}</td>
-                    <td>{(e.execution?.sig || '').slice(0, 6)}…</td>
+                    <td align="right">{acb != null ? prb.toFixed(2) : '—'}</td>
+                    <td align="right">{usd != null ? Number(usd).toFixed(3) : '—'}</td>
+                    <td>{(e.execution?.sig || '').slice(0,6)}…</td>
                   </tr>
                 );
               })}
@@ -384,225 +325,139 @@ function TransactionCard({ log, onClear, onCopy }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Swaps (headless) with Safe Max + Round-trip detector + Tx log       */
+/* Headless Swap (condensed)                                           */
 /* ------------------------------------------------------------------ */
 function SwapsTab() {
-  const queryClient = useQueryClient();
-
+  const { enqueueSnackbar } = useSnackbar();
   const [inSym, setInSym]       = useState('SOL');
   const [outSym, setOutSym]     = useState('USDC');
   const [amountUi, setAmountUi] = useState('0.1');
   const [slip, setSlip]         = useState('50');
-  const [mode, setMode]         = useState('ExactIn');
   const [restrict, setRestrict] = useState(true);
-  const [thresh, setThresh]     = useState(50);
 
   const [quote, setQuote] = useState(null);
   const [rt, setRt]       = useState(null);
-  const [sig, setSig]     = useState('');
   const [sending, setSending] = useState(false);
 
   const [usdPrice, setUsdPrice] = useState(null);
   useEffect(() => {
-    let alive = true;
-    const t = setTimeout(async () => {
-      try { const r = await getUsdPrice(sym(inSym).mint, 'USDC'); if (alive) setUsdPrice(Number(r.price)); }
-      catch { if (alive) setUsdPrice(null); }
-    }, 250);
-    return () => { alive = false; clearTimeout(t); };
+    let live=true;
+    (async()=>{ try{ const r=await getUsdPrice(tokenBySym(inSym).mint,'USDC'); if(live) setUsdPrice(Number(r.price)); } catch{ if(live) setUsdPrice(null); } })();
+    return ()=>{live=false};
   }, [inSym]);
-  const amountUsd = (() => { const a = Number(amountUi || 0); return usdPrice ? a * usdPrice : null; })();
+  const amountUsd = usdPrice ? Number(amountUi || 0) * usdPrice : null;
 
-  const [txLog, setTxLog] = useState([]);
-  const pushLog = (msg, level = 'info') => setTxLog((p) => [...p, { ts: new Date().toLocaleTimeString(), level, msg }]);
+  const push = (m, v='info') => enqueueSnackbar(m, { variant:v });
 
-  const [est, setEst] = useState(null);
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        if (inSym !== 'SOL') { setEst(null); return; }
-        pushLog(`Estimating safe SOL spend for OUT=${outSym}…`);
-        const e = await estimateSolSpend(sym(outSym).mint);
-        if (alive) { setEst(e); pushLog(`Est: safeMax=${e.safeMaxSol.toFixed(6)} SOL, needOutAta=${e.needOutAta}`); }
-      } catch (err) { pushLog(`Estimator error: ${err?.message || String(err)}`, 'error'); if (alive) setEst(null); }
-    })();
-    return () => { alive = false; };
-  }, [inSym, outSym]);
-
-  const overMax = est && inSym === 'SOL' && Number(amountUi || 0) > (est.safeMaxSol || 0);
-  const setMax  = () => {
-    if (est?.safeMaxSol) {
-      const v = Math.max(0, est.safeMaxSol - 0.0005);
-      setAmountUi(v.toFixed(6));
-      enqueueSnackbar(`Set to safe max: ${v.toFixed(6)} SOL`, { variant: 'info' });
-    }
-  };
-
-  async function computeRoundTrip(a2bQuote, amountAtoms) {
-    try {
-      const aSym = inSym, bSym = outSym;
-      const bMinOutAtoms = Number(a2bQuote.otherAmountThreshold);
-      pushLog(`RT: reverse quote ${bSym}→${aSym} amount=${bMinOutAtoms} atoms…`);
+  async function computeRT(q, amtAtoms) {
+    try{
+      const bMin = Number(q.otherAmountThreshold);
       const back = await swapQuote({
-        inputMint: sym(bSym).mint, outputMint: sym(aSym).mint,
-        amount: bMinOutAtoms, slippageBps: Number(slip || 50), swapMode: 'ExactIn', restrictIntermediates: restrict
+        inputMint: tokenBySym(outSym).mint,
+        outputMint: tokenBySym(inSym).mint,
+        amount: bMin, slippageBps: Number(slip || 50),
+        swapMode: 'ExactIn', restrictIntermediates: restrict
       });
-      const aBackMinOutAtoms = Number(back.otherAmountThreshold);
-      const edgeTokens = aBackMinOutAtoms - Number(amountAtoms);
-      const edgeBps = (edgeTokens / Number(amountAtoms)) * 10_000;
-      const edgeUsd = usdPrice ? (edgeTokens / (10 ** sym(aSym).decimals)) * usdPrice : 0;
-      setRt({ a2bMinOut: bMinOutAtoms, b2aMinOut: aBackMinOutAtoms, edgeTokens, edgeBps, edgeUsd });
-      pushLog(`RT: edge=${edgeBps.toFixed(2)} bps (~$${(edgeUsd || 0).toFixed(3)})`);
-    } catch (e) {
-      setRt(null);
-      pushLog(`RT error: ${e?.message || String(e)}`, 'error');
-    }
+      const aBack = Number(back.otherAmountThreshold);
+      const edgeTokens = aBack - Number(amtAtoms);
+      const edgeBps = (edgeTokens / Number(amtAtoms)) * 10_000;
+      setRt({ a2bMinOut: bMin, b2aMinOut: aBack, edgeTokens, edgeBps });
+    } catch(e) { setRt(null); push(e?.message || 'RT failed', 'error'); }
   }
 
   async function doQuote() {
-    try {
-      setSig(''); setQuote(null); setRt(null);
-      const amtAtoms = Math.floor(Number(amountUi) * 10 ** sym(inSym).decimals);
-      pushLog(`Quote: ${inSym}→${outSym}, amt=${amountUi} (${amtAtoms} atoms), slip=${slip}bps, restrict=${restrict}`);
+    try{
+      setQuote(null); setRt(null); setSending(false);
+      const amtAtoms = Math.floor(Number(amountUi || 0) * 10 ** tokenBySym(inSym).decimals);
       const q = await swapQuote({
-        inputMint: sym(inSym).mint, outputMint: sym(outSym).mint,
-        amount: amtAtoms, slippageBps: Number(slip || 50), swapMode: mode, restrictIntermediates: restrict
+        inputMint: tokenBySym(inSym).mint,
+        outputMint: tokenBySym(outSym).mint,
+        amount: amtAtoms, slippageBps: Number(slip || 50),
+        swapMode: 'ExactIn', restrictIntermediates: restrict
       });
-      setQuote(q); pushLog(`Quote OK: out=${q.outAmount}, minOut=${q.otherAmountThreshold}, impact=${q.priceImpactPct}`);
-      await computeRoundTrip(q, amtAtoms);
-    } catch (e) {
-      pushLog(`Quote error: ${e?.message || String(e)}`, 'error');
-      enqueueSnackbar(e?.message || 'Quote failed', { variant: 'error' });
-    }
+      setQuote(q); await computeRT(q, amtAtoms);
+    } catch(e) { push(e?.message || 'Quote failed', 'error'); }
   }
 
   async function doSwap() {
-    if (!quote) return; setSending(true);
-    try {
-      pushLog('Swap: building + sending…');
+    if (!quote) return;
+    setSending(true);
+    try{
       const r = await swapExecute({ quoteResponse: quote });
-      setSig(r.signature); pushLog(`Swap sent: ${r.signature}`, 'success');
-      enqueueSnackbar('Swap sent', { variant: 'success' });
-    } catch (e) {
-      pushLog(`Swap error: ${e?.message || String(e)}`, 'error');
-      enqueueSnackbar(e?.message || 'Swap failed', { variant: 'error' });
-    }
+      push(`Swap sent: ${r.signature}`, 'success');
+    } catch(e) { push(e?.message || 'Swap failed', 'error'); }
     setSending(false);
   }
 
   return (
-    <Stack spacing={2}>
-      {/* SWAP FORM (no tabs here; tabs live in JupiterPage wrapper) */}
-      <MainCard title="Headless Swap">
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={3}>
-            <TextField select fullWidth label="Token In" value={inSym} onChange={(e)=>setInSym(e.target.value)}>
-              {TOKENS.map((t) => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField select fullWidth label="Token Out" value={outSym} onChange={(e)=>setOutSym(e.target.value)}>
-              {TOKENS.map((t) => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField fullWidth label="Amount (in)" value={amountUi} onChange={(e)=>setAmountUi(e.target.value)}
-              helperText={usdPrice ? `≈ $${(Number(amountUi || 0) * usdPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ' '} />
-          </Grid>
-          <Grid item xs={12} md={2}><TextField fullWidth label="Slippage (bps)" value={slip} onChange={(e)=>setSlip(e.target.value)} /></Grid>
-          <Grid item xs={12} md={2}><TextField fullWidth label="Profit thresh (bps)" value={thresh} onChange={(e)=>setThresh(Number(e.target.value || 0))} /></Grid>
-          <Grid item xs={12}><FormControlLabel control={<Switch checked={restrict} onChange={(e)=>setRestrict(e.target.checked)} />} label="Restrict intermediate tokens" /></Grid>
-          <Grid item xs={12}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Button variant="outlined" onClick={doQuote} disabled={overMax}>Quote</Button>
-              <Button variant="contained" onClick={doSwap} disabled={!quote || sending || overMax}>
-                {sending ? 'Swapping…' : 'Swap'}
-              </Button>
-              {inSym === 'SOL' && est && <Button variant="text" onClick={setMax}>Max (safe)</Button>}
-              {overMax && <Chip color="warning" label="Over safe max — lower amount" />}
-            </Stack>
-          </Grid>
-        </Grid>
-        {inSym === 'SOL' && est && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="caption" color="textSecondary">
-              Available to swap (est): <b>{est.safeMaxSol.toFixed(6)} SOL</b> • Rent WSOL: {(est.rentWsolLamports/1e9).toFixed(6)}
-              {est.needOutAta ? ` • Rent ${outSym} ATA: ${(est.rentOutAtaLamports/1e9).toFixed(6)}` : ''} • Buffer: {(est.bufferLamports/1e9).toFixed(6)}
-            </Typography>
-          </Box>
-        )}
-      </MainCard>
-
-      {/* Three equal cards: Quote | Wallet | Transaction */}
+    <MainCard title="Headless Swap">
       <Grid container spacing={2}>
-        <Grid item xs={12} md={4}><QuoteCard quote={quote} rt={rt && { ...rt, ok: (rt.edgeBps ?? -1) >= thresh }} inSym={inSym} outSym={outSym} /></Grid>
-        <Grid item xs={12} md={4}><WalletCard /></Grid>
-        <Grid item xs={12} md={4}>
-          <TransactionCard
-            log={[]}
-            onClear={() => {}}
-            onCopy={async () => {
-              try { await navigator.clipboard.writeText(''); enqueueSnackbar('Transaction log copied', { variant: 'success' }); }
-              catch { enqueueSnackbar('Copy failed', { variant: 'error' }); }
-            }}
-          />
+        <Grid item xs={12} md={3}>
+          <TextField select fullWidth label="Token In" value={inSym} onChange={(e)=>setInSym(e.target.value)}>
+            {TOKENS.map(t => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
+          </TextField>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <TextField select fullWidth label="Token Out" value={outSym} onChange={(e)=>setOutSym(e.target.value)}>
+            {TOKENS.map(t => <MenuItem key={t.sym} value={t.sym}>{t.sym}</MenuItem>)}
+          </TextField>
+        </Grid>
+        <Grid item xs={12} md={2}>
+          <TextField fullWidth label="Amount (in)" value={amountUi} onChange={(e)=>setAmountUi(e.target.value)}
+            helperText={amountUsd ? `≈ $${amountUsd.toLocaleString(undefined,{maximumFractionDigits:2})}` : ' '} />
+        </Grid>
+        <Grid item xs={12} md={2}><TextField fullWidth label="Slippage (bps)" value={slip} onChange={(e)=>setSlip(e.target.value)} /></Grid>
+        <Grid item xs={12} md={2}>
+          <FormControlLabel control={<Switch checked={restrict} onChange={(e)=>setRestrict(e.target.checked)} />} label="Restrict intermediate tokens" />
+        </Grid>
+        <Grid item xs={12}>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={doQuote}>Quote</Button>
+            <Button variant="contained" onClick={doSwap} disabled={!quote || sending}>
+              {sending ? 'Swapping…' : 'Swap'}
+            </Button>
+          </Stack>
         </Grid>
       </Grid>
-    </Stack>
+    </MainCard>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Page wrapper (header with image + tabs lives here)                  */
+/* Page wrapper                                                        */
 /* ------------------------------------------------------------------ */
 export default function JupiterPage() {
-  const [tab, setTab] = useState(2); // land on Swaps by default
+  const [tab, setTab] = useState(2); // default to Swaps
 
   return (
     <Stack spacing={2}>
-      {/* Header WITHOUT breadcrumbs + Jupiter image on the left */}
       <MainCard content={false}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 2 }}>
+        <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', px:2, pt:2 }}>
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <img
-              src="/static/images/jupiter.jpg"
-              alt="Jupiter"
-              width={28}
-              height={28}
-              style={{ objectFit: 'cover', borderRadius: 6 }}
-            />
+            <img src="/static/images/jupiter.jpg" alt="Jupiter" width={28} height={28} style={{ objectFit:'cover', borderRadius:6 }} />
             <Typography variant="h5" fontWeight={700}>Jupiter</Typography>
           </Stack>
           <Chip color="primary" label="Headless" />
         </Box>
-
-        <Divider sx={{ mt: 2 }} />
-
-        {/* Tabs live here so 'tab' is in scope */}
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" sx={{ px: 2 }}>
+        <Divider sx={{ mt:2 }}/>
+        <Tabs value={tab} onChange={(_,v)=>setTab(v)} variant="scrollable" sx={{ px:2 }}>
           <Tab label="Spot Triggers" />
           <Tab label="Perps TP/SL" />
           <Tab label="Swaps" />
         </Tabs>
       </MainCard>
 
-      {/* Tab content */}
-      {tab === 0 && <><SpotTriggerForm /><SpotTriggerTable /></>}
-
-      {tab === 1 && (
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}><MarketsPanel /></Grid>
-          <Grid item xs={12} md={6}><PositionsPanel /></Grid>
-        </Grid>
-      )}
+      {tab === 0 && <MainCard><Typography>Spot Triggers coming soon…</Typography></MainCard>}
+      {tab === 1 && <MainCard><Typography>Perps tab placeholder</Typography></MainCard>}
 
       {tab === 2 && (
         <Stack spacing={2}>
-          <SendCard onLog={(msg, level='info')=>{
-            enqueueSnackbar(msg, { variant: level === 'error' ? 'error' : (level === 'success' ? 'success' : 'info') });
-          }}/>
+          <SendCard />
           <SwapsTab />
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}><WalletCard /></Grid>
+            <Grid item xs={12} md={6}><TransactionCard /></Grid>
+          </Grid>
         </Stack>
       )}
     </Stack>

@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/wallet", tags=["wallet"])
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
 RPC_URL        = os.getenv("RPC_URL", f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}")
 
-# Signer: Solana CLI id.json by default; you can also set SIGNER_BASE58
+# Signer: Solana CLI id.json by default; or provide SIGNER_BASE58 (private key in base58)
 SIGNER_PATH    = os.getenv("SIGNER_PATH", os.path.join(os.path.dirname(__file__), "..", "signer_id.json"))
 SIGNER_BASE58  = os.getenv("SIGNER_BASE58", "").strip()
 
@@ -36,13 +36,15 @@ SPL_TOKEN_PROGRAM     = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss6
 ASSOCIATED_TOKEN_PROG = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 RENT_SYSVAR           = Pubkey.from_string("SysvarRent111111111111111111111111111111111")
 
-# Magic “mints”
+# “Well-known mints”
 SOL_MINT  = "So11111111111111111111111111111111111111112"
 USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
-# Compute/priority (microlamports per CU); tweak if needed
-CU_LIMIT  = int(os.getenv("SEND_CU_LIMIT",  "800000"))
-CU_PRICE  = int(os.getenv("SEND_CU_PRICE",  "100000"))
+
+# After  (safe defaults)
+CU_LIMIT  = int(os.getenv("SEND_CU_LIMIT",  "400000"))  # or 800_000; either is fine
+CU_PRICE  = int(os.getenv("SEND_CU_PRICE",  "1"))       # 1–5 microLamports/CU is typical
+
 
 # ------------------------------ Base58 helpers -----------------------------
 
@@ -53,10 +55,10 @@ BASE58_FIND = re.compile(r"[1-9A-HJ-NP-Za-km-z]{32,}")
 
 def extract_pubkey(s: str) -> str:
     """
-    Normalize any recipient/mint string:
-      - supports solana:<pk>?...
-      - supports explorer URLs .../address/<pk>
-      - otherwise: strip trailing ?/#/spaces, or pick the longest base58 token
+    Normalize a value to a candidate pubkey:
+      - solana:<pk>?...
+      - explorer URLs .../address/<pk>
+      - raw text → longest base58 token
     """
     if not s:
         return ""
@@ -78,7 +80,7 @@ def extract_pubkey(s: str) -> str:
 
     hits = BASE58_FIND.findall(s)
     if hits:
-        hits.sort(key=len, reverse=True)  # prefer the longest candidate
+        hits.sort(key=len, reverse=True)
         return hits[0]
 
     return s0
@@ -95,11 +97,16 @@ def validate_base58_or_422(label: str, pk: str) -> str:
 # ------------------------------ RPC helpers --------------------------------
 
 def rpc(method: str, params: Any) -> Any:
-    r = requests.post(RPC_URL, json={"jsonrpc":"2.0","id":1,"method":method,"params":params}, timeout=25)
-    r.raise_for_status()
-    data = r.json()
+    try:
+        r = requests.post(RPC_URL, json={"jsonrpc":"2.0","id":1,"method":method,"params":params}, timeout=25)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        raise HTTPException(500, f"RPC transport error calling {method}: {e}")
+
     if data.get("error"):
-        raise HTTPException(400, str(data["error"]))
+        # make it obvious which call exploded and with what params
+        raise HTTPException(400, f"RPC error in {method}: {data['error']}")
     return data["result"]
 
 def recent_blockhash() -> Hash:
@@ -112,15 +119,14 @@ def _b58decode(s: str) -> bytes:
     idx = {ch:i for i,ch in enumerate(BASE58_ALPH)}
     n = 0
     for ch in s.strip():
-        if ch not in idx:
-            raise ValueError(f"invalid base58 char: {ch}")
+        if ch not in idx: raise ValueError(f"invalid base58 char: {ch}")
         n = n * 58 + idx[ch]
     full = n.to_bytes((n.bit_length() + 7) // 8, "big") if n else b"\x00"
     lead = sum(1 for ch in s if ch == "1")
     return b"\x00" * lead + full.lstrip(b"\x00")
 
 def load_signer() -> Keypair:
-    # Priority: SIGNER_BASE58 (env), then SIGNER_PATH (id.json)
+    # env base58 first
     if SIGNER_BASE58:
         raw = _b58decode(SIGNER_BASE58)
         if len(raw) == 64:
@@ -134,11 +140,13 @@ def load_signer() -> Keypair:
                 sec64 = sk.encode() + sk.verify_key.encode()
                 return Keypair.from_bytes(sec64)
         raise HTTPException(500, f"SIGNER_BASE58 decoded length {len(raw)} not 32/64")
+
+    # CLI id.json fallback
     if not os.path.exists(SIGNER_PATH):
         raise HTTPException(500, f"Signer file not found: {SIGNER_PATH}")
     try:
         obj = json.load(open(SIGNER_PATH, "r", encoding="utf-8"))
-        if isinstance(obj, list):  # Solana CLI id.json
+        if isinstance(obj, list):
             return Keypair.from_bytes(bytes(obj))
         if isinstance(obj, dict) and "secretKey" in obj:
             return Keypair.from_bytes(bytes(obj["secretKey"]))
@@ -149,7 +157,6 @@ def load_signer() -> Keypair:
 # ------------------------------ ATA helpers --------------------------------
 
 def ata(owner: Pubkey, mint: Pubkey) -> Pubkey:
-    # SPL Associated Token Account PDA
     seeds = [bytes(owner), bytes(SPL_TOKEN_PROGRAM), bytes(mint)]
     return Pubkey.find_program_address(seeds, ASSOCIATED_TOKEN_PROG)[0]
 
@@ -161,15 +168,14 @@ def account_exists(pub: Pubkey) -> bool:
         return False
 
 def create_ata_ix(payer: Pubkey, owner: Pubkey, mint: Pubkey, ata_addr: Pubkey) -> Instruction:
-    # Associated Token Program: CreateAssociatedTokenAccount
     metas = [
-        AccountMeta(payer, True,  True),    # payer (signer, writable)
-        AccountMeta(ata_addr, False, True), # ATA (writable)
-        AccountMeta(owner,   False, False), # token owner
-        AccountMeta(mint,    False, False), # mint
+        AccountMeta(payer, True,  True),
+        AccountMeta(ata_addr, False, True),
+        AccountMeta(owner,   False, False),
+        AccountMeta(mint,    False, False),
         AccountMeta(SYSTEM_PROGRAM, False, False),
         AccountMeta(SPL_TOKEN_PROGRAM, False, False),
-        AccountMeta(RENT_SYSVAR, False, False),  # ignored by new program but harmless
+        AccountMeta(RENT_SYSVAR, False, False),
     ]
     return Instruction(ASSOCIATED_TOKEN_PROG, b"", metas)
 
@@ -189,15 +195,18 @@ def get_mint_decimals(mint_str: str) -> int:
 # ------------------------------ Request model ------------------------------
 
 class SendReq(BaseModel):
-    mint: str = Field(..., description="Mint address or 'SOL'")
+    mint: str = Field(..., description="Mint address or 'SOL'/'USDC'")
     to:   str = Field(..., description="Recipient owner (base58)")
-    amountAtoms: int = Field(..., gt=0, description="Amount in atoms (lamports for SOL; decimals-based for SPL)")
+    amountAtoms: int = Field(..., gt=0, description="Amount in atoms")
 
     @field_validator("mint")
     @classmethod
     def _norm_mint(cls, v: str) -> str:
         v = extract_pubkey(v)
-        return SOL_MINT if (v or "").upper() == "SOL" else v
+        u = (v or "").upper()
+        if u == "SOL":  return SOL_MINT
+        if u == "USDC": return USDC_MINT
+        return v
 
     @field_validator("to")
     @classmethod
@@ -209,71 +218,64 @@ class SendReq(BaseModel):
 @router.post("/send")
 def send_token_api(req: SendReq):
     try:
-        # normalize + validate (return 422 before hitting RPC)
-        mint_str = req.mint if req.mint == SOL_MINT else validate_base58_or_422("mint", req.mint)
-        to_norm  = validate_base58_or_422("recipient", req.to)
+        # Normalize + validate strictly (no RPC if invalid)
+        raw_mint = req.mint
+        raw_to   = req.to
+
+        mint_str = raw_mint if raw_mint == SOL_MINT else validate_base58_or_422("mint", raw_mint)
+        to_norm  = validate_base58_or_422("recipient", raw_to)
+
+        # Debug line so you can see what the server actually received vs normalized
+        print(f"[wallet_send] RAW to='{req.to}' RAW mint='{req.mint}' → NORM to='{to_norm}' mint='{mint_str}'")
 
         kp = load_signer()
         payer = kp.pubkey()
         to_owner = Pubkey.from_string(to_norm)
 
+        # Build ixs
         ixs: list[Instruction] = []
-        # small compute/priority bump
         ixs.append(set_compute_unit_limit(CU_LIMIT))
         ixs.append(set_compute_unit_price(CU_PRICE))
 
         if mint_str == SOL_MINT:
-            # SystemProgram::Transfer — tag 2, amount u64 LE
-            lamports = int(req.amountAtoms)
-            data = b"\x02" + lamports.to_bytes(8, "little")
-            ixs.append(
-                Instruction(
-                    SYSTEM_PROGRAM,
-                    data,
-                    [AccountMeta(payer, True, True), AccountMeta(to_owner, False, True)],
-                )
-            )
+            # SystemProgram::Transfer (tag 2) [u64 lamports]
+            data = b"\x02" + int(req.amountAtoms).to_bytes(8, "little")
+            ixs.append(Instruction(SYSTEM_PROGRAM, data, [
+                AccountMeta(payer, True, True),
+                AccountMeta(to_owner, False, True)
+            ]))
         else:
             mint = Pubkey.from_string(mint_str)
-
-            # Ensure source ATA exists (rarely missing, but robust)
             src_ata  = ata(payer, mint)
+            dest_ata = ata(to_owner, mint)
+
             if not account_exists(src_ata):
                 ixs.append(create_ata_ix(payer, payer, mint, src_ata))
-
-            # Ensure destination ATA exists (allow-unfunded-recipient)
-            dest_ata = ata(to_owner, mint)
             if not account_exists(dest_ata):
                 ixs.append(create_ata_ix(payer, to_owner, mint, dest_ata))
 
-            # SPL Token TransferChecked (tag 12): [amount u64, decimals u8]
             decimals = get_mint_decimals(mint_str)
-            amount   = int(req.amountAtoms)
-            data = bytes([12]) + amount.to_bytes(8, "little") + bytes([decimals])
-            ixs.append(
-                Instruction(
-                    SPL_TOKEN_PROGRAM,
-                    data,
-                    [
-                        AccountMeta(src_ata,  False, True),   # source
-                        AccountMeta(mint,     False, False),  # mint
-                        AccountMeta(dest_ata, False, True),   # destination
-                        AccountMeta(payer,    True,  False),  # authority
-                    ],
-                )
-            )
+            # SPL Token TransferChecked (tag 12): [u64 amount LE, u8 decimals]
+            data = bytes([12]) + int(req.amountAtoms).to_bytes(8, "little") + bytes([decimals])
+            ixs.append(Instruction(SPL_TOKEN_PROGRAM, data, [
+                AccountMeta(src_ata,  False, True),
+                AccountMeta(mint,     False, False),
+                AccountMeta(dest_ata, False, True),
+                AccountMeta(payer,    True,  False)
+            ]))
 
+        # Compile & send
         bh  = recent_blockhash()
-        # NOTE: your solders version expects 'address_lookup_table_accounts'
         msg = MessageV0.try_compile(
             payer=payer,
             instructions=ixs,
-            address_lookup_table_accounts=[],   # not 'address_lookup_tables'
-            recent_blockhash=bh,
+            address_lookup_table_accounts=[],   # correct kw for many solders versions
+            recent_blockhash=bh
         )
         tx  = VersionedTransaction(msg, [kp])
         raw = base64.b64encode(bytes(tx)).decode()
-        sig = rpc("sendTransaction", [raw, {"skipPreflight": False, "maxRetries": 3}])
+
+        sig = rpc("sendTransaction", [raw, {"encoding":"base64", "skipPreflight": False, "maxRetries": 3}])
         return {"signature": sig}
 
     except HTTPException:
