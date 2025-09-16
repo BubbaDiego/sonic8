@@ -200,11 +200,12 @@ def send_token_api(req: SendReq):
         ixs.append(set_compute_unit_price(CU_PRICE))
 
         if mint_str == SOL_MINT:
-            # SystemProgram::Transfer (tag 2) [u64 lamports]
-            data = b"\x02" + int(req.amountAtoms).to_bytes(8, "little")
+            # SystemProgram::Transfer uses a 4-byte LE tag (u32=2) + u64 lamports
+            lamports = int(req.amountAtoms)
+            data = (2).to_bytes(4, "little") + lamports.to_bytes(8, "little")
             ixs.append(Instruction(SYSTEM_PROGRAM, data, [
-                AccountMeta(payer, True, True),
-                AccountMeta(to_owner, False, True)
+                AccountMeta(payer, True, True),   # from (signer, writable)
+                AccountMeta(to_owner, False, True)  # to (writable)
             ]))
         else:
             mint = Pubkey.from_string(mint_str)
