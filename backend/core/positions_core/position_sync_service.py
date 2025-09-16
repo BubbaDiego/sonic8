@@ -14,6 +14,9 @@ from backend.core.positions_core.position_core import PositionCore
 from backend.core.calc_core.calculation_core import CalculationCore
 from backend.core.hedge_core.hedge_core import HedgeCore
 from backend.core.trader_core import TraderUpdateService
+from backend.services.signer_loader import load_signer
+
+JUPITER_PERPS_API_BASE = os.getenv("JUPITER_PERPS_API_BASE", "").strip()
 
 console = Console()
 
@@ -47,6 +50,28 @@ class PositionSyncService:
         self.dl = data_locker
         self.enricher = PositionEnrichmentService(data_locker)
 
+    @staticmethod
+    def _extract_positions(payload: dict) -> list:
+        """Normalise position lists from varying Jupiter response shapes."""
+
+        if not isinstance(payload, dict):
+            return []
+
+        for key in ("dataList", "data", "positions", "items", "result"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+            if isinstance(value, dict):
+                for nested in ("items", "data", "list"):
+                    nested_value = value.get(nested)
+                    if isinstance(nested_value, list):
+                        return nested_value
+
+        if "positionPubkey" in payload or "id" in payload:
+            return [payload]
+
+        return []
+
     # ---------------------------------------------------------------------#
     #                         Networking helpers                           #
     # ---------------------------------------------------------------------#
@@ -75,6 +100,11 @@ class PositionSyncService:
                 if attempt == attempts:
                     raise
                 time.sleep(delay * attempt)  # exponential back‑off
+
+    def _pick_api_base(self) -> str:
+        base = (JUPITER_PERPS_API_BASE or JUPITER_API_BASE).rstrip("/")
+        log.info(f"[PerpsSync] Using Jupiter base: {base}", source="PositionSyncService")
+        return base
 
     # ---------------------------------------------------------------------#
     #                      High‑level orchestration                         #
@@ -216,6 +246,8 @@ class PositionSyncService:
         imported, updated, skipped, errors = 0, 0, 0, 0
         jupiter_ids = set()
 
+        api_base = self._pick_api_base()
+
         # ------------------- Fetch DB schema -------------------------#
         cursor = self.dl.db.get_cursor()
         if cursor is None:
@@ -232,6 +264,14 @@ class PositionSyncService:
 
         # ------------------- Iterate wallets ------------------------ #
         wallets = [w for w in self.dl.read_wallets() if w.get("is_active", True)]
+
+        try:
+            signer_pk = str(load_signer().pubkey()).strip()
+        except Exception:
+            signer_pk = None
+
+        if signer_pk and all((w.get("public_address") or "").strip() != signer_pk for w in wallets):
+            wallets.append({"public_address": signer_pk, "name": "Signer", "is_active": True})
         console.print(f"[cyan]Loaded {len(wallets)} active wallets for sync[/cyan]")
         log.info(f"🔍 Loaded {len(wallets)} active wallets for sync", source="PositionSyncService")
 
@@ -243,7 +283,8 @@ class PositionSyncService:
                 log.warning(f"⚠️ Skipping {w_name} – missing address", source="PositionSyncService")
                 continue
 
-            url = f"{JUPITER_API_BASE}/v1/positions?walletAddress={pubkey}&showTpslRequests=true"
+            url = f"{api_base}/v1/positions?walletAddress={pubkey}&showTpslRequests=true"
+            log.debug(f"[PerpsSync] GET {url}", source="JupiterAPI")
             try:
                 response = self._request_with_retries(url)
             except Exception as exc:
@@ -251,32 +292,55 @@ class PositionSyncService:
                 errors += 1
                 continue
 
-            data_list = response.json().get("dataList", [])
+            payload = {}
+            try:
+                payload = response.json() or {}
+            except Exception as exc:
+                log.error(f"❌ [{w_name}] JSON parse error: {exc}", source="JupiterAPI")
+                errors += 1
+                continue
+
+            data_list = self._extract_positions(payload)
             console.print(f"[cyan]{w_name} → {len(data_list)} Jupiter positions[/cyan]")
             log.info(f"📊 {w_name} → {len(data_list)} Jupiter positions", source="PositionSyncService")
 
             for item in data_list:
-                pos_id = item.get("positionPubkey")
+                pos_id = (
+                    item.get("positionPubkey")
+                    or item.get("position")
+                    or item.get("id")
+                )
                 if not pos_id:
                     log.warning("🚫 Missing positionPubkey, skipping", source="Parser")
                     skipped += 1
                     continue
 
+                market_mint = item.get("marketMint")
+                if not market_mint and isinstance(item.get("market"), dict):
+                    market_mint = item["market"].get("mint")
+
+                try:
+                    updated_time = float(item.get("updatedTime", 0) or 0.0)
+                except (TypeError, ValueError):
+                    updated_time = 0.0
+                if updated_time > 1e12:
+                    updated_time /= 1000.0
+
                 raw_pos = {
                     "id": pos_id,
-                    "asset_type": self.MINT_TO_ASSET.get(item.get("marketMint", ""), "BTC"),
-                    "position_type": item.get("side", "short").lower(),
-                    "entry_price": float(item.get("entryPrice", 0.0)),
-                    "liquidation_price": float(item.get("liquidationPrice", 0.0)),
-                    "collateral": float(item.get("collateral", 0.0)),
-                    "size": float(item.get("size", 0.0)),
-                    "leverage": float(item.get("leverage", 0.0)),
-                    "value": float(item.get("value", 0.0)),
-                    "last_updated": datetime.fromtimestamp(float(item.get("updatedTime", 0))).isoformat(),
+                    "asset_type": self.MINT_TO_ASSET.get(market_mint or "", "BTC"),
+                    "position_type": str(item.get("side", "short")).lower(),
+                    "entry_price": float(item.get("entryPrice", 0.0) or 0.0),
+                    "liquidation_price": float(item.get("liquidationPrice", 0.0) or 0.0),
+                    "collateral": float(item.get("collateral", 0.0) or 0.0),
+                    "size": float(item.get("size", 0.0) or 0.0),
+                    "leverage": float(item.get("leverage", 0.0) or 0.0),
+                    "value": float(item.get("value", 0.0) or 0.0),
+                    "last_updated": datetime.fromtimestamp(updated_time).isoformat(),
                     "wallet_name": w_name,
-                    "pnl_after_fees_usd": float(item.get("pnlAfterFeesUsd", 0.0)),
-                    "travel_percent": float(item.get("pnlChangePctAfterFees", 0.0)),
-                    "current_price": float(item.get("markPrice", 0.0)),
+                    "pnl_after_fees_usd": float(item.get("pnlAfterFeesUsd", 0.0) or 0.0),
+                    "travel_percent": float(item.get("pnlChangePctAfterFees", 0.0) or 0.0),
+                    "current_price": float(item.get("markPrice", 0.0) or 0.0),
                 }
 
                 # Upsert & enrichment ------------------------------------------------ #
