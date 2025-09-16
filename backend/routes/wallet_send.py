@@ -1,4 +1,5 @@
 # backend/routes/wallet_send.py
+"""Wallet send routes."""
 from __future__ import annotations
 
 import base64
@@ -19,16 +20,15 @@ from solders.message import MessageV0
 from solders.transaction import VersionedTransaction
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 
+# Use the centralized signer loader used elsewhere (Jupiter routes, etc.)
+from backend.services.signer_loader import load_signer  # <<< unify signer
+
 router = APIRouter(prefix="/api/wallet", tags=["wallet"])
 
 # ------------------------------ ENV / CONFIG ------------------------------
 
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
 RPC_URL        = os.getenv("RPC_URL", f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}")
-
-# Signer: Solana CLI id.json by default; or provide SIGNER_BASE58 (private key in base58)
-SIGNER_PATH    = os.getenv("SIGNER_PATH", os.path.join(os.path.dirname(__file__), "..", "signer_id.json"))
-SIGNER_BASE58  = os.getenv("SIGNER_BASE58", "").strip()
 
 # Programs
 SYSTEM_PROGRAM        = Pubkey.from_string("11111111111111111111111111111111")
@@ -115,45 +115,6 @@ def recent_blockhash() -> Hash:
 
 # ------------------------------ Signer loading -----------------------------
 
-def _b58decode(s: str) -> bytes:
-    idx = {ch:i for i,ch in enumerate(BASE58_ALPH)}
-    n = 0
-    for ch in s.strip():
-        if ch not in idx: raise ValueError(f"invalid base58 char: {ch}")
-        n = n * 58 + idx[ch]
-    full = n.to_bytes((n.bit_length() + 7) // 8, "big") if n else b"\x00"
-    lead = sum(1 for ch in s if ch == "1")
-    return b"\x00" * lead + full.lstrip(b"\x00")
-
-def load_signer() -> Keypair:
-    # env base58 first
-    if SIGNER_BASE58:
-        raw = _b58decode(SIGNER_BASE58)
-        if len(raw) == 64:
-            return Keypair.from_bytes(raw)
-        if len(raw) == 32:
-            try:
-                return Keypair.from_seed(raw)
-            except Exception:
-                import nacl.signing as ns
-                sk = ns.SigningKey(raw)
-                sec64 = sk.encode() + sk.verify_key.encode()
-                return Keypair.from_bytes(sec64)
-        raise HTTPException(500, f"SIGNER_BASE58 decoded length {len(raw)} not 32/64")
-
-    # CLI id.json fallback
-    if not os.path.exists(SIGNER_PATH):
-        raise HTTPException(500, f"Signer file not found: {SIGNER_PATH}")
-    try:
-        obj = json.load(open(SIGNER_PATH, "r", encoding="utf-8"))
-        if isinstance(obj, list):
-            return Keypair.from_bytes(bytes(obj))
-        if isinstance(obj, dict) and "secretKey" in obj:
-            return Keypair.from_bytes(bytes(obj["secretKey"]))
-    except Exception as e:
-        raise HTTPException(500, f"Failed to parse signer: {e}")
-    raise HTTPException(500, "Unsupported signer format: expected Solana CLI id.json or SIGNER_BASE58")
-
 # ------------------------------ ATA helpers --------------------------------
 
 def ata(owner: Pubkey, mint: Pubkey) -> Pubkey:
@@ -228,8 +189,9 @@ def send_token_api(req: SendReq):
         # Debug line so you can see what the server actually received vs normalized
         print(f"[wallet_send] RAW to='{req.to}' RAW mint='{req.mint}' → NORM to='{to_norm}' mint='{mint_str}'")
 
-        kp = load_signer()
+        kp = load_signer()  # unified signer (same as /api/jupiter/*)
         payer = kp.pubkey()
+        print(f"[wallet_send] fee payer: {payer}")  # helps catch signer mismatches
         to_owner = Pubkey.from_string(to_norm)
 
         # Build ixs
@@ -282,3 +244,13 @@ def send_token_api(req: SendReq):
         raise
     except Exception as e:
         raise HTTPException(400, f"send failed: {e}")
+
+
+@router.get("/debug")
+def wallet_debug():
+    try:
+        kp = load_signer()
+        bal = rpc("getBalance", [str(kp.pubkey())]).get("value", 0)
+        return {"rpcUrl": RPC_URL, "pubkey": str(kp.pubkey()), "lamports": bal}
+    except Exception as e:
+        raise HTTPException(500, f"wallet debug failed: {e}")
