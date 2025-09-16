@@ -1,52 +1,72 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import MainCard from 'ui-component/cards/MainCard';
 import { Box, Button, Typography } from '@mui/material';
 
 async function http(path) {
   const res = await fetch(path);
-  const t = await res.text();
-  let j = {};
-  try { j = t ? JSON.parse(t) : {}; } catch {}
-  if (!res.ok) throw new Error(j.detail || j.message || `HTTP ${res.status}`);
-  return j;
+  const txt = await res.text();
+  let json = {};
+  try { json = txt ? JSON.parse(txt) : {}; } catch {}
+  if (!res.ok) throw new Error(json.detail || json.message || `HTTP ${res.status}`);
+  return json;
 }
-const getOwner = () => http('/api/jupiter/whoami');
-// ⬇️  Use the SAME endpoint as the working Positions page: /positions/
-//     positions_api.py exposes GET /positions/ returning PositionDB[].
-//     We'll shape it into the items that this panel renders.
-const getFromDb = async (_owner, limit) => {
-  const arr = await http('/positions/');
-  // Map DB rows -> UI shape expected here
-  const items = (Array.isArray(arr) ? arr : []).slice(0, limit || 100).map((r) => ({
+const getOwner = () => http('/api/jupiter/whoami'); // { pubkey, signer: {...} }
+
+const toNum = (v, d = null) => (v == null || v === '' || Number.isNaN(+v) ? d : Number(v));
+const fmtN  = (v, dp) => (v == null ? '—' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: dp }));
+const link  = (sig) => `https://solscan.io/account/${encodeURIComponent(sig)}`;
+
+// read exactly the same source as the Positions page and shape for this table
+const getFromDb = async (owner, limit) => {
+  const arr = await http('/positions/');              // PositionDB[]
+  const rows = Array.isArray(arr) ? arr : [];
+
+  // Try to scope to the active signer. We’ll match common field names if present;
+  // otherwise fall back to rows where wallet_name === 'Signer'. If no match, show all.
+  const ownerLc = (owner || '').toLowerCase();
+  const owned = rows.filter((r) => {
+    const cands = [
+      r?.wallet_pubkey, r?.owner, r?.wallet, r?.wallet_address, r?.public_address
+    ].map((x) => (x || '').toString().toLowerCase());
+    return (ownerLc && cands.some((x) => x === ownerLc)) || r?.wallet_name === 'Signer';
+  });
+  const useRows = owned.length > 0 ? owned : rows;
+
+  const items = useRows.slice(0, limit || 100).map((r) => ({
     pubkey: r?.id ?? '',
-    side: (r?.position_type || '').toLowerCase(),     // 'long' | 'short'
-    size: Number(r?.size ?? 0),
-    entry: r?.entry_price != null ? Number(r.entry_price) : null,
-    mark:  r?.current_price != null ? Number(r.current_price) : null,
-    pnlUsd: r?.pnl_after_fees_usd != null ? Number(r.pnl_after_fees_usd) : 0
+    side: (r?.position_type || '').toLowerCase(),              // 'long' | 'short'
+    size: toNum(r?.size, 0),
+    entry: toNum(r?.entry_price, null),
+    mark:  toNum(r?.current_price, null),
+    pnlUsd: toNum(r?.pnl_after_fees_usd, 0)
   }));
   return { count: items.length, items };
 };
 
 export default function PositionsPanel() {
+  const qc = useQueryClient();
   const me = useQuery({ queryKey:['perpsWhoami'], queryFn:getOwner, staleTime:5000, retry:0 });
   const owner = me.data?.pubkey;
-  // Query the DB-backed endpoint just like the main Positions page does.
   const q = useQuery({
     queryKey:['perpsPositionsFromDb', owner],
     queryFn:()=>getFromDb(owner, 100),
     enabled: !!owner,
-    staleTime: 3000
+    staleTime: 3000,
+    refetchInterval: 10000  // light auto-refresh; remove if you don't want it
   });
 
   return (
-    <MainCard title="Perps · My Positions" secondary={<Button size="small" onClick={()=>q.refetch()} disabled={!owner}>Refresh</Button>}>
-      {!owner && <Typography>Loading wallet…</Typography>}
-      {owner && q.isLoading && <Typography>Loading positions…</Typography>}
-      {owner && q.isError && <Typography color="error">{q.error?.message}</Typography>}
-      {owner && q.isSuccess && (
+    <MainCard
+      title="Perps · My Positions"
+      secondary={<Button size="small" onClick={()=>qc.invalidateQueries({ queryKey:['perpsPositionsFromDb'] })}>Refresh</Button>}
+    >
+      {!q.isSuccess ? (
+        <Typography>Loading…</Typography>
+      ) : (
         <Box sx={{ fontFamily:'ui-monospace, Menlo, Consolas, monospace', fontSize:12 }}>
-          <div>owner: <code>{owner}</code></div>
+          <Typography variant="body2" sx={{opacity:.85, mb:1}}>
+            owner: <code>{owner}</code>
+          </Typography>
           <div>count: {q.data.count ?? 0}</div>
           <hr />
           {(q.data.items||[]).length === 0 && <Typography>No open positions.</Typography>}
@@ -63,24 +83,30 @@ export default function PositionsPanel() {
                 </tr>
               </thead>
               <tbody>
-                {q.data.items.map((r,i)=>(
-                  <tr key={i}>
-                    <td><code>{(r.pubkey||'').slice(0,6)}…{(r.pubkey||'').slice(-6)}</code></td>
-                    <td>{r.side || '—'}</td>
-                    <td align="right">{r.size != null ? Number(r.size).toFixed(6) : '—'}</td>
-                    <td align="right">{r.entry != null ? Number(r.entry).toFixed(6) : '—'}</td>
-                    <td align="right">{r.mark != null ? Number(r.mark).toFixed(6) : '—'}</td>
-                    <td align="right" style={{color: r.pnlUsd > 0 ? '#22c55e' : r.pnlUsd < 0 ? '#ef4444' : undefined}}>
-                      {r.pnlUsd != null ? (r.pnlUsd >= 0 ? '+' : '') + Number(r.pnlUsd).toFixed(2) : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {q.data.items.map((r,i)=>{
+                  const pnl = r.pnlUsd ?? 0;
+                  const pnlStr = pnl >= 0 ? `+${fmtN(pnl, 2)}` : fmtN(pnl, 2);
+                  const pnlColor = pnl > 0 ? '#22c55e' : pnl < 0 ? '#ef4444' : undefined;
+                  return (
+                    <tr key={i}>
+                      <td>
+                        {r.pubkey ? (
+                          <a href={link(r.pubkey)} target="_blank" rel="noreferrer">
+                            <code>{r.pubkey.slice(0,6)}…{r.pubkey.slice(-6)}</code>
+                          </a>
+                        ) : '—'}
+                      </td>
+                      <td style={{textTransform:'uppercase'}}>{r.side || '—'}</td>
+                      <td align="right">{fmtN(r.size, 6)}</td>
+                      <td align="right">{fmtN(r.entry, 3)}</td>
+                      <td align="right">{fmtN(r.mark, 3)}</td>
+                      <td align="right" style={{color: pnlColor}}>{pnlStr}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
-          <Typography variant="caption" color="textSecondary">
-            PnL is price-delta only (no borrow/funding/impact yet). We’ll add fees next.
-          </Typography>
         </Box>
       )}
     </MainCard>
