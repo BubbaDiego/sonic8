@@ -50,16 +50,21 @@ class PositionSyncService:
         self.enricher = PositionEnrichmentService(data_locker)
 
     def _pick_api_base(self) -> str:
-        """Prefer env override if set, otherwise fall back to core ``JUPITER_API_BASE``."""
+        """
+        Prefer env override if set; otherwise fall back to the perps API base.
+        If ``JUPITER_API_BASE`` already points to perps, it will still be used.
+        """
 
         base = (JUPITER_PERPS_API_BASE or JUPITER_API_BASE).rstrip("/")
+        if "perps-api" not in base:
+            base = "https://perps-api.jup.ag"  # safe default for perps positions
         log.info(f"[PerpsSync] Using Jupiter base: {base}", source="PositionSyncService")
         return base
 
     @staticmethod
     def _extract_positions(payload: dict) -> list:
         """
-        Accept common shapes Jupiter returns:
+        Accept common Jupiter response shapes:
           - dataList: [...]
           - data: { items: [...] } or data: [...]
           - positions: [...]
@@ -255,8 +260,6 @@ class PositionSyncService:
         imported, updated, skipped, errors = 0, 0, 0, 0
         jupiter_ids = set()
 
-        api_base = self._pick_api_base()
-
         # ------------------- Fetch DB schema -------------------------#
         cursor = self.dl.db.get_cursor()
         if cursor is None:
@@ -273,6 +276,8 @@ class PositionSyncService:
 
         # ------------------- Iterate wallets ------------------------ #
         wallets = [w for w in self.dl.read_wallets() if w.get("is_active", True)]
+        console.print(f"[cyan]Loaded {len(wallets)} active wallets for sync[/cyan]")
+        log.info(f"🔍 Loaded {len(wallets)} active wallets for sync", source="PositionSyncService")
 
         try:
             signer_pk = str(load_signer().pubkey()).strip()
@@ -281,8 +286,9 @@ class PositionSyncService:
 
         if signer_pk and all((w.get("public_address") or "").strip() != signer_pk for w in wallets):
             wallets.append({"public_address": signer_pk, "name": "Signer", "is_active": True})
-        console.print(f"[cyan]Loaded {len(wallets)} active wallets for sync[/cyan]")
-        log.info(f"🔍 Loaded {len(wallets)} active wallets for sync", source="PositionSyncService")
+
+        # Choose correct base (perps-api by default)
+        api_base = self._pick_api_base()
 
         for wallet in wallets:
             pubkey = wallet.get("public_address", "").strip()
