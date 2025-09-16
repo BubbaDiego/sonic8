@@ -1,7 +1,7 @@
 # backend/routes/jupiter_perps_api.py
 from __future__ import annotations
 
-from typing import Optional, Dict, Literal
+from typing import Optional, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, validator
@@ -11,6 +11,8 @@ from backend.services.perps.markets import list_markets_sync
 from backend.services.perps.positions import list_positions_sync
 from backend.services.perps.raw_rpc import _rpc, get_program_id, get_idl_account_names
 from backend.services.perps.config import get_disc, get_account_name
+from backend.services.signer_loader import load_signer
+from backend.services.perps.positions_request import open_position_request, close_position_request
 
 try:  # optional service (not yet wired everywhere)
     from backend.services.perps.order_submit import submit_increase_request, submit_close_request
@@ -186,3 +188,43 @@ async def perps_owner_offset(owner: str, start: int = 8, stop: int = 192, step: 
         }
     except Exception as e:
         raise HTTPException(500, f"owner offset probe failed: {e}")
+
+
+# --- APPEND: “real” PositionRequest endpoints -------------------------------
+class _OpenReq(BaseModel):
+    market: str = Field(..., description="e.g., SOL-PERP | BTC-PERP | ETH-PERP")
+    side: Literal["long", "short"]
+    sizeUsd: float = Field(..., gt=0)
+    collateralUsd: float = Field(..., gt=0)
+    tp: Optional[float] = Field(None, description="TP price (optional)")
+    sl: Optional[float] = Field(None, description="SL price (optional)")
+
+
+class _CloseReq(BaseModel):
+    market: str = Field(..., description="e.g., SOL-PERP | BTC-PERP | ETH-PERP")
+
+
+@router.post("/order/open")
+def perps_order_open(req: _OpenReq):
+    try:
+        w = load_signer()
+        return open_position_request(
+            wallet=w,
+            market=req.market,
+            side=req.side,
+            size_usd=req.sizeUsd,
+            collateral_usd=req.collateralUsd,
+            tp=req.tp,
+            sl=req.sl,
+        )
+    except Exception as e:
+        raise HTTPException(500, f"perps open failed: {type(e).__name__}: {e}")
+
+
+@router.post("/order/close")
+def perps_order_close(req: _CloseReq):
+    try:
+        w = load_signer()
+        return close_position_request(wallet=w, market=req.market)
+    except Exception as e:
+        raise HTTPException(500, f"perps close failed: {type(e).__name__}: {e}")
