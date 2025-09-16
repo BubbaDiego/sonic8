@@ -73,8 +73,13 @@ def preflight_send(req:PreflightReq):
     ixs:List[Instruction]=[ set_compute_unit_limit(CU_LIMIT), set_compute_unit_price(CU_PRICE) ]
 
     if mint==SOL_MINT:
-        data=b"\x02"+int(req.amountAtoms).to_bytes(8,"little")
-        ixs.append(Instruction(SYSTEM_PROGRAM,data,[AccountMeta(payer,True,True),AccountMeta(to_owner,False,True)]))
+        lamports = int(req.amountAtoms)
+        data = (2).to_bytes(4,"little") + lamports.to_bytes(8,"little")
+        ixs.append(Instruction(
+            SYSTEM_PROGRAM,
+            data,
+            [AccountMeta(payer,True,True), AccountMeta(to_owner,False,True)]
+        ))
     else:
         src_ata=ata(payer,mint_pub); dst_ata=ata(to_owner,mint_pub)
         if not account_exists(src_ata):
