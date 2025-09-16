@@ -50,6 +50,8 @@ from backend.routes.prices_api import router as prices_router
 from backend.routes.solana_api import router as solana_router
 from backend.routes.wallet_verify_api import router as wallet_verify_router
 from backend.routes.wallet_send import router as wallet_send_router
+from backend.routes.wallet_send import send_token_api as _wallet_send_token
+from backend.routes.wallet_preflight import preflight_send as _wallet_preflight_send
 from backend.routes.liquidation_distance_api import router as liquidation_distance_router
 from backend.routes.monitor_api_adapter import router as monitor_router
 from backend.routes.auto_core_api import router as auto_core_router  # <-- Auto Core routes
@@ -109,6 +111,8 @@ app.include_router(prices_router)
 app.include_router(solana_router)
 app.include_router(wallet_verify_router)
 app.include_router(wallet_send_router)
+app.add_api_route("/api/jupiter/wallet/send", _wallet_send_token, methods=["POST"])
+app.add_api_route("/api/jupiter/wallet/preflight-send", _wallet_preflight_send, methods=["POST"])
 app.include_router(jupiter_router)
 app.include_router(perps_router)
 
