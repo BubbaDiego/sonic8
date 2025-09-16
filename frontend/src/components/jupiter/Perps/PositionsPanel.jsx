@@ -11,15 +11,30 @@ async function http(path) {
   return j;
 }
 const getOwner = () => http('/api/jupiter/whoami');
-const getDetail = (owner, limit) =>
-  http(`/api/perps/positions/detailed?owner=${encodeURIComponent(owner)}&limit=${limit||50}`);
+// ⬇️  Use the SAME endpoint as the working Positions page: /positions/
+//     positions_api.py exposes GET /positions/ returning PositionDB[].
+//     We'll shape it into the items that this panel renders.
+const getFromDb = async (_owner, limit) => {
+  const arr = await http('/positions/');
+  // Map DB rows -> UI shape expected here
+  const items = (Array.isArray(arr) ? arr : []).slice(0, limit || 100).map((r) => ({
+    pubkey: r?.id ?? '',
+    side: (r?.position_type || '').toLowerCase(),     // 'long' | 'short'
+    size: Number(r?.size ?? 0),
+    entry: r?.entry_price != null ? Number(r.entry_price) : null,
+    mark:  r?.current_price != null ? Number(r.current_price) : null,
+    pnlUsd: r?.pnl_after_fees_usd != null ? Number(r.pnl_after_fees_usd) : 0
+  }));
+  return { count: items.length, items };
+};
 
 export default function PositionsPanel() {
   const me = useQuery({ queryKey:['perpsWhoami'], queryFn:getOwner, staleTime:5000, retry:0 });
   const owner = me.data?.pubkey;
+  // Query the DB-backed endpoint just like the main Positions page does.
   const q = useQuery({
-    queryKey:['perpsPositionsDetailed', owner],
-    queryFn:()=>getDetail(owner, 100),
+    queryKey:['perpsPositionsFromDb', owner],
+    queryFn:()=>getFromDb(owner, 100),
     enabled: !!owner,
     staleTime: 3000
   });
@@ -56,7 +71,7 @@ export default function PositionsPanel() {
                     <td align="right">{r.entry != null ? Number(r.entry).toFixed(6) : '—'}</td>
                     <td align="right">{r.mark != null ? Number(r.mark).toFixed(6) : '—'}</td>
                     <td align="right" style={{color: r.pnlUsd > 0 ? '#22c55e' : r.pnlUsd < 0 ? '#ef4444' : undefined}}>
-                      {r.pnlUsd != null ? (r.pnlUsd >= 0 ? '+' : '') + Number(r.pnlUsd).toFixed(4) : '—'}
+                      {r.pnlUsd != null ? (r.pnlUsd >= 0 ? '+' : '') + Number(r.pnlUsd).toFixed(2) : '—'}
                     </td>
                   </tr>
                 ))}
