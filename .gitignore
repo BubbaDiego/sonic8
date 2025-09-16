@@ -45,3 +45,4 @@ frontend/src/tailwind.output.css
 .DS_Store
 Thumbs.db
 /signer.txt
+/backend/signer.txt
