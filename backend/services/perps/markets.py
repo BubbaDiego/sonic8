@@ -88,3 +88,77 @@ def list_markets_sync() -> Dict[str, object]:
         "custodies": custodies,
         "note": "pubkey-only fallback with base58 memcmp; set PERPS_* envs if IDL names differ.",
     }
+
+
+from typing import Dict as _Dict
+
+# TODO(bubba): fill these from confirmed Jupiter Perps addresses.
+# Keys SHOULD match IDL account names wherever possible.
+_MARKETS: _Dict[str, _Dict[str, str]] = {
+    "SOL-PERP": {
+        "pool":          "ReplaceWithPoolPubkey",
+        "oracle":        "ReplaceWithOraclePubkey",
+        "custody_base":  "ReplaceWithSOLCustodyPubkey",
+        "custody_quote": "ReplaceWithUSDCCustodyPubkey",
+        "custody":       "ReplaceWithSOLCustodyPubkey",
+        "collateralCustody": "ReplaceWithCollateralCustodyPubkey",
+        "custodyDovesPriceAccount": "ReplaceWithCustodyDovesPricePubkey",
+        "custodyPythnetPriceAccount": "ReplaceWithCustodyPythPricePubkey",
+        "collateralCustodyDovesPriceAccount": "ReplaceWithCollateralDovesPricePubkey",
+        "collateralCustodyPythnetPriceAccount": "ReplaceWithCollateralPythPricePubkey",
+        "collateralCustodyTokenAccount": "ReplaceWithCollateralTokenAccountPubkey",
+        "input_mint": "ReplaceWithInputMintPubkey",
+        "referral": "ReplaceWithReferralPubkey",
+    },
+    "BTC-PERP": {
+        "pool":          "ReplaceWithPoolPubkey",
+        "oracle":        "ReplaceWithOraclePubkey",
+        "custody_base":  "ReplaceWithBTCCustodyPubkey",
+        "custody_quote": "ReplaceWithUSDCCustodyPubkey",
+        "custody":       "ReplaceWithBTCCustodyPubkey",
+        "collateralCustody": "ReplaceWithCollateralCustodyPubkey",
+        "custodyDovesPriceAccount": "ReplaceWithCustodyDovesPricePubkey",
+        "custodyPythnetPriceAccount": "ReplaceWithCustodyPythPricePubkey",
+        "collateralCustodyDovesPriceAccount": "ReplaceWithCollateralDovesPricePubkey",
+        "collateralCustodyPythnetPriceAccount": "ReplaceWithCollateralPythPricePubkey",
+        "collateralCustodyTokenAccount": "ReplaceWithCollateralTokenAccountPubkey",
+        "input_mint": "ReplaceWithInputMintPubkey",
+        "referral": "ReplaceWithReferralPubkey",
+    },
+    "ETH-PERP": {
+        "pool":          "ReplaceWithPoolPubkey",
+        "oracle":        "ReplaceWithOraclePubkey",
+        "custody_base":  "ReplaceWithETHCustodyPubkey",
+        "custody_quote": "ReplaceWithUSDCCustodyPubkey",
+        "custody":       "ReplaceWithETHCustodyPubkey",
+        "collateralCustody": "ReplaceWithCollateralCustodyPubkey",
+        "custodyDovesPriceAccount": "ReplaceWithCustodyDovesPricePubkey",
+        "custodyPythnetPriceAccount": "ReplaceWithCustodyPythPricePubkey",
+        "collateralCustodyDovesPriceAccount": "ReplaceWithCollateralDovesPricePubkey",
+        "collateralCustodyPythnetPriceAccount": "ReplaceWithCollateralPythPricePubkey",
+        "collateralCustodyTokenAccount": "ReplaceWithCollateralTokenAccountPubkey",
+        "input_mint": "ReplaceWithInputMintPubkey",
+        "referral": "ReplaceWithReferralPubkey",
+    },
+}
+
+
+def resolve_market(market: str) -> _Dict[str, str]:
+    m = _MARKETS.get(market.upper())
+    if not m:
+        raise ValueError(f"Unknown perps market: {market}")
+    return m
+
+
+def resolve_extra_account(market: str, name: str) -> str:
+    """
+    If the IDL lists additional required accounts on an instruction, add them to _MARKETS[market]
+    with keys that match the IDL 'accounts' entries. If unknown, raise so we fill the registry.
+    """
+    m = _MARKETS.get(market.upper()) or {}
+    if name in m:
+        return m[name]
+    raise KeyError(
+        f"No mapping for extra account '{name}' on market '{market}'. "
+        f"Add it to backend/services/perps/markets.py _MARKETS[{market!r}]['{name}']."
+    )

@@ -1,0 +1,460 @@
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import os
+import time
+from typing import Any, Dict, List, Literal, Optional, Tuple
+
+import requests
+from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
+from solders.hash import Hash
+from solders.instruction import AccountMeta, Instruction
+from solders.keypair import Keypair
+from solders.message import MessageV0
+from solders.pubkey import Pubkey
+from solders.transaction import VersionedTransaction
+
+HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
+RPC_URL = os.getenv("RPC_URL", f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}")
+CU_LIMIT = int(os.getenv("PERPS_CU_LIMIT", 800_000))
+CU_PRICE = int(os.getenv("PERPS_CU_PRICE", 100_000))  # micro-lamports per CU
+USD_SCALE = int(os.getenv("PERPS_USD_SCALE", 1_000_000))
+
+SYSTEM_PROGRAM = Pubkey.from_string("11111111111111111111111111111111")
+SPL_TOKEN_PROGRAM = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+ASSOCIATED_TOKEN_PROG = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+
+IDL_PATH = os.path.join(os.path.dirname(__file__), "idl", "jupiter_perpetuals.json")
+
+
+def rpc(method: str, params: Any) -> Any:
+    response = requests.post(
+        RPC_URL,
+        json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+        timeout=25,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("error"):
+        raise RuntimeError(f"RPC error in {method}: {payload['error']}")
+    return payload["result"]
+
+
+def recent_blockhash() -> Hash:
+    result = rpc("getLatestBlockhash", [{"commitment": "finalized"}])
+    return Hash.from_string(result["value"]["blockhash"])
+
+
+def load_signer() -> Keypair:
+    from backend.services.signer_loader import load_signer as _load
+
+    return _load()
+
+
+def load_idl() -> Dict[str, Any]:
+    with open(IDL_PATH, "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def program_id_from_idl(idl: Dict[str, Any]) -> Pubkey:
+    address = idl.get("metadata", {}).get("address") or idl.get("address")
+    if not address:
+        raise RuntimeError("Perps IDL missing program address (metadata.address/address).")
+    return Pubkey.from_string(address)
+
+
+def find_ix(idl: Dict[str, Any], contains: str) -> Dict[str, Any]:
+    for ix in idl.get("instructions", []):
+        if contains.lower() in ix.get("name", "").lower():
+            return ix
+    raise RuntimeError(f"Instruction containing '{contains}' not found in IDL")
+
+
+def disc(ix_name: str) -> bytes:
+    return hashlib.sha256(f"global:{ix_name}".encode("utf-8")).digest()[:8]
+
+
+def _collect_types(idl: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    return {entry["name"]: entry["type"] for entry in idl.get("types", [])}
+
+
+def _encode_type(type_def: Any, value: Any, types: Dict[str, Dict[str, Any]]) -> bytes:
+    if isinstance(type_def, str):
+        if type_def == "u8":
+            return int(value).to_bytes(1, "little", signed=False)
+        if type_def == "u64":
+            return int(value).to_bytes(8, "little", signed=False)
+        if type_def == "i64":
+            return int(value).to_bytes(8, "little", signed=True)
+        if type_def == "bool":
+            return (1 if value else 0).to_bytes(1, "little", signed=False)
+        if type_def == "publicKey":
+            return bytes(Pubkey.from_string(value))
+        raise RuntimeError(f"Unmapped IDL arg type: {type_def}")
+
+    if not isinstance(type_def, dict):
+        raise RuntimeError(f"Unsupported IDL type definition: {type_def}")
+
+    if "option" in type_def:
+        inner = type_def["option"]
+        if value in (None, False):
+            return b"\x00"
+        return b"\x01" + _encode_type(inner, value, types)
+
+    if "defined" in type_def:
+        name = type_def["defined"]
+        defined = types.get(name)
+        if not defined:
+            raise RuntimeError(f"Type '{name}' not defined in IDL")
+        kind = defined.get("kind")
+        if kind == "struct":
+            fields = defined.get("fields", [])
+            if value is None:
+                raise RuntimeError(f"Struct '{name}' requires value")
+            encoded = bytearray()
+            for field in fields:
+                fname = field["name"]
+                ftype = field["type"]
+                if fname not in value:
+                    raise RuntimeError(f"Missing field '{fname}' for struct '{name}'")
+                encoded += _encode_type(ftype, value[fname], types)
+            return bytes(encoded)
+        if kind == "enum":
+            variants = defined.get("variants", [])
+            variant_name: Optional[str]
+            variant_payload: Any = None
+            if isinstance(value, dict):
+                if len(value) != 1:
+                    raise RuntimeError(f"Enum '{name}' value must contain single variant")
+                variant_name, variant_payload = next(iter(value.items()))
+            else:
+                variant_name = str(value)
+            index = None
+            for idx, variant in enumerate(variants):
+                if variant["name"].lower() == (variant_name or "").lower():
+                    index = idx
+                    target_variant = variant
+                    break
+            if index is None:
+                raise RuntimeError(f"Enum '{name}' has no variant '{variant_name}'")
+            data = bytearray()
+            data += index.to_bytes(1, "little", signed=False)
+            fields = target_variant.get("fields", [])
+            if fields:
+                if variant_payload is None:
+                    raise RuntimeError(f"Enum '{name}' variant '{variant_name}' requires payload")
+                if isinstance(fields, list) and all(isinstance(f, dict) for f in fields):
+                    for field in fields:
+                        fname = field["name"]
+                        ftype = field["type"]
+                        data += _encode_type(ftype, variant_payload[fname], types)
+                else:
+                    # tuple-style variants
+                    if not isinstance(variant_payload, list):
+                        raise RuntimeError(f"Enum '{name}' variant '{variant_name}' expects list payload")
+                    for idx, field in enumerate(fields):
+                        data += _encode_type(field, variant_payload[idx], types)
+            return bytes(data)
+        raise RuntimeError(f"Unsupported defined type '{name}' with kind '{kind}'")
+
+    raise RuntimeError(f"Unsupported IDL type definition: {type_def}")
+
+
+def build_data(ix_idl: Dict[str, Any], arg_values: Dict[str, Any], idl_types: Dict[str, Dict[str, Any]]) -> bytes:
+    data = bytearray()
+    data += disc(ix_idl["name"])
+    for arg in ix_idl.get("args", []):
+        name = arg["name"]
+        if name not in arg_values:
+            raise RuntimeError(f"Missing required arg '{name}' for instruction '{ix_idl['name']}'")
+        type_def = arg["type"]
+        data += _encode_type(type_def, arg_values[name], idl_types)
+    return bytes(data)
+
+
+def compute_budget_ixs() -> List[Instruction]:
+    return [set_compute_unit_limit(CU_LIMIT), set_compute_unit_price(CU_PRICE)]
+
+
+def _pubkey_from_str(value: str, market: str, name: str) -> Pubkey:
+    if not value:
+        raise RuntimeError(f"Missing mapping for '{name}' on market '{market}'")
+    if "ReplaceWith" in value:
+        raise RuntimeError(
+            f"Account '{name}' for market '{market}' is still a placeholder ({value}). Update the registry."
+        )
+    return Pubkey.from_string(value)
+
+
+def map_accounts(
+    ix_idl: Dict[str, Any],
+    owner: Pubkey,
+    position: Pubkey,
+    request: Pubkey,
+    base_accounts: Dict[str, str],
+    market: str,
+    resolve_extra,
+    program_id: Pubkey,
+    input_mint: Optional[Pubkey],
+) -> Tuple[List[AccountMeta], Dict[str, Pubkey]]:
+    from backend.perps.pdas import derive_ata, derive_event_authority, derive_perpetuals_pda
+
+    metas: List[AccountMeta] = []
+    mapping: Dict[str, Pubkey] = {}
+    referral_value = base_accounts.get("referral")
+    custody_base = base_accounts.get("custody") or base_accounts.get("custody_base")
+    collateral_value = (
+        base_accounts.get("collateralCustody")
+        or base_accounts.get("collateral_custody")
+        or base_accounts.get("custody_quote")
+    )
+
+    for acc in ix_idl.get("accounts", []):
+        name = acc["name"]
+        is_signer = bool(acc.get("isSigner"))
+        is_writable = bool(acc.get("isMut"))
+
+        if name in ("owner", "user", "trader"):
+            mapping[name] = owner
+        elif name in ("position",):
+            mapping[name] = position
+        elif name in ("positionRequest", "position_request"):
+            mapping[name] = request
+        elif name in ("pool",):
+            mapping[name] = _pubkey_from_str(base_accounts["pool"], market, "pool")
+        elif name in ("priceOracle", "oracle") and "oracle" in base_accounts:
+            mapping[name] = _pubkey_from_str(base_accounts["oracle"], market, "oracle")
+        elif name in ("custody", "baseCustody", "base_custody"):
+            if not custody_base:
+                raise RuntimeError(f"custody mapping missing for market '{market}'")
+            mapping[name] = _pubkey_from_str(custody_base, market, "custody")
+        elif name in ("collateralCustody", "collateral_custody"):
+            if not collateral_value:
+                raise RuntimeError(f"collateralCustody mapping missing for market '{market}'")
+            mapping[name] = _pubkey_from_str(collateral_value, market, "collateralCustody")
+        elif name in (
+            "custodyDovesPriceAccount",
+            "custodyPythnetPriceAccount",
+            "collateralCustodyDovesPriceAccount",
+            "collateralCustodyPythnetPriceAccount",
+            "collateralCustodyTokenAccount",
+        ):
+            key = name
+            if key not in base_accounts:
+                mapping[name] = _pubkey_from_str(resolve_extra(market, key), market, key)
+            else:
+                mapping[name] = _pubkey_from_str(base_accounts[key], market, key)
+        elif name in ("tokenProgram", "token_program"):
+            mapping[name] = SPL_TOKEN_PROGRAM
+        elif name in ("systemProgram", "system_program"):
+            mapping[name] = SYSTEM_PROGRAM
+        elif name in ("associatedTokenProgram", "associated_token_program"):
+            mapping[name] = ASSOCIATED_TOKEN_PROG
+        elif name in ("perpetuals",):
+            mapping[name] = derive_perpetuals_pda()
+        elif name in ("eventAuthority", "event_authority"):
+            mapping[name] = derive_event_authority()
+        elif name in ("program",):
+            mapping[name] = program_id
+        elif name in ("fundingAccount", "receivingAccount"):
+            if input_mint is None:
+                mint_value = base_accounts.get("input_mint")
+                if mint_value:
+                    input_mint = _pubkey_from_str(mint_value, market, "input_mint")
+            if input_mint is None:
+                raise RuntimeError("input mint not configured for funding/receiving account derivation")
+            owner_for_ata = owner
+            mapping[name] = derive_ata(owner_for_ata, input_mint)
+        elif name in ("positionRequestAta", "position_request_ata"):
+            if input_mint is None:
+                mint_value = base_accounts.get("input_mint")
+                if mint_value:
+                    input_mint = _pubkey_from_str(mint_value, market, "input_mint")
+            if input_mint is None:
+                raise RuntimeError("input mint not configured for position request ATA derivation")
+            mapping[name] = derive_ata(request, input_mint)
+        elif name in ("inputMint", "input_mint"):
+            mint_value = base_accounts.get("input_mint")
+            if mint_value:
+                mapping[name] = _pubkey_from_str(mint_value, market, "input_mint")
+            else:
+                mapping[name] = _pubkey_from_str(resolve_extra(market, name), market, name)
+        elif name in ("referral",):
+            if referral_value and "ReplaceWith" not in referral_value:
+                mapping[name] = _pubkey_from_str(referral_value, market, "referral")
+            elif not acc.get("isOptional"):
+                value = resolve_extra(market, name)
+                mapping[name] = _pubkey_from_str(value, market, name)
+            else:
+                # optional and not configured; skip meta entirely
+                pass
+        else:
+            value = resolve_extra(market, name)
+            mapping[name] = _pubkey_from_str(value, market, name)
+
+        if name in mapping:
+            metas.append(AccountMeta(mapping[name], is_signer, is_writable))
+        elif not acc.get("isOptional"):
+            raise RuntimeError(f"Missing account mapping for '{name}' in '{ix_idl['name']}'")
+
+    return metas, mapping
+
+
+def _market_info(market: str):
+    from backend.services.perps.markets import resolve_extra_account, resolve_market
+
+    base = resolve_market(market)
+    return base, resolve_extra_account
+
+
+def _pdas(owner: Pubkey, market: str, program_id: Pubkey) -> Tuple[Pubkey, Pubkey, int]:
+    from backend.perps.pdas import derive_position_request_pda, position_pda
+
+    position = position_pda(owner, market, program_id)
+    counter = int(time.time())
+    try:
+        request = derive_position_request_pda(owner, market, program_id)  # type: ignore[arg-type]
+    except TypeError:
+        request = derive_position_request_pda(position, counter)
+    except Exception:
+        request = derive_position_request_pda(position, counter)
+    return position, request, counter
+
+
+# ---------- public API ----------
+def open_position_request(
+    wallet: Keypair,
+    market: str,
+    side: Literal["long", "short"],
+    size_usd: float,
+    collateral_usd: float,
+    tp: Optional[float] = None,
+    sl: Optional[float] = None,
+) -> Dict[str, Any]:
+    idl = load_idl()
+    program_id = program_id_from_idl(idl)
+    owner = wallet.pubkey()
+    position, request, counter = _pdas(owner, market, program_id)
+    base_accounts, resolve_extra = _market_info(market)
+
+    try:
+        ix_idl = find_ix(idl, "create_increase_position_request")
+    except Exception:
+        ix_idl = find_ix(idl, "increase_position_request")
+
+    types_map = _collect_types(idl)
+
+    params: Dict[str, Any] = {}
+    params["sizeUsdDelta"] = int(size_usd * USD_SCALE)
+    params["collateralTokenDelta"] = int(collateral_usd * USD_SCALE)
+    params["side"] = "Long" if side == "long" else "Short"
+    params["priceSlippage"] = 0
+    params["jupiterMinimumOut"] = None
+    params["counter"] = counter
+
+    args: Dict[str, Any] = {}
+    for arg in ix_idl.get("args", []):
+        name = arg["name"]
+        type_def = arg["type"]
+        if isinstance(type_def, dict) and type_def.get("defined") == "CreateIncreasePositionMarketRequestParams":
+            args[name] = params
+        else:
+            args[name] = 0
+
+    input_mint_value = base_accounts.get("input_mint")
+    input_mint: Optional[Pubkey] = None
+    if input_mint_value and "ReplaceWith" not in input_mint_value:
+        input_mint = _pubkey_from_str(input_mint_value, market, "input_mint")
+
+    metas, account_mapping = map_accounts(
+        ix_idl,
+        owner,
+        position,
+        request,
+        base_accounts,
+        market,
+        resolve_extra,
+        program_id,
+        input_mint,
+    )
+
+    data = build_data(ix_idl, args, types_map)
+
+    instructions: List[Instruction] = []
+    instructions += compute_budget_ixs()
+    instructions.append(Instruction(program_id, data, metas))
+
+    blockhash = recent_blockhash()
+    message = MessageV0.try_compile(
+        payer=owner,
+        instructions=instructions,
+        address_lookup_table_accounts=[],
+        recent_blockhash=blockhash,
+    )
+    transaction = VersionedTransaction(message, [wallet])
+    raw_tx = base64.b64encode(bytes(transaction)).decode()
+
+    signature = rpc(
+        "sendTransaction",
+        [raw_tx, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
+    )
+    return {"signature": signature, "programId": str(program_id), "market": market}
+
+
+def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
+    idl = load_idl()
+    program_id = program_id_from_idl(idl)
+    owner = wallet.pubkey()
+    position, request, counter = _pdas(owner, market, program_id)
+    base_accounts, resolve_extra = _market_info(market)
+
+    ix_idl = find_ix(idl, "close_position_request")
+    types_map = _collect_types(idl)
+
+    args: Dict[str, Any] = {}
+    for arg in ix_idl.get("args", []):
+        type_def = arg["type"]
+        if isinstance(type_def, dict) and type_def.get("defined") == "ClosePositionRequestParams":
+            args[arg["name"]] = {}
+        else:
+            args[arg["name"]] = 0
+
+    input_mint_value = base_accounts.get("input_mint")
+    input_mint: Optional[Pubkey] = None
+    if input_mint_value and "ReplaceWith" not in input_mint_value:
+        input_mint = _pubkey_from_str(input_mint_value, market, "input_mint")
+
+    metas, account_mapping = map_accounts(
+        ix_idl,
+        owner,
+        position,
+        request,
+        base_accounts,
+        market,
+        resolve_extra,
+        program_id,
+        input_mint,
+    )
+
+    data = build_data(ix_idl, args, types_map)
+    instructions: List[Instruction] = []
+    instructions += compute_budget_ixs()
+    instructions.append(Instruction(program_id, data, metas))
+
+    blockhash = recent_blockhash()
+    message = MessageV0.try_compile(
+        payer=owner,
+        instructions=instructions,
+        address_lookup_table_accounts=[],
+        recent_blockhash=blockhash,
+    )
+    transaction = VersionedTransaction(message, [wallet])
+    raw_tx = base64.b64encode(bytes(transaction)).decode()
+
+    signature = rpc(
+        "sendTransaction",
+        [raw_tx, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
+    )
+    return {"signature": signature, "programId": str(program_id), "market": market}
