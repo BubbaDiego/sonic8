@@ -12,12 +12,12 @@ from solders.instruction import Instruction, AccountMeta
 from solders.message import MessageV0, to_bytes_versioned
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 
+from backend.services.signer_loader import load_signer  # <<< unify signer
+
 router = APIRouter(prefix="/api/wallet", tags=["wallet"])
 
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
 RPC_URL        = os.getenv("RPC_URL", f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}")
-SIGNER_PATH    = os.getenv("SIGNER_PATH", os.path.join(os.path.dirname(__file__), "..", "signer_id.json"))
-SIGNER_BASE58  = os.getenv("SIGNER_BASE58", "").strip()
 
 SYSTEM_PROGRAM        = Pubkey.from_string("11111111111111111111111111111111")
 SPL_TOKEN_PROGRAM     = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
@@ -52,17 +52,7 @@ def account_exists(pub:Pubkey)->bool:
 def get_min_rent_exempt(size:int)->int:
     return int(rpc("getMinimumBalanceForRentExemption",[size]))
 
-def load_signer()->Keypair:
-    if SIGNER_BASE58:
-        import base58
-        raw=base58.b58decode(SIGNER_BASE58)
-        from solders.keypair import Keypair
-        try: return Keypair.from_bytes(raw)
-        except: from nacl.signing import SigningKey
-        sk=SigningKey(raw[:32]); return Keypair.from_bytes(sk.encode()+sk.verify_key.encode())
-    obj=json.load(open(SIGNER_PATH,"r",encoding="utf-8"))
-    if isinstance(obj,list): return Keypair.from_bytes(bytes(obj))
-    return Keypair.from_bytes(bytes(obj["secretKey"]))
+# use shared load_signer() above
 
 class PreflightReq(BaseModel):
     mint: str = Field(..., description="Mint address or SOL/USDC")
