@@ -1,4 +1,3 @@
-import sys
 import os
 from datetime import datetime
 import time
@@ -16,7 +15,7 @@ from backend.core.hedge_core.hedge_core import HedgeCore
 from backend.core.trader_core import TraderUpdateService
 from backend.services.signer_loader import load_signer
 
-JUPITER_PERPS_API_BASE = os.getenv("JUPITER_PERPS_API_BASE", "").strip()
+JUPITER_PERPS_API_BASE = os.getenv("JUPITER_PERPS_API_BASE", "").strip()  # optional override
 
 console = Console()
 
@@ -50,18 +49,23 @@ class PositionSyncService:
         self.dl = data_locker
         self.enricher = PositionEnrichmentService(data_locker)
 
+    def _pick_api_base(self) -> str:
+        """Prefer env override if set, otherwise fall back to core ``JUPITER_API_BASE``."""
+
+        base = (JUPITER_PERPS_API_BASE or JUPITER_API_BASE).rstrip("/")
+        log.info(f"[PerpsSync] Using Jupiter base: {base}", source="PositionSyncService")
+        return base
+
     @staticmethod
     def _extract_positions(payload: dict) -> list:
         """
-        Normalise position lists from varying Jupiter response shapes.
-
-        Supports responses shaped as:
-          • ``{"dataList": [...]}``
-          • ``{"data": {"items": [...]}}`` or ``{"data": [...]}``
-          • ``{"positions": [...]}``
-          • ``{"items": [...]}``
-          • ``{"result": [...]}``
-        and gracefully handles a single position object.
+        Accept common shapes Jupiter returns:
+          - dataList: [...]
+          - data: { items: [...] } or data: [...]
+          - positions: [...]
+          - items: [...]
+          - result: [...]
+        Also accept a single position object (has 'positionPubkey'/'id'/'position').
         """
 
         if not isinstance(payload, dict):
@@ -72,8 +76,8 @@ class PositionSyncService:
             if isinstance(value, list):
                 return value
             if isinstance(value, dict):
-                for nested in ("items", "data", "list"):
-                    nested_value = value.get(nested)
+                for nested_key in ("items", "data", "list"):
+                    nested_value = value.get(nested_key)
                     if isinstance(nested_value, list):
                         return nested_value
 
@@ -110,11 +114,6 @@ class PositionSyncService:
                 if attempt == attempts:
                     raise
                 time.sleep(delay * attempt)  # exponential back‑off
-
-    def _pick_api_base(self) -> str:
-        base = (JUPITER_PERPS_API_BASE or JUPITER_API_BASE).rstrip("/")
-        log.info(f"[PerpsSync] Using Jupiter base: {base}", source="PositionSyncService")
-        return base
 
     # ---------------------------------------------------------------------#
     #                      High‑level orchestration                         #
@@ -329,13 +328,6 @@ class PositionSyncService:
                 if not market_mint and isinstance(item.get("market"), dict):
                     market_mint = item["market"].get("mint")
 
-                try:
-                    updated_time = float(item.get("updatedTime", 0) or 0.0)
-                except (TypeError, ValueError):
-                    updated_time = 0.0
-                if updated_time > 1e12:
-                    updated_time /= 1000.0
-
                 raw_pos = {
                     "id": pos_id,
                     "asset_type": self.MINT_TO_ASSET.get(market_mint or "", "BTC"),
@@ -346,7 +338,17 @@ class PositionSyncService:
                     "size": float(item.get("size", 0.0) or 0.0),
                     "leverage": float(item.get("leverage", 0.0) or 0.0),
                     "value": float(item.get("value", 0.0) or 0.0),
-                    "last_updated": datetime.fromtimestamp(updated_time).isoformat(),
+                    "last_updated": datetime.fromtimestamp(
+                        (
+                            float(item.get("updatedTime", 0) or 0.0)
+                            /
+                            (
+                                1000.0
+                                if float(item.get("updatedTime", 0) or 0.0) > 1e12
+                                else 1.0
+                            )
+                        )
+                    ).isoformat(),
                     "wallet_name": w_name,
                     "pnl_after_fees_usd": float(item.get("pnlAfterFeesUsd", 0.0) or 0.0),
                     "travel_percent": float(item.get("pnlChangePctAfterFees", 0.0) or 0.0),
