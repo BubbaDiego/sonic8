@@ -197,6 +197,31 @@ async def perps_owner_offset(owner: str, start: int = 8, stop: int = 192, step: 
         raise HTTPException(500, f"owner offset probe failed: {e}")
 
 
+@router.get("/positions/raw")
+def perps_positions_raw(wallet: str | None = None):
+    """
+    Fetch raw Jupiter positions JSON for debugging.
+
+    Uses the same base selection logic as the sync service so any environment
+    overrides (``JUPITER_PERPS_API_BASE``) are honoured.
+    """
+
+    try:
+        from backend.services.signer_loader import load_signer
+        from backend.core.core_constants import JUPITER_API_BASE
+        import os
+        import requests
+
+        base = (os.getenv("JUPITER_PERPS_API_BASE", "").strip() or JUPITER_API_BASE).rstrip("/")
+        owner = wallet or str(load_signer().pubkey())
+        url = f"{base}/v1/positions?walletAddress={owner}&showTpslRequests=true"
+        response = requests.get(url, headers={"User-Agent": "Cyclone/PerpsRaw"}, timeout=12)
+        response.raise_for_status()
+        return {"url": url, "json": response.json()}
+    except Exception as exc:
+        raise HTTPException(502, f"raw fetch failed: {exc}")
+
+
 # --- APPEND: “real” PositionRequest endpoints -------------------------------
 class _OpenReq(BaseModel):
     market: str = Field(..., description="e.g., SOL-PERP | BTC-PERP | ETH-PERP")

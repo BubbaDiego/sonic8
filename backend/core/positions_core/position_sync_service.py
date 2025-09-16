@@ -52,7 +52,17 @@ class PositionSyncService:
 
     @staticmethod
     def _extract_positions(payload: dict) -> list:
-        """Normalise position lists from varying Jupiter response shapes."""
+        """
+        Normalise position lists from varying Jupiter response shapes.
+
+        Supports responses shaped as:
+          • ``{"dataList": [...]}``
+          • ``{"data": {"items": [...]}}`` or ``{"data": [...]}``
+          • ``{"positions": [...]}``
+          • ``{"items": [...]}``
+          • ``{"result": [...]}``
+        and gracefully handles a single position object.
+        """
 
         if not isinstance(payload, dict):
             return []
@@ -67,7 +77,7 @@ class PositionSyncService:
                     if isinstance(nested_value, list):
                         return nested_value
 
-        if "positionPubkey" in payload or "id" in payload:
+        if any(key in payload for key in ("positionPubkey", "id", "position")):
             return [payload]
 
         return []
