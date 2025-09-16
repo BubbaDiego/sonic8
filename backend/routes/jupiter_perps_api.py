@@ -200,17 +200,13 @@ async def perps_owner_offset(owner: str, start: int = 8, stop: int = 192, step: 
 @router.get("/positions/raw")
 def perps_positions_raw(wallet: str | None = None):
     """
-    Fetch raw Jupiter positions JSON for debugging.
-
-    Uses the same base selection logic as the sync service so any environment
-    overrides (``JUPITER_PERPS_API_BASE``) are honoured.
+    Fetch raw Jupiter positions JSON for debugging (defaults to server signer).
     """
 
     try:
         from backend.services.signer_loader import load_signer
+        import os, requests
         from backend.core.core_constants import JUPITER_API_BASE
-        import os
-        import requests
 
         base = (os.getenv("JUPITER_PERPS_API_BASE", "").strip() or JUPITER_API_BASE).rstrip("/")
         owner = wallet or str(load_signer().pubkey())
