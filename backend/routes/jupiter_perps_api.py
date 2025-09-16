@@ -13,6 +13,7 @@ from backend.services.perps.raw_rpc import _rpc, get_program_id, get_idl_account
 from backend.services.perps.config import get_disc, get_account_name
 from backend.services.signer_loader import load_signer
 from backend.services.perps.positions_request import open_position_request, close_position_request
+from backend.services.perps.position_probe import probe_position, idl_summary
 
 try:  # optional service (not yet wired everywhere)
     from backend.services.perps.order_submit import submit_increase_request, submit_close_request
@@ -140,9 +141,15 @@ async def perps_positions_detailed(owner: str, limit: int = 50, debug: int = 0):
 @router.get("/debug/idl")
 async def perps_idl_debug():
     try:
-        pid = get_program_id()
+        summary = idl_summary()
         names = get_idl_account_names()
-        return {"programId": pid, "accounts": names}
+        account_count = summary.get("accounts", len(names))
+        return {
+            "programId": summary.get("programId"),
+            "instructions": summary.get("instructions"),
+            "accounts": account_count,
+            "accountNames": names,
+        }
     except Exception as e:
         raise HTTPException(500, f"idl debug failed: {e}")
 
@@ -228,3 +235,24 @@ def perps_order_close(req: _CloseReq):
         return close_position_request(wallet=w, market=req.market)
     except Exception as e:
         raise HTTPException(500, f"perps close failed: {type(e).__name__}: {e}")
+
+
+# ---- DEBUG / PROBE endpoints (non-breaking additions) ----------------------
+
+
+@router.get("/position/by-market")
+def perps_position_by_market(
+    market: str = Query(..., description="e.g., SOL-PERP | BTC-PERP | ETH-PERP"),
+    owner: str | None = Query(None, description="override owner; default = server signer pubkey"),
+):
+    """
+    Derives the position PDA for (owner, market) and checks if the account exists.
+    Default owner is the server signer (same wallet you see in /api/jupiter/whoami).
+    """
+    try:
+        if not owner:
+            w = load_signer()
+            owner = str(w.pubkey())
+        return probe_position(owner, market)
+    except Exception as e:
+        raise HTTPException(500, f"position probe failed: {e}")
