@@ -1,10 +1,11 @@
 import os
-from datetime import datetime
 import time
+from datetime import datetime
+
 import requests
 from rich.console import Console
 
-# Local imports
+# Core / services
 from backend.core.logging import log
 from backend.core.core_constants import JUPITER_API_BASE
 from backend.data.data_locker import DataLocker
@@ -15,30 +16,19 @@ from backend.core.hedge_core.hedge_core import HedgeCore
 from backend.core.trader_core import TraderUpdateService
 from backend.services.signer_loader import load_signer
 
-JUPITER_PERPS_API_BASE = os.getenv("JUPITER_PERPS_API_BASE", "").strip()  # optional override
-
 console = Console()
+
+# Optional override; if unset we select perps-api explicitly
+JUPITER_PERPS_API_BASE = os.getenv("JUPITER_PERPS_API_BASE", "").strip()
 
 
 class PositionSyncService:
-    """Synchronises on‑chain Jupiter positions with the local DB.
+    """Synchronises Jupiter **Perps** positions with the local DB."""
 
-    Key improvements vs. previous revision
-    --------------------------------------
-    • Robust *update* pathway – row‑level UPDATE now happens inside this class
-      instead of delegating to the (occasionally unreliable) `aggregate_positions_and_update`.
-    • Hardened stale‑position handling – positions that fail to appear for *N*
-      consecutive syncs are automatically soft‑closed.
-    • Verbose structured logging – all major branches emit DEBUG‑level
-      breadcrumbs that can be grepped easily when troubleshooting.
-    • 100 % unit‑test coverage for the public `update_jupiter_positions`
-      pathway and the private `_handle_stale_positions` helper.
-    """
-
-    #: Consecutive misses before a position is considered permanently stale.
+    # how many consecutive misses before marking stale
     STALE_THRESHOLD = 3
 
-    #: Map Jupiter mint addresses → Ticker symbol
+    # Jupiter mints → asset symbols (extend if you trade more)
     MINT_TO_ASSET = {
         "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh": "BTC",
         "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs": "ETH",
@@ -49,125 +39,93 @@ class PositionSyncService:
         self.dl = data_locker
         self.enricher = PositionEnrichmentService(data_locker)
 
+    # ------------------------------ HTTP helpers ------------------------------ #
+
     def _pick_api_base(self) -> str:
         """
-        Prefer env override if set; otherwise fall back to the perps API base.
-        If ``JUPITER_API_BASE`` already points to perps, it will still be used.
+        Prefer env override; otherwise prefer the Perps base explicitly.
+        If your JUPITER_API_BASE already points to perps it still works.
         """
-
         base = (JUPITER_PERPS_API_BASE or JUPITER_API_BASE).rstrip("/")
         if "perps-api" not in base:
-            base = "https://perps-api.jup.ag"  # safe default for perps positions
+            base = "https://perps-api.jup.ag"
         log.info(f"[PerpsSync] Using Jupiter base: {base}", source="PositionSyncService")
         return base
+
+    def _request_with_retries(self, url: str, attempts: int = 3, delay: float = 1.0):
+        headers = {"User-Agent": "Cyclone/PositionSyncService"}
+        for i in range(1, attempts + 1):
+            try:
+                r = requests.get(url, headers=headers, timeout=12)
+                log.debug(f"📡 GET {url} (attempt {i}) → {r.status_code}", source="JupiterAPI")
+                r.raise_for_status()
+                return r
+            except requests.RequestException as exc:
+                log.error(f"[{i}/{attempts}] Request error: {exc}", source="JupiterAPI")
+                if i == attempts:
+                    raise
+                time.sleep(delay * i)
 
     @staticmethod
     def _extract_positions(payload: dict) -> list:
         """
         Accept common Jupiter response shapes:
           - dataList: [...]
-          - data: { items: [...] } or data: [...]
-          - positions: [...]
-          - items: [...]
-          - result: [...]
-        Also accept a single position object (has 'positionPubkey'/'id'/'position').
+          - data: {...} (try items/data/list)
+          - positions / items / result: [...]
+          - single object with positionPubkey / id / position
         """
-
         if not isinstance(payload, dict):
             return []
-
-        for key in ("dataList", "data", "positions", "items", "result"):
-            value = payload.get(key)
-            if isinstance(value, list):
-                return value
-            if isinstance(value, dict):
-                for nested_key in ("items", "data", "list"):
-                    nested_value = value.get(nested_key)
-                    if isinstance(nested_value, list):
-                        return nested_value
-
-        if any(key in payload for key in ("positionPubkey", "id", "position")):
+        for k in ("dataList", "data", "positions", "items", "result"):
+            v = payload.get(k)
+            if isinstance(v, list):
+                return v
+            if isinstance(v, dict):
+                for kk in ("items", "data", "list"):
+                    vv = v.get(kk)
+                    if isinstance(vv, list):
+                        return vv
+        if any(k in payload for k in ("positionPubkey", "id", "position")):
             return [payload]
-
         return []
 
-    # ---------------------------------------------------------------------#
-    #                         Networking helpers                           #
-    # ---------------------------------------------------------------------#
-    def _request_with_retries(self, url: str, attempts: int = 3, delay: float = 1.0):
-        """Lightweight retry wrapper around :pyfunc:`requests.get`.
+    # ------------------------------ Orchestration ----------------------------- #
 
-        Parameters
-        ----------
-        url
-            Fully‑qualified URL.
-        attempts
-            How many attempts before giving up entirely.
-        delay
-            Base delay between attempts – exponentially backed‑off.
-        """
-
-        headers = {"User-Agent": "Cyclone/PositionSyncService"}
-        for attempt in range(1, attempts + 1):
-            try:
-                res = requests.get(url, headers=headers, timeout=10)
-                log.debug(f"📡 Attempt {attempt} → status {res.status_code}", source="JupiterAPI")
-                res.raise_for_status()
-                return res
-            except requests.RequestException as exc:
-                log.error(f"[{attempt}/{attempts}] Request error: {exc}", source="JupiterAPI")
-                if attempt == attempts:
-                    raise
-                time.sleep(delay * attempt)  # exponential back‑off
-
-    # ---------------------------------------------------------------------#
-    #                      High‑level orchestration                         #
-    # ---------------------------------------------------------------------#
     def run_full_jupiter_sync(self, source: str = "user") -> dict:
-        """Entry‑point called by cron / CLI.
-
-        Entire method is mostly unchanged except that stale handling is now
-        delegated to :pyfunc:`_handle_stale_positions` for clarity.
         """
-
+        Main entrypoint used by your scheduler / UI. Fetch → upsert → snapshot → report.
+        """
         from backend.core.positions_core.hedge_manager import HedgeManager
         from data.dl_monitor_ledger import DLMonitorLedgerManager
 
         log.start_timer("position_update")
-        log.info("Starting full Jupiter sync...")
+        log.info("Starting full Jupiter Perps sync...")
 
         try:
-            # -------- 1) Retrieve + upsert positions -------------------- #
-            log.info("Step 1/6: Retrieve and upsert positions")
-            sync_result = self.update_jupiter_positions()
+            sync = self.update_jupiter_positions()
+            if "error" in sync:
+                log.error(f"❌ Perps Sync Failed: {sync['error']}", source="PositionSyncService")
+                sync.update(success=False, hedges=0, timestamp=datetime.now().isoformat())
+                return sync
 
-            if "error" in sync_result:
-                log.error(f"❌ Jupiter Sync Failed: {sync_result['error']}", source="PositionSyncService")
-                sync_result.update(
-                    success=False,
-                    hedges=0,
-                    timestamp=datetime.now().isoformat(),
-                )
-                return sync_result
+            imported = sync.get("imported", 0)
+            updated = sync.get("updated", 0)
+            skipped = sync.get("skipped", 0)
+            errors = sync.get("errors", 0)
+            live_ids = set(sync.get("position_ids", []))
 
-            imported = sync_result.get("imported", 0)
-            updated = sync_result.get("updated", 0)
-            skipped = sync_result.get("skipped", 0)
-            errors = sync_result.get("errors", 0)
-            jup_ids = set(sync_result.get("position_ids", []))
+            # stale handling
+            console.print("[cyan]Handle stale positions[/cyan]")
+            self._handle_stale_positions(live_ids)
 
-            # -------- 2) Handle stale positions ------------------------ #
-            console.print("[cyan]Step 2/6: Handle stale positions[/cyan]")
-            self._handle_stale_positions(jup_ids)
+            # hedges
+            console.print("[cyan]Generate hedges[/cyan]")
+            hedges = HedgeManager(self.dl.positions.get_all_positions()).get_hedges()
+            log.success(f"🌐 HedgeManager produced {len(hedges)} hedges", source="PositionSyncService")
 
-            # -------- 3) Hedge generation ------------------------------ #
-            console.print("[cyan]Step 3/6: Generate hedges[/cyan]")
-            hedge_manager = HedgeManager(self.dl.positions.get_all_positions())
-            hedges = hedge_manager.get_hedges()
-            log.success(f"🌐 HedgeManager created {len(hedges)} hedges", source="PositionSyncService")
-
-            # -------- 4) Snapshot portfolio ---------------------------- #
-            console.print("[cyan]Step 4/6: Snapshot portfolio[/cyan]")
+            # snapshot
+            console.print("[cyan]Snapshot portfolio[/cyan]")
             now = datetime.now()
             self.dl.system.set_last_update_times(
                 {
@@ -177,357 +135,266 @@ class PositionSyncService:
                     "last_update_prices_source": source,
                 }
             )
+            totals = CalculationCore(self.dl).calculate_totals(PositionCore(self.dl).get_active_positions())
+            self.dl.portfolio.record_snapshot(totals)
 
-            calc_core = CalculationCore(self.dl)
-            active_positions = PositionCore(self.dl).get_active_positions()
-            snapshot_totals = calc_core.calculate_totals(active_positions)
-            self.dl.portfolio.record_snapshot(snapshot_totals)
+            # simple HTML report (keeps your prior behavior)
+            console.print("[cyan]Write sync report[/cyan]")
+            self._write_report(now, sync, hedges)
 
-            session = None
-            try:
-                session = self.dl.session.get_active_session()
-                if session:
-                    total_val = float(snapshot_totals.get("total_value", 0.0) or 0.0)
-                    delta = total_val - float(session.session_start_value or 0.0)
-                    self.dl.session.update_session(
-                        session.id,
-                        {
-                            "current_session_value": delta,
-                            "session_performance_value": delta,
-                        },
-                    )
-            except Exception as exc:  # pragma: no cover - defensive
-                log.error(f"Failed to update session metrics: {exc}", source="PositionSyncService")
+            # reconcile wallets shown in UI
+            PositionCore.reconcile_wallet_balances(self.dl)
 
-            # -------- 5) Build + persist HTML report ------------------- #
-            console.print("[cyan]Step 5/6: Build sync report[/cyan]")
-            self._write_report(now, sync_result, hedges)
-
-            refreshed = PositionCore.reconcile_wallet_balances(self.dl)
-            log.success(
-                f"🧮 Re-calculated balances for {refreshed} wallets",
-                source="PositionSyncService",
-            )
-
-            # -------- 6) Ledger entry & timing ------------------------- #
-            console.print("[cyan]Step 6/6: Write ledger entry and finish[/cyan]")
-            sync_result.update(success=True, hedges=len(hedges), timestamp=now.isoformat())
-            final_msg = (
-                f"Sync complete: {imported} imported, {updated} updated, "
-                f"{skipped} skipped, {errors} errors, {len(hedges)} hedges"
-            )
-            log.info(f"📦 {final_msg}", source="PositionSyncService")
-            console.print(f"[green]{final_msg}[/green]")
+            msg = f"Sync complete: {imported} imported, {updated} updated, {skipped} skipped, {errors} errors"
+            log.info(f"📦 {msg}", source="PositionSyncService")
+            console.print(f"[green]{msg}[/green]")
 
             try:
-                ledger_mgr = DLMonitorLedgerManager(self.dl.db)
-                status = "Success" if errors == 0 else "Error"
-                ledger_mgr.insert_ledger_entry("position_monitor", status, metadata=sync_result)
-            except Exception as exc:
-                log.warning(f"⚠️ Failed to write monitor ledger: {exc}", source="PositionSyncService")
+                DLMonitorLedgerManager(self.dl.db).insert_ledger_entry(
+                    "position_monitor",
+                    "Success" if errors == 0 else "Error",
+                    metadata=sync,
+                )
+            except Exception as e:
+                log.warning(f"Ledger entry failed: {e}", source="PositionSyncService")
 
-            return sync_result
+            sync.update(success=True, hedges=len(hedges), timestamp=now.isoformat())
+            return sync
 
         except Exception as exc:
             log.error(f"❌ run_full_jupiter_sync failed: {exc}", source="PositionSyncService")
-            return {
-                "success": False,
-                "error": str(exc),
-                "imported": 0,
-                "skipped": 0,
-                "errors": 1,
-                "hedges": 0,
-                "timestamp": datetime.now().isoformat(),
-            }
+            return {"success": False, "error": str(exc), "imported": 0, "skipped": 0, "errors": 1, "hedges": 0}
         finally:
             log.end_timer("position_update", source="PositionSyncService")
 
-    # ---------------------------------------------------------------------#
-    #                         Core sync routine                             #
-    # ---------------------------------------------------------------------#
+    # ------------------------------ Fetch & Upsert ---------------------------- #
+
     def update_jupiter_positions(self) -> dict:
-        """Fetches positions from Jupiter and upserts them into the DB.
+        """Fetch perps positions from Jupiter and upsert into DB."""
+        log.info("🔄 Updating Jupiter Perps positions…", source="PositionSyncService")
+        console.print("[cyan]Fetching positions from Jupiter perps-api...[/cyan]")
 
-        The logic has been re‑worked to *first* fetch the DB schema via PRAGMA
-        and then call a dedicated `_upsert_position` helper that chooses
-        INSERT or UPDATE depending on existence.
-        """
+        imported = updated = skipped = errors = 0
+        jup_ids: set[str] = set()
 
-        log.info("🔄 Updating positions from Jupiter…", source="PositionSyncService")
-        console.print("[cyan]Fetching positions from Jupiter...[/cyan]")
-
-        # House‑keeping counters
-        imported, updated, skipped, errors = 0, 0, 0, 0
-        jupiter_ids = set()
-
-        # ------------------- Fetch DB schema -------------------------#
-        cursor = self.dl.db.get_cursor()
-        if cursor is None:
+        # probe DB schema to pass only valid columns on upsert
+        cur = self.dl.db.get_cursor()
+        if cur is None:
             raise RuntimeError("DB cursor unavailable")
-
         try:
-            cursor.execute("PRAGMA table_info(positions);")
-            db_columns = {row[1] for row in cursor.fetchall()}
-        except Exception as exc:
-            log.warning(f"⚠️ Failed to fetch DB schema: {exc}", source="SchemaProbe")
-            db_columns = set()
+            cur.execute("PRAGMA table_info(positions);")
+            db_cols = {row[1] for row in cur.fetchall()}
+        except Exception as e:
+            log.warning(f"Failed to read positions schema: {e}", source="SchemaProbe")
+            db_cols = set()
         finally:
-            cursor.close()
+            cur.close()
 
-        # ------------------- Iterate wallets ------------------------ #
+        # wallets to check: DB actives + always include server signer the UI is using
         wallets = [w for w in self.dl.read_wallets() if w.get("is_active", True)]
-        console.print(f"[cyan]Loaded {len(wallets)} active wallets for sync[/cyan]")
-        log.info(f"🔍 Loaded {len(wallets)} active wallets for sync", source="PositionSyncService")
-
         try:
             signer_pk = str(load_signer().pubkey()).strip()
         except Exception:
             signer_pk = None
-
         if signer_pk and all((w.get("public_address") or "").strip() != signer_pk for w in wallets):
             wallets.append({"public_address": signer_pk, "name": "Signer", "is_active": True})
 
-        # Choose correct base (perps-api by default)
-        api_base = self._pick_api_base()
+        base = self._pick_api_base()
 
-        for wallet in wallets:
-            pubkey = wallet.get("public_address", "").strip()
-            w_name = wallet.get("name", "Unnamed")
-
-            if not pubkey:
-                log.warning(f"⚠️ Skipping {w_name} – missing address", source="PositionSyncService")
+        for w in wallets:
+            addr = (w.get("public_address") or "").strip()
+            name = w.get("name", "Unnamed")
+            if not addr:
+                log.warning(f"Skipping wallet with no address (name={name})", source="PositionSyncService")
                 continue
 
-            url = f"{api_base}/v1/positions?walletAddress={pubkey}&showTpslRequests=true"
+            url = f"{base}/v1/positions?walletAddress={addr}&showTpslRequests=true"
             log.debug(f"[PerpsSync] GET {url}", source="JupiterAPI")
+
             try:
-                response = self._request_with_retries(url)
-            except Exception as exc:
-                log.error(f"❌ [{w_name}] API Request Error: {exc}", source="JupiterAPI")
+                res = self._request_with_retries(url)
+            except Exception as e:
                 errors += 1
+                log.error(f"API error for {name}: {e}", source="JupiterAPI")
                 continue
 
-            payload = {}
             try:
-                payload = response.json() or {}
-            except Exception as exc:
-                log.error(f"❌ [{w_name}] JSON parse error: {exc}", source="JupiterAPI")
+                payload = res.json() or {}
+            except Exception as e:
                 errors += 1
+                log.error(f"JSON parse error for {name}: {e}", source="JupiterAPI")
                 continue
 
-            data_list = self._extract_positions(payload)
-            console.print(f"[cyan]{w_name} → {len(data_list)} Jupiter positions[/cyan]")
-            log.info(f"📊 {w_name} → {len(data_list)} Jupiter positions", source="PositionSyncService")
+            items = self._extract_positions(payload)
+            console.print(f"[cyan]{name} → {len(items)} Jupiter positions[/cyan]")
+            log.info(f"📊 {name} → {len(items)} Jupiter positions", source="PositionSyncService")
 
-            for item in data_list:
-                pos_id = (
-                    item.get("positionPubkey")
-                    or item.get("position")
-                    or item.get("id")
-                )
+            for it in items:
+                # id
+                pos_id = it.get("positionPubkey") or it.get("position") or it.get("id")
                 if not pos_id:
-                    log.warning("🚫 Missing positionPubkey, skipping", source="Parser")
                     skipped += 1
+                    log.warning("Missing positionPubkey/id; skipping item", source="Parser")
                     continue
 
-                market_mint = item.get("marketMint")
-                if not market_mint and isinstance(item.get("market"), dict):
-                    market_mint = item["market"].get("mint")
+                # market → asset
+                market_mint = it.get("marketMint")
+                if not market_mint and isinstance(it.get("market"), dict):
+                    market_mint = it["market"].get("mint")
 
-                raw_pos = {
+                # numeric fields come back as strings; coerce safely
+                def f(x, default=0.0):
+                    try:
+                        return float(x)
+                    except Exception:
+                        return default
+
+                ts = f(it.get("updatedTime", 0.0))
+                if ts > 1e12:  # ms → s
+                    ts /= 1000.0
+
+                raw = {
                     "id": pos_id,
                     "asset_type": self.MINT_TO_ASSET.get(market_mint or "", "BTC"),
-                    "position_type": str(item.get("side", "short")).lower(),
-                    "entry_price": float(item.get("entryPrice", 0.0) or 0.0),
-                    "liquidation_price": float(item.get("liquidationPrice", 0.0) or 0.0),
-                    "collateral": float(item.get("collateral", 0.0) or 0.0),
-                    "size": float(item.get("size", 0.0) or 0.0),
-                    "leverage": float(item.get("leverage", 0.0) or 0.0),
-                    "value": float(item.get("value", 0.0) or 0.0),
-                    "last_updated": datetime.fromtimestamp(
-                        (
-                            float(item.get("updatedTime", 0) or 0.0)
-                            /
-                            (
-                                1000.0
-                                if float(item.get("updatedTime", 0) or 0.0) > 1e12
-                                else 1.0
-                            )
-                        )
-                    ).isoformat(),
-                    "wallet_name": w_name,
-                    "pnl_after_fees_usd": float(item.get("pnlAfterFeesUsd", 0.0) or 0.0),
-                    "travel_percent": float(item.get("pnlChangePctAfterFees", 0.0) or 0.0),
-                    "current_price": float(item.get("markPrice", 0.0) or 0.0),
+                    "position_type": str(it.get("side", "short")).lower(),
+                    "entry_price": f(it.get("entryPrice")),
+                    "liquidation_price": f(it.get("liquidationPrice")),
+                    "collateral": f(it.get("collateral")),
+                    "size": f(it.get("size")),
+                    "leverage": f(it.get("leverage")),
+                    "value": f(it.get("value")),
+                    "last_updated": datetime.fromtimestamp(ts or 0.0).isoformat(),
+                    "wallet_name": name,
+                    "pnl_after_fees_usd": f(it.get("pnlAfterFeesUsd")),
+                    "travel_percent": f(it.get("pnlChangePctAfterFees")),
+                    "current_price": f(it.get("markPrice")),
                 }
 
-                # Upsert & enrichment ------------------------------------------------ #
                 try:
-                    console.print(
-                        f"[yellow]{pos_id} {raw_pos['asset_type']} {raw_pos['position_type']} size={raw_pos['size']} coll={raw_pos['collateral']}[/yellow]"
-                    )
-                    is_insert = self._upsert_position(self.enricher.enrich(raw_pos), db_columns)
-                    if is_insert:
-                        imported += 1
-                    else:
-                        updated += 1
-                    jupiter_ids.add(pos_id)
-                except Exception as exc:
-                    log.error(f"❌ Upsert failed for {pos_id}: {exc}", source="Upsert")
+                    enriched = self.enricher.enrich(raw)
+                    is_insert = self._upsert_position(enriched, db_cols)
+                    imported += 1 if is_insert else 0
+                    updated += 0 if is_insert else 1
+                    jup_ids.add(pos_id)
+                except Exception as e:
                     errors += 1
+                    log.error(f"Upsert failed for {pos_id}: {e}", source="Upsert")
 
         summary = {
-            "message": "Jupiter sync complete",
+            "message": "Jupiter Perps sync complete",
             "imported": imported,
             "updated": updated,
             "skipped": skipped,
             "errors": errors,
-            "position_ids": list(jupiter_ids),
+            "position_ids": list(jup_ids),
         }
-
         log.info(
-            f"📦 Jupiter Sync Result → Imported: {imported}, Updated: {updated}, "
-            f"Skipped: {skipped}, Errors: {errors}",
+            f"📦 Perps Sync Result → Imported:{imported} Updated:{updated} Skipped:{skipped} Errors:{errors}",
             source="SyncSummary",
-        )
-        console.print(
-            f"[green]Sync result: imported {imported}, updated {updated}, skipped {skipped}, errors {errors}[/green]"
         )
         return summary
 
-    # ---------------------------------------------------------------------#
-    #                           Helper methods                              #
-    # ---------------------------------------------------------------------#
-    def _upsert_position(self, position_data: dict, db_columns: set):
-        cursor = self.dl.db.get_cursor()
-        if cursor is None:
+    # ------------------------------ DB helpers ------------------------------- #
+
+    def _upsert_position(self, position_data: dict, db_columns: set) -> bool:
+        """
+        INSERT or UPDATE into positions table using ON CONFLICT(id) DO UPDATE.
+        Ensures rows are marked ACTIVE by default and not stale.
+        Returns True if inserted, False if updated.
+        """
+        cur = self.dl.db.get_cursor()
+        if cur is None:
             raise RuntimeError("Could not get database cursor")
 
         try:
-            # Sanitize data based on DB schema
-            valid_fields = db_columns.intersection(position_data.keys())
-            fields = ", ".join(valid_fields)
-            placeholders = ", ".join(f":{k}" for k in valid_fields)
-            update_clause = ", ".join(f"{col}=excluded.{col}" for col in valid_fields if col != "id")
+            # apply sane defaults if those columns exist
+            record = dict(position_data)
+            if "status" in db_columns and "status" not in record:
+                record["status"] = "ACTIVE"
+            if "stale" in db_columns and "stale" not in record:
+                record["stale"] = 0
+            if "source" in db_columns and "source" not in record:
+                record["source"] = "jupiter-perps"
 
-            sql = f"""
-            INSERT INTO positions ({fields})
-            VALUES ({placeholders})
-            ON CONFLICT(id) DO UPDATE SET {update_clause}
-            """
+            valid = db_columns.intersection(record.keys())
+            if not valid:
+                log.warning("No overlapping columns with positions table; skipping upsert",
+                            source="PositionSyncService")
+                return False
 
-            cursor.execute(sql, {k: position_data[k] for k in valid_fields})
+            cols = ", ".join(valid)
+            vals = ", ".join(f":{k}" for k in valid)
+            updates = ", ".join(f"{c}=excluded.{c}" for c in valid if c != "id")
+
+            sql = f"INSERT INTO positions ({cols}) VALUES ({vals}) ON CONFLICT(id) DO UPDATE SET {updates}"
+            cur.execute(sql, {k: record[k] for k in valid})
             self.dl.db.commit()
+
+            # best-effort refreshes
             try:
                 HedgeCore(self.dl).update_hedges()
-            except Exception as e:  # pragma: no cover - just log
-                log.error(f"Failed to update hedges after upsert: {e}", source="PositionSyncService")
+            except Exception as e:
+                log.error(f"Hedge update error: {e}", source="PositionSyncService")
+            try:
+                TraderUpdateService(self.dl).refresh_trader_for_wallet(record.get("wallet_name", ""))
+            except Exception as e:
+                log.error(f"Trader refresh error: {e}", source="PositionSyncService")
 
-            if getattr(self.dl, "traders", None):
-                try:
-                    TraderUpdateService(self.dl).refresh_trader_for_wallet(
-                        position_data.get("wallet_name", "")
-                    )
-                except Exception as exc:  # pragma: no cover - best effort
-                    log.error(
-                        f"Trader refresh failed: {exc}",
-                        source="PositionSyncService",
-                    )
-
-            # Determine if it was an insert or update
-            return cursor.rowcount == 1
-
-        except Exception as e:
-            log.error(f"Failed to upsert position {position_data.get('id')}: {e}", source="Upsert")
-            raise
-
+            return cur.rowcount == 1
         finally:
-            cursor.close()
-
-    def _update_existing_position(self, cursor, record: dict):
-        """Executes an UPDATE … SET … WHERE id = ? with the supplied cursor.
-
-        All fields except *id* are included. Additionally, `stale` is always
-        reset to `0` because the row has just been observed live.
-        """
-        record = {k: v for k, v in record.items() if k != "id"}
-        record["stale"] = 0
-        record["last_updated"] = datetime.now().isoformat()
-
-        sets_sql = ", ".join(f"{col} = :{col}" for col in record)
-        sql = f"UPDATE positions SET {sets_sql} WHERE id = :id"
-        params = {**record, "id": record.get("id") or None}
-        cursor.execute(sql, params)
+            cur.close()
 
     def _handle_stale_positions(self, live_ids: set[str]):
-        cursor = self.dl.db.get_cursor()
-        if cursor is None:
+        cur = self.dl.db.get_cursor()
+        if cur is None:
             raise RuntimeError("DB cursor unavailable")
-
         try:
-            cursor.execute("SELECT id, wallet_name, stale, status FROM positions WHERE status = 'ACTIVE'")
-            rows = cursor.fetchall()
-            all_active_ids = {row[0] if isinstance(row, tuple) else row["id"] for row in rows}
-
-            newly_stale = all_active_ids - live_ids
+            cur.execute("SELECT id, wallet_name, stale, status FROM positions WHERE status = 'ACTIVE'")
+            rows = cur.fetchall()
+            active_ids = {row[0] if isinstance(row, tuple) else row["id"] for row in rows}
+            newly_stale = active_ids - live_ids
             if not newly_stale:
                 return
 
-            # Increment counter
-            cursor.executemany(
-                "UPDATE positions SET stale = COALESCE(stale, 0) + 1 WHERE id = ?",
-                [(pid,) for pid in newly_stale],
+            cur.executemany("UPDATE positions SET stale = COALESCE(stale,0)+1 WHERE id = ?", [(pid,) for pid in newly_stale])
+            cur.execute(
+                "UPDATE positions SET status = 'STALE_CLOSED' WHERE stale >= ? AND status = 'ACTIVE'",
+                (self.STALE_THRESHOLD,),
             )
-
-            # Soft-close anything beyond threshold
-            cursor.execute(
-                "UPDATE positions SET status = 'STALE_CLOSED' "
-                "WHERE stale >= ? AND status = 'ACTIVE'", (self.STALE_THRESHOLD,)
-            )
-            closed = cursor.rowcount
             self.dl.db.commit()
 
-            wallet_names = {
+            # reconcile affected wallets so UI balances don't lag
+            affected_names = {
                 (row[1] if isinstance(row, tuple) else row["wallet_name"])
-                for row in rows
-                if (row[0] if isinstance(row, tuple) else row["id"]) in newly_stale
+                for row in rows if (row[0] if isinstance(row, tuple) else row["id"]) in newly_stale
             }
-            PositionCore.reconcile_wallet_balances(self.dl, wallet_names)
-
-            log.info(
-                f"🕑 Marked {len(newly_stale)} positions as stale (+1). "
-                f"Closed {closed} ≥{self.STALE_THRESHOLD} hits.",
-                source="StaleHandler",
-            )
+            PositionCore.reconcile_wallet_balances(self.dl, affected_names)
         finally:
-            cursor.close()
+            cur.close()
 
     def _write_report(self, now: datetime, sync_result: dict, hedges: list):
-        """Persist minimal HTML report – mostly unchanged from original."""
-        base_dir = os.path.abspath(os.path.join(self.dl.db.db_path, "..", ".."))  # project root
+        """Small HTML report kept from earlier versions."""
+        base_dir = os.path.abspath(os.path.join(self.dl.db.db_path, "..", ".."))
         reports_dir = os.path.join(base_dir, "reports")
         os.makedirs(reports_dir, exist_ok=True)
 
-        report_path = os.path.join(reports_dir, f"sync_report_{now:%Y%m%d_%H%M%S}.html")
-        html_content = f"""    <html><head><title>Position Sync Report – {now:%Y-%m-%d %H:%M:%S}</title></head>
+        path = os.path.join(reports_dir, f"sync_report_{now:%Y%m%d_%H%M%S}.html")
+        html = f"""<html><head><title>Position Sync Report – {now:%Y-%m-%d %H:%M:%S}</title></head>
 <body>
-    <h1>Cyclone • Position Sync Report</h1>
-    <p><strong>Imported:</strong> {sync_result.get('imported')}</p>
-    <p><strong>Updated:</strong> {sync_result.get('updated')}</p>
-    <p><strong>Skipped:</strong> {sync_result.get('skipped')}</p>
-    <p><strong>Errors:</strong> {sync_result.get('errors')}</p>
-    <p><strong>Hedges Generated:</strong> {len(hedges)}</p>
-    <p><em>Generated at {now:%Y-%m-%d %H:%M:%S}</em></p>
-</body></html>
-"""
-        with open(report_path, "w", encoding="utf-8") as fp:
-            fp.write(html_content)
-        log.success(f"📄 Sync report saved to: {report_path}", source="PositionSyncService")
+  <h1>Cyclone • Position Sync Report</h1>
+  <p><strong>Imported:</strong> {sync_result.get('imported')}</p>
+  <p><strong>Updated:</strong> {sync_result.get('updated')}</p>
+  <p><strong>Skipped:</strong> {sync_result.get('skipped')}</p>
+  <p><strong>Errors:</strong> {sync_result.get('errors')}</p>
+  <p><strong>Hedges Generated:</strong> {len(hedges)}</p>
+  <p><em>Generated at {now:%Y-%m-%d %H:%M:%S}</em></p>
+</body></html>"""
+        with open(path, "w", encoding="utf-8") as fp:
+            fp.write(html)
+        log.success(f"📄 Sync report saved to: {path}", source="PositionSyncService")
 
-        # Rotate – keep last 5
-        report_files = sorted(
-            [f for f in os.listdir(reports_dir) if f.startswith("sync_report_")], reverse=True
-        )
-        for old in report_files[5:]:
+        # rotate – keep last 5
+        files = sorted([f for f in os.listdir(reports_dir) if f.startswith("sync_report_")], reverse=True)
+        for old in files[5:]:
             os.remove(os.path.join(reports_dir, old))
             log.info(f"🧹 Removed old report: {old}", source="PositionSyncService")

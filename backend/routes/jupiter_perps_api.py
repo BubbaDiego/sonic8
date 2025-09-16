@@ -277,3 +277,246 @@ def perps_position_by_market(
         return probe_position(owner, market)
     except Exception as e:
         raise HTTPException(500, f"position probe failed: {e}")
+
+from fastapi import HTTPException, Query
+
+@router.get("/positions/db")
+def perps_positions_from_db(limit: int = 20, only_active: bool = True, wallet: str | None = None):
+    """
+    Dump positions directly from the DB so we can confirm whether the sync wrote rows.
+    - only_active=True filters status='ACTIVE' (what most panels expect)
+    - wallet can filter by wallet_name, if you want (e.g., 'Signer')
+    """
+    try:
+        from backend.data.data_locker import DataLocker
+        dl = DataLocker()  # uses the same DB path your app already uses
+        cur = dl.db.get_cursor()
+        if cur is None:
+            raise RuntimeError("DB cursor unavailable")
+
+        where = []
+        params = {}
+        if only_active:
+            where.append("status = 'ACTIVE'")
+        if wallet:
+            where.append("wallet_name = :wallet")
+            params["wallet"] = wallet
+        clause = "WHERE " + " AND ".join(where) if where else ""
+        cur.execute(
+            f"""
+            SELECT id, asset_type, position_type, size, collateral, status, wallet_name, last_updated
+            FROM positions
+            {clause}
+            ORDER BY last_updated DESC
+            LIMIT :limit
+            """,
+            {**params, "limit": max(1, min(limit, 200))}
+        )
+        rows = cur.fetchall()
+        dl.db.commit()
+        cur.close()
+        # shape rows for JSON
+        out = []
+        for r in rows:
+            if isinstance(r, dict):
+                out.append(r)
+            else:
+                # sqlite3.Row as tuple
+                out.append({
+                    "id": r[0], "asset_type": r[1], "position_type": r[2],
+                    "size": r[3], "collateral": r[4], "status": r[5],
+                    "wallet_name": r[6], "last_updated": r[7]
+                })
+        return {"count": len(out), "items": out}
+    except Exception as e:
+        raise HTTPException(500, f"DB probe failed: {e}")
+
+# --- Perps Positions: detailed view for the UI -------------------------------
+import os
+from typing import Optional, Any, Dict, List
+import requests
+from fastapi import Query, HTTPException
+from backend.services.signer_loader import load_signer
+
+def _perps_base() -> str:
+    base = (os.getenv("JUPITER_PERPS_API_BASE", "").strip() or os.getenv("JUPITER_API_BASE", "")).rstrip("/")
+    if "perps-api" not in base:
+        base = "https://perps-api.jup.ag"
+    return base
+
+def _to_float(x, default=None):
+    try:
+        if x is None or x == "":
+            return default
+        return float(x)
+    except Exception:
+        return default
+
+def _extract_items(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return []
+    # common shapes from perps-api
+    for k in ("dataList", "data", "positions", "items", "result"):
+        v = payload.get(k)
+        if isinstance(v, list):
+            return v
+        if isinstance(v, dict):
+            for kk in ("items", "data", "list"):
+                vv = v.get(kk)
+                if isinstance(vv, list):
+                    return vv
+    # single object fallback
+    if any(k in payload for k in ("positionPubkey", "id", "position")):
+        return [payload]
+    return []
+
+@router.get("/positions/detailed")
+def perps_positions_detailed(
+    owner: Optional[str] = Query(None, description="Wallet pubkey; defaults to server signer"),
+    limit: int = Query(50, ge=1, le=500)
+):
+    """
+    Return positions in the exact shape expected by the Perps PositionsPanel:
+    {
+      "count": N,
+      "items": [
+        { "pubkey", "side", "size", "entry", "mark", "pnlUsd" }, ...
+      ]
+    }
+    """
+    try:
+        if not owner:
+            owner = str(load_signer().pubkey())
+        base = _perps_base()
+        url = f"{base}/v1/positions?walletAddress={owner}&showTpslRequests=true"
+        r = requests.get(url, headers={"User-Agent": "Cyclone/PerpsDetailed"}, timeout=12)
+        r.raise_for_status()
+        payload = r.json() or {}
+    except Exception as e:
+        raise HTTPException(502, f"perps-api fetch failed: {e}")
+
+    raw_items = _extract_items(payload)
+    out: List[Dict[str, Any]] = []
+    for it in raw_items[:limit]:
+        pubkey = it.get("positionPubkey") or it.get("position") or it.get("id")
+        side   = it.get("side")
+        size   = _to_float(it.get("size"))
+        entry  = _to_float(it.get("entryPrice") or it.get("entry"))
+        mark   = _to_float(it.get("markPrice") or it.get("mark"))
+        pnlUsd = _to_float(it.get("pnlAfterFeesUsd") or it.get("pnlAfterFees") or it.get("pnl"), 0.0)
+        out.append({
+            "pubkey": pubkey,
+            "side": side,
+            "size": size,
+            "entry": entry,
+            "mark": mark,
+            "pnlUsd": pnlUsd
+        })
+
+    return {"count": len(out), "items": out}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 🔧 Perps Positions — DEBUG+Health endpoints (console logging)
+# ──────────────────────────────────────────────────────────────────────────────
+import os, json, time, requests
+from typing import Optional, Any, Dict, List
+from fastapi import Query, HTTPException, Request
+from backend.services.signer_loader import load_signer
+
+def _perps_base() -> str:
+    base = (os.getenv("JUPITER_PERPS_API_BASE", "").strip() or os.getenv("JUPITER_API_BASE", "")).rstrip("/")
+    if "perps-api" not in base:
+        base = "https://perps-api.jup.ag"
+    return base
+
+def _to_float(x, default=None):
+    try:
+        if x is None or x == "":
+            return default
+        return float(x)
+    except Exception:
+        return default
+
+def _extract_items(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    # Accept common shapes from perps-api
+    if not isinstance(payload, dict):
+        return []
+    for k in ("dataList", "data", "positions", "items", "result"):
+        v = payload.get(k)
+        if isinstance(v, list):
+            return v
+        if isinstance(v, dict):
+            for kk in ("items", "data", "list"):
+                vv = v.get(kk)
+                if isinstance(vv, list):
+                    return vv
+    if any(k in payload for k in ("positionPubkey", "id", "position")):
+        return [payload]
+    return []
+
+@router.get("/positions/health")
+def perps_positions_health():
+    """Small probe to confirm signer, perps base, and raw count."""
+    try:
+        owner = str(load_signer().pubkey())
+        base = _perps_base()
+        url = f"{base}/v1/positions?walletAddress={owner}&showTpslRequests=true"
+        r = requests.get(url, headers={"User-Agent":"Cyclone/PerpsHealth"}, timeout=12)
+        r.raise_for_status()
+        payload = r.json() or {}
+        items = _extract_items(payload)
+        return {"owner": owner, "base": base, "url": url, "count": len(items)}
+    except Exception as e:
+        raise HTTPException(502, f"health failed: {e}")
+
+@router.get("/positions/detailed")
+def perps_positions_detailed(
+    request: Request,
+    owner: Optional[str] = Query(None, description="Wallet pubkey; defaults to server signer"),
+    limit: int = Query(50, ge=1, le=500),
+    debug: int = Query(0, description="Set to 1 to print loud server logs and echo raw")
+):
+    """
+    Returns exactly what the Perps PositionsPanel expects:
+      { "count": N, "items": [ { pubkey, side, size, entry, mark, pnlUsd }, ... ] }
+    """
+    t0 = time.time()
+    try:
+        if not owner:
+            owner = str(load_signer().pubkey())
+        base = _perps_base()
+        url = f"{base}/v1/positions?walletAddress={owner}&showTpslRequests=true"
+        r = requests.get(url, headers={"User-Agent":"Cyclone/PerpsDetailed"}, timeout=12)
+        r.raise_for_status()
+        payload = r.json() or {}
+    except Exception as e:
+        print(f"[PerpsDetailed][{time.strftime('%H:%M:%S')}] ERROR fetch → {type(e).__name__}: {e}")
+        raise HTTPException(502, f"perps-api fetch failed: {e}")
+
+    raw_items = _extract_items(payload)
+    out: List[Dict[str, Any]] = []
+    for it in raw_items[:limit]:
+        pubkey = it.get("positionPubkey") or it.get("position") or it.get("id")
+        side   = it.get("side")
+        size   = _to_float(it.get("size"))
+        entry  = _to_float(it.get("entryPrice") or it.get("entry"))
+        mark   = _to_float(it.get("markPrice") or it.get("mark"))
+        pnlUsd = _to_float(it.get("pnlAfterFeesUsd") or it.get("pnlAfterFees") or it.get("pnl"), 0.0)
+        out.append({"pubkey": pubkey, "side": side, "size": size, "entry": entry, "mark": mark, "pnlUsd": pnlUsd})
+
+    dt = (time.time() - t0) * 1000
+    if debug:
+        ua = request.headers.get("user-agent", "")
+        sample = (raw_items[0] if raw_items else {})
+        print(
+            f"[PerpsDetailed][{time.strftime('%H:%M:%S')}] "
+            f"owner={owner} base={base} ua='{ua[:60]}'\n"
+            f"→ url={url}\n"
+            f"→ raw.count={len(raw_items)} sample.pubkey={sample.get('positionPubkey')}\n"
+            f"→ shaped.count={len(out)} in {dt:.1f} ms\n"
+        )
+        # also echo the raw back to caller so you can diff client-side quickly
+        return {"count": len(out), "items": out, "debug": {"url": url, "rawCount": len(raw_items), "raw": raw_items[:5]}}
+
+    print(f"[PerpsDetailed][{time.strftime('%H:%M:%S')}] owner={owner} shaped.count={len(out)} in {dt:.1f} ms")
+    return {"count": len(out), "items": out}
