@@ -170,9 +170,9 @@ def perps_idl_names():
     """
     try:
         from backend.services.perps.positions_request import load_idl
-
         idl = load_idl()
-        names = [ix.get("name") for ix in (idl.get("instructions") or [])]
+        instructions = idl.get("instructions") or []
+        names = [ix.get("name") for ix in instructions]
         return {"count": len(names), "instructions": names}
     except Exception as e:
         raise HTTPException(500, f"idl-names failed: {e}")
