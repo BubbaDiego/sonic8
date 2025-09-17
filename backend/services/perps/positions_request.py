@@ -193,108 +193,121 @@ def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
     return hashlib.sha256(f"global:{name}".encode("utf-8")).digest()[:8]
 
 
-def _collect_types(idl: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-    return {entry["name"]: entry["type"] for entry in idl.get("types", [])}
+def _types_index(idl: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    for entry in idl.get("types") or []:
+        name = str(entry.get("name", ""))
+        if name:
+            out[name] = entry.get("type") or {}
+    return out
 
 
-def _encode_type(type_def: Any, value: Any, types: Dict[str, Dict[str, Any]]) -> bytes:
-    if isinstance(type_def, str):
-        if type_def == "bool":
-            return (1 if bool(value) else 0).to_bytes(1, "little")
-        if type_def == "u8":
-            return int(value).to_bytes(1, "little", signed=False)
-        if type_def == "u16":
-            return int(value).to_bytes(2, "little", signed=False)
-        if type_def == "u32":
-            return int(value).to_bytes(4, "little", signed=False)
-        if type_def == "i32":
-            return int(value).to_bytes(4, "little", signed=True)
-        if type_def == "u64":
-            return int(value).to_bytes(8, "little", signed=False)
-        if type_def == "i64":
-            return int(value).to_bytes(8, "little", signed=True)
-        if type_def == "u128":
-            return int(value).to_bytes(16, "little", signed=False)
-        if type_def == "i128":
-            return int(value).to_bytes(16, "little", signed=True)
-        if type_def == "publicKey":
-            return bytes(Pubkey.from_string(value))
-        raise RuntimeError(f"Unmapped IDL arg type: {type_def}")
+def _is_pk_like(kind: Any) -> bool:
+    if kind == "publicKey":
+        return True
+    if isinstance(kind, dict) and "option" in kind:
+        return _is_pk_like(kind["option"])
+    if isinstance(kind, dict) and "defined" in kind:
+        return "pubkey" in str(kind["defined"]).lower()
+    return False
 
-    if not isinstance(type_def, dict):
-        raise RuntimeError(f"Unsupported IDL type definition: {type_def}")
 
-    if "option" in type_def:
-        inner = type_def["option"]
-        if value in (None, False, "", 0):
+def _enc_scalar(kind: Any, value: Any) -> bytes:
+    if kind == "bool":
+        return (1 if bool(value) else 0).to_bytes(1, "little")
+    if kind == "u8":
+        return int(value).to_bytes(1, "little", signed=False)
+    if kind == "u16":
+        return int(value).to_bytes(2, "little", signed=False)
+    if kind == "u32":
+        return int(value).to_bytes(4, "little", signed=False)
+    if kind == "i32":
+        return int(value).to_bytes(4, "little", signed=True)
+    if kind == "u64":
+        return int(value).to_bytes(8, "little", signed=False)
+    if kind == "i64":
+        return int(value).to_bytes(8, "little", signed=True)
+    if kind == "u128":
+        return int(value).to_bytes(16, "little", signed=False)
+    if kind == "i128":
+        return int(value).to_bytes(16, "little", signed=True)
+    if kind == "publicKey":
+        return bytes(Pubkey.from_string(value))
+    raise RuntimeError(f"Unmapped scalar type: {kind}")
+
+
+def _enc_value(kind: Any, value: Any, types: Dict[str, Dict[str, Any]]) -> bytes:
+    if isinstance(kind, dict) and "option" in kind:
+        inner = kind["option"]
+        if value in (None, "", 0, False):
             return b"\x00"
-        return b"\x01" + _encode_type(inner, value, types)
+        return b"\x01" + _enc_value(inner, value, types)
 
-    if "defined" in type_def:
-        name = type_def["defined"]
-        defined = types.get(name)
-        if not defined:
-            # Some IDLs wrap types as {"defined": "<TypeName>"} even when the
-            # definition is not present. Treat common enums as a single byte,
-            # but if the name suggests a Pubkey alias, encode as such.
-            if "pubkey" in str(name).lower():
-                return bytes(Pubkey.from_string(value))
-            return int(value).to_bytes(1, "little", signed=False)
-        kind = defined.get("kind")
-        if kind == "struct":
-            fields = defined.get("fields", [])
-            if value is None:
-                raise RuntimeError(f"Struct '{name}' requires value")
-            encoded = bytearray()
+    if isinstance(kind, dict) and "defined" in kind:
+        name = str(kind["defined"])
+        defined = types.get(name) or {}
+        k = defined.get("kind")
+        if k == "struct":
+            result = bytearray()
+            fields: List[Dict[str, Any]] = defined.get("fields") or []
+            src = value if isinstance(value, dict) else {}
             for field in fields:
                 fname = field["name"]
-                ftype = field["type"]
-                if fname not in value:
-                    raise RuntimeError(f"Missing field '{fname}' for struct '{name}'")
-                encoded += _encode_type(ftype, value[fname], types)
-            return bytes(encoded)
-        if kind == "enum":
-            variants = defined.get("variants", [])
-            variant_name: Optional[str]
-            variant_payload: Any = None
-            if isinstance(value, dict):
-                if len(value) != 1:
-                    raise RuntimeError(f"Enum '{name}' value must contain single variant")
-                variant_name, variant_payload = next(iter(value.items()))
+                fkind = field["type"]
+                fvalue = src.get(fname)
+                if fvalue is None:
+                    if _is_pk_like(fkind):
+                        fvalue = (
+                            src.get("owner")
+                            or src.get("authority")
+                            or src.get("trader")
+                            or src.get("user")
+                        )
+                    if fvalue is None:
+                        fvalue = 0
+                result += _enc_value(fkind, fvalue, types)
+            return bytes(result)
+        if k == "enum":
+            variants: List[Dict[str, Any]] = defined.get("variants") or []
+            tag: int
+            payload = b""
+            if isinstance(value, str):
+                names = [variant.get("name") for variant in variants]
+                tag = names.index(value)
+                variant = variants[tag]
+                fields = variant.get("fields") or []
+                if fields:
+                    payload = _enc_value(fields[0], 0, types)
+            elif isinstance(value, dict):
+                variant_name = next(iter(value.keys()))
+                tag = next(
+                    idx
+                    for idx, variant in enumerate(variants)
+                    if variant.get("name") == variant_name
+                )
+                variant = variants[tag]
+                fields = variant.get("fields") or []
+                if fields:
+                    payload = _enc_value(fields[0], value[variant_name], types)
             else:
-                variant_name = str(value)
-            index = None
-            for idx, variant in enumerate(variants):
-                if variant["name"].lower() == (variant_name or "").lower():
-                    index = idx
-                    target_variant = variant
-                    break
-            if index is None:
-                raise RuntimeError(f"Enum '{name}' has no variant '{variant_name}'")
-            data = bytearray()
-            data += index.to_bytes(1, "little", signed=False)
-            fields = target_variant.get("fields", [])
-            if fields:
-                if variant_payload is None:
-                    raise RuntimeError(f"Enum '{name}' variant '{variant_name}' requires payload")
-                if isinstance(fields, list) and all(isinstance(f, dict) for f in fields):
-                    for field in fields:
-                        fname = field["name"]
-                        ftype = field["type"]
-                        data += _encode_type(ftype, variant_payload[fname], types)
-                else:
-                    # tuple-style variants
-                    if not isinstance(variant_payload, list):
-                        raise RuntimeError(f"Enum '{name}' variant '{variant_name}' expects list payload")
-                    for idx, field in enumerate(fields):
-                        data += _encode_type(field, variant_payload[idx], types)
-            return bytes(data)
-        raise RuntimeError(f"Unsupported defined type '{name}' with kind '{kind}'")
+                raise RuntimeError(f"Enum '{name}' requires str or dict value")
+            return tag.to_bytes(1, "little") + payload
+        if "pubkey" in str(defined).lower():
+            return _enc_scalar("publicKey", value)
+        return b"\x00"
 
-    raise RuntimeError(f"Unsupported IDL type definition: {type_def}")
+    return _enc_scalar(kind, value)
 
 
-def build_data(ix_idl: Dict[str, Any], arg_values: Dict[str, Any], idl_types: Dict[str, Dict[str, Any]]) -> bytes:
+def enc_arg(kind: Any, value: Any, types: Dict[str, Dict[str, Any]]) -> bytes:
+    return _enc_value(kind, value, types)
+
+
+def build_data(
+    ix_idl: Dict[str, Any],
+    arg_values: Dict[str, Any],
+    idl_types: Dict[str, Dict[str, Any]],
+) -> bytes:
     data = bytearray()
     disc = _disc_from_idl(ix_idl)
     try:
@@ -308,7 +321,7 @@ def build_data(ix_idl: Dict[str, Any], arg_values: Dict[str, Any], idl_types: Di
         if name not in arg_values:
             raise RuntimeError(f"Missing required arg '{name}' for instruction '{ix_idl['name']}'")
         type_def = arg["type"]
-        data += _encode_type(type_def, arg_values[name], idl_types)
+        data += enc_arg(type_def, arg_values[name], idl_types)
     return bytes(data)
 
 
@@ -531,93 +544,100 @@ def open_position_request(
         fallback_any=["request", "increase"],
     )
 
-    types_map = _collect_types(idl)
-
-    params: Dict[str, Any] = {}
-    params["sizeUsdDelta"] = int(size_usd * USD_SCALE)
-    params["collateralTokenDelta"] = int(collateral_usd * USD_SCALE)
-    params["side"] = "Long" if side == "long" else "Short"
-    params["priceSlippage"] = 0
-    params["jupiterMinimumOut"] = None
-    params["counter"] = counter
-
+    types_idx = _types_index(idl)
+    idl_args = ix_idl.get("args", []) or []
     args: Dict[str, Any] = {}
-    # pick referral: env > owner (safe default)
+
     referral_env = os.getenv("JUP_PERPS_REFERRAL", "").strip()
     referral_pk = referral_env if referral_env else str(owner)
 
-    def _type_kind(ty: Any) -> str:
-        if isinstance(ty, str):
-            return ty
-        if isinstance(ty, dict):
-            if "option" in ty:
-                opt = ty["option"]
-                if isinstance(opt, str):
-                    return opt
-            if "vec" in ty:
-                vec = ty["vec"]
-                if isinstance(vec, str):
-                    return vec
-        return ""
+    def _build_struct(def_name: str) -> Dict[str, Any]:
+        type_def = types_idx.get(def_name) or {}
+        fields: List[Dict[str, Any]] = (
+            type_def.get("fields") or [] if type_def.get("kind") == "struct" else []
+        )
+        out: Dict[str, Any] = {}
+        for field in fields:
+            fname = field["name"]
+            fkind = field["type"]
+            fl = fname.lower()
+            if fl in ("sizeusddelta", "sizeusd", "size", "amount", "makingamount"):
+                out[fname] = int(size_usd * USD_SCALE)
+            elif fl in ("collateraltokendelta", "collateralusd", "collateral", "margin"):
+                out[fname] = int(collateral_usd * USD_SCALE)
+            elif fl in ("side", "direction"):
+                out[fname] = "Long" if side == "long" else "Short"
+            elif fl in ("priceslippage", "slippage", "maxslippagebps"):
+                out[fname] = 0
+            elif fl in ("jupiterminimumout", "minimumout", "minout"):
+                out[fname] = None
+            elif fl in ("counter",):
+                out[fname] = counter
+            elif fl in ("tp", "tpprice", "takeprofitprice"):
+                out[fname] = int((tp or 0) * USD_SCALE)
+            elif fl in ("sl", "slprice", "stoplossprice"):
+                out[fname] = int((sl or 0) * USD_SCALE)
+            elif "referr" in fl and _is_pk_like(fkind):
+                out[fname] = referral_pk
+            elif "positionrequest" in fl and _is_pk_like(fkind):
+                out[fname] = str(request)
+            elif "position" in fl and _is_pk_like(fkind):
+                out[fname] = str(position)
+            elif _is_pk_like(fkind):
+                out[fname] = str(owner)
+            elif fkind == "bool":
+                out[fname] = False
+            elif isinstance(fkind, dict) and "option" in fkind:
+                out[fname] = None
+            else:
+                out[fname] = 0
+        return out
 
-    def _is_pk_like(ty: Any) -> bool:
-        if ty == "publicKey":
-            return True
-        if isinstance(ty, dict):
-            if "option" in ty:
-                return _is_pk_like(ty["option"])
-            if "defined" in ty:
-                return "pubkey" in str(ty["defined"]).lower()
-        return False
+    if (
+        len(idl_args) == 1
+        and isinstance(idl_args[0].get("type"), dict)
+        and "defined" in idl_args[0]["type"]
+    ):
+        def_name = str(idl_args[0]["type"]["defined"])
+        args[idl_args[0]["name"]] = _build_struct(def_name)
+    else:
+        for arg in idl_args:
+            name = arg["name"]
+            type_def = arg["type"]
+            key = str(name).lower()
+            normalized = key.replace("_", "")
 
-    idl_args = ix_idl.get("args", []) or []
-
-    # First pass by name (covers referral/referrer/referralAccount etc.)
-    for arg in idl_args:
-        name = arg["name"]
-        type_def = arg["type"]
-        kind = _type_kind(type_def)
-        raw_key = str(name).lower()
-        key = raw_key.replace("_", "")
-
-        if isinstance(type_def, dict) and type_def.get("defined") == "CreateIncreasePositionMarketRequestParams":
-            args[name] = params
-        elif key in ("referral", "referrer", "referralaccount", "referreraccount", "refaccount", "ref"):
-            args[name] = referral_pk
-        elif key in ("owner", "user", "trader", "authority"):
-            args[name] = str(owner)
-        elif key in ("side", "direction"):
-            args[name] = 0 if side == "long" else 1
-        elif key in ("sizeusd", "size", "amount", "makingamount"):
-            args[name] = int(size_usd * USD_SCALE)
-        elif key in ("collateralusd", "collateral", "margin"):
-            args[name] = int(collateral_usd * USD_SCALE)
-        elif key in ("tp", "tpprice", "takeprofitprice"):
-            args[name] = int((tp or 0) * USD_SCALE)
-        elif key in ("sl", "slprice", "stoplossprice"):
-            args[name] = int((sl or 0) * USD_SCALE)
-        elif kind == "bool":
-            # bools default to False (encoded as 0)
-            args[name] = False
-
-    # Second pass by type (publicKey-like → default to owner; never KeyError later)
-    for arg in idl_args:
-        name = arg["name"]
-        if name in args:
-            continue
-
-        type_def = arg["type"]
-        kind = _type_kind(type_def)
-
-        if _is_pk_like(type_def):
-            args[name] = str(owner)
-        elif kind == "bool":
-            args[name] = False
-        elif kind in ("u8", "u16", "u32", "i32", "u64", "i64", "u128", "i128"):
-            args[name] = 0
-        else:
-            # defined/option/etc → set to zero-ish (encoder will handle options)
-            args[name] = 0
+            if normalized in (
+                "referral",
+                "referrer",
+                "referralaccount",
+                "referreraccount",
+                "refaccount",
+                "ref",
+            ):
+                args[name] = referral_pk
+            elif normalized in ("owner", "user", "trader", "authority"):
+                args[name] = str(owner)
+            elif normalized in ("side", "direction"):
+                args[name] = 0 if side == "long" else 1
+            elif normalized in ("sizeusd", "size", "amount", "makingamount"):
+                args[name] = int(size_usd * USD_SCALE)
+            elif normalized in ("collateralusd", "collateral", "margin"):
+                args[name] = int(collateral_usd * USD_SCALE)
+            elif normalized in ("tp", "tpprice", "takeprofitprice"):
+                args[name] = int((tp or 0) * USD_SCALE)
+            elif normalized in ("sl", "slprice", "stoplossprice"):
+                args[name] = int((sl or 0) * USD_SCALE)
+            elif "positionrequest" in normalized and _is_pk_like(type_def):
+                args[name] = str(request)
+            elif normalized.startswith("position") and _is_pk_like(type_def):
+                args[name] = str(position)
+            elif _is_pk_like(type_def):
+                args[name] = str(owner)
+            elif type_def == "bool":
+                args[name] = False
+            else:
+                args[name] = 0
 
     try:
         print("[perps] arg map:", json.dumps(args))
@@ -648,7 +668,7 @@ def open_position_request(
     except Exception:
         pass
 
-    data = build_data(ix_idl, args, types_map)
+    data = build_data(ix_idl, args, types_idx)
 
     def _send_with(
         _override: Dict[str, Pubkey] | None = None,
@@ -751,15 +771,20 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
         ],
         fallback_any=["request", "decrease"],
     )
-    types_map = _collect_types(idl)
+    types_idx = _types_index(idl)
 
     args: Dict[str, Any] = {}
     for arg in ix_idl.get("args", []):
+        name = arg["name"]
         type_def = arg["type"]
         if isinstance(type_def, dict) and type_def.get("defined") == "ClosePositionRequestParams":
-            args[arg["name"]] = {}
+            args[name] = {}
+        elif _is_pk_like(type_def):
+            args[name] = str(owner)
+        elif type_def == "bool":
+            args[name] = False
         else:
-            args[arg["name"]] = 0
+            args[name] = 0
 
     input_mint_value = base_accounts.get("input_mint")
     input_mint: Optional[Pubkey] = None
@@ -778,7 +803,7 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
         input_mint,
     )
 
-    data = build_data(ix_idl, args, types_map)
+    data = build_data(ix_idl, args, types_idx)
     instructions: List[Instruction] = []
     instructions += compute_budget_ixs()
     instructions.append(Instruction(program_id, data, metas))
