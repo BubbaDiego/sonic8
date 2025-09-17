@@ -16,6 +16,8 @@ from solders.message import MessageV0
 from solders.pubkey import Pubkey
 from solders.transaction import VersionedTransaction
 
+from backend.services.perps.markets import resolve_market, resolve_extra_account
+
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
 RPC_URL = os.getenv("RPC_URL", f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}")
 CU_LIMIT = int(os.getenv("PERPS_CU_LIMIT", 800_000))
@@ -27,6 +29,10 @@ SPL_TOKEN_PROGRAM = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ
 ASSOCIATED_TOKEN_PROG = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 
 IDL_PATH = os.path.join(os.path.dirname(__file__), "idl", "jupiter_perpetuals.json")
+
+DEFAULT_BASE_MINT = "So11111111111111111111111111111111111111112"
+DEFAULT_QUOTE_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+DEFAULT_ORACLE_PUBKEY = "11111111111111111111111111111111"
 
 
 def rpc(method: str, params: Any) -> Any:
@@ -302,24 +308,51 @@ def map_accounts(
     return metas, mapping
 
 
-def _market_info(market: str):
-    from backend.services.perps.markets import resolve_extra_account, resolve_market
-
-    base = resolve_market(market)
+def _market_info(market: str, base_override: Optional[Dict[str, str]] = None):
+    base = dict(base_override) if base_override is not None else dict(resolve_market(market))
+    base_mint_value = base.get("base_mint") or DEFAULT_BASE_MINT
+    base["base_mint"] = str(base_mint_value)
+    if "custody" not in base and base.get("custody_base"):
+        base["custody"] = base["custody_base"]
+    quote_custody = base.get("custody_quote")
+    if quote_custody and "collateralCustody" not in base:
+        base["collateralCustody"] = quote_custody
+    if quote_custody and "collateral_custody" not in base:
+        base["collateral_custody"] = quote_custody
+    quote_mint = base.get("quote_mint") or DEFAULT_QUOTE_MINT
+    if quote_mint:
+        quote_mint = str(quote_mint)
+        base["quote_mint"] = quote_mint
+    if quote_mint and "input_mint" not in base:
+        base["input_mint"] = quote_mint
+    if not base.get("oracle"):
+        base["oracle"] = DEFAULT_ORACLE_PUBKEY
     return base, resolve_extra_account
 
 
-def _pdas(owner: Pubkey, market: str, program_id: Pubkey) -> Tuple[Pubkey, Pubkey, int]:
-    from backend.perps.pdas import derive_position_request_pda, position_pda
+def _pdas(
+    owner: Pubkey,
+    market: str,
+    program_id: Pubkey,
+    market_mint: Optional[str],
+) -> Tuple[Pubkey, Pubkey, int]:
+    from backend.perps.pdas import (
+        derive_position_request_pda,
+        position_pda,
+        position_request_pda,
+    )
 
-    position = position_pda(owner, market, program_id)
+    position = position_pda(owner, market, program_id, market_mint=market_mint)
     counter = int(time.time())
     try:
-        request = derive_position_request_pda(owner, market, program_id)  # type: ignore[arg-type]
-    except TypeError:
-        request = derive_position_request_pda(position, counter)
+        request = position_request_pda(owner, market, program_id, market_mint=market_mint)
     except Exception:
-        request = derive_position_request_pda(position, counter)
+        try:
+            request = derive_position_request_pda(owner, market, program_id)  # type: ignore[arg-type]
+        except TypeError:
+            request = derive_position_request_pda(position, counter)
+        except Exception:
+            request = derive_position_request_pda(position, counter)
     return position, request, counter
 
 
@@ -336,8 +369,10 @@ def open_position_request(
     idl = load_idl()
     program_id = program_id_from_idl(idl)
     owner = wallet.pubkey()
-    position, request, counter = _pdas(owner, market, program_id)
-    base_accounts, resolve_extra = _market_info(market)
+    market_info = resolve_market(market)
+    market_mint = str(market_info.get("base_mint") or DEFAULT_BASE_MINT)
+    position, request, counter = _pdas(owner, market, program_id, market_mint)
+    base_accounts, resolve_extra = _market_info(market, market_info)
 
     try:
         ix_idl = find_ix(idl, "create_increase_position_request")
@@ -407,8 +442,10 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
     idl = load_idl()
     program_id = program_id_from_idl(idl)
     owner = wallet.pubkey()
-    position, request, counter = _pdas(owner, market, program_id)
-    base_accounts, resolve_extra = _market_info(market)
+    market_info = resolve_market(market)
+    market_mint = str(market_info.get("base_mint") or DEFAULT_BASE_MINT)
+    position, request, counter = _pdas(owner, market, program_id, market_mint)
+    base_accounts, resolve_extra = _market_info(market, market_info)
 
     ix_idl = find_ix(idl, "close_position_request")
     types_map = _collect_types(idl)
