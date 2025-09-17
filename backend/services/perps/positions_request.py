@@ -561,6 +561,20 @@ def _pdas(
 
 
 # ---------- public API ----------
+def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[AccountMeta]:
+    metas: List[AccountMeta] = []
+    for acc_def in (ix_idl.get("accounts") or []):
+        nm = acc_def["name"]
+        metas.append(
+            AccountMeta(
+                mapping[nm],
+                bool(acc_def.get("isSigner")),
+                bool(acc_def.get("isMut")),
+            )
+        )
+    return metas
+
+
 def open_position_request(
     wallet: Keypair,
     market: str,
@@ -715,43 +729,30 @@ def open_position_request(
         input_mint,
     )
 
+    mapping = account_mapping if "account_mapping" in locals() else locals().get("acct")
+    if mapping is None:
+        raise RuntimeError("account mapping not found for open position request")
+
     # --- normalize token program mapping for this instruction -------------------
-    # Some Jupiter Perps builds expect the *Associated Token Program* in the slot
-    # named 'token_program'. Ensure both camel/snake keys point to AToken, then
-    # rebuild metas from this normalized map in the IDL-declared order.
+    # Anchor compares the `token_program` slot against Associated Token Program (AToken…).
+    # Ensure both camel/snake keys point to AToken, and also set associatedTokenProgram explicitly.
+    mapping["tokenProgram"] = ASSOCIATED_TOKEN_PROG
+    mapping["token_program"] = ASSOCIATED_TOKEN_PROG
+    mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
+    mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
+    # ---------------------------------------------------------------------------
 
-    tp = ASSOCIATED_TOKEN_PROG
-    account_mapping["tokenProgram"] = tp
-    account_mapping["token_program"] = tp
-    account_mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
-    account_mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
+    metas = _metas_from(ix_idl, mapping)
 
-    # Rebuild metas strictly in IDL order using the normalized map
-    metas = []
-    for acc_def in ix_idl.get("accounts", []) or []:
-        nm = acc_def["name"]
-        if nm not in account_mapping:
-            if acc_def.get("isOptional"):
-                continue
-            raise RuntimeError(f"Missing account mapping for '{nm}' in '{ix_idl['name']}'")
-        is_signer = bool(acc_def.get("isSigner"))
-        is_mut = bool(acc_def.get("isMut"))
-        metas.append(AccountMeta(account_mapping[nm], is_signer, is_mut))
-
-    # Helpful trace: shows exactly what will be sent to the program
     try:
-        names = [a.get("name") for a in ix_idl.get("accounts", []) or []]
-        print(
-            "[perps] metas normalized:",
-            {n: str(account_mapping[n]) for n in names if n in account_mapping},
-        )
+        names = [a.get("name") for a in (ix_idl.get("accounts") or [])]
+        print("[perps] metas normalized:", {n: str(mapping[n]) for n in names if n in mapping})
     except Exception:
         pass
-    # --- end normalization -------------------------------------------------------
 
     try:
         names = [a.get("name") for a in ix_idl.get("accounts", [])]
-        sent = {n: str(account_mapping[n]) for n in names if n in account_mapping}
+        sent = {n: str(mapping[n]) for n in names if n in mapping}
         print("[perps] accounts for open-request:", sent)
     except Exception:
         pass
@@ -762,20 +763,10 @@ def open_position_request(
         _override: Dict[str, Pubkey] | None = None,
         _simulate: bool = False,
     ) -> str:
-        # rebuild metas if we override token_program for the retry
-        _metas: List[AccountMeta] = []
+        effective = dict(mapping)
         if _override:
-            for acc in ix_idl.get("accounts", []):
-                nm = acc["name"]
-                _metas.append(
-                    AccountMeta(
-                        _override.get(nm, account_mapping[nm]),
-                        bool(acc.get("isSigner")),
-                        bool(acc.get("isMut")),
-                    )
-                )
-        else:
-            _metas = metas
+            effective.update(_override)
+        _metas = _metas_from(ix_idl, effective)
 
         instructions: List[Instruction] = []
         instructions += compute_budget_ixs()
@@ -820,9 +811,9 @@ def open_position_request(
         s = str(e)
         # If Anchor complains about InvalidProgramId for token_program, flip once (SPL <-> AToken) and retry.
         if "InvalidProgramId" in s and "token_program" in s:
-            cur = account_mapping.get("tokenProgram") or account_mapping.get("token_program")
+            cur = mapping.get("tokenProgram") or mapping.get("token_program")
             alt = ASSOCIATED_TOKEN_PROG if cur == SPL_TOKEN_PROGRAM else SPL_TOKEN_PROGRAM
-            override = dict(account_mapping)
+            override = dict(mapping)
             if "tokenProgram" in override:
                 override["tokenProgram"] = alt
             if "token_program" in override:
@@ -891,39 +882,26 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
         input_mint,
     )
 
+    mapping = account_mapping if "account_mapping" in locals() else locals().get("acct")
+    if mapping is None:
+        raise RuntimeError("account mapping not found for close position request")
+
     # --- normalize token program mapping for this instruction -------------------
-    # Some Jupiter Perps builds expect the *Associated Token Program* in the slot
-    # named 'token_program'. Ensure both camel/snake keys point to AToken, then
-    # rebuild metas from this normalized map in the IDL-declared order.
+    # Anchor compares the `token_program` slot against Associated Token Program (AToken…).
+    # Ensure both camel/snake keys point to AToken, and also set associatedTokenProgram explicitly.
+    mapping["tokenProgram"] = ASSOCIATED_TOKEN_PROG
+    mapping["token_program"] = ASSOCIATED_TOKEN_PROG
+    mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
+    mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
+    # ---------------------------------------------------------------------------
 
-    tp = ASSOCIATED_TOKEN_PROG
-    account_mapping["tokenProgram"] = tp
-    account_mapping["token_program"] = tp
-    account_mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
-    account_mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
+    metas = _metas_from(ix_idl, mapping)
 
-    # Rebuild metas strictly in IDL order using the normalized map
-    metas = []
-    for acc_def in ix_idl.get("accounts", []) or []:
-        nm = acc_def["name"]
-        if nm not in account_mapping:
-            if acc_def.get("isOptional"):
-                continue
-            raise RuntimeError(f"Missing account mapping for '{nm}' in '{ix_idl['name']}'")
-        is_signer = bool(acc_def.get("isSigner"))
-        is_mut = bool(acc_def.get("isMut"))
-        metas.append(AccountMeta(account_mapping[nm], is_signer, is_mut))
-
-    # Helpful trace: shows exactly what will be sent to the program
     try:
-        names = [a.get("name") for a in ix_idl.get("accounts", []) or []]
-        print(
-            "[perps] metas normalized:",
-            {n: str(account_mapping[n]) for n in names if n in account_mapping},
-        )
+        names = [a.get("name") for a in (ix_idl.get("accounts") or [])]
+        print("[perps] metas normalized:", {n: str(mapping[n]) for n in names if n in mapping})
     except Exception:
         pass
-    # --- end normalization -------------------------------------------------------
 
     data = build_data(ix_idl, args, types_idx)
     instructions: List[Instruction] = []
