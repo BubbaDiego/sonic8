@@ -562,16 +562,23 @@ def _pdas(
 
 # ---------- public API ----------
 def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[AccountMeta]:
+    """
+    Build metas strictly in IDL-declared order.
+    - If an account is optional and absent in `mapping`, we skip it.
+    - If an account is required and absent, we raise with a clear message.
+    """
+
     metas: List[AccountMeta] = []
     for acc_def in (ix_idl.get("accounts") or []):
         nm = acc_def["name"]
-        metas.append(
-            AccountMeta(
-                mapping[nm],
-                bool(acc_def.get("isSigner")),
-                bool(acc_def.get("isMut")),
-            )
-        )
+        is_signer = bool(acc_def.get("isSigner"))
+        is_writable = bool(acc_def.get("isMut"))
+        is_opt = bool(acc_def.get("isOptional"))
+        if nm not in mapping:
+            if is_opt:
+                continue
+            raise KeyError(nm)
+        metas.append(AccountMeta(mapping[nm], is_signer, is_writable))
     return metas
 
 
