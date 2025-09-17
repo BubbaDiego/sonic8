@@ -585,8 +585,9 @@ def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[Acco
 def _force_token_program_slot(ix_idl: Dict[str, Any],
                               metas: List[AccountMeta]) -> List[AccountMeta]:
     """
-    Overwrite the meta at the IDL-declared 'token_program' (or 'tokenProgram') slot
-    with the Associated Token Program (ATokenGPv…).
+    Ensure the meta at the IDL slot named 'token_program' (or 'tokenProgram')
+    is the Associated Token Program (ATokenGPv…).
+    Always log the index and before/after pubkeys.
     """
 
     accounts = ix_idl.get("accounts") or []
@@ -597,14 +598,24 @@ def _force_token_program_slot(ix_idl: Dict[str, Any],
             idx = i
             break
     if idx is None:
-        return metas  # instruction has no token_program slot
+        print("[perps] token_program slot: <not present in this instruction>")
+        return metas
 
     fixed = list(metas)
-    if idx < len(fixed) and fixed[idx].pubkey != ASSOCIATED_TOKEN_PROG:
+    if idx >= len(fixed):
+        print(f"[perps] token_program slot idx={idx} out of metas range (len={len(fixed)})")
+        return fixed
+
+    before = str(fixed[idx].pubkey)
+    after = str(ASSOCIATED_TOKEN_PROG)
+    print(f"[perps] token_program slot idx={idx} BEFORE={before}")
+    if fixed[idx].pubkey != ASSOCIATED_TOKEN_PROG:
         fixed[idx] = AccountMeta(ASSOCIATED_TOKEN_PROG,
                                  fixed[idx].is_signer,
                                  fixed[idx].is_writable)
-        print(f"[perps] forced token_program slot {idx} = {str(ASSOCIATED_TOKEN_PROG)}")
+        print(f"[perps] token_program slot idx={idx} AFTER ={after}")
+    else:
+        print(f"[perps] token_program slot idx={idx} already AToken")
     return fixed
 
 
