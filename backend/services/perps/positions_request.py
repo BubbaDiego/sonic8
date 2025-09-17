@@ -103,8 +103,31 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
     raise RuntimeError(f"Instruction not found; tried {candidates} / {fallback_any}. IDL has: {have}")
 
 
-def disc(ix_name: str) -> bytes:
-    return hashlib.sha256(f"global:{ix_name}".encode("utf-8")).digest()[:8]
+def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
+    """
+    Prefer the discriminator bytes embedded in the IDL (newer Anchor), otherwise
+    fall back to sha256('global:<name>')[:8]. IDL shapes seen in the wild:
+      { "discriminant": { "bytes": [..8..] } }
+      { "discriminant": { "value": [..8..] } }
+      { "discriminator": [..8..] }  # very old
+    """
+
+    disc = ix_idl.get("discriminant") or ix_idl.get("discriminator")
+    if isinstance(disc, dict):
+        arr = disc.get("bytes") or disc.get("value")
+        if isinstance(arr, list) and len(arr) == 8:
+            try:
+                return bytes(int(x) & 0xFF for x in arr)
+            except Exception:
+                pass
+    if isinstance(disc, list) and len(disc) == 8:
+        try:
+            return bytes(int(x) & 0xFF for x in disc)
+        except Exception:
+            pass
+
+    name = str(ix_idl.get("name", ""))
+    return hashlib.sha256(f"global:{name}".encode("utf-8")).digest()[:8]
 
 
 def _collect_types(idl: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -113,14 +136,24 @@ def _collect_types(idl: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
 
 def _encode_type(type_def: Any, value: Any, types: Dict[str, Dict[str, Any]]) -> bytes:
     if isinstance(type_def, str):
+        if type_def == "bool":
+            return (1 if bool(value) else 0).to_bytes(1, "little")
         if type_def == "u8":
             return int(value).to_bytes(1, "little", signed=False)
+        if type_def == "u16":
+            return int(value).to_bytes(2, "little", signed=False)
+        if type_def == "u32":
+            return int(value).to_bytes(4, "little", signed=False)
+        if type_def == "i32":
+            return int(value).to_bytes(4, "little", signed=True)
         if type_def == "u64":
             return int(value).to_bytes(8, "little", signed=False)
         if type_def == "i64":
             return int(value).to_bytes(8, "little", signed=True)
-        if type_def == "bool":
-            return (1 if value else 0).to_bytes(1, "little", signed=False)
+        if type_def == "u128":
+            return int(value).to_bytes(16, "little", signed=False)
+        if type_def == "i128":
+            return int(value).to_bytes(16, "little", signed=True)
         if type_def == "publicKey":
             return bytes(Pubkey.from_string(value))
         raise RuntimeError(f"Unmapped IDL arg type: {type_def}")
@@ -138,7 +171,9 @@ def _encode_type(type_def: Any, value: Any, types: Dict[str, Dict[str, Any]]) ->
         name = type_def["defined"]
         defined = types.get(name)
         if not defined:
-            raise RuntimeError(f"Type '{name}' not defined in IDL")
+            # Some IDLs wrap types as {"defined": "<TypeName>"} even when the
+            # definition is not present. Treat common enums as a single byte.
+            return int(value).to_bytes(1, "little", signed=False)
         kind = defined.get("kind")
         if kind == "struct":
             fields = defined.get("fields", [])
@@ -195,7 +230,7 @@ def _encode_type(type_def: Any, value: Any, types: Dict[str, Dict[str, Any]]) ->
 
 def build_data(ix_idl: Dict[str, Any], arg_values: Dict[str, Any], idl_types: Dict[str, Dict[str, Any]]) -> bytes:
     data = bytearray()
-    data += disc(ix_idl["name"])
+    data += _disc_from_idl(ix_idl)
     for arg in ix_idl.get("args", []):
         name = arg["name"]
         if name not in arg_values:
