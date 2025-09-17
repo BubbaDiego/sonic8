@@ -729,13 +729,11 @@ def open_position_request(
         input_mint,
     )
 
-    mapping = account_mapping if "account_mapping" in locals() else locals().get("acct")
-    if mapping is None:
-        raise RuntimeError("account mapping not found for open position request")
+    mapping = account_mapping if "account_mapping" in locals() else acct
 
     # --- normalize token program mapping for this instruction -------------------
-    # Anchor compares the `token_program` slot against Associated Token Program (AToken…).
-    # Ensure both camel/snake keys point to AToken, and also set associatedTokenProgram explicitly.
+    # Anchor validates the slot named `token_program` against Associated Token Program.
+    # Ensure both camel/snake keys point to AToken, and set ATA slot explicitly.
     mapping["tokenProgram"] = ASSOCIATED_TOKEN_PROG
     mapping["token_program"] = ASSOCIATED_TOKEN_PROG
     mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
@@ -763,29 +761,31 @@ def open_position_request(
         _override: Dict[str, Pubkey] | None = None,
         _simulate: bool = False,
     ) -> str:
+        # Effective mapping = normalized base + any one-off overrides
         effective = dict(mapping)
         if _override:
             effective.update(_override)
         _metas = _metas_from(ix_idl, effective)
 
-        instructions: List[Instruction] = []
-        instructions += compute_budget_ixs()
-        instructions.append(Instruction(program_id, data, _metas))
+        ixs: List[Instruction] = []
+        ixs += compute_budget_ixs()
+        ixs.append(Instruction(program_id, data, _metas))
 
-        blockhash = recent_blockhash()
-        message = MessageV0.try_compile(
+        bh = recent_blockhash()
+        msg = MessageV0.try_compile(
             payer=owner,
-            instructions=instructions,
+            instructions=ixs,
             address_lookup_table_accounts=[],
-            recent_blockhash=blockhash,
+            recent_blockhash=bh,
         )
-        transaction = VersionedTransaction(message, [wallet])
-        raw_tx = base64.b64encode(bytes(transaction)).decode()
+        tx = VersionedTransaction(msg, [wallet])
+        raw = base64.b64encode(bytes(tx)).decode()
+
         if _simulate or os.getenv("PERPS_SIMULATE", "").strip() == "1":
             sim = rpc(
                 "simulateTransaction",
                 [
-                    raw_tx,
+                    raw,
                     {
                         "encoding": "base64",
                         "sigVerify": False,
@@ -794,13 +794,13 @@ def open_position_request(
                 ],
             )
             logs = (sim.get("value") or {}).get("logs") or []
-            if logs:
-                print("[perps] simulate logs:\n  " + "\n  ".join(logs[:30]))
+            print("[perps] simulate logs:\n  " + "\n  ".join(logs[:40]))
             if (sim.get("value") or {}).get("err"):
                 raise RuntimeError("simulation failed; see server logs for details")
+
         return rpc(
             "sendTransaction",
-            [raw_tx, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
+            [raw, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
         )
 
     # try once with current mapping
@@ -882,13 +882,11 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
         input_mint,
     )
 
-    mapping = account_mapping if "account_mapping" in locals() else locals().get("acct")
-    if mapping is None:
-        raise RuntimeError("account mapping not found for close position request")
+    mapping = account_mapping if "account_mapping" in locals() else acct
 
     # --- normalize token program mapping for this instruction -------------------
-    # Anchor compares the `token_program` slot against Associated Token Program (AToken…).
-    # Ensure both camel/snake keys point to AToken, and also set associatedTokenProgram explicitly.
+    # Anchor validates the slot named `token_program` against Associated Token Program.
+    # Ensure both camel/snake keys point to AToken, and set ATA slot explicitly.
     mapping["tokenProgram"] = ASSOCIATED_TOKEN_PROG
     mapping["token_program"] = ASSOCIATED_TOKEN_PROG
     mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
