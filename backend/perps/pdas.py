@@ -30,34 +30,28 @@ def derive_position_pda_v3(owner: Pubkey, pool: Pubkey, custody: Pubkey, collate
 
 
 # --- APPEND: canonical position PDA wrapper ---------------------------------
-def position_pda(owner: Pubkey, market: str, program_id: Pubkey) -> Pubkey:
+def position_pda(
+    owner: Pubkey,
+    market: str,
+    program_id: Pubkey,
+    market_mint: str | None = None,
+) -> Pubkey:
     """
-    Canonical 'position' PDA resolver for the current deployment.
-    Priority:
-      1) If this repo defines an IDL-driven derivation for 'position', prefer it.
-      2) Otherwise, attempt v3 -> v2 -> v1 consistently (without probing chain).
+    Canonical resolver:
+      1) honour repo-specific helpers if present
+      2) attempt known v3/v2/v1 derivations using market metadata
+      3) fallback to [b"position", owner, market_mint or market]
     """
     try:
-        from backend.perps.pdas import derive_position_pda_from_idl  # optional; ok if missing
+        from backend.perps.pdas import derive_position_pda_from_idl  # type: ignore
+
         return derive_position_pda_from_idl(owner, market, program_id)
     except Exception:
         pass
 
-    # Fallback sequence; keep deterministic order
-    try:
-        from backend.perps.pdas import derive_position_pda_v3
-    except Exception:
-        derive_position_pda_v3 = None  # type: ignore
-    try:
-        from backend.perps.pdas import derive_position_pda_v2
-    except Exception:
-        derive_position_pda_v2 = None  # type: ignore
-    try:
-        from backend.perps.pdas import derive_position_pda_v1
-    except Exception:
-        derive_position_pda_v1 = None  # type: ignore
-
     pool = custody_base = collateral = None
+    market_mint_value: str | None = market_mint
+
     try:
         from backend.services.perps.markets import resolve_market
 
@@ -65,24 +59,48 @@ def position_pda(owner: Pubkey, market: str, program_id: Pubkey) -> Pubkey:
         pool = Pubkey.from_string(market_info["pool"])
         custody_base = Pubkey.from_string(market_info["custody_base"])
         collateral = Pubkey.from_string(market_info["custody_quote"])
+        market_mint_value = market_info.get("base_mint") or market_mint_value
     except Exception:
-        # leave fallbacks to raise below if derivations fail
+        # metadata lookup best-effort; continue to other fallbacks
         pass
 
-    if derive_position_pda_v3 and pool and custody_base and collateral:
-        try:
+    try:
+        if pool and custody_base and collateral:
             return derive_position_pda_v3(owner, pool, custody_base, collateral)
-        except Exception:
-            pass
-    if derive_position_pda_v2 and pool and custody_base and collateral:
-        try:
+    except Exception:
+        pass
+    try:
+        if pool and custody_base and collateral:
             return derive_position_pda_v2(owner, pool, custody_base, collateral)
-        except Exception:
-            pass
-    if derive_position_pda_v1 and custody_base and collateral:
-        try:
+    except Exception:
+        pass
+    try:
+        if custody_base and collateral:
             return derive_position_pda_v1(owner, custody_base, collateral)
-        except Exception:
-            pass
+    except Exception:
+        pass
 
-    raise RuntimeError("Unable to derive position PDA; ensure market metadata is configured")
+    seed_market = market_mint_value or market
+    if isinstance(seed_market, Pubkey):
+        seed_bytes = bytes(seed_market)
+    elif isinstance(seed_market, bytes):
+        seed_bytes = seed_market
+    else:
+        seed_bytes = str(seed_market).encode("utf-8")
+    return Pubkey.find_program_address([b"position", bytes(owner), seed_bytes], program_id)[0]
+
+
+def position_request_pda(
+    owner: Pubkey,
+    market: str,
+    program_id: Pubkey,
+    market_mint: str | None = None,
+) -> Pubkey:
+    seed_market = market_mint or market
+    if isinstance(seed_market, Pubkey):
+        seed_bytes = bytes(seed_market)
+    elif isinstance(seed_market, bytes):
+        seed_bytes = seed_market
+    else:
+        seed_bytes = str(seed_market).encode("utf-8")
+    return Pubkey.find_program_address([b"position-request", bytes(owner), seed_bytes], program_id)[0]

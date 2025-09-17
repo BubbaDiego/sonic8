@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, validator
 import anyio
 
-from backend.services.perps.markets import list_markets_sync
+from backend.services.perps.markets import list_markets_sync, resolve_market
 from backend.services.perps.positions import list_positions_sync
 from backend.services.perps.raw_rpc import _rpc, get_program_id, get_idl_account_names
 from backend.services.perps.config import get_disc, get_account_name
@@ -69,6 +69,14 @@ async def perps_markets():
         return await anyio.to_thread.run_sync(list_markets_sync)
     except Exception as e:
         raise HTTPException(502, f"markets fetch failed: {e}")
+
+
+@router.get("/markets/resolve")
+def perps_markets_resolve(market: str = "SOL-PERP"):
+    try:
+        return resolve_market(market)
+    except Exception as e:
+        raise HTTPException(500, f"resolve failed: {e}")
 
 
 @router.get("/positions")
