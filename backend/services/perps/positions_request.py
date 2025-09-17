@@ -382,10 +382,17 @@ def map_accounts(
             else:
                 mapping[name] = _pubkey_from_str(base_accounts[key], market, key)
         elif name in ("tokenProgram", "token_program"):
-            mapping[name] = SPL_TOKEN_PROGRAM
+            # ⚠️ Some IDLs label this slot `token_program` even though they expect the
+            # Associated Token Program. Passing Tokenkeg… triggers Anchor 3008 errors.
+            mapping[name] = ASSOCIATED_TOKEN_PROG
         elif name in ("systemProgram", "system_program"):
             mapping[name] = SYSTEM_PROGRAM
-        elif name in ("associatedTokenProgram", "associated_token_program"):
+        elif name in (
+            "associatedTokenProgram",
+            "associated_token_program",
+            "ataProgram",
+            "ata_program",
+        ):
             mapping[name] = ASSOCIATED_TOKEN_PROG
         elif name in ("perpetuals",):
             mapping[name] = derive_perpetuals_pda()
