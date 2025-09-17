@@ -178,6 +178,29 @@ def perps_idl_names():
         raise HTTPException(500, f"idl-names failed: {e}")
 
 
+@router.get("/debug/idl-inspect")
+def perps_idl_inspect(name: str):
+    """
+    Dump the accounts + args schema of an instruction by (substring) name.
+    Example: /api/perps/debug/idl-inspect?name=createincreasepositionmarketrequest
+    """
+    try:
+        from backend.services.perps.positions_request import load_idl, _idl_ix_map
+
+        idl = load_idl()
+        name_lc = name.lower()
+        for ix_name, ix in _idl_ix_map(idl).items():
+            if name_lc in ix_name:
+                return {
+                    "match": ix.get("name"),
+                    "accounts": ix.get("accounts"),
+                    "args": ix.get("args"),
+                }
+        return {"match": None, "note": "no instruction matched"}
+    except Exception as e:
+        raise HTTPException(500, f"idl-inspect failed: {e}")
+
+
 @router.get("/debug/owner-offset")
 async def perps_owner_offset(owner: str, start: int = 8, stop: int = 192, step: int = 1, sample: int = 1):
     """

@@ -400,9 +400,13 @@ def open_position_request(
     base_accounts, resolve_extra = _market_info(market, market_info)
 
     # 1) find the correct "open/increase" request instruction, tolerant to IDL naming
+    #    🔴 includes your exact IDL name: createincreasepositionmarketrequest
     ix_idl = _find_ix_any(
         idl,
         candidates=[
+            "createincreasepositionmarketrequest",  # ← your IDL
+            "increaseposition4",  # sometimes an instant model exists
+            "instantincreaseposition",
             "create_increase_position_request",
             "increase_position_request",
             "create_open_position_request",
@@ -412,7 +416,7 @@ def open_position_request(
             "trade_request",
             "position_request",
         ],
-        fallback_any=["request", "open"],
+        fallback_any=["request", "increase"],
     )
 
     types_map = _collect_types(idl)
@@ -486,13 +490,18 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
     ix_idl = _find_ix_any(
         idl,
         candidates=[
+            "createdecreasepositionmarketrequest",  # ← your IDL
+            "updatedecreasepositionrequest2",  # some IDLs update a pre-existing request
+            "closepositionrequest",  # explicit close request
+            "decreaseposition4",
+            "instantdecreaseposition",
             "create_close_position_request",
             "close_position_request",
             "decrease_position_request",
             "reduce_position_request",
             "close_request",
         ],
-        fallback_any=["request", "close"],
+        fallback_any=["request", "decrease"],
     )
     types_map = _collect_types(idl)
 
