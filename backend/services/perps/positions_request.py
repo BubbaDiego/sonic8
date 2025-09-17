@@ -273,12 +273,18 @@ def _enc_value(kind: Any, value: Any, types: Dict[str, Dict[str, Any]]) -> bytes
             payload = b""
             if isinstance(value, str):
                 names = [variant.get("name") for variant in variants]
+                if value not in names:
+                    raise RuntimeError(f"Enum '{name}' variant '{value}' not found")
                 tag = names.index(value)
                 variant = variants[tag]
                 fields = variant.get("fields") or []
                 if fields:
-                    payload = _enc_value(fields[0], 0, types)
+                    raise RuntimeError(
+                        f"Enum '{name}' variant '{value}' requires payload values"
+                    )
             elif isinstance(value, dict):
+                if not value:
+                    raise RuntimeError(f"Enum '{name}' requires variant selection")
                 variant_name = next(iter(value.keys()))
                 tag = next(
                     idx
@@ -288,7 +294,53 @@ def _enc_value(kind: Any, value: Any, types: Dict[str, Dict[str, Any]]) -> bytes
                 variant = variants[tag]
                 fields = variant.get("fields") or []
                 if fields:
-                    payload = _enc_value(fields[0], value[variant_name], types)
+                    variant_value = value.get(variant_name)
+                    if variant_value is None:
+                        raise RuntimeError(
+                            f"Enum '{name}' variant '{variant_name}' requires payload values"
+                        )
+                    payload_bytes = bytearray()
+                    for idx, field in enumerate(fields):
+                        field_kind: Any
+                        field_name: Optional[str] = None
+                        field_kind = field
+                        if isinstance(field, dict):
+                            field_name = field.get("name")
+                            field_kind = field.get("type")
+                        if field_kind is None:
+                            raise RuntimeError(
+                                f"Enum '{name}' variant '{variant_name}' has field with no type"
+                            )
+
+                        field_value: Any = None
+                        if isinstance(variant_value, dict) and field_name:
+                            if field_name in variant_value:
+                                field_value = variant_value[field_name]
+
+                        if field_value is None:
+                            if isinstance(variant_value, (list, tuple)):
+                                if idx < len(variant_value):
+                                    field_value = variant_value[idx]
+                            elif len(fields) == 1 and not isinstance(variant_value, dict):
+                                field_value = variant_value
+
+                        if field_value is None:
+                            if isinstance(field_kind, dict) and "option" in field_kind:
+                                field_value = None
+                            elif _is_pk_like(field_kind):
+                                src = variant_value if isinstance(variant_value, dict) else {}
+                                if isinstance(src, dict):
+                                    field_value = (
+                                        src.get("owner")
+                                        or src.get("authority")
+                                        or src.get("trader")
+                                        or src.get("user")
+                                    )
+                            if field_value is None:
+                                field_value = 0
+
+                        payload_bytes += _enc_value(field_kind, field_value, types)
+                    payload = bytes(payload_bytes)
             else:
                 raise RuntimeError(f"Enum '{name}' requires str or dict value")
             return tag.to_bytes(1, "little") + payload
