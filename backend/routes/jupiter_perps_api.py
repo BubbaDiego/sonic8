@@ -162,6 +162,22 @@ async def perps_idl_debug():
         raise HTTPException(500, f"idl debug failed: {e}")
 
 
+@router.get("/debug/idl-names")
+def perps_idl_names():
+    """
+    Dump all instruction names from the loaded Perps IDL so we can see
+    exactly what the current program exposes on this server.
+    """
+    try:
+        from backend.services.perps.positions_request import load_idl
+
+        idl = load_idl()
+        names = [ix.get("name") for ix in (idl.get("instructions") or [])]
+        return {"count": len(names), "instructions": names}
+    except Exception as e:
+        raise HTTPException(500, f"idl-names failed: {e}")
+
+
 @router.get("/debug/owner-offset")
 async def perps_owner_offset(owner: str, start: int = 8, stop: int = 192, step: int = 1, sample: int = 1):
     """

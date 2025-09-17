@@ -71,11 +71,34 @@ def program_id_from_idl(idl: Dict[str, Any]) -> Pubkey:
     return Pubkey.from_string(address)
 
 
-def find_ix(idl: Dict[str, Any], contains: str) -> Dict[str, Any]:
-    for ix in idl.get("instructions", []):
-        if contains.lower() in ix.get("name", "").lower():
+def _idl_ix_map(idl: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    return {str(ix.get("name", "")).lower(): ix for ix in (idl.get("instructions") or [])}
+
+
+def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[str]) -> Dict[str, Any]:
+    """
+    Try a list of candidate substrings (in order). If none match, pick the first instruction
+    whose name contains ALL tokens in `fallback_any`.
+    """
+
+    m = _idl_ix_map(idl)
+
+    # direct contains (substring) search in order
+    for cand in candidates:
+        c = cand.lower()
+        for name, ix in m.items():
+            if c in name:
+                return ix
+
+    # fallback heuristic: all tokens must be present
+    tokens = [t.lower() for t in fallback_any]
+    for name, ix in m.items():
+        if all(t in name for t in tokens):
             return ix
-    raise RuntimeError(f"Instruction containing '{contains}' not found in IDL")
+
+    # last resort: show what we have to help you pick
+    have = sorted(m.keys())
+    raise RuntimeError(f"Instruction not found; tried {candidates} / {fallback_any}. IDL has: {have}")
 
 
 def disc(ix_name: str) -> bytes:
@@ -374,10 +397,21 @@ def open_position_request(
     position, request, counter = _pdas(owner, market, program_id, market_mint)
     base_accounts, resolve_extra = _market_info(market, market_info)
 
-    try:
-        ix_idl = find_ix(idl, "create_increase_position_request")
-    except Exception:
-        ix_idl = find_ix(idl, "increase_position_request")
+    # 1) find the correct "open/increase" request instruction, tolerant to IDL naming
+    ix_idl = _find_ix_any(
+        idl,
+        candidates=[
+            "create_increase_position_request",
+            "increase_position_request",
+            "create_open_position_request",
+            "open_position_request",
+            "create_position_request",
+            "create_trade_request",
+            "trade_request",
+            "position_request",
+        ],
+        fallback_any=["request", "open"],
+    )
 
     types_map = _collect_types(idl)
 
@@ -447,7 +481,17 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
     position, request, counter = _pdas(owner, market, program_id, market_mint)
     base_accounts, resolve_extra = _market_info(market, market_info)
 
-    ix_idl = find_ix(idl, "close_position_request")
+    ix_idl = _find_ix_any(
+        idl,
+        candidates=[
+            "create_close_position_request",
+            "close_position_request",
+            "decrease_position_request",
+            "reduce_position_request",
+            "close_request",
+        ],
+        fallback_any=["request", "close"],
+    )
     types_map = _collect_types(idl)
 
     args: Dict[str, Any] = {}
