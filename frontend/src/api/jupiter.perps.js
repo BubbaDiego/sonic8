@@ -16,7 +16,7 @@ async function http(method, path, body, params) {
 
 export const perpsMarkets   = () => http('GET', '/api/perps/markets');
 export const perpsPositions = (owner) => http('GET', '/api/perps/positions', null, owner ? { owner } : undefined);
-export const createPerpOrder = (body) => http('POST', '/api/perps/order', body);
-export const closePerpPosition = (body) => http('POST', '/api/perps/close', body);
+export const createPerpOrder = (body) => http('POST', '/api/perps/order/open', body);
+export const closePerpPosition = (body) => http('POST', '/api/perps/order/close', body);
 
 export default { perpsMarkets, perpsPositions, createPerpOrder, closePerpPosition };
