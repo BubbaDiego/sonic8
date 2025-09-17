@@ -543,7 +543,7 @@ def open_position_request(
 
     args: Dict[str, Any] = {}
     referral_env = os.getenv("JUP_PERPS_REFERRAL", "").strip()
-    referral_pk = referral_env if referral_env else str(owner)
+    referral_pk = referral_env if referral_env else str(owner)  # safe default: owner pubkey
 
     def _type_kind(ty: Any) -> str:
         if isinstance(ty, str):
@@ -596,6 +596,13 @@ def open_position_request(
             args[name] = False
         else:
             args[name] = 0
+
+    # Final safety net: ensure any referral-like pk args are populated even if new names appear.
+    for arg in ix_idl.get("args", []):
+        name = arg["name"]
+        type_def = arg["type"]
+        if "referr" in str(name).lower() and _is_pk_like(type_def) and name not in args:
+            args[name] = referral_pk
 
     input_mint_value = base_accounts.get("input_mint")
     input_mint: Optional[Pubkey] = None
