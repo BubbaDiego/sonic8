@@ -539,11 +539,47 @@ def open_position_request(
     params["counter"] = counter
 
     args: Dict[str, Any] = {}
+    referral_env = os.getenv("JUP_PERPS_REFERRAL", "").strip()
+    referral_pk = referral_env if referral_env else str(owner)
+
+    def _type_kind(ty: Any) -> str:
+        if isinstance(ty, str):
+            return ty
+        if isinstance(ty, dict):
+            if "option" in ty:
+                opt = ty["option"]
+                if isinstance(opt, str):
+                    return opt
+            if "vec" in ty:
+                vec = ty["vec"]
+                if isinstance(vec, str):
+                    return vec
+        return ""
+
     for arg in ix_idl.get("args", []):
         name = arg["name"]
         type_def = arg["type"]
+        kind = _type_kind(type_def)
+
         if isinstance(type_def, dict) and type_def.get("defined") == "CreateIncreasePositionMarketRequestParams":
             args[name] = params
+        elif name in ("side", "direction"):
+            args[name] = 0 if side == "long" else 1
+        elif name in ("sizeUsd", "size_usd", "size"):
+            args[name] = int(size_usd * USD_SCALE)
+        elif name in ("collateralUsd", "collateral_usd", "collateral"):
+            args[name] = int(collateral_usd * USD_SCALE)
+        elif tp is not None and name in ("tpPrice", "tp_price"):
+            args[name] = int(tp * USD_SCALE)
+        elif sl is not None and name in ("slPrice", "sl_price"):
+            args[name] = int(sl * USD_SCALE)
+        elif kind == "publicKey":
+            if name in ("referral", "referrer", "referralAccount", "referrerAccount"):
+                args[name] = referral_pk
+            else:
+                args[name] = str(owner)
+        elif kind == "bool":
+            args[name] = 0
         else:
             args[name] = 0
 
