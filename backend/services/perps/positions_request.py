@@ -542,8 +542,9 @@ def open_position_request(
     params["counter"] = counter
 
     args: Dict[str, Any] = {}
+    # pick referral: env > owner (safe default)
     referral_env = os.getenv("JUP_PERPS_REFERRAL", "").strip()
-    referral_pk = referral_env if referral_env else str(owner)  # safe default: owner pubkey
+    referral_pk = referral_env if referral_env else str(owner)
 
     def _type_kind(ty: Any) -> str:
         if isinstance(ty, str):
@@ -569,40 +570,54 @@ def open_position_request(
                 return "pubkey" in str(ty["defined"]).lower()
         return False
 
-    for arg in ix_idl.get("args", []):
+    idl_args = ix_idl.get("args", []) or []
+
+    # First pass: set values by name so we never miss referral-like args.
+    for arg in idl_args:
         name = arg["name"]
         type_def = arg["type"]
         kind = _type_kind(type_def)
-        name_lower = name.lower()
+        raw_key = str(name).lower()
+        key = raw_key.replace("_", "")
 
         if isinstance(type_def, dict) and type_def.get("defined") == "CreateIncreasePositionMarketRequestParams":
             args[name] = params
-        elif name in ("side", "direction"):
+        elif key in ("referral", "referrer", "referralaccount", "referreraccount", "refaccount", "ref"):
+            args[name] = referral_pk
+        elif key in ("owner", "user", "trader", "authority"):
+            args[name] = str(owner)
+        elif key in ("side", "direction"):
             args[name] = 0 if side == "long" else 1
-        elif name in ("sizeUsd", "size_usd", "size"):
+        elif key in ("sizeusd", "size", "amount", "makingamount"):
             args[name] = int(size_usd * USD_SCALE)
-        elif name in ("collateralUsd", "collateral_usd", "collateral"):
+        elif key in ("collateralusd", "collateral", "margin"):
             args[name] = int(collateral_usd * USD_SCALE)
-        elif tp is not None and name in ("tpPrice", "tp_price"):
-            args[name] = int(tp * USD_SCALE)
-        elif sl is not None and name in ("slPrice", "sl_price"):
-            args[name] = int(sl * USD_SCALE)
-        elif _is_pk_like(type_def):
-            if "referr" in name_lower:
-                args[name] = referral_pk
-            else:
-                args[name] = str(owner)
+        elif key in ("tp", "tpprice", "takeprofitprice"):
+            args[name] = int((tp or 0) * USD_SCALE)
+        elif key in ("sl", "slprice", "stoplossprice"):
+            args[name] = int((sl or 0) * USD_SCALE)
+        elif kind == "bool":
+            # bools default to False (encoded as 0)
+            args[name] = False
+
+    # Second pass: fill anything still missing by type.
+    for arg in idl_args:
+        name = arg["name"]
+        if name in args:
+            continue
+
+        type_def = arg["type"]
+        kind = _type_kind(type_def)
+
+        if _is_pk_like(type_def):
+            args[name] = str(owner)
         elif kind == "bool":
             args[name] = False
-        else:
+        elif kind in ("u8", "u16", "u32", "i32", "u64", "i64", "u128", "i128"):
             args[name] = 0
-
-    # Final safety net: ensure any referral-like pk args are populated even if new names appear.
-    for arg in ix_idl.get("args", []):
-        name = arg["name"]
-        type_def = arg["type"]
-        if "referr" in str(name).lower() and _is_pk_like(type_def) and name not in args:
-            args[name] = referral_pk
+        else:
+            # defined/option/etc → set to zero-ish (encoder will handle options)
+            args[name] = 0
 
     input_mint_value = base_accounts.get("input_mint")
     input_mint: Optional[Pubkey] = None
