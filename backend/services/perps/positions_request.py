@@ -72,7 +72,8 @@ def program_id_from_idl(idl: Dict[str, Any]) -> Pubkey:
 
 
 def _idl_ix_map(idl: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-    return {str(ix.get("name", "")).lower(): ix for ix in (idl.get("instructions") or [])}
+    instructions = idl.get("instructions") or []
+    return {str(ix.get("name", "")).lower(): ix for ix in instructions}
 
 
 def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[str]) -> Dict[str, Any]:
@@ -81,23 +82,24 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
     whose name contains ALL tokens in `fallback_any`.
     """
 
-    m = _idl_ix_map(idl)
+    entries = list(_idl_ix_map(idl).items())
 
     # direct contains (substring) search in order
     for cand in candidates:
         c = cand.lower()
-        for name, ix in m.items():
+        for name, ix in entries:
             if c in name:
                 return ix
 
     # fallback heuristic: all tokens must be present
-    tokens = [t.lower() for t in fallback_any]
-    for name, ix in m.items():
-        if all(t in name for t in tokens):
-            return ix
+    tokens = [t.lower() for t in fallback_any if t]
+    if tokens:
+        for name, ix in entries:
+            if all(t in name for t in tokens):
+                return ix
 
     # last resort: show what we have to help you pick
-    have = sorted(m.keys())
+    have = sorted(name for name, _ in entries)
     raise RuntimeError(f"Instruction not found; tried {candidates} / {fallback_any}. IDL has: {have}")
 
 
