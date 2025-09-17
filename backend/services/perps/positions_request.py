@@ -573,25 +573,60 @@ def open_position_request(
 
     data = build_data(ix_idl, args, types_map)
 
-    instructions: List[Instruction] = []
-    instructions += compute_budget_ixs()
-    instructions.append(Instruction(program_id, data, metas))
+    def _send_with(_override: Dict[str, Pubkey] | None = None) -> str:
+        # rebuild metas if we override token_program for the retry
+        _metas: List[AccountMeta] = []
+        if _override:
+            for acc in ix_idl.get("accounts", []):
+                nm = acc["name"]
+                _metas.append(
+                    AccountMeta(
+                        _override.get(nm, account_mapping[nm]),
+                        bool(acc.get("isSigner")),
+                        bool(acc.get("isMut")),
+                    )
+                )
+        else:
+            _metas = metas
 
-    blockhash = recent_blockhash()
-    message = MessageV0.try_compile(
-        payer=owner,
-        instructions=instructions,
-        address_lookup_table_accounts=[],
-        recent_blockhash=blockhash,
-    )
-    transaction = VersionedTransaction(message, [wallet])
-    raw_tx = base64.b64encode(bytes(transaction)).decode()
+        instructions: List[Instruction] = []
+        instructions += compute_budget_ixs()
+        instructions.append(Instruction(program_id, data, _metas))
 
-    signature = rpc(
-        "sendTransaction",
-        [raw_tx, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
-    )
-    return {"signature": signature, "programId": str(program_id), "market": market}
+        blockhash = recent_blockhash()
+        message = MessageV0.try_compile(
+            payer=owner,
+            instructions=instructions,
+            address_lookup_table_accounts=[],
+            recent_blockhash=blockhash,
+        )
+        transaction = VersionedTransaction(message, [wallet])
+        raw_tx = base64.b64encode(bytes(transaction)).decode()
+        return rpc(
+            "sendTransaction",
+            [raw_tx, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
+        )
+
+    # try once with current mapping
+    try:
+        sig = _send_with(None)
+        return {"signature": sig, "programId": str(program_id), "market": market}
+    except Exception as e:
+        s = str(e)
+        # If Anchor complains about InvalidProgramId for token_program, flip once (SPL <-> AToken) and retry.
+        if "InvalidProgramId" in s and "token_program" in s:
+            cur = account_mapping.get("tokenProgram") or account_mapping.get("token_program")
+            alt = ASSOCIATED_TOKEN_PROG if cur == SPL_TOKEN_PROGRAM else SPL_TOKEN_PROGRAM
+            override = dict(account_mapping)
+            if "tokenProgram" in override:
+                override["tokenProgram"] = alt
+            if "token_program" in override:
+                override["token_program"] = alt
+            print(f"[perps] retrying open-request with token_program={str(alt)}")
+            sig = _send_with(override)
+            return {"signature": sig, "programId": str(program_id), "market": market}
+        # bubble anything else
+        raise
 
 
 def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
