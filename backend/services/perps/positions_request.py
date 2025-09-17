@@ -450,7 +450,9 @@ def map_accounts(
             else:
                 mapping[name] = _pubkey_from_str(base_accounts[key], market, key)
         elif name in ("tokenProgram", "token_program"):
-            mapping[name] = SPL_TOKEN_PROGRAM
+            # This program expects the Associated Token Program in this slot.
+            # (Sim logs showed Left: ATokenGPv… Right: Tokenkeg…)
+            mapping[name] = ASSOCIATED_TOKEN_PROG
         elif name in ("systemProgram", "system_program"):
             mapping[name] = SYSTEM_PROGRAM
         elif name in (
