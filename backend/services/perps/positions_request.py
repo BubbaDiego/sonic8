@@ -382,9 +382,7 @@ def map_accounts(
             else:
                 mapping[name] = _pubkey_from_str(base_accounts[key], market, key)
         elif name in ("tokenProgram", "token_program"):
-            # ⚠️ Some IDLs label this slot `token_program` even though they expect the
-            # Associated Token Program. Passing Tokenkeg… triggers Anchor 3008 errors.
-            mapping[name] = ASSOCIATED_TOKEN_PROG
+            mapping[name] = SPL_TOKEN_PROGRAM
         elif name in ("systemProgram", "system_program"):
             mapping[name] = SYSTEM_PROGRAM
         elif name in (
@@ -565,6 +563,13 @@ def open_position_request(
         program_id,
         input_mint,
     )
+
+    try:
+        names = [a.get("name") for a in ix_idl.get("accounts", [])]
+        sent = {n: str(account_mapping[n]) for n in names if n in account_mapping}
+        print("[perps] accounts for open-request:", sent)
+    except Exception:
+        pass
 
     data = build_data(ix_idl, args, types_map)
 
