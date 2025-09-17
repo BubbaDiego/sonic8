@@ -226,7 +226,7 @@ def _encode_type(type_def: Any, value: Any, types: Dict[str, Dict[str, Any]]) ->
 
     if "option" in type_def:
         inner = type_def["option"]
-        if value in (None, False):
+        if value in (None, False, "", 0):
             return b"\x00"
         return b"\x01" + _encode_type(inner, value, types)
 
@@ -235,7 +235,10 @@ def _encode_type(type_def: Any, value: Any, types: Dict[str, Dict[str, Any]]) ->
         defined = types.get(name)
         if not defined:
             # Some IDLs wrap types as {"defined": "<TypeName>"} even when the
-            # definition is not present. Treat common enums as a single byte.
+            # definition is not present. Treat common enums as a single byte,
+            # but if the name suggests a Pubkey alias, encode as such.
+            if "pubkey" in str(name).lower():
+                return bytes(Pubkey.from_string(value))
             return int(value).to_bytes(1, "little", signed=False)
         kind = defined.get("kind")
         if kind == "struct":
@@ -556,10 +559,21 @@ def open_position_request(
                     return vec
         return ""
 
+    def _is_pk_like(ty: Any) -> bool:
+        if ty == "publicKey":
+            return True
+        if isinstance(ty, dict):
+            if "option" in ty:
+                return _is_pk_like(ty["option"])
+            if "defined" in ty:
+                return "pubkey" in str(ty["defined"]).lower()
+        return False
+
     for arg in ix_idl.get("args", []):
         name = arg["name"]
         type_def = arg["type"]
         kind = _type_kind(type_def)
+        name_lower = name.lower()
 
         if isinstance(type_def, dict) and type_def.get("defined") == "CreateIncreasePositionMarketRequestParams":
             args[name] = params
@@ -573,13 +587,13 @@ def open_position_request(
             args[name] = int(tp * USD_SCALE)
         elif sl is not None and name in ("slPrice", "sl_price"):
             args[name] = int(sl * USD_SCALE)
-        elif kind == "publicKey":
-            if name in ("referral", "referrer", "referralAccount", "referrerAccount"):
+        elif _is_pk_like(type_def):
+            if "referr" in name_lower:
                 args[name] = referral_pk
             else:
                 args[name] = str(owner)
         elif kind == "bool":
-            args[name] = 0
+            args[name] = False
         else:
             args[name] = 0
 
