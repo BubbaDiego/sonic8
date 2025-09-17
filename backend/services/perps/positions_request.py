@@ -715,6 +715,40 @@ def open_position_request(
         input_mint,
     )
 
+    # --- normalize token program mapping for this instruction -------------------
+    # Some Jupiter Perps builds expect the *Associated Token Program* in the slot
+    # named 'token_program'. Ensure both camel/snake keys point to AToken, then
+    # rebuild metas from this normalized map in the IDL-declared order.
+
+    tp = ASSOCIATED_TOKEN_PROG
+    account_mapping["tokenProgram"] = tp
+    account_mapping["token_program"] = tp
+    account_mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
+    account_mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
+
+    # Rebuild metas strictly in IDL order using the normalized map
+    metas = []
+    for acc_def in ix_idl.get("accounts", []) or []:
+        nm = acc_def["name"]
+        if nm not in account_mapping:
+            if acc_def.get("isOptional"):
+                continue
+            raise RuntimeError(f"Missing account mapping for '{nm}' in '{ix_idl['name']}'")
+        is_signer = bool(acc_def.get("isSigner"))
+        is_mut = bool(acc_def.get("isMut"))
+        metas.append(AccountMeta(account_mapping[nm], is_signer, is_mut))
+
+    # Helpful trace: shows exactly what will be sent to the program
+    try:
+        names = [a.get("name") for a in ix_idl.get("accounts", []) or []]
+        print(
+            "[perps] metas normalized:",
+            {n: str(account_mapping[n]) for n in names if n in account_mapping},
+        )
+    except Exception:
+        pass
+    # --- end normalization -------------------------------------------------------
+
     try:
         names = [a.get("name") for a in ix_idl.get("accounts", [])]
         sent = {n: str(account_mapping[n]) for n in names if n in account_mapping}
@@ -856,6 +890,40 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
         program_id,
         input_mint,
     )
+
+    # --- normalize token program mapping for this instruction -------------------
+    # Some Jupiter Perps builds expect the *Associated Token Program* in the slot
+    # named 'token_program'. Ensure both camel/snake keys point to AToken, then
+    # rebuild metas from this normalized map in the IDL-declared order.
+
+    tp = ASSOCIATED_TOKEN_PROG
+    account_mapping["tokenProgram"] = tp
+    account_mapping["token_program"] = tp
+    account_mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
+    account_mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
+
+    # Rebuild metas strictly in IDL order using the normalized map
+    metas = []
+    for acc_def in ix_idl.get("accounts", []) or []:
+        nm = acc_def["name"]
+        if nm not in account_mapping:
+            if acc_def.get("isOptional"):
+                continue
+            raise RuntimeError(f"Missing account mapping for '{nm}' in '{ix_idl['name']}'")
+        is_signer = bool(acc_def.get("isSigner"))
+        is_mut = bool(acc_def.get("isMut"))
+        metas.append(AccountMeta(account_mapping[nm], is_signer, is_mut))
+
+    # Helpful trace: shows exactly what will be sent to the program
+    try:
+        names = [a.get("name") for a in ix_idl.get("accounts", []) or []]
+        print(
+            "[perps] metas normalized:",
+            {n: str(account_mapping[n]) for n in names if n in account_mapping},
+        )
+    except Exception:
+        pass
+    # --- end normalization -------------------------------------------------------
 
     data = build_data(ix_idl, args, types_idx)
     instructions: List[Instruction] = []
