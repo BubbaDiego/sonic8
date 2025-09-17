@@ -572,7 +572,7 @@ def open_position_request(
 
     idl_args = ix_idl.get("args", []) or []
 
-    # First pass: set values by name so we never miss referral-like args.
+    # First pass by name (covers referral/referrer/referralAccount etc.)
     for arg in idl_args:
         name = arg["name"]
         type_def = arg["type"]
@@ -600,7 +600,7 @@ def open_position_request(
             # bools default to False (encoded as 0)
             args[name] = False
 
-    # Second pass: fill anything still missing by type.
+    # Second pass by type (publicKey-like → default to owner; never KeyError later)
     for arg in idl_args:
         name = arg["name"]
         if name in args:
@@ -618,6 +618,11 @@ def open_position_request(
         else:
             # defined/option/etc → set to zero-ish (encoder will handle options)
             args[name] = 0
+
+    try:
+        print("[perps] arg map:", json.dumps(args))
+    except Exception:
+        pass
 
     input_mint_value = base_accounts.get("input_mint")
     input_mint: Optional[Pubkey] = None
@@ -645,7 +650,10 @@ def open_position_request(
 
     data = build_data(ix_idl, args, types_map)
 
-    def _send_with(_override: Dict[str, Pubkey] | None = None) -> str:
+    def _send_with(
+        _override: Dict[str, Pubkey] | None = None,
+        _simulate: bool = False,
+    ) -> str:
         # rebuild metas if we override token_program for the retry
         _metas: List[AccountMeta] = []
         if _override:
@@ -674,6 +682,23 @@ def open_position_request(
         )
         transaction = VersionedTransaction(message, [wallet])
         raw_tx = base64.b64encode(bytes(transaction)).decode()
+        if _simulate or os.getenv("PERPS_SIMULATE", "").strip() == "1":
+            sim = rpc(
+                "simulateTransaction",
+                [
+                    raw_tx,
+                    {
+                        "encoding": "base64",
+                        "sigVerify": False,
+                        "replaceRecentBlockhash": True,
+                    },
+                ],
+            )
+            logs = (sim.get("value") or {}).get("logs") or []
+            if logs:
+                print("[perps] simulate logs:\n  " + "\n  ".join(logs[:30]))
+            if (sim.get("value") or {}).get("err"):
+                raise RuntimeError("simulation failed; see server logs for details")
         return rpc(
             "sendTransaction",
             [raw_tx, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
@@ -681,7 +706,7 @@ def open_position_request(
 
     # try once with current mapping
     try:
-        sig = _send_with(None)
+        sig = _send_with(None, _simulate=False)
         return {"signature": sig, "programId": str(program_id), "market": market}
     except Exception as e:
         s = str(e)
@@ -695,7 +720,7 @@ def open_position_request(
             if "token_program" in override:
                 override["token_program"] = alt
             print(f"[perps] retrying open-request with token_program={str(alt)}")
-            sig = _send_with(override)
+            sig = _send_with(override, _simulate=False)
             return {"signature": sig, "programId": str(program_id), "market": market}
         # bubble anything else
         raise
