@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import json
 import os
+import re
 import time
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
@@ -106,7 +108,7 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
 def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
     """
     Prefer the discriminator bytes embedded in the IDL (newer Anchor), otherwise
-    fall back to sha256('global:<name>')[:8]. IDL shapes seen in the wild:
+    fall back to sha256('global:<name>')[:8]. IDL shapes seen:
       { "discriminant": { "bytes": [..8..] } }
       { "discriminant": { "value": [..8..] } }
       { "discriminator": [..8..] }  # very old
@@ -126,7 +128,68 @@ def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
         except Exception:
             pass
 
-    name = str(ix_idl.get("name", ""))
+    # Fallback – derive from name (Anchor uses Rust snake_case)
+    name = str(ix_idl.get("name", "")).strip()
+
+    def snake_guess(raw: str) -> str:
+        # Try to rebuild common rust snake_case from flat/camel names seen in your IDL
+        s = raw.lower()
+        tokens = [
+            "create",
+            "instant",
+            "update",
+            "increase",
+            "decrease",
+            "open",
+            "close",
+            "position",
+            "market",
+            "request",
+            "swap",
+            "liquidity",
+            "pool",
+            "config",
+            "fees",
+            "test",
+            "set",
+        ]
+        i = 0
+        out: List[str] = []
+        while i < len(s):
+            matched = False
+            for token in sorted(tokens, key=len, reverse=True):
+                if s[i:].startswith(token):
+                    out.append(token)
+                    i += len(token)
+                    matched = True
+                    break
+            if not matched:
+                match = re.match(r"\d+", s[i:])
+                if match:
+                    out.append(match.group(0))
+                    i += len(match.group(0))
+                else:
+                    out.append(s[i])
+                    i += 1
+        merged: List[str] = []
+        for part in out:
+            if len(part) == 1 and part.isalpha() and merged:
+                merged[-1] = merged[-1] + part
+            else:
+                merged.append(part)
+        return "_".join(filter(None, merged))
+
+    guesses = [snake_guess(name)]
+    guesses += [
+        "create_increase_position_market_request",
+        "increase_position4",
+        "instant_increase_position",
+        name,
+    ]
+    for guess in guesses:
+        sighash = hashlib.sha256(f"global:{guess}".encode("utf-8")).digest()[:8]
+        return sighash
+
     return hashlib.sha256(f"global:{name}".encode("utf-8")).digest()[:8]
 
 
@@ -230,7 +293,13 @@ def _encode_type(type_def: Any, value: Any, types: Dict[str, Dict[str, Any]]) ->
 
 def build_data(ix_idl: Dict[str, Any], arg_values: Dict[str, Any], idl_types: Dict[str, Dict[str, Any]]) -> bytes:
     data = bytearray()
-    data += _disc_from_idl(ix_idl)
+    disc = _disc_from_idl(ix_idl)
+    try:
+        used = ix_idl.get("name", "?")
+        print(f"[perps] using ix='{used}' disc=0x{binascii.hexlify(disc).decode()}")
+    except Exception:
+        pass
+    data += disc
     for arg in ix_idl.get("args", []):
         name = arg["name"]
         if name not in arg_values:
