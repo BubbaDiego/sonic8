@@ -583,40 +583,58 @@ def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[Acco
 
 
 def _force_token_program_slot(ix_idl: Dict[str, Any],
+                              mapping: Dict[str, Pubkey],
                               metas: List[AccountMeta]) -> List[AccountMeta]:
     """
-    Ensure the meta at the IDL slot named 'token_program' (or 'tokenProgram')
+    Ensure the meta for the account named `token_program` (or `tokenProgram`)
     is the Associated Token Program (ATokenGPv…).
-    Always log the index and before/after pubkeys.
+    IMPORTANT: computes the metas index by walking the IDL *and* the mapping,
+    skipping optional accounts that are not provided in `mapping`, so indices align.
     """
-
     accounts = ix_idl.get("accounts") or []
-    idx = None
-    for i, acc_def in enumerate(accounts):
-        nm = str(acc_def.get("name", "")).lower()
-        if nm in ("token_program", "tokenprogram"):
-            idx = i
+    metas_idx = -1
+    target_seen = False
+    target_idx = None
+
+    for acc_def in accounts:
+        nm = str(acc_def.get("name", ""))
+        nm_lc = nm.lower()
+        is_opt = bool(acc_def.get("isOptional"))
+        present = (nm in mapping)
+
+        # If this is the token_program slot, record the metas index it *will* occupy
+        if nm_lc in ("token_program", "tokenprogram"):
+            target_seen = True
+            # If optional and not present, it won’t be appended → there is no slot to fix
+            if is_opt and not present:
+                target_idx = None
+            else:
+                target_idx = metas_idx + 1  # it will be appended next
             break
-    if idx is None:
-        print("[perps] token_program slot: <not present in this instruction>")
+
+        # advance metas index only when this account will be appended
+        if present or not is_opt:
+            metas_idx += 1
+
+    if not target_seen or target_idx is None:
+        print("[perps] token_program slot: not present for this instruction (optional or absent)")
         return metas
 
-    fixed = list(metas)
-    if idx >= len(fixed):
-        print(f"[perps] token_program slot idx={idx} out of metas range (len={len(fixed)})")
-        return fixed
+    if target_idx >= len(metas):
+        print(f"[perps] token_program metas idx out of range: {target_idx} >= {len(metas)}")
+        return metas
 
-    before = str(fixed[idx].pubkey)
-    after = str(ASSOCIATED_TOKEN_PROG)
-    print(f"[perps] token_program slot idx={idx} BEFORE={before}")
-    if fixed[idx].pubkey != ASSOCIATED_TOKEN_PROG:
-        fixed[idx] = AccountMeta(ASSOCIATED_TOKEN_PROG,
-                                 fixed[idx].is_signer,
-                                 fixed[idx].is_writable)
-        print(f"[perps] token_program slot idx={idx} AFTER ={after}")
+    before = str(metas[target_idx].pubkey)
+    if metas[target_idx].pubkey != ASSOCIATED_TOKEN_PROG:
+        metas[target_idx] = AccountMeta(
+            ASSOCIATED_TOKEN_PROG,
+            metas[target_idx].is_signer,
+            metas[target_idx].is_writable
+        )
+        print(f"[perps] token_program fixed at metas[{target_idx}] : {before} → {str(ASSOCIATED_TOKEN_PROG)}")
     else:
-        print(f"[perps] token_program slot idx={idx} already AToken")
-    return fixed
+        print(f"[perps] token_program already AToken at metas[{target_idx}]")
+    return metas
 
 
 def open_position_request(
@@ -787,7 +805,7 @@ def open_position_request(
     metas = _metas_from(ix_idl, mapping)
     # metas is already built from the normalized mapping and IDL order.
     # Enforce AToken in the validated slot even if something upstream drifted.
-    metas = _force_token_program_slot(ix_idl, metas)
+    metas = _force_token_program_slot(ix_idl, mapping, metas)
 
     try:
         names = [a.get("name") for a in (ix_idl.get("accounts") or [])]
@@ -815,7 +833,7 @@ def open_position_request(
         _metas = _metas_from(ix_idl, effective)
         # metas is already built from the normalized mapping and IDL order.
         # Enforce AToken in the validated slot even if something upstream drifted.
-        _metas = _force_token_program_slot(ix_idl, _metas)
+        _metas = _force_token_program_slot(ix_idl, effective, _metas)
 
         ixs: List[Instruction] = []
         ixs += compute_budget_ixs()
@@ -946,7 +964,7 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
     metas = _metas_from(ix_idl, mapping)
     # metas is already built from the normalized mapping and IDL order.
     # Enforce AToken in the validated slot even if something upstream drifted.
-    metas = _force_token_program_slot(ix_idl, metas)
+    metas = _force_token_program_slot(ix_idl, mapping, metas)
 
     try:
         names = [a.get("name") for a in (ix_idl.get("accounts") or [])]
