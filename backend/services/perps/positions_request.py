@@ -798,11 +798,23 @@ def open_position_request(
     mapping = account_mapping if "account_mapping" in locals() else acct
 
     # Extract counter (u64) from the struct arg you already built
+    counter_from_args: Optional[int] = None
     try:
-        # arg shape: {"params": { ... "counter": <int> }}
-        counter = int(args.get("params", {}).get("counter", 0))
+        # struct arg shape: {"params": { ... "counter": <int> }}
+        params = args.get("params", {})
+        if isinstance(params, dict) and params.get("counter") is not None:
+            counter_from_args = int(params.get("counter"))
     except Exception:
-        counter = 0
+        counter_from_args = None
+    if counter_from_args is None:
+        try:
+            top_level_counter = args.get("counter")
+            if top_level_counter is not None:
+                counter_from_args = int(top_level_counter)
+        except Exception:
+            counter_from_args = None
+    if counter_from_args is not None:
+        counter = counter_from_args
 
     # Derive position_request PDA: ["position_request", position, counter_u64_le]
     try:
@@ -815,6 +827,19 @@ def open_position_request(
         )[0]
         mapping["positionRequest"] = pr_pda
         mapping["position_request"] = pr_pda  # cover snake/camel
+        try:
+            pr_str = str(pr_pda)
+            params = args.get("params")
+            if isinstance(params, dict):
+                for key in list(params.keys()):
+                    if isinstance(key, str) and "positionrequest" in key.lower():
+                        params[key] = pr_str
+            for key in list(args.keys()):
+                if isinstance(key, str) and key != "params" and "positionrequest" in key.lower():
+                    args[key] = pr_str
+        except Exception:
+            pass
+        request = pr_pda
         print(f"[perps] DERIVED positionRequest from counter={counter} → {str(pr_pda)}")
     except Exception as e:
         print(f"[perps] positionRequest derivation failed: {e}")
