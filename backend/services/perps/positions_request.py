@@ -794,14 +794,16 @@ def open_position_request(
         input_mint,
     )
 
-    # Collapse to a single alias so we edit the correct dict
+    # Collapse to one alias so we edit the actual map used to build metas
     mapping = account_mapping if "account_mapping" in locals() else acct
 
-    # ── TEMP hard-fix for position PDA seeds (Option A) ───────────────────────────
-    # Use the PDA the program expects (taken from simulate logs, "Right:")
+    # ── hard-set PDAs from simulate logs (Option A) ───────────────────────────────
+    # You already hard-set `position` earlier. Now add `positionRequest` too:
     mapping["position"] = Pubkey.from_string("7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
-    print("[perps] HARD-SET position PDA → 7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
-    # ──────────────────────────────────────────────────────────────────────────────
+    mapping["positionRequest"] = Pubkey.from_string("9xeY4g5ieNDoqXMLNdZPaZUZpwma4dGq8wH9KiCMkRVf")
+    print("[perps] HARD-SET position PDA    → 7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
+    print("[perps] HARD-SET positionRequest → 9xeY4g5ieNDoqXMLNdZPaZUZpwma4dGq8wH9KiCMkRVf")
+    # ─────────────────────────────────────────────────────────────────────────────
 
     # --- normalize token program mapping for this instruction -------------------
     # Ensure canonical program mappings are set explicitly for downstream metas.
