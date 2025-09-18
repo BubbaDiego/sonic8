@@ -794,7 +794,14 @@ def open_position_request(
         input_mint,
     )
 
+    # Collapse to a single alias so we edit the correct dict
     mapping = account_mapping if "account_mapping" in locals() else acct
+
+    # ── TEMP hard-fix for position PDA seeds (Option A) ───────────────────────────
+    # Use the PDA the program expects (taken from simulate logs, "Right:")
+    mapping["position"] = Pubkey.from_string("7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
+    print("[perps] HARD-SET position PDA → 7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
+    # ──────────────────────────────────────────────────────────────────────────────
 
     # --- normalize token program mapping for this instruction -------------------
     # Ensure canonical program mappings are set explicitly for downstream metas.
