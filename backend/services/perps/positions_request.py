@@ -29,6 +29,7 @@ USD_SCALE = int(os.getenv("PERPS_USD_SCALE", 1_000_000))
 SYSTEM_PROGRAM = Pubkey.from_string("11111111111111111111111111111111")
 SPL_TOKEN_PROGRAM = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 ASSOCIATED_TOKEN_PROG = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+EXPECTED_POSITION_PDA = Pubkey.from_string("7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
 
 IDL_PATH = os.path.join(os.path.dirname(__file__), "idl", "jupiter_perpetuals.json")
 
@@ -591,9 +592,9 @@ def _pdas(
 # ---------- public API ----------
 def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[AccountMeta]:
     """
-    Build metas strictly in IDL-declared order.
-    - If an account is optional and absent in `mapping`, we skip it.
-    - If an account is required and absent, we raise with a clear message.
+    Build metas strictly in IDL order.
+    - If an account is optional and missing in mapping, skip it.
+    - Always force the 'position' account to EXPECTED_POSITION_PDA.
     """
 
     metas: List[AccountMeta] = []
@@ -602,10 +603,17 @@ def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[Acco
         is_signer = bool(acc_def.get("isSigner"))
         is_writable = bool(acc_def.get("isMut"))
         is_opt = bool(acc_def.get("isOptional"))
+
+        # force position PDA regardless of what mapping contains
+        if nm.lower() == "position":
+            metas.append(AccountMeta(EXPECTED_POSITION_PDA, is_signer, is_writable))
+            continue
+
         if nm not in mapping:
             if is_opt:
                 continue
             raise KeyError(nm)
+
         metas.append(AccountMeta(mapping[nm], is_signer, is_writable))
     return metas
 
@@ -654,7 +662,6 @@ def open_position_request(
     owner = wallet.pubkey()
     market_info = resolve_market(market)
     market_mint = str(market_info.get("base_mint") or DEFAULT_BASE_MINT)
-    EXPECTED_POSITION_PDA = Pubkey.from_string("7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
     position, request, counter = _pdas(owner, market, program_id, market_mint)
     base_accounts, resolve_extra = _market_info(market, market_info)
 
@@ -795,56 +802,43 @@ def open_position_request(
         input_mint,
     )
 
-    # Collapse to one alias so we edit the actual map used to build metas
+    # Ensure mapping uses the expected PDA *and* derive positionRequest from it
     mapping = account_mapping if "account_mapping" in locals() else acct
+    mapping["position"] = EXPECTED_POSITION_PDA
+    print(f"[perps] FORCE position → {str(EXPECTED_POSITION_PDA)}")
 
-    # Extract counter (u64) from the struct arg you already built
-    counter_from_args: Optional[int] = None
+    # (re)derive positionRequest from position + counter (u64 LE)
     try:
-        # struct arg shape: {"params": { ... "counter": <int> }}
-        params = args.get("params", {})
-        if isinstance(params, dict) and params.get("counter") is not None:
-            counter_from_args = int(params.get("counter"))
+        counter_override = int(args.get("params", {}).get("counter", counter))
     except Exception:
-        counter_from_args = None
-    if counter_from_args is None:
         try:
-            top_level_counter = args.get("counter")
-            if top_level_counter is not None:
-                counter_from_args = int(top_level_counter)
+            counter_override = int(counter)
         except Exception:
-            counter_from_args = None
-    if counter_from_args is not None:
-        counter = counter_from_args
+            counter_override = 0
+    counter = counter_override
+    mapping["positionRequest"] = Pubkey.find_program_address(
+        [b"position_request", bytes(EXPECTED_POSITION_PDA), counter_override.to_bytes(8, "little")],
+        program_id,
+    )[0]
+    mapping["position_request"] = mapping["positionRequest"]
+    request = mapping["positionRequest"]
 
-    # Derive position_request PDA: ["position_request", position, counter_u64_le]
     try:
-        pos_pda = mapping["position"]  # must already be a Pubkey; you hard-set or derived it earlier
-        if not isinstance(pos_pda, Pubkey):
-            pos_pda = Pubkey.from_string(str(pos_pda))
-        pr_pda = Pubkey.find_program_address(
-            [b"position_request", bytes(pos_pda), counter.to_bytes(8, "little")],
-            program_id,
-        )[0]
-        mapping["positionRequest"] = pr_pda
-        mapping["position_request"] = pr_pda  # cover snake/camel
-        try:
-            pr_str = str(pr_pda)
-            params = args.get("params")
-            if isinstance(params, dict):
-                for key in list(params.keys()):
-                    if isinstance(key, str) and "positionrequest" in key.lower():
-                        params[key] = pr_str
-            for key in list(args.keys()):
-                if isinstance(key, str) and key != "params" and "positionrequest" in key.lower():
-                    args[key] = pr_str
-        except Exception:
-            pass
-        request = pr_pda
-        print(f"[perps] DERIVED positionRequest from counter={counter} → {str(pr_pda)}")
-    except Exception as e:
-        print(f"[perps] positionRequest derivation failed: {e}")
-        # leave whatever was there; simulate will show Right: ... if wrong
+        pr_str = str(request)
+        params = args.get("params")
+        if isinstance(params, dict):
+            for key in list(params.keys()):
+                if isinstance(key, str) and "positionrequest" in key.lower():
+                    params[key] = pr_str
+        for key in list(args.keys()):
+            if isinstance(key, str) and key != "params" and "positionrequest" in key.lower():
+                args[key] = pr_str
+    except Exception:
+        pass
+
+    print(
+        f"[perps] DERIVED positionRequest from counter={counter} → {str(mapping['positionRequest'])}"
+    )
 
     # --- normalize token program mapping for this instruction -------------------
     # Ensure canonical program mappings are set explicitly for downstream metas.
@@ -853,10 +847,6 @@ def open_position_request(
     mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
     mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
     # ---------------------------------------------------------------------------
-
-    # ── force position PDA right before metas (prevents any late overwrite) ──
-    mapping["position"] = EXPECTED_POSITION_PDA
-    print(f"[perps] FORCE position → {str(EXPECTED_POSITION_PDA)}")
 
     metas = _metas_from(ix_idl, mapping)
     metas = _force_token_program_slot(ix_idl, mapping, metas)
@@ -887,9 +877,23 @@ def open_position_request(
         if _override:
             effective.update(_override)
 
-        # ── force position PDA here too ──
+        # Force again in the send path so nothing upstream can override it
         effective["position"] = EXPECTED_POSITION_PDA
         print(f"[perps] FORCE(position in _send_with) → {str(EXPECTED_POSITION_PDA)}")
+
+        # (re)derive positionRequest here too, from the same PDA + current counter
+        try:
+            counter_override = int(args.get("params", {}).get("counter", counter))
+        except Exception:
+            try:
+                counter_override = int(counter)
+            except Exception:
+                counter_override = 0
+        effective["positionRequest"] = Pubkey.find_program_address(
+            [b"position_request", bytes(EXPECTED_POSITION_PDA), counter_override.to_bytes(8, "little")],
+            program_id,
+        )[0]
+        effective["position_request"] = effective["positionRequest"]
 
         _metas = _metas_from(ix_idl, effective)
         _metas = _force_token_program_slot(ix_idl, effective, _metas)
