@@ -600,6 +600,16 @@ def _dump_idl_and_metas(ix_idl: Dict[str, Any], metas: List[AccountMeta]) -> Non
         pass
 
 
+def _force_all_tokenkeg_to_atoken(metas: List[AccountMeta]) -> List[AccountMeta]:
+    fixed = list(metas)
+    for i, m in enumerate(fixed):
+        # compare by string too, in case your SPL constant mismatches
+        if m.pubkey == SPL_TOKEN_PROGRAM or str(m.pubkey).startswith("TokenkegQfe"):
+            fixed[i] = AccountMeta(ASSOCIATED_TOKEN_PROG, m.is_signer, m.is_writable)
+            print(f"[perps] replaced metas[{i}] Tokenkeg → AToken (hard)")
+    return fixed
+
+
 def _force_token_program_slot(ix_idl: Dict[str, Any],
                               mapping: Dict[str, Pubkey],
                               metas: List[AccountMeta]) -> List[AccountMeta]:
@@ -817,6 +827,7 @@ def open_position_request(
 
     metas = _metas_from(ix_idl, mapping)
     metas = _force_token_program_slot(ix_idl, mapping, metas)
+    metas = _force_all_tokenkeg_to_atoken(metas)
     _dump_idl_and_metas(ix_idl, metas)
 
     try:
@@ -844,6 +855,7 @@ def open_position_request(
             effective.update(_override)
         _metas = _metas_from(ix_idl, effective)
         _metas = _force_token_program_slot(ix_idl, effective, _metas)
+        _metas = _force_all_tokenkeg_to_atoken(_metas)
         _dump_idl_and_metas(ix_idl, _metas)
 
         ixs: List[Instruction] = []
@@ -974,6 +986,7 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
 
     metas = _metas_from(ix_idl, mapping)
     metas = _force_token_program_slot(ix_idl, mapping, metas)
+    metas = _force_all_tokenkeg_to_atoken(metas)
     _dump_idl_and_metas(ix_idl, metas)
 
     try:
