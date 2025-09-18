@@ -406,7 +406,8 @@ def map_accounts(
 
     metas: List[AccountMeta] = []
     mapping: Dict[str, Pubkey] = {}
-    referral_value = base_accounts.get("referral")
+    referral_env = os.getenv("JUP_PERPS_REFERRAL", "").strip()
+    referral_default = Pubkey.from_string(referral_env or str(owner))
     custody_base = base_accounts.get("custody") or base_accounts.get("custody_base")
     collateral_value = (
         base_accounts.get("collateralCustody")
@@ -449,6 +450,15 @@ def map_accounts(
                 mapping[name] = _pubkey_from_str(resolve_extra(market, key), market, key)
             else:
                 mapping[name] = _pubkey_from_str(base_accounts[key], market, key)
+        elif name in (
+            "referral",
+            "referrer",
+            "referralAccount",
+            "referrerAccount",
+            "refAccount",
+            "ref",
+        ):
+            mapping[name] = referral_default
         elif name in ("tokenProgram", "token_program"):
             # This program expects the Associated Token Program in this slot.
             # (Sim logs showed Left: ATokenGPv… Right: Tokenkeg…)
@@ -464,7 +474,12 @@ def map_accounts(
             mapping[name] = ASSOCIATED_TOKEN_PROG
         elif name in ("perpetuals",):
             mapping[name] = derive_perpetuals_pda()
-        elif name in ("eventAuthority", "event_authority"):
+        elif name in (
+            "eventAuthority",
+            "event_authority",
+            "eventAuthorityPda",
+            "__event_authority",
+        ):
             mapping[name] = derive_event_authority()
         elif name in ("program",):
             mapping[name] = program_id
@@ -491,15 +506,6 @@ def map_accounts(
                 mapping[name] = _pubkey_from_str(mint_value, market, "input_mint")
             else:
                 mapping[name] = _pubkey_from_str(resolve_extra(market, name), market, name)
-        elif name in ("referral",):
-            if referral_value and "ReplaceWith" not in referral_value:
-                mapping[name] = _pubkey_from_str(referral_value, market, "referral")
-            elif not acc.get("isOptional"):
-                value = resolve_extra(market, name)
-                mapping[name] = _pubkey_from_str(value, market, name)
-            else:
-                # optional and not configured; skip meta entirely
-                pass
         else:
             value = resolve_extra(market, name)
             mapping[name] = _pubkey_from_str(value, market, name)
