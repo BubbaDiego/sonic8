@@ -601,63 +601,21 @@ def _dump_idl_and_metas(ix_idl: Dict[str, Any], metas: List[AccountMeta]) -> Non
 
 
 def _force_all_tokenkeg_to_atoken(metas: List[AccountMeta]) -> List[AccountMeta]:
-    fixed = list(metas)
-    for i, m in enumerate(fixed):
-        # compare by string too, in case your SPL constant mismatches
-        if m.pubkey == SPL_TOKEN_PROGRAM or str(m.pubkey).startswith("TokenkegQfe"):
-            fixed[i] = AccountMeta(ASSOCIATED_TOKEN_PROG, m.is_signer, m.is_writable)
-            print(f"[perps] replaced metas[{i}] Tokenkeg → AToken (hard)")
-    return fixed
+    """Legacy shim: previously rewrote stray Tokenkeg accounts to AToken.
+
+    Now acts as a no-op to avoid clobbering validated token program slots while
+    keeping the call sites intact for logging parity with earlier builds.
+    """
+
+    return list(metas)
 
 
 def _force_token_program_slot(ix_idl: Dict[str, Any],
                               mapping: Dict[str, Pubkey],
                               metas: List[AccountMeta]) -> List[AccountMeta]:
-    """
-    1) Try to set the IDL-named 'token_program' (or 'tokenProgram') slot to AToken.
-    2) If that slot isn't present (optional omitted or index drift), replace ANY meta
-       whose pubkey is Tokenkeg with AToken exactly once (temporary rail).
-    Always log before/after.
-    """
-    accs = ix_idl.get("accounts") or []
-    # compute metas index by walking IDL + mapping, skipping missing optionals
-    metas_idx = -1
-    target_idx = None
-    for acc_def in accs:
-        nm = str(acc_def.get("name",""))
-        nm_lc = nm.lower()
-        is_opt = bool(acc_def.get("isOptional"))
-        present = (nm in mapping)
-        if nm_lc in ("token_program","tokenprogram"):
-            # if optional and not present, we'll try fallback below
-            if not (is_opt and not present):
-                target_idx = metas_idx + 1
-            break
-        if present or not is_opt:
-            metas_idx += 1
+    """Legacy shim retained for compatibility; now returns metas unchanged."""
 
-    fixed = list(metas)
-    # 1) direct slot fix
-    if target_idx is not None and target_idx < len(fixed):
-        before = str(fixed[target_idx].pubkey)
-        if fixed[target_idx].pubkey != ASSOCIATED_TOKEN_PROG:
-            fixed[target_idx] = AccountMeta(ASSOCIATED_TOKEN_PROG,
-                                            fixed[target_idx].is_signer,
-                                            fixed[target_idx].is_writable)
-            print(f"[perps] token_program slot {target_idx} : {before} → {str(ASSOCIATED_TOKEN_PROG)}")
-        else:
-            print(f"[perps] token_program slot {target_idx} already AToken")
-        return fixed
-
-    # 2) fallback: replace one Tokenkeg with AToken (prints which index)
-    for i, m in enumerate(fixed):
-        if m.pubkey == SPL_TOKEN_PROGRAM:
-            fixed[i] = AccountMeta(ASSOCIATED_TOKEN_PROG, m.is_signer, m.is_writable)
-            print(f"[perps] fallback: replaced metas[{i}] Tokenkeg → AToken")
-            return fixed
-
-    print("[perps] token_program: nothing to fix (no slot and no Tokenkeg found)")
-    return fixed
+    return list(metas)
 
 
 def open_position_request(
@@ -817,10 +775,9 @@ def open_position_request(
     mapping = account_mapping if "account_mapping" in locals() else acct
 
     # --- normalize token program mapping for this instruction -------------------
-    # Anchor validates the slot named `token_program` against Associated Token Program.
-    # Ensure both camel/snake keys point to AToken, and set ATA slot explicitly.
-    mapping["tokenProgram"] = ASSOCIATED_TOKEN_PROG
-    mapping["token_program"] = ASSOCIATED_TOKEN_PROG
+    # Ensure canonical program mappings are set explicitly for downstream metas.
+    mapping["tokenProgram"] = SPL_TOKEN_PROGRAM
+    mapping["token_program"] = SPL_TOKEN_PROGRAM
     mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
     mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
     # ---------------------------------------------------------------------------
@@ -976,10 +933,9 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
     mapping = account_mapping if "account_mapping" in locals() else acct
 
     # --- normalize token program mapping for this instruction -------------------
-    # Anchor validates the slot named `token_program` against Associated Token Program.
-    # Ensure both camel/snake keys point to AToken, and set ATA slot explicitly.
-    mapping["tokenProgram"] = ASSOCIATED_TOKEN_PROG
-    mapping["token_program"] = ASSOCIATED_TOKEN_PROG
+    # Ensure canonical program mappings are set explicitly for downstream metas.
+    mapping["tokenProgram"] = SPL_TOKEN_PROGRAM
+    mapping["token_program"] = SPL_TOKEN_PROGRAM
     mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
     mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
     # ---------------------------------------------------------------------------
