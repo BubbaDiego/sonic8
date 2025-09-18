@@ -654,6 +654,7 @@ def open_position_request(
     owner = wallet.pubkey()
     market_info = resolve_market(market)
     market_mint = str(market_info.get("base_mint") or DEFAULT_BASE_MINT)
+    EXPECTED_POSITION_PDA = Pubkey.from_string("7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
     position, request, counter = _pdas(owner, market, program_id, market_mint)
     base_accounts, resolve_extra = _market_info(market, market_info)
 
@@ -853,6 +854,10 @@ def open_position_request(
     mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
     # ---------------------------------------------------------------------------
 
+    # ── force position PDA right before metas (prevents any late overwrite) ──
+    mapping["position"] = EXPECTED_POSITION_PDA
+    print(f"[perps] FORCE position → {str(EXPECTED_POSITION_PDA)}")
+
     metas = _metas_from(ix_idl, mapping)
     metas = _force_token_program_slot(ix_idl, mapping, metas)
     metas = _force_all_tokenkeg_to_atoken(metas)
@@ -881,6 +886,11 @@ def open_position_request(
         effective = dict(mapping)
         if _override:
             effective.update(_override)
+
+        # ── force position PDA here too ──
+        effective["position"] = EXPECTED_POSITION_PDA
+        print(f"[perps] FORCE(position in _send_with) → {str(EXPECTED_POSITION_PDA)}")
+
         _metas = _metas_from(ix_idl, effective)
         _metas = _force_token_program_slot(ix_idl, effective, _metas)
         _metas = _force_all_tokenkeg_to_atoken(_metas)
