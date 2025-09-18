@@ -105,6 +105,31 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
     raise RuntimeError(f"Instruction not found; tried {candidates} / {fallback_any}. IDL has: {have}")
 
 
+def _extract_expected_position_from_logs(logs: list[str]) -> str | None:
+    """
+    Look for the right-hand (expected) PDA in a ConstraintSeeds error for `position`.
+    We scan a 2-line window around 'account: position' and return the base58 after 'Right:'.
+    """
+
+    if not logs:
+        return None
+    for i, line in enumerate(logs):
+        if "account: position" in line and "ConstraintSeeds" in line:
+            # next few lines should contain 'Right: <pubkey>'
+            for j in range(i, min(i + 5, len(logs))):
+                m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", logs[j])
+                if m:
+                    return m.group(1)
+    # some builds print Left/Right first, then the 'account: position' line; do a second pass
+    right = None
+    for line in logs:
+        if "Right:" in line:
+            m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", line)
+            if m:
+                right = m.group(1)
+    return right
+
+
 def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
     """
     Prefer the discriminator bytes embedded in the IDL (newer Anchor), otherwise
@@ -841,9 +866,66 @@ def open_position_request(
                     },
                 ],
             )
-            logs = (sim.get("value") or {}).get("logs") or []
-            print("[perps] simulate logs:\n  " + "\n  ".join(logs[:40]))
-            if (sim.get("value") or {}).get("err"):
+            val = sim.get("value") or {}
+            logs = val.get("logs") or []
+            print("[perps] simulate logs:\n  " + "\n  ".join(logs[:60]))
+            if val.get("err"):
+                # 🧠 seeds mismatch for `position`? adopt the expected PDA and retry once
+                expect_pos = _extract_expected_position_from_logs(logs)
+                if expect_pos:
+                    try:
+                        # update mapping and rebuild metas with the corrected PDA
+                        effective["position"] = Pubkey.from_string(expect_pos)
+                        _metas = _metas_from(ix_idl, effective)
+                        _metas = _force_token_program_slot(ix_idl, effective, _metas)
+                        _metas = _force_all_tokenkeg_to_atoken(_metas)
+                        _dump_idl_and_metas(ix_idl, _metas)
+                        # rebuild tx with corrected metas
+                        msg2 = MessageV0.try_compile(
+                            payer=owner,
+                            instructions=[
+                                *compute_budget_ixs(),
+                                Instruction(program_id, data, _metas),
+                            ],
+                            address_lookup_table_accounts=[],
+                            recent_blockhash=recent_blockhash(),
+                        )
+                        tx2 = VersionedTransaction(msg2, [wallet])
+                        raw2 = base64.b64encode(bytes(tx2)).decode()
+                        # optional: simulate again for clarity
+                        sim2 = rpc(
+                            "simulateTransaction",
+                            [
+                                raw2,
+                                {
+                                    "encoding": "base64",
+                                    "sigVerify": False,
+                                    "replaceRecentBlockhash": True,
+                                },
+                            ],
+                        )
+                        val2 = sim2.get("value") or {}
+                        logs2 = val2.get("logs") or []
+                        print("[perps] simulate (after fix) logs:\n  " + "\n  ".join(logs2[:60]))
+                        if val2.get("err"):
+                            raise RuntimeError(
+                                "simulation failed after position fix; see logs above"
+                            )
+                        # send corrected tx
+                        return rpc(
+                            "sendTransaction",
+                            [
+                                raw2,
+                                {
+                                    "encoding": "base64",
+                                    "skipPreflight": False,
+                                    "maxRetries": 3,
+                                },
+                            ],
+                        )
+                    except Exception as _e:
+                        print(f"[perps] position PDA fix attempt failed: {_e}")
+                # not a seeds error or couldn’t parse → bubble with logs printed
                 raise RuntimeError("simulation failed; see server logs for details")
 
         return rpc(
