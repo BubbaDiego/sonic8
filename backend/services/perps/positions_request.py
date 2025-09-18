@@ -797,13 +797,28 @@ def open_position_request(
     # Collapse to one alias so we edit the actual map used to build metas
     mapping = account_mapping if "account_mapping" in locals() else acct
 
-    # ── hard-set PDAs from simulate logs (Option A) ───────────────────────────────
-    # You already hard-set `position` earlier. Now add `positionRequest` too:
-    mapping["position"] = Pubkey.from_string("7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
-    mapping["positionRequest"] = Pubkey.from_string("9xeY4g5ieNDoqXMLNdZPaZUZpwma4dGq8wH9KiCMkRVf")
-    print("[perps] HARD-SET position PDA    → 7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
-    print("[perps] HARD-SET positionRequest → 9xeY4g5ieNDoqXMLNdZPaZUZpwma4dGq8wH9KiCMkRVf")
-    # ─────────────────────────────────────────────────────────────────────────────
+    # Extract counter (u64) from the struct arg you already built
+    try:
+        # arg shape: {"params": { ... "counter": <int> }}
+        counter = int(args.get("params", {}).get("counter", 0))
+    except Exception:
+        counter = 0
+
+    # Derive position_request PDA: ["position_request", position, counter_u64_le]
+    try:
+        pos_pda = mapping["position"]  # must already be a Pubkey; you hard-set or derived it earlier
+        if not isinstance(pos_pda, Pubkey):
+            pos_pda = Pubkey.from_string(str(pos_pda))
+        pr_pda = Pubkey.find_program_address(
+            [b"position_request", bytes(pos_pda), counter.to_bytes(8, "little")],
+            program_id,
+        )[0]
+        mapping["positionRequest"] = pr_pda
+        mapping["position_request"] = pr_pda  # cover snake/camel
+        print(f"[perps] DERIVED positionRequest from counter={counter} → {str(pr_pda)}")
+    except Exception as e:
+        print(f"[perps] positionRequest derivation failed: {e}")
+        # leave whatever was there; simulate will show Right: ... if wrong
 
     # --- normalize token program mapping for this instruction -------------------
     # Ensure canonical program mappings are set explicitly for downstream metas.
