@@ -582,59 +582,66 @@ def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[Acco
     return metas
 
 
+def _dump_idl_and_metas(ix_idl: Dict[str, Any], metas: List[AccountMeta]) -> None:
+    try:
+        rows = []
+        accs = ix_idl.get("accounts") or []
+        for i, m in enumerate(metas):
+            nm = accs[i]["name"] if i < len(accs) else "<extra>"
+            rows.append(f"  [{i:02d}] {nm:24s} {str(m.pubkey)}")
+        print("[perps] metas detail:\n" + "\n".join(rows))
+    except Exception:
+        pass
+
+
 def _force_token_program_slot(ix_idl: Dict[str, Any],
                               mapping: Dict[str, Pubkey],
                               metas: List[AccountMeta]) -> List[AccountMeta]:
     """
-    Ensure the meta for the account named `token_program` (or `tokenProgram`)
-    is the Associated Token Program (ATokenGPv…).
-    IMPORTANT: computes the metas index by walking the IDL *and* the mapping,
-    skipping optional accounts that are not provided in `mapping`, so indices align.
+    1) Try to set the IDL-named 'token_program' (or 'tokenProgram') slot to AToken.
+    2) If that slot isn't present (optional omitted or index drift), replace ANY meta
+       whose pubkey is Tokenkeg with AToken exactly once (temporary rail).
+    Always log before/after.
     """
-    accounts = ix_idl.get("accounts") or []
+    accs = ix_idl.get("accounts") or []
+    # compute metas index by walking IDL + mapping, skipping missing optionals
     metas_idx = -1
-    target_seen = False
     target_idx = None
-
-    for acc_def in accounts:
-        nm = str(acc_def.get("name", ""))
+    for acc_def in accs:
+        nm = str(acc_def.get("name",""))
         nm_lc = nm.lower()
         is_opt = bool(acc_def.get("isOptional"))
         present = (nm in mapping)
-
-        # If this is the token_program slot, record the metas index it *will* occupy
-        if nm_lc in ("token_program", "tokenprogram"):
-            target_seen = True
-            # If optional and not present, it won’t be appended → there is no slot to fix
-            if is_opt and not present:
-                target_idx = None
-            else:
-                target_idx = metas_idx + 1  # it will be appended next
+        if nm_lc in ("token_program","tokenprogram"):
+            # if optional and not present, we'll try fallback below
+            if not (is_opt and not present):
+                target_idx = metas_idx + 1
             break
-
-        # advance metas index only when this account will be appended
         if present or not is_opt:
             metas_idx += 1
 
-    if not target_seen or target_idx is None:
-        print("[perps] token_program slot: not present for this instruction (optional or absent)")
-        return metas
+    fixed = list(metas)
+    # 1) direct slot fix
+    if target_idx is not None and target_idx < len(fixed):
+        before = str(fixed[target_idx].pubkey)
+        if fixed[target_idx].pubkey != ASSOCIATED_TOKEN_PROG:
+            fixed[target_idx] = AccountMeta(ASSOCIATED_TOKEN_PROG,
+                                            fixed[target_idx].is_signer,
+                                            fixed[target_idx].is_writable)
+            print(f"[perps] token_program slot {target_idx} : {before} → {str(ASSOCIATED_TOKEN_PROG)}")
+        else:
+            print(f"[perps] token_program slot {target_idx} already AToken")
+        return fixed
 
-    if target_idx >= len(metas):
-        print(f"[perps] token_program metas idx out of range: {target_idx} >= {len(metas)}")
-        return metas
+    # 2) fallback: replace one Tokenkeg with AToken (prints which index)
+    for i, m in enumerate(fixed):
+        if m.pubkey == SPL_TOKEN_PROGRAM:
+            fixed[i] = AccountMeta(ASSOCIATED_TOKEN_PROG, m.is_signer, m.is_writable)
+            print(f"[perps] fallback: replaced metas[{i}] Tokenkeg → AToken")
+            return fixed
 
-    before = str(metas[target_idx].pubkey)
-    if metas[target_idx].pubkey != ASSOCIATED_TOKEN_PROG:
-        metas[target_idx] = AccountMeta(
-            ASSOCIATED_TOKEN_PROG,
-            metas[target_idx].is_signer,
-            metas[target_idx].is_writable
-        )
-        print(f"[perps] token_program fixed at metas[{target_idx}] : {before} → {str(ASSOCIATED_TOKEN_PROG)}")
-    else:
-        print(f"[perps] token_program already AToken at metas[{target_idx}]")
-    return metas
+    print("[perps] token_program: nothing to fix (no slot and no Tokenkeg found)")
+    return fixed
 
 
 def open_position_request(
@@ -803,9 +810,8 @@ def open_position_request(
     # ---------------------------------------------------------------------------
 
     metas = _metas_from(ix_idl, mapping)
-    # metas is already built from the normalized mapping and IDL order.
-    # Enforce AToken in the validated slot even if something upstream drifted.
     metas = _force_token_program_slot(ix_idl, mapping, metas)
+    _dump_idl_and_metas(ix_idl, metas)
 
     try:
         names = [a.get("name") for a in (ix_idl.get("accounts") or [])]
@@ -831,9 +837,8 @@ def open_position_request(
         if _override:
             effective.update(_override)
         _metas = _metas_from(ix_idl, effective)
-        # metas is already built from the normalized mapping and IDL order.
-        # Enforce AToken in the validated slot even if something upstream drifted.
         _metas = _force_token_program_slot(ix_idl, effective, _metas)
+        _dump_idl_and_metas(ix_idl, _metas)
 
         ixs: List[Instruction] = []
         ixs += compute_budget_ixs()
@@ -962,9 +967,8 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
     # ---------------------------------------------------------------------------
 
     metas = _metas_from(ix_idl, mapping)
-    # metas is already built from the normalized mapping and IDL order.
-    # Enforce AToken in the validated slot even if something upstream drifted.
     metas = _force_token_program_slot(ix_idl, mapping, metas)
+    _dump_idl_and_metas(ix_idl, metas)
 
     try:
         names = [a.get("name") for a in (ix_idl.get("accounts") or [])]
