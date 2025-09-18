@@ -107,27 +107,24 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
 
 def _extract_expected_position_from_logs(logs: list[str]) -> str | None:
     """
-    Look for the right-hand (expected) PDA in a ConstraintSeeds error for `position`.
-    We scan a 2-line window around 'account: position' and return the base58 after 'Right:'.
+    If simulate produced a ConstraintSeeds error for `position`, return the
+    base58 after 'Right:' (the PDA the program expects). Otherwise None.
     """
-
     if not logs:
         return None
+    # primary: scan around the 'account: position' line
     for i, line in enumerate(logs):
-        if "account: position" in line and "ConstraintSeeds" in line:
-            # next few lines should contain 'Right: <pubkey>'
-            for j in range(i, min(i + 5, len(logs))):
+        if "account: position" in line and ("ConstraintSeeds" in line or "seeds constraint" in line.lower()):
+            for j in range(i, min(i + 6, len(logs))):
                 m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", logs[j])
                 if m:
                     return m.group(1)
-    # some builds print Left/Right first, then the 'account: position' line; do a second pass
-    right = None
+    # fallback: any 'Right: <pk>' line
     for line in logs:
-        if "Right:" in line:
-            m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", line)
-            if m:
-                right = m.group(1)
-    return right
+        m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", line)
+        if m:
+            return m.group(1)
+    return None
 
 
 def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
@@ -870,17 +867,23 @@ def open_position_request(
             logs = val.get("logs") or []
             print("[perps] simulate logs:\n  " + "\n  ".join(logs[:60]))
             if val.get("err"):
-                # 🧠 seeds mismatch for `position`? adopt the expected PDA and retry once
+                # 🔧 If position PDA seeds mismatch, adopt the expected PDA and retry once
                 expect_pos = _extract_expected_position_from_logs(logs)
                 if expect_pos:
                     try:
-                        # update mapping and rebuild metas with the corrected PDA
+                        print(f"[perps] adopting expected position PDA → {expect_pos}")
                         effective["position"] = Pubkey.from_string(expect_pos)
+                        # rebuild metas with corrected mapping
                         _metas = _metas_from(ix_idl, effective)
                         _metas = _force_token_program_slot(ix_idl, effective, _metas)
-                        _metas = _force_all_tokenkeg_to_atoken(_metas)
+                        # if you kept the brute fixer, leave it here; it won't touch corrected slots
+                        _metas = (
+                            _force_all_tokenkeg_to_atoken(_metas)
+                            if "_force_all_tokenkeg_to_atoken" in globals()
+                            else _metas
+                        )
                         _dump_idl_and_metas(ix_idl, _metas)
-                        # rebuild tx with corrected metas
+
                         msg2 = MessageV0.try_compile(
                             payer=owner,
                             instructions=[
@@ -892,7 +895,8 @@ def open_position_request(
                         )
                         tx2 = VersionedTransaction(msg2, [wallet])
                         raw2 = base64.b64encode(bytes(tx2)).decode()
-                        # optional: simulate again for clarity
+
+                        # simulate corrected tx for visibility
                         sim2 = rpc(
                             "simulateTransaction",
                             [
@@ -906,11 +910,12 @@ def open_position_request(
                         )
                         val2 = sim2.get("value") or {}
                         logs2 = val2.get("logs") or []
-                        print("[perps] simulate (after fix) logs:\n  " + "\n  ".join(logs2[:60]))
+                        print("[perps] simulate (after position fix):\n  " + "\n  ".join(logs2[:60]))
                         if val2.get("err"):
                             raise RuntimeError(
                                 "simulation failed after position fix; see logs above"
                             )
+
                         # send corrected tx
                         return rpc(
                             "sendTransaction",
@@ -925,7 +930,7 @@ def open_position_request(
                         )
                     except Exception as _e:
                         print(f"[perps] position PDA fix attempt failed: {_e}")
-                # not a seeds error or couldn’t parse → bubble with logs printed
+                # not a seeds error or cannot parse → bubble
                 raise RuntimeError("simulation failed; see server logs for details")
 
         return rpc(
