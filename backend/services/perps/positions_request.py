@@ -95,11 +95,6 @@ _UNKNOWN_RE = re.compile(r"unknown account\s+([1-9A-HJ-NP-Za-km-z]{32,})", re.IG
 
 
 def _unknown_account_from_logs(logs: list[str]) -> Pubkey | None:
-    """
-    If simulate logs contain 'Instruction references an unknown account <pk>',
-    return that Pubkey so we can append it to metas.
-    """
-
     if not logs:
         return None
     for line in logs:
@@ -110,6 +105,20 @@ def _unknown_account_from_logs(logs: list[str]) -> Pubkey | None:
             except Exception:
                 return None
     return None
+
+
+def _needs_signer_from_logs(logs: list[str]) -> bool:
+    txt = "\n".join(logs).lower()
+    # phrases that imply signer is required
+    return any(s in txt for s in [
+        "requires a signer", "unauthorized signer", "missing required signature"
+    ])
+
+
+def _needs_writable_from_logs(logs: list[str]) -> bool:
+    txt = "\n".join(logs).lower()
+    # phrases that imply writable escalation
+    return "writable privilege escalated" in txt or "requires writable" in txt
 
 
 def _right_pda_last_multiline(logs: list[str]) -> str | None:
@@ -984,127 +993,84 @@ def open_position_request(
                     logs2 = val2.get("logs") or []
                     print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:240]))
                     if val2.get("err"):
-                        # --- Unknown account recovery (adaptive) ------------------------------------
-                        unknown_pk = _unknown_account_from_logs(logs2)
-                        if unknown_pk:
-                            print(f"[perps] missing account detected → {str(unknown_pk)}")
+                        # --- Unknown account recovery (iterative, max 3) ----------------------------
+                        # Start from the post-adopt simulate result (logs2). Try to satisfy up to 3 missing accounts.
+                        missing_iter = 0
+                        _metas_iter = list(_metas)  # start from metas after PR adopt
 
-                            def _build_and_simulate(_metas) -> tuple[bool, list[str]]:
-                                msg = MessageV0.try_compile(
-                                    payer=owner,
-                                    instructions=[
-                                        *compute_budget_ixs(),
-                                        Instruction(program_id, data, _metas),
-                                    ],
-                                    address_lookup_table_accounts=[],
-                                    recent_blockhash=recent_blockhash(),
-                                )
-                                tx = VersionedTransaction(msg, [wallet])
-                                raw = base64.b64encode(bytes(tx)).decode()
-                                res = rpc(
-                                    "simulateTransaction",
-                                    [
-                                        raw,
-                                        {
-                                            "encoding": "base64",
-                                            "sigVerify": False,
-                                            "replaceRecentBlockhash": True,
-                                        },
-                                    ],
-                                )
-                                lv = (res.get("value") or {})
-                                logs_try = lv.get("logs") or []
-                                err = bool(lv.get("err"))
-                                return (not err, logs_try)
+                        def _build_and_simulate(_metas_try) -> tuple[bool, list[str]]:
+                            msg = MessageV0.try_compile(
+                                payer=owner,
+                                instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas_try)],
+                                address_lookup_table_accounts=[],
+                                recent_blockhash=recent_blockhash(),
+                            )
+                            tx = VersionedTransaction(msg, [wallet])
+                            raw = base64.b64encode(bytes(tx)).decode()
+                            res = rpc("simulateTransaction", [raw, {
+                                "encoding":"base64", "sigVerify": False, "replaceRecentBlockhash": True
+                            }])
+                            val_try = res.get("value") or {}
+                            logs_try = val_try.get("logs") or []
+                            err_try = bool(val_try.get("err"))
+                            return (not err_try, logs_try)
 
-                            # Attempt A: append as writable, non-signer
-                            metas_A = list(_metas)
-                            metas_A.append(AccountMeta(unknown_pk, False, True))
-                            print(
-                                f"[perps] appending unknown as writable=False? no → writable=True, signer=False"
-                            )
-                            okA, logsA = _build_and_simulate(metas_A)
-                            print(
-                                "[perps] simulate (after append A):\n  "
-                                + "\n  ".join(logsA[:240])
-                            )
+                        ok_after_adopt = not bool((sim2.get("value") or {}).get("err"))
+                        curr_logs = logs2
+                        while not ok_after_adopt and missing_iter < 3:
+                            missing_iter += 1
+                            missing_pk = _unknown_account_from_logs(curr_logs)
+                            if not missing_pk:
+                                print("[perps] no 'unknown account' pubkey found; cannot recover further")
+                                break
+
+                            # First attempt: writable=True, signer=False
+                            print(f"[perps] iter#{missing_iter} append unknown → {str(missing_pk)} as (signer=False, writable=True)")
+                            _metas_iter.append(AccountMeta(missing_pk, False, True))
+                            okA, logsA = _build_and_simulate(_metas_iter)
+                            print("[perps] simulate (after append A):\n  " + "\n  ".join(logsA[:240]))
                             if okA:
-                                _dump_idl_and_metas(ix_idl, metas_A)
-                                # send corrected tx
+                                _dump_idl_and_metas(ix_idl, _metas_iter)
+                                # Send corrected tx
                                 msgA = MessageV0.try_compile(
                                     payer=owner,
-                                    instructions=[
-                                        *compute_budget_ixs(),
-                                        Instruction(program_id, data, metas_A),
-                                    ],
+                                    instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas_iter)],
                                     address_lookup_table_accounts=[],
                                     recent_blockhash=recent_blockhash(),
                                 )
                                 txA = VersionedTransaction(msgA, [wallet])
                                 rawA = base64.b64encode(bytes(txA)).decode()
-                                return rpc(
-                                    "sendTransaction",
-                                    [
-                                        rawA,
-                                        {
-                                            "encoding": "base64",
-                                            "skipPreflight": False,
-                                            "maxRetries": 3,
-                                        },
-                                    ],
-                                )
+                                return rpc("sendTransaction", [rawA, {"encoding":"base64","skipPreflight":False,"maxRetries":3}])
 
-                            # If still privilege/signature escalation, attempt B: writable + signer
-                            needs_signer = any(
-                                "unauthorized signer" in (l.lower())
-                                or "privilege" in (l.lower())
-                                for l in logsA
-                            )
-                            if needs_signer:
-                                metas_B = list(_metas)
-                                metas_B.append(AccountMeta(unknown_pk, True, True))
-                                print(
-                                    f"[perps] re-append unknown as writable=True, signer=True"
-                                )
-                                okB, logsB = _build_and_simulate(metas_B)
-                                print(
-                                    "[perps] simulate (after append B):\n  "
-                                    + "\n  ".join(logsB[:240])
-                                )
+                            # If A failed: check if signer is required or writable escalation was reported
+                            need_signer = _needs_signer_from_logs(logsA) or _needs_writable_from_logs(logsA)
+                            if need_signer:
+                                # Replace the just-appended A with signer=True, writable=True
+                                print(f"[perps] iter#{missing_iter} re-append unknown as (signer=True, writable=True)")
+                                _metas_iter.pop()
+                                _metas_iter.append(AccountMeta(missing_pk, True, True))
+                                okB, logsB = _build_and_simulate(_metas_iter)
+                                print("[perps] simulate (after append B):\n  " + "\n  ".join(logsB[:240]))
                                 if okB:
-                                    _dump_idl_and_metas(ix_idl, metas_B)
+                                    _dump_idl_and_metas(ix_idl, _metas_iter)
                                     msgB = MessageV0.try_compile(
                                         payer=owner,
-                                        instructions=[
-                                            *compute_budget_ixs(),
-                                            Instruction(program_id, data, metas_B),
-                                        ],
+                                        instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas_iter)],
                                         address_lookup_table_accounts=[],
                                         recent_blockhash=recent_blockhash(),
                                     )
                                     txB = VersionedTransaction(msgB, [wallet])
                                     rawB = base64.b64encode(bytes(txB)).decode()
-                                    return rpc(
-                                        "sendTransaction",
-                                        [
-                                            rawB,
-                                            {
-                                                "encoding": "base64",
-                                                "skipPreflight": False,
-                                                "maxRetries": 3,
-                                            },
-                                        ],
-                                    )
+                                    return rpc("sendTransaction", [rawB, {"encoding":"base64","skipPreflight":False,"maxRetries":3}])
+                                # otherwise keep iterating; logsB might reference a different unknown account next
+                                curr_logs = logsB
+                            else:
+                                # Logs didn’t indicate signer/writable escalation; move to next iteration with these logs
+                                curr_logs = logsA
 
-                            # If we got here, adaptive append did not resolve. Bubble with context.
-                            raise RuntimeError(
-                                "simulation failed after unknown-account adaptive append"
-                            )
+                        # If we reach here, iterative recovery didn’t resolve (or there was no unknown pk to adopt)
+                        raise RuntimeError("simulation failed after adaptive unknown-account recovery")
                         # ---------------------------------------------------------------------------
-
-                        raise RuntimeError(
-                            "simulation failed after position_request adopt"
-                        )
 
                     return rpc("sendTransaction", [raw2, {
                         "encoding":"base64", "skipPreflight": False, "maxRetries": 3
