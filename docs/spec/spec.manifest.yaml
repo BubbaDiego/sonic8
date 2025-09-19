@@ -1,39 +1,152 @@
 spec_version: 1
 project:
-  name: <fill>
-  purpose: <fill a one-liner>
+  name: Sonic
+  purpose: "Crypto automation & monitoring for Solana/Jupiter: wallet ops, swaps/perps, alerts, dashboards."
   primary_entrypoints:
     - type: cli
-      id: CLI-<ID>
-      path: <repo/path/to/cli.py>
+      id: CLI-CONSOLE
+      path: backend/scripts/unified_jupiter_console.py
     - type: api
       id: API-HTTP
-      path: <repo/path/to/api/>
+      path: backend/api/
+    - type: web
+      id: WEB-FRONTEND
+      path: frontend/
+
 owners:
   - area: "Core"
-    github: "@<you>"
-    slack: "@<you>"
-modules: []
-apis: []
-events: []
+    github: "@BubbaDiego"
+    slack: "@Geno"
+
+modules:
+  - id: MOD-API
+    path: backend/api/
+    purpose: "FastAPI endpoints for monitors, portfolio, Jupiter ops."
+    depends_on: [MOD-SVC, MOD-WALLET, EXT-JUPITER, EXT-SOLANA]
+  - id: MOD-SVC
+    path: backend/core/
+    purpose: "Service layer: DataLocker, Cyclone, Monitor Core, Alert V2, PositionStore."
+    depends_on: [MOD-DATA, EXT-REDIS]
+  - id: MOD-DATA
+    path: backend/core/data/
+    purpose: "Persistence utilities and data models."
+    depends_on: []
+  - id: MOD-WALLET
+    path: backend/wallet_core/
+    purpose: "Wallet operations, key derivation/management, signing."
+    depends_on: [EXT-SOLANA]
+  - id: MOD-SCRIPTS
+    path: backend/scripts/
+    purpose: "Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist)."
+    depends_on: [MOD-WALLET, MOD-SVC]
+  - id: MOD-AUTO
+    path: auto_core/
+    purpose: "Playwright automation (Solflare connect, Jupiter flows)."
+    depends_on: [EXT-PLAYWRIGHT, EXT-JUPITER]
+  - id: MOD-FRONTEND
+    path: frontend/
+    purpose: "React/Vite/Tailwind UI (Sonic Dashboard, Monitor Manager, Trader Shop)."
+    depends_on: [API-HTTP]
+
+apis:
+  - id: API-OPENAPI
+    type: openapi
+    path: backend/api/openapi.yaml
+  - id: API-MONITOR-STATUS
+    type: http
+    method: GET
+    path: /api/monitor-status/
+    request_schema: null
+    response_schema: SCHEMA-MONITORSTATUS
+  - id: API-PORTFOLIO-LATEST
+    type: http
+    method: GET
+    path: /portfolio/latest
+    request_schema: null
+    response_schema: SCHEMA-PORTFOLIO
+  - id: API-POSITIONS
+    type: http
+    method: GET
+    path: /positions/
+    request_schema: null
+    response_schema: SCHEMA-POSITIONS
+
+events:
+  - id: EVT-SONIC_EVENTS
+    topic: monitors.sonic_events
+    producers: [MOD-SVC]
+    consumers: [MOD-API, MOD-FRONTEND]
+
 schemas:
   - id: SCHEMA-POSITION
-    path: schemas/Position.json
-config: []
+    path: docs/spec/schemas/Position.json
+  - id: SCHEMA-POSITIONS
+    path: docs/spec/schemas/Positions.json
+  - id: SCHEMA-ALERT
+    path: docs/spec/schemas/Alert.json
+  - id: SCHEMA-MONITORSTATUS
+    path: docs/spec/schemas/MonitorStatus.json
+  - id: SCHEMA-PORTFOLIO
+    path: docs/spec/schemas/Portfolio.json
+
+config:
+  - key: RPC_URL
+    required: true
+    used_by: [MOD-AUTO, MOD-SVC]
+  - key: HELIUS_RPC_URL
+    required: false
+    used_by: [MOD-SVC]
+  - key: WALLET_SECRET_BASE64
+    required: true
+    used_by: [MOD-WALLET]
+  - key: JUPITER_API_BASE
+    required: false
+    used_by: [MOD-API, MOD-AUTO]
+  - key: REDIS_URL
+    required: false
+    used_by: [MOD-SVC]
+
 observability:
-  metrics: []
+  logs:
+    - name: cyclone_engine_startup
+      owner: MOD-SVC
+    - name: positions_loaded
+      owner: MOD-SVC
+  metrics:
+    - name: request_latency_ms
+      type: histogram
+      owner: MOD-API
+    - name: monitor_events_processed_total
+      type: counter
+      owner: MOD-SVC
+    - name: perps_order_failures_total
+      type: counter
+      owner: MOD-SCRIPTS
+
 slo:
   latency_p95_ms: 300
   success_rate_pct: 99.0
+
 security:
-  authn: "<fill>"
+  authn: "Local/dev: none or bearer; Prod: service tokens"
   pii: false
+
 build:
   commands:
-    - name: install
+    - name: install-backend
       run: "python -m pip install -r requirements.txt"
+    - name: install-frontend
+      run: "cd frontend && npm install"
+    - name: dev-api
+      run: "uvicorn backend.main:app --reload"
+    - name: dev-web
+      run: "cd frontend && npm run dev"
+
 tests:
   commands:
     - name: unit
       run: "pytest -q"
-limitations: []
+
+limitations:
+  - "Perps automation assumes Solflare extension is preconfigured and accessible to Playwright."
+  - "Wallet commands require funded fee account (≥ 0.01 SOL)."

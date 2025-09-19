@@ -1,0 +1,26 @@
+{
+  "$id": "schema/MonitorStatus.json",
+  "type": "object",
+  "required": [
+    "status",
+    "timestamp"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "degraded",
+        "error"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

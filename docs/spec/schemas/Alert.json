@@ -1,0 +1,34 @@
+{
+  "$id": "schema/Alert.json",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "message",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "warning",
+        "error",
+        "info"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

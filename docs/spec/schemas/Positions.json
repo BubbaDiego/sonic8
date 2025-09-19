@@ -1,0 +1,19 @@
+{
+  "$id": "schema/Positions.json",
+  "type": "object",
+  "required": [
+    "items"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "Position.json"
+      }
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

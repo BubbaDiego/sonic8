@@ -1,0 +1,37 @@
+{
+  "$id": "schema/Portfolio.json",
+  "type": "object",
+  "required": [
+    "balances",
+    "positions"
+  ],
+  "properties": {
+    "balances": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "mint",
+          "amount",
+          "decimals"
+        ],
+        "properties": {
+          "mint": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "description": "raw atoms as string"
+          },
+          "decimals": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "positions": {
+      "$ref": "Positions.json"
+    }
+  }
+}
