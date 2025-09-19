@@ -97,7 +97,7 @@ _UNKNOWN_RE = re.compile(r"unknown account\s+([1-9A-HJ-NP-Za-km-z]{32,})", re.IG
 def _unknown_account_from_logs(logs: list[str]) -> Pubkey | None:
     """
     If simulate logs contain 'Instruction references an unknown account <pk>',
-    return that Pubkey so we can append it to metas (readonly, non-signer).
+    return that Pubkey so we can append it to metas.
     """
 
     if not logs:
@@ -984,64 +984,123 @@ def open_position_request(
                     logs2 = val2.get("logs") or []
                     print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:240]))
                     if val2.get("err"):
+                        # --- Unknown account recovery (adaptive) ------------------------------------
                         unknown_pk = _unknown_account_from_logs(logs2)
                         if unknown_pk:
-                            print(
-                                f"[perps] appending unknown account → {str(unknown_pk)} (readonly, non-signer)"
-                            )
-                            # Append as readonly, non-signer
-                            _metas.append(AccountMeta(unknown_pk, False, False))
+                            print(f"[perps] missing account detected → {str(unknown_pk)}")
 
-                            # Rebuild and simulate a third time for visibility
-                            msg3 = MessageV0.try_compile(
-                                payer=owner,
-                                instructions=[
-                                    *compute_budget_ixs(),
-                                    Instruction(program_id, data, _metas),
-                                ],
-                                address_lookup_table_accounts=[],
-                                recent_blockhash=recent_blockhash(),
-                            )
-                            tx3 = VersionedTransaction(msg3, [wallet])
-                            raw3 = base64.b64encode(bytes(tx3)).decode()
+                            def _build_and_simulate(_metas) -> tuple[bool, list[str]]:
+                                msg = MessageV0.try_compile(
+                                    payer=owner,
+                                    instructions=[
+                                        *compute_budget_ixs(),
+                                        Instruction(program_id, data, _metas),
+                                    ],
+                                    address_lookup_table_accounts=[],
+                                    recent_blockhash=recent_blockhash(),
+                                )
+                                tx = VersionedTransaction(msg, [wallet])
+                                raw = base64.b64encode(bytes(tx)).decode()
+                                res = rpc(
+                                    "simulateTransaction",
+                                    [
+                                        raw,
+                                        {
+                                            "encoding": "base64",
+                                            "sigVerify": False,
+                                            "replaceRecentBlockhash": True,
+                                        },
+                                    ],
+                                )
+                                lv = (res.get("value") or {})
+                                logs_try = lv.get("logs") or []
+                                err = bool(lv.get("err"))
+                                return (not err, logs_try)
 
-                            sim3 = rpc(
-                                "simulateTransaction",
-                                [
-                                    raw3,
-                                    {
-                                        "encoding": "base64",
-                                        "sigVerify": False,
-                                        "replaceRecentBlockhash": True,
-                                    },
-                                ],
-                            )
-                            val3 = sim3.get("value") or {}
-                            logs3 = val3.get("logs") or []
+                            # Attempt A: append as writable, non-signer
+                            metas_A = list(_metas)
+                            metas_A.append(AccountMeta(unknown_pk, False, True))
                             print(
-                                "[perps] simulate (after unknown-account append):\n  "
-                                + "\n  ".join(logs3[:240])
+                                f"[perps] appending unknown as writable=False? no → writable=True, signer=False"
                             )
-                            if val3.get("err"):
-                                raise RuntimeError(
-                                    "simulation failed after unknown-account append"
+                            okA, logsA = _build_and_simulate(metas_A)
+                            print(
+                                "[perps] simulate (after append A):\n  "
+                                + "\n  ".join(logsA[:240])
+                            )
+                            if okA:
+                                _dump_idl_and_metas(ix_idl, metas_A)
+                                # send corrected tx
+                                msgA = MessageV0.try_compile(
+                                    payer=owner,
+                                    instructions=[
+                                        *compute_budget_ixs(),
+                                        Instruction(program_id, data, metas_A),
+                                    ],
+                                    address_lookup_table_accounts=[],
+                                    recent_blockhash=recent_blockhash(),
+                                )
+                                txA = VersionedTransaction(msgA, [wallet])
+                                rawA = base64.b64encode(bytes(txA)).decode()
+                                return rpc(
+                                    "sendTransaction",
+                                    [
+                                        rawA,
+                                        {
+                                            "encoding": "base64",
+                                            "skipPreflight": False,
+                                            "maxRetries": 3,
+                                        },
+                                    ],
                                 )
 
-                            # Dump the final metas one more time so we see exactly what goes on-chain
-                            _dump_idl_and_metas(ix_idl, _metas)
-
-                            # Send corrected tx
-                            return rpc(
-                                "sendTransaction",
-                                [
-                                    raw3,
-                                    {
-                                        "encoding": "base64",
-                                        "skipPreflight": False,
-                                        "maxRetries": 3,
-                                    },
-                                ],
+                            # If still privilege/signature escalation, attempt B: writable + signer
+                            needs_signer = any(
+                                "unauthorized signer" in (l.lower())
+                                or "privilege" in (l.lower())
+                                for l in logsA
                             )
+                            if needs_signer:
+                                metas_B = list(_metas)
+                                metas_B.append(AccountMeta(unknown_pk, True, True))
+                                print(
+                                    f"[perps] re-append unknown as writable=True, signer=True"
+                                )
+                                okB, logsB = _build_and_simulate(metas_B)
+                                print(
+                                    "[perps] simulate (after append B):\n  "
+                                    + "\n  ".join(logsB[:240])
+                                )
+                                if okB:
+                                    _dump_idl_and_metas(ix_idl, metas_B)
+                                    msgB = MessageV0.try_compile(
+                                        payer=owner,
+                                        instructions=[
+                                            *compute_budget_ixs(),
+                                            Instruction(program_id, data, metas_B),
+                                        ],
+                                        address_lookup_table_accounts=[],
+                                        recent_blockhash=recent_blockhash(),
+                                    )
+                                    txB = VersionedTransaction(msgB, [wallet])
+                                    rawB = base64.b64encode(bytes(txB)).decode()
+                                    return rpc(
+                                        "sendTransaction",
+                                        [
+                                            rawB,
+                                            {
+                                                "encoding": "base64",
+                                                "skipPreflight": False,
+                                                "maxRetries": 3,
+                                            },
+                                        ],
+                                    )
+
+                            # If we got here, adaptive append did not resolve. Bubble with context.
+                            raise RuntimeError(
+                                "simulation failed after unknown-account adaptive append"
+                            )
+                        # ---------------------------------------------------------------------------
 
                         raise RuntimeError(
                             "simulation failed after position_request adopt"
