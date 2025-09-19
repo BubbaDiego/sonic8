@@ -89,47 +89,19 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
     raise RuntimeError(f"Instruction not found; tried {candidates} / {fallback_any}. IDL has: {have}")
 
 
-def _pda_from_logs_any(logs: list[str], names: list[str]) -> str | None:
+_RIGHT_RE = re.compile(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})")
+
+
+def _right_pda_last(logs: list[str]) -> str | None:
     """
-    If simulate logs include a seeds-constraint for any account name in `names`,
-    return the base58 printed after 'Right:' for that account. Falls back to the
-    first 'Right:' if the formatter varies.
+    Return the *last* base58 pubkey that appears after 'Right:' in the entire simulate block.
+    Robust to formatting and account labels.
     """
     if not logs:
         return None
-    lowers = [n.lower() for n in names]
-    for i, line in enumerate(logs):
-        if "account:" in line:
-            line_l = line.lower()
-            if any(n in line_l for n in lowers) and (
-                "ConstraintSeeds" in line or "seeds constraint" in line.lower()
-            ):
-                for j in range(i, min(i + 8, len(logs))):
-                    m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", logs[j])
-                    if m:
-                        return m.group(1)
-    # Fallback: accept the first Right: in the block — some runtimes reorder prints
-    for line in logs:
-        m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", line)
-        if m:
-            return m.group(1)
-    return None
-
-
-def _all_right_pd_as(logs: list[str]) -> list[str]:
-    """
-    Return all base58 pubkeys that appear after 'Right:' in the simulate logs.
-    We pick the last one for position_request (some formatters repeat).
-    """
-    out: list[str] = []
-    if not logs:
-        return out
-    pat = re.compile(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})")
-    for line in logs:
-        m = pat.search(line)
-        if m:
-            out.append(m.group(1))
-    return out
+    blob = "\n".join(str(x) for x in logs)
+    matches = list(_RIGHT_RE.finditer(blob))
+    return matches[-1].group(1) if matches else None
 
 
 def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
@@ -918,34 +890,32 @@ def open_position_request(
         tx = VersionedTransaction(msg, [wallet])
         raw = base64.b64encode(bytes(tx)).decode()
 
-        print("[perps] open::_send_with ACTIVE", __file__)  # prove we’re in the live path
+        print("[perps] open::_send_with ACTIVE", __file__)  # prove live code path
 
-        # Always simulate here so we can adopt seeds if needed
+        # Always simulate to allow seed adoption
         sim = rpc("simulateTransaction", [raw, {
             "encoding":"base64", "sigVerify": False, "replaceRecentBlockhash": True
         }])
         val  = sim.get("value") or {}
         logs = val.get("logs") or []
-        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:80]))
+        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:120]))
 
         if val.get("err"):
-            # Collect ALL Right: PDAs printed by the program and adopt the last one.
-            rights = _all_right_pd_as(logs)
-            print(f"[perps] Right: PDAs found = {rights}")
-            if rights:
-                expect_pr = rights[-1]
+            # Grab the *last* Right: PDA in the whole block (formatter-agnostic)
+            expect_pr = _right_pda_last(logs)
+            print(f"[perps] Right: last = {expect_pr}")
+            if expect_pr:
                 try:
                     pr_pk = Pubkey.from_string(expect_pr)
-                    # set BOTH keys so the metas builder picks it up regardless of camel/snake
+                    # set BOTH keys so IDL name (camel/snake) resolves
                     effective["positionRequest"]  = pr_pk
                     effective["position_request"] = pr_pk
                     print(f"[perps] ADOPT position_request PDA → {expect_pr}")
 
-                    # Rebuild metas with adopted PDA and show exactly what we'll send
                     _metas = _metas_from(ix_idl, effective)
                     _dump_idl_and_metas(ix_idl, _metas)
 
-                    # Rebuild tx and simulate once more for visibility
+                    # rebuild + simulate again for visibility
                     msg2 = MessageV0.try_compile(
                         payer=owner,
                         instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas)],
@@ -960,11 +930,11 @@ def open_position_request(
                     }])
                     val2  = sim2.get("value") or {}
                     logs2 = val2.get("logs") or []
-                    print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:80]))
+                    print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:120]))
                     if val2.get("err"):
                         raise RuntimeError("simulation failed after position_request adopt")
 
-                    # Send corrected transaction
+                    # send corrected transaction
                     return rpc("sendTransaction", [raw2, {
                         "encoding":"base64", "skipPreflight": False, "maxRetries": 3
                     }])
