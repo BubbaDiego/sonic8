@@ -147,6 +147,34 @@ def _parse_unknown_account(logs: List[str]) -> Optional[str]:
     return None
 
 
+def _parse_invalid_collateral(logs: List[str]) -> Optional[Tuple[str, str]]:
+    """
+    Looks for:
+      'Error Code: InvalidCollateralAccount' … then the usual debug dump:
+         'Left:' <pkA>
+         'Right:' <pkB>
+    Returns (left, right) base58 strings if found.
+    """
+
+    saw = False
+    left: Optional[str] = None
+    right: Optional[str] = None
+    for i, line in enumerate(logs):
+        if "InvalidCollateralAccount" in line or "Invalid collateral account" in line:
+            saw = True
+        if saw and "Left:" in line:
+            m = re.search(_B58, " ".join(logs[i : i + 3]))
+            if m:
+                left = m.group(0)
+        if saw and "Right:" in line:
+            m = re.search(_B58, " ".join(logs[i : i + 3]))
+            if m:
+                right = m.group(0)
+        if saw and left and right:
+            return left, right
+    return None
+
+
 def _saw_writable_privilege_escalated(logs: List[str]) -> bool:
     return any("writable privilege escalated" in line for line in logs)
 
@@ -222,8 +250,11 @@ def _print_idl_accounts_audit(ix_idl: dict, mapping: dict):
         nm = acc.get("name")
         opt = bool(acc.get("isOptional"))
         pk = mapping.get(nm)
+        is_signer = bool(acc.get("isSigner"))
+        is_mut = bool(acc.get("isMut"))
         print(
-            f"  [{i:02d}] {nm:24s} required={not opt:<5} ⇒ provided={pk is not None:<5} pk={str(pk) if pk else '-'}"
+            f"  [{i:02d}] {nm:24s} required={not opt:<5} ⇒ provided={pk is not None:<5} "
+            f"signer={is_signer:<5} writable={is_mut:<5} pk={str(pk) if pk else '-'}"
         )
 
 
@@ -597,9 +628,8 @@ def map_accounts(
         ):
             mapping[name] = referral_default
         elif name in ("tokenProgram", "token_program"):
-            # This program expects the Associated Token Program in this slot.
-            # (Sim logs showed Left: ATokenGPv… Right: Tokenkeg…)
-            mapping[name] = ASSOCIATED_TOKEN_PROG
+            # Canonical: SPL Token program goes in tokenProgram slot.
+            mapping[name] = SPL_TOKEN_PROGRAM
         elif name in ("systemProgram", "system_program"):
             mapping[name] = SYSTEM_PROGRAM
         elif name in (
@@ -968,7 +998,8 @@ def open_position_request(
     )
 
     # Ensure mapping uses the expected PDA *and* derive positionRequest from it
-    mapping = account_mapping if "account_mapping" in locals() else acct
+    # normalized working copy
+    mapping = dict(account_mapping)
     mapping["position"] = EXPECTED_POSITION_PDA
     print(f"[perps] FORCE position → {str(EXPECTED_POSITION_PDA)}")
 
@@ -1149,6 +1180,25 @@ def open_position_request(
                         "InvalidProgramId for token_program — VERIFY we never insert unknown into the required accounts area."
                     )
 
+        # Targeted recovery for Jupiter Perps "InvalidCollateralAccount" (6006).
+        if not ok:
+            lr = _parse_invalid_collateral(logs)
+            if lr:
+                left_b58, right_b58 = lr
+                try:
+                    left_pk = Pubkey.from_string(left_b58)
+                    right_pk = Pubkey.from_string(right_b58)
+                    # Respect what the program printed: Left=custody, Right=collateralCustody
+                    effective["custody"] = left_pk
+                    effective["collateralCustody"] = right_pk
+                    print(
+                        f"[perps] adopting custody={left_b58} collateralCustody={right_b58} from program logs"
+                    )
+                    metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
+                    ok, logs = _simulate_with_label(raw, "after collateral adopt")
+                except Exception as _:
+                    pass
+
         MAX_RECOVER = 6
         recover_count = 0
         last_unknown: Optional[str] = None
@@ -1244,7 +1294,8 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
         input_mint,
     )
 
-    mapping = account_mapping if "account_mapping" in locals() else acct
+    # normalized working copy
+    mapping = dict(account_mapping)
 
     # --- normalize token program mapping for this instruction -------------------
     # Ensure canonical program mappings are set explicitly for downstream metas.
