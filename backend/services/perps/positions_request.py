@@ -92,6 +92,123 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
 _PK_RE = re.compile(r"([1-9A-HJ-NP-Za-km-z]{32,})")
 
 
+# --- begin: helpers for PDA adoption and unknown-account resolution ---
+
+_B58 = r"[1-9A-HJ-NP-Za-km-z]{32,44}"
+
+
+def _derive_ata(owner: Pubkey, mint: Pubkey) -> Pubkey:
+    from backend.perps.pdas import derive_ata as _impl
+
+    return _impl(owner, mint)
+
+
+def _parse_anchor_right_pda(logs: List[str]) -> Optional[str]:
+    """
+    Looks for:
+      AnchorError caused by account: position_request. Error Code: ConstraintSeeds ...
+      ...
+      Right:
+      <PDA>
+    Returns the right-hand expected PDA (base58 string) if found.
+    """
+
+    right_idx = None
+    for i, line in enumerate(logs):
+        if line.strip().endswith("Right:") or line.strip().endswith("Right:"):
+            right_idx = i
+            break
+    if right_idx is None:
+        # Some chains prefix with 'Program log: Right:'
+        for i, line in enumerate(logs):
+            if "Right:" in line:
+                right_idx = i
+                break
+    if right_idx is not None:
+        # find next non-empty line with a base58 pubkey
+        for j in range(right_idx + 1, min(right_idx + 5, len(logs))):
+            m = re.search(_B58, logs[j].strip())
+            if m:
+                return m.group(0)
+    return None
+
+
+def _parse_unknown_account(logs: List[str]) -> Optional[str]:
+    """
+    Looks for: 'Instruction references an unknown account <PUBKEY>'
+    Returns the unknown pubkey if present.
+    """
+
+    rx = re.compile(r"Instruction references an unknown account\s+(%s)" % _B58)
+    for line in logs:
+        m = rx.search(line)
+        if m:
+            return m.group(1)
+    return None
+
+
+def _saw_writable_privilege_escalated(logs: List[str]) -> bool:
+    return any("writable privilege escalated" in line for line in logs)
+
+
+def _saw_unauthorized_signer_or_writable(logs: List[str]) -> bool:
+    return any("Cross-program invocation with unauthorized signer or writable account" in line for line in logs)
+
+
+def _is_invalid_program_id_for_token_program(logs: List[str]) -> bool:
+    # Prevent regressions where 'unknown' was inserted into metas[11] and displaced token program
+    return any(
+        "Error Code: InvalidProgramId" in line and "token_program" in logs[idx - 1 : idx + 3]
+        for idx, line in enumerate(logs)
+    )
+
+
+def _rebuild_after_request_adopt(account_mapping: dict, request_pda_b58: str, input_mint: "Pubkey") -> None:
+    """
+    Replace positionRequest + recompute its ATA (owned by the adopted PDA).
+    """
+
+    request_pk = Pubkey.from_string(request_pda_b58)
+    account_mapping["positionRequest"] = request_pk
+    account_mapping["position_request"] = request_pk
+
+    # Re-derive ATA for the *request PDA* (not the wallet owner)
+    try:
+        request_ata = _derive_ata(request_pk, input_mint)
+        account_mapping["positionRequestAta"] = request_ata
+        account_mapping["position_request_ata"] = request_ata
+        print(f"[perps] rebuilt positionRequestAta for adopted request → {str(request_ata)}")
+    except Exception as e:
+        # Safe fallback: leave previous ATA if derive fails (but we loudly log it)
+        print(f"[perps] WARN: failed to derive ATA for adopted request {request_pda_b58}: {e}")
+
+
+def _append_remaining_account(remaining: list, pk_b58: str, signer: bool = False, writable: bool = False) -> None:
+    """
+    Add once if not already present. Keeps order stable and never touches required accounts.
+    """
+
+    pk = Pubkey.from_string(pk_b58)
+    for acc in remaining:
+        if acc["pubkey"] == pk:
+            # already present; update flags if needed
+            acc["is_signer"] = acc.get("is_signer", False) or signer
+            acc["is_writable"] = acc.get("is_writable", False) or writable
+            return
+    remaining.append(
+        {
+            "pubkey": pk,
+            "is_signer": signer,
+            "is_writable": writable,
+            "name": None,  # unknown / dynamic
+        }
+    )
+    print(f"[perps] remaining_accounts += {pk_b58} (signer={signer}, writable={writable})")
+
+
+# --- end: helpers for PDA adoption and unknown-account resolution ---
+
+
 # ── Sim/Log Helpers ──────────────────────────────────────────────────────────
 def _print_idl_accounts_audit(ix_idl: dict, mapping: dict):
     """
@@ -123,72 +240,6 @@ def _print_remaining_accounts(metas: list, ix_idl: dict):
     for i in range(decl, len(metas)):
         m = metas[i]
         print(f"  [+{i-decl:02d}] pk={m.pubkey} signer={m.is_signer} writable={m.is_writable}")
-
-
-# ── Unknown Account Parser (no signer escalation) ────────────────────────────
-_UNKNOWN_RE = re.compile(r"unknown account\s+([1-9A-HJ-NP-Za-km-z]{32,})", re.IGNORECASE)
-
-
-def _unknown_account_from_logs(logs: list[str]) -> Pubkey | None:
-    if not logs:
-        return None
-    for line in logs:
-        m = _UNKNOWN_RE.search(line)
-        if m:
-            try:
-                return Pubkey.from_string(m.group(1))
-            except Exception:
-                return None
-    return None
-
-
-def _logs_need_signer_or_writable(logs: list[str]) -> tuple[bool, bool]:
-    txt = "\n".join(logs).lower()
-    need_signer = any(
-        s in txt for s in ["requires a signer", "missing required signature", "unauthorized signer"]
-    )
-    need_writable = "writable privilege escalated" in txt or "requires writable" in txt
-    return need_signer, need_writable
-
-
-def _right_pda_last_multiline(logs: list[str]) -> str | None:
-    """
-    Return the last base58 pubkey that appears *after* a 'Right:' line.
-    Handles both formats:
-      - "Right: <pubkey>" on the same line
-      - "Right:" followed by "<pubkey>" on the next line
-    Also strips ANSI color codes.
-    """
-    if not logs:
-        return None
-
-    # Strip ANSI codes for safety
-    clean = [re.sub(r"\x1b\[[0-9;]*m", "", str(l)) for l in logs]
-
-    found: list[str] = []
-    i = 0
-    while i < len(clean):
-        line = clean[i]
-        if re.search(r"(?i)right\s*[:：]\s*$", line.strip()):
-            # pubkey expected on the next non-empty line
-            j = i + 1
-            while j < len(clean):
-                nxt = clean[j].strip()
-                if nxt:
-                    m = _PK_RE.search(nxt)
-                    if m:
-                        found.append(m.group(1))
-                    break
-                j += 1
-            i = j
-        else:
-            # same-line "Right: <pubkey>"
-            m = re.search(r"(?i)right\s*[:：]\s*([1-9A-HJ-NP-Za-km-z]{32,})", line)
-            if m:
-                found.append(m.group(1))
-        i += 1
-
-    return found[-1] if found else None
 
 
 def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
@@ -713,6 +764,25 @@ def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[Acco
     return metas
 
 
+def build_metas_from_mapping(
+    account_mapping: Dict[str, Pubkey],
+    idl_ix: Dict[str, Any],
+    existing_remaining: Optional[List[Dict[str, Any]]] = None,
+) -> Tuple[List[AccountMeta], List[Dict[str, Any]]]:
+    required_metas = _metas_from(idl_ix, account_mapping)
+    remaining = list(existing_remaining) if existing_remaining else []
+    metas: List[AccountMeta] = list(required_metas)
+    for rem in remaining:
+        metas.append(
+            AccountMeta(
+                rem["pubkey"],
+                bool(rem.get("is_signer", False)),
+                bool(rem.get("is_writable", False)),
+            )
+        )
+    return metas, remaining
+
+
 def _dump_idl_and_metas(ix_idl: Dict[str, Any], metas: List[AccountMeta]) -> None:
     try:
         rows = []
@@ -997,185 +1067,124 @@ def open_position_request(
         _metas = _metas_from(ix_idl, effective)
         _metas = _force_token_program_slot(ix_idl, effective, _metas)
         _metas = _force_all_tokenkeg_to_atoken(_metas)
-        # Show exactly what will be simulated
-        _print_idl_accounts_audit(ix_idl, effective)
-        _print_remaining_accounts(_metas, ix_idl)
-        _dump_idl_and_metas(ix_idl, _metas)
+        def _guardrails(curr_mapping: Dict[str, Pubkey], metas: List[AccountMeta]) -> None:
+            required_names = [a.get("name") for a in ix_idl.get("accounts", [])]
+            for idx, name in enumerate(required_names):
+                if name is None or idx >= len(metas):
+                    continue
+                expected_pk: Optional[Pubkey]
+                if str(name).lower() == "position":
+                    expected_pk = EXPECTED_POSITION_PDA
+                else:
+                    expected_pk = curr_mapping.get(name)
+                if expected_pk is not None and metas[idx].pubkey != expected_pk:
+                    raise AssertionError(f"Required account order mismatch at idx={idx} ({name})")
 
-        ixs: List[Instruction] = []
-        ixs += compute_budget_ixs()
-        ixs.append(Instruction(program_id, data, _metas))
+            token_prog_pk = curr_mapping.get("tokenProgram") or curr_mapping.get("token_program")
+            assert token_prog_pk == SPL_TOKEN_PROGRAM, "tokenProgram must be SPL Token program id"
 
-        bh = recent_blockhash()
-        msg = MessageV0.try_compile(
-            payer=owner,
-            instructions=ixs,
-            address_lookup_table_accounts=[],
-            recent_blockhash=bh,
-        )
-        tx = VersionedTransaction(msg, [wallet])
-        raw = base64.b64encode(bytes(tx)).decode()
+            request_pk = curr_mapping.get("positionRequest") or curr_mapping.get("position_request")
+            request_ata = curr_mapping.get("positionRequestAta") or curr_mapping.get("position_request_ata")
+            if request_pk and request_ata and input_mint:
+                try:
+                    expected_ata = _derive_ata(request_pk, input_mint)
+                    if expected_ata != request_ata:
+                        print(
+                            f"[perps] WARN: positionRequestAta {str(request_ata)} != expected {str(expected_ata)}"
+                        )
+                except Exception as ata_err:
+                    print(f"[perps] WARN: unable to verify positionRequestAta owner: {ata_err}")
+
+        def _make_raw_tx(metas: List[AccountMeta]) -> str:
+            ixs: List[Instruction] = []
+            ixs += compute_budget_ixs()
+            ixs.append(Instruction(program_id, data, metas))
+
+            bh = recent_blockhash()
+            msg = MessageV0.try_compile(
+                payer=owner,
+                instructions=ixs,
+                address_lookup_table_accounts=[],
+                recent_blockhash=bh,
+            )
+            tx_local = VersionedTransaction(msg, [wallet])
+            return base64.b64encode(bytes(tx_local)).decode()
+
+        def _prepare_tx(curr_mapping: Dict[str, Pubkey], curr_remaining: Optional[List[Dict[str, Any]]] = None):
+            metas, rem = build_metas_from_mapping(curr_mapping, ix_idl, existing_remaining=curr_remaining)
+            _print_idl_accounts_audit(ix_idl, curr_mapping)
+            _print_remaining_accounts(metas, ix_idl)
+            _dump_idl_and_metas(ix_idl, metas)
+            _guardrails(curr_mapping, metas)
+            raw_tx = _make_raw_tx(metas)
+            return metas, rem, raw_tx
+
+        def _simulate_with_label(raw_tx: str, label: str) -> Tuple[bool, List[str]]:
+            print(f"[perps] === simulateTransaction ({label}) :: BEGIN ===")
+            sim_resp = rpc(
+                "simulateTransaction",
+                [raw_tx, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}],
+            )
+            val_resp = sim_resp.get("value") or {}
+            logs_resp = val_resp.get("logs") or []
+            print("[perps] simulate logs:\n  " + "\n  ".join(logs_resp[:240]))
+            print(f"[perps] === simulateTransaction ({label}) :: END ===")
+            return (not bool(val_resp.get("err"))), logs_resp
 
         print("[perps] open::_send_with ACTIVE", __file__)  # prove live code path
 
-        # Always simulate to allow seed adoption
-        print("[perps] === simulateTransaction (initial) :: BEGIN ===")
-        sim = rpc("simulateTransaction", [raw, {
-            "encoding":"base64", "sigVerify": False, "replaceRecentBlockhash": True
-        }])
-        val  = sim.get("value") or {}
-        logs = val.get("logs") or []
-        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:240]))
-        print("[perps] === simulateTransaction (initial) :: END ===")
-        for idx, ln in enumerate(logs):
-            if "Right" in ln or "right" in ln:
-                nxt = logs[idx + 1] if idx + 1 < len(logs) else "<no next line>"
-                print(f"[perps] Right@{idx}: {ln}")
-                print(f"[perps] Right@{idx}+1: {nxt}")
+        remaining_accounts: List[Dict[str, Any]] = []
+        metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
+        ok, logs = _simulate_with_label(raw, "initial")
 
-        if val.get("err"):
-            expect_pr = _right_pda_last_multiline(logs)
-            print(f"[perps] Right (parsed last multiline) = {expect_pr}")
-            if expect_pr:
-                try:
-                    pr_pk = Pubkey.from_string(expect_pr)
-                    effective["positionRequest"]  = pr_pk
-                    effective["position_request"] = pr_pk  # cover snake/camel
-                    print(f"[perps] ADOPT position_request PDA → {expect_pr}")
-
-                    _metas = _metas_from(ix_idl, effective)
-                    _metas = _force_token_program_slot(ix_idl, effective, _metas)
-                    _metas = _force_all_tokenkeg_to_atoken(_metas)
-                    _dump_idl_and_metas(ix_idl, _metas)
-
-                    msg2 = MessageV0.try_compile(
-                        payer=owner,
-                        instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas)],
-                        address_lookup_table_accounts=[],
-                        recent_blockhash=recent_blockhash(),
+        if not ok:
+            right_b58 = _parse_anchor_right_pda(logs)
+            if right_b58 and input_mint:
+                print(f"[perps] ADOPT position_request PDA → {right_b58}")
+                _rebuild_after_request_adopt(effective, right_b58, input_mint)
+                metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
+                ok, logs = _simulate_with_label(raw, "after PR adopt")
+                if _is_invalid_program_id_for_token_program(logs):
+                    raise RuntimeError(
+                        "InvalidProgramId for token_program — VERIFY we never insert unknown into the required accounts area."
                     )
-                    tx2  = VersionedTransaction(msg2, [wallet])
-                    raw2 = base64.b64encode(bytes(tx2)).decode()
 
-                    print("[perps] === simulateTransaction (after PR adopt) :: BEGIN ===")
-                    sim2 = rpc("simulateTransaction", [raw2, {
-                        "encoding":"base64", "sigVerify": False, "replaceRecentBlockhash": True
-                    }])
-                    val2  = sim2.get("value") or {}
-                    logs2 = val2.get("logs") or []
-                    print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:240]))
-                    print("[perps] === simulateTransaction (after PR adopt) :: END ===")
-                    if val2.get("err"):
-                        # --- Unknown account recovery (append-only, NO signer escalation) -----------
-                        missing_iter = 0
-                        _metas_iter = list(_metas)
-                        curr_logs = logs2
+        MAX_RECOVER = 6
+        recover_count = 0
+        last_unknown: Optional[str] = None
 
-                        while bool((sim2.get("value") or {}).get("err")) and missing_iter < 3:
-                            missing_iter += 1
-                            missing_pk = _unknown_account_from_logs(curr_logs)
-                            if not missing_pk:
-                                print("[perps] no 'unknown account' pubkey found; cannot recover further")
-                                break
+        while not ok and recover_count < MAX_RECOVER:
+            unknown_b58 = _parse_unknown_account(logs)
+            if not unknown_b58:
+                print("[perps] no 'unknown account' pubkey found; cannot recover further")
+                break
 
-                            need_signer, need_writable = _logs_need_signer_or_writable(curr_logs)
-                            if need_signer:
-                                print(
-                                    f"[perps] missing account {str(missing_pk)} requires SIGNER — we cannot sign arbitrary accounts. "
-                                    "Stopping here so you can map it by name in the IDL."
-                                )
-                                raise RuntimeError("missing required signer account (map by name)")
+            if last_unknown == unknown_b58:
+                make_writable = _saw_writable_privilege_escalated(logs)
+                make_signer = _saw_unauthorized_signer_or_writable(logs) and not make_writable
+                _append_remaining_account(remaining_accounts, unknown_b58, signer=make_signer, writable=make_writable)
+            else:
+                _append_remaining_account(remaining_accounts, unknown_b58, signer=False, writable=False)
 
-                            # append as remaining account (readonly or writable if logs asked)
-                            metas_try = list(_metas_iter)
-                            metas_try.append(AccountMeta(missing_pk, False, True if need_writable else False))
-                            print(
-                                f"[perps] iter#{missing_iter} APPEND unknown (remaining) → {str(missing_pk)} "
-                                f"(signer=False, writable={need_writable})"
-                            )
-                            _print_remaining_accounts(metas_try, ix_idl)
+            metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
+            ok, logs = _simulate_with_label(raw, "after remaining-account append")
 
-                            # simulate with the appended remaining account
-                            msg_try = MessageV0.try_compile(
-                                payer=owner,
-                                instructions=[*compute_budget_ixs(), Instruction(program_id, data, metas_try)],
-                                address_lookup_table_accounts=[],
-                                recent_blockhash=recent_blockhash(),
-                            )
-                            tx_try = VersionedTransaction(msg_try, [wallet])
-                            raw_try = base64.b64encode(bytes(tx_try)).decode()
+            last_unknown = unknown_b58
+            recover_count += 1
 
-                            print("[perps] === simulateTransaction (after append remaining) :: BEGIN ===")
-                            sim_try = rpc(
-                                "simulateTransaction",
-                                [
-                                    raw_try,
-                                    {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True},
-                                ],
-                            )
-                            val_try = sim_try.get("value") or {}
-                            logs_try = val_try.get("logs") or []
-                            print("[perps] simulate (after append remaining):\n  " + "\n  ".join(logs_try[:240]))
-                            print("[perps] === simulateTransaction (after append remaining) :: END ===")
+        if not ok:
+            raise RuntimeError(
+                "position_request adopt failed: simulation failed after remaining-account append (map required accounts by name)"
+            )
 
-                            if not bool(val_try.get("err")):
-                                # success → send
-                                _dump_idl_and_metas(ix_idl, metas_try)
-                                _print_remaining_accounts(metas_try, ix_idl)
-                                return rpc(
-                                    "sendTransaction",
-                                    [
-                                        raw_try,
-                                        {
-                                            "encoding": "base64",
-                                            "skipPreflight": False,
-                                            "maxRetries": 3,
-                                        },
-                                    ],
-                                )
-
-                            # continue loop with new logs
-                            curr_logs = logs_try
-                            _metas_iter = metas_try
-
-                        # If we’re here and still failing, bubble with audits already printed
-                        raise RuntimeError(
-                            "simulation failed after remaining-account append (map required accounts by name)"
-                        )
-                        # ---------------------------------------------------------------------------
-
-                    return rpc("sendTransaction", [raw2, {
-                        "encoding":"base64", "skipPreflight": False, "maxRetries": 3
-                    }])
-                except Exception as e_adopt:
-                    print(f"[perps] position_request adopt failed: {e_adopt}")
-
-            raise RuntimeError("simulation failed; see server logs for details")
-
-        return rpc("sendTransaction", [raw, {
-            "encoding": "base64","skipPreflight": False,"maxRetries": 3
-        }])
+        return rpc(
+            "sendTransaction",
+            [raw, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
+        )
 
     # try once with current mapping
-    try:
-        sig = _send_with(None, _simulate=False)
-        return {"signature": sig, "programId": str(program_id), "market": market}
-    except Exception as e:
-        s = str(e)
-        # If Anchor complains about InvalidProgramId for token_program, flip once (SPL <-> AToken) and retry.
-        if "InvalidProgramId" in s and "token_program" in s:
-            cur = mapping.get("tokenProgram") or mapping.get("token_program")
-            alt = ASSOCIATED_TOKEN_PROG if cur == SPL_TOKEN_PROGRAM else SPL_TOKEN_PROGRAM
-            override = dict(mapping)
-            if "tokenProgram" in override:
-                override["tokenProgram"] = alt
-            if "token_program" in override:
-                override["token_program"] = alt
-            print(f"[perps] retrying open-request with token_program={str(alt)}")
-            sig = _send_with(override, _simulate=False)
-            return {"signature": sig, "programId": str(program_id), "market": market}
-        # bubble anything else
-        raise
+    sig = _send_with(None, _simulate=False)
+    return {"signature": sig, "programId": str(program_id), "market": market}
 
 
 def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
