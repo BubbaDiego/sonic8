@@ -33,44 +33,109 @@
 ---
 
 ## 2) Repo Map
-| ID           | Path                 | Role                                           | Owner       | Notes |
-|--------------|----------------------|------------------------------------------------|------------|------|
-| MOD-API      | `backend/api/`       | FastAPI endpoints                              | @BubbaDiego | `/api/monitor-status/`, `/portfolio`, `/positions` |
-| MOD-SVC      | `backend/core/`      | DataLocker, Cyclone, Monitor Core, Alert V2    | @BubbaDiego | Emits SONIC events |
-| MOD-DATA     | `backend/core/data/` | Persistence/data helpers                        | @BubbaDiego |  |
-| MOD-WALLET   | `backend/wallet_core/` | Wallet ops, signing                           | @BubbaDiego |  |
-| MOD-SCRIPTS  | `backend/scripts/`   | CLIs: `perps_open_long.py`, `send_token_standalone.py`, `verify_all_tables_exist.py` | @BubbaDiego |  |
-| MOD-AUTO     | `auto_core/`         | Playwright automation (Solflare/Jupiter)        | @BubbaDiego |  |
-| MOD-FRONTEND | `frontend/`          | React/Vite/Tailwind web app                     | @BubbaDiego |  |
+<!-- REPO_MAP:BEGIN -->
+| ID | Path | Role | Notes |
+|---|---|---|---|
+| MOD-API | `backend/api/` | FastAPI endpoints for monitors, portfolio, Jupiter ops. |  |
+| MOD-SVC | `backend/core/` | Service layer: DataLocker, Cyclone, Monitor Core, Alert V2, PositionStore. |  |
+| MOD-DATA | `backend/data/` | Persistence utilities and data models. |  |
+| MOD-WALLET | `backend/core/wallet_core/` | Wallet operations, key derivation/management, signing. |  |
+| MOD-SCRIPTS | `backend/scripts/` | Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist). |  |
+| MOD-AUTO | `backend/core/auto_core/` | Playwright automation (Solflare connect, Jupiter flows). |  |
+| MOD-FRONTEND | `frontend/` | React/Vite/Tailwind UI (Sonic Dashboard, Monitor Manager, Trader Shop). |  |
+<!-- REPO_MAP:END -->
 
 > Keep IDs stable; referenced by interfaces/schemas/config.
 
 ---
 
 ## 3) Module Inventory (high level)
+<!-- MODULE_INVENTORY:BEGIN -->
 ### MOD-API
-- **Purpose**: HTTP surface for monitors, portfolio, positions, and Jupiter ops.
-- **Entry files**: `backend/api/__init__.py`, routers under `backend/api/`.
-- **Key deps**: MOD-SVC, MOD-WALLET; external: EXT-JUPITER, EXT-SOLANA.
-- **I/O**: Returns `SCHEMA-MONITORSTATUS`, `SCHEMA-PORTFOLIO`, `SCHEMA-POSITIONS`.
+- **Path**: `backend/api/`
+- **Purpose**: FastAPI endpoints for monitors, portfolio, Jupiter ops.
+- **Key files**
+- _(none found)_
+- **Public interfaces (signatures)**
+  - _(no public signatures detected)_
 
 ### MOD-SVC
-- **Purpose**: Core orchestration (DataLocker, Cyclone, Monitor Core, Alert V2, PositionStore).
-- **Contracts**: Emits `EVT-SONIC_EVENTS`, idempotent processing; failures surfaced via alerts.
+- **Path**: `backend/core/`
+- **Purpose**: Service layer: DataLocker, Cyclone, Monitor Core, Alert V2, PositionStore.
+- **Key files**
+- `backend/core/__init__.py`
+- `backend/core/alert_core/__init__.py`
+- `backend/core/auto_core/__init__.py`
+- `backend/core/calc_core/__init__.py`
+- `backend/core/core_constants.py`
+- `backend/core/cyclone_core/__init__.py`
+- **Public interfaces (signatures)**
+  - _(no public signatures detected)_
+
+### MOD-DATA
+- **Path**: `backend/data/`
+- **Purpose**: Persistence utilities and data models.
+- **Key files**
+- `backend/data/__init__.py`
+- `backend/data/data_locker.py`
+- `backend/data/database.py`
+- `backend/data/dl_alerts.py`
+- `backend/data/dl_hedges.py`
+- `backend/data/dl_modifiers.py`
+- **Public interfaces (signatures)**
+  - **data_locker.py**: class DataLocker
+  - **database.py**: class DatabaseManager
+  - **dl_alerts.py**: class DLAlertManager
 
 ### MOD-WALLET
-- **Purpose**: Key management & signing; balance/portfolio helpers.
-- **Inputs**: `WALLET_SECRET_BASE64`, `RPC_URL`.
-
-### MOD-AUTO
-- **Purpose**: Playwright-controlled Solflare connection & Jupiter flows.
-- **Gotchas**: Requires Solflare extension availability; stable browser channel.
+- **Path**: `backend/core/wallet_core/`
+- **Purpose**: Wallet operations, key derivation/management, signing.
+- **Key files**
+- `backend/core/wallet_core/__init__.py`
+- `backend/core/wallet_core/encryption.py`
+- `backend/core/wallet_core/wallet_controller.py`
+- `backend/core/wallet_core/wallet_core.py`
+- `backend/core/wallet_core/wallet_repository.py`
+- `backend/core/wallet_core/wallet_schema.py`
+- **Public interfaces (signatures)**
+  - **encryption.py**: def encrypt_key(plain); def decrypt_key(enc)
+  - **wallet_controller.py**: def list_wallets(); def add_wallet(); def delete_wallet(name); def export_wallets()
+  - **wallet_core.py**: class WalletCore
 
 ### MOD-SCRIPTS
-- **CLIs**:
-  - `perps_open_long.py --symbol SOL --size-usd 5.0`  
-  - `send_token_standalone.py --to <addr> --mint <USDC> --amount <n>`  
-  - `verify_all_tables_exist.py` (DB sanity)
+- **Path**: `backend/scripts/`
+- **Purpose**: Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist).
+- **Key files**
+- `backend/scripts/__init__.py`
+- `backend/scripts/api_breakpoint_test.py`
+- `backend/scripts/backfill_price_history.py`
+- `backend/scripts/create_virtual_env.py`
+- `backend/scripts/diagnose_market_monitor.py`
+- `backend/scripts/env_load_test.py`
+- **Public interfaces (signatures)**
+  - **api_breakpoint_test.py**: def check_endpoint(base, path); def main(argv)
+  - **backfill_price_history.py**: def get_price_at(asset, ts)
+  - **create_virtual_env.py**: def run(cmd, cwd); def venv_python(); def create_venv(); def main()
+
+### MOD-AUTO
+- **Path**: `backend/core/auto_core/`
+- **Purpose**: Playwright automation (Solflare connect, Jupiter flows).
+- **Key files**
+- `backend/core/auto_core/__init__.py`
+- `backend/core/auto_core/auto_core.py`
+- `backend/core/auto_core/playwright_helper.py`
+- `backend/core/auto_core/requests/__init__.py`
+- **Public interfaces (signatures)**
+  - **auto_core.py**: class AutoCore
+
+### MOD-FRONTEND
+- **Path**: `frontend/`
+- **Purpose**: React/Vite/Tailwind UI (Sonic Dashboard, Monitor Manager, Trader Shop).
+- **Key files**
+- _(none found)_
+- **Public interfaces (signatures)**
+  - _(no public signatures detected)_
+<!-- MODULE_INVENTORY:END -->
 
 ---
 
