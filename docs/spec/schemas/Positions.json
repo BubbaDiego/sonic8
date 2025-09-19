@@ -15,5 +15,21 @@
       "type": "integer",
       "minimum": 0
     }
-  }
+  },
+  "examples": [
+    {
+      "items": [
+        {
+          "symbol": "SOL",
+          "side": "long",
+          "sizeUsd": 125.5,
+          "entryPrice": 155.12,
+          "metadata": {
+            "note": "example position"
+          }
+        }
+      ],
+      "count": 1
+    }
+  ]
 }

@@ -33,5 +33,30 @@
     "positions": {
       "$ref": "Positions.json"
     }
-  }
+  },
+  "examples": [
+    {
+      "balances": [
+        {
+          "mint": "So11111111111111111111111111111111111111112",
+          "amount": "42500000000",
+          "decimals": 9
+        }
+      ],
+      "positions": {
+        "items": [
+          {
+            "symbol": "SOL",
+            "side": "long",
+            "sizeUsd": 125.5,
+            "entryPrice": 155.12,
+            "metadata": {
+              "note": "example position"
+            }
+          }
+        ],
+        "count": 1
+      }
+    }
+  ]
 }

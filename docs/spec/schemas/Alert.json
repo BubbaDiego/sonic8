@@ -30,5 +30,17 @@
       "type": "string",
       "format": "date-time"
     }
-  }
+  },
+  "examples": [
+    {
+      "id": "evt_123",
+      "type": "warning",
+      "message": "SOL balance low for fees",
+      "context": {
+        "lamports": 13018072,
+        "min": 10000000
+      },
+      "createdAt": "2025-09-11T19:49:10Z"
+    }
+  ]
 }

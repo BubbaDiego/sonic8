@@ -28,11 +28,11 @@ modules:
     purpose: "Service layer: DataLocker, Cyclone, Monitor Core, Alert V2, PositionStore."
     depends_on: [MOD-DATA, EXT-REDIS]
   - id: MOD-DATA
-    path: backend/core/data/
+    path: backend/data/
     purpose: "Persistence utilities and data models."
     depends_on: []
   - id: MOD-WALLET
-    path: backend/wallet_core/
+    path: backend/core/wallet_core/
     purpose: "Wallet operations, key derivation/management, signing."
     depends_on: [EXT-SOLANA]
   - id: MOD-SCRIPTS
