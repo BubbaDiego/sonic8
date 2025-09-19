@@ -1,4 +1,4 @@
-.PHONY: install dev-api dev-web openapi spec-validate
+.PHONY: install dev-api dev-web openapi spec-validate spec-ci
 
 install:
 	python -m pip install -r requirements.txt
@@ -15,3 +15,5 @@ openapi:
 
 spec-validate:
 	python backend/scripts/spec_validate.py
+
+spec-ci: spec-validate

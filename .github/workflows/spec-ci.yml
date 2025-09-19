@@ -14,38 +14,5 @@ jobs:
           python-version: "3.11"
       - name: Install deps
         run: pip install jsonschema pyyaml
-      - name: Validate JSON Schemas
-        run: |
-          python - <<'PY'
-          import json, glob, sys
-          try:
-            from jsonschema import Draft2020Validator
-          except ImportError:
-            from jsonschema import Draft202012Validator as Draft2020Validator
-          ok=True
-          for p in glob.glob('docs/spec/schemas/*.json'):
-              try:
-                  with open(p, 'r', encoding='utf-8') as f:
-                      Draft2020Validator.check_schema(json.load(f))
-                  print("OK", p)
-              except Exception as e:
-                  ok=False; print("ERR", p, e)
-          sys.exit(0 if ok else 1)
-          PY
-      - name: Validate manifest references
-        run: |
-          python - <<'PY'
-          import yaml, os, sys
-          with open("docs/spec/spec.manifest.yaml","r",encoding="utf-8") as f:
-              m=yaml.safe_load(f)
-          def exists(p):
-              # Only check repo-relative paths (ignore None / URLs)
-              return p and isinstance(p,str) and os.path.exists(p)
-          ok=True
-          for section in ("modules","apis","schemas"):
-              for item in (m.get(section) or []):
-                  p=item.get("path")
-                  if p and not exists(p):
-                      ok=False; print("MISSING", section, p)
-          sys.exit(0 if ok else 1)
-          PY
+      - name: Validate spec assets
+        run: python backend/scripts/spec_validate.py

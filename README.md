@@ -1,7 +1,9 @@
 # Sonic1
 
-This repository contains the code for the Sonic1 project. It is organized into
-three main parts:
+Sonic brings together a FastAPI backend, a modern React frontend, and a deep
+library of operational scripts that power the trading monitors and automation
+tools used by the broader Sonic platform. The repository is organized into
+three primary areas so you can jump directly to the part of the stack you need:
 
 - **backend/** – a FastAPI application providing the API.
 - **frontend/** – a React + Vite application used for the UI.
@@ -14,6 +16,25 @@ three main parts:
 
 Dependency management for Node.js packages occurs entirely inside
 **frontend/**. The repository root does not use `npm` or `yarn` directly.
+
+## 🛠️ Developer workflow cheat‑sheet
+
+Common automation lives in the project **Makefile**. These shortcuts wrap the
+underlying Python and Node.js tooling so you do not have to remember long
+commands:
+
+| Target | What it does |
+| ------ | ------------- |
+| `make install` | Install Python requirements and the frontend dependencies. |
+| `make dev-api` | Start the FastAPI server with auto-reload. |
+| `make dev-web` | Launch the Vite development server. |
+| `make openapi` | Regenerate `backend/api/openapi.yaml`. |
+| `make spec-validate` | Run the manifest/schema validation suite. |
+| `make spec-ci` | Execute the same validation routine used in CI. |
+
+Feel free to extend the Makefile with task-specific wrappers as your workflow
+evolves—just keep any spec validation steps delegated to
+`backend/scripts/spec_validate.py` so local runs and CI stay consistent.
 
 ## Getting started
 
