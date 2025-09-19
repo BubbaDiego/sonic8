@@ -89,18 +89,22 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
     raise RuntimeError(f"Instruction not found; tried {candidates} / {fallback_any}. IDL has: {have}")
 
 
-_RIGHT_RE = re.compile(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})")
+# match 'Right:' or 'right:' or 'Right：' (full-width colon) with optional spaces
+_RIGHT_LINE_RE = re.compile(r"(?i)right\s*[:：]\s*([1-9A-HJ-NP-Za-km-z]{32,})")
 
 
 def _right_pda_last(logs: list[str]) -> str | None:
     """
-    Return the *last* base58 pubkey that appears after 'Right:' in the entire simulate block.
-    Robust to formatting and account labels.
+    Return the *last* base58 pubkey that appears after 'Right:' in the entire
+    simulate log block. Robust to case/colon variants and escape codes.
     """
     if not logs:
         return None
+    # Join with newlines; strip ANSI escapes just in case
     blob = "\n".join(str(x) for x in logs)
-    matches = list(_RIGHT_RE.finditer(blob))
+    # remove common ANSI codes
+    blob = re.sub(r"\x1b\[[0-9;]*m", "", blob)
+    matches = list(_RIGHT_LINE_RE.finditer(blob))
     return matches[-1].group(1) if matches else None
 
 
@@ -898,12 +902,16 @@ def open_position_request(
         }])
         val  = sim.get("value") or {}
         logs = val.get("logs") or []
-        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:120]))
+        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:180]))
+        # debug: show any lines that contain 'Right' (case-insensitive)
+        right_lines = [l for l in logs if "Right" in l or "right" in l]
+        if right_lines:
+            print("[perps] lines containing 'Right':\n  " + "\n  ".join(right_lines))
 
         if val.get("err"):
             # Grab the *last* Right: PDA in the whole block (formatter-agnostic)
             expect_pr = _right_pda_last(logs)
-            print(f"[perps] Right: last = {expect_pr}")
+            print(f"[perps] Right (parsed last) = {expect_pr}")
             if expect_pr:
                 try:
                     pr_pk = Pubkey.from_string(expect_pr)
