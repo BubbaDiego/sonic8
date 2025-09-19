@@ -4,10 +4,18 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-BACKEND_DIR = ROOT / "backend"
-for candidate in (str(ROOT), str(BACKEND_DIR)):
-    if candidate not in sys.path:
-        sys.path.insert(0, candidate)
+
+
+def _ensure_repo_on_path() -> None:
+    """Prepend the repo root (and backend package) to ``sys.path``."""
+
+    candidates = [ROOT, ROOT / "backend"]
+    for candidate in (str(path) for path in candidates):
+        if candidate not in sys.path:
+            sys.path.insert(0, candidate)
+
+
+_ensure_repo_on_path()
 
 from backend.sonic_backend_app import app
 
