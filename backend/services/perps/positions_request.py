@@ -89,23 +89,47 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
     raise RuntimeError(f"Instruction not found; tried {candidates} / {fallback_any}. IDL has: {have}")
 
 
-# match 'Right:' or 'right:' or 'Right：' (full-width colon) with optional spaces
-_RIGHT_LINE_RE = re.compile(r"(?i)right\s*[:：]\s*([1-9A-HJ-NP-Za-km-z]{32,})")
+_PK_RE = re.compile(r"([1-9A-HJ-NP-Za-km-z]{32,})")
 
 
-def _right_pda_last(logs: list[str]) -> str | None:
+def _right_pda_last_multiline(logs: list[str]) -> str | None:
     """
-    Return the *last* base58 pubkey that appears after 'Right:' in the entire
-    simulate log block. Robust to case/colon variants and escape codes.
+    Return the last base58 pubkey that appears *after* a 'Right:' line.
+    Handles both formats:
+      - "Right: <pubkey>" on the same line
+      - "Right:" followed by "<pubkey>" on the next line
+    Also strips ANSI color codes.
     """
     if not logs:
         return None
-    # Join with newlines; strip ANSI escapes just in case
-    blob = "\n".join(str(x) for x in logs)
-    # remove common ANSI codes
-    blob = re.sub(r"\x1b\[[0-9;]*m", "", blob)
-    matches = list(_RIGHT_LINE_RE.finditer(blob))
-    return matches[-1].group(1) if matches else None
+
+    # Strip ANSI codes for safety
+    clean = [re.sub(r"\x1b\[[0-9;]*m", "", str(l)) for l in logs]
+
+    found: list[str] = []
+    i = 0
+    while i < len(clean):
+        line = clean[i]
+        if re.search(r"(?i)right\s*[:：]\s*$", line.strip()):
+            # pubkey expected on the next non-empty line
+            j = i + 1
+            while j < len(clean):
+                nxt = clean[j].strip()
+                if nxt:
+                    m = _PK_RE.search(nxt)
+                    if m:
+                        found.append(m.group(1))
+                    break
+                j += 1
+            i = j
+        else:
+            # same-line "Right: <pubkey>"
+            m = re.search(r"(?i)right\s*[:：]\s*([1-9A-HJ-NP-Za-km-z]{32,})", line)
+            if m:
+                found.append(m.group(1))
+        i += 1
+
+    return found[-1] if found else None
 
 
 def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
@@ -902,28 +926,28 @@ def open_position_request(
         }])
         val  = sim.get("value") or {}
         logs = val.get("logs") or []
-        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:180]))
-        # debug: show any lines that contain 'Right' (case-insensitive)
-        right_lines = [l for l in logs if "Right" in l or "right" in l]
-        if right_lines:
-            print("[perps] lines containing 'Right':\n  " + "\n  ".join(right_lines))
+        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:240]))
+        for idx, ln in enumerate(logs):
+            if "Right" in ln or "right" in ln:
+                nxt = logs[idx + 1] if idx + 1 < len(logs) else "<no next line>"
+                print(f"[perps] Right@{idx}: {ln}")
+                print(f"[perps] Right@{idx}+1: {nxt}")
 
         if val.get("err"):
-            # Grab the *last* Right: PDA in the whole block (formatter-agnostic)
-            expect_pr = _right_pda_last(logs)
-            print(f"[perps] Right (parsed last) = {expect_pr}")
+            expect_pr = _right_pda_last_multiline(logs)
+            print(f"[perps] Right (parsed last multiline) = {expect_pr}")
             if expect_pr:
                 try:
                     pr_pk = Pubkey.from_string(expect_pr)
-                    # set BOTH keys so IDL name (camel/snake) resolves
                     effective["positionRequest"]  = pr_pk
-                    effective["position_request"] = pr_pk
+                    effective["position_request"] = pr_pk  # cover snake/camel
                     print(f"[perps] ADOPT position_request PDA → {expect_pr}")
 
                     _metas = _metas_from(ix_idl, effective)
+                    _metas = _force_token_program_slot(ix_idl, effective, _metas)
+                    _metas = _force_all_tokenkeg_to_atoken(_metas)
                     _dump_idl_and_metas(ix_idl, _metas)
 
-                    # rebuild + simulate again for visibility
                     msg2 = MessageV0.try_compile(
                         payer=owner,
                         instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas)],
@@ -938,18 +962,16 @@ def open_position_request(
                     }])
                     val2  = sim2.get("value") or {}
                     logs2 = val2.get("logs") or []
-                    print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:120]))
+                    print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:240]))
                     if val2.get("err"):
                         raise RuntimeError("simulation failed after position_request adopt")
 
-                    # send corrected transaction
                     return rpc("sendTransaction", [raw2, {
                         "encoding":"base64", "skipPreflight": False, "maxRetries": 3
                     }])
                 except Exception as e_adopt:
                     print(f"[perps] position_request adopt failed: {e_adopt}")
 
-            # Couldn’t parse or adoption failed → bubble; logs already printed
             raise RuntimeError("simulation failed; see server logs for details")
 
         return rpc("sendTransaction", [raw, {
