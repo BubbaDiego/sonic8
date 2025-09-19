@@ -108,7 +108,7 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
 
 def _pda_from_logs(logs: list[str], acct_name: str) -> str | None:
     """
-    If simulate logs contain a seeds-constraint for `acct_name`, return the base58
+    If simulate reports a seeds constraint for `acct_name`, return the base58 pubkey
     printed after 'Right:' for that account.
     """
     if not logs:
@@ -122,7 +122,7 @@ def _pda_from_logs(logs: list[str], acct_name: str) -> str | None:
                 m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", logs[j])
                 if m:
                     return m.group(1)
-    # fallback: first 'Right:' anywhere (formatter varies)
+    # fallback: first 'Right:' anywhere
     for line in logs:
         m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", line)
         if m:
@@ -924,16 +924,18 @@ def open_position_request(
             logs = val.get("logs") or []
             print("[perps] simulate logs:\n  " + "\n  ".join(logs[:60]))
             if val.get("err"):
-                # ── adopt expected PDA for position_request (from 'Right:' in logs) ──
+                # adopt expected PDA for position_request from logs and retry once
                 expect_pr = _pda_from_logs(logs, "position_request")
                 if expect_pr:
                     try:
                         pr_pk = Pubkey.from_string(expect_pr)
-                        effective["positionRequest"]  = pr_pk     # camel
-                        effective["position_request"] = pr_pk     # snake (if IDL uses this key)
+                        effective["positionRequest"]  = pr_pk   # camel
+                        effective["position_request"] = pr_pk   # snake
                         print(f"[perps] adopting expected position_request PDA → {expect_pr}")
 
                         _metas = _metas_from(ix_idl, effective)
+                        _metas = _force_token_program_slot(ix_idl, effective, _metas)
+                        _metas = _force_all_tokenkeg_to_atoken(_metas)
                         _dump_idl_and_metas(ix_idl, _metas)
 
                         # rebuild + simulate again for visibility
