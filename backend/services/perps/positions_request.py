@@ -1026,8 +1026,9 @@ def open_position_request(
                     print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:240]))
                     if val2.get("err"):
                         # --- Unknown account recovery (insert at correct index, escalate signer if needed) ---
+                        # --- Unknown account recovery (append as remaining accounts, escalate if needed) ---
                         missing_iter = 0
-                        _metas_iter = list(_metas)        # start from metas after PR adopt
+                        _metas_iter = list(_metas)        # metas after PR adopt
                         prev_missing: Pubkey | None = None
 
                         def _build_and_sim(_metas_try):
@@ -1055,24 +1056,23 @@ def open_position_request(
                                 print("[perps] no 'unknown account' pubkey found; cannot recover further")
                                 break
 
+                            # If the SAME pk repeats, or logs suggest signer/writable, escalate immediately.
                             immediate_signer = (
-                                (prev_missing is not None and missing_pk == prev_missing)
-                                or _needs_signer_from_logs(curr_logs)
-                                or _needs_writable_from_logs(curr_logs)
+                                (prev_missing is not None and missing_pk == prev_missing) or
+                                _needs_signer_from_logs(curr_logs) or _needs_writable_from_logs(curr_logs)
                             )
                             prev_missing = missing_pk
 
-                            ins_idx = _metas_index_before_programs(ix_idl, effective)
-                            print(
-                                f"[perps] iter#{missing_iter} inserting missing {str(missing_pk)} at metas[{ins_idx}] "
-                                f"(signer={'True' if immediate_signer else 'False'}, writable=True)"
-                            )
-
+                            # Attempt A (or B if immediate_signer): append to END (remaining accounts)
+                            # A: signer=False, writable=True ;  B: signer=True, writable=True
+                            attA_signer = immediate_signer   # if immediate escalate, go straight to signer=True
                             metas_try = list(_metas_iter)
-                            metas_try.insert(ins_idx, AccountMeta(missing_pk, immediate_signer, True))
-                            ok1, logs1 = _build_and_sim(metas_try)
-                            print("[perps] simulate (after insert):\n  " + "\n  ".join(logs1[:240]))
-                            if ok1:
+                            metas_try.append(AccountMeta(missing_pk, attA_signer, True))
+                            print(f"[perps] iter#{missing_iter} append unknown (remaining) → {str(missing_pk)} "
+                                  f"(signer={'True' if attA_signer else 'False'}, writable=True)")
+                            okA, logsA = _build_and_sim(metas_try)
+                            print("[perps] simulate (after append):\n  " + "\n  ".join(logsA[:240]))
+                            if okA:
                                 _dump_idl_and_metas(ix_idl, metas_try)
                                 msgS = MessageV0.try_compile(
                                     payer=owner,
@@ -1084,20 +1084,15 @@ def open_position_request(
                                 rawS = base64.b64encode(bytes(txS)).decode()
                                 return rpc("sendTransaction", [rawS, {"encoding":"base64","skipPreflight":False,"maxRetries":3}])
 
-                            if not immediate_signer and (
-                                _needs_signer_from_logs(logs1) or _needs_writable_from_logs(logs1)
-                            ):
-                                print(
-                                    f"[perps] iter#{missing_iter} escalate signer at metas[{ins_idx}] for {str(missing_pk)}"
-                                )
+                            # If we didn’t escalate and logsA demand signer/writable, escalate now and retry once
+                            if not attA_signer and (_needs_signer_from_logs(logsA) or _needs_writable_from_logs(logsA)):
                                 metas_try2 = list(_metas_iter)
-                                metas_try2.insert(ins_idx, AccountMeta(missing_pk, True, True))
-                                ok2, logs2b = _build_and_sim(metas_try2)
-                                print(
-                                    "[perps] simulate (after escalate signer):\n  "
-                                    + "\n  ".join(logs2b[:240])
-                                )
-                                if ok2:
+                                metas_try2.append(AccountMeta(missing_pk, True, True))
+                                print(f"[perps] iter#{missing_iter} escalate unknown (remaining) → {str(missing_pk)} "
+                                      f"(signer=True, writable=True)")
+                                okB, logsB = _build_and_sim(metas_try2)
+                                print("[perps] simulate (after escalate):\n  " + "\n  ".join(logsB[:240]))
+                                if okB:
                                     _dump_idl_and_metas(ix_idl, metas_try2)
                                     msgS2 = MessageV0.try_compile(
                                         payer=owner,
@@ -1108,13 +1103,14 @@ def open_position_request(
                                     txS2  = VersionedTransaction(msgS2, [wallet])
                                     rawS2 = base64.b64encode(bytes(txS2)).decode()
                                     return rpc("sendTransaction", [rawS2, {"encoding":"base64","skipPreflight":False,"maxRetries":3}])
-                                curr_logs = logs2b
+                                curr_logs = logsB
                                 _metas_iter = metas_try2
                             else:
-                                curr_logs = logs1
+                                curr_logs = logsA
                                 _metas_iter = metas_try
 
-                        raise RuntimeError("simulation failed after indexed unknown-account recovery")
+                        # If we drop out without success:
+                        raise RuntimeError("simulation failed after remaining-account recovery")
                         # ---------------------------------------------------------------------------
 
                     return rpc("sendTransaction", [raw2, {
