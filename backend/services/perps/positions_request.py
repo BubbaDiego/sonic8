@@ -108,7 +108,8 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
 
 def _pda_from_logs(logs: list[str], account_name: str) -> str | None:
     """
-    For a ConstraintSeeds error on `account_name`, return the base58 after 'Right:'.
+    If simulate reports a seeds-constraint on `account_name`, return the base58
+    pubkey printed after 'Right:' for that account.
     """
     if not logs:
         return None
@@ -923,18 +924,17 @@ def open_position_request(
             logs = val.get("logs") or []
             print("[perps] simulate logs:\n  " + "\n  ".join(logs[:60]))
             if val.get("err"):
-                # adopt expected PDA for position_request (and position too if present)
-                expect_pos_req = _pda_from_logs(logs, "position_request")
-                if expect_pos_req:
-                    print(f"[perps] adopting expected position_request PDA → {expect_pos_req}")
-                    effective["positionRequest"] = Pubkey.from_string(expect_pos_req)
+                # Adopt expected PDAs from seeds errors in logs (one-pass fix)
+                expect_pr = _pda_from_logs(logs, "position_request")
+                if expect_pr:
+                    print(f"[perps] adopting expected position_request PDA → {expect_pr}")
+                    effective["positionRequest"] = Pubkey.from_string(expect_pr)
 
+                    # rebuild metas with corrected mapping
                     _metas = _metas_from(ix_idl, effective)
-                    _metas = _force_token_program_slot(ix_idl, effective, _metas)
-                    _metas = _force_all_tokenkeg_to_atoken(_metas)
                     _dump_idl_and_metas(ix_idl, _metas)
 
-                    # rebuild + simulate once for visibility
+                    # rebuild tx and simulate once (for visibility)
                     msg2 = MessageV0.try_compile(
                         payer=owner,
                         instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas)],
@@ -945,7 +945,7 @@ def open_position_request(
                     raw2 = base64.b64encode(bytes(tx2)).decode()
 
                     sim2 = rpc("simulateTransaction", [raw2, {
-                        "encoding":"base64","sigVerify":False,"replaceRecentBlockhash":True
+                        "encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True
                     }])
                     val2  = sim2.get("value") or {}
                     logs2 = val2.get("logs") or []
@@ -958,7 +958,7 @@ def open_position_request(
                         "encoding":"base64","skipPreflight":False,"maxRetries":3
                     }])
 
-                # couldn’t parse → bubble; logs already printed
+                # if we couldn’t parse, bubble the error (logs already printed)
                 raise RuntimeError("simulation failed; see server logs for details")
 
         return rpc("sendTransaction", [raw, {
