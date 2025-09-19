@@ -16,3 +16,6 @@ jobs:
         run: pip install jsonschema pyyaml
       - name: Validate spec assets
         run: python backend/scripts/spec_validate.py
+      - name: Generate Repo Map & Module Inventory (non-blocking)
+        run: |
+          python backend/scripts/spec_sweeper.py || echo "sweeper failed (non-blocking)"
