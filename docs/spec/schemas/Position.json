@@ -1,0 +1,49 @@
+{
+  "$id": "schema/Position.json",
+  "type": "object",
+  "required": [
+    "symbol",
+    "side",
+    "sizeUsd",
+    "entryPrice"
+  ],
+  "properties": {
+    "symbol": {
+      "type": "string",
+      "examples": [
+        "SOL",
+        "ETH"
+      ]
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "long",
+        "short"
+      ]
+    },
+    "sizeUsd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "entryPrice": {
+      "type": "number",
+      "minimum": 0
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "symbol": "SOL",
+      "side": "long",
+      "sizeUsd": 125.5,
+      "entryPrice": 155.12,
+      "metadata": {
+        "note": "example position"
+      }
+    }
+  ]
+}
