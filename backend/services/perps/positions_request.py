@@ -916,7 +916,7 @@ def open_position_request(
         tx = VersionedTransaction(msg, [wallet])
         raw = base64.b64encode(bytes(tx)).decode()
 
-        if _simulate or os.getenv("PERPS_SIMULATE",""").strip() == "1":
+        if _simulate or os.getenv("PERPS_SIMULATE", "").strip() == "1":
             sim = rpc("simulateTransaction", [raw, {
                 "encoding":"base64", "sigVerify": False, "replaceRecentBlockhash": True
             }])
