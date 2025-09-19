@@ -106,21 +106,20 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
     raise RuntimeError(f"Instruction not found; tried {candidates} / {fallback_any}. IDL has: {have}")
 
 
-def _extract_expected_position_from_logs(logs: list[str]) -> str | None:
+def _extract_expected_pda_from_logs(logs: list[str], account_name: str) -> str | None:
     """
-    If simulate produced a ConstraintSeeds error for `position`, return the
-    base58 after 'Right:' (the PDA the program expects). Otherwise None.
+    Return the base58 pubkey appearing after 'Right:' for a seeds error on `account_name`.
     """
     if not logs:
         return None
-    # primary: scan around the 'account: position' line
+    acct = account_name.lower()
     for i, line in enumerate(logs):
-        if "account: position" in line and ("ConstraintSeeds" in line or "seeds constraint" in line.lower()):
+        if "account:" in line and acct in line.lower() and ("ConstraintSeeds" in line or "seeds constraint" in line.lower()):
             for j in range(i, min(i + 6, len(logs))):
                 m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", logs[j])
                 if m:
                     return m.group(1)
-    # fallback: any 'Right: <pk>' line
+    # fallback: first Right if the formatter printed it earlier
     for line in logs:
         m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", line)
         if m:
@@ -915,91 +914,58 @@ def open_position_request(
         raw = base64.b64encode(bytes(tx)).decode()
 
         if _simulate or os.getenv("PERPS_SIMULATE", "").strip() == "1":
-            sim = rpc(
-                "simulateTransaction",
-                [
-                    raw,
-                    {
-                        "encoding": "base64",
-                        "sigVerify": False,
-                        "replaceRecentBlockhash": True,
-                    },
-                ],
-            )
+            sim = rpc("simulateTransaction", [raw, {
+                "encoding": "base64","sigVerify": False,"replaceRecentBlockhash": True
+            }])
             val = sim.get("value") or {}
             logs = val.get("logs") or []
             print("[perps] simulate logs:\n  " + "\n  ".join(logs[:60]))
             if val.get("err"):
-                # 🔧 If position PDA seeds mismatch, adopt the expected PDA and retry once
-                expect_pos = _extract_expected_position_from_logs(logs)
+                # 1) if position PDA mismatch, adopt expected (we already handled earlier, keep if present)
+                expect_pos = _extract_expected_pda_from_logs(logs, "position")
                 if expect_pos:
-                    try:
-                        print(f"[perps] adopting expected position PDA → {expect_pos}")
-                        effective["position"] = Pubkey.from_string(expect_pos)
-                        # rebuild metas with corrected mapping
-                        _metas = _metas_from(ix_idl, effective)
-                        _metas = _force_token_program_slot(ix_idl, effective, _metas)
-                        # if you kept the brute fixer, leave it here; it won't touch corrected slots
-                        _metas = (
-                            _force_all_tokenkeg_to_atoken(_metas)
-                            if "_force_all_tokenkeg_to_atoken" in globals()
-                            else _metas
-                        )
-                        _dump_idl_and_metas(ix_idl, _metas)
+                    print(f"[perps] adopting expected position PDA → {expect_pos}")
+                    effective["position"] = Pubkey.from_string(expect_pos)
 
-                        msg2 = MessageV0.try_compile(
-                            payer=owner,
-                            instructions=[
-                                *compute_budget_ixs(),
-                                Instruction(program_id, data, _metas),
-                            ],
-                            address_lookup_table_accounts=[],
-                            recent_blockhash=recent_blockhash(),
-                        )
-                        tx2 = VersionedTransaction(msg2, [wallet])
-                        raw2 = base64.b64encode(bytes(tx2)).decode()
+                # 2) if position_request PDA mismatch, adopt expected and retry once
+                expect_pre = _extract_expected_pda_from_logs(logs, "position_request")
+                if expect_pre:
+                    print(f"[perps] adopting expected positionRequest PDA → {expect_pre}")
+                    effective["positionRequest"] = Pubkey.from_string(expect_pre)
 
-                        # simulate corrected tx for visibility
-                        sim2 = rpc(
-                            "simulateTransaction",
-                            [
-                                raw2,
-                                {
-                                    "encoding": "base64",
-                                    "sigVerify": False,
-                                    "replaceRecentBlockhash": True,
-                                },
-                            ],
-                        )
-                        val2 = sim2.get("value") or {}
-                        logs2 = val2.get("logs") or []
-                        print("[perps] simulate (after position fix):\n  " + "\n  ".join(logs2[:60]))
-                        if val2.get("err"):
-                            raise RuntimeError(
-                                "simulation failed after position fix; see logs above"
-                            )
+                    _metas = _metas_from(ix_idl, effective)
+                    _dump_idl_and_metas(ix_idl, _metas)
 
-                        # send corrected tx
-                        return rpc(
-                            "sendTransaction",
-                            [
-                                raw2,
-                                {
-                                    "encoding": "base64",
-                                    "skipPreflight": False,
-                                    "maxRetries": 3,
-                                },
-                            ],
-                        )
-                    except Exception as _e:
-                        print(f"[perps] position PDA fix attempt failed: {_e}")
-                # not a seeds error or cannot parse → bubble
+                    msg2 = MessageV0.try_compile(
+                        payer=owner,
+                        instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas)],
+                        address_lookup_table_accounts=[],
+                        recent_blockhash=recent_blockhash(),
+                    )
+                    tx2 = VersionedTransaction(msg2, [wallet])
+                    raw2 = base64.b64encode(bytes(tx2)).decode()
+
+                    # simulate once for visibility
+                    sim2 = rpc("simulateTransaction", [raw2, {
+                        "encoding": "base64","sigVerify": False,"replaceRecentBlockhash": True
+                    }])
+                    val2 = sim2.get("value") or {}
+                    logs2 = val2.get("logs") or []
+                    print("[perps] simulate (after position_request fix):\n  " + "\n  ".join(logs2[:60]))
+                    if val2.get("err"):
+                        raise RuntimeError("simulation failed after position_request fix")
+
+                    # send corrected tx
+                    return rpc("sendTransaction", [raw2, {
+                        "encoding": "base64","skipPreflight": False,"maxRetries": 3
+                    }])
+
+                # If we couldn’t parse either, bubble up; logs already printed.
                 raise RuntimeError("simulation failed; see server logs for details")
 
-        return rpc(
-            "sendTransaction",
-            [raw, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
-        )
+        return rpc("sendTransaction", [raw, {
+            "encoding": "base64","skipPreflight": False,"maxRetries": 3
+        }])
 
     # try once with current mapping
     try:
