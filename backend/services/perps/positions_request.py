@@ -133,6 +133,22 @@ def _pda_from_logs_any(logs: list[str], names: list[str]) -> str | None:
     return None
 
 
+def _all_right_pd_as(logs: list[str]) -> list[str]:
+    """
+    Return all base58 pubkeys that appear after 'Right:' in the simulate logs.
+    We pick the last one for position_request (some formatters repeat).
+    """
+    out: list[str] = []
+    if not logs:
+        return out
+    pat = re.compile(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})")
+    for line in logs:
+        m = pat.search(line)
+        if m:
+            out.append(m.group(1))
+    return out
+
+
 def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
     """
     Prefer the discriminator bytes embedded in the IDL (newer Anchor), otherwise
@@ -919,7 +935,7 @@ def open_position_request(
         tx = VersionedTransaction(msg, [wallet])
         raw = base64.b64encode(bytes(tx)).decode()
 
-        print("[perps] open::_send_with ACTIVE", __file__)  # one-off marker to confirm live path
+        print("[perps] open::_send_with ACTIVE", __file__)  # prove we’re in the live path
 
         # Always simulate here so we can adopt seeds if needed
         sim = rpc("simulateTransaction", [raw, {
@@ -927,24 +943,26 @@ def open_position_request(
         }])
         val  = sim.get("value") or {}
         logs = val.get("logs") or []
-        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:60]))
+        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:80]))
 
         if val.get("err"):
-            # Try both snake/camel labels; fall back to first Right: if formatter varies
-            expect_pr = _pda_from_logs_any(logs, ["position_request", "positionRequest"])
-            if expect_pr:
+            # Collect ALL Right: PDAs printed by the program and adopt the last one.
+            rights = _all_right_pd_as(logs)
+            print(f"[perps] Right: PDAs found = {rights}")
+            if rights:
+                expect_pr = rights[-1]
                 try:
                     pr_pk = Pubkey.from_string(expect_pr)
-                    # Set BOTH keys so the metas builder picks it up regardless of name
+                    # set BOTH keys so the metas builder picks it up regardless of camel/snake
                     effective["positionRequest"]  = pr_pk
                     effective["position_request"] = pr_pk
-                    print(f"[perps] adopting expected position_request PDA → {expect_pr}")
+                    print(f"[perps] ADOPT position_request PDA → {expect_pr}")
 
                     # Rebuild metas with adopted PDA and show exactly what we'll send
                     _metas = _metas_from(ix_idl, effective)
                     _dump_idl_and_metas(ix_idl, _metas)
 
-                    # Rebuild tx and simulate again for visibility
+                    # Rebuild tx and simulate once more for visibility
                     msg2 = MessageV0.try_compile(
                         payer=owner,
                         instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas)],
@@ -959,9 +977,9 @@ def open_position_request(
                     }])
                     val2  = sim2.get("value") or {}
                     logs2 = val2.get("logs") or []
-                    print("[perps] simulate (after position_request fix):\n  " + "\n  ".join(logs2[:60]))
+                    print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:80]))
                     if val2.get("err"):
-                        raise RuntimeError("simulation failed after position_request fix")
+                        raise RuntimeError("simulation failed after position_request adopt")
 
                     # Send corrected transaction
                     return rpc("sendTransaction", [raw2, {
@@ -970,7 +988,7 @@ def open_position_request(
                 except Exception as e_adopt:
                     print(f"[perps] position_request adopt failed: {e_adopt}")
 
-            # Couldn’t parse expected PDA → bubble; logs already printed
+            # Couldn’t parse or adoption failed → bubble; logs already printed
             raise RuntimeError("simulation failed; see server logs for details")
 
         return rpc("sendTransaction", [raw, {
