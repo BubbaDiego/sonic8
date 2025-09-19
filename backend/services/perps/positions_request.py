@@ -108,8 +108,9 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
 
 def _pda_from_logs_any(logs: list[str], names: list[str]) -> str | None:
     """
-    For a ConstraintSeeds error on any account name in `names`,
-    return the base58 printed after 'Right:' for that account.
+    If simulate logs include a seeds-constraint for any account name in `names`,
+    return the base58 printed after 'Right:' for that account. Falls back to the
+    first 'Right:' if the formatter varies.
     """
     if not logs:
         return None
@@ -124,7 +125,7 @@ def _pda_from_logs_any(logs: list[str], names: list[str]) -> str | None:
                     m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", logs[j])
                     if m:
                         return m.group(1)
-    # Fallback: first Right: … anywhere (formatter variants)
+    # Fallback: accept the first Right: in the block — some runtimes reorder prints
     for line in logs:
         m = re.search(r"Right:\s*([1-9A-HJ-NP-Za-km-z]{32,})", line)
         if m:
@@ -918,65 +919,59 @@ def open_position_request(
         tx = VersionedTransaction(msg, [wallet])
         raw = base64.b64encode(bytes(tx)).decode()
 
-        if _simulate or os.getenv("PERPS_SIMULATE", "").strip() == "1":
-            # Always simulate here so we can adopt seeds if needed
-            sim = rpc("simulateTransaction", [raw, {
-                "encoding": "base64",
-                "sigVerify": False,
-                "replaceRecentBlockhash": True
-            }])
-            val  = sim.get("value") or {}
-            logs = val.get("logs") or []
-            print("[perps] simulate logs:\n  " + "\n  ".join(logs[:60]))
+        print("[perps] open::_send_with ACTIVE", __file__)  # one-off marker to confirm live path
 
-            if val.get("err"):
-                # Try both camel and snake account names, then fall back to first Right:
-                expect_pr = _pda_from_logs_any(logs, ["position_request", "positionRequest"])
-                if expect_pr:
-                    try:
-                        pr_pk = Pubkey.from_string(expect_pr)
-                        effective["positionRequest"]  = pr_pk
-                        effective["position_request"] = pr_pk  # cover snake/camel
-                        print(f"[perps] adopting expected position_request PDA → {expect_pr}")
+        # Always simulate here so we can adopt seeds if needed
+        sim = rpc("simulateTransaction", [raw, {
+            "encoding":"base64", "sigVerify": False, "replaceRecentBlockhash": True
+        }])
+        val  = sim.get("value") or {}
+        logs = val.get("logs") or []
+        print("[perps] simulate logs:\n  " + "\n  ".join(logs[:60]))
 
-                        # Rebuild metas with the adopted PDA
-                        _metas = _metas_from(ix_idl, effective)
-                        _metas = _force_token_program_slot(ix_idl, effective, _metas)
-                        _metas = _force_all_tokenkeg_to_atoken(_metas)
-                        _dump_idl_and_metas(ix_idl, _metas)
+        if val.get("err"):
+            # Try both snake/camel labels; fall back to first Right: if formatter varies
+            expect_pr = _pda_from_logs_any(logs, ["position_request", "positionRequest"])
+            if expect_pr:
+                try:
+                    pr_pk = Pubkey.from_string(expect_pr)
+                    # Set BOTH keys so the metas builder picks it up regardless of name
+                    effective["positionRequest"]  = pr_pk
+                    effective["position_request"] = pr_pk
+                    print(f"[perps] adopting expected position_request PDA → {expect_pr}")
 
-                        # Rebuild and simulate again for visibility
-                        msg2 = MessageV0.try_compile(
-                            payer=owner,
-                            instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas)],
-                            address_lookup_table_accounts=[],
-                            recent_blockhash=recent_blockhash(),
-                        )
-                        tx2  = VersionedTransaction(msg2, [wallet])
-                        raw2 = base64.b64encode(bytes(tx2)).decode()
+                    # Rebuild metas with adopted PDA and show exactly what we'll send
+                    _metas = _metas_from(ix_idl, effective)
+                    _dump_idl_and_metas(ix_idl, _metas)
 
-                        sim2 = rpc("simulateTransaction", [raw2, {
-                            "encoding":"base64",
-                            "sigVerify": False,
-                            "replaceRecentBlockhash": True
-                        }])
-                        val2  = sim2.get("value") or {}
-                        logs2 = val2.get("logs") or []
-                        print("[perps] simulate (after position_request fix):\n  " + "\n  ".join(logs2[:60]))
-                        if val2.get("err"):
-                            raise RuntimeError("simulation failed after position_request fix")
+                    # Rebuild tx and simulate again for visibility
+                    msg2 = MessageV0.try_compile(
+                        payer=owner,
+                        instructions=[*compute_budget_ixs(), Instruction(program_id, data, _metas)],
+                        address_lookup_table_accounts=[],
+                        recent_blockhash=recent_blockhash(),
+                    )
+                    tx2  = VersionedTransaction(msg2, [wallet])
+                    raw2 = base64.b64encode(bytes(tx2)).decode()
 
-                        # Send corrected tx
-                        return rpc("sendTransaction", [raw2, {
-                            "encoding":"base64",
-                            "skipPreflight": False,
-                            "maxRetries": 3
-                        }])
-                    except Exception as e_adopt:
-                        print(f"[perps] position_request adopt failed: {e_adopt}")
+                    sim2 = rpc("simulateTransaction", [raw2, {
+                        "encoding":"base64", "sigVerify": False, "replaceRecentBlockhash": True
+                    }])
+                    val2  = sim2.get("value") or {}
+                    logs2 = val2.get("logs") or []
+                    print("[perps] simulate (after position_request fix):\n  " + "\n  ".join(logs2[:60]))
+                    if val2.get("err"):
+                        raise RuntimeError("simulation failed after position_request fix")
 
-                # Couldn’t parse expected PDA → bubble; logs already printed
-                raise RuntimeError("simulation failed; see server logs for details")
+                    # Send corrected transaction
+                    return rpc("sendTransaction", [raw2, {
+                        "encoding":"base64", "skipPreflight": False, "maxRetries": 3
+                    }])
+                except Exception as e_adopt:
+                    print(f"[perps] position_request adopt failed: {e_adopt}")
+
+            # Couldn’t parse expected PDA → bubble; logs already printed
+            raise RuntimeError("simulation failed; see server logs for details")
 
         return rpc("sendTransaction", [raw, {
             "encoding": "base64","skipPreflight": False,"maxRetries": 3
