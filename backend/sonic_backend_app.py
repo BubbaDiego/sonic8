@@ -25,6 +25,9 @@ if not load_dotenv(ROOT_DIR / ".env"):
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from backend.services.solana_rpc import _RPC_URLS
+
+print(f"[rpc] rotation = {', '.join(_RPC_URLS)}")
 
 # Routers (imports only; include AFTER app = FastAPI)
 from backend.routes.positions_api import router as positions_router

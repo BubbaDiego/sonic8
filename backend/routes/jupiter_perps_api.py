@@ -9,11 +9,12 @@ import anyio
 
 from backend.services.perps.markets import list_markets_sync, resolve_market
 from backend.services.perps.positions import list_positions_sync
-from backend.services.perps.raw_rpc import _rpc, get_program_id, get_idl_account_names
+from backend.services.perps.raw_rpc import get_program_id, get_idl_account_names
 from backend.services.perps.config import get_disc, get_account_name
 from backend.services.signer_loader import load_signer
 from backend.services.perps.positions_request import open_position_request, close_position_request
 from backend.services.perps.position_probe import probe_position, idl_summary
+from backend.services.solana_rpc import get_program_accounts as gpa_cached
 
 try:  # optional service (not yet wired everywhere)
     from backend.services.perps.order_submit import submit_increase_request, submit_close_request
@@ -225,7 +226,7 @@ async def perps_owner_offset(owner: str, start: int = 8, stop: int = 192, step: 
                     {"memcmp": {"offset": off, "bytes": owner}}
                 ]
             }
-            res = await anyio.to_thread.run_sync(_rpc, "getProgramAccounts", [pid, params])
+            res = await anyio.to_thread.run_sync(gpa_cached, pid, params)
             count = len(res or [])
             if count > 0:
                 hits.append({"offset": off, "count": count})

@@ -5,8 +5,9 @@ from typing import Any, Dict, List, Optional
 
 from solders.pubkey import Pubkey
 
-from backend.services.perps.raw_rpc import _rpc, get_program_id, get_idl_account_names
+from backend.services.perps.raw_rpc import get_program_id, get_idl_account_names
 from backend.services.perps.config import get_disc, get_account_name
+from backend.services.solana_rpc import get_program_accounts as gpa_cached
 
 SOL_MINT = "So11111111111111111111111111111111111111112"
 USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
@@ -98,7 +99,7 @@ def list_markets_sync() -> Dict[str, Any]:
 
     pools: List[Dict[str, Any]] = []
     try:
-        res_pool = _rpc("getProgramAccounts", [program_id, _filter_params_b58(pool_disc)]) or []
+        res_pool = gpa_cached(program_id, _filter_params_b58(pool_disc)) or []
         for item in res_pool:
             pools.append({"pubkey": item.get("pubkey")})
     except Exception as exc:
@@ -112,7 +113,7 @@ def list_markets_sync() -> Dict[str, Any]:
 
     custodies: List[Dict[str, Any]] = []
     try:
-        res_cust = _rpc("getProgramAccounts", [program_id, _filter_params_b58(cust_disc)]) or []
+        res_cust = gpa_cached(program_id, _filter_params_b58(cust_disc)) or []
         for item in res_cust:
             entry: Dict[str, Any] = {"pubkey": item.get("pubkey")}
             raw = _decode_account_data(item)

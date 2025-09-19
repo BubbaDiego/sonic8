@@ -9,8 +9,12 @@ import anyio
 
 from backend.services.perps.client import get_perps_program
 from backend.services.perps.config import get_disc, get_account_name
-from backend.services.perps.raw_rpc import _rpc, get_program_id
+from backend.services.perps.raw_rpc import get_program_id
 from backend.services.perps.compute import extract_fields, get_mark_price_usdc, est_pnl_usd
+from backend.services.solana_rpc import (
+    get_program_accounts as gpa_cached,
+    rpc_post as rpc,
+)
 
 
 # ---------------- base58 (tiny encoder) ----------------
@@ -120,7 +124,7 @@ async def _inner_fetch_v2(owner: str, limit: int) -> Dict[str, Any]:
             "limit": int(limit)
         }
         try:
-            gpa = _rpc("getProgramAccounts", [pid, params]) or []
+            gpa = gpa_cached(pid, params) or []
         except Exception as e:
             out.update({"ok": False, "error": f"GPA failed: {e}"})
             return out
@@ -136,7 +140,10 @@ async def _inner_fetch_v2(owner: str, limit: int) -> Dict[str, Any]:
 
         for batch in _chunks(pubkeys, 100):
             try:
-                multi = _rpc("getMultipleAccounts", [batch, {"encoding":"base64","commitment":"confirmed"}]) or {}
+                multi = rpc(
+                    "getMultipleAccounts",
+                    [batch, {"encoding": "base64", "commitment": "confirmed"}],
+                ) or {}
                 vals = None
                 if isinstance(multi, dict):
                     vals = multi.get("value")

@@ -4,8 +4,9 @@ from __future__ import annotations
 import os
 from typing import Dict, List, Optional
 
-from backend.services.perps.raw_rpc import _rpc, get_program_id, get_idl_account_names
+from backend.services.perps.raw_rpc import get_program_id, get_idl_account_names
 from backend.services.perps.config import get_disc, get_account_name  # env-driven names/discriminators
+from backend.services.solana_rpc import get_program_accounts as gpa_cached
 
 # ---- tiny base58 encoder (no extra deps) ----
 _B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
@@ -63,7 +64,7 @@ def list_positions_sync(owner: Optional[str]) -> Dict[str, object]:
     # no owner → show all positions (pubkeys only)
     if not owner_b58:
         items: List[dict] = []
-        res = _rpc("getProgramAccounts", [program_id, _params_b58(disc_b58, None, None)])
+        res = gpa_cached(program_id, _params_b58(disc_b58, None, None))
         for it in (res or []): items.append({"pubkey": it.get("pubkey")})
         return {
             "ok": True, "programId": program_id,
@@ -75,7 +76,7 @@ def list_positions_sync(owner: Optional[str]) -> Dict[str, object]:
     # owner supplied → try env offset first
     env_off = _env_owner_off()
     if env_off is not None:
-        res = _rpc("getProgramAccounts", [program_id, _params_b58(disc_b58, owner_b58, env_off)])
+        res = gpa_cached(program_id, _params_b58(disc_b58, owner_b58, env_off))
         items = [{"pubkey": it.get("pubkey")} for it in (res or [])]
         return {
             "ok": True, "programId": program_id,
@@ -87,7 +88,7 @@ def list_positions_sync(owner: Optional[str]) -> Dict[str, object]:
     # quick guess cycle
     for off in _quick_offsets():
         try:
-            res = _rpc("getProgramAccounts", [program_id, _params_b58(disc_b58, owner_b58, off)])
+            res = gpa_cached(program_id, _params_b58(disc_b58, owner_b58, off))
             items = [{"pubkey": it.get("pubkey")} for it in (res or [])]
             if items:
                 return {
