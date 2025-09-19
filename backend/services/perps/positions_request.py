@@ -928,9 +928,20 @@ def open_position_request(
                 expect_pr = _pda_from_logs(logs, "position_request")
                 if expect_pr:
                     try:
+                        from backend.perps.pdas import derive_ata
+
                         pr_pk = Pubkey.from_string(expect_pr)
-                        effective["positionRequest"]  = pr_pk   # camel
+                        effective["positionRequest"] = pr_pk   # camel
                         effective["position_request"] = pr_pk   # snake
+
+                        input_mint = effective.get("inputMint") or effective.get("input_mint")
+                        if input_mint is not None:
+                            if not isinstance(input_mint, Pubkey):
+                                input_mint = Pubkey.from_string(str(input_mint))
+                            pr_ata = derive_ata(pr_pk, input_mint)
+                            effective["positionRequestAta"] = pr_ata
+                            effective["position_request_ata"] = pr_ata
+
                         print(f"[perps] adopting expected position_request PDA → {expect_pr}")
 
                         _metas = _metas_from(ix_idl, effective)
