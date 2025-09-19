@@ -91,6 +91,26 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
 
 _PK_RE = re.compile(r"([1-9A-HJ-NP-Za-km-z]{32,})")
 
+_UNKNOWN_RE = re.compile(r"unknown account\s+([1-9A-HJ-NP-Za-km-z]{32,})", re.IGNORECASE)
+
+
+def _unknown_account_from_logs(logs: list[str]) -> Pubkey | None:
+    """
+    If simulate logs contain 'Instruction references an unknown account <pk>',
+    return that Pubkey so we can append it to metas (readonly, non-signer).
+    """
+
+    if not logs:
+        return None
+    for line in logs:
+        m = _UNKNOWN_RE.search(line)
+        if m:
+            try:
+                return Pubkey.from_string(m.group(1))
+            except Exception:
+                return None
+    return None
+
 
 def _right_pda_last_multiline(logs: list[str]) -> str | None:
     """
@@ -964,7 +984,68 @@ def open_position_request(
                     logs2 = val2.get("logs") or []
                     print("[perps] simulate (after PR adopt):\n  " + "\n  ".join(logs2[:240]))
                     if val2.get("err"):
-                        raise RuntimeError("simulation failed after position_request adopt")
+                        unknown_pk = _unknown_account_from_logs(logs2)
+                        if unknown_pk:
+                            print(
+                                f"[perps] appending unknown account → {str(unknown_pk)} (readonly, non-signer)"
+                            )
+                            # Append as readonly, non-signer
+                            _metas.append(AccountMeta(unknown_pk, False, False))
+
+                            # Rebuild and simulate a third time for visibility
+                            msg3 = MessageV0.try_compile(
+                                payer=owner,
+                                instructions=[
+                                    *compute_budget_ixs(),
+                                    Instruction(program_id, data, _metas),
+                                ],
+                                address_lookup_table_accounts=[],
+                                recent_blockhash=recent_blockhash(),
+                            )
+                            tx3 = VersionedTransaction(msg3, [wallet])
+                            raw3 = base64.b64encode(bytes(tx3)).decode()
+
+                            sim3 = rpc(
+                                "simulateTransaction",
+                                [
+                                    raw3,
+                                    {
+                                        "encoding": "base64",
+                                        "sigVerify": False,
+                                        "replaceRecentBlockhash": True,
+                                    },
+                                ],
+                            )
+                            val3 = sim3.get("value") or {}
+                            logs3 = val3.get("logs") or []
+                            print(
+                                "[perps] simulate (after unknown-account append):\n  "
+                                + "\n  ".join(logs3[:240])
+                            )
+                            if val3.get("err"):
+                                raise RuntimeError(
+                                    "simulation failed after unknown-account append"
+                                )
+
+                            # Dump the final metas one more time so we see exactly what goes on-chain
+                            _dump_idl_and_metas(ix_idl, _metas)
+
+                            # Send corrected tx
+                            return rpc(
+                                "sendTransaction",
+                                [
+                                    raw3,
+                                    {
+                                        "encoding": "base64",
+                                        "skipPreflight": False,
+                                        "maxRetries": 3,
+                                    },
+                                ],
+                            )
+
+                        raise RuntimeError(
+                            "simulation failed after position_request adopt"
+                        )
 
                     return rpc("sendTransaction", [raw2, {
                         "encoding":"base64", "skipPreflight": False, "maxRetries": 3
