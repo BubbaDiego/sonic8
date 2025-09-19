@@ -4,26 +4,11 @@ import json
 import os
 from typing import Any, Dict, Tuple
 
-import requests
 from solders.pubkey import Pubkey
-
-HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
-RPC_URL = os.getenv("RPC_URL", f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}")
 
 IDL_PATH = os.path.join(os.path.dirname(__file__), "idl", "jupiter_perpetuals.json")
 
-
-def _rpc(method: str, params: Any) -> Any:
-    r = requests.post(
-        RPC_URL,
-        json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
-        timeout=25,
-    )
-    r.raise_for_status()
-    j = r.json()
-    if j.get("error"):
-        raise RuntimeError(f"RPC error in {method}: {j['error']}")
-    return j["result"]
+from backend.services.solana_rpc import rpc_post as _rpc
 
 
 def load_idl() -> Dict[str, Any]:

@@ -9,7 +9,6 @@ import re
 import time
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-import requests
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 from solders.hash import Hash
 from solders.instruction import AccountMeta, Instruction
@@ -19,9 +18,8 @@ from solders.pubkey import Pubkey
 from solders.transaction import VersionedTransaction
 
 from backend.services.perps.markets import resolve_market, resolve_extra_account
+from backend.services.solana_rpc import rpc_post as rpc
 
-HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
-RPC_URL = os.getenv("RPC_URL", f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}")
 CU_LIMIT = int(os.getenv("PERPS_CU_LIMIT", 800_000))
 CU_PRICE = int(os.getenv("PERPS_CU_PRICE", 100_000))  # micro-lamports per CU
 USD_SCALE = int(os.getenv("PERPS_USD_SCALE", 1_000_000))
@@ -36,21 +34,6 @@ IDL_PATH = os.path.join(os.path.dirname(__file__), "idl", "jupiter_perpetuals.js
 DEFAULT_BASE_MINT = "So11111111111111111111111111111111111111112"
 DEFAULT_QUOTE_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 DEFAULT_ORACLE_PUBKEY = "11111111111111111111111111111111"
-
-
-def rpc(method: str, params: Any) -> Any:
-    response = requests.post(
-        RPC_URL,
-        json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
-        timeout=25,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    if payload.get("error"):
-        raise RuntimeError(f"RPC error in {method}: {payload['error']}")
-    return payload["result"]
-
-
 def recent_blockhash() -> Hash:
     result = rpc("getLatestBlockhash", [{"commitment": "finalized"}])
     return Hash.from_string(result["value"]["blockhash"])
