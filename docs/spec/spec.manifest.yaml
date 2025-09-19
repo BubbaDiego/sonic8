@@ -40,7 +40,7 @@ modules:
     purpose: "Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist)."
     depends_on: [MOD-WALLET, MOD-SVC]
   - id: MOD-AUTO
-    path: auto_core/
+    path: backend/core/auto_core/
     purpose: "Playwright automation (Solflare connect, Jupiter flows)."
     depends_on: [EXT-PLAYWRIGHT, EXT-JUPITER]
   - id: MOD-FRONTEND
