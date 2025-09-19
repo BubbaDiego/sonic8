@@ -1,9 +1,0 @@
-ok:   Loaded OpenAPI: Sonic API
-ok:   Found 3 unique paths; 3 operations
-ok:   All write ops have auth (security or Authorization header).
-ok:   All write ops include Idempotency-Key header.
-ok:   All money-like fields in components are strings (or nullable strings).
-ok:   Glossary contains core terms.
-ok:   Workflows include runnable example block.
-ok:   api_index.md includes all paths.
-ok:   Quick ref includes all operations.
