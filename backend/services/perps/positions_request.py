@@ -42,6 +42,8 @@ DEFAULT_BASE_MINT = "So11111111111111111111111111111111111111112"
 DEFAULT_QUOTE_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 DEFAULT_ORACLE_PUBKEY = "11111111111111111111111111111111"
 
+FORCE_POSITION_ENV = "PERPS_FORCE_POSITION"
+
 
 def _rpc_client():
     return get_async_client()
@@ -469,6 +471,45 @@ def _apply_position_adopt(
     return counter_seed_local
 
 
+def _forced_position_value() -> str:
+    return os.getenv(FORCE_POSITION_ENV, "").strip()
+
+
+def _is_position_forced() -> bool:
+    return bool(_forced_position_value())
+
+
+def _maybe_force_position_from_env(
+    mapping: Dict[str, Pubkey],
+    args: Dict[str, Any],
+    *,
+    program_id: Pubkey,
+    input_mint: Optional[Pubkey],
+    counter_seed: int,
+) -> int:
+    forced = _forced_position_value()
+    if not forced:
+        return counter_seed
+
+    try:
+        print(
+            f"[perps] FORCE: locking position PDA via {FORCE_POSITION_ENV} → {forced}"
+        )
+        return _apply_position_adopt(
+            mapping,
+            args,
+            forced,
+            program_id=program_id,
+            input_mint=input_mint,
+            counter_seed=counter_seed,
+        )
+    except Exception as err:
+        print(
+            f"[perps] WARN: failed to adopt {FORCE_POSITION_ENV} {forced}: {err}"
+        )
+        return counter_seed
+
+
 def _maybe_adopt_position_from_env(
     mapping: Dict[str, Pubkey],
     args: Dict[str, Any],
@@ -478,6 +519,9 @@ def _maybe_adopt_position_from_env(
     counter_seed: int,
 ) -> int:
     """Override the position PDA from PERPS_POSITION_PDA_HINT when provided."""
+
+    if _is_position_forced():
+        return counter_seed
 
     hint = os.getenv("PERPS_POSITION_PDA_HINT", "").strip()
     if not hint:
@@ -1356,6 +1400,14 @@ def dry_run_open_position_request(
     mapping["positionRequest"] = request
     mapping["position_request"] = request
 
+    counter_seed = _maybe_force_position_from_env(
+        mapping,
+        args,
+        program_id=program_id,
+        input_mint=input_mint,
+        counter_seed=counter_seed,
+    )
+
     counter_seed = _maybe_adopt_position_from_env(
         mapping,
         args,
@@ -1436,6 +1488,8 @@ def dry_run_open_position_request(
     loop_reason = "not_run"
     ok = False
     seen_pairs: set[Tuple[str, str]] = set()
+    forced_position_active = _is_position_forced()
+    forced_skip_logged = False
 
     while attempt < max_attempts:
         label = "initial" if attempt == 0 else f"retry #{attempt}"
@@ -1458,21 +1512,28 @@ def dry_run_open_position_request(
             break
         seen_pairs.add(pair)
 
-        right_pos = _parse_right_from_logs(logs, "position")
-        if right_pos and str(mapping.get("position", "")) != right_pos:
-            try:
-                counter_seed = _apply_position_adopt(
-                    mapping,
-                    args,
-                    right_pos,
-                    program_id=program_id,
-                    input_mint=input_mint,
-                    counter_seed=counter_seed,
-                )
-                events.append(f"adopted position → {right_pos}")
-                changed = True
-            except Exception:
-                pass
+        right_pos: Optional[str] = None
+        if not forced_position_active:
+            right_pos = _parse_right_from_logs(logs, "position")
+            if right_pos and str(mapping.get("position", "")) != right_pos:
+                try:
+                    counter_seed = _apply_position_adopt(
+                        mapping,
+                        args,
+                        right_pos,
+                        program_id=program_id,
+                        input_mint=input_mint,
+                        counter_seed=counter_seed,
+                    )
+                    events.append(f"adopted position → {right_pos}")
+                    changed = True
+                except Exception:
+                    pass
+        elif not forced_skip_logged:
+            events.append(
+                f"skipped adopting position because {FORCE_POSITION_ENV} is set"
+            )
+            forced_skip_logged = True
 
         right_req = _parse_right_from_logs(logs, "position_request")
         if right_req and str(mapping.get("positionRequest", "")) != right_req:
@@ -1503,19 +1564,26 @@ def dry_run_open_position_request(
                 acct_name, right_b58 = seed_hint
                 acct_lc = acct_name.lower()
                 if acct_lc == "position":
-                    try:
-                        counter_seed = _apply_position_adopt(
-                            mapping,
-                            args,
-                            right_b58,
-                            program_id=program_id,
-                            input_mint=input_mint,
-                            counter_seed=counter_seed,
-                        )
-                        events.append(f"adopted position → {right_b58}")
-                        changed = True
-                    except Exception:
-                        pass
+                    if forced_position_active:
+                        if not forced_skip_logged:
+                            events.append(
+                                f"skipped adopting position because {FORCE_POSITION_ENV} is set"
+                            )
+                            forced_skip_logged = True
+                    else:
+                        try:
+                            counter_seed = _apply_position_adopt(
+                                mapping,
+                                args,
+                                right_b58,
+                                program_id=program_id,
+                                input_mint=input_mint,
+                                counter_seed=counter_seed,
+                            )
+                            events.append(f"adopted position → {right_b58}")
+                            changed = True
+                        except Exception:
+                            pass
                 elif "position_request" in acct_lc:
                     if right_b58 == position_key:
                         events.append(
@@ -1771,6 +1839,14 @@ def open_position_request(
     mapping.setdefault("positionRequest", request)
     mapping.setdefault("position_request", request)
 
+    counter = _maybe_force_position_from_env(
+        mapping,
+        args,
+        program_id=program_id,
+        input_mint=input_mint,
+        counter_seed=counter,
+    )
+
     counter = _maybe_adopt_position_from_env(
         mapping,
         args,
@@ -1781,6 +1857,7 @@ def open_position_request(
     position = mapping.get("position", position)
     _maybe_adopt_position_request_from_env(mapping, args, input_mint=input_mint)
     request = mapping.get("positionRequest", request)
+    forced_position_active = _is_position_forced()
 
     try:
         pr_str = str(request)
@@ -1940,44 +2017,59 @@ def open_position_request(
                             )
 
                 elif acct_lc == "position":
-                    # Update the position PDA to what the program expects, re-derive request & its ATA
-                    try:
-                        pos_pk = Pubkey.from_string(right_b58)
-                        effective["position"] = pos_pk
-
-                        counter_override = counter
-                        params_counter = args.get("params")
-                        if isinstance(params_counter, dict) and "counter" in params_counter:
-                            try:
-                                counter_override = int(params_counter.get("counter", counter_override))
-                            except Exception:
-                                counter_override = counter_override
-                        elif "counter" in args:
-                            try:
-                                counter_override = int(args.get("counter", counter_override))
-                            except Exception:
-                                counter_override = counter_override
-
-                        req_pk = Pubkey.find_program_address(
-                            [b"position_request", bytes(pos_pk), int(counter_override).to_bytes(8, "little")],
-                            program_id,
-                        )[0]
-                        effective["positionRequest"] = req_pk
-                        effective["position_request"] = req_pk
-                        if input_mint:
-                            _rebuild_after_request_adopt(effective, str(req_pk), input_mint)
-                        _sync_args_after_adopt(
-                            args,
-                            position_pk=pos_pk,
-                            request_pk=req_pk,
-                            counter=int(counter_override),
+                    if forced_position_active:
+                        print(
+                            f"[perps] SKIP adopting position because {FORCE_POSITION_ENV} is set"
                         )
-                        counter = counter_override
+                    else:
+                        # Update the position PDA to what the program expects, re-derive request & its ATA
+                        try:
+                            pos_pk = Pubkey.from_string(right_b58)
+                            effective["position"] = pos_pk
 
-                        metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
-                        ok, logs = _simulate_with_label(raw, "after position adopt")
-                    except Exception:
-                        pass
+                            counter_override = counter
+                            params_counter = args.get("params")
+                            if isinstance(params_counter, dict) and "counter" in params_counter:
+                                try:
+                                    counter_override = int(
+                                        params_counter.get("counter", counter_override)
+                                    )
+                                except Exception:
+                                    counter_override = counter_override
+                            elif "counter" in args:
+                                try:
+                                    counter_override = int(args.get("counter", counter_override))
+                                except Exception:
+                                    counter_override = counter_override
+
+                            req_pk = Pubkey.find_program_address(
+                                [
+                                    b"position_request",
+                                    bytes(pos_pk),
+                                    int(counter_override).to_bytes(8, "little"),
+                                ],
+                                program_id,
+                            )[0]
+                            effective["positionRequest"] = req_pk
+                            effective["position_request"] = req_pk
+                            if input_mint:
+                                _rebuild_after_request_adopt(
+                                    effective, str(req_pk), input_mint
+                                )
+                            _sync_args_after_adopt(
+                                args,
+                                position_pk=pos_pk,
+                                request_pk=req_pk,
+                                counter=int(counter_override),
+                            )
+                            counter = counter_override
+
+                            metas, remaining_accounts, raw = _prepare_tx(
+                                effective, remaining_accounts
+                            )
+                            ok, logs = _simulate_with_label(raw, "after position adopt")
+                        except Exception:
+                            pass
 
         # Targeted recovery for Jupiter Perps "InvalidCollateralAccount" (6006).
         if not ok:

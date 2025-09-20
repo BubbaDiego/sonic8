@@ -18,6 +18,7 @@ from typing import Any, Dict
 from backend.infra.solana_client import get_async_client
 
 from backend.services.perps.positions_request import (
+    FORCE_POSITION_ENV,
     dry_run_open_position_request,
     load_signer,
 )
@@ -95,6 +96,10 @@ def main() -> int:
             pass
 
     wallet = load_signer()
+
+    os.environ.setdefault(
+        FORCE_POSITION_ENV, "7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv"
+    )
 
     try:
         report: Dict[str, Any] = dry_run_open_position_request(
