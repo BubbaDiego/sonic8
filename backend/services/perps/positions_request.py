@@ -46,8 +46,112 @@ DEFAULT_QUOTE_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 DEFAULT_ORACLE_PUBKEY = "11111111111111111111111111111111"
 FORCE_POSITION_ENV = "PERPS_FORCE_POSITION"
 
+_SOL_BASE_CUSTODY = "7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz"
+_USDC_QUOTE_CUSTODY = "G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa"
+
 
 logger = logging.getLogger(__name__)
+
+
+def _force_sol_perp_custody_in_place(accts: dict) -> None:
+    """Ensure SOL-PERP mappings keep SOL custody and USDC collateral custody."""
+
+    if str(accts.get("market", "")).upper() != "SOL-PERP":
+        return
+
+    current_custody = accts.get("custody")
+    current_collateral = accts.get("collateralCustody")
+
+    current_custody_str = str(current_custody) if current_custody is not None else None
+    current_collateral_str = (
+        str(current_collateral) if current_collateral is not None else None
+    )
+
+    if (
+        current_custody_str == _SOL_BASE_CUSTODY
+        and current_collateral_str == _USDC_QUOTE_CUSTODY
+    ):
+        return
+
+    print(
+        "\n[perps][FIX] Enforcing SOL-PERP custody orientation "
+        f"(custody→{_SOL_BASE_CUSTODY} / collateralCustody→{_USDC_QUOTE_CUSTODY})"
+    )
+
+    use_pubkey = isinstance(current_custody, Pubkey) or isinstance(current_collateral, Pubkey)
+
+    if use_pubkey:
+        try:
+            accts["custody"] = Pubkey.from_string(_SOL_BASE_CUSTODY)
+            accts["collateralCustody"] = Pubkey.from_string(_USDC_QUOTE_CUSTODY)
+        except Exception:
+            accts["custody"] = _SOL_BASE_CUSTODY
+            accts["collateralCustody"] = _USDC_QUOTE_CUSTODY
+    else:
+        accts["custody"] = _SOL_BASE_CUSTODY
+        accts["collateralCustody"] = _USDC_QUOTE_CUSTODY
+
+    # Maintain alternate spellings when present in the mapping.
+    if "baseCustody" in accts:
+        accts["baseCustody"] = accts["custody"]
+    if "base_custody" in accts:
+        accts["base_custody"] = accts["custody"]
+    if "collateral_custody" in accts:
+        accts["collateral_custody"] = accts["collateralCustody"]
+
+
+def _apply_anchor_right_pda_from_logs(accts: dict, logs: list[str]) -> bool:
+    """Adopt Anchor Right: PDA hints for position / positionRequest accounts."""
+
+    last_acc: str | None = None
+    changed = False
+
+    def _assign(key: str, value: str) -> bool:
+        prev = accts.get(key)
+        if isinstance(prev, Pubkey):
+            try:
+                new_val = Pubkey.from_string(value)
+            except Exception:
+                return False
+        else:
+            try:
+                new_val = Pubkey.from_string(value)
+            except Exception:
+                new_val = value
+        if prev == new_val:
+            return False
+        accts[key] = new_val
+        return True
+
+    for line in logs:
+        if "account:" in line:
+            lowered = line.lower()
+            if "position_request" in lowered or "positionrequest" in lowered:
+                last_acc = "positionRequest"
+            elif "position." in lowered or "account: position" in lowered:
+                last_acc = "position"
+            else:
+                last_acc = None
+            continue
+
+        if not line.strip().startswith("Program log: Right:"):
+            continue
+
+        right_val = line.split("Right:")[-1].strip()
+        if not right_val or last_acc is None:
+            last_acc = None
+            continue
+
+        if last_acc == "position":
+            if _assign("position", right_val):
+                changed = True
+        elif last_acc == "positionRequest":
+            if _assign("positionRequest", right_val):
+                accts["position_request"] = accts["positionRequest"]
+                changed = True
+        last_acc = None
+
+    return changed
 
 def _warn_if_base_quote_swapped(logs: Sequence[str], accounts: Mapping[str, str]) -> None:
     """
@@ -89,22 +193,6 @@ def _warn_if_base_quote_swapped(logs: Sequence[str], accounts: Mapping[str, str]
         print(f"                     collateralCustody        = {actual_collateral}")
         print("    Action: construct accounts with the custody pair printed under 'Program expected'.")
         print("=" * 94 + "\n")
-
-
-def _force_sol_perp_custody(mapping: Dict[str, str]) -> None:
-    """Ensure SOL-PERP always uses SOL custody and USDC collateral custody."""
-
-    sol_custody = "7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz"  # BASE (SOL)
-    usdc_custody = "G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa"  # QUOTE (USDC)
-
-    if mapping.get("custody") != sol_custody or mapping.get("collateralCustody") != usdc_custody:
-        print(
-            "\n[perps][FIX] Enforcing SOL-PERP custody orientation "
-            f"(custody→{sol_custody} / collateralCustody→{usdc_custody})"
-        )
-        mapping["custody"] = sol_custody
-        mapping["collateralCustody"] = usdc_custody
-
 
 def _assert_sol_perp_custody(final_map: Mapping[str, str]) -> None:
     """Abort early if SOL-PERP base/quote custodies are reversed."""
@@ -272,6 +360,14 @@ def _ensure_custodies_for_sol_perp(custody_pk: str, collateral_pk: str) -> tuple
     if custody_pk == quote and collateral_pk == base:
         return base, quote
     return custody_pk, collateral_pk
+
+
+def _build_accounts_for_open_request(base_map: dict) -> dict:
+    """Normalize the accounts mapping prior to creating AccountMetas."""
+
+    accounts = base_map
+    _force_sol_perp_custody_in_place(accounts)
+    return accounts
 
 
 def _project_root() -> Path:
@@ -1766,17 +1862,34 @@ def dry_run_open_position_request(
     def _simulate_step(
         label: str, m: Dict[str, Pubkey]
     ) -> Tuple[bool, List[str], List[AccountMeta], str, Optional[Tuple[str, str]]]:
-        metas, rem, raw = _metas_and_raw_for_mapping(ix_idl, m, wallet, owner, program_id, data)
-        sim = rpc("simulateTransaction", [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}])
-        value = sim.get("value") or {}
-        logs = (value.get("logs") or [])[:log_limit]
-        ok = not bool(value.get("err"))
+        def _simulate_once(curr_label: str) -> Tuple[bool, List[str], List[AccountMeta], str]:
+            metas_local, _rem, raw_local = _metas_and_raw_for_mapping(
+                ix_idl, m, wallet, owner, program_id, data
+            )
+            sim_resp = rpc(
+                "simulateTransaction",
+                [
+                    raw_local,
+                    {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True},
+                ],
+            )
+            val = sim_resp.get("value") or {}
+            log_list = (val.get("logs") or [])[:log_limit]
+            return (not bool(val.get("err"))), log_list, metas_local, raw_local
+
+        # Ensure custody orientation before building metas.
+        _force_sol_perp_custody_in_place(m)
+
+        ok, logs, metas, raw = _simulate_once(label)
+        initial_logs = list(logs)
+
         final_mapping = {k: str(v) for k, v in m.items()}
+        final_mapping.setdefault("market", market)
         if input_mint:
             final_mapping.setdefault("inputMint", str(input_mint))
-        if market.upper() == "SOL-PERP":
-            _force_sol_perp_custody(final_mapping)
+        _force_sol_perp_custody_in_place(final_mapping)
         _warn_if_base_quote_swapped(logs, final_mapping)
+
         adopted = _apply_targeted_anchor_adopt(
             market,
             logs,
@@ -1785,7 +1898,78 @@ def dry_run_open_position_request(
             input_mint=input_mint,
             args=args,
         )
-        # Capture per-step info
+
+        right_updates: Dict[str, str] = {}
+        if not ok and not adopted:
+            prev_position = m.get("position")
+            prev_request = m.get("positionRequest")
+            if _apply_anchor_right_pda_from_logs(m, logs):
+                new_position_val = m.get("position")
+                new_request_val = m.get("positionRequest")
+
+                new_position_str = (
+                    str(new_position_val) if new_position_val is not None else None
+                )
+                prev_position_str = (
+                    str(prev_position) if prev_position is not None else None
+                )
+                new_request_str = (
+                    str(new_request_val) if new_request_val is not None else None
+                )
+                prev_request_str = (
+                    str(prev_request) if prev_request is not None else None
+                )
+
+                if new_position_str and new_position_str != prev_position_str:
+                    right_updates["position"] = new_position_str
+                if new_request_str and new_request_str != prev_request_str:
+                    right_updates["positionRequest"] = new_request_str
+
+                if input_mint and "positionRequest" in right_updates and new_request_str:
+                    try:
+                        _rebuild_after_request_adopt(m, new_request_str, input_mint)
+                    except Exception:
+                        pass
+
+                position_pk_for_sync: Optional[Pubkey] = None
+                request_pk_for_sync: Optional[Pubkey] = None
+
+                if isinstance(new_position_val, Pubkey):
+                    position_pk_for_sync = new_position_val
+                elif new_position_str:
+                    try:
+                        position_pk_for_sync = Pubkey.from_string(new_position_str)
+                    except Exception:
+                        position_pk_for_sync = None
+
+                if isinstance(new_request_val, Pubkey):
+                    request_pk_for_sync = new_request_val
+                elif new_request_str:
+                    try:
+                        request_pk_for_sync = Pubkey.from_string(new_request_str)
+                    except Exception:
+                        request_pk_for_sync = None
+
+                try:
+                    _sync_args_after_adopt(
+                        args,
+                        position_pk=position_pk_for_sync,
+                        request_pk=request_pk_for_sync,
+                    )
+                except Exception:
+                    pass
+
+                _force_sol_perp_custody_in_place(m)
+                ok, logs, metas, raw = _simulate_once(f"{label} (Right adopt)")
+
+        # Refresh mapping snapshot after any mutations.
+        final_mapping = {k: str(v) for k, v in m.items()}
+        final_mapping.setdefault("market", market)
+        if input_mint:
+            final_mapping.setdefault("inputMint", str(input_mint))
+        _force_sol_perp_custody_in_place(final_mapping)
+        _warn_if_base_quote_swapped(logs, final_mapping)
+
         step_info = {
             "label": label,
             "ok": ok,
@@ -1799,6 +1983,9 @@ def dry_run_open_position_request(
         if adopted:
             step_info["adoptedAccount"] = adopted[0]
             step_info["adoptedValue"] = adopted[1]
+        if right_updates:
+            step_info["rightPdaUpdates"] = right_updates
+            step_info["initialLogs"] = initial_logs
         report["steps"].append(step_info)
         return ok, logs, metas, raw, adopted
 
@@ -2185,7 +2372,8 @@ def open_position_request(
         f"[perps] DERIVED positionRequest from counter={counter} → {str(mapping['positionRequest'])}"
     )
 
-    accounts = mapping
+    mapping["market"] = market
+    accounts = _build_accounts_for_open_request(mapping)
 
     custody_pk = accounts.get("custody")
     collateral_pk = accounts.get("collateralCustody")
@@ -2359,10 +2547,10 @@ def open_position_request(
         max_adopt_attempts = 6
         while not ok and adopt_attempts < max_adopt_attempts:
             final_map = {k: str(v) for k, v in effective.items()}
+            final_map.setdefault("market", market)
             if input_mint:
                 final_map.setdefault("inputMint", str(input_mint))
-            if market.upper() == "SOL-PERP":
-                _force_sol_perp_custody(final_map)
+            _force_sol_perp_custody_in_place(final_map)
             adopted = _apply_targeted_anchor_adopt(
                 market,
                 logs,
