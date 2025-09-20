@@ -41,6 +41,7 @@ spec-daily:
 	python backend/scripts/ui_sweeper.py
 	python backend/scripts/export_openapi.py || true
 	python backend/scripts/build_ui_components_doc.py
+	python backend/scripts/build_schema_bundle.py  # writes schema_bundle.json + schema_book.md
 	python backend/scripts/validate_all_specs.py
 
 .PHONY: schema-bundle schema-book schema-bundle-lite
@@ -51,3 +52,7 @@ schema-book:
 schema-bundle-lite:
 	# example: just include portfolio+positions families
 	python backend/scripts/build_schema_bundle.py --include-prefix SCHEMA-PORTFOLIO SCHEMA-POSITIONS
+.PHONY: schema-lite
+schema-lite:
+	# Example: keep portfolio + positions + perps families
+	python backend/scripts/build_schema_bundle.py --include-prefix SCHEMA-PORTFOLIO SCHEMA-POSITIONS SCHEMA-API_PERPS

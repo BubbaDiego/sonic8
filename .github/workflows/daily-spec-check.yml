@@ -22,5 +22,7 @@ jobs:
         run: python backend/scripts/export_openapi.py || echo "export skipped"
       - name: Build UI components doc
         run: python backend/scripts/build_ui_components_doc.py
+      - name: Build Schema Bundle
+        run: python backend/scripts/build_schema_bundle.py
       - name: Validate ALL specs (backend + UI)
         run: python backend/scripts/validate_all_specs.py

@@ -435,6 +435,19 @@ def run_daily_maintenance():
             "soft": False,
         },
         {
+            "title": "Build Schema Bundle (Book + JSON)",
+            "cmd": [
+                py,
+                "backend/scripts/build_schema_bundle.py",
+            ]
+            + (
+                os.getenv("SCHEMA_BUNDLE_PREFIXES", "").split()
+                if os.getenv("SCHEMA_BUNDLE_PREFIXES")
+                else []
+            ),
+            "soft": False,
+        },
+        {
             "title": "Validate ALL specs (backend + UI)",
             "cmd": [py, "backend/scripts/validate_all_specs.py"],
             "soft": False,
