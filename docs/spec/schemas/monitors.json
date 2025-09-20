@@ -1,0 +1,20 @@
+{
+  "type": "array",
+  "items": {
+    "type": "string"
+  },
+  "$id": "schema/monitors.json",
+  "examples": [
+    [
+      "liquid_monitor",
+      "market_monitor",
+      "operations_monitor",
+      "position_monitor",
+      "price_monitor",
+      "profit_monitor",
+      "risk_monitor",
+      "twilio_monitor",
+      "xcom_monitor"
+    ]
+  ]
+}

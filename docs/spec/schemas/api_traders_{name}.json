@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "detail": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_traders_{name}.json",
+  "examples": [
+    {
+      "detail": "Trader not found"
+    }
+  ]
+}

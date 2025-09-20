@@ -1,0 +1,82 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "snapshot_time": {
+      "type": "string"
+    },
+    "total_size": {
+      "type": "number"
+    },
+    "total_long_size": {
+      "type": "number"
+    },
+    "total_short_size": {
+      "type": "number"
+    },
+    "total_value": {
+      "type": "number"
+    },
+    "total_collateral": {
+      "type": "number"
+    },
+    "avg_leverage": {
+      "type": "number"
+    },
+    "avg_travel_percent": {
+      "type": "number"
+    },
+    "avg_heat_index": {
+      "type": "number"
+    },
+    "total_heat_index": {
+      "type": "number"
+    },
+    "market_average_sp500": {
+      "type": "number"
+    },
+    "session_start_time": {
+      "type": "string"
+    },
+    "session_start_value": {
+      "type": "number"
+    },
+    "current_session_value": {
+      "type": "number"
+    },
+    "session_goal_value": {
+      "type": "number"
+    },
+    "session_performance_value": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": true,
+  "$id": "schema/api_portfolio_latest_snapshot.json",
+  "examples": [
+    {
+      "id": "8071140e-98c0-4b69-8797-d27886b663e9",
+      "snapshot_time": "2025-09-20T12:07:58.406202",
+      "total_size": 1857.4499999999998,
+      "total_long_size": 518.3299999999999,
+      "total_short_size": 1339.12,
+      "total_value": 143.0,
+      "total_collateral": 142.87,
+      "avg_leverage": 14.539847425233518,
+      "avg_travel_percent": 0.15390243015538882,
+      "avg_heat_index": 8.782821771783897,
+      "total_heat_index": 44.08,
+      "market_average_sp500": 0.0,
+      "session_start_time": "2025-09-20T12:07:58.859859",
+      "session_start_value": 0.0,
+      "current_session_value": 143.0,
+      "session_goal_value": 0.0,
+      "session_performance_value": 0.0
+    }
+  ]
+}

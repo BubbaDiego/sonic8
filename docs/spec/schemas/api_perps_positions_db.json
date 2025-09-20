@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "detail": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_perps_positions_db.json",
+  "examples": [
+    {
+      "detail": "DB probe failed: DataLocker.__init__() missing 1 required positional argument: 'db_path'"
+    }
+  ]
+}

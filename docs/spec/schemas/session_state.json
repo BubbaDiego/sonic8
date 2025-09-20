@@ -1,0 +1,13 @@
+{
+  "$id": "schema/session_state.json",
+  "type": [
+    "null",
+    "object"
+  ],
+  "description": "Active session state when no session is running the API returns null.",
+  "properties": {},
+  "examples": [
+    null
+  ],
+  "additionalProperties": true
+}

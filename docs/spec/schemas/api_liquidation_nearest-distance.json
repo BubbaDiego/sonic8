@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "properties": {
+    "BTC": {
+      "type": [
+        "null",
+        "string",
+        "number",
+        "object",
+        "array",
+        "boolean"
+      ]
+    },
+    "ETH": {
+      "type": [
+        "null",
+        "string",
+        "number",
+        "object",
+        "array",
+        "boolean"
+      ]
+    },
+    "SOL": {
+      "type": [
+        "null",
+        "string",
+        "number",
+        "object",
+        "array",
+        "boolean"
+      ]
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_liquidation_nearest-distance.json",
+  "examples": [
+    {
+      "BTC": null,
+      "ETH": null,
+      "SOL": null
+    }
+  ]
+}

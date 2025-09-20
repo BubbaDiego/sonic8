@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "properties": {
+    "SONIC_SIGNER_PATH": {
+      "type": "string"
+    },
+    "SONIC_MNEMONIC_DERIVE_CMD": {
+      "type": "string"
+    },
+    "HELIUS_API_KEY_set": {
+      "type": "boolean"
+    },
+    "RPC_URL": {
+      "type": "string"
+    },
+    "resolvedRpcUrl": {
+      "type": "string"
+    },
+    "JUP_BASE_URL": {
+      "type": "string"
+    },
+    "JUP_API_KEY_set": {
+      "type": "boolean"
+    },
+    "JITO_TIP_LAMPORTS": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_jupiter_debug_config.json",
+  "examples": [
+    {
+      "SONIC_SIGNER_PATH": "signer.txt",
+      "SONIC_MNEMONIC_DERIVE_CMD": "",
+      "HELIUS_API_KEY_set": false,
+      "RPC_URL": "",
+      "resolvedRpcUrl": "https://api.mainnet-beta.solana.com",
+      "JUP_BASE_URL": "https://lite-api.jup.ag",
+      "JUP_API_KEY_set": false,
+      "JITO_TIP_LAMPORTS": "0"
+    }
+  ]
+}

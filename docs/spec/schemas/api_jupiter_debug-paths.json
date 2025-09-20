@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "repo_root": {
+      "type": "string"
+    },
+    "launcher": {
+      "type": "string"
+    },
+    "launcher_exists": {
+      "type": "boolean"
+    },
+    "sessions_file": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_jupiter_debug-paths.json",
+  "examples": [
+    {
+      "repo_root": "/workspace/sonic5",
+      "launcher": "/workspace/sonic5/auto_core/launcher/open_jupiter.py",
+      "launcher_exists": false,
+      "sessions_file": "/workspace/sonic5/auto_core/state/jupiter_sessions.json"
+    }
+  ]
+}

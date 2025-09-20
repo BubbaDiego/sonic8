@@ -1,0 +1,62 @@
+{
+  "type": "object",
+  "properties": {
+    "spec": {
+      "type": "string"
+    },
+    "cwd": {
+      "type": "string"
+    },
+    "module_dir": {
+      "type": "string"
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "found": {
+      "type": "string"
+    },
+    "exists": {
+      "type": "boolean"
+    },
+    "error": {
+      "type": "string"
+    },
+    "load_signer": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_jupiter_debug_signer.json",
+  "examples": [
+    {
+      "spec": "signer.txt",
+      "cwd": "/workspace/sonic5",
+      "module_dir": "/workspace/sonic5/backend/services",
+      "candidates": [
+        "/workspace/sonic5/signer.txt",
+        "/workspace/sonic5/backend/services/signer.txt",
+        "/workspace/sonic5/backend/signer.txt"
+      ],
+      "found": "",
+      "exists": false,
+      "error": "no candidate signer.txt found",
+      "load_signer": {
+        "ok": false,
+        "error": "FileNotFoundError: Signer file not found: signer.txt. Tried: ['/workspace/sonic5/signer.txt', '/workspace/sonic5/backend/services/signer.txt', '/workspace/sonic5/backend/signer.txt']"
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "$id": "schema/monitors_sonic_events.json",
+  "type": "object",
+  "properties": {
+    "event": {
+      "type": "string"
+    },
+    "data": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event",
+    "data"
+  ],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "event": "sonic_complete",
+      "data": "done"
+    }
+  ]
+}

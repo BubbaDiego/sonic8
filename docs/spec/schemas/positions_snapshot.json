@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "additionalProperties": true,
+  "$id": "schema/positions_snapshot.json",
+  "examples": [
+    {
+      "status": "snapshot recorded"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "additionalProperties": true,
+  "$id": "schema/positions_{pos_id}.json",
+  "examples": [
+    {
+      "status": "deleted"
+    }
+  ]
+}

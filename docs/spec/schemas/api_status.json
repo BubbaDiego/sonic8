@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "additionalProperties": true,
+  "$id": "schema/api_status.json",
+  "examples": [
+    {
+      "status": "FastAPI backend online \ud83d\ude80"
+    }
+  ]
+}

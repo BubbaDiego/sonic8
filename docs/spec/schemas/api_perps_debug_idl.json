@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "programId": {
+      "type": "string"
+    },
+    "instructions": {
+      "type": "number"
+    },
+    "accounts": {
+      "type": "number"
+    },
+    "accountNames": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_perps_debug_idl.json",
+  "examples": [
+    {
+      "programId": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+      "instructions": 35,
+      "accounts": 5,
+      "accountNames": [
+        "Custody",
+        "Perpetuals",
+        "Pool",
+        "PositionRequest",
+        "Position"
+      ]
+    }
+  ]
+}

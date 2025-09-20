@@ -1,0 +1,131 @@
+{
+  "type": "object",
+  "properties": {
+    "monitors": {
+      "type": "object",
+      "properties": {
+        "Sonic Monitoring": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "last_updated": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": true
+        },
+        "Price Monitoring": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "last_updated": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": true
+        },
+        "Positions Monitoring": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "last_updated": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": true
+        },
+        "XCom Communication": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "last_updated": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "sonic_next": {
+      "type": "number"
+    },
+    "liquid_snooze": {
+      "type": "number"
+    },
+    "sonic_last_complete": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/monitor_status.json",
+  "examples": [
+    {
+      "monitors": {
+        "Sonic Monitoring": {
+          "status": "Healthy",
+          "last_updated": "2025-07-13T17:06:13.150233Z",
+          "metadata": {}
+        },
+        "Price Monitoring": {
+          "status": "Error",
+          "last_updated": "2025-09-20T12:07:58.921221Z",
+          "metadata": {}
+        },
+        "Positions Monitoring": {
+          "status": "Error",
+          "last_updated": "2025-09-20T12:07:59.087978Z",
+          "metadata": {}
+        },
+        "XCom Communication": {
+          "status": "Warning",
+          "last_updated": "2025-07-13T18:16:12.176846Z",
+          "metadata": {}
+        }
+      },
+      "sonic_next": 0,
+      "liquid_snooze": 0,
+      "sonic_last_complete": "2025-07-13T17:06:13.150233+00:00"
+    }
+  ]
+}

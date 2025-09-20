@@ -1,0 +1,18 @@
+{
+  "$id": "schema/api_perps_markets_resolve.json",
+  "type": "object",
+  "properties": {
+    "detail": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "detail"
+  ],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "detail": "resolve failed: Pool GPA failed: RPC exhausted for getProgramAccounts"
+    }
+  ]
+}

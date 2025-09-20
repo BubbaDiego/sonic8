@@ -1,0 +1,18 @@
+{
+  "$id": "schema/api_perps_positions.json",
+  "type": "object",
+  "properties": {
+    "detail": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "detail"
+  ],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "detail": "positions fetch failed: RPC exhausted for getProgramAccounts"
+    }
+  ]
+}

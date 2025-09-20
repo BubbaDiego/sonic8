@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {},
+  "additionalProperties": true,
+  "$id": "schema/api_jupiter_status.json",
+  "examples": [
+    {}
+  ]
+}

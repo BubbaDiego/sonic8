@@ -1,0 +1,58 @@
+{
+  "type": "object",
+  "properties": {
+    "count": {
+      "type": "number"
+    },
+    "instructions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_perps_debug_idl-names.json",
+  "examples": [
+    {
+      "count": 35,
+      "instructions": [
+        "init",
+        "addPool",
+        "addCustody",
+        "setCustodyConfig",
+        "setCustodyGlobalLimit",
+        "reallocCustody",
+        "setPoolConfig",
+        "setPerpetualsConfig",
+        "transferAdmin",
+        "withdrawFees2",
+        "createTokenMetadata",
+        "testInit",
+        "setTestTime",
+        "swap2",
+        "addLiquidity2",
+        "removeLiquidity2",
+        "createIncreasePositionMarketRequest",
+        "createDecreasePositionRequest2",
+        "createDecreasePositionMarketRequest",
+        "updateDecreasePositionRequest2",
+        "closePositionRequest",
+        "increasePosition4",
+        "increasePositionPreSwap",
+        "decreasePosition4",
+        "liquidateFullPosition4",
+        "refreshAssetsUnderManagement",
+        "instantCreateTpsl",
+        "instantCreateLimitOrder",
+        "instantIncreasePosition",
+        "instantDecreasePosition",
+        "instantUpdateLimitOrder",
+        "instantUpdateTpsl",
+        "getAddLiquidityAmountAndFee2",
+        "getRemoveLiquidityAmountAndFee2",
+        "getAssetsUnderManagement2"
+      ]
+    }
+  ]
+}
