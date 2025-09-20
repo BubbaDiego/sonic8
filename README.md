@@ -1,326 +1,128 @@
-# Sonic1
+# ---------------------------------------------------------
+# 🦔 Sonic
 
-![Spec CI](https://github.com/BubbaDiego/sonic5/actions/workflows/spec-ci.yml/badge.svg)
+Crypto automation & monitoring for Solana/Jupiter — wallet ops, swaps/perps, alerts, and dashboards.
 
-Sonic brings together a FastAPI backend, a modern React frontend, and a deep
-library of operational scripts that power the trading monitors and automation
-tools used by the broader Sonic platform. The repository is organized into
-three primary areas so you can jump directly to the part of the stack you need:
+- Backend: **FastAPI + service cores** (DataLocker, Cyclone, Alert V2, PositionStore)
+- Frontend: **React + Vite + Tailwind**
+- Automation: **Playwright** (Solflare/Jupiter flows)
+- Contracts: **OpenAPI + JSON Schemas**
+- Spec: human + machine docs kept in `docs/spec/`
 
-- **backend/** – a FastAPI application providing the API.
-- **frontend/** – a React + Vite application used for the UI.
-- **docs/** – documentation and additional resources.
+---
 
-## 📑 Sonic Spec
-- **User Guide:** [docs/spec/user_guide.md](docs/spec/user_guide.md)
-- **Human (overview):** [docs/spec/software_spec.md](docs/spec/software_spec.md)
-- **Machine (manifest):** [docs/spec/spec.manifest.yaml](docs/spec/spec.manifest.yaml)
-- **OpenAPI:** [backend/api/openapi.yaml](backend/api/openapi.yaml)
+## 📑 Spec
 
-Dependency management for Node.js packages occurs entirely inside
-**frontend/**. The repository root does not use `npm` or `yarn` directly.
+- **User Guide:** [`docs/spec/user_guide.md`](docs/spec/user_guide.md)  
+- **Human (overview):** [`docs/spec/software_spec.md`](docs/spec/software_spec.md)  
+- **Machine (manifest):** [`docs/spec/spec.manifest.yaml`](docs/spec/spec.manifest.yaml)  
+- **OpenAPI:** [`backend/api/openapi.yaml`](backend/api/openapi.yaml)
 
-## 🛠️ Developer workflow cheat‑sheet
+> Tip: in dev, enable the response validator with `VALIDATE_RESPONSES=1` to get per-route schema checks (adds headers like `X-Validator-Enabled`).
 
-Common automation lives in the project **Makefile**. These shortcuts wrap the
-underlying Python and Node.js tooling so you do not have to remember long
-commands:
+---
 
-| Target | What it does |
-| ------ | ------------- |
-| `make install` | Install Python requirements and the frontend dependencies. |
-| `make dev-api` | Start the FastAPI server with auto-reload. |
-| `make dev-web` | Launch the Vite development server. |
-| `make openapi` | Regenerate `backend/api/openapi.yaml`. |
-| `make spec-validate` | Run the manifest/schema validation suite. |
-| `make spec-ci` | Execute the same validation routine used in CI. |
+## 🚀 Quickstart (Dev)
 
-Feel free to extend the Makefile with task-specific wrappers as your workflow
-evolves—just keep any spec validation steps delegated to
-`backend/scripts/spec_validate.py` so local runs and CI stay consistent.
-
-## Getting started
-
-To run the backend locally first create a virtual environment for this
-repository and install the requirements. Using an environment from another
-clone (e.g. ``sonic2``) can load mismatched modules and cause import errors.
-
+### Backend
 ```bash
-python backend/scripts/create_virtual_env.py
-.venv/bin/pip install -r requirements.txt  # ``.venv\Scripts\pip`` on Windows
-.venv/bin/playwright install  # download browsers required for AutoCore features and backend tests that rely on Playwright
-uvicorn backend.sonic_backend_app:app --app-dir backend --host 0.0.0.0 --port 5000 --reload
-```
+# Windows PowerShell
+$env:VALIDATE_RESPONSES="1"   # optional: enable schema validation
+uvicorn backend.sonic_backend_app:app --reload --port 5000
 
-`playwright install` downloads the browsers needed by AutoCore features and backend tests that rely on Playwright.
-
-The backend expects several JSON configuration files under
-`backend/config/`. The repo includes empty placeholders for most of them,
-but if any are missing create the following files:
-
-```
-backend/config/active_traders.json
-backend/config/alert_thresholds.json
-backend/config/sonic_config.json
-backend/config/sonic_sauce.json
-backend/config/comm_config.json
-backend/config/theme_config.json
-```
-
-`sonic_sauce.json` must contain at least the keys `hedge_modifiers` and
-`heat_modifiers` as required by the backend's `JsonManager`.
-
-Provider entries in `comm_config.json` may reference environment variables using
-the `${VAR}` syntax. These placeholders are expanded when the backend loads the
-configuration so secrets can be injected without editing the file. The
-`communication.providers` section is merged into the `xcom_providers` entry in
-the database each time the backend starts. Existing provider settings remain
-unless the file specifies an override, allowing updates to propagate on the next
-launch.
-
-### Text-to-speech configuration
-
-Monitors can deliver spoken alerts when the `xcom_providers` setting defines a
-`"tts"` provider. At minimum set `"enabled": true`; you may also specify a
-`"voice"` name and a numeric `"speed"` (words per minute) to adjust the speech
-rate.
-
-```json
-"tts": { "enabled": true, "voice": "Zira", "speed": 140 }
-```
-
-The sample file [`backend/config/comm_config.json`](backend/config/comm_config.json)
-illustrates the full provider layout. Text-to-speech only works if the host
-machine has a compatible speech engine.
-
-### Optional sound and TTS dependencies
-
-Sound playback and spoken alerts rely on extra packages.
-
-- **playsound** – enables MP3 playback for alert sounds. When it is missing the
-  system falls back to emitting a simple ASCII bell.
-- **pyttsx3** – provides local text-to-speech. If the package is absent the
-  TTS service logs a warning and no voice is produced.
-
-Install the libraries to enable full audio support:
-
-```bash
-pip install playsound pyttsx3
-```
-
-The API routes access the persistence layer through a `DataLocker` instance.
-Each router declares route parameters like `dl: DataLocker = Depends(get_locker)`
-so FastAPI injects the locker for every request.  The helper
-[`backend.deps.get_locker`](backend/deps.py) fetches the instance from the Flask
-context when available, or falls back to the `DataLocker` singleton.
-
-To start the frontend:
-
-```bash
+Frontend
 cd frontend
-npm install  # or `yarn install`
-npm run build:css  # or `yarn build:css`
-npm run start
-```
+npm install
+npm run dev
 
-This generates `src/tailwind.output.css` which the dev server requires.
+Export OpenAPI (dev tool)
+python backend/scripts/export_openapi.py
+# writes backend/api/openapi.yaml
 
-The Vite dev server disables the hot module replacement (HMR) error overlay by
-default. For local development you can enable it by editing
-`frontend/vite.config.mjs` and adding the following block:
+🗺️ Repo Map (high level)
+backend/
+  api/                # FastAPI routes & API layer
+  core/               # Cyclone, monitors, alerting, services
+  wallet_core/        # Wallet ops & signing
+  scripts/            # CLIs and tooling (openapi export, spec tools)
+frontend/             # React/Vite/Tailwind UI
+docs/
+  spec/               # Spec (human + machine) and JSON Schemas
 
-```js
-server: { hmr: { overlay: true } }
-```
 
-Production builds can omit this overlay configuration.
+See the full table in docs/spec/software_spec.md → Section 2 (Repo Map).
 
-### Theme CSS
+⚙️ Config
+KeyRequiredUsed byNotes
+RPC_URLyesMOD-AUTO, MOD-SVCSolana RPC (Helius/official)
+HELIUS_RPC_URLnoMOD-SVCOptional override
+WALLET_SECRET_BASE64yesMOD-WALLETBase64 keypair
+JUPITER_API_BASEnoMOD-API, MOD-AUTOOptional custom base
+REDIS_URLnoMOD-SVCOptional cache/bus
+VALIDATE_RESPONSESnoMOD-API (dev)1 enables schema validator
+EXPORT_OPENAPInoexporter (dev)1 to quiet heavy init on export
 
-Compile the themed stylesheet whenever you change
-`frontend/src/assets/scss/_sonic-themes.scss`:
+Secrets live in environment variables / .env — never in the repo.
 
-```bash
-npx sass src/assets/scss/_sonic-themes.scss src/hedge-report/styles/sonic_themes.css
-```
+✅ Dev Safety Nets
 
-Add `--watch` to rebuild automatically while editing.
+Response Validator (dev)
+VALIDATE_RESPONSES=1 adds:
 
-### Serving from a subdirectory
+X-Validator-Enabled: 1
 
-If the app runs under a sub‑directory set `VITE_APP_BASE_NAME` in
-`frontend/.env` (e.g. `/ui/`). The same value becomes Vite's
-`import.meta.env.BASE_URL` so theme images referenced in SCSS resolve
-correctly.
+X-Schema-Invalid: <reason> (if payload doesn’t match the schema)
 
-### Tailwind CSS
+X-Validator-Skip: no-mapping (add a response_schema in the manifest)
 
-The frontend uses Tailwind for utility classes. Base directives live in
-`frontend/src/tailwind.css` and compile to `tailwind.output.css` during the
-`yarn build` step. The generated file is imported in
-`frontend/src/index.jsx` so any utilities defined in `tailwind.css` are
-available throughout the app.
+Spec CI
+GitHub Action validates JSON Schemas and manifest paths and ensures every API has a response_schema.
 
-Feel free to explore each directory for more details.
+🧰 Spec Tooling
+# Map any newly added FastAPI routes into the manifest (method/path)
+python backend/scripts/spec_api_mapper.py
 
-See [docs/alert_thresholds_api.md](docs/alert_thresholds_api.md) for the alert thresholds API.
-See [docs/backend_api_spec.md](docs/backend_api_spec.md) for a complete list of backend routes.
+# Sample live responses and auto-draft JSON Schemas (SPEC_BASE_URL optional)
+python backend/scripts/spec_schema_sampler.py
 
-The `/portfolio/latest` endpoint will only return data after a portfolio snapshot is
-recorded. You can create a snapshot using `POST /positions/snapshot` or by running
-`POST /cyclone/run` to execute the full cycle.
+# Refresh Repo Map & Module Inventory in the human spec
+python backend/scripts/spec_sweeper.py
 
-## Frontend UI Guide
-See [docs/berry_react_guide.md](docs/berry_react_guide.md) for details on the React codebase:
-- Overview of the `src/` folder structure.
-- State management with context and Redux.
-- Supported authentication methods (JWT, Firebase, Auth0, AWS Cognito).
-- Routing and theme customization options.
+📈 Observability & Runbooks
 
-## Liquidation Bars card
+Logging: “CYCLONE ENGINE STARTUP”, “Loaded N positions :: [PositionStore] …”
 
-The positions view contains a **Liquidation Bars** card that summarizes
-liquidation risk for the tracked wallets. When you visit `/positions` and switch
-to the liquidation view, this card renders a row of bar graphs for each
-position. It now fetches data from the same `/positions/` API endpoint used by
-the positions table, so both views display consistent information.
+Metrics (proposed): request_latency_ms, monitor_events_processed_total, perps_order_failures_total, wallet_rpc_errors_total
 
-## Icons and thresholds
+Tracing: HTTP → service → external (RPC/Jupiter)
 
-- Portfolio and positions tables now display wallet and asset icons from
-  `frontend/static/images`.
-- The **Alert Thresholds** page features an **Add Threshold** dialog for creating
-  new records.
-- The Alert Thresholds UI is available at `/alert-thresholds`. See
-  [frontend/src/routes/MainRoutes.jsx](frontend/src/routes/MainRoutes.jsx) for the
-  route definition.
-- Running `python backend/scripts/initialize_database.py --seed-thresholds`
-  seeds default ranges for **Liquidation Distance** and **Profit** alerts.
+Runbooks: see docs/spec/software_spec.md → Section 10 (RB-01/02/03)
 
-## Debugging frontend connectivity
+🧪 Test / Validate
+# Schemas valid?
+python - <<'PY'
+import json, glob
+from jsonschema.validators import Draft202012Validator as V
+for p in glob.glob('docs/spec/schemas/*.json'):
+    V.check_schema(json.load(open(p, encoding='utf-8')))
+print("Schemas OK")
+PY
 
-If the frontend UI does not show data, verify the backend API by running the
-script `backend/scripts/api_breakpoint_test.py` while the server is up:
+🤝 Contributing
 
-```bash
-python backend/scripts/api_breakpoint_test.py
-```
+Implement the route.
 
-The script pings a couple of API endpoints and reports status codes to help
-locate where the data flow is breaking.
+Add/confirm apis[].response_schema in spec.manifest.yaml.
 
-## Logging
+Write/update the JSON Schema with examples under docs/spec/schemas/.
 
-Backend modules use the `ConsoleLogger` from
-[`backend/utils/console_logger.py`](backend/utils/console_logger.py) for
-structured console output.  It can be configured programmatically or via
-environment variables.
+(Optional) run the sweeper; export OpenAPI.
 
-```python
-from console_logger import ConsoleLogger as Log
+Ensure Spec CI is green.
 
-Log.set_level("DEBUG")           # or: LOG_LEVEL=DEBUG python sonic_backend_app.py
-Log.success("Service started")
+📝 License
 
-Log.add_sink(lambda ev: open("app.log", "a").write(json.dumps(ev) + "\n"))
-```
+Proprietary. All rights reserved. (Adjust if you plan to open-source.)
 
-Environment variables recognised by the logger:
-
-| Variable        | Purpose                               | Example |
-|-----------------|---------------------------------------|---------|
-| `LOG_LEVEL`     | Default minimum level                 | `INFO`  |
-| `LOG_FORMAT`    | Set to `json` for JSON-only output    | `json`  |
-| `LOG_JSON`      | Legacy alias for `LOG_FORMAT=json`    | `1`     |
-| `LOG_NO_EMOJI`  | Strip emoji from console output       | `1`     |
-
-Cyclone operations are also recorded to `logs/cyclone_log.txt`. The
-`/cyclone/cyclone_logs` API endpoint returns the last few lines of this file.
-
-See [CONSOLE_LOGGER_SPEC.md](backend/utils/CONSOLE_LOGGER_SPEC.md) for the full
-specification.
-
-## Database path configuration
-
-`MOTHER_BRAIN_DB_PATH` controls where the project's main SQLite database (the
-"mother brain") is stored. `backend/utils/startup_service.py` and related
-scripts automatically load environment variables from a `.env` file at the
-repository root (falling back to `.env.example` when present). Define
-`MOTHER_BRAIN_DB_PATH` there or export it in your shell to override the default
-`mother.db` in the repo root. `MOTHER_DB_PATH` is still recognised for backward
-compatibility.
-
-Both the FastAPI backend and the **Launch Pad** console read this value from the
-environment, so they must reference the same database file.
-
-## Monitor configuration
-
-| Variable            | Purpose                                                          | Default |
-|---------------------|------------------------------------------------------------------|---------|
-| `LIQ_MON_SMS_ALERT` | Enable SMS notifications for the Liquidation Monitor             | `false` |
-
-The Liquidation Monitor also supports runtime changes via the
-[Monitor Settings API](docs/backend_api_spec.md#monitor-settings-api-monitor_settings_apipy).
-
-### Market monitor defaults
-
-The fallback blast radius values used when seeding the Market Monitor are
-defined in `backend/core/core_constants.py` as `MARKET_MONITOR_BLAST_RADIUS_DEFAULTS`.
-Adjust this mapping if you need to change the default BTC, ETH or SOL prices
-used by the monitor. The monitor settings API now always returns these defaults
-unless the monitor itself updates the blast radius, so any stored configuration
-is ignored until a new value is calculated. These values also control the blast
-radius displayed on the Monitor Manager until fresh data is fetched.
-
-## Maintenance operations
-
-`CycloneMaintenanceService` provides helpers for wiping stored data during tests
-or when resetting the environment. `clear_positions()` only removes open
-positions and leaves the `positions_totals_history` table intact. Use
-`clear_portfolio_history()` if you also want to wipe these snapshots. Running
-`clear_all_tables()` clears alerts, prices and positions.
-
-## Frontend tests
-
-The frontend uses Jest together with React Testing Library. Install the
-development dependencies and run the test suite from the `frontend` folder:
-
-```bash
-cd frontend
-npm install  # or `yarn install`
-npm test
-```
-
-This executes Jest using the configuration provided in
-`frontend/jest.config.js`. Install the dependencies with `npm install`
-before running the tests or build so Jest can load the required modules.
-
-## Backend tests
-
-Create a virtual environment and install the standard and development
-requirements before running Pytest:
-
-```bash
-python backend/scripts/create_virtual_env.py
-.venv/bin/pip install -r requirements.txt  # .venv\Scripts\pip on Windows
-.venv/bin/playwright install  # download browsers required for AutoCore features and backend tests that rely on Playwright
-.venv/bin/pip install -r requirements-dev.txt
-pytest
-```
-
-`playwright install` downloads the browsers needed by AutoCore features and backend tests that rely on Playwright.
-
-Run `pip install -r requirements.txt` whenever the dependencies change so
-Pytest can locate modules such as `cyclone`, `monitor` and `data`.
-
-## AutoCore
-
-AutoCore uses Playwright to drive a Chromium browser with the Solflare wallet
-extension preloaded. Set the `SOLFLARE_CRX` environment variable to the
-extension's `.crx` file if you want to enable this behaviour.
-When the file is missing or the variable is unset, AutoCore starts without the
-extension loaded.
-
-```bash
-export SOLFLARE_CRX=/path/to/solflare_extension.crx
-```
+---------------------------------------------------------
+🔚 **END CODEX**
