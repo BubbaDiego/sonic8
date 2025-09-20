@@ -1420,6 +1420,28 @@ def dry_run_open_position_request(
     mapping["positionRequest"] = request
     mapping["position_request"] = request
 
+    # Correct custody slots based on trade direction. For LONGs the quote mint
+    # (USDC) must sit in the `custody` slot while the base mint belongs in
+    # `collateralCustody`. Shorts keep the default base→custody mapping.
+    side_lower = str(side).lower()
+    if side_lower == "long":
+        base_custody_pk = (
+            base_mapping.get("custody")
+            or base_mapping.get("baseCustody")
+            or base_mapping.get("base_custody")
+        )
+        quote_custody_pk = (
+            base_mapping.get("collateralCustody")
+            or base_mapping.get("collateral_custody")
+        )
+        if base_custody_pk and quote_custody_pk:
+            for key in list(mapping.keys()):
+                key_lc = key.lower()
+                if key_lc in ("custody", "basecustody", "base_custody"):
+                    mapping[key] = quote_custody_pk
+                elif key_lc in ("collateralcustody", "collateral_custody"):
+                    mapping[key] = base_custody_pk
+
     counter_seed = _maybe_force_position_from_env(
         mapping,
         args,
@@ -1858,6 +1880,28 @@ def open_position_request(
     mapping.setdefault("position", position)
     mapping.setdefault("positionRequest", request)
     mapping.setdefault("position_request", request)
+
+    # LONG trades post quote collateral (USDC) into the `custody` slot and keep
+    # base collateral in `collateralCustody`. Adjust the default base→custody
+    # mapping that works for SHORTS so LONG flows fund correctly.
+    side_lower = str(side).lower()
+    if side_lower == "long":
+        base_custody_pk = (
+            account_mapping.get("custody")
+            or account_mapping.get("baseCustody")
+            or account_mapping.get("base_custody")
+        )
+        quote_custody_pk = (
+            account_mapping.get("collateralCustody")
+            or account_mapping.get("collateral_custody")
+        )
+        if base_custody_pk and quote_custody_pk:
+            for key in list(mapping.keys()):
+                key_lc = key.lower()
+                if key_lc in ("custody", "basecustody", "base_custody"):
+                    mapping[key] = quote_custody_pk
+                elif key_lc in ("collateralcustody", "collateral_custody"):
+                    mapping[key] = base_custody_pk
 
     counter = _maybe_force_position_from_env(
         mapping,
