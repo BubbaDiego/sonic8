@@ -67,7 +67,7 @@ const Section = ({ name, children, debug = DEBUG_LAYOUT }) => {
 
 /* ────────────────────────────────────────────────────────── */
 
-const Dashboard = () => {
+const Sonic = () => {
   const { session }   = useGetActiveSession();
   const { portfolio } = useGetLatestPortfolio();
   const [snapshot, setSnapshot] = useState(session);
@@ -153,4 +153,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Sonic;

@@ -30,6 +30,10 @@ CONST_COMPONENT_RE = re.compile(
     r"(?:export\s+)?const\s+([A-Z][A-Za-z0-9_]*)\s*(?::\s*React\.(?:FC|FunctionComponent)<([A-Za-z0-9_]+)>)?\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>",
     re.MULTILINE,
 )
+LOADABLE_COMPONENT_RE = re.compile(
+    r"(?:export\s+)?const\s+([A-Z][A-Za-z0-9_]*)\s*=\s*Loadable\(",
+    re.MULTILINE,
+)
 
 PROPTYPES_RE = re.compile(
     r"([A-Z][A-Za-z0-9_]*)\.propTypes\s*=\s*{(.*?)}",
@@ -51,6 +55,7 @@ class ComponentDef:
 @dataclass
 class ComponentInfo:
     id: str
+    name: str
     file: str
     props: List[Dict[str, object]]
     emits: List[str]
@@ -149,6 +154,9 @@ def parse_components(path: Path, text: str) -> List[ComponentDef]:
         if props_type and not props_type.endswith("Props"):
             props_type = f"{props_type}Props"
         components.append(ComponentDef(name=name, file=path, props_type=props_type))
+    for match in LOADABLE_COMPONENT_RE.finditer(text):
+        name = match.group(1)
+        components.append(ComponentDef(name=name, file=path, props_type=None))
     return components
 
 
@@ -255,6 +263,7 @@ def update_components(
         components.append(
             ComponentInfo(
                 id=f"COMP_{name.upper()}",
+                name=name,
                 file=str(comp_def.file.relative_to(ROOT)),
                 props=props,
                 emits=[],
@@ -264,6 +273,7 @@ def update_components(
     manifest["components"] = [
         {
             "id": comp.id,
+            "name": comp.name,
             "file": comp.file,
             "props": comp.props,
             "emits": comp.emits,
