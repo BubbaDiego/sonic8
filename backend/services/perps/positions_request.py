@@ -335,7 +335,7 @@ def _derive_ata(owner: Pubkey, mint: Pubkey) -> Pubkey:
     return _impl(owner, mint)
 
 
-def _parse_anchor_right_pda(logs: List[str]) -> Optional[str]:
+def _parse_anchor_right_pda_any(logs: List[str]) -> Optional[str]:
     """
     Looks for:
       AnchorError caused by account: position_request. Error Code: ConstraintSeeds ...
@@ -1639,7 +1639,7 @@ def dry_run_open_position_request(
             break
 
         anchor_changed = False
-        right_pos_anchor = _parse_anchor_right_pda(logs, "position")
+        right_pos_anchor = _extract_right_pda_from_logs(logs, "position")
         if right_pos_anchor and right_pos_anchor != position_key:
             try:
                 counter_seed = _apply_position_adopt(
@@ -1655,7 +1655,7 @@ def dry_run_open_position_request(
             except Exception:
                 pass
 
-        right_req_anchor = _parse_anchor_right_pda(logs, "position_request")
+        right_req_anchor = _extract_right_pda_from_logs(logs, "position_request")
         if right_req_anchor and right_req_anchor != request_key:
             if right_req_anchor == position_key:
                 events.append(
