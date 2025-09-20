@@ -7,6 +7,7 @@ import json
 import os
 import re
 import time
+from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
@@ -149,11 +150,14 @@ def _parse_unknown_account(logs: List[str]) -> Optional[str]:
 
 def _parse_invalid_collateral(logs: List[str]) -> Optional[Tuple[str, str]]:
     """
-    Looks for:
-      'Error Code: InvalidCollateralAccount' … then the usual debug dump:
-         'Left:' <pkA>
-         'Right:' <pkB>
-    Returns (left, right) base58 strings if found.
+    Looks for Jupiter Perps 'InvalidCollateralAccount' diagnostic block:
+      ...
+      Error Code: InvalidCollateralAccount ...
+      Left:
+      <base custody pk>
+      Right:
+      <collateral custody pk>
+    Returns (left, right) if found.
     """
 
     saw = False
@@ -162,11 +166,11 @@ def _parse_invalid_collateral(logs: List[str]) -> Optional[Tuple[str, str]]:
     for i, line in enumerate(logs):
         if "InvalidCollateralAccount" in line or "Invalid collateral account" in line:
             saw = True
-        if saw and "Left:" in line:
+        if saw and "Left:" in line and left is None:
             m = re.search(_B58, " ".join(logs[i : i + 3]))
             if m:
                 left = m.group(0)
-        if saw and "Right:" in line:
+        if saw and "Right:" in line and right is None:
             m = re.search(_B58, " ".join(logs[i : i + 3]))
             if m:
                 right = m.group(0)
@@ -1227,6 +1231,26 @@ def open_position_request(
                 "position_request adopt failed: simulation failed after remaining-account append (map required accounts by name)"
             )
 
+        if _simulate:
+            return json.dumps(
+                {
+                    "ok": True,
+                    "stage": "ready-to-send",
+                    "mapping": {
+                        k: str(v) for k, v in effective.items() if isinstance(v, Pubkey)
+                    },
+                    "remaining": [
+                        {
+                            "pubkey": str(r["pubkey"]),
+                            "is_signer": bool(r.get("is_signer")),
+                            "is_writable": bool(r.get("is_writable")),
+                        }
+                        for r in remaining_accounts
+                    ],
+                    "raw_tx_base64": raw,
+                }
+            )
+
         return rpc(
             "sendTransaction",
             [raw, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
@@ -1336,3 +1360,373 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
         [raw_tx, {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
     )
     return {"signature": signature, "programId": str(program_id), "market": market}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DRY‑RUN / SIMULATION HARNESS
+# ─────────────────────────────────────────────────────────────────────────────
+@dataclass
+class DryRunReport:
+    ok: bool
+    stage: str
+    market: str
+    side: str
+    size_usd: float
+    collateral_usd: float
+    counter: int
+    program_id: str
+    request_pda: str
+    position_pda: str
+    mapping: Dict[str, str]
+    remaining: List[Dict[str, Any]]
+    metas: List[Dict[str, Any]]
+    raw_tx_base64: str
+    logs: List[str]
+
+
+def _metas_as_rows(ix_idl: Dict[str, Any], metas: List[AccountMeta]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    decl = ix_idl.get("accounts") or []
+    for idx, m in enumerate(metas):
+        nm = decl[idx]["name"] if idx < len(decl) else "<extra>"
+        rows.append(
+            {
+                "idx": idx,
+                "name": nm,
+                "pubkey": str(m.pubkey),
+                "is_signer": m.is_signer,
+                "is_writable": m.is_writable,
+            }
+        )
+    return rows
+
+
+def dry_run_open_position_request(
+    market: str,
+    side: Literal["long", "short"],
+    size_usd: float,
+    collateral_usd: float,
+    tp: Optional[float] = None,
+    sl: Optional[float] = None,
+    out_path: Optional[str] = None,
+) -> DryRunReport:
+    """Simulate CreateIncreasePositionMarketRequest without sending."""
+
+    wallet = load_signer()
+    idl = load_idl()
+    program_id = program_id_from_idl(idl)
+    owner = wallet.pubkey()
+    market_info = resolve_market(market)
+    market_mint = str(market_info.get("base_mint") or DEFAULT_BASE_MINT)
+    position, request, counter = _pdas(owner, market, program_id, market_mint)
+    base_accounts, resolve_extra = _market_info(market, market_info)
+
+    ix_idl = _find_ix_any(
+        idl,
+        candidates=[
+            "createincreasepositionmarketrequest",
+            "increaseposition4",
+            "instantincreaseposition",
+            "create_increase_position_request",
+            "increase_position_request",
+            "create_open_position_request",
+            "open_position_request",
+            "create_position_request",
+            "create_trade_request",
+            "trade_request",
+            "position_request",
+        ],
+        fallback_any=["request", "increase"],
+    )
+    types_idx = _types_index(idl)
+    idl_args = ix_idl.get("args", []) or []
+    args: Dict[str, Any] = {}
+
+    referral_env = os.getenv("JUP_PERPS_REFERRAL", "").strip()
+    referral_pk = referral_env if referral_env else str(owner)
+
+    def _build_struct(def_name: str) -> Dict[str, Any]:
+        type_def = types_idx.get(def_name) or {}
+        fields: List[Dict[str, Any]] = (
+            type_def.get("fields") or [] if type_def.get("kind") == "struct" else []
+        )
+        out: Dict[str, Any] = {}
+        for field in fields:
+            fname = field["name"]
+            fkind = field["type"]
+            fl = fname.lower()
+            if fl in ("sizeusddelta", "sizeusd", "size", "amount", "makingamount"):
+                out[fname] = int(size_usd * USD_SCALE)
+            elif fl in ("collateraltokendelta", "collateralusd", "collateral", "margin"):
+                out[fname] = int(collateral_usd * USD_SCALE)
+            elif fl in ("side", "direction"):
+                out[fname] = "Long" if side == "long" else "Short"
+            elif fl in ("priceslippage", "slippage", "maxslippagebps"):
+                out[fname] = 0
+            elif fl in ("jupiterminimumout", "minimumout", "minout"):
+                out[fname] = None
+            elif fl in ("counter",):
+                out[fname] = counter
+            elif fl in ("tp", "tpprice", "takeprofitprice"):
+                out[fname] = int((tp or 0) * USD_SCALE)
+            elif fl in ("sl", "slprice", "stoplossprice"):
+                out[fname] = int((sl or 0) * USD_SCALE)
+            elif "referr" in fl and _is_pk_like(fkind):
+                out[fname] = referral_pk
+            elif "positionrequest" in fl and _is_pk_like(fkind):
+                out[fname] = str(request)
+            elif "position" in fl and _is_pk_like(fkind):
+                out[fname] = str(position)
+            elif _is_pk_like(fkind):
+                out[fname] = str(owner)
+            elif fkind == "bool":
+                out[fname] = False
+            elif isinstance(fkind, dict) and "option" in fkind:
+                out[fname] = None
+            else:
+                out[fname] = 0
+        return out
+
+    if (
+        len(idl_args) == 1
+        and isinstance(idl_args[0].get("type"), dict)
+        and "defined" in idl_args[0]["type"]
+    ):
+        def_name = str(idl_args[0]["type"]["defined"])
+        args[idl_args[0]["name"]] = _build_struct(def_name)
+    else:
+        for arg in idl_args:
+            name = arg["name"]
+            type_def = arg["type"]
+            key = str(name).lower().replace("_", "")
+            if key in ("referral", "referrer", "referralaccount", "referreraccount", "refaccount", "ref"):
+                args[name] = referral_pk
+            elif key in ("owner", "user", "trader", "authority"):
+                args[name] = str(owner)
+            elif key in ("side", "direction"):
+                args[name] = 0 if side == "long" else 1
+            elif key in ("sizeusd", "size", "amount", "makingamount"):
+                args[name] = int(size_usd * USD_SCALE)
+            elif key in ("collateralusd", "collateral", "margin"):
+                args[name] = int(collateral_usd * USD_SCALE)
+            elif key in ("tp", "tpprice", "takeprofitprice"):
+                args[name] = int((tp or 0) * USD_SCALE)
+            elif key in ("sl", "slprice", "stoplossprice"):
+                args[name] = int((sl or 0) * USD_SCALE)
+            elif "positionrequest" in key and _is_pk_like(type_def):
+                args[name] = str(request)
+            elif key.startswith("position") and _is_pk_like(type_def):
+                args[name] = str(position)
+            elif _is_pk_like(type_def):
+                args[name] = str(owner)
+            elif type_def == "bool":
+                args[name] = False
+            else:
+                args[name] = 0
+
+    input_mint_value = base_accounts.get("input_mint")
+    input_mint: Optional[Pubkey] = None
+    if input_mint_value and "ReplaceWith" not in input_mint_value:
+        input_mint = Pubkey.from_string(str(input_mint_value))
+
+    metas, account_mapping = map_accounts(
+        ix_idl,
+        owner,
+        position,
+        request,
+        base_accounts,
+        market,
+        resolve_extra,
+        program_id,
+        input_mint,
+    )
+
+    mapping = dict(account_mapping)
+    mapping["position"] = EXPECTED_POSITION_PDA
+    try:
+        counter_override = int(args.get("params", {}).get("counter", counter))
+    except Exception:
+        counter_override = int(counter)
+    mapping["positionRequest"] = Pubkey.find_program_address(
+        [b"position_request", bytes(EXPECTED_POSITION_PDA), counter_override.to_bytes(8, "little")],
+        program_id,
+    )[0]
+    mapping["position_request"] = mapping["positionRequest"]
+    request = mapping["positionRequest"]
+    mapping["tokenProgram"] = SPL_TOKEN_PROGRAM
+    mapping["token_program"] = SPL_TOKEN_PROGRAM
+    mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
+    mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
+
+    data = build_data(ix_idl, args, types_idx)
+
+    def _make_raw_tx(_metas: List[AccountMeta]) -> str:
+        ixs: List[Instruction] = []
+        ixs += compute_budget_ixs()
+        ixs.append(Instruction(program_id, data, _metas))
+        bh = recent_blockhash()
+        msg = MessageV0.try_compile(
+            payer=owner,
+            instructions=ixs,
+            address_lookup_table_accounts=[],
+            recent_blockhash=bh,
+        )
+        tx_local = VersionedTransaction(msg, [wallet])
+        return base64.b64encode(bytes(tx_local)).decode()
+
+    def _prepare_tx(
+        curr_mapping: Dict[str, Pubkey],
+        curr_remaining: Optional[List[Dict[str, Any]]] = None,
+    ) -> Tuple[List[AccountMeta], List[Dict[str, Any]], str]:
+        metas, rem = build_metas_from_mapping(
+            curr_mapping, ix_idl, existing_remaining=curr_remaining
+        )
+        raw_tx = _make_raw_tx(metas)
+        return metas, rem, raw_tx
+
+    remaining_accounts: List[Dict[str, Any]] = []
+    req_metas, remaining_accounts, raw = _prepare_tx(mapping, remaining_accounts)
+    sim = rpc(
+        "simulateTransaction",
+        [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}],
+    )
+    sim_value = sim.get("value") or {}
+    logs = sim_value.get("logs") or []
+    ok = not bool(sim_value.get("err"))
+
+    if not ok:
+        right = _parse_anchor_right_pda(logs)
+        if right and input_mint:
+            _rebuild_after_request_adopt(mapping, right, input_mint)
+            req_metas, remaining_accounts, raw = _prepare_tx(mapping, remaining_accounts)
+            sim = rpc(
+                "simulateTransaction",
+                [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}],
+            )
+            sim_value = sim.get("value") or {}
+            logs = sim_value.get("logs") or []
+            ok = not bool(sim_value.get("err"))
+
+    if not ok:
+        lr = _parse_invalid_collateral(logs)
+        if lr:
+            left_b58, right_b58 = lr
+            mapping["custody"] = Pubkey.from_string(left_b58)
+            mapping["collateralCustody"] = Pubkey.from_string(right_b58)
+            req_metas, remaining_accounts, raw = _prepare_tx(mapping, remaining_accounts)
+            sim = rpc(
+                "simulateTransaction",
+                [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}],
+            )
+            sim_value = sim.get("value") or {}
+            logs = sim_value.get("logs") or []
+            ok = not bool(sim_value.get("err"))
+
+    MAX_RECOVER = 6
+    recover_count = 0
+    last_unknown: Optional[str] = None
+
+    while not ok and recover_count < MAX_RECOVER:
+        unknown_b58 = _parse_unknown_account(logs)
+        if not unknown_b58:
+            break
+
+        if last_unknown == unknown_b58:
+            make_writable = _saw_writable_privilege_escalated(logs)
+            make_signer = _saw_unauthorized_signer_or_writable(logs) and not make_writable
+            _append_remaining_account(
+                remaining_accounts,
+                unknown_b58,
+                signer=make_signer,
+                writable=make_writable,
+            )
+        else:
+            _append_remaining_account(remaining_accounts, unknown_b58, signer=False, writable=False)
+
+        req_metas, remaining_accounts, raw = _prepare_tx(mapping, remaining_accounts)
+        sim = rpc(
+            "simulateTransaction",
+            [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}],
+        )
+        sim_value = sim.get("value") or {}
+        logs = sim_value.get("logs") or []
+        ok = not bool(sim_value.get("err"))
+
+        last_unknown = unknown_b58
+        recover_count += 1
+
+    remaining_serialized = [
+        {
+            "pubkey": str(r["pubkey"]),
+            "is_signer": bool(r.get("is_signer")),
+            "is_writable": bool(r.get("is_writable")),
+        }
+        for r in remaining_accounts
+    ]
+
+    report = DryRunReport(
+        ok=ok,
+        stage="after-initial-recoveries",
+        market=market,
+        side=side,
+        size_usd=size_usd,
+        collateral_usd=collateral_usd,
+        counter=counter_override,
+        program_id=str(program_id),
+        request_pda=str(mapping["positionRequest"]),
+        position_pda=str(EXPECTED_POSITION_PDA),
+        mapping={k: str(v) for k, v in mapping.items() if isinstance(v, Pubkey)},
+        remaining=remaining_serialized,
+        metas=_metas_as_rows(ix_idl, req_metas),
+        raw_tx_base64=raw,
+        logs=list(logs),
+    )
+
+    if out_path:
+        with open(out_path, "w", encoding="utf-8") as fh:
+            json.dump(asdict(report), fh, indent=2)
+        print(f"[perps] dry‑run report → {out_path}")
+
+    return report
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Jupiter Perps position request tools (dry‑run)")
+    sub = parser.add_subparsers(dest="cmd")
+    dr = sub.add_parser("dry-open", help="Simulate CreateIncreasePositionMarketRequest (no send)")
+    dr.add_argument("--market", required=True, help="e.g. SOL-PERP")
+    dr.add_argument("--side", choices=["long", "short"], required=True)
+    dr.add_argument(
+        "--size",
+        type=float,
+        required=True,
+        help="Notional in USD (e.g. 11 for $11,000,000 at USD_SCALE=1e6)",
+    )
+    dr.add_argument(
+        "--collateral",
+        type=float,
+        required=True,
+        help="Collateral in USD units (same scaling)",
+    )
+    dr.add_argument("--tp", type=float, default=0.0)
+    dr.add_argument("--sl", type=float, default=0.0)
+    dr.add_argument("--out", type=str, default="", help="Optional path to write JSON report")
+    args = parser.parse_args()
+
+    if args.cmd == "dry-open":
+        rep = dry_run_open_position_request(
+            market=args.market,
+            side=args.side,
+            size_usd=args.size,
+            collateral_usd=args.collateral,
+            tp=args.tp,
+            sl=args.sl,
+            out_path=(args.out or None),
+        )
+        print(json.dumps(asdict(rep), indent=2))
+    else:
+        parser.print_help(sys.stderr)
+        sys.exit(2)
