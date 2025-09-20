@@ -12,23 +12,40 @@ def load_manifest() -> Dict:
     with open(MANIFEST, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
-def list_key_files(module_path: Path, limit: int = 6) -> List[Path]:
-    out: List[Path] = []
+def list_key_files(module_path: Path, limit: int = 8) -> list[Path]:
+    """
+    Return representative .py files for Module Inventory.
+    Scans depth≈2: top-level files + __init__.py in subdirs + one representative file per subdir.
+    """
+    out: list[Path] = []
     if not module_path.exists():
         return out
-    candidates = []
-    for p in sorted(module_path.iterdir()):
-        if p.is_file() and p.suffix == ".py":
+
+    candidates: list[Path] = []
+
+    # 1) top-level .py
+    for p in sorted(module_path.glob("*.py")):
+        candidates.append(p)
+
+    # 2) subdir __init__.py (shallow)
+    for sub in sorted([d for d in module_path.iterdir() if d.is_dir()]):
+        ip = sub / "__init__.py"
+        if ip.exists():
+            candidates.append(ip)
+        # one representative file per subdir (first .py)
+        for p in sorted(sub.glob("*.py"))[:1]:
             candidates.append(p)
-        elif p.is_dir() and (p / "__init__.py").exists():
-            candidates.append(p / "__init__.py")
+
+    # Deduplicate, clip
     seen = set()
     for p in candidates:
-        if len(out) >= limit: break
         rp = p.resolve()
-        if rp in seen: continue
+        if rp in seen:
+            continue
         seen.add(rp)
         out.append(p)
+        if len(out) >= limit:
+            break
     return out
 
 def sigs_from_file(py_file: Path, max_items: int = 4) -> List[str]:
@@ -96,7 +113,7 @@ def replace_block(text: str, begin: str, end: str, content: str) -> str:
 
 def main():
     m = load_manifest()
-    mods = [x for x in (m.get("modules") or []) if x.get("path") and (ROOT / x["path"]).exists()]
+    mods = [x for x in (m.get("modules") or []) if x.get("path")]
     repo_map = build_repo_map(mods)
     inventory = build_inventory(mods)
     md = SPEC_MD.read_text("utf-8")

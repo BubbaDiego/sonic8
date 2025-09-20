@@ -20,8 +20,12 @@ _Last updated: (pending — auto-stamped by CI)_
 
 - **User Guide:** [`docs/spec/user_guide.md`](docs/spec/user_guide.md)  
 - **Human (overview):** [`docs/spec/software_spec.md`](docs/spec/software_spec.md)  
-- **Machine (manifest):** [`docs/spec/spec.manifest.yaml`](docs/spec/spec.manifest.yaml)  
+- **Machine (manifest):** [`docs/spec/spec.manifest.yaml`](docs/spec/spec.manifest.yaml)
 - **OpenAPI:** [`backend/api/openapi.yaml`](backend/api/openapi.yaml)
+
+> **Spec CI status:** Check the badge at the top of this README.  
+> For full logs: **Actions → Spec CI**. If it fails, run `make spec-validate` locally
+> to see which schema/manifest path or response_schema mapping needs fixing.
 
 > Tip: in dev, enable the response validator with `VALIDATE_RESPONSES=1` to get per-route schema checks (adds headers like `X-Validator-Enabled`).
 

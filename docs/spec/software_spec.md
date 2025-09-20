@@ -41,7 +41,7 @@
 | MOD-DATA | `backend/data/` | Persistence utilities and data models. |  |
 | MOD-WALLET | `backend/core/wallet_core/` | Wallet operations, key derivation/management, signing. |  |
 | MOD-SCRIPTS | `backend/scripts/` | Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist). |  |
-| MOD-AUTO | `tests/auto_core/` | Playwright automation (Solflare connect, Jupiter flows). |  |
+| MOD-AUTO | `auto_core/` | Playwright automation (Solflare connect, Jupiter flows). |  |
 | MOD-FRONTEND | `frontend/` | React/Vite/Tailwind UI (Sonic Dashboard, Monitor Manager, Trader Shop). |  |
 <!-- REPO_MAP:END -->
 
@@ -64,13 +64,15 @@
 - **Purpose**: Service layer: DataLocker, Cyclone, Monitor Core, Alert V2, PositionStore.
 - **Key files**
   - `backend/core/__init__.py`
+  - `backend/core/core_constants.py`
+  - `backend/core/logging.py`
   - `backend/core/alert_core/__init__.py`
   - `backend/core/auto_core/__init__.py`
   - `backend/core/calc_core/__init__.py`
-  - `backend/core/core_constants.py`
   - `backend/core/cyclone_core/__init__.py`
+  - `backend/core/fun_core/__init__.py`
 - **Public interfaces (signatures)**
-  - _(no public signatures detected)_
+  - **logging.py**: def configure_console_log(debug)
 
 ### MOD-DATA
 - **Path**: `backend/data/`
@@ -82,6 +84,8 @@
   - `backend/data/dl_alerts.py`
   - `backend/data/dl_hedges.py`
   - `backend/data/dl_modifiers.py`
+  - `backend/data/dl_monitor_ledger.py`
+  - `backend/data/dl_notification_manager.py`
 - **Public interfaces (signatures)**
   - **data_locker.py**: class DataLocker
   - **database.py**: class DatabaseManager
@@ -97,6 +101,7 @@
   - `backend/core/wallet_core/wallet_core.py`
   - `backend/core/wallet_core/wallet_repository.py`
   - `backend/core/wallet_core/wallet_schema.py`
+  - `backend/core/wallet_core/wallet_service.py`
 - **Public interfaces (signatures)**
   - **encryption.py**: def encrypt_key(plain); def decrypt_key(enc)
   - **wallet_controller.py**: def list_wallets(); def add_wallet(); def delete_wallet(name); def export_wallets()
@@ -109,25 +114,23 @@
   - `backend/scripts/__init__.py`
   - `backend/scripts/api_breakpoint_test.py`
   - `backend/scripts/backfill_price_history.py`
+  - `backend/scripts/check_helius.py`
   - `backend/scripts/create_virtual_env.py`
   - `backend/scripts/diagnose_market_monitor.py`
   - `backend/scripts/env_load_test.py`
+  - `backend/scripts/export_openapi.py`
 - **Public interfaces (signatures)**
   - **api_breakpoint_test.py**: def check_endpoint(base, path); def main(argv)
   - **backfill_price_history.py**: def get_price_at(asset, ts)
-  - **create_virtual_env.py**: def run(cmd, cwd); def venv_python(); def create_venv(); def main()
+  - **check_helius.py**: def main()
 
 ### MOD-AUTO
-- **Path**: `tests/auto_core/`
+- **Path**: `auto_core/`
 - **Purpose**: Playwright automation (Solflare connect, Jupiter flows).
 - **Key files**
-  - `tests/auto_core/test_jupiter_connect.py`
-  - `tests/auto_core/test_playwright_extension.py`
-  - `tests/auto_core/test_web_browser_request.py`
+  - _(none found)_
 - **Public interfaces (signatures)**
-  - **test_jupiter_connect.py**: def dummy_sync_playwright(); def test_jupiter_connect(monkeypatch, tmp_path)
-  - **test_playwright_extension.py**: class DummyLog; class FakeBrowser; class FakeChromium; class FakePlaywright
-  - **test_web_browser_request.py**: def test_web_browser_request(); def test_open_browser_missing_browsers(monkeypatch)
+  - _(no public signatures detected)_
 
 ### MOD-FRONTEND
 - **Path**: `frontend/`
