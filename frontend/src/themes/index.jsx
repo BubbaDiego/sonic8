@@ -80,6 +80,8 @@ export default function ThemeCustomization({ children }) {
       return;
     }
 
+    // Use resolved value so CSS and MUI agree.
+    // Keep funky as its own CSS theme (MUI still uses dark palette via resolvedMode).
     const cssMode = mode === ThemeMode.FUNKY ? 'funky' : resolvedMode;
     html.dataset.theme = cssMode;
     html.style.setProperty('--asset-base', import.meta.env.BASE_URL);
