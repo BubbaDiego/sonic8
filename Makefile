@@ -14,6 +14,6 @@ openapi:
 	python backend/scripts/export_openapi.py
 
 spec-validate:
-	python backend/scripts/spec_validate.py
+	python backend/scripts/spec_validate_checks.py
 
 spec-ci: spec-validate

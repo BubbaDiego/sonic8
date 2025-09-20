@@ -23,26 +23,32 @@ modules:
     path: backend/api/
     purpose: "FastAPI endpoints for monitors, portfolio, Jupiter ops."
     depends_on: [MOD-SVC, MOD-WALLET, EXT-JUPITER, EXT-SOLANA]
+
   - id: MOD-SVC
     path: backend/core/
     purpose: "Service layer: DataLocker, Cyclone, Monitor Core, Alert V2, PositionStore."
     depends_on: [MOD-DATA, EXT-REDIS]
+
   - id: MOD-DATA
-    path: backend/data/
+    path: backend/data/                  # ← real path
     purpose: "Persistence utilities and data models."
     depends_on: []
+
   - id: MOD-WALLET
-    path: backend/core/wallet_core/
+    path: backend/core/wallet_core/      # ← real path
     purpose: "Wallet operations, key derivation/management, signing."
     depends_on: [EXT-SOLANA]
+
   - id: MOD-SCRIPTS
     path: backend/scripts/
     purpose: "Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist)."
     depends_on: [MOD-WALLET, MOD-SVC]
+
   - id: MOD-AUTO
-    path: backend/core/auto_core/
+    path: auto_core/
     purpose: "Playwright automation (Solflare connect, Jupiter flows)."
     depends_on: [EXT-PLAYWRIGHT, EXT-JUPITER]
+
   - id: MOD-FRONTEND
     path: frontend/
     purpose: "React/Vite/Tailwind UI (Sonic Dashboard, Monitor Manager, Trader Shop)."
@@ -55,19 +61,22 @@ apis:
   - id: API-MONITOR-STATUS
     type: http
     method: GET
-    path: /api/monitor-status/
+    path: backend/routes/monitor_status_api.py
+    endpoint: /api/monitor-status/
     request_schema: null
     response_schema: SCHEMA-MONITORSTATUS
   - id: API-PORTFOLIO-LATEST
     type: http
     method: GET
-    path: /portfolio/latest
+    path: backend/routes/portfolio_api.py
+    endpoint: /portfolio/latest
     request_schema: null
     response_schema: SCHEMA-PORTFOLIO
   - id: API-POSITIONS
     type: http
     method: GET
-    path: /positions/
+    path: backend/routes/positions_api.py
+    endpoint: /positions/
     request_schema: null
     response_schema: SCHEMA-POSITIONS
 
