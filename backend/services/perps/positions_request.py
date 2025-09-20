@@ -64,28 +64,37 @@ def _idl_ix_map(idl: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
 
 def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[str]) -> Dict[str, Any]:
     """
-    Try a list of candidate substrings (in order). If none match, pick the first instruction
-    whose name contains ALL tokens in `fallback_any`.
+    Pick the correct IDL instruction robustly:
+      1) exact (case-insensitive) name match
+      2) substring match (in the order provided)
+      3) heuristic "all tokens present"
+    Fails clearly with the list of available names.
     """
 
-    entries = list(_idl_ix_map(idl).items())
+    ix_map = _idl_ix_map(idl)
+    names = {k.lower(): ix_map[k] for k in ix_map}
 
-    # direct contains (substring) search in order
+    # 1) exact, case-insensitive
     for cand in candidates:
         c = cand.lower()
-        for name, ix in entries:
+        if c in names:
+            return names[c]
+
+    # 2) ordered substring
+    for cand in candidates:
+        c = cand.lower()
+        for name, ix in names.items():
             if c in name:
                 return ix
 
-    # fallback heuristic: all tokens must be present
+    # 3) all fallback tokens must appear
     tokens = [t.lower() for t in fallback_any if t]
     if tokens:
-        for name, ix in entries:
+        for name, ix in names.items():
             if all(t in name for t in tokens):
                 return ix
 
-    # last resort: show what we have to help you pick
-    have = sorted(name for name, _ in entries)
+    have = sorted(names.keys())
     raise RuntimeError(f"Instruction not found; tried {candidates} / {fallback_any}. IDL has: {have}")
 
 
@@ -310,90 +319,32 @@ def _print_remaining_accounts(metas: list, ix_idl: dict):
 
 def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
     """
-    Prefer the discriminator bytes embedded in the IDL (newer Anchor), otherwise
-    fall back to sha256('global:<name>')[:8]. IDL shapes seen:
-      { "discriminant": { "bytes": [..8..] } }
-      { "discriminant": { "value": [..8..] } }
-      { "discriminator": [..8..] }  # very old
+    Prefer discriminator embedded in the IDL. If absent, derive the Anchor sighash
+    using a *deterministic snake_case* of the instruction name, with a special-case
+    fix for Jupiter Perps' "createIncreasePositionMarketRequest".
     """
 
     disc = ix_idl.get("discriminant") or ix_idl.get("discriminator")
+    # Newer Anchor: {"discriminant":{"bytes":[..8..]}} or {"discriminant":{"value":[..8..]}}
     if isinstance(disc, dict):
         arr = disc.get("bytes") or disc.get("value")
         if isinstance(arr, list) and len(arr) == 8:
-            try:
-                return bytes(int(x) & 0xFF for x in arr)
-            except Exception:
-                pass
+            return bytes(int(x) & 0xFF for x in arr)
+    # Very old Anchor: {"discriminator":[..8..]}
     if isinstance(disc, list) and len(disc) == 8:
-        try:
-            return bytes(int(x) & 0xFF for x in disc)
-        except Exception:
-            pass
+        return bytes(int(x) & 0xFF for x in disc)
 
-    # Fallback – derive from name (Anchor uses Rust snake_case)
-    name = str(ix_idl.get("name", "")).strip()
+    raw_name = str(ix_idl.get("name", "")).strip()
+    n = raw_name.lower()
+    # 🔒 harden: if this looks like the perps "createIncreasePositionMarketRequest", enforce the canonical snake
+    if "increase" in n and "position" in n and "request" in n and "market" in n:
+        canon = "create_increase_position_market_request"
+        return hashlib.sha256(f"global:{canon}".encode("utf-8")).digest()[:8]
 
-    def snake_guess(raw: str) -> str:
-        # Try to rebuild common rust snake_case from flat/camel names seen in your IDL
-        s = raw.lower()
-        tokens = [
-            "create",
-            "instant",
-            "update",
-            "increase",
-            "decrease",
-            "open",
-            "close",
-            "position",
-            "market",
-            "request",
-            "swap",
-            "liquidity",
-            "pool",
-            "config",
-            "fees",
-            "test",
-            "set",
-        ]
-        i = 0
-        out: List[str] = []
-        while i < len(s):
-            matched = False
-            for token in sorted(tokens, key=len, reverse=True):
-                if s[i:].startswith(token):
-                    out.append(token)
-                    i += len(token)
-                    matched = True
-                    break
-            if not matched:
-                match = re.match(r"\d+", s[i:])
-                if match:
-                    out.append(match.group(0))
-                    i += len(match.group(0))
-                else:
-                    out.append(s[i])
-                    i += 1
-        merged: List[str] = []
-        for part in out:
-            if len(part) == 1 and part.isalpha() and merged:
-                merged[-1] = merged[-1] + part
-            else:
-                merged.append(part)
-        return "_".join(filter(None, merged))
-
-    guesses = [snake_guess(name)]
-    guesses += [
-        "create_increase_position_market_request",
-        "increase_position4",
-        "instant_increase_position",
-        name,
-    ]
-    for guess in guesses:
-        sighash = hashlib.sha256(f"global:{guess}".encode("utf-8")).digest()[:8]
-        return sighash
-
-    return hashlib.sha256(f"global:{name}".encode("utf-8")).digest()[:8]
+    # generic snake_case fallback
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", raw_name).lower()
+    s = re.sub(r"[^a-z0-9_]", "_", s)
+    return hashlib.sha256(f"global:{s}".encode("utf-8")).digest()[:8]
 
 
 def _types_index(idl: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -802,14 +753,21 @@ def _metas_index_before_programs(ix_idl: dict, mapping: dict) -> int:
 
 
 def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[AccountMeta]:
-    """Build metas strictly in IDL order (skip only missing optional accounts)."""
+    """
+    Build metas strictly in IDL order, skipping only missing optionals.
+    Also *force* the canonical Position PDA to avoid seed drift between helpers and program.
+    """
 
     metas: List[AccountMeta] = []
     for acc_def in (ix_idl.get("accounts") or []):
-        nm = acc_def["name"]
+        nm = str(acc_def["name"])
         is_signer = bool(acc_def.get("isSigner"))
         is_writable = bool(acc_def.get("isMut"))
         is_opt = bool(acc_def.get("isOptional"))
+
+        if nm.lower() == "position":
+            metas.append(AccountMeta(EXPECTED_POSITION_PDA, is_signer, is_writable))
+            continue
 
         if nm not in mapping:
             if is_opt:
