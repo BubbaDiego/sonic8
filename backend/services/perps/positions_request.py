@@ -7,10 +7,11 @@ import json
 import logging
 import os
 import subprocess
-import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Mapping, Optional, Sequence, Tuple
+
+import re
 
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 from solders.hash import Hash
@@ -51,6 +52,128 @@ _USDC_QUOTE_CUSTODY = "G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa"
 
 
 logger = logging.getLogger(__name__)
+
+
+_BASE58_PUBKEY_RE = re.compile(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$')
+
+
+def _parse_anchor_right_pda(log_lines, account_name: str):
+    """
+    Scan Anchor simulate logs and return the 'Right:' pubkey for the given account.
+    Accepts either a list[str] or a big str blob.
+    Returns None if not found.
+    """
+
+    if not log_lines:
+        return None
+
+    lines = (
+        log_lines.splitlines()
+        if isinstance(log_lines, str)
+        else [str(x) for x in log_lines]
+    )
+
+    target = f"AnchorError caused by account: {account_name}"
+    for i, line in enumerate(lines):
+        if target in line:
+            # search the next few lines for 'Right:' then the pubkey
+            for j in range(i, min(i + 12, len(lines))):
+                if "Right:" in lines[j]:
+                    # (a) pubkey might be on the same line
+                    m = re.search(r'Right:\s*([1-9A-HJ-NP-Za-km-z]{32,44})', lines[j])
+                    if m:
+                        return m.group(1)
+                    # (b) or on the following non-empty line
+                    for k in range(j + 1, min(j + 6, len(lines))):
+                        cand = lines[k].strip()
+                        if _BASE58_PUBKEY_RE.match(cand):
+                            return cand
+            # If we found the account block but no Right:, stop scanning further blocks.
+            break
+    return None
+
+
+def _enforce_sol_perp_orientation(mapping: dict) -> bool:
+    """
+    For SOL-PERP we expect:
+      custody (BASE=SOL)            = 7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz
+      collateralCustody (QUOTE USDC)= G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa
+    If reversed, flip them in-place. Returns True if a change was made.
+    """
+
+    # hardcoded from Jupiter constants (matches the TS repo)
+    SOL_BASE_CUSTODY = "7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz"
+    USDC_QUOTE_CUSTODY = "G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa"
+
+    c = mapping.get("custody")
+    q = mapping.get("collateralCustody")
+    changed = False
+
+    # If they are reversed for SOL-PERP, fix it
+    if c == USDC_QUOTE_CUSTODY and q == SOL_BASE_CUSTODY:
+        print(
+            f"\n[perps][FIX] Enforcing SOL-PERP custody orientation "
+            f"(custody→{SOL_BASE_CUSTODY} / collateralCustody→{USDC_QUOTE_CUSTODY})"
+        )
+        mapping["custody"], mapping["collateralCustody"] = SOL_BASE_CUSTODY, USDC_QUOTE_CUSTODY
+        changed = True
+
+    return changed
+
+
+def _apply_targeted_anchor_adopt(label: str, mapping: dict, logs) -> bool:
+    """
+    Look at Anchor error logs and adopt the PDAs the program actually expects.
+    We do this for:
+      - 'position'
+      - 'position_request'
+    Also rebuild the request ATA if the request PDA changes.
+    Returns True if any adoption happened.
+    """
+
+    adopted = False
+
+    # 1) position
+    right_pos = _parse_anchor_right_pda(logs, "position")
+    if right_pos and str(mapping.get("position")) != right_pos:
+        old = mapping.get("position")
+        try:
+            mapping["position"] = Pubkey.from_string(right_pos)
+        except Exception:
+            mapping["position"] = right_pos
+        print(f"[perps][ADOPT] {label}: position {old} → {right_pos}")
+        adopted = True
+
+    # 2) position_request
+    right_pr = _parse_anchor_right_pda(logs, "position_request")
+    if right_pr and str(mapping.get("positionRequest")) != right_pr:
+        old = mapping.get("positionRequest")
+        try:
+            mapping["positionRequest"] = Pubkey.from_string(right_pr)
+        except Exception:
+            mapping["positionRequest"] = right_pr
+        mapping["position_request"] = mapping["positionRequest"]
+        print(f"[perps][ADOPT] {label}: position_request {old} → {right_pr}")
+        # Rebuild ATA for the adopted request if a helper exists
+        # (we've seen this in your code already; call the local helper you have)
+        try:
+            if "_recompute_pr_ata" in globals():
+                mapping["positionRequestAta"] = _recompute_pr_ata(mapping)
+            elif "_rebuild_position_request_ata" in globals():
+                _rebuild_position_request_ata(mapping)
+            elif "_derive_position_request_ata" in globals():
+                mapping["positionRequestAta"] = _derive_position_request_ata(mapping)
+            print(
+                f"[perps] rebuilt positionRequestAta for adopted request → {mapping.get('positionRequestAta')}"
+            )
+        except Exception as e:
+            print(f"[perps][WARN] could not rebuild positionRequestAta automatically: {e}")
+        adopted = True
+
+    # 3) make sure SOL/USDC custody orientation is correct after adopting
+    _enforce_sol_perp_orientation(mapping)
+
+    return adopted
 
 
 def _force_sol_perp_custody_in_place(accts: dict) -> None:
@@ -146,57 +269,35 @@ def _rebuild_position_request_ata(accts: dict) -> None:
 def _apply_anchor_right_pda_from_logs(accts: dict, logs: list[str]) -> bool:
     """Adopt Anchor Right: PDA hints for position / positionRequest accounts."""
 
-    last_acc: str | None = None
     changed = False
 
-    def _assign(key: str, value: str) -> bool:
+    def _maybe_assign(key: str, value: str) -> bool:
         prev = accts.get(key)
-        if isinstance(prev, Pubkey):
-            try:
-                new_val = Pubkey.from_string(value)
-            except Exception:
-                return False
-        else:
-            try:
-                new_val = Pubkey.from_string(value)
-            except Exception:
-                new_val = value
-        if prev == new_val:
+        prev_str = str(prev) if prev is not None else None
+        if prev_str == value:
             return False
+        try:
+            new_val = Pubkey.from_string(value)
+        except Exception:
+            new_val = value
         accts[key] = new_val
         return True
 
-    for line in logs:
-        if "account:" in line:
-            lowered = line.lower()
-            if "position_request" in lowered or "positionrequest" in lowered:
-                last_acc = "positionRequest"
-            elif "position." in lowered or "account: position" in lowered:
-                last_acc = "position"
-            else:
-                last_acc = None
-            continue
+    right_pos = _parse_anchor_right_pda(logs, "position")
+    if right_pos and _maybe_assign("position", right_pos):
+        changed = True
 
-        if not line.strip().startswith("Program log: Right:"):
-            continue
+    right_req = _parse_anchor_right_pda(logs, "position_request")
+    if right_req and _maybe_assign("positionRequest", right_req):
+        accts["position_request"] = accts["positionRequest"]
+        try:
+            _rebuild_position_request_ata(accts)
+        except Exception:
+            pass
+        changed = True
 
-        right_val = line.split("Right:")[-1].strip()
-        if not right_val or last_acc is None:
-            last_acc = None
-            continue
-
-        if last_acc == "position":
-            if _assign("position", right_val):
-                changed = True
-        elif last_acc == "positionRequest":
-            if _assign("positionRequest", right_val):
-                accts["position_request"] = accts["positionRequest"]
-                try:
-                    _rebuild_position_request_ata(accts)
-                except Exception:
-                    pass
-                changed = True
-        last_acc = None
+    if changed:
+        _enforce_sol_perp_orientation(accts)
 
     return changed
 
@@ -204,9 +305,11 @@ def _apply_anchor_right_pda_from_logs(accts: dict, logs: list[str]) -> bool:
 def _last_mile_enforce_and_adopt(accts: dict, logs: list[str] | None = None) -> None:
     """Ensure SOL-PERP custody order and optionally adopt PDAs from Anchor logs."""
 
+    if logs:
+        if not _apply_targeted_anchor_adopt("last_mile", accts, logs):
+            _apply_anchor_right_pda_from_logs(accts, logs)
+
     _force_sol_perp_custody_in_place(accts)
-    if logs and _apply_anchor_right_pda_from_logs(accts, logs):
-        _force_sol_perp_custody_in_place(accts)
 
 def _warn_if_base_quote_swapped(logs: Sequence[str], accounts: Mapping[str, str]) -> None:
     """
@@ -248,162 +351,6 @@ def _warn_if_base_quote_swapped(logs: Sequence[str], accounts: Mapping[str, str]
         print(f"                     collateralCustody        = {actual_collateral}")
         print("    Action: construct accounts with the custody pair printed under 'Program expected'.")
         print("=" * 94 + "\n")
-
-def _assert_sol_perp_custody(final_map: Mapping[str, str]) -> None:
-    """Abort early if SOL-PERP base/quote custodies are reversed."""
-
-    sol_custody = "7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz"  # BASE (SOL)
-    usdc_custody = "G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa"  # QUOTE (USDC)
-    custody = final_map.get("custody")
-    collateral = final_map.get("collateralCustody")
-
-    if custody == usdc_custody and collateral == sol_custody:
-        print("\n" + "=" * 94)
-        print(" [perps][GUARD] SOL-PERP custody order is reversed.")
-        print(f"    Expected: custody(BASE, SOL)={sol_custody}")
-        print(f"              collateral(QUOTE, USDC)={usdc_custody}")
-        print(f"    Provided: custody={custody}")
-        print(f"              collateral={collateral}")
-        print("    Refusing to continue. Fix the mapping and rerun.")
-        print("=" * 94 + "\n")
-        raise RuntimeError("SOL-PERP custody order reversed")
-
-
-def _anchor_failed_account(logs: Sequence[str]) -> Optional[str]:
-    for i, ln in enumerate(logs):
-        if "AnchorError caused by account:" in ln:
-            name = ln.split("account:", 1)[-1].strip().strip(".").strip()
-            return name.lower().replace("-", "_")
-    return None
-
-
-def _anchor_right_pda(logs: Sequence[str]) -> Optional[str]:
-    for i, ln in enumerate(logs):
-        if "Right:" in ln:
-            for j in range(i + 1, min(i + 6, len(logs))):
-                token = logs[j].replace("Program log:", "").strip()
-                if len(token) >= 32 and token.isalnum():
-                    return token
-    return None
-
-
-def _adopt_only_offender(logs: Sequence[str], acct_map: Dict[str, str]) -> bool:
-    """Replace only the failing account's PDA using Anchor's Right: hint."""
-
-    offender = _anchor_failed_account(logs)
-    right = _anchor_right_pda(logs)
-    if not offender or not right:
-        return False
-
-    key_map = {"position": "position", "position_request": "positionRequest"}
-    key = key_map.get(offender)
-    if not key or key not in acct_map:
-        return False
-
-    if acct_map[key] != right:
-        acct_map[key] = right
-        return True
-    return False
-
-
-def _apply_targeted_anchor_adopt(
-    market: str,
-    logs: Sequence[str],
-    *,
-    final_map: Dict[str, str],
-    mapping: Dict[str, Pubkey],
-    input_mint: Optional[Pubkey],
-    args: Dict[str, Any],
-) -> Optional[Tuple[str, str]]:
-    """
-    Apply the targeted adoption guard for Anchor ConstraintSeeds errors.
-
-    Returns a tuple of (account_name, adopted_value) when a replacement occurred.
-    """
-
-    if market.upper() == "SOL-PERP":
-        _assert_sol_perp_custody(final_map)
-
-    if not any("ConstraintSeeds" in ln for ln in logs):
-        return None
-
-    prev_position = final_map.get("position")
-    prev_request = final_map.get("positionRequest")
-
-    if not _adopt_only_offender(logs, final_map):
-        return None
-
-    adopted: Optional[Tuple[str, str]] = None
-    position_pk: Optional[Pubkey] = None
-    request_pk: Optional[Pubkey] = None
-
-    new_position = final_map.get("position")
-    new_request = final_map.get("positionRequest")
-
-    if new_position and new_position != prev_position:
-        try:
-            position_pk = Pubkey.from_string(new_position)
-        except Exception:
-            position_pk = None
-        else:
-            mapping["position"] = position_pk
-            adopted = ("position", new_position)
-
-    if new_request and new_request != prev_request:
-        try:
-            request_pk = Pubkey.from_string(new_request)
-        except Exception:
-            request_pk = None
-        else:
-            mapping["positionRequest"] = request_pk
-            mapping["position_request"] = request_pk
-            if input_mint:
-                try:
-                    _rebuild_after_request_adopt(mapping, new_request, input_mint)
-                except Exception:
-                    pass
-            adopted = ("positionRequest", new_request)
-
-    if position_pk is not None or request_pk is not None:
-        _sync_args_after_adopt(
-            args,
-            position_pk=position_pk,
-            request_pk=request_pk,
-        )
-
-    return adopted
-
-
-# Env/flag helpers
-def _env_flag(name: str, default: bool = False) -> bool:
-    v = os.getenv(name)
-    if v is None:
-        return default
-    return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
-
-
-def _env_str(name: str) -> str | None:
-    v = os.getenv(name)
-    return v.strip() if v else None
-
-
-def _parse_anchor_right_pda(logs: list[str], account_name: str) -> str | None:
-    """Extract the Anchor 'Right:' PDA for a named account from simulation logs."""
-
-    want = f"account: {account_name}"
-    idx = -1
-    for i, line in enumerate(logs):
-        if "AnchorError caused by account:" in line and want in line:
-            idx = i
-    if idx == -1:
-        return None
-
-    for j in range(idx, min(idx + 8, len(logs))):
-        if "Program log: Right:" in logs[j]:
-            if j + 1 < len(logs):
-                return logs[j + 1].split()[-1].strip()
-    return None
-
 
 def _ensure_custodies_for_sol_perp(custody_pk: str, collateral_pk: str) -> tuple[str, str]:
     """Ensure SOL-PERP uses SOL as base custody and USDC as quote custody."""
@@ -1917,7 +1864,7 @@ def dry_run_open_position_request(
 
     def _simulate_step(
         label: str, m: Dict[str, Pubkey]
-    ) -> Tuple[bool, List[str], List[AccountMeta], str, Optional[Tuple[str, str]]]:
+    ) -> Tuple[bool, List[str], List[AccountMeta], str, Dict[str, str]]:
         def _simulate_once(curr_label: str) -> Tuple[bool, List[str], List[AccountMeta], str]:
             metas_local, _rem, raw_local = _metas_and_raw_for_mapping(
                 ix_idl, m, wallet, owner, program_id, data
@@ -1939,24 +1886,72 @@ def dry_run_open_position_request(
         ok, logs, metas, raw = _simulate_once(label)
         initial_logs = list(logs)
 
-        final_mapping = {k: str(v) for k, v in m.items()}
-        final_mapping.setdefault("market", market)
-        if input_mint:
-            final_mapping.setdefault("inputMint", str(input_mint))
-        _force_sol_perp_custody_in_place(final_mapping)
-        _warn_if_base_quote_swapped(logs, final_mapping)
-
-        adopted = _apply_targeted_anchor_adopt(
-            market,
-            logs,
-            final_map=final_mapping,
-            mapping=m,
-            input_mint=input_mint,
-            args=args,
-        )
+        adoption_changes: Dict[str, str] = {}
 
         right_updates: Dict[str, str] = {}
-        if not ok and not adopted:
+        prev_position = m.get("position")
+        prev_request = m.get("positionRequest")
+        prev_position_str = str(prev_position) if prev_position is not None else None
+        prev_request_str = str(prev_request) if prev_request is not None else None
+
+        if logs and _apply_targeted_anchor_adopt(label, m, logs):
+            new_position_val = m.get("position")
+            new_request_val = m.get("positionRequest")
+            new_position_str = (
+                str(new_position_val) if new_position_val is not None else None
+            )
+            new_request_str = (
+                str(new_request_val) if new_request_val is not None else None
+            )
+
+            position_pk_for_sync: Optional[Pubkey] = None
+            request_pk_for_sync: Optional[Pubkey] = None
+
+            if new_position_str and new_position_str != prev_position_str:
+                adoption_changes["position"] = new_position_str
+                if not isinstance(new_position_val, Pubkey):
+                    try:
+                        new_position_val = Pubkey.from_string(new_position_str)
+                        m["position"] = new_position_val
+                    except Exception:
+                        new_position_val = None
+                if isinstance(new_position_val, Pubkey):
+                    position_pk_for_sync = new_position_val
+
+            if new_request_str and new_request_str != prev_request_str:
+                adoption_changes["positionRequest"] = new_request_str
+                if not isinstance(new_request_val, Pubkey):
+                    try:
+                        new_request_val = Pubkey.from_string(new_request_str)
+                        m["positionRequest"] = new_request_val
+                    except Exception:
+                        new_request_val = None
+                m["position_request"] = m.get("positionRequest")
+                if isinstance(new_request_val, Pubkey):
+                    request_pk_for_sync = new_request_val
+                if input_mint and new_request_str:
+                    try:
+                        _rebuild_after_request_adopt(m, new_request_str, input_mint)
+                    except Exception:
+                        pass
+
+            if adoption_changes:
+                try:
+                    _sync_args_after_adopt(
+                        args,
+                        position_pk=position_pk_for_sync,
+                        request_pk=request_pk_for_sync,
+                    )
+                except Exception:
+                    pass
+
+                _force_sol_perp_custody_in_place(m)
+                ok, logs, metas, raw = _simulate_once(f"{label} (targeted adopt)")
+
+            prev_position = m.get("position")
+            prev_request = m.get("positionRequest")
+
+        if not ok and not adoption_changes:
             prev_position = m.get("position")
             prev_request = m.get("positionRequest")
             if _apply_anchor_right_pda_from_logs(m, logs):
@@ -2036,14 +2031,16 @@ def dry_run_open_position_request(
             "metas": _name_metas(ix_idl, metas),
             "logs": logs,
         }
-        if adopted:
-            step_info["adoptedAccount"] = adopted[0]
-            step_info["adoptedValue"] = adopted[1]
+        if adoption_changes:
+            step_info["adoptedAccounts"] = adoption_changes
+            first_key = next(iter(adoption_changes))
+            step_info["adoptedAccount"] = first_key
+            step_info["adoptedValue"] = adoption_changes[first_key]
         if right_updates:
             step_info["rightPdaUpdates"] = right_updates
             step_info["initialLogs"] = initial_logs
         report["steps"].append(step_info)
-        return ok, logs, metas, raw, adopted
+        return ok, logs, metas, raw, adoption_changes
 
     events: List[str] = []
     logs: List[str] = []
@@ -2057,14 +2054,15 @@ def dry_run_open_position_request(
 
     while attempt < max_attempts:
         label = "initial" if attempt == 0 else f"retry #{attempt}"
-        ok, logs, metas, raw, adopted = _simulate_step(label, mapping)
+        ok, logs, metas, raw, adoptions = _simulate_step(label, mapping)
         simulations += 1
         if ok:
             loop_reason = "success"
             break
 
-        if adopted:
-            events.append(f"adopted {adopted[0]} → {adopted[1]}")
+        if adoptions:
+            for key, value in adoptions.items():
+                events.append(f"adopted {key} → {value}")
             attempt += 1
             continue
 
@@ -2605,23 +2603,63 @@ def open_position_request(
         adopt_attempts = 0
         max_adopt_attempts = 6
         while not ok and adopt_attempts < max_adopt_attempts:
-            final_map = {k: str(v) for k, v in effective.items()}
-            final_map.setdefault("market", market)
-            if input_mint:
-                final_map.setdefault("inputMint", str(input_mint))
-            _force_sol_perp_custody_in_place(final_map)
-            adopted = _apply_targeted_anchor_adopt(
-                market,
-                logs,
-                final_map=final_map,
-                mapping=effective,
-                input_mint=input_mint,
-                args=args,
-            )
-            if not adopted:
+            prev_position = effective.get("position")
+            prev_request = effective.get("positionRequest")
+            prev_position_str = str(prev_position) if prev_position is not None else None
+            prev_request_str = str(prev_request) if prev_request is not None else None
+
+            if not _apply_targeted_anchor_adopt("open::_send_with", effective, logs):
                 break
-            adopt_attempts += 1
-            print(f"[perps] targeted adopt {adopted[0]} → {adopted[1]}")
+
+            new_position = effective.get("position")
+            new_request = effective.get("positionRequest")
+            new_position_str = str(new_position) if new_position is not None else None
+            new_request_str = str(new_request) if new_request is not None else None
+
+            adoption_changes: Dict[str, str] = {}
+            position_pk: Optional[Pubkey] = None
+            request_pk: Optional[Pubkey] = None
+
+            if new_position_str and new_position_str != prev_position_str:
+                adoption_changes["position"] = new_position_str
+                if not isinstance(new_position, Pubkey):
+                    try:
+                        new_position = Pubkey.from_string(new_position_str)
+                        effective["position"] = new_position
+                    except Exception:
+                        new_position = None
+                if isinstance(new_position, Pubkey):
+                    position_pk = new_position
+
+            if new_request_str and new_request_str != prev_request_str:
+                adoption_changes["positionRequest"] = new_request_str
+                if not isinstance(new_request, Pubkey):
+                    try:
+                        new_request = Pubkey.from_string(new_request_str)
+                        effective["positionRequest"] = new_request
+                    except Exception:
+                        new_request = None
+                effective["position_request"] = effective.get("positionRequest")
+                if isinstance(new_request, Pubkey):
+                    request_pk = new_request
+                if input_mint and new_request_str:
+                    try:
+                        _rebuild_after_request_adopt(effective, new_request_str, input_mint)
+                    except Exception:
+                        pass
+
+            if adoption_changes:
+                adopt_attempts += 1
+                for key, value in adoption_changes.items():
+                    print(f"[perps] targeted adopt {key} → {value}")
+                try:
+                    _sync_args_after_adopt(args, position_pk=position_pk, request_pk=request_pk)
+                except Exception:
+                    pass
+            else:
+                break
+
+            _force_sol_perp_custody_in_place(effective)
             metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
             ok, logs = _simulate_with_label(raw, f"after adopt #{adopt_attempts}")
 
