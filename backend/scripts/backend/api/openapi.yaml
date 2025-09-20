@@ -1,0 +1,4074 @@
+openapi: 3.1.0
+info:
+  title: Sonic API
+  version: v1
+paths:
+  /api/wallet/send:
+    post:
+      tags:
+      - wallet
+      summary: Send Token Api
+      operationId: send_token_api_api_wallet_send_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/wallet/debug:
+    get:
+      tags:
+      - wallet
+      summary: Wallet Debug
+      operationId: wallet_debug_api_wallet_debug_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /positions/:
+    get:
+      tags:
+      - positions
+      summary: List Positions
+      operationId: list_positions_positions__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/PositionDB'
+                type: array
+                title: Response List Positions Positions  Get
+    post:
+      tags:
+      - positions
+      summary: Create Position
+      operationId: create_position_positions__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PositionDB'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /positions/{pos_id}:
+    delete:
+      tags:
+      - positions
+      summary: Delete Position
+      operationId: delete_position_positions__pos_id__delete
+      parameters:
+      - name: pos_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Pos Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /positions/snapshot:
+    post:
+      tags:
+      - positions
+      summary: Snapshot
+      operationId: snapshot_positions_snapshot_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /positions/update:
+    post:
+      tags:
+      - positions
+      summary: Run Jupiter position sync in background
+      operationId: update_positions_positions_update_post
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /positions/enrich:
+    post:
+      tags:
+      - positions
+      summary: Enrich all positions with live data
+      operationId: enrich_positions_enrich_post
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /portfolio/:
+    get:
+      tags:
+      - portfolio
+      summary: List Portfolio History
+      operationId: list_portfolio_history_portfolio__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/PortfolioSnapshot'
+                type: array
+                title: Response List Portfolio History Portfolio  Get
+    post:
+      tags:
+      - portfolio
+      summary: Add Portfolio Entry
+      description: Insert a portfolio history entry using the PortfolioSnapshot model.
+      operationId: add_portfolio_entry_portfolio__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioSnapshot'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /portfolio/latest:
+    get:
+      tags:
+      - portfolio
+      summary: Get Latest Snapshot
+      operationId: get_latest_snapshot_portfolio_latest_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/PortfolioSnapshot'
+                - type: 'null'
+                title: Response Get Latest Snapshot Portfolio Latest Get
+  /portfolio/{entry_id}:
+    put:
+      tags:
+      - portfolio
+      summary: Update Portfolio Entry
+      operationId: update_portfolio_entry_portfolio__entry_id__put
+      parameters:
+      - name: entry_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Entry Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Fields
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - portfolio
+      summary: Delete Portfolio Entry
+      operationId: delete_portfolio_entry_portfolio__entry_id__delete
+      parameters:
+      - name: entry_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Entry Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/portfolio/latest_snapshot:
+    get:
+      tags:
+      - portfolio
+      summary: Get Latest Snapshot Api
+      description: 'Alias of /portfolio/latest that includes the /api prefix for
+
+        backwards compatibility.'
+      operationId: get_latest_snapshot_api_api_portfolio_latest_snapshot_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/PortfolioSnapshot'
+                - type: 'null'
+                title: Response Get Latest Snapshot Api Api Portfolio Latest Snapshot
+                  Get
+  /api/portfolio/update_snapshot:
+    post:
+      tags:
+      - portfolio
+      summary: Update Snapshot
+      operationId: update_snapshot_api_portfolio_update_snapshot_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioSnapshot'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioSnapshot'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cyclone/run:
+    post:
+      tags:
+      - cyclone
+      summary: Run Cycle
+      operationId: run_cycle_cyclone_run_post
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /cyclone/prices:
+    post:
+      tags:
+      - cyclone
+      summary: Run Price Update
+      operationId: run_price_update_cyclone_prices_post
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /cyclone/positions:
+    post:
+      tags:
+      - cyclone
+      summary: Run Position Update
+      operationId: run_position_update_cyclone_positions_post
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /cyclone/data:
+    delete:
+      tags:
+      - cyclone
+      summary: Clear All Data
+      operationId: clear_all_data_cyclone_data_delete
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /wallets/:
+    get:
+      tags:
+      - wallets
+      summary: List Wallets
+      description: Return wallets without forcing a balance refresh.
+      operationId: list_wallets_wallets__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  type: object
+                type: array
+                title: Response List Wallets Wallets  Get
+    post:
+      tags:
+      - wallets
+      summary: Create Wallet
+      operationId: create_wallet_wallets__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Wallet'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /wallets/{name}:
+    put:
+      tags:
+      - wallets
+      summary: Update Wallet
+      operationId: update_wallet_wallets__name__put
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Wallet'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - wallets
+      summary: Delete Wallet
+      operationId: delete_wallet_wallets__name__delete
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /wallets/star_wars:
+    post:
+      tags:
+      - wallets
+      summary: Insert Star Wars Wallets Route
+      description: Insert sample Star Wars wallets via helper script.
+      operationId: insert_star_wars_wallets_route_wallets_star_wars_post
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/traders/:
+    get:
+      tags:
+      - traders
+      summary: Get Traders
+      operationId: get_traders_api_traders__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Trader'
+                type: array
+                title: Response Get Traders Api Traders  Get
+    post:
+      tags:
+      - traders
+      summary: Create Trader
+      operationId: create_trader_api_traders__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trader'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/traders/{name}:
+    get:
+      tags:
+      - traders
+      summary: Get Trader
+      operationId: get_trader_api_traders__name__get
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trader'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - traders
+      summary: Update Trader
+      operationId: update_trader_api_traders__name__put
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Trader
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - traders
+      summary: Delete Trader
+      operationId: delete_trader_api_traders__name__delete
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/traders/quick_import:
+    post:
+      tags:
+      - traders
+      summary: Quick Import Traders
+      operationId: quick_import_traders_api_traders_quick_import_post
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/traders/export:
+    get:
+      tags:
+      - traders
+      summary: Export Traders
+      description: Export traders to ``active_traders.json`` and return the file.
+      operationId: export_traders_api_traders_export_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /alert_thresholds/:
+    get:
+      tags:
+      - alert_thresholds
+      summary: List Thresholds
+      operationId: list_thresholds_alert_thresholds__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/AlertThreshold'
+                type: array
+                title: Response List Thresholds Alert Thresholds  Get
+    post:
+      tags:
+      - alert_thresholds
+      summary: Create Threshold
+      operationId: create_threshold_alert_thresholds__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertThreshold'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertThreshold'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /alert_thresholds/bulk:
+    get:
+      tags:
+      - alert_thresholds
+      summary: Get Bulk
+      description: Return the entire thresholds configuration.
+      operationId: get_bulk_alert_thresholds_bulk_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                title: Response Get Bulk Alert Thresholds Bulk Get
+    put:
+      tags:
+      - alert_thresholds
+      summary: Replace Bulk
+      description: Replace all thresholds and cooldowns.
+      operationId: replace_bulk_alert_thresholds_bulk_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Config
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /alert_thresholds/{threshold_id}:
+    get:
+      tags:
+      - alert_thresholds
+      summary: Get Threshold
+      operationId: get_threshold_alert_thresholds__threshold_id__get
+      parameters:
+      - name: threshold_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Threshold Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/AlertThreshold'
+                - type: 'null'
+                title: Response Get Threshold Alert Thresholds  Threshold Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - alert_thresholds
+      summary: Update Threshold
+      operationId: update_threshold_alert_thresholds__threshold_id__put
+      parameters:
+      - name: threshold_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Threshold Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Updates
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - alert_thresholds
+      summary: Delete Threshold
+      operationId: delete_threshold_alert_thresholds__threshold_id__delete
+      parameters:
+      - name: threshold_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Threshold Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /db_admin/tables:
+    get:
+      tags:
+      - db_admin
+      summary: List Tables
+      operationId: list_tables_db_admin_tables_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                type: array
+                title: Response List Tables Db Admin Tables Get
+  /db_admin/tables/{table}:
+    get:
+      tags:
+      - db_admin
+      summary: Read Table
+      operationId: read_table_db_admin_tables__table__get
+      parameters:
+      - name: table
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Table
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 200
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                title: Response Read Table Db Admin Tables  Table  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /alerts/refresh:
+    post:
+      tags:
+      - alerts
+      summary: Refresh Alerts
+      operationId: refresh_alerts_alerts_refresh_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /alerts/create_all:
+    post:
+      tags:
+      - alerts
+      summary: Create All Alerts
+      operationId: create_all_alerts_alerts_create_all_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /alerts/delete_all:
+    post:
+      tags:
+      - alerts
+      summary: Delete All Alerts
+      operationId: delete_all_alerts_alerts_delete_all_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /alerts/monitor:
+    get:
+      tags:
+      - alerts
+      summary: Monitor Alerts
+      operationId: monitor_alerts_alerts_monitor_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /xcom/providers:
+    get:
+      tags:
+      - XCom
+      summary: Read Providers
+      operationId: read_providers_xcom_providers_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderMap-Output'
+    put:
+      tags:
+      - XCom
+      summary: Write Providers
+      operationId: write_providers_xcom_providers_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderMap-Input'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /xcom/status:
+    get:
+      tags:
+      - XCom
+      summary: Check Status
+      operationId: check_status_xcom_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+  /xcom/test:
+    post:
+      tags:
+      - XCom
+      summary: Run Test
+      operationId: run_test_xcom_test_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestMessageRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestMessageResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /xcom/last_ping:
+    get:
+      tags:
+      - XCom
+      summary: Last Ping
+      operationId: last_ping_xcom_last_ping_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /session/:
+    get:
+      tags:
+      - session
+      summary: Get Active Session
+      operationId: get_active_session_session__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/Session'
+                - type: 'null'
+                title: Response Get Active Session Session  Get
+    put:
+      tags:
+      - session
+      summary: Update Active Session
+      operationId: update_active_session_session__put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionUpdate'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/Session'
+                - type: 'null'
+                title: Response Update Active Session Session  Put
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - session
+      summary: Start Session
+      operationId: start_session_session__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /session/history:
+    get:
+      tags:
+      - session
+      summary: List Sessions
+      operationId: list_sessions_session_history_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+                title: Response List Sessions Session History Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /session/{sid}:
+    put:
+      tags:
+      - session
+      summary: Update Session
+      operationId: update_session_session__sid__put
+      parameters:
+      - name: sid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Sid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/Session'
+                - type: 'null'
+                title: Response Update Session Session  Sid  Put
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /session/reset:
+    post:
+      tags:
+      - session
+      summary: Reset Session
+      operationId: reset_session_session_reset_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/Session'
+                - type: 'null'
+                title: Response Reset Session Session Reset Post
+  /session/close:
+    post:
+      tags:
+      - session
+      summary: Close Session
+      operationId: close_session_session_close_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/Session'
+                - type: 'null'
+                title: Response Close Session Session Close Post
+  /api/notifications/:
+    get:
+      tags:
+      - notifications
+      summary: List Notifications
+      operationId: list_notifications_api_notifications__get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          default: all
+          title: Status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/notifications/unread-count:
+    get:
+      tags:
+      - notifications
+      summary: Unread Count
+      operationId: unread_count_api_notifications_unread_count_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/notifications/{notif_id}/read:
+    post:
+      tags:
+      - notifications
+      summary: Mark Read
+      operationId: mark_read_api_notifications__notif_id__read_post
+      parameters:
+      - name: notif_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Notif Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/notifications/mark_all_read:
+    post:
+      tags:
+      - notifications
+      summary: Mark All Read
+      operationId: mark_all_read_api_notifications_mark_all_read_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/monitor-settings/market:
+    get:
+      tags:
+      - monitor-settings
+      summary: Get Market Settings
+      description: Return current MarketMovementMonitor configuration with defaults.
+      operationId: get_market_settings_api_monitor_settings_market_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - monitor-settings
+      summary: Update Market Settings
+      operationId: update_market_settings_api_monitor_settings_market_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/monitor-settings/market/reset-anchors:
+    post:
+      tags:
+      - monitor-settings
+      summary: Reset Market Anchors
+      operationId: reset_market_anchors_api_monitor_settings_market_reset_anchors_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/monitor-settings/sonic:
+    get:
+      tags:
+      - monitor-settings
+      summary: Get Sonic Settings
+      description: Return current Sonic monitor settings.
+      operationId: get_sonic_settings_api_monitor_settings_sonic_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - monitor-settings
+      summary: Update Sonic Settings
+      description: Update Sonic monitor settings.
+      operationId: update_sonic_settings_api_monitor_settings_sonic_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/monitor-settings/liquidation:
+    get:
+      tags:
+      - monitor-settings
+      summary: Get Liquidation Settings
+      description: Return the current liquidation monitor configuration.
+      operationId: get_liquidation_settings_api_monitor_settings_liquidation_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - monitor-settings
+      summary: Update Liquidation Settings
+      description: 'Update liquidation monitor settings.
+
+
+        Accepts both new nested structure and legacy flat keys.'
+      operationId: update_liquidation_settings_api_monitor_settings_liquidation_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/monitor-settings/profit:
+    get:
+      tags:
+      - monitor-settings
+      summary: Get Profit Settings
+      description: Return the profit monitor threshold configuration.
+      operationId: get_profit_settings_api_monitor_settings_profit_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - monitor-settings
+      summary: Update Profit Settings
+      description: Update profit monitor thresholds.
+      operationId: update_profit_settings_api_monitor_settings_profit_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/liquidation/nearest-distance:
+    get:
+      tags:
+      - liquidation
+      summary: Nearest Liq
+      operationId: nearest_liq_api_liquidation_nearest_distance_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/market/latest:
+    get:
+      tags:
+      - market
+      summary: Market Latest
+      operationId: market_latest_api_market_latest_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /prices/:
+    get:
+      tags:
+      - prices
+      summary: List Prices
+      description: Return all price entries ordered by most recent.
+      operationId: list_prices_prices__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  type: object
+                type: array
+                title: Response List Prices Prices  Get
+  /api/solana/balance:
+    post:
+      tags:
+      - solana
+      summary: Solana Balance
+      operationId: solana_balance_api_solana_balance_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BalanceBody'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/wallets/verify:
+    post:
+      tags:
+      - wallets-verify
+      summary: Verify One
+      operationId: verify_one_api_wallets_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyBody'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/wallets/verify-bulk:
+    post:
+      tags:
+      - wallets-verify
+      summary: Verify Bulk
+      operationId: verify_bulk_api_wallets_verify_bulk_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyBulkBody'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/wallet/send:
+    post:
+      summary: Send Token Api
+      operationId: send_token_api_api_jupiter_wallet_send_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/wallet/preflight-send:
+    post:
+      summary: Preflight Send
+      operationId: preflight_send_api_jupiter_wallet_preflight_send_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreflightReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/health:
+    get:
+      tags:
+      - jupiter
+      summary: Health
+      operationId: health_api_jupiter_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/jupiter/signer/info:
+    get:
+      tags:
+      - jupiter
+      summary: Api Signer Info
+      operationId: api_signer_info_api_jupiter_signer_info_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/jupiter/debug/signer:
+    get:
+      tags:
+      - jupiter
+      summary: Api Debug Signer
+      operationId: api_debug_signer_api_jupiter_debug_signer_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/jupiter/debug/config:
+    get:
+      tags:
+      - jupiter
+      summary: Api Debug Config
+      operationId: api_debug_config_api_jupiter_debug_config_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/jupiter/whoami:
+    get:
+      tags:
+      - jupiter
+      summary: Whoami
+      operationId: whoami_api_jupiter_whoami_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/jupiter/wallet/balance:
+    get:
+      tags:
+      - jupiter
+      summary: Wallet Balance
+      operationId: wallet_balance_api_jupiter_wallet_balance_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/jupiter/wallet/estimate-sol-spend:
+    get:
+      tags:
+      - jupiter
+      summary: Wallet Estimate Sol Spend
+      operationId: wallet_estimate_sol_spend_api_jupiter_wallet_estimate_sol_spend_get
+      parameters:
+      - name: outMint
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Outmint
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/wallet/portfolio:
+    get:
+      tags:
+      - jupiter
+      summary: Wallet Portfolio
+      operationId: wallet_portfolio_api_jupiter_wallet_portfolio_get
+      parameters:
+      - name: mints
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mints
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/price:
+    get:
+      tags:
+      - jupiter
+      summary: Jup Price
+      operationId: jup_price_api_jupiter_price_get
+      parameters:
+      - name: id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Id
+      - name: vs
+        in: query
+        required: false
+        schema:
+          type: string
+          default: USDC
+          title: Vs
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/trigger/create:
+    post:
+      tags:
+      - jupiter
+      summary: Create Trigger
+      operationId: create_trigger_api_jupiter_trigger_create_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpotTriggerRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/trigger/orders:
+    get:
+      tags:
+      - jupiter
+      summary: Trigger Orders
+      operationId: trigger_orders_api_jupiter_trigger_orders_get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: user
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/trigger/cancel:
+    post:
+      tags:
+      - jupiter
+      summary: Trigger Cancel
+      operationId: trigger_cancel_api_jupiter_trigger_cancel_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/swap/quote:
+    post:
+      tags:
+      - jupiter
+      summary: Swap Quote
+      operationId: swap_quote_api_jupiter_swap_quote_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwapQuoteReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/swap/execute:
+    post:
+      tags:
+      - jupiter
+      summary: Swap Execute
+      operationId: swap_execute_api_jupiter_swap_execute_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwapExecReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/txlog:
+    get:
+      tags:
+      - jupiter
+      summary: Txlog List
+      operationId: txlog_list_api_jupiter_txlog_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/txlog/by-sig:
+    get:
+      tags:
+      - jupiter
+      summary: Txlog By Sig
+      operationId: txlog_by_sig_api_jupiter_txlog_by_sig_get
+      parameters:
+      - name: sig
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Sig
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/txlog/latest:
+    get:
+      tags:
+      - jupiter
+      summary: Txlog Latest
+      operationId: txlog_latest_api_jupiter_txlog_latest_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/perps/markets:
+    get:
+      tags:
+      - perps
+      summary: Perps Markets
+      operationId: perps_markets_api_perps_markets_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/perps/markets/resolve:
+    get:
+      tags:
+      - perps
+      summary: Perps Markets Resolve
+      operationId: perps_markets_resolve_api_perps_markets_resolve_get
+      parameters:
+      - name: market
+        in: query
+        required: false
+        schema:
+          type: string
+          default: SOL-PERP
+          title: Market
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/positions:
+    get:
+      tags:
+      - perps
+      summary: Perps Positions
+      operationId: perps_positions_api_perps_positions_get
+      parameters:
+      - name: owner
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: owner pubkey
+          title: Owner
+        description: owner pubkey
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/order:
+    post:
+      tags:
+      - perps
+      summary: Perps Create Order
+      operationId: perps_create_order_api_perps_order_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerpOrderRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/close:
+    post:
+      tags:
+      - perps
+      summary: Perps Close Position
+      operationId: perps_close_position_api_perps_close_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerpCloseRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/positions/detailed:
+    get:
+      tags:
+      - perps
+      summary: Perps Positions Detailed
+      description: "Returns exactly what the Perps PositionsPanel expects:\n  { \"\
+        count\": N, \"items\": [ { pubkey, side, size, entry, mark, pnlUsd }, ...\
+        \ ] }"
+      operationId: perps_positions_detailed_api_perps_positions_detailed_get
+      parameters:
+      - name: owner
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Wallet pubkey; defaults to server signer
+          title: Owner
+        description: Wallet pubkey; defaults to server signer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: debug
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Set to 1 to print loud server logs and echo raw
+          default: 0
+          title: Debug
+        description: Set to 1 to print loud server logs and echo raw
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/debug/idl:
+    get:
+      tags:
+      - perps
+      summary: Perps Idl Debug
+      operationId: perps_idl_debug_api_perps_debug_idl_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/perps/debug/idl-names:
+    get:
+      tags:
+      - perps
+      summary: Perps Idl Names
+      description: 'Dump all instruction names from the loaded Perps IDL so we can
+        see
+
+        exactly what the current program exposes on this server.'
+      operationId: perps_idl_names_api_perps_debug_idl_names_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/perps/debug/idl-inspect:
+    get:
+      tags:
+      - perps
+      summary: Perps Idl Inspect
+      description: 'Dump the accounts + args schema of an instruction by (substring)
+        name.
+
+        Example: /api/perps/debug/idl-inspect?name=createincreasepositionmarketrequest'
+      operationId: perps_idl_inspect_api_perps_debug_idl_inspect_get
+      parameters:
+      - name: name
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/debug/owner-offset:
+    get:
+      tags:
+      - perps
+      summary: Perps Owner Offset
+      description: 'Probe the correct byte offset of the `owner` field in Position
+        account:
+
+        Tries memcmp(discriminator) AND memcmp(owner@offset) across a small range
+
+        and returns the first offsets that yield results.
+
+
+        Example: /api/perps/debug/owner-offset?owner=YourPubkey&start=8&stop=192&step=4'
+      operationId: perps_owner_offset_api_perps_debug_owner_offset_get
+      parameters:
+      - name: owner
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Owner
+      - name: start
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 8
+          title: Start
+      - name: stop
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 192
+          title: Stop
+      - name: step
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          title: Step
+      - name: sample
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          title: Sample
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/positions/raw:
+    get:
+      tags:
+      - perps
+      summary: Perps Positions Raw
+      description: Fetch raw Jupiter positions JSON for debugging (defaults to server
+        signer).
+      operationId: perps_positions_raw_api_perps_positions_raw_get
+      parameters:
+      - name: wallet
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/order/open:
+    post:
+      tags:
+      - perps
+      summary: Perps Order Open
+      operationId: perps_order_open_api_perps_order_open_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/_OpenReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/order/close:
+    post:
+      tags:
+      - perps
+      summary: Perps Order Close
+      operationId: perps_order_close_api_perps_order_close_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/_CloseReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/position/by-market:
+    get:
+      tags:
+      - perps
+      summary: Perps Position By Market
+      description: 'Derives the position PDA for (owner, market) and checks if the
+        account exists.
+
+        Default owner is the server signer (same wallet you see in /api/jupiter/whoami).'
+      operationId: perps_position_by_market_api_perps_position_by_market_get
+      parameters:
+      - name: market
+        in: query
+        required: true
+        schema:
+          type: string
+          description: e.g., SOL-PERP | BTC-PERP | ETH-PERP
+          title: Market
+        description: e.g., SOL-PERP | BTC-PERP | ETH-PERP
+      - name: owner
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: override owner; default = server signer pubkey
+          title: Owner
+        description: override owner; default = server signer pubkey
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/positions/db:
+    get:
+      tags:
+      - perps
+      summary: Perps Positions From Db
+      description: 'Dump positions directly from the DB so we can confirm whether
+        the sync wrote rows.
+
+        - only_active=True filters status=''ACTIVE'' (what most panels expect)
+
+        - wallet can filter by wallet_name, if you want (e.g., ''Signer'')'
+      operationId: perps_positions_from_db_api_perps_positions_db_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+          title: Limit
+      - name: only_active
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+          title: Only Active
+      - name: wallet
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/perps/positions/health:
+    get:
+      tags:
+      - perps
+      summary: Perps Positions Health
+      description: Small probe to confirm signer, perps base, and raw count.
+      operationId: perps_positions_health_api_perps_positions_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/jupiter/open:
+    post:
+      tags:
+      - jupiter
+      summary: Open Jupiter
+      operationId: open_jupiter_api_jupiter_open_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/close:
+    post:
+      tags:
+      - jupiter
+      summary: Close Jupiter
+      operationId: close_jupiter_api_jupiter_close_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/status:
+    get:
+      tags:
+      - jupiter
+      summary: Status
+      operationId: status_api_jupiter_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/jupiter/debug-paths:
+    get:
+      tags:
+      - jupiter
+      summary: Debug Paths
+      operationId: debug_paths_api_jupiter_debug_paths_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/jupiter/connect:
+    post:
+      tags:
+      - jupiter
+      summary: Connect Wallet
+      operationId: connect_wallet_api_jupiter_connect_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/jupiter/select-asset:
+    post:
+      tags:
+      - jupiter
+      summary: Select Asset
+      operationId: select_asset_api_jupiter_select_asset_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectAssetReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/monitor-status/:
+    get:
+      tags:
+      - monitor_status
+      summary: Get Status
+      operationId: get_status_api_monitor_status__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorStatus'
+  /api/monitor-status/{monitor_type}:
+    get:
+      tags:
+      - monitor_status
+      summary: Get Monitor
+      operationId: get_monitor_api_monitor_status__monitor_type__get
+      parameters:
+      - name: monitor_type
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Monitor Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorDetail'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - monitor_status
+      summary: Update Monitor
+      operationId: update_monitor_api_monitor_status__monitor_type__post
+      parameters:
+      - name: monitor_type
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Monitor Type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePayload'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorDetail'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/monitor-status/reset-liquid-snooze:
+    post:
+      tags:
+      - monitor_status
+      summary: Reset Liquid Snooze
+      description: Clear the liquidation monitor snooze timer and run a check.
+      operationId: reset_liquid_snooze_api_monitor_status_reset_liquid_snooze_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /monitor_status/:
+    get:
+      summary: Get Status
+      operationId: get_status_monitor_status__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorStatus'
+  /monitors/:
+    get:
+      tags:
+      - Monitors
+      summary: List Monitors
+      description: Return sorted list of monitor keys.
+      operationId: list_monitors_monitors__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                type: array
+                title: Response List Monitors Monitors  Get
+  /monitors/sonic_cycle:
+    post:
+      tags:
+      - Monitors
+      summary: Run Sonic Cycle
+      description: Execute the Sonic monitor cycle asynchronously.
+      operationId: run_sonic_cycle_monitors_sonic_cycle_post
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /monitors/sonic_events:
+    get:
+      tags:
+      - Monitors
+      summary: Sonic Events
+      description: Server-Sent Events stream for Sonic cycle completion.
+      operationId: sonic_events_monitors_sonic_events_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /monitors/{name}:
+    post:
+      tags:
+      - Monitors
+      summary: Run Monitor
+      operationId: run_monitor_monitors__name__post
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auto-core/wallet-address:
+    get:
+      tags:
+      - auto_core
+      summary: Get Wallet Address
+      operationId: get_wallet_address_api_auto_core_wallet_address_get
+      parameters:
+      - name: wallet_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Wallet Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auto-core/register-wallet-address:
+    post:
+      tags:
+      - auto_core
+      summary: Register Wallet Address
+      operationId: register_wallet_address_api_auto_core_register_wallet_address_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletAddressRegisterBody'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auto-core/open-browser:
+    post:
+      tags:
+      - auto_core
+      summary: Open Browser
+      description: 'Launch the dedicated profile via the launcher and wait briefly
+        for the Chrome
+
+        CDP port to be reachable. If a session (port) is already up, reuse it.'
+      operationId: open_browser_api_auto_core_open_browser_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrowserOpenRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auto-core/connect-jupiter:
+    post:
+      tags:
+      - auto_core
+      summary: Connect Jupiter
+      operationId: connect_jupiter_api_auto_core_connect_jupiter_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JupiterParams'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auto-core/select-asset:
+    post:
+      tags:
+      - auto_core
+      summary: Select Asset
+      operationId: select_asset_api_auto_core_select_asset_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectAssetBody'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auto-core/solflare-unlock:
+    post:
+      tags:
+      - auto_core
+      summary: Solflare Unlock
+      operationId: solflare_unlock_api_auto_core_solflare_unlock_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/auto-core/jupiter-status:
+    get:
+      tags:
+      - auto_core
+      summary: Jupiter Status
+      operationId: jupiter_status_api_auto_core_jupiter_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/auto-core/close-browser:
+    post:
+      tags:
+      - auto_core
+      summary: Close Browser
+      operationId: close_browser_api_auto_core_close_browser_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/auto-core/run-request:
+    post:
+      tags:
+      - auto_core
+      summary: Run Request
+      operationId: run_request_api_auto_core_run_request_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutoCoreRunRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/fun/random:
+    get:
+      tags:
+      - fun
+      summary: Get Random Fun
+      operationId: get_random_fun_api_fun_random_get
+      parameters:
+      - name: type
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/FunType'
+          default: joke
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunContent'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/status:
+    get:
+      summary: Status
+      operationId: status_api_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+components:
+  schemas:
+    AlertThreshold:
+      properties:
+        id:
+          type: string
+          title: Id
+        alert_type:
+          type: string
+          title: Alert Type
+        alert_class:
+          type: string
+          title: Alert Class
+        metric_key:
+          type: string
+          title: Metric Key
+        condition:
+          type: string
+          title: Condition
+        low:
+          type: number
+          title: Low
+        medium:
+          type: number
+          title: Medium
+        high:
+          type: number
+          title: High
+        enabled:
+          type: boolean
+          title: Enabled
+          default: true
+        last_modified:
+          type: string
+          title: Last Modified
+        low_notify:
+          type: string
+          title: Low Notify
+          default: ''
+        medium_notify:
+          type: string
+          title: Medium Notify
+          default: ''
+        high_notify:
+          type: string
+          title: High Notify
+          default: ''
+      type: object
+      required:
+      - id
+      - alert_type
+      - alert_class
+      - metric_key
+      - condition
+      - low
+      - medium
+      - high
+      title: AlertThreshold
+    AutoCoreRunRequest:
+      properties:
+        request_type:
+          type: string
+          title: Request Type
+        params:
+          anyOf:
+          - type: object
+          - type: 'null'
+          title: Params
+      type: object
+      required:
+      - request_type
+      title: AutoCoreRunRequest
+    BalanceBody:
+      properties:
+        address:
+          type: string
+          title: Address
+        rpc_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rpc Url
+        include_tokens:
+          type: boolean
+          title: Include Tokens
+          default: true
+        commitment:
+          type: string
+          title: Commitment
+          default: finalized
+      type: object
+      required:
+      - address
+      title: BalanceBody
+    BrowserOpenRequest:
+      properties:
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+        wallet_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet Id
+        channel:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Channel
+        chrome_profile_directory:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Chrome Profile Directory
+      type: object
+      title: BrowserOpenRequest
+    CancelRequest:
+      properties:
+        order:
+          type: string
+          title: Order
+      type: object
+      required:
+      - order
+      title: CancelRequest
+    CloseReq:
+      properties:
+        walletId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Walletid
+      type: object
+      title: CloseReq
+    ConnectReq:
+      properties:
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+      type: object
+      title: ConnectReq
+    FunContent:
+      properties:
+        type:
+          $ref: '#/components/schemas/FunType'
+        text:
+          type: string
+          title: Text
+        source:
+          type: string
+          title: Source
+        fetched_at:
+          type: string
+          format: date-time
+          title: Fetched At
+        extra:
+          anyOf:
+          - type: object
+          - type: 'null'
+          title: Extra
+      type: object
+      required:
+      - type
+      - text
+      - source
+      - fetched_at
+      title: FunContent
+    FunType:
+      type: string
+      enum:
+      - joke
+      - trivia
+      - quote
+      title: FunType
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    JupiterParams:
+      properties:
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+          default: https://jup.ag/perps
+      type: object
+      title: JupiterParams
+    MonitorDetail:
+      properties:
+        status:
+          $ref: '#/components/schemas/MonitorHealth'
+          description: Current health status of the monitor
+        last_updated:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Updated
+          description: Timestamp of the last successful update
+        metadata:
+          anyOf:
+          - type: object
+          - type: 'null'
+          title: Metadata
+          description: Additional contextual metadata
+      type: object
+      required:
+      - status
+      title: MonitorDetail
+      description: "\U0001F4CC Represents details of an individual monitor, including\
+        \ its status and last update timestamp."
+    MonitorHealth:
+      type: string
+      enum:
+      - Healthy
+      - Warning
+      - Error
+      - Offline
+      title: MonitorHealth
+    MonitorStatus:
+      properties:
+        monitors:
+          additionalProperties:
+            $ref: '#/components/schemas/MonitorDetail'
+          propertyNames:
+            $ref: '#/components/schemas/MonitorType'
+          type: object
+          title: Monitors
+          description: Current status of all monitored backend components
+        sonic_next:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Sonic Next
+          description: Seconds until the next Sonic monitor run
+          default: 0
+        liquid_snooze:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Liquid Snooze
+          description: Seconds remaining for liquidation snooze timer
+          default: 0
+        sonic_last_complete:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sonic Last Complete
+          description: Timestamp of the last successful Sonic monitor completion in
+            UTC ISO format
+      type: object
+      title: MonitorStatus
+      description: "\U0001F4CC Comprehensive status snapshot of all system monitors\
+        \ including countdown timers."
+    MonitorType:
+      type: string
+      enum:
+      - Sonic Monitoring
+      - Price Monitoring
+      - Positions Monitoring
+      - XCom Communication
+      title: MonitorType
+    OpenReq:
+      properties:
+        walletId:
+          type: string
+          title: Walletid
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+        headless:
+          type: boolean
+          title: Headless
+          default: false
+      type: object
+      required:
+      - walletId
+      title: OpenReq
+    PerpCloseRequest:
+      properties:
+        market:
+          type: string
+          minLength: 1
+          title: Market
+      type: object
+      required:
+      - market
+      title: PerpCloseRequest
+    PerpOrderRequest:
+      properties:
+        market:
+          type: string
+          minLength: 1
+          title: Market
+        side:
+          type: string
+          enum:
+          - long
+          - short
+          title: Side
+        sizeUsd:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Sizeusd
+        collateralUsd:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Collateralusd
+        tp:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Tp
+        sl:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Sl
+      type: object
+      required:
+      - market
+      - side
+      - sizeUsd
+      - collateralUsd
+      title: PerpOrderRequest
+    PortfolioSnapshot:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Unique identifier for the snapshot
+        snapshot_time:
+          type: string
+          format: date-time
+          title: Snapshot Time
+          description: Timestamp of the portfolio snapshot
+        total_size:
+          type: number
+          title: Total Size
+          description: Total size of all positions
+        total_long_size:
+          type: number
+          title: Total Long Size
+          description: Aggregate size of all long positions
+          default: 0.0
+        total_short_size:
+          type: number
+          title: Total Short Size
+          description: Aggregate size of all short positions
+          default: 0.0
+        total_value:
+          type: number
+          title: Total Value
+          description: Total value of the portfolio
+        total_collateral:
+          type: number
+          title: Total Collateral
+          description: Total collateral provided for the portfolio
+        avg_leverage:
+          type: number
+          title: Avg Leverage
+          description: Average leverage across all positions
+        avg_travel_percent:
+          type: number
+          title: Avg Travel Percent
+          description: Average travel percent to liquidation across positions
+        avg_heat_index:
+          type: number
+          title: Avg Heat Index
+          description: Average heat index reflecting portfolio risk
+        total_heat_index:
+          type: number
+          title: Total Heat Index
+          description: Sum of heat index across all positions
+          default: 0.0
+        market_average_sp500:
+          type: number
+          title: Market Average Sp500
+          description: S&P500 index value at snapshot time
+          default: 0.0
+        session_start_time:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Session Start Time
+          description: Time when the performance tracking session began
+        session_start_value:
+          type: number
+          title: Session Start Value
+          description: Portfolio value at the start of the session
+          default: 0.0
+        current_session_value:
+          type: number
+          title: Current Session Value
+          description: Current portfolio value for the session
+          default: 0.0
+        session_goal_value:
+          type: number
+          title: Session Goal Value
+          description: Target portfolio value for the session
+          default: 0.0
+        session_performance_value:
+          type: number
+          title: Session Performance Value
+          description: Performance delta relative to the session start
+          default: 0.0
+      type: object
+      required:
+      - total_size
+      - total_value
+      - total_collateral
+      - avg_leverage
+      - avg_travel_percent
+      - avg_heat_index
+      title: PortfolioSnapshot
+      description: Represents an aggregate view of portfolio metrics at a specific
+        time.
+    PositionDB:
+      properties:
+        id:
+          type: string
+          minLength: 1
+          title: Id
+        asset_type:
+          type: string
+          title: Asset Type
+          default: UNKNOWN
+        position_type:
+          type: string
+          title: Position Type
+          default: LONG
+        entry_price:
+          type: number
+          title: Entry Price
+          default: 0.0
+        liquidation_price:
+          type: number
+          title: Liquidation Price
+          default: 0.0
+        travel_percent:
+          type: number
+          title: Travel Percent
+          default: 0.0
+        value:
+          type: number
+          title: Value
+          default: 0.0
+        collateral:
+          type: number
+          title: Collateral
+          default: 0.0
+        size:
+          type: number
+          title: Size
+          default: 0.0
+        leverage:
+          type: number
+          title: Leverage
+          default: 1.0
+        wallet_name:
+          type: string
+          title: Wallet Name
+          default: Unspecified
+        last_updated:
+          type: string
+          title: Last Updated
+        alert_reference_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Alert Reference Id
+        hedge_buddy_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hedge Buddy Id
+        current_price:
+          type: number
+          title: Current Price
+          default: 0.0
+        liquidation_distance:
+          type: number
+          title: Liquidation Distance
+          default: 0.0
+        heat_index:
+          type: number
+          title: Heat Index
+          default: 0.0
+        current_heat_index:
+          type: number
+          title: Current Heat Index
+          default: 0.0
+        pnl_after_fees_usd:
+          type: number
+          title: Pnl After Fees Usd
+          default: 0.0
+        status:
+          type: string
+          title: Status
+          default: ACTIVE
+        stale:
+          type: integer
+          title: Stale
+          default: 0
+      type: object
+      required:
+      - id
+      title: PositionDB
+      description: Full representation of a row in the ``positions`` table.
+    PreflightReq:
+      properties:
+        mint:
+          type: string
+          title: Mint
+          description: Mint address or SOL/USDC
+        to:
+          type: string
+          title: To
+          description: Recipient
+        amountAtoms:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Amountatoms
+      type: object
+      required:
+      - mint
+      - to
+      - amountAtoms
+      title: PreflightReq
+    ProviderConfig:
+      properties:
+        enabled:
+          type: boolean
+          title: Enabled
+          default: true
+        smtp:
+          anyOf:
+          - $ref: '#/components/schemas/SMTPConfig'
+          - type: 'null'
+      additionalProperties: true
+      type: object
+      title: ProviderConfig
+      description: 'Generic provider configuration.
+
+
+        Allows extra fields so Twilio or future providers
+
+        can persist arbitrary credential keys without code changes.'
+    ProviderMap-Input:
+      additionalProperties:
+        $ref: '#/components/schemas/ProviderConfig'
+      type: object
+      title: ProviderMap
+    ProviderMap-Output:
+      additionalProperties:
+        $ref: '#/components/schemas/ProviderConfig'
+      type: object
+      title: ProviderMap
+    SMTPConfig:
+      properties:
+        server:
+          type: string
+          title: Server
+        port:
+          type: integer
+          exclusiveMaximum: 65536.0
+          exclusiveMinimum: 0.0
+          title: Port
+        username:
+          type: string
+          title: Username
+        password:
+          type: string
+          title: Password
+        default_recipient:
+          anyOf:
+          - type: string
+            format: email
+          - type: 'null'
+          title: Default Recipient
+      type: object
+      required:
+      - server
+      - port
+      - username
+      - password
+      title: SMTPConfig
+      description: Subset of fields required for SMTP communication.
+    SelectAssetBody:
+      properties:
+        symbol:
+          type: string
+          title: Symbol
+      type: object
+      required:
+      - symbol
+      title: SelectAssetBody
+    SelectAssetReq:
+      properties:
+        symbol:
+          type: string
+          title: Symbol
+      type: object
+      required:
+      - symbol
+      title: SelectAssetReq
+    SendReq:
+      properties:
+        mint:
+          type: string
+          title: Mint
+          description: Mint address or 'SOL'/'USDC'
+        to:
+          type: string
+          title: To
+          description: Recipient owner (base58)
+        amountAtoms:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Amountatoms
+          description: Amount in atoms
+      type: object
+      required:
+      - mint
+      - to
+      - amountAtoms
+      title: SendReq
+    Session:
+      properties:
+        session_start_time:
+          type: string
+          format: date-time
+          title: Session Start Time
+          description: UTC time the session began
+        session_start_value:
+          type: number
+          title: Session Start Value
+          description: Portfolio value when the session started
+          default: 0.0
+        session_goal_value:
+          type: number
+          title: Session Goal Value
+          description: Target value you want to hit before closing
+          default: 0.0
+        current_session_value:
+          type: number
+          title: Current Session Value
+          description: "Current \u0394 (value \u2011 start_value)"
+          default: 0.0
+        session_performance_value:
+          type: number
+          title: Session Performance Value
+          description: P&L compared to *start* (includes realised + unrealised)
+          default: 0.0
+        status:
+          type: string
+          title: Status
+          description: OPEN or CLOSED
+          default: OPEN
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+          description: "Free\u2011form notes about the session"
+        id:
+          type: string
+          title: Id
+          description: Primary key
+        last_modified:
+          type: string
+          format: date-time
+          title: Last Modified
+          description: "Auto\u2011updated timestamp whenever the row mutates"
+      type: object
+      title: Session
+      description: Represents the **persisted row** inside the *sessions* table.
+    SessionCreate:
+      properties:
+        session_start_time:
+          type: string
+          format: date-time
+          title: Session Start Time
+          description: UTC time the session began
+        session_start_value:
+          type: number
+          title: Session Start Value
+          description: Portfolio value when the session started
+          default: 0.0
+        session_goal_value:
+          type: number
+          title: Session Goal Value
+          description: Target value you want to hit before closing
+          default: 0.0
+        current_session_value:
+          type: number
+          title: Current Session Value
+          description: "Current \u0394 (value \u2011 start_value)"
+          default: 0.0
+        session_performance_value:
+          type: number
+          title: Session Performance Value
+          description: P&L compared to *start* (includes realised + unrealised)
+          default: 0.0
+        status:
+          type: string
+          title: Status
+          description: OPEN or CLOSED
+          default: OPEN
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+          description: "Free\u2011form notes about the session"
+      type: object
+      title: SessionCreate
+      description: Payload for POST /session (omit id + last_modified).
+    SessionUpdate:
+      properties:
+        session_start_time:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Session Start Time
+        session_start_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Session Start Value
+        session_goal_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Session Goal Value
+        current_session_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Current Session Value
+        session_performance_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Session Performance Value
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      title: SessionUpdate
+      description: "PATCH\u2011style payload; every field is optional."
+    SpotTriggerRequest:
+      properties:
+        inputMint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Inputmint
+        outputMint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Outputmint
+        inputSymbol:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Inputsymbol
+        outputSymbol:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Outputsymbol
+        amount:
+          type: number
+          title: Amount
+        stopPrice:
+          type: number
+          title: Stopprice
+        slippageBps:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Slippagebps
+        expirySeconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Expiryseconds
+        sendMode:
+          type: string
+          enum:
+          - execute
+          - rpc
+          title: Sendmode
+          default: execute
+        rpcUrl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rpcurl
+      type: object
+      required:
+      - amount
+      - stopPrice
+      title: SpotTriggerRequest
+    StatusResponse:
+      additionalProperties:
+        type: string
+      type: object
+      title: StatusResponse
+    SwapExecReq:
+      properties:
+        inputMint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Inputmint
+        outputMint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Outputmint
+        amount:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Amount
+        slippageBps:
+          type: integer
+          title: Slippagebps
+          default: 50
+        swapMode:
+          type: string
+          title: Swapmode
+          default: ExactIn
+        restrictIntermediates:
+          type: boolean
+          title: Restrictintermediates
+          default: true
+        quoteResponse:
+          anyOf:
+          - type: object
+          - type: 'null'
+          title: Quoteresponse
+        dynamicSlippageMaxBps:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Dynamicslippagemaxbps
+        jitoTipLamports:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Jitotiplamports
+      type: object
+      title: SwapExecReq
+    SwapQuoteReq:
+      properties:
+        inputMint:
+          type: string
+          title: Inputmint
+        outputMint:
+          type: string
+          title: Outputmint
+        amount:
+          type: integer
+          title: Amount
+        slippageBps:
+          type: integer
+          title: Slippagebps
+          default: 50
+        swapMode:
+          type: string
+          title: Swapmode
+          default: ExactIn
+        restrictIntermediates:
+          type: boolean
+          title: Restrictintermediates
+          default: true
+      type: object
+      required:
+      - inputMint
+      - outputMint
+      - amount
+      title: SwapQuoteReq
+    TestMessageRequest:
+      properties:
+        mode:
+          type: string
+          enum:
+          - sms
+          - email
+          - voice
+          - sound
+          - tts
+          title: Mode
+        recipient:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Recipient
+        subject:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subject
+        body:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Body
+        level:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          title: Level
+          default: LOW
+      type: object
+      required:
+      - mode
+      title: TestMessageRequest
+      description: POST body for `/xcom/test`.
+    TestMessageResult:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        results:
+          type: object
+          title: Results
+      type: object
+      required:
+      - success
+      title: TestMessageResult
+      description: Slim wrapper around XComCore result.
+    Trader:
+      properties:
+        name:
+          type: string
+          title: Name
+        avatar:
+          type: string
+          title: Avatar
+          default: ''
+        color:
+          type: string
+          title: Color
+          default: ''
+        persona:
+          type: string
+          title: Persona
+          default: ''
+        origin_story:
+          type: string
+          title: Origin Story
+          default: ''
+        risk_profile:
+          type: string
+          title: Risk Profile
+          default: ''
+        born_on:
+          type: string
+          title: Born On
+          default: ''
+        initial_collateral:
+          type: number
+          title: Initial Collateral
+          default: 0.0
+        mood:
+          type: string
+          title: Mood
+          default: neutral
+        moods:
+          additionalProperties:
+            type: string
+          type: object
+          title: Moods
+        strategies:
+          additionalProperties:
+            type: number
+          type: object
+          title: Strategies
+        strategy_notes:
+          type: string
+          title: Strategy Notes
+          default: ''
+        wallet:
+          type: string
+          title: Wallet
+          default: ''
+        wallet_balance:
+          type: number
+          title: Wallet Balance
+          default: 0.0
+        profit:
+          type: number
+          title: Profit
+          default: 0.0
+        portfolio:
+          type: object
+          title: Portfolio
+        positions:
+          items:
+            type: object
+          type: array
+          title: Positions
+        hedges:
+          items:
+            type: object
+          type: array
+          title: Hedges
+        performance_score:
+          type: integer
+          title: Performance Score
+          default: 0
+        heat_index:
+          type: number
+          title: Heat Index
+          default: 0.0
+      type: object
+      required:
+      - name
+      title: Trader
+    UpdatePayload:
+      properties:
+        status:
+          $ref: '#/components/schemas/MonitorHealth'
+        metadata:
+          anyOf:
+          - type: object
+          - type: 'null'
+          title: Metadata
+      type: object
+      required:
+      - status
+      title: UpdatePayload
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VerifyBody:
+      properties:
+        address:
+          type: string
+          title: Address
+          description: Solana base58 address
+        rpc_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rpc Url
+        commitment:
+          type: string
+          title: Commitment
+          default: finalized
+        force:
+          type: boolean
+          title: Force
+          default: false
+      type: object
+      required:
+      - address
+      title: VerifyBody
+    VerifyBulkBody:
+      properties:
+        addresses:
+          items:
+            type: string
+          type: array
+          title: Addresses
+        rpc_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rpc Url
+        commitment:
+          type: string
+          title: Commitment
+          default: finalized
+        force:
+          type: boolean
+          title: Force
+          default: false
+      type: object
+      required:
+      - addresses
+      title: VerifyBulkBody
+    Wallet:
+      properties:
+        name:
+          type: string
+          title: Name
+        public_address:
+          type: string
+          title: Public Address
+        chrome_profile:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Chrome Profile
+          default: Default
+        private_address:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Private Address
+        image_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Image Path
+        balance:
+          type: number
+          title: Balance
+          default: 0.0
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+        is_active:
+          type: boolean
+          title: Is Active
+          default: true
+        type:
+          $ref: '#/components/schemas/WalletType'
+          default: personal
+      type: object
+      required:
+      - name
+      - public_address
+      title: Wallet
+      description: "\U0001F4BC Represents a single crypto wallet in the system.\n\n\
+        \U0001F3AF Used in:\n- UI rendering\n- Position enrichment (wallet lookup)\n\
+        - Alert linking\n- Portfolio breakdowns"
+    WalletAddressRegisterBody:
+      properties:
+        wallet_id:
+          type: string
+          title: Wallet Id
+        address:
+          type: string
+          title: Address
+      type: object
+      required:
+      - wallet_id
+      - address
+      title: WalletAddressRegisterBody
+    WalletType:
+      type: string
+      enum:
+      - personal
+      - bot
+      - exchange
+      - test
+      title: WalletType
+    _CloseReq:
+      properties:
+        market:
+          type: string
+          title: Market
+          description: e.g., SOL-PERP | BTC-PERP | ETH-PERP
+      type: object
+      required:
+      - market
+      title: _CloseReq
+    _OpenReq:
+      properties:
+        market:
+          type: string
+          title: Market
+          description: e.g., SOL-PERP | BTC-PERP | ETH-PERP
+        side:
+          type: string
+          enum:
+          - long
+          - short
+          title: Side
+        sizeUsd:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Sizeusd
+        collateralUsd:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Collateralusd
+        tp:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Tp
+          description: TP price (optional)
+        sl:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Sl
+          description: SL price (optional)
+      type: object
+      required:
+      - market
+      - side
+      - sizeUsd
+      - collateralUsd
+      title: _OpenReq
