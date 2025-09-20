@@ -418,6 +418,65 @@ def _apply_position_adopt(
     return counter_seed_local
 
 
+def _maybe_adopt_position_from_env(
+    mapping: Dict[str, Pubkey],
+    args: Dict[str, Any],
+    *,
+    program_id: Pubkey,
+    input_mint: Optional[Pubkey],
+    counter_seed: int,
+) -> int:
+    """Override the position PDA from PERPS_POSITION_PDA_HINT when provided."""
+
+    hint = os.getenv("PERPS_POSITION_PDA_HINT", "").strip()
+    if not hint:
+        return counter_seed
+
+    try:
+        print(f"[perps] ENV override: adopting position PDA from PERPS_POSITION_PDA_HINT → {hint}")
+        return _apply_position_adopt(
+            mapping,
+            args,
+            hint,
+            program_id=program_id,
+            input_mint=input_mint,
+            counter_seed=counter_seed,
+        )
+    except Exception as err:
+        print(f"[perps] WARN: failed to adopt PERPS_POSITION_PDA_HINT {hint}: {err}")
+        return counter_seed
+
+
+def _maybe_adopt_position_request_from_env(
+    mapping: Dict[str, Pubkey],
+    args: Dict[str, Any],
+    *,
+    input_mint: Optional[Pubkey],
+) -> bool:
+    """Override the position request PDA/ATA from PERPS_POSITION_REQUEST_PDA_HINT when provided."""
+
+    hint = os.getenv("PERPS_POSITION_REQUEST_PDA_HINT", "").strip()
+    if not hint:
+        return False
+
+    try:
+        req_pk = Pubkey.from_string(hint)
+    except Exception as err:
+        print(f"[perps] WARN: invalid PERPS_POSITION_REQUEST_PDA_HINT {hint}: {err}")
+        return False
+
+    print(f"[perps] ENV override: adopting position request PDA from PERPS_POSITION_REQUEST_PDA_HINT → {hint}")
+    mapping["positionRequest"] = req_pk
+    mapping["position_request"] = req_pk
+    if input_mint:
+        try:
+            _rebuild_after_request_adopt(mapping, hint, input_mint)
+        except Exception as err:
+            print(f"[perps] WARN: failed to rebuild ATA for PERPS_POSITION_REQUEST_PDA_HINT {hint}: {err}")
+    _sync_args_after_adopt(args, request_pk=req_pk)
+    return True
+
+
 def _append_remaining_account(remaining: list, pk_b58: str, signer: bool = False, writable: bool = False) -> None:
     """
     Add once if not already present. Keeps order stable and never touches required accounts.
@@ -1237,6 +1296,17 @@ def dry_run_open_position_request(
     mapping["positionRequest"] = request
     mapping["position_request"] = request
 
+    counter_seed = _maybe_adopt_position_from_env(
+        mapping,
+        args,
+        program_id=program_id,
+        input_mint=input_mint,
+        counter_seed=counter_seed,
+    )
+    position = mapping.get("position", position)
+    _maybe_adopt_position_request_from_env(mapping, args, input_mint=input_mint)
+    request = mapping.get("positionRequest", request)
+
     # Canonical programs (SPL Token in tokenProgram slot; ATA program in associatedTokenProgram)
     mapping["tokenProgram"] = SPL_TOKEN_PROGRAM
     mapping["token_program"] = SPL_TOKEN_PROGRAM
@@ -1559,6 +1629,19 @@ def open_position_request(
 
     # Use exact PDAs resolved from registry/PDA helpers
     mapping = dict(account_mapping)
+    mapping.setdefault("position", position)
+    mapping.setdefault("positionRequest", request)
+    mapping.setdefault("position_request", request)
+
+    counter = _maybe_adopt_position_from_env(
+        mapping,
+        args,
+        program_id=program_id,
+        input_mint=input_mint,
+        counter_seed=counter,
+    )
+    position = mapping.get("position", position)
+    _maybe_adopt_position_request_from_env(mapping, args, input_mint=input_mint)
     request = mapping.get("positionRequest", request)
 
     try:
