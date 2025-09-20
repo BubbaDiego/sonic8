@@ -5,8 +5,10 @@ const PROGRAM_ID = new PublicKey("PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu");
 
 // Use your Helius key (or fallback to public mainnet if not set)
 const RPC_URL =
-  process.env.HELIUS_API_KEY
-    ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+  process.env.RPC_URL
+    ? process.env.RPC_URL
+    : process.env.HELIUS_API_KEY
+    ? `https://rpc.helius.xyz/?api-key=${process.env.HELIUS_API_KEY}`
     : "https://api.mainnet-beta.solana.com";
 
 const connection = new Connection(RPC_URL, "confirmed");

@@ -1,19 +1,33 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import base64, json, os, re, sys, requests
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
+import base64
+import json
+import os
+import re
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-from solders.pubkey import Pubkey
-from solders.keypair import Keypair
-from solders.hash import Hash
-from solders.instruction import Instruction, AccountMeta
-from solders.message import MessageV0, to_bytes_versioned
-from solders.transaction import VersionedTransaction
+import requests
+from backend.config.rpc import helius_url, redacted
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
+from solders.hash import Hash
+from solders.instruction import AccountMeta, Instruction
+from solders.keypair import Keypair
+from solders.message import MessageV0, to_bytes_versioned
+from solders.pubkey import Pubkey
+from solders.transaction import VersionedTransaction
 
 # ========================== CONFIG (EDIT) ==========================
-HELIUS_API_KEY = "a8809bee-20ba-48e9-b841-0bd2bafd60b9"
-RPC_URL        = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+RPC_URL = os.getenv("RPC_URL") or helius_url()
+print(f"[rpc] using {redacted(RPC_URL)}")
 
 SIGNER_FILE    = r"C:\sonic5\backend\signer.txt"   # id.json OR key=value with address=/public_address=/mnemonic=/base58= OR raw base58
 

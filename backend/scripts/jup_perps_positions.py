@@ -11,15 +11,25 @@
 
 from __future__ import annotations
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
 import base64
 import hashlib
 import json
+import os
 import random
 import time
+from collections import Counter
 from typing import Any, Dict, List, Optional
 
 import requests
-from collections import Counter
+
+from backend.config.rpc import helius_url, redacted
 
 
 # ===========================
@@ -27,8 +37,8 @@ from collections import Counter
 # ===========================
 OWNER_PUBKEY   = "CzRzD26vfaSgNVxM93Hpy2VHtiaLmQrVNCRbSWd1ikR7"
 PROGRAM_ID     = "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu"  # verified via pool owner
-HELIUS_API_KEY = "a8809bee-20ba-48e9-b841-0bd2bafd60b9"
-RPC_URL        = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+RPC_URL        = os.getenv("RPC_URL") or helius_url()
+print(f"[rpc] using {redacted(RPC_URL)}")
 
 # Known Position discriminator & owner offset (derived earlier)
 POSITION_DISC_HEX = "aabc8fe47a40f7d0"

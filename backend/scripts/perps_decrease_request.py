@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
 import base64
+import hashlib
 import json
 import os
 import struct
@@ -9,21 +17,21 @@ import sys
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
-import hashlib
 
 import requests
-from solders.pubkey import Pubkey
-from solders.keypair import Keypair
+from backend.config.rpc import helius_url, redacted
+from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 from solders.hash import Hash
-from solders.transaction import VersionedTransaction
+from solders.instruction import Instruction
+from solders.keypair import Keypair
 from solders.message import MessageV0
 from solders.message import to_bytes_versioned
-from solders.instruction import Instruction
-from solders.compute_budget import set_compute_unit_price, set_compute_unit_limit
+from solders.pubkey import Pubkey
+from solders.transaction import VersionedTransaction
 
 # ---------------- CONFIG (EDIT) ----------------
-HELIUS_API_KEY = "a8809bee-20ba-48e9-b841-0bd2bafd60b9"
-RPC_URL        = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+RPC_URL = os.getenv("RPC_URL") or helius_url()
+print(f"[rpc] using {redacted(RPC_URL)}")
 
 # Correct mainnet Perps program id (you verified this)
 PROGRAM_ID     = Pubkey.from_string("PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu")
