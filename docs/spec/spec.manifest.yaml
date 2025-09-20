@@ -65,22 +65,19 @@ apis:
 - id: API-MONITOR-STATUS
   type: http
   method: GET
-  path: backend/routes/monitor_status_api.py
-  endpoint: /api/monitor-status/
+  path: /api/monitor-status/
   request_schema: null
   response_schema: SCHEMA-MONITORSTATUS
 - id: API-PORTFOLIO-LATEST
   type: http
   method: GET
-  path: backend/routes/portfolio_api.py
-  endpoint: /portfolio/latest
+  path: /portfolio/latest
   request_schema: null
   response_schema: SCHEMA-PORTFOLIO
 - id: API-POSITIONS
   type: http
   method: GET
-  path: backend/routes/positions_api.py
-  endpoint: /positions/
+  path: /positions/
   request_schema: null
   response_schema: SCHEMA-POSITIONS
 events:
