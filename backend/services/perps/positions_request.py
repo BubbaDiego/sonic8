@@ -770,11 +770,7 @@ def _metas_index_before_programs(ix_idl: dict, mapping: dict) -> int:
 
 
 def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[AccountMeta]:
-    """
-    Build metas strictly in IDL order.
-    - If an account is optional and missing in mapping, skip it.
-    - Always force the 'position' account to EXPECTED_POSITION_PDA.
-    """
+    """Build metas strictly in IDL order (skip only missing optional accounts)."""
 
     metas: List[AccountMeta] = []
     for acc_def in (ix_idl.get("accounts") or []):
@@ -782,11 +778,6 @@ def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[Acco
         is_signer = bool(acc_def.get("isSigner"))
         is_writable = bool(acc_def.get("isMut"))
         is_opt = bool(acc_def.get("isOptional"))
-
-        # force position PDA regardless of what mapping contains
-        if nm.lower() == "position":
-            metas.append(AccountMeta(EXPECTED_POSITION_PDA, is_signer, is_writable))
-            continue
 
         if nm not in mapping:
             if is_opt:
@@ -1052,15 +1043,11 @@ def dry_run_open_position_request(
         ix_idl, owner, position, request, base_accounts, market, resolve_extra, program_id, input_mint
     )
 
-    # Force position PDA and derive request PDA from it (exactly as live)
+    # Use the real PDAs discovered earlier
     mapping = dict(base_mapping)
-    mapping["position"] = EXPECTED_POSITION_PDA
-    counter = int(args.get("params", {}).get("counter", int(time.time()))) if isinstance(args.get("params"), dict) else int(time.time())
-    mapping["positionRequest"] = Pubkey.find_program_address(
-        [b"position_request", bytes(EXPECTED_POSITION_PDA), counter.to_bytes(8, "little")],
-        program_id,
-    )[0]
-    mapping["position_request"] = mapping["positionRequest"]
+    mapping["position"] = position
+    mapping["positionRequest"] = request
+    mapping["position_request"] = request
 
     # Canonical programs (SPL Token in tokenProgram slot; ATA program in associatedTokenProgram)
     mapping["tokenProgram"] = SPL_TOKEN_PROGRAM
@@ -1332,27 +1319,9 @@ def open_position_request(
         input_mint,
     )
 
-    # Ensure mapping uses the expected PDA *and* derive positionRequest from it
-    # normalized working copy
+    # Use exact PDAs resolved from registry/PDA helpers
     mapping = dict(account_mapping)
-    mapping["position"] = EXPECTED_POSITION_PDA
-    print(f"[perps] FORCE position → {str(EXPECTED_POSITION_PDA)}")
-
-    # (re)derive positionRequest from position + counter (u64 LE)
-    try:
-        counter_override = int(args.get("params", {}).get("counter", counter))
-    except Exception:
-        try:
-            counter_override = int(counter)
-        except Exception:
-            counter_override = 0
-    counter = counter_override
-    mapping["positionRequest"] = Pubkey.find_program_address(
-        [b"position_request", bytes(EXPECTED_POSITION_PDA), counter_override.to_bytes(8, "little")],
-        program_id,
-    )[0]
-    mapping["position_request"] = mapping["positionRequest"]
-    request = mapping["positionRequest"]
+    request = mapping.get("positionRequest", request)
 
     try:
         pr_str = str(request)
@@ -1412,23 +1381,7 @@ def open_position_request(
         if _override:
             effective.update(_override)
 
-        # Force again in the send path so nothing upstream can override it
-        effective["position"] = EXPECTED_POSITION_PDA
-        print(f"[perps] FORCE(position in _send_with) → {str(EXPECTED_POSITION_PDA)}")
-
-        # (re)derive positionRequest here too, from the same PDA + current counter
-        try:
-            counter_override = int(args.get("params", {}).get("counter", counter))
-        except Exception:
-            try:
-                counter_override = int(counter)
-            except Exception:
-                counter_override = 0
-        effective["positionRequest"] = Pubkey.find_program_address(
-            [b"position_request", bytes(EXPECTED_POSITION_PDA), counter_override.to_bytes(8, "little")],
-            program_id,
-        )[0]
-        effective["position_request"] = effective["positionRequest"]
+        # Use whatever PDAs are in the current mapping
 
         _metas = _metas_from(ix_idl, effective)
         _metas = _force_token_program_slot(ix_idl, effective, _metas)
@@ -1439,10 +1392,7 @@ def open_position_request(
                 if name is None or idx >= len(metas):
                     continue
                 expected_pk: Optional[Pubkey]
-                if str(name).lower() == "position":
-                    expected_pk = EXPECTED_POSITION_PDA
-                else:
-                    expected_pk = curr_mapping.get(name)
+                expected_pk = curr_mapping.get(name)
                 if expected_pk is not None and metas[idx].pubkey != expected_pk:
                     raise AssertionError(f"Required account order mismatch at idx={idx} ({name})")
 
