@@ -44,7 +44,6 @@ IDL_PATH = os.path.join(os.path.dirname(__file__), "idl", "jupiter_perpetuals.js
 DEFAULT_BASE_MINT = "So11111111111111111111111111111111111111112"
 DEFAULT_QUOTE_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 DEFAULT_ORACLE_PUBKEY = "11111111111111111111111111111111"
-
 FORCE_POSITION_ENV = "PERPS_FORCE_POSITION"
 
 
@@ -62,6 +61,36 @@ def _env_flag(name: str, default: bool = False) -> bool:
 def _env_str(name: str) -> str | None:
     v = os.getenv(name)
     return v.strip() if v else None
+
+
+def _parse_anchor_right_pda(logs: list[str], account_name: str) -> str | None:
+    """Extract the Anchor 'Right:' PDA for a named account from simulation logs."""
+
+    want = f"account: {account_name}"
+    idx = -1
+    for i, line in enumerate(logs):
+        if "AnchorError caused by account:" in line and want in line:
+            idx = i
+    if idx == -1:
+        return None
+
+    for j in range(idx, min(idx + 8, len(logs))):
+        if "Program log: Right:" in logs[j]:
+            if j + 1 < len(logs):
+                return logs[j + 1].split()[-1].strip()
+    return None
+
+
+def _ensure_custodies_for_sol_perp(custody_pk: str, collateral_pk: str) -> tuple[str, str]:
+    """Ensure SOL-PERP uses SOL as base custody and USDC as quote custody."""
+
+    base = os.getenv("PERPS_BASE_CUSTODY", "").strip()
+    quote = os.getenv("PERPS_QUOTE_CUSTODY", "").strip()
+    if not base or not quote:
+        return custody_pk, collateral_pk
+    if custody_pk == quote and collateral_pk == base:
+        return base, quote
+    return custody_pk, collateral_pk
 
 
 def _project_root() -> Path:
@@ -597,47 +626,6 @@ def _apply_position_adopt(
         counter=int(counter_seed_local),
     )
     return counter_seed_local
-
-
-def _forced_position_value() -> str:
-    return os.getenv(FORCE_POSITION_ENV, "").strip()
-
-
-def _is_position_forced() -> bool:
-    return bool(_forced_position_value())
-
-
-def _maybe_force_position_from_env(
-    mapping: Dict[str, Pubkey],
-    args: Dict[str, Any],
-    *,
-    program_id: Pubkey,
-    input_mint: Optional[Pubkey],
-    counter_seed: int,
-) -> int:
-    forced = _forced_position_value()
-    if not forced:
-        return counter_seed
-
-    try:
-        print(
-            f"[perps] FORCE: locking position PDA via {FORCE_POSITION_ENV} → {forced}"
-        )
-        return _apply_position_adopt(
-            mapping,
-            args,
-            forced,
-            program_id=program_id,
-            input_mint=input_mint,
-            counter_seed=counter_seed,
-        )
-    except Exception as err:
-        print(
-            f"[perps] WARN: failed to adopt {FORCE_POSITION_ENV} {forced}: {err}"
-        )
-        return counter_seed
-
-
 def _maybe_adopt_position_from_env(
     mapping: Dict[str, Pubkey],
     args: Dict[str, Any],
@@ -647,9 +635,6 @@ def _maybe_adopt_position_from_env(
     counter_seed: int,
 ) -> int:
     """Override the position PDA from PERPS_POSITION_PDA_HINT when provided."""
-
-    if _is_position_forced():
-        return counter_seed
 
     hint = os.getenv("PERPS_POSITION_PDA_HINT", "").strip()
     if not hint:
@@ -1553,14 +1538,6 @@ def dry_run_open_position_request(
                 elif key_lc in ("collateralcustody", "collateral_custody"):
                     mapping[key] = base_custody_pk
 
-    counter_seed = _maybe_force_position_from_env(
-        mapping,
-        args,
-        program_id=program_id,
-        input_mint=input_mint,
-        counter_seed=counter_seed,
-    )
-
     counter_seed = _maybe_adopt_position_from_env(
         mapping,
         args,
@@ -1641,9 +1618,6 @@ def dry_run_open_position_request(
     loop_reason = "not_run"
     ok = False
     seen_pairs: set[Tuple[str, str]] = set()
-    forced_position_active = _is_position_forced()
-    forced_skip_logged = False
-
     while attempt < max_attempts:
         label = "initial" if attempt == 0 else f"retry #{attempt}"
         ok, logs, metas, raw = _simulate_step(label, mapping)
@@ -1663,30 +1637,75 @@ def dry_run_open_position_request(
                 f"halted adaptive loop after seeing repeated (position, request) pair {pair}"
             )
             break
+
+        anchor_changed = False
+        right_pos_anchor = _parse_anchor_right_pda(logs, "position")
+        if right_pos_anchor and right_pos_anchor != position_key:
+            try:
+                counter_seed = _apply_position_adopt(
+                    mapping,
+                    args,
+                    right_pos_anchor,
+                    program_id=program_id,
+                    input_mint=input_mint,
+                    counter_seed=counter_seed,
+                )
+                events.append(f"adopted position → {right_pos_anchor}")
+                anchor_changed = True
+            except Exception:
+                pass
+
+        right_req_anchor = _parse_anchor_right_pda(logs, "position_request")
+        if right_req_anchor and right_req_anchor != request_key:
+            if right_req_anchor == position_key:
+                events.append(
+                    f"skipped adopting positionRequest because RIGHT matched position ({right_req_anchor})"
+                )
+            else:
+                try:
+                    req_pk = Pubkey.from_string(right_req_anchor)
+                except Exception:
+                    req_pk = None
+                if req_pk is not None:
+                    mapping["positionRequest"] = req_pk
+                    mapping["position_request"] = req_pk
+                    if input_mint:
+                        try:
+                            _rebuild_after_request_adopt(mapping, right_req_anchor, input_mint)
+                        except Exception:
+                            pass
+                    _sync_args_after_adopt(args, request_pk=req_pk)
+                    events.append(f"adopted positionRequest → {right_req_anchor}")
+                    anchor_changed = True
+
+        if anchor_changed:
+            label_retry = f"{label}::anchor-adopt"
+            ok, logs, metas, raw = _simulate_step(label_retry, mapping)
+            simulations += 1
+            if ok:
+                loop_reason = "success"
+                break
+            position_key = str(mapping.get("position", ""))
+            request_key = str(mapping.get("positionRequest", ""))
+            pair = (position_key, request_key)
+
         seen_pairs.add(pair)
 
-        right_pos: Optional[str] = None
-        if not forced_position_active:
-            right_pos = _parse_right_from_logs(logs, "position")
-            if right_pos and str(mapping.get("position", "")) != right_pos:
-                try:
-                    counter_seed = _apply_position_adopt(
-                        mapping,
-                        args,
-                        right_pos,
-                        program_id=program_id,
-                        input_mint=input_mint,
-                        counter_seed=counter_seed,
-                    )
-                    events.append(f"adopted position → {right_pos}")
-                    changed = True
-                except Exception:
-                    pass
-        elif not forced_skip_logged:
-            events.append(
-                f"skipped adopting position because {FORCE_POSITION_ENV} is set"
-            )
-            forced_skip_logged = True
+        right_pos = _parse_right_from_logs(logs, "position")
+        if right_pos and str(mapping.get("position", "")) != right_pos:
+            try:
+                counter_seed = _apply_position_adopt(
+                    mapping,
+                    args,
+                    right_pos,
+                    program_id=program_id,
+                    input_mint=input_mint,
+                    counter_seed=counter_seed,
+                )
+                events.append(f"adopted position → {right_pos}")
+                changed = True
+            except Exception:
+                pass
 
         right_req = _parse_right_from_logs(logs, "position_request")
         if right_req and str(mapping.get("positionRequest", "")) != right_req:
@@ -1717,26 +1736,19 @@ def dry_run_open_position_request(
                 acct_name, right_b58 = seed_hint
                 acct_lc = acct_name.lower()
                 if acct_lc == "position":
-                    if forced_position_active:
-                        if not forced_skip_logged:
-                            events.append(
-                                f"skipped adopting position because {FORCE_POSITION_ENV} is set"
-                            )
-                            forced_skip_logged = True
-                    else:
-                        try:
-                            counter_seed = _apply_position_adopt(
-                                mapping,
-                                args,
-                                right_b58,
-                                program_id=program_id,
-                                input_mint=input_mint,
-                                counter_seed=counter_seed,
-                            )
-                            events.append(f"adopted position → {right_b58}")
-                            changed = True
-                        except Exception:
-                            pass
+                    try:
+                        counter_seed = _apply_position_adopt(
+                            mapping,
+                            args,
+                            right_b58,
+                            program_id=program_id,
+                            input_mint=input_mint,
+                            counter_seed=counter_seed,
+                        )
+                        events.append(f"adopted position → {right_b58}")
+                        changed = True
+                    except Exception:
+                        pass
                 elif "position_request" in acct_lc:
                     if right_b58 == position_key:
                         events.append(
@@ -2118,14 +2130,6 @@ def open_position_request(
                 elif key_lc in ("collateralcustody", "collateral_custody"):
                     mapping[key] = base_custody_pk
 
-    counter = _maybe_force_position_from_env(
-        mapping,
-        args,
-        program_id=program_id,
-        input_mint=input_mint,
-        counter_seed=counter,
-    )
-
     counter = _maybe_adopt_position_from_env(
         mapping,
         args,
@@ -2136,7 +2140,6 @@ def open_position_request(
     position = mapping.get("position", position)
     _maybe_adopt_position_request_from_env(mapping, args, input_mint=input_mint)
     request = mapping.get("positionRequest", request)
-    forced_position_active = _is_position_forced()
 
     try:
         pr_str = str(request)
@@ -2156,6 +2159,22 @@ def open_position_request(
     )
 
     accounts = mapping
+
+    custody_pk = accounts.get("custody")
+    collateral_pk = accounts.get("collateralCustody")
+    if custody_pk and collateral_pk:
+        custody_new, collateral_new = _ensure_custodies_for_sol_perp(
+            str(custody_pk), str(collateral_pk)
+        )
+        if custody_new != str(custody_pk) or collateral_new != str(collateral_pk):
+            custody_pub = Pubkey.from_string(custody_new)
+            collateral_pub = Pubkey.from_string(collateral_new)
+            for key in ("custody", "baseCustody", "base_custody"):
+                if key in accounts:
+                    accounts[key] = custody_pub
+            for key in ("collateralCustody", "collateral_custody"):
+                if key in accounts:
+                    accounts[key] = collateral_pub
 
     # --- allow overriding the derived position_request via env (debug) ---
     _pr_hint = _env_str("PERPS_POSITION_REQUEST_PDA_HINT")
@@ -2380,12 +2399,7 @@ def open_position_request(
             current_pos_str = str(current_pos) if current_pos else ""
             if pos_hint and pos_hint != current_pos_str:
                 pos_adopt_attempted = True
-                if forced_position_active:
-                    print(
-                        f"[perps] SKIP adopting position because {FORCE_POSITION_ENV} is set"
-                    )
-                else:
-                    ok, logs = _adopt_position_pda(pos_hint, logs)
+                ok, logs = _adopt_position_pda(pos_hint, logs)
 
         if not ok:
             pr_hint = _extract_right_pda_from_logs(logs, "position_request")
@@ -2412,12 +2426,7 @@ def open_position_request(
 
                 if acct_lc == "position" and not pos_adopt_attempted:
                     pos_adopt_attempted = True
-                    if forced_position_active:
-                        print(
-                            f"[perps] SKIP adopting position because {FORCE_POSITION_ENV} is set"
-                        )
-                    else:
-                        ok, logs = _adopt_position_pda(right_b58, logs)
+                    ok, logs = _adopt_position_pda(right_b58, logs)
 
                 elif "position_request" in acct_lc and not pr_adopt_attempted and input_mint:
                     pr_adopt_attempted = True
