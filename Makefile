@@ -27,3 +27,6 @@ ui-sweep:
 	python backend/scripts/ui_sweeper.py
 ui-snap:
 	UI_BASE_URL=http://127.0.0.1:5173 python backend/scripts/ui_snapshots.py
+.PHONY: ui-doc
+ui-doc:
+	python backend/scripts/build_ui_components_doc.py
