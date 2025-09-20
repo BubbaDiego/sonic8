@@ -116,12 +116,13 @@ export default function ThemeCustomization({ children }) {
     };
 
     setVar('--bg', tokens.bg);
+    setVar('--page', tokens.page ?? tokens.bg);
     setVar('--surface', tokens.surface);
     setVar('--card', tokens.card || tokens.surface);
     setVar('--text', tokens.text);
     setVar('--primary', tokens.primary);
 
-    if (tokens.wallpaper && tokens.wallpaper !== 'none') {
+    if (tokens.useImage && tokens.wallpaper && tokens.wallpaper !== 'none') {
       setVar('--body-bg-image', `url('${tokens.wallpaper}')`);
     } else {
       html.style.removeProperty('--body-bg-image');

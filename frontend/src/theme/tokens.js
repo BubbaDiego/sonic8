@@ -1,29 +1,35 @@
 // Source-of-truth theme tokens. You can add new themes later (e.g., "midnight").
 export const DEFAULT_TOKENS = {
   light: {
-    bg: '#e7ecfa',
+    bg: '#e7ecfa',       // component background.default
+    page: '#e7ecfa',     // NEW: viewport/page background color
     surface: '#ffffff',
     card: '#f8fafc',
     text: '#222222',
     primary: '#4678d8',
-    wallpaper: 'none'
+    wallpaper: 'none',
+    useImage: false       // NEW: toggle wallpaper image on/off
   },
   dark: {
     bg: '#0f172a',
+    page: '#0b1220',
     surface: '#14161c',
     card: '#0b1220',
     text: '#e6e6e6',
     primary: '#4678d8',
-    wallpaper: 'none'
+    wallpaper: 'none',
+    useImage: false
   },
   funky: {
     bg: '#0e1731',
+    page: '#0e1731',
     surface: '#101a3a',
     card: '#0e1b36',
     text: '#eae6ff',
     primary: '#8b5cf6',
     // You can point this to your mural, or leave 'none' and set in Theme Lab
-    wallpaper: 'none'
+    wallpaper: 'none',
+    useImage: false
   }
 };
 

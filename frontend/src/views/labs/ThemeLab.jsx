@@ -96,7 +96,7 @@ export default function ThemeLab() {
 
   useEffect(() => {
     const v = state.wallpaper;
-    if (!v || v === 'none') {
+    if (!state.useImage || !v || v === 'none') {
       setWallThumb({ url: '', ok: null, loading: false });
       return;
     }
@@ -106,7 +106,7 @@ export default function ThemeLab() {
     img.onload = () => setWallThumb({ url, ok: true, loading: false });
     img.onerror = () => setWallThumb({ url, ok: false, loading: false });
     img.src = url;
-  }, [state.wallpaper]);
+  }, [state.wallpaper, state.useImage]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -150,12 +150,13 @@ export default function ThemeLab() {
               <Button variant="contained">Primary Button</Button>
               <Button variant="outlined">Outlined</Button>
               <Chip label="Chip" />
-              <Card sx={{ p: 1 }}><Typography variant="body2">Card sample</Typography></Card>
+              <Card sx={{ p: 1, minWidth: 160 }}><Typography variant="body2">Card sample</Typography></Card>
             </Stack>
             <Divider />
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <Stack spacing={2}>
+                  <ColorInput label="Page / Wallpaper Base (--page)" value={state.page ?? state.bg} onChange={(v) => setField('page', v)} />
                   <ColorInput label="Background (--bg)" value={state.bg} onChange={(v) => setField('bg', v)} />
                   <ColorInput label="Surface / Paper (--surface)" value={state.surface} onChange={(v) => setField('surface', v)} />
                   <ColorInput label="Card (--card)" value={state.card} onChange={(v) => setField('card', v)} />
@@ -165,6 +166,7 @@ export default function ThemeLab() {
               </Grid>
               <Grid item xs={12} md={6}>
                 <Stack spacing={2}>
+                  <FormControlLabel control={<Switch checked={!!state.useImage} onChange={(e) => setField('useImage', e.target.checked)} />} label="Use Image" />
                   <Typography>Wallpaper (URL or data URI)</Typography>
                   <TextField
                     fullWidth
@@ -185,10 +187,24 @@ export default function ThemeLab() {
                       <Typography variant="caption">Ensure the path is reachable. For local files in the app, use a leading slash like <code>/images/wally.png</code>.</Typography>
                     </Stack>
                   )}
-                  <Typography variant="caption">Tip: leave <code>none</code> for no wallpaper.</Typography>
+                  <Typography variant="caption">Tip: toggle <b>Use Image</b> off to show only the Page color.</Typography>
                 </Stack>
               </Grid>
             </Grid>
+            <Divider />
+            <Card sx={{ mt: 2, p: 2, minHeight: 120, background: 'var(--surface)' }}>
+              <Box
+                sx={{
+                  borderRadius: 2,
+                  minHeight: 120,
+                  backgroundColor: 'var(--page)',
+                  backgroundImage: 'var(--body-bg-image)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}
+              />
+            </Card>
             <Divider />
             <Stack direction="row" spacing={2}>
               <Button variant="outlined" onClick={doExport}>Export JSON</Button>

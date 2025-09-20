@@ -14,7 +14,8 @@
 
 /* Apply the theme background everywhere (color + optional wallpaper) */
 html, body, #root {
-  background-color: var(--bg);
+  /* color first, then image overlay (if any) */
+  background-color: var(--page, var(--bg)); /* NEW: page color drives the viewport */
   background-image: var(--body-bg-image);
   background-size: cover;
   background-position: center;
