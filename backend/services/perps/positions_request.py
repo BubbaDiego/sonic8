@@ -100,6 +100,49 @@ def _force_sol_perp_custody_in_place(accts: dict) -> None:
         accts["collateral_custody"] = accts["collateralCustody"]
 
 
+def _rebuild_position_request_ata(accts: dict) -> None:
+    """Recompute the position request ATA if input mint + PDA are available."""
+
+    if "positionRequest" not in accts and "position_request" not in accts:
+        return
+
+    input_mint = accts.get("inputMint") or accts.get("input_mint")
+    if not input_mint:
+        return
+
+    try:
+        input_mint_pk = (
+            input_mint
+            if isinstance(input_mint, Pubkey)
+            else Pubkey.from_string(str(input_mint))
+        )
+    except Exception:
+        return
+
+    request_val = accts.get("positionRequest") or accts.get("position_request")
+    if not request_val:
+        return
+
+    try:
+        request_pk = (
+            request_val
+            if isinstance(request_val, Pubkey)
+            else Pubkey.from_string(str(request_val))
+        )
+    except Exception:
+        return
+
+    try:
+        ata = _derive_ata(request_pk, input_mint_pk)
+    except Exception:
+        return
+
+    accts["positionRequest"] = request_pk
+    accts["position_request"] = request_pk
+    accts["positionRequestAta"] = ata
+    accts["position_request_ata"] = ata
+
+
 def _apply_anchor_right_pda_from_logs(accts: dict, logs: list[str]) -> bool:
     """Adopt Anchor Right: PDA hints for position / positionRequest accounts."""
 
@@ -148,10 +191,22 @@ def _apply_anchor_right_pda_from_logs(accts: dict, logs: list[str]) -> bool:
         elif last_acc == "positionRequest":
             if _assign("positionRequest", right_val):
                 accts["position_request"] = accts["positionRequest"]
+                try:
+                    _rebuild_position_request_ata(accts)
+                except Exception:
+                    pass
                 changed = True
         last_acc = None
 
     return changed
+
+
+def _last_mile_enforce_and_adopt(accts: dict, logs: list[str] | None = None) -> None:
+    """Ensure SOL-PERP custody order and optionally adopt PDAs from Anchor logs."""
+
+    _force_sol_perp_custody_in_place(accts)
+    if logs and _apply_anchor_right_pda_from_logs(accts, logs):
+        _force_sol_perp_custody_in_place(accts)
 
 def _warn_if_base_quote_swapped(logs: Sequence[str], accounts: Mapping[str, str]) -> None:
     """
@@ -1621,6 +1676,7 @@ def _metas_and_raw_for_mapping(
     data: bytes,
 ) -> Tuple[List[AccountMeta], List[Dict[str, Any]], str]:
     """Build metas + raw tx from a current mapping snapshot."""
+    _last_mile_enforce_and_adopt(mapping, None)
     metas, remaining = build_metas_from_mapping(mapping, ix_idl, existing_remaining=None)
     # mirror your existing prints & guardrails to keep parity
     _print_idl_accounts_audit(ix_idl, mapping)
@@ -1878,7 +1934,7 @@ def dry_run_open_position_request(
             return (not bool(val.get("err"))), log_list, metas_local, raw_local
 
         # Ensure custody orientation before building metas.
-        _force_sol_perp_custody_in_place(m)
+        _last_mile_enforce_and_adopt(m, None)
 
         ok, logs, metas, raw = _simulate_once(label)
         initial_logs = list(logs)
@@ -2441,6 +2497,7 @@ def open_position_request(
     # Audit the declared accounts vs what we’re about to send
     _print_idl_accounts_audit(ix_idl, mapping)
 
+    _last_mile_enforce_and_adopt(mapping, None)
     metas = _metas_from(ix_idl, mapping)
     _print_remaining_accounts(metas, ix_idl)
     metas = _force_token_program_slot(ix_idl, mapping, metas)
@@ -2473,6 +2530,7 @@ def open_position_request(
 
         # Use whatever PDAs are in the current mapping
 
+        _last_mile_enforce_and_adopt(effective, None)
         _metas = _metas_from(ix_idl, effective)
         _metas = _force_token_program_slot(ix_idl, effective, _metas)
         _metas = _force_all_tokenkeg_to_atoken(_metas)
@@ -2517,6 +2575,7 @@ def open_position_request(
             return base64.b64encode(bytes(tx_local)).decode()
 
         def _prepare_tx(curr_mapping: Dict[str, Pubkey], curr_remaining: Optional[List[Dict[str, Any]]] = None):
+            _last_mile_enforce_and_adopt(curr_mapping, None)
             metas, rem = build_metas_from_mapping(curr_mapping, ix_idl, existing_remaining=curr_remaining)
             _print_idl_accounts_audit(ix_idl, curr_mapping)
             _print_remaining_accounts(metas, ix_idl)
@@ -2696,6 +2755,7 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
     mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
     # ---------------------------------------------------------------------------
 
+    _last_mile_enforce_and_adopt(mapping, None)
     metas = _metas_from(ix_idl, mapping)
     metas = _force_token_program_slot(ix_idl, mapping, metas)
     metas = _force_all_tokenkeg_to_atoken(metas)
