@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "detail": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/monitors_{name}.json",
+  "examples": [
+    {
+      "detail": "Monitor '{name}' not found"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "$id": "schema/api_jupiter_trigger_orders.json",
+  "type": "string",
+  "description": "Plain-text error emitted when trigger order listing fails.",
+  "examples": [
+    "Internal Server Error"
+  ]
+}

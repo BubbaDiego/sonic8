@@ -1,0 +1,34 @@
+{
+  "$id": "schema/api_perps_markets.json",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "error": {
+      "type": "string"
+    },
+    "programId": {
+      "type": "string"
+    },
+    "accounts": {
+      "type": [
+        "null",
+        "array"
+      ]
+    }
+  },
+  "required": [
+    "ok",
+    "error"
+  ],
+  "additionalProperties": true,
+  "examples": [
+    {
+      "ok": false,
+      "error": "Pool GPA failed: RPC exhausted for getProgramAccounts",
+      "programId": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+      "accounts": null
+    }
+  ]
+}

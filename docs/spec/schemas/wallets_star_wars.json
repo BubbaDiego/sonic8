@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string"
+    },
+    "count": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "additionalProperties": true,
+  "$id": "schema/wallets_star_wars.json",
+  "examples": [
+    {
+      "status": "inserted",
+      "count": 0
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "$id": "schema/xcom_status.json",
+  "type": "object",
+  "description": "Status flags returned by the XCom health probe.",
+  "additionalProperties": {
+    "type": "string"
+  },
+  "examples": [
+    {
+      "smtp": "please run connection tests",
+      "twilio": "Missing Twilio credentials"
+    }
+  ]
+}

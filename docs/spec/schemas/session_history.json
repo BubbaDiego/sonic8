@@ -1,0 +1,10 @@
+{
+  "type": "array",
+  "items": {
+    "type": "string"
+  },
+  "$id": "schema/session_history.json",
+  "examples": [
+    []
+  ]
+}

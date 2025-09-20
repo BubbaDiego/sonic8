@@ -1,0 +1,53 @@
+{
+  "type": "object",
+  "properties": {
+    "detail": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "loc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "msg": {
+            "type": "string"
+          },
+          "input": {
+            "type": [
+              "null",
+              "string",
+              "number",
+              "object",
+              "array",
+              "boolean"
+            ]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_jupiter_txlog_by-sig.json",
+  "examples": [
+    {
+      "detail": [
+        {
+          "type": "missing",
+          "loc": [
+            "query",
+            "sig"
+          ],
+          "msg": "Field required",
+          "input": null
+        }
+      ]
+    }
+  ]
+}

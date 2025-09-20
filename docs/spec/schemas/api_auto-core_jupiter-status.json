@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "sessions": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_auto-core_jupiter-status.json",
+  "examples": [
+    {
+      "sessions": {}
+    }
+  ]
+}

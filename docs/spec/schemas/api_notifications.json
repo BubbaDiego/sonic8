@@ -1,0 +1,141 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "monitor_name": {
+        "type": "string"
+      },
+      "level": {
+        "type": "string"
+      },
+      "subject": {
+        "type": "string"
+      },
+      "body": {
+        "type": "string"
+      },
+      "metadata": {
+        "type": "string"
+      },
+      "read": {
+        "type": "number"
+      },
+      "created_at": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "additionalProperties": true
+  },
+  "$id": "schema/api_notifications.json",
+  "examples": [
+    [
+      {
+        "id": 10,
+        "monitor_name": "position_monitor",
+        "level": "HIGH",
+        "subject": "\u2757 position_monitor error",
+        "body": "No module named 'rich'",
+        "metadata": "{\"trace\":\"Traceback (most recent call last):\\n  File \\\"/workspace/sonic5/backend/core/monitor_core/base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"/workspace/sonic5/backend/core/monitor_core/position_monitor.py\\\", line 26, in _do_work\\n    sync_result = self.core.update_positions_from_jupiter(source=\\\"position_monitor\\\")\\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/workspace/sonic5/backend/core/positions_core/position_core.py\\\", line 174, in update_positions_from_jupiter\\n    from backend.core.positions_core.position_sync_service import (\\n  File \\\"/workspace/sonic5/backend/core/positions_core/position_sync_service.py\\\", line 6, in <module>\\n    from rich.console import Console\\nModuleNotFoundError: No module named 'rich'\\n\"}",
+        "read": 0,
+        "created_at": "2025-09-20T12:07:58.983Z"
+      },
+      {
+        "id": 9,
+        "monitor_name": "market_monitor",
+        "level": "HIGH",
+        "subject": "\u2757 market_monitor error",
+        "body": "Binance API failure",
+        "metadata": "{\"trace\":\"1024, in raise_for_status\\n    raise HTTPError(http_error_msg, response=self)\\nrequests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin%2Cethereum%2Csolana\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 56, in _do_work\\n    hi_lo = self.swing.fetch(self.ASSETS)\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 56, in fetch\\n    return self._from_binance(assets)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 46, in _from_binance\\n    raise RuntimeError(\\\"Binance API failure\\\")\\nRuntimeError: Binance API failure\\n\"}",
+        "read": 0,
+        "created_at": "2025-07-26T02:37:07.582Z"
+      },
+      {
+        "id": 8,
+        "monitor_name": "market_monitor",
+        "level": "HIGH",
+        "subject": "\u2757 market_monitor error",
+        "body": "Binance API failure",
+        "metadata": "{\"trace\":\"1024, in raise_for_status\\n    raise HTTPError(http_error_msg, response=self)\\nrequests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin%2Cethereum%2Csolana\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 56, in _do_work\\n    hi_lo = self.swing.fetch(self.ASSETS)\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 56, in fetch\\n    return self._from_binance(assets)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 46, in _from_binance\\n    raise RuntimeError(\\\"Binance API failure\\\")\\nRuntimeError: Binance API failure\\n\"}",
+        "read": 0,
+        "created_at": "2025-07-26T02:36:46.677Z"
+      },
+      {
+        "id": 7,
+        "monitor_name": "market_monitor",
+        "level": "HIGH",
+        "subject": "\u2757 market_monitor error",
+        "body": "Binance API failure",
+        "metadata": "{\"trace\":\"1024, in raise_for_status\\n    raise HTTPError(http_error_msg, response=self)\\nrequests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin%2Cethereum%2Csolana\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 52, in _do_work\\n    hi_lo = self.swing.fetch(self.ASSETS)\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 56, in fetch\\n    return self._from_binance(assets)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 46, in _from_binance\\n    raise RuntimeError(\\\"Binance API failure\\\")\\nRuntimeError: Binance API failure\\n\"}",
+        "read": 0,
+        "created_at": "2025-07-26T02:33:21.075Z"
+      },
+      {
+        "id": 6,
+        "monitor_name": "market_monitor",
+        "level": "LOW",
+        "subject": "\u2705 market_monitor finished",
+        "body": "market_monitor completed successfully",
+        "metadata": "{\"result\":\"{'status': 'Success', 'timestamp': '2025-07-26T02:30:06.652660+00:00', 'trigger_any': False, 'details': [{'asset': 'BTC', 'price': 118755.0, 'pct_move': 0.0, 'baseline': 118755.0, 'blast_radius': 2.14\"}",
+        "read": 0,
+        "created_at": "2025-07-26T02:30:06.669Z"
+      },
+      {
+        "id": 5,
+        "monitor_name": "market_monitor",
+        "level": "HIGH",
+        "subject": "\u2757 market_monitor error",
+        "body": "Binance API failure",
+        "metadata": "{\"trace\":\"1024, in raise_for_status\\n    raise HTTPError(http_error_msg, response=self)\\nrequests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin%2Cethereum%2Csolana\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 50, in _do_work\\n    hi_lo = self.swing.fetch(self.ASSETS)\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 56, in fetch\\n    return self._from_binance(assets)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 46, in _from_binance\\n    raise RuntimeError(\\\"Binance API failure\\\")\\nRuntimeError: Binance API failure\\n\"}",
+        "read": 0,
+        "created_at": "2025-07-26T02:24:58.172Z"
+      },
+      {
+        "id": 4,
+        "monitor_name": "market_monitor",
+        "level": "LOW",
+        "subject": "\u2705 market_monitor finished",
+        "body": "market_monitor completed successfully",
+        "metadata": "{\"result\":\"{'status': 'Success', 'timestamp': '2025-07-26T02:23:51.108081+00:00', 'trigger_any': False, 'details': [{'asset': 'BTC', 'price': 118755.0, 'pct_move': 0.0, 'baseline': 118755.0, 'blast_radius': 2.14\"}",
+        "read": 0,
+        "created_at": "2025-07-26T02:23:51.126Z"
+      },
+      {
+        "id": 3,
+        "monitor_name": "market_monitor",
+        "level": "LOW",
+        "subject": "\u2705 market_monitor finished",
+        "body": "market_monitor completed successfully",
+        "metadata": "{\"result\":\"{'status': 'Success', 'timestamp': '2025-07-26T02:07:15.081139+00:00', 'trigger_any': False, 'details': [{'asset': 'BTC', 'price': 118755.0, 'pct_move': 0.0, 'baseline': 118755.0, 'blast_radius': 2.14\"}",
+        "read": 0,
+        "created_at": "2025-07-26T02:07:15.100Z"
+      },
+      {
+        "id": 2,
+        "monitor_name": "market_monitor",
+        "level": "HIGH",
+        "subject": "\u2757 market_monitor error",
+        "body": "'NoneType' object has no attribute 'get_var'",
+        "metadata": "{\"trace\":\"Traceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 44, in _do_work\\n    cfg = self._cfg()\\n          ^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 20, in _cfg\\n    cfg = self.dl.system.get_var(\\\"market_monitor\\\") or {}\\n          ^^^^^^^^^^^^^^^^^^^^^^\\nAttributeError: 'NoneType' object has no attribute 'get_var'\\n\"}",
+        "read": 0,
+        "created_at": "2025-07-26T02:02:11.961Z"
+      },
+      {
+        "id": 1,
+        "monitor_name": "market_monitor",
+        "level": "HIGH",
+        "subject": "\u2757 market_monitor error",
+        "body": "'NoneType' object has no attribute 'get_var'",
+        "metadata": "{\"trace\":\"Traceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 44, in _do_work\\n    cfg = self._cfg()\\n          ^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 20, in _cfg\\n    cfg = self.dl.system.get_var(\\\"market_monitor\\\") or {}\\n          ^^^^^^^^^^^^^^^^^^^^^^\\nAttributeError: 'NoneType' object has no attribute 'get_var'\\n\"}",
+        "read": 0,
+        "created_at": "2025-07-26T02:01:16.668Z"
+      }
+    ]
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_jupiter_txlog.json",
+  "examples": [
+    {
+      "items": []
+    }
+  ]
+}

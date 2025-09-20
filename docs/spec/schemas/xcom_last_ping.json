@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "comm_type": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "timestamp"
+  ],
+  "additionalProperties": true,
+  "$id": "schema/xcom_last_ping.json",
+  "examples": [
+    {
+      "comm_type": "system",
+      "source": "system",
+      "timestamp": "6:16 PM"
+    }
+  ]
+}

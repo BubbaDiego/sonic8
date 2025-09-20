@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "closed_pids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_auto-core_close-browser.json",
+  "examples": [
+    {
+      "ok": true,
+      "closed_pids": []
+    }
+  ]
+}

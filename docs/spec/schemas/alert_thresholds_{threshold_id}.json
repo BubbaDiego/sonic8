@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "additionalProperties": true,
+  "$id": "schema/alert_thresholds_{threshold_id}.json",
+  "examples": [
+    {
+      "status": "deleted"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "triggerApi": {
+      "type": "boolean"
+    },
+    "rpcUrl": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_jupiter_health.json",
+  "examples": [
+    {
+      "ok": true,
+      "triggerApi": true,
+      "rpcUrl": "https://api.mainnet-beta.solana.com"
+    }
+  ]
+}

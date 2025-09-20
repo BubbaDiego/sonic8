@@ -1,0 +1,341 @@
+{
+  "type": "object",
+  "properties": {
+    "BTC": {
+      "type": "object",
+      "properties": {
+        "1h": {
+          "type": "object",
+          "properties": {
+            "pct_move": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            },
+            "trigger": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "6h": {
+          "type": "object",
+          "properties": {
+            "pct_move": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            },
+            "trigger": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "24h": {
+          "type": "object",
+          "properties": {
+            "pct_move": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            },
+            "trigger": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "SOL": {
+      "type": "object",
+      "properties": {
+        "1h": {
+          "type": "object",
+          "properties": {
+            "pct_move": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            },
+            "trigger": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "6h": {
+          "type": "object",
+          "properties": {
+            "pct_move": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            },
+            "trigger": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "24h": {
+          "type": "object",
+          "properties": {
+            "pct_move": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            },
+            "trigger": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "ETH": {
+      "type": "object",
+      "properties": {
+        "1h": {
+          "type": "object",
+          "properties": {
+            "pct_move": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            },
+            "trigger": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "6h": {
+          "type": "object",
+          "properties": {
+            "pct_move": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            },
+            "trigger": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "24h": {
+          "type": "object",
+          "properties": {
+            "pct_move": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            },
+            "trigger": {
+              "type": [
+                "null",
+                "string",
+                "number",
+                "object",
+                "array",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_market_latest.json",
+  "examples": [
+    {
+      "BTC": {
+        "1h": {
+          "pct_move": 0.0,
+          "threshold": null,
+          "trigger": null
+        },
+        "6h": {
+          "pct_move": 0.0,
+          "threshold": null,
+          "trigger": null
+        },
+        "24h": {
+          "pct_move": -4.1775,
+          "threshold": null,
+          "trigger": null
+        }
+      },
+      "SOL": {
+        "1h": {
+          "pct_move": 0.0,
+          "threshold": null,
+          "trigger": null
+        },
+        "6h": {
+          "pct_move": 0.0,
+          "threshold": null,
+          "trigger": null
+        },
+        "24h": {
+          "pct_move": 1.8932,
+          "threshold": null,
+          "trigger": null
+        }
+      },
+      "ETH": {
+        "1h": {
+          "pct_move": 0.0,
+          "threshold": null,
+          "trigger": null
+        },
+        "6h": {
+          "pct_move": 0.0,
+          "threshold": null,
+          "trigger": null
+        },
+        "24h": {
+          "pct_move": 18.6776,
+          "threshold": null,
+          "trigger": null
+        }
+      }
+    }
+  ]
+}

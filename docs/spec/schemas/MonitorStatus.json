@@ -1,20 +1,28 @@
 {
   "$id": "schema/MonitorStatus.json",
   "type": "object",
-  "required": ["timestamp"],                // only timestamp is hard-required for now
+  "required": [
+    "timestamp"
+  ],
   "properties": {
     "status": {
       "type": "string",
-      "enum": ["ok", "degraded", "error"]
+      "enum": [
+        "ok",
+        "degraded",
+        "error"
+      ]
     },
     "timestamp": {
       "type": "string",
       "format": "date-time"
     }
   },
-  "additionalProperties": true,             // allow the fields your API actually returns
-  "examples": [{
-    "timestamp": "2025-09-20T11:51:39Z",
-    "status": "ok"
-  }]
+  "additionalProperties": true,
+  "examples": [
+    {
+      "timestamp": "2025-09-20T11:51:39Z",
+      "status": "ok"
+    }
+  ]
 }

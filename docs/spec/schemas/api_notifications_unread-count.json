@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "count": {
+      "type": "number"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_notifications_unread-count.json",
+  "examples": [
+    {
+      "count": 10
+    }
+  ]
+}

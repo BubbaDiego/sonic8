@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/alerts_monitor.json",
+  "examples": [
+    {
+      "alerts": []
+    }
+  ]
+}

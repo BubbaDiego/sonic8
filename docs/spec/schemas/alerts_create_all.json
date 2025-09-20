@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/alerts_create_all.json",
+  "examples": [
+    {
+      "success": true
+    }
+  ]
+}

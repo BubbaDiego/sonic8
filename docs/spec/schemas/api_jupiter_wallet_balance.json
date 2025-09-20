@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "detail": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/api_jupiter_wallet_balance.json",
+  "examples": [
+    {
+      "detail": "Signer file not found: signer.txt. Tried: ['/workspace/sonic5/signer.txt', '/workspace/sonic5/backend/services/signer.txt', '/workspace/sonic5/backend/signer.txt']"
+    }
+  ]
+}

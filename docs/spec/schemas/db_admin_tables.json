@@ -1,0 +1,30 @@
+{
+  "type": "array",
+  "items": {
+    "type": "string"
+  },
+  "$id": "schema/db_admin_tables.json",
+  "examples": [
+    [
+      "monitor_ledger",
+      "wallets",
+      "alerts",
+      "alert_thresholds",
+      "brokers",
+      "positions",
+      "positions_totals_history",
+      "modifiers",
+      "prices",
+      "monitor_heartbeat",
+      "global_config",
+      "system_vars",
+      "traders",
+      "sessions",
+      "alert_config",
+      "alert_threshold",
+      "alert_state",
+      "alert_event",
+      "sonic_monitor_log"
+    ]
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "msg": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$id": "schema/positions_update.json",
+  "examples": [
+    {
+      "msg": "Position sync started"
+    }
+  ]
+}
