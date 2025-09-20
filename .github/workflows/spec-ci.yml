@@ -26,45 +26,5 @@ jobs:
         run: pip install pyyaml jsonschema fastapi
       - name: Export OpenAPI (non-blocking)
         run: python backend/scripts/export_openapi.py || echo "OpenAPI export skipped"
-      - name: Validate JSON Schemas
-        run: |
-          python - <<'PY'
-          import json, glob, sys
-          from jsonschema import Draft202012Validator
-          ok=True
-          for p in glob.glob('docs/spec/schemas/*.json'):
-              try:
-                  with open(p, 'r', encoding='utf-8') as f:
-                      Draft202012Validator.check_schema(json.load(f))
-                  print("OK", p)
-              except Exception as e:
-                  ok=False; print("ERR", p, e)
-          sys.exit(0 if ok else 1)
-          PY
-      - name: Validate manifest references
-        run: |
-          python - <<'PY'
-          import yaml, os, sys
-          with open("docs/spec/spec.manifest.yaml","r",encoding="utf-8") as f:
-              m=yaml.safe_load(f)
-          def exists(p): return p and isinstance(p,str) and os.path.exists(p)
-          ok=True
-          for section in ("modules","apis","schemas"):
-              for item in (m.get(section) or []):
-                  p=item.get("path")
-                  if p and not exists(p):
-                      ok=False; print("MISSING", section, p)
-          sys.exit(0 if ok else 1)
-          PY
-      - name: Ensure all APIs have response_schema
-        run: |
-          python - <<'PY'
-          import yaml, sys
-          m=yaml.safe_load(open("docs/spec/spec.manifest.yaml",encoding="utf-8"))
-          missing=[(a.get("method"),a.get("path")) for a in (m.get("apis") or []) if (a.get("type","http").lower()=="http" and not a.get("response_schema"))]
-          if missing:
-            print("Missing response_schema for:")
-            for x in missing: print("  -",x)
-            sys.exit(1)
-          print("All apis have response_schema.")
-          PY
+      - name: Spec validate (schemas + manifest + api->schema mapping)
+        run: python backend/scripts/spec_validate.py
