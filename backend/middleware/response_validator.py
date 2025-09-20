@@ -1,8 +1,8 @@
 from __future__ import annotations
-import json, os
+import json, os, re
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
-from fastapi import APIRouter, Request, Response
+from typing import Any, Dict, Optional, Tuple, Iterable
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response as StarletteResponse
 from starlette.types import ASGIApp
@@ -17,7 +17,27 @@ except Exception:
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "docs" / "spec" / "spec.manifest.yaml"
-SCHEMAS_DIR = ROOT / "docs" / "spec" / "schemas"
+
+_allowed_hdrs = {
+    "content-type", "cache-control", "etag", "last-modified",
+    "vary", "expires", "content-language", "content-encoding",
+}
+
+def _safe_header_value(val: str, max_len: int = 200) -> str:
+    # strip CR/LF and non-printable, cap length
+    val = re.sub(r"[\r\n]+", " ", str(val))
+    val = "".join(ch for ch in val if 32 <= ord(ch) <= 126)
+    if len(val) > max_len:
+        val = val[:max_len] + "…"
+    return val
+
+def _copy_allowed_headers(src) -> Dict[str,str]:
+    out: Dict[str,str] = {}
+    for k, v in src.items():
+        lk = k.lower()
+        if lk in _allowed_hdrs:
+            out[k] = _safe_header_value(v)
+    return out
 
 def _load_manifest_map() -> Dict[Tuple[str, str], str]:
     import yaml
@@ -34,8 +54,7 @@ def _load_manifest_map() -> Dict[Tuple[str, str], str]:
         sch_path = None
         for sch in (data.get("schemas") or []):
             if sch.get("id") == schema_id and sch.get("path"):
-                sch_path = sch["path"]
-                break
+                sch_path = sch["path"]; break
         out[(method, path)] = sch_path or schema_id
     return out
 
@@ -52,32 +71,26 @@ class ResponseValidatorMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.enabled = os.getenv("VALIDATE_RESPONSES") == "1" and _VAL is not None
         self.route_to_schema: Dict[Tuple[str, str], Dict[str, Any]] = {}
-        self.raw_map: Dict[Tuple[str, str], str] = {}
         if self.enabled:
             manifest_map = _load_manifest_map()
-            self.raw_map = manifest_map
             for (method, path), rel in manifest_map.items():
-                schema_path = (ROOT / rel) if not rel.startswith("docs/") else (ROOT / rel)
-                schema = _load_schema(schema_path)
-                if schema:
-                    self.route_to_schema[(method, path)] = schema
+                sch = _load_schema((ROOT / rel) if not rel.startswith("docs/") else (ROOT / rel))
+                if sch:
+                    self.route_to_schema[(method, path)] = sch
 
     async def dispatch(self, request: Request, call_next):
-        resp: StarletteResponse = await call_next(request)
+        resp = await call_next(request)
+
         if not self.enabled:
             return resp
 
-        # Always tag when enabled so it's visible
-        resp.headers["X-Validator-Enabled"] = "1"
-
-        # Only validate successful JSON responses
-        if resp.status_code // 100 != 2:
-            return resp
-        ctype = resp.headers.get("content-type", "").lower()
-        if "application/json" not in ctype:
+        # Only validate for JSON 2xx
+        if resp.status_code // 100 != 2 or "application/json" not in (resp.headers.get("content-type","").lower()):
+            # still tag visibility on successful responses
+            resp.headers["X-Validator-Enabled"] = "1"
             return resp
 
-        # Get templated route path (e.g. "/positions/{id}")
+        # Determine templated path (e.g., "/positions/")
         try:
             route_path = request.scope.get("route").path  # type: ignore[attr-defined]
         except Exception:
@@ -85,53 +98,31 @@ class ResponseValidatorMiddleware(BaseHTTPMiddleware):
 
         key = (request.method.lower(), route_path)
         schema = self.route_to_schema.get(key)
-        if not schema:
-            # No mapping — mark why
-            resp.headers.setdefault("X-Schema-Invalid", "no-mapping")
-            return resp
 
-        # Safely read and restore body
+        # Read body safely and rebuild response with a CLEAN header set
+        body = b"".join([chunk async for chunk in resp.body_iterator])  # type: ignore
+        base_headers = _copy_allowed_headers(resp.headers)
+        base_headers["X-Validator-Enabled"] = "1"
+
+        if not schema:
+            # mark skip reason but keep it short + safe
+            base_headers["X-Validator-Skip"] = "no-mapping"
+            return StarletteResponse(content=body, status_code=resp.status_code,
+                                     headers=base_headers, media_type=resp.media_type)
+
+        # Validate JSON
         try:
-            body = b"".join([chunk async for chunk in resp.body_iterator])  # type: ignore
-            # Recreate a fresh Response with same props so body isn't lost
-            new_resp = StarletteResponse(
-                content=body,
-                status_code=resp.status_code,
-                headers=dict(resp.headers),
-                media_type=resp.media_type
-            )
-            # Validate JSON
             data = json.loads(body.decode(resp.charset or "utf-8"))
             _VAL.check_schema(schema)  # type: ignore
             _VAL(schema).validate(data)  # type: ignore
-            return new_resp
+            # success → no X-Schema-Invalid
+            return StarletteResponse(content=body, status_code=resp.status_code,
+                                     headers=base_headers, media_type=resp.media_type)
         except Exception as e:
-            # Put first line of error in header
-            msg = str(e).splitlines()[0][:200]
-            resp.headers["X-Schema-Invalid"] = msg or "validation-error"
-            # Rebuild response with original body if we have it
-            try:
-                body  # type: ignore
-                return StarletteResponse(
-                    content=body,
-                    status_code=resp.status_code,
-                    headers=dict(resp.headers),
-                    media_type=resp.media_type
-                )
-            except Exception:
-                return resp
+            base_headers["X-Schema-Invalid"] = _safe_header_value(str(e))
+            return StarletteResponse(content=body, status_code=resp.status_code,
+                                     headers=base_headers, media_type=resp.media_type)
+
 
 def install_response_validator(app) -> None:
     app.add_middleware(ResponseValidatorMiddleware)
-
-# Debug helper: a router that reveals what mappings are loaded (dev only)
-def schema_map_router(mw: ResponseValidatorMiddleware):
-    r = APIRouter()
-    @r.get("/__schema-map")
-    def _map():
-        return {
-            "enabled": mw.enabled,
-            "mappings": {f"{k[0]} {k[1]}": v for k,v in mw.raw_map.items()},
-            "validated": list({f"{k[0]} {k[1]}" for k in mw.route_to_schema.keys()}),
-        }
-    return r
