@@ -88,7 +88,7 @@ class ResponseValidatorMiddleware(BaseHTTPMiddleware):
         # Only validate for JSON 2xx
         if resp.status_code // 100 != 2 or "application/json" not in (resp.headers.get("content-type","").lower()):
             # still tag visibility on successful responses
-            resp.headers["X-Validator-Enabled"] = "1"
+            resp.headers["X-Validator-Enabled"] = _safe_header_value("1")
             return resp
 
         # Determine templated path (e.g., "/positions/")
@@ -103,7 +103,7 @@ class ResponseValidatorMiddleware(BaseHTTPMiddleware):
         # Read body safely and rebuild response with a CLEAN header set
         body = b"".join([chunk async for chunk in resp.body_iterator])  # type: ignore
         base_headers = _copy_allowed_headers(resp.headers)
-        base_headers["X-Validator-Enabled"] = "1"
+        base_headers["X-Validator-Enabled"] = _safe_header_value("1")
 
         if not schema:
             # mark skip reason but keep it short + safe
