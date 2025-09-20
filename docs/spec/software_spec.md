@@ -168,33 +168,80 @@ Include example objects in each schema.
 
 ---
 
-## 6) Configuration & Secrets
-| Key                  | Type   | Default | Required | Source | Used by                |
-|----------------------|--------|---------|----------|--------|------------------------|
-| RPC_URL              | string | —       | yes      | `.env` | MOD-AUTO, MOD-SVC      |
-| HELIUS_RPC_URL       | string | —       | no       | `.env` | MOD-SVC                |
-| WALLET_SECRET_BASE64 | string | —       | yes      | `.env` | MOD-WALLET             |
-| JUPITER_API_BASE     | string | —       | no       | `.env` | MOD-API, MOD-AUTO      |
-| REDIS_URL            | string | —       | no       | `.env` | MOD-SVC                |
+<!-- CONFIG_SECRETS:BEGIN -->
+### 6) Configuration & Secrets
 
-Secrets never live in the repo. Prefer `.env` + OS keychain/secret store in prod.
+> Secrets live in environment/.env; **never** committed to the repo.
+
+| Key                  | Type   | Default | Required | Source | Used by                | Notes |
+|----------------------|--------|---------|----------|--------|------------------------|-------|
+| `RPC_URL`            | string | —       | yes      | `.env` | MOD-AUTO, MOD-SVC      | Solana RPC endpoint (Helius/official) |
+| `HELIUS_RPC_URL`     | string | —       | no       | `.env` | MOD-SVC                | Optional override for Helius |
+| `WALLET_SECRET_BASE64` | string | —     | yes      | `.env` | MOD-WALLET             | Base64 keypair |
+| `JUPITER_API_BASE`   | string | —       | no       | `.env` | MOD-API, MOD-AUTO      | Custom Jupiter base if needed |
+| `REDIS_URL`          | string | —       | no       | `.env` | MOD-SVC                | Optional cache/bus |
+| `VALIDATE_RESPONSES` | bool   | `0`     | no       | `.env` | MOD-API (dev)          | Enable schema validator |
+| `EXPORT_OPENAPI`     | bool   | `0`     | no       | `.env` | exporter (dev)         | Skip heavy init when exporting |
+
+**Per-env**
+- **dev**: console logs, validator on (`VALIDATE_RESPONSES=1`), no auth.
+- **prod**: JSON logs, validator off, service tokens for auth, dashboards+alerts enabled.
+<!-- CONFIG_SECRETS:END -->
 
 ---
 
-## 7) Observability
-- **Logging**: structured; include correlation IDs; notable lines: “CYCLONE ENGINE STARTUP”, “Loaded N positions :: [PositionStore]”.
-- **Metrics**:
-  - `request_latency_ms` (histogram, API)
-  - `monitor_events_processed_total` (counter, SVC)
-  - `perps_order_failures_total` (counter, SCRIPTS)
-- **Tracing**: span around external calls (Solana RPC, Jupiter).
+<!-- OBSERVABILITY:BEGIN -->
+### 7) Observability
+
+**Logging (structured)**
+- Key lines you already emit:
+  - `CYCLONE ENGINE STARTUP`
+  - `Loaded N positions :: [PositionStore] @ {timestamp}`
+  - `Failed to import solana/solders: No module named 'solana.keypair' :: [WalletCore]`
+- Correlation: include `req_id` (uuid4) on inbound HTTP; propagate to service logs.
+- Format: JSON-per-line in prod; readable console in dev.
+
+**Metrics (proposed)**
+| Name                         | Type       | Owner      | Notes |
+|-----------------------------|------------|------------|-------|
+| `request_latency_ms`        | histogram  | MOD-API    | P50/P95/P99 per route |
+| `monitor_events_processed_total` | counter | MOD-SVC    | Increment per event |
+| `perps_order_failures_total`| counter    | MOD-SCRIPTS| Label by `reason` |
+| `wallet_rpc_errors_total`   | counter    | MOD-WALLET | Label by `provider` |
+| `openapi_export_ms`         | histogram  | MOD-API    | From exporter script |
+
+**Tracing**
+- Span boundaries: HTTP request → service call → external (Solana RPC / Jupiter).
+- Tags: `rpc.endpoint`, `market`, `side`, `sizeUsd`.
+
+**Dashboards & Alerts**
+- API: latency P95, error rate, top 5 endpoints by traffic.
+- Perps: order success rate, failure reasons.
+- Wallet: RPC error rate per provider; SOL fee balance low.
+<!-- OBSERVABILITY:END -->
 
 ---
 
-## 8) Reliability & Performance
-- **SLOs**: HTTP P95 ≤ 300ms; CLI order success ≥ 99%.
-- **Retries**: exponential backoff + jitter to RPC/Jupiter; idempotent client order IDs.
-- **Backpressure**: cap concurrent external calls; queue or drop non-critical.
+<!-- RELIABILITY_SLOS:BEGIN -->
+### 8) Reliability & Performance
+
+**SLOs**
+- API success rate ≥ **99.0%** rolling 7d
+- API latency P95 ≤ **300 ms**
+- Perps order success ≥ **99%** (excluding upstream outages)
+
+**Backoff/Retry Policy**
+- External RPC (Solana/Jupiter): **exponential backoff with jitter**, max 5 attempts, cap 8s.
+- Idempotency: use client IDs when submitting orders; safe to retry on network/timeouts.
+- Concurrency: cap concurrent external calls; shed non-critical work on overload.
+
+**Perf Budgets**
+- Memory: API ≤ 300MB steady-state; CPU ≤ 0.5 core avg.
+- Export OpenAPI: ≤ 2s (dev), non-blocking in CI.
+
+**Data Integrity**
+- Position snapshots and alerts are append-only; on failure, emit a structured error event.
+<!-- RELIABILITY_SLOS:END -->
 
 ---
 
@@ -209,7 +256,79 @@ Secrets never live in the repo. Prefer `.env` + OS keychain/secret store in prod
 - **Build**: `pip install -r requirements.txt`; `npm install` in `frontend/`.
 - **Deploy**: ASGI for API, static host for web; inject configs via env.
 - **Rollback**: previous image/release; db migrations are forward-only (document exceptions).
-- **Runbooks**: “RPC exhausted”, “Perps order failing”, “Solflare connect fails” (symptoms → steps → verify).
+
+<!-- RUNBOOKS:BEGIN -->
+### 10) Runbooks
+
+#### RB-01 — RPC exhausted / upstream errors
+**Symptoms**
+- 5xx from API endpoints calling Solana/Jupiter
+- Logs: `wallet_rpc_errors_total` spikes; messages containing `429`, `timeout`, `upstream error`.
+
+**Likely causes**
+- Provider rate limits; regional outage; misconfigured `RPC_URL`.
+
+**Quick checks**
+1. Check status page of provider; rotate to backup endpoint.
+2. Verify `RPC_URL`/`HELIUS_RPC_URL` env is set and reachable (`curl $RPC_URL`).
+3. Inspect recent deployment/env changes.
+
+**Remediation**
+- Flip to backup RPC in env; restart API.
+- Lower concurrency (temp) and increase backoff.
+- If provider outage: degrade gracefully (read-only, queue writes).
+
+**Validation**
+- P95 latency and error rate return to baseline within 5 minutes.
+- `wallet_rpc_errors_total` flatlines.
+
+---
+
+#### RB-02 — Perps order failing
+**Symptoms**
+- CLI/API returns 500 with program errors (e.g., `ConstraintSeeds`, `InvalidProgramId`, slippage).
+- Validator headers may indicate schema mismatch only for read APIs (not order path).
+
+**Likely causes**
+- Mismatched PDAs; stale position/ATA; price slippage > tolerance; fee balance too low.
+
+**Quick checks**
+1. Enable simulation path; parse “Right:” PDA and adopt.
+2. Confirm SOL fee balance ≥ 0.01.
+3. Verify market params (size, slippage, min out).
+
+**Remediation**
+- Re-derive PDAs consistently (no hard-coded position PDA).
+- Retry with adopted PDAs; widen slippage conservatively.
+- Top up fee account if needed.
+
+**Validation**
+- Order success rate ≥ 99% over last 50 attempts.
+- No new `perps_order_failures_total` increments for 15 minutes.
+
+---
+
+#### RB-03 — Solflare connect fails (automation)
+**Symptoms**
+- Playwright step: `connect failed` or blank extension handshake.
+- UI not detecting the wallet; Jupiter flow blocked.
+
+**Likely causes**
+- Extension not loaded for the Playwright profile; wrong browser channel; Solflare update prompts.
+
+**Quick checks**
+1. Confirm extension CRX path and profile.
+2. Try alternate Chromium channel.
+3. Look for modal/prompt selectors that changed.
+
+**Remediation**
+- Reinstall Solflare extension; pin version if unstable.
+- Update selectors and add waits for prompts.
+- Fallback to manual connect once to seed permissions.
+
+**Validation**
+- `openapi`/monitor flows resume; automation completes connect step reliably.
+<!-- RUNBOOKS:END -->
 
 ---
 
