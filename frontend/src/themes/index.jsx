@@ -22,6 +22,7 @@ export default function ThemeCustomization({ children }) {
     typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)').matches : false
   );
   const [themeVersion, setThemeVersion] = useState(0);
+  const [preview, setPreview] = useState(null);
 
   const resolvedMode = useMemo(() => {
     if (mode === ThemeMode.SYSTEM) {
@@ -34,7 +35,11 @@ export default function ThemeCustomization({ children }) {
   }, [mode, systemPrefersDark]);
 
   const cssMode = useMemo(() => (mode === ThemeMode.FUNKY ? 'funky' : resolvedMode), [mode, resolvedMode]);
-  const tokens = useMemo(() => loadTokens(cssMode), [cssMode, themeVersion]);
+  const baseTokens = useMemo(() => loadTokens(cssMode), [cssMode, themeVersion]);
+  const tokens = useMemo(
+    () => (preview && preview.name === cssMode ? { ...baseTokens, ...preview.tokens } : baseTokens),
+    [baseTokens, preview, cssMode]
+  );
 
   const palette = useMemo(() => {
     const base = Palette(resolvedMode, presetColor).palette;
@@ -131,9 +136,16 @@ export default function ThemeCustomization({ children }) {
     const bump = () => setThemeVersion((v) => v + 1);
     const storageHandler = () => bump();
     const themeEvt = () => bump();
+    const onPreview = (event) => {
+      const detail = event.detail || {};
+      setPreview({ name: detail.name, tokens: detail.tokens || {} });
+    };
+    const onPreviewClear = () => setPreview(null);
 
     window.addEventListener('sonic-theme-updated', themeEvt);
     window.addEventListener('storage', storageHandler);
+    window.addEventListener('sonic-theme-preview', onPreview);
+    window.addEventListener('sonic-theme-preview-clear', onPreviewClear);
 
     const mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
     const handler = (event) => setSystemPrefersDark(event.matches);
@@ -149,6 +161,8 @@ export default function ThemeCustomization({ children }) {
     return () => {
       window.removeEventListener('sonic-theme-updated', themeEvt);
       window.removeEventListener('storage', storageHandler);
+      window.removeEventListener('sonic-theme-preview', onPreview);
+      window.removeEventListener('sonic-theme-preview-clear', onPreviewClear);
 
       if (mql) {
         if (mql.removeEventListener) {

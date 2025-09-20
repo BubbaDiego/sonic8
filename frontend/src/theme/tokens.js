@@ -65,3 +65,13 @@ export function importAllThemes(bundle) {
   });
   window.dispatchEvent(new Event('sonic-theme-updated'));
 }
+
+// ------ Live Preview helpers (non-persistent) ------
+export function previewTokens(name, tokens) {
+  // tokens: partial override to preview immediately
+  window.dispatchEvent(new CustomEvent('sonic-theme-preview', { detail: { name, tokens } }));
+}
+
+export function clearPreview() {
+  window.dispatchEvent(new Event('sonic-theme-preview-clear'));
+}
