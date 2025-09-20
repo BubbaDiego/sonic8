@@ -49,57 +49,111 @@ FORCE_POSITION_ENV = "PERPS_FORCE_POSITION"
 
 logger = logging.getLogger(__name__)
 
+def _parse_anchor_failed_account(logs: Sequence[str]) -> Optional[str]:
+    """
+    Extract which account Anchor says failed seeds for (e.g., 'position' or 'position_request').
+    """
+
+    for ln in logs:
+        s = ln.lower()
+        if "error code" in s and "constraintseeds" in s:
+            # the next line usually contains "account: <name>"
+            continue
+        if "account:" in s:
+            # examples seen: "Program log: AnchorError caused by account: position_request."
+            after = s.split("account:")[-1].strip()
+            # chop trailing punctuation
+            name = "".join(ch for ch in after if ch.isalnum() or ch in "_-").split(".")[0]
+            return name
+    return None
+
+
+def _next_right_pubkey(logs: Sequence[str]) -> Optional[str]:
+    """
+    After a 'Right:' log, Anchor prints the PDA it expected on the next Program log line.
+    """
+
+    it = iter(range(len(logs)))
+    for i in it:
+        if "Right:" in logs[i]:
+            # scan a few lines ahead for "Program log: <pubkey>"
+            for j in range(i + 1, min(i + 8, len(logs))):
+                token = logs[j].strip().replace("Program log:", "").strip()
+                if len(token) >= 32 and token.isalnum():
+                    return token
+    return None
+
 
 def _warn_if_base_quote_swapped(logs: Sequence[str], accounts: Mapping[str, str]) -> None:
     """
-    Print a clear, read-only warning if the program logs indicate
-    InvalidCollateralAccount (i.e., base/quote custody are flipped).
-    This DOES NOT mutate any state or env. It just points you to the fix.
+    Print a clear warning if the program logs indicate InvalidCollateralAccount (base/quote flipped).
     """
 
-    def _next_pubkey_after(label: str) -> Optional[str]:
-        try:
-            i = next(ix for ix, ln in enumerate(logs) if label in ln)
-        except StopIteration:
-            return None
-        # find the next "Program log: <pubkey>" line
-        for j in range(i + 1, min(i + 8, len(logs))):
-            ln = logs[j].strip()
-            if ln.startswith("Program log: ") and len(ln.split()) == 3:
-                # format seen in your logs: "Program log: <pubkey>"
-                return ln.split()[-1]
-        return None
-
-    # Only fire if the program explicitly threw InvalidCollateralAccount
     if not any("InvalidCollateralAccount" in ln for ln in logs):
         return
 
-    # Anchor prints:
-    #   Program log: Left:
-    #   Program log: <custody>
-    #   Program log: Right:
-    #   Program log: <collateralCustody>
-    left_pk = _next_pubkey_after("Left:")
-    right_pk = _next_pubkey_after("Right:")
-
+    # Anchor prints Left: <custody> then Right: <collateralCustody>
+    left_pk = None
+    right_pk = None
+    for i, ln in enumerate(logs):
+        if "Left:" in ln:
+            # next line with Program log has the key
+            for j in range(i + 1, min(i + 8, len(logs))):
+                t = logs[j].strip().replace("Program log:", "").strip()
+                if len(t) >= 32 and t.isalnum():
+                    left_pk = t
+                    break
+        if "Right:" in ln:
+            for j in range(i + 1, min(i + 8, len(logs))):
+                t = logs[j].strip().replace("Program log:", "").strip()
+                if len(t) >= 32 and t.isalnum():
+                    right_pk = t
+                    break
     if not left_pk or not right_pk:
         return
 
     actual_custody = accounts.get("custody")
     actual_collateral = accounts.get("collateralCustody")
 
-    if (left_pk != actual_custody) or (right_pk != actual_collateral):
+    if left_pk != actual_custody or right_pk != actual_collateral:
         print("\n" + "=" * 94)
-        print(" [perps][GUARD] Detected InvalidCollateralAccount — base/quote look flipped")
-        print("    Expected from program logs:")
-        print(f"      custody(BASE)          = {left_pk}")
-        print(f"      collateralCustody(QUOTE)= {right_pk}")
-        print("    You passed:")
-        print(f"      custody                = {actual_custody}")
-        print(f"      collateralCustody      = {actual_collateral}")
-        print("    Action: pass the custody pair shown under 'Expected',")
-        print("            or set PERPS_FORCE_POSITION to the correct Position PDA and retry the dry-run.")
+        print(" [perps][GUARD] InvalidCollateralAccount — base/quote look flipped")
+        print(f"    Program expected  custody(BASE)           = {left_pk}")
+        print(f"                     collateralCustody(QUOTE)= {right_pk}")
+        print("    You provided     custody                  = {actual_custody}")
+        print(f"                     collateralCustody        = {actual_collateral}")
+        print("    Action: construct accounts with the custody pair printed under 'Program expected'.")
         print("=" * 94 + "\n")
+
+
+def _anchor_adopt_targeted(logs: Sequence[str], acct_map: Dict[str, str]) -> bool:
+    """
+    If a ConstraintSeeds error occurred, replace only the failing account's PDA
+    with the 'Right:' PDA from Anchor logs. Returns True if a replacement happened.
+    """
+
+    offender = _parse_anchor_failed_account(logs)
+    if not offender:
+        return False
+
+    right = _next_right_pubkey(logs)
+    if not right:
+        return False
+
+    # normalize keys we use in acct_map
+    key_map = {
+        "position": "position",
+        "position_request": "positionRequest",
+        "positionrequest": "positionRequest",  # seen sometimes without underscore
+    }
+    k = key_map.get(offender)
+    if not k or k not in acct_map:
+        return False
+
+    if acct_map[k] != right:
+        acct_map[k] = right
+        return True
+    return False
 
 
 # Env/flag helpers
@@ -1645,9 +1699,43 @@ def dry_run_open_position_request(
         logs = (value.get("logs") or [])[:log_limit]
         ok = not bool(value.get("err"))
         final_mapping = {k: str(v) for k, v in m.items()}
-        _warn_if_base_quote_swapped(
-            logs, metas_normalized if "metas_normalized" in locals() else final_mapping
-        )
+        if input_mint:
+            final_mapping.setdefault("inputMint", str(input_mint))
+        _warn_if_base_quote_swapped(logs, final_mapping)
+        prev_position = final_mapping.get("position")
+        prev_request = final_mapping.get("positionRequest")
+        did_adopt = _anchor_adopt_targeted(logs, final_mapping)
+        if did_adopt:
+            new_position = final_mapping.get("position")
+            new_request = final_mapping.get("positionRequest")
+            position_pk: Optional[Pubkey] = None
+            request_pk: Optional[Pubkey] = None
+            if new_position and new_position != prev_position:
+                try:
+                    position_pk = Pubkey.from_string(new_position)
+                except Exception:
+                    position_pk = None
+                if position_pk is not None:
+                    m["position"] = position_pk
+            if new_request and new_request != prev_request:
+                try:
+                    request_pk = Pubkey.from_string(new_request)
+                except Exception:
+                    request_pk = None
+                if request_pk is not None:
+                    m["positionRequest"] = request_pk
+                    m["position_request"] = request_pk
+                    if input_mint:
+                        try:
+                            _rebuild_after_request_adopt(m, new_request, input_mint)
+                        except Exception:
+                            pass
+            if position_pk is not None or request_pk is not None:
+                _sync_args_after_adopt(
+                    args,
+                    position_pk=position_pk,
+                    request_pk=request_pk,
+                )
         # Capture per-step info
         report["steps"].append(
             {
