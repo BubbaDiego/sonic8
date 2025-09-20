@@ -22,4 +22,8 @@ spec-ci: spec-validate
 ui-validate:
 	python backend/scripts/validate_ui_manifest.py
 
-
+.PHONY: ui-sweep ui-snap
+ui-sweep:
+	python backend/scripts/ui_sweeper.py
+ui-snap:
+	UI_BASE_URL=http://127.0.0.1:5173 python backend/scripts/ui_snapshots.py

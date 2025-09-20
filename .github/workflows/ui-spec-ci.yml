@@ -28,5 +28,30 @@ jobs:
           python-version: "3.11"
       - name: Install tooling
         run: pip install pyyaml
+      - name: Run UI sweeper (dry)
+        run: |
+          python backend/scripts/ui_sweeper.py
+          # fail if the sweeper would change tracked files
+          git diff --exit-code || (echo "::error::ui.manifest.yaml changed. Please run ui_sweeper.py locally and commit." && exit 1)
       - name: Validate UI manifest
         run: python backend/scripts/validate_ui_manifest.py
+
+  build-screens:
+    if: ${{ github.actor != 'github-actions[bot]' && env.UI_BASE_URL != '' }}
+    runs-on: ubuntu-latest
+    env:
+      UI_BASE_URL: ${{ vars.UI_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install pyyaml playwright
+      - run: python -m playwright install --with-deps
+      - name: Snapshot routes
+        run: python backend/scripts/ui_snapshots.py
+      - name: Upload UI shots
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui_shots
+          path: docs/spec/ui_shots/*.png
+          if-no-files-found: ignore
