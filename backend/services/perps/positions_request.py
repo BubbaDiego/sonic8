@@ -267,6 +267,53 @@ def _parse_anchor_constraint_seeds(logs: List[str]) -> Optional[Tuple[str, str]]
         return None
 
 
+def _parse_right_from_logs(logs: List[str], needle: str) -> Optional[str]:
+    """Return the first 'Right:' pubkey referring to the given account name."""
+
+    try:
+        # Prefer an Anchor block that explicitly names the account.
+        for i, line in enumerate(logs):
+            if "AnchorError" in line and f"account: {needle}" in line:
+                window = logs[i : i + 14]
+                for j, candidate in enumerate(window):
+                    text = candidate.strip()
+                    if text.startswith("Program log:"):
+                        text = text.split("Program log:", 1)[-1].strip()
+                    if not text.startswith("Right:"):
+                        continue
+                    parts = text.split()
+                    if len(parts) >= 2 and len(parts[1]) >= 20:
+                        return parts[1]
+                    if j + 1 < len(window):
+                        nxt = window[j + 1].strip()
+                        if nxt.startswith("Program log:"):
+                            nxt = nxt.split("Program log:", 1)[-1].strip()
+                        m = re.search(_B58, nxt)
+                        if m:
+                            return m.group(0)
+
+        # Fallback: grab the next plausible base58 following any Right: marker.
+        for idx, line in enumerate(logs):
+            if "Right:" not in line:
+                continue
+            text = line.strip()
+            if text.startswith("Program log:"):
+                text = text.split("Program log:", 1)[-1].strip()
+            parts = text.split()
+            if len(parts) >= 2 and len(parts[1]) >= 20:
+                return parts[1]
+            if idx + 1 < len(logs):
+                nxt = logs[idx + 1].strip()
+                if nxt.startswith("Program log:"):
+                    nxt = nxt.split("Program log:", 1)[-1].strip()
+                m = re.search(_B58, nxt)
+                if m:
+                    return m.group(0)
+    except Exception:
+        pass
+    return None
+
+
 def _parse_unknown_account(logs: List[str]) -> Optional[str]:
     """
     Looks for: 'Instruction references an unknown account <PUBKEY>'
@@ -624,6 +671,15 @@ def _is_pk_like(kind: Any) -> bool:
         return _is_pk_like(kind["option"])
     if isinstance(kind, dict) and "defined" in kind:
         return "pubkey" in str(kind["defined"]).lower()
+    return False
+
+
+def _has_code(logs: List[str], needle: str) -> bool:
+    """Check if a particular error-code string appears in the logs."""
+
+    for line in logs or []:
+        if needle in line:
+            return True
     return False
 
 
@@ -1385,81 +1441,130 @@ def dry_run_open_position_request(
         )
         return ok, logs, metas, raw
 
-    ok, logs, metas, raw = _simulate_step("initial", mapping)
-    adopted_position_from_logs = False
-    if not ok:
-        pos_pda_hint = _adopt_position_from_logs(logs)
-        if pos_pda_hint:
+    events: List[str] = []
+    logs: List[str] = []
+    metas: List[AccountMeta] = []
+    raw = ""
+    simulations = 0
+    attempt = 0
+    max_attempts = max(1, max_recover)
+    tried_swap = False
+    loop_reason = "not_run"
+    ok = False
+
+    while attempt < max_attempts:
+        label = "initial" if attempt == 0 else f"retry #{attempt}"
+        ok, logs, metas, raw = _simulate_step(label, mapping)
+        simulations += 1
+        if ok:
+            loop_reason = "success"
+            break
+
+        changed = False
+
+        right_pos = _parse_right_from_logs(logs, "position")
+        if right_pos and str(mapping.get("position", "")) != right_pos:
             try:
                 counter_seed = _apply_position_adopt(
                     mapping,
                     args,
-                    pos_pda_hint,
+                    right_pos,
                     program_id=program_id,
                     input_mint=input_mint,
                     counter_seed=counter_seed,
                 )
-                ok, logs, metas, raw = _simulate_step("after position adopt", mapping)
-                adopted_position_from_logs = True
+                events.append(f"adopted position → {right_pos}")
+                changed = True
             except Exception:
                 pass
-    if not ok:
-        # 1) PDA adoption guided by which account triggered ConstraintSeeds
-        seed_hint = _parse_anchor_constraint_seeds(logs)
-        if not seed_hint:
-            # Fallback: use tolerant Right-scanner paired with the account name if present
-            acct_name = None
-            for ln in logs:
-                if "AnchorError caused by account:" in ln:
-                    acct_name = ln.split("account:", 1)[-1].strip().split()[0]
-                    break
-            right_b58 = _extract_right_from_logs(logs)
-            if acct_name and right_b58:
-                seed_hint = (acct_name, right_b58)
-        if seed_hint:
-            acct_name, right_b58 = seed_hint
-            acct_lc = acct_name.lower()
-            if "position_request" in acct_lc and input_mint:
-                _rebuild_after_request_adopt(mapping, right_b58, input_mint)
-                _sync_args_after_adopt(args, request_pk=Pubkey.from_string(right_b58))
-                ok, logs, metas, raw = _simulate_step("after PR adopt", mapping)
-            elif acct_lc == "position" and not adopted_position_from_logs:
-                try:
-                    counter_seed = _apply_position_adopt(
-                        mapping,
-                        args,
-                        right_b58,
-                        program_id=program_id,
-                        input_mint=input_mint,
-                        counter_seed=counter_seed,
-                    )
-                    ok, logs, metas, raw = _simulate_step("after position adopt", mapping)
-                    adopted_position_from_logs = True
-                except Exception:
-                    pass
 
-    # 2) Collateral error targeted handling (6006) — adopt from logs, then (optionally) swap
-    if not ok:
-        code, _msg = _parse_err_code_and_msg(logs)
-        if code and "InvalidCollateralAccount" in code:
-            # Try to read the pair the program printed and set mapping explicitly
+        right_req = _parse_right_from_logs(logs, "position_request")
+        if right_req and str(mapping.get("positionRequest", "")) != right_req:
+            try:
+                req_pk = Pubkey.from_string(right_req)
+            except Exception:
+                req_pk = None
+            if req_pk is not None:
+                mapping["positionRequest"] = req_pk
+                mapping["position_request"] = req_pk
+                if input_mint:
+                    try:
+                        _rebuild_after_request_adopt(mapping, right_req, input_mint)
+                    except Exception:
+                        pass
+                _sync_args_after_adopt(args, request_pk=req_pk)
+                events.append(f"adopted positionRequest → {right_req}")
+                changed = True
+
+        if not changed:
+            seed_hint = _parse_anchor_constraint_seeds(logs)
+            if seed_hint:
+                acct_name, right_b58 = seed_hint
+                acct_lc = acct_name.lower()
+                if acct_lc == "position":
+                    try:
+                        counter_seed = _apply_position_adopt(
+                            mapping,
+                            args,
+                            right_b58,
+                            program_id=program_id,
+                            input_mint=input_mint,
+                            counter_seed=counter_seed,
+                        )
+                        events.append(f"adopted position → {right_b58}")
+                        changed = True
+                    except Exception:
+                        pass
+                elif "position_request" in acct_lc:
+                    try:
+                        req_pk = Pubkey.from_string(right_b58)
+                    except Exception:
+                        req_pk = None
+                    if req_pk is not None:
+                        mapping["positionRequest"] = req_pk
+                        mapping["position_request"] = req_pk
+                        if input_mint:
+                            try:
+                                _rebuild_after_request_adopt(mapping, right_b58, input_mint)
+                            except Exception:
+                                pass
+                        _sync_args_after_adopt(args, request_pk=req_pk)
+                        events.append(f"adopted positionRequest → {right_b58}")
+                        changed = True
+
+        if not changed and _has_code(logs, "InvalidCollateralAccount"):
             lr = _parse_invalid_collateral(logs)
             if lr:
                 left_b58, right_b58 = lr
                 try:
                     mapping["custody"] = Pubkey.from_string(left_b58)
                     mapping["collateralCustody"] = Pubkey.from_string(right_b58)
+                    events.append(f"adopted custody/collateral → {left_b58} / {right_b58}")
+                    changed = True
                 except Exception:
                     pass
-                ok, logs, metas, raw = _simulate_step("after collateral adopt", mapping)
+            if (
+                not changed
+                and try_custody_swap_on_6006
+                and not tried_swap
+                and mapping.get("custody")
+                and mapping.get("collateralCustody")
+            ):
+                mapping["custody"], mapping["collateralCustody"] = (
+                    mapping["collateralCustody"],
+                    mapping["custody"],
+                )
+                events.append("swapped custody ↔ collateralCustody (6006)")
+                tried_swap = True
+                changed = True
 
-            # If still failing, try swapping custody<->collateralCustody (some IDLs invert names)
-            if try_custody_swap_on_6006 and not ok and mapping.get("custody") and mapping.get("collateralCustody"):
-                swap_mapping = dict(mapping)
-                swap_mapping["custody"], swap_mapping["collateralCustody"] = mapping["collateralCustody"], mapping["custody"]
-                ok, logs, metas, raw = _simulate_step("after custody↔collateral swap", swap_mapping)
-                if ok:
-                    mapping.update(swap_mapping)
+        if not changed:
+            loop_reason = "stalled"
+            break
+
+        attempt += 1
+    else:
+        loop_reason = "limit"
 
     # 3) Unknown account recovery loop (append to remaining accounts)
     recover = 0
@@ -1477,8 +1582,15 @@ def dry_run_open_position_request(
             _append_remaining_account([], unknown_b58, signer=False, writable=False)  # logged for parity
         # NOTE: We do not persist remaining accounts inside the mapping here; the function above is used only for logging parity.
         ok, logs, metas, raw = _simulate_step(f"after remaining-account append #{recover+1}", mapping)
+        simulations += 1
         last_unknown = unknown_b58
         recover += 1
+
+    if events:
+        report["events"] = events
+    report["attempts"] = simulations
+    if not ok and loop_reason in {"limit", "stalled"}:
+        report["note"] = "adaptive loop exhausted without a passing simulation"
 
     report["ok"] = bool(ok)
     # Include final snapshot of mapping & metas we ended up with
