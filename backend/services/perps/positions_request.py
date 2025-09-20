@@ -91,6 +91,21 @@ def _warn_if_base_quote_swapped(logs: Sequence[str], accounts: Mapping[str, str]
         print("=" * 94 + "\n")
 
 
+def _force_sol_perp_custody(mapping: Dict[str, str]) -> None:
+    """Ensure SOL-PERP always uses SOL custody and USDC collateral custody."""
+
+    sol_custody = "7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz"  # BASE (SOL)
+    usdc_custody = "G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa"  # QUOTE (USDC)
+
+    if mapping.get("custody") != sol_custody or mapping.get("collateralCustody") != usdc_custody:
+        print(
+            "\n[perps][FIX] Enforcing SOL-PERP custody orientation "
+            f"(custody→{sol_custody} / collateralCustody→{usdc_custody})"
+        )
+        mapping["custody"] = sol_custody
+        mapping["collateralCustody"] = usdc_custody
+
+
 def _assert_sol_perp_custody(final_map: Mapping[str, str]) -> None:
     """Abort early if SOL-PERP base/quote custodies are reversed."""
 
@@ -1759,6 +1774,8 @@ def dry_run_open_position_request(
         final_mapping = {k: str(v) for k, v in m.items()}
         if input_mint:
             final_mapping.setdefault("inputMint", str(input_mint))
+        if market.upper() == "SOL-PERP":
+            _force_sol_perp_custody(final_mapping)
         _warn_if_base_quote_swapped(logs, final_mapping)
         adopted = _apply_targeted_anchor_adopt(
             market,
@@ -2344,6 +2361,8 @@ def open_position_request(
             final_map = {k: str(v) for k, v in effective.items()}
             if input_mint:
                 final_map.setdefault("inputMint", str(input_mint))
+            if market.upper() == "SOL-PERP":
+                _force_sol_perp_custody(final_map)
             adopted = _apply_targeted_anchor_adopt(
                 market,
                 logs,
