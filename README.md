@@ -207,3 +207,30 @@ python backend/scripts/spec_sweeper.py
 ## 📝 License
 
 Proprietary. All rights reserved. (Adjust if you plan to open-source.)
+
+## Hybrid TS → Python account oracle (perps)
+
+We vend canonical accounts for `createIncreasePositionMarketRequest` from TypeScript helpers aligned with the upstream Jupiter repo.
+
+### One-time setup
+
+```bash
+npm install
+npm install --save-dev ts-node typescript
+```
+
+### Test the CLI directly
+
+```bash
+node --loader ts-node/esm perps_accounts.ts \
+  --market SOL-PERP \
+  --side long \
+  --size-usd 11 \
+  --collateral-usd 11 \
+  --owner <YOUR_WALLET_PUBKEY> \
+  --rpc "https://rpc.helius.xyz/?api-key=$HELIUS_API_KEY"
+```
+
+### Python integration
+
+`open_position_request` calls the CLI, receives JSON `{ accounts, remainingAccounts }`, and builds the instruction from that mapping (no more seed guessing).
