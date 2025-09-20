@@ -1,11 +1,12 @@
+from __future__ import annotations  # ← must be the first Python statement
+
+# Load .env as early as possible so any RPC keys/overrides are present
 try:
     from dotenv import load_dotenv, find_dotenv  # type: ignore
-
-    load_dotenv(find_dotenv(), override=True)
 except Exception:
-    pass
-
-from __future__ import annotations
+    load_dotenv = find_dotenv = None
+else:
+    load_dotenv(find_dotenv(), override=True)
 
 import argparse
 import asyncio
@@ -75,14 +76,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_arg_parser().parse_args()
 
+    # Touch the async client early to confirm RPC configuration is loadable.
+    # This also helps you see which URL you're actually pointed at.
     client = None
     try:
         client = get_async_client()
+        rpc_url = getattr(client, "endpoint", None) or getattr(client, "_provider", None) or ""
+        if rpc_url:
+            print(f"[rpc] using {rpc_url}")
     except RuntimeError as exc:
         print(f"[rpc] WARN: {exc}")
-    else:
+    finally:
+        # Close if we managed to open it
         try:
-            asyncio.run(client.close())
+            if client is not None:
+                asyncio.run(client.close())
         except Exception:
             pass
 
