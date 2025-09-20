@@ -12,10 +12,40 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install deps
-        run: pip install jsonschema pyyaml
-      - name: Validate spec assets
-        run: python backend/scripts/spec_validate.py
-      - name: Generate Repo Map & Module Inventory (non-blocking)
+      - name: Install repo requirements (if any)
         run: |
-          python backend/scripts/spec_sweeper.py || echo "sweeper failed (non-blocking)"
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Install spec tooling
+        run: pip install pyyaml jsonschema fastapi
+      - name: Export OpenAPI (non-blocking)
+        run: python backend/scripts/export_openapi.py || echo "OpenAPI export skipped"
+      - name: Validate JSON Schemas
+        run: |
+          python - <<'PY'
+          import json, glob, sys
+          from jsonschema import Draft202012Validator
+          ok=True
+          for p in glob.glob('docs/spec/schemas/*.json'):
+              try:
+                  with open(p, 'r', encoding='utf-8') as f:
+                      Draft202012Validator.check_schema(json.load(f))
+                  print("OK", p)
+              except Exception as e:
+                  ok=False; print("ERR", p, e)
+          sys.exit(0 if ok else 1)
+          PY
+      - name: Validate manifest references
+        run: |
+          python - <<'PY'
+          import yaml, os, sys
+          with open("docs/spec/spec.manifest.yaml","r",encoding="utf-8") as f:
+              m=yaml.safe_load(f)
+          def exists(p): return p and isinstance(p,str) and os.path.exists(p)
+          ok=True
+          for section in ("modules","apis","schemas"):
+              for item in (m.get(section) or []):
+                  p=item.get("path")
+                  if p and not exists(p):
+                      ok=False; print("MISSING", section, p)
+          sys.exit(0 if ok else 1)
+          PY
