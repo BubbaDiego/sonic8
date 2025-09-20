@@ -224,27 +224,47 @@ def _parse_anchor_constraint_seeds(logs: List[str]) -> Optional[Tuple[str, str]]
       Right:
       <PDA>
 
-    If we can't parse both pieces, return None.
+    Handles validators that print `Right:` and the PDA on the same line as well as
+    those that emit the PDA on the following line. If we can't parse both pieces,
+    return None.
     """
 
-    acct = None
-    right = None
+    try:
+        for i, line in enumerate(logs):
+            if "AnchorError" not in line or "caused by account:" not in line:
+                continue
 
-    for i, line in enumerate(logs):
-        if "caused by account:" in line:
             m = re.search(r"caused by account:\s*([A-Za-z0-9_]+)", line)
-            if m:
-                acct = m.group(1).strip()
-                # Scan forward for the Right: pubkey
-                for j in range(i, min(i + 8, len(logs))):
-                    if "Right:" in logs[j]:
-                        for k in range(j + 1, min(j + 5, len(logs))):
-                            m2 = re.search(_B58, logs[k].strip())
-                            if m2:
-                                right = m2.group(0)
-                                return (acct, right)
-                break
-    return None
+            if not m:
+                continue
+
+            acct = m.group(1).strip()
+            window = logs[i : min(i + 12, len(logs))]
+            for j, win_line in enumerate(window):
+                text = win_line.strip()
+                if text.startswith("Program log:"):
+                    text = text.split("Program log:", 1)[-1].strip()
+                if not text.startswith("Right:"):
+                    continue
+
+                # Case 1: "Right: <pubkey>" on the same line
+                same_line = text.split("Right:", 1)[-1].strip()
+                if same_line:
+                    m_same = re.search(_B58, same_line)
+                    if m_same:
+                        return acct, m_same.group(0)
+
+                # Case 2: PDA printed on the next line
+                if j + 1 < len(window):
+                    nxt = window[j + 1].strip()
+                    if nxt.startswith("Program log:"):
+                        nxt = nxt.split("Program log:", 1)[-1].strip()
+                    m_next = re.search(_B58, nxt)
+                    if m_next:
+                        return acct, m_next.group(0)
+        return None
+    except Exception:
+        return None
 
 
 def _parse_unknown_account(logs: List[str]) -> Optional[str]:
@@ -1385,17 +1405,17 @@ def dry_run_open_position_request(
                 pass
     if not ok:
         # 1) PDA adoption guided by which account triggered ConstraintSeeds
-        # Build a seed hint from Anchor's error line PLUS a tolerant Right-PDA scan
-        seed_hint = None
-        acct_name = None
-        for ln in logs:
-            # Anchor line: "AnchorError caused by account: position_request"
-            if "AnchorError caused by account:" in ln:
-                acct_name = ln.split("account:", 1)[-1].strip().split()[0]
-                break
-        right_b58 = _extract_right_from_logs(logs)
-        if acct_name and right_b58:
-            seed_hint = (acct_name, right_b58)
+        seed_hint = _parse_anchor_constraint_seeds(logs)
+        if not seed_hint:
+            # Fallback: use tolerant Right-scanner paired with the account name if present
+            acct_name = None
+            for ln in logs:
+                if "AnchorError caused by account:" in ln:
+                    acct_name = ln.split("account:", 1)[-1].strip().split()[0]
+                    break
+            right_b58 = _extract_right_from_logs(logs)
+            if acct_name and right_b58:
+                seed_hint = (acct_name, right_b58)
         if seed_hint:
             acct_name, right_b58 = seed_hint
             acct_lc = acct_name.lower()
@@ -1775,15 +1795,16 @@ def open_position_request(
         ok, logs = _simulate_with_label(raw, "initial")
 
         if not ok:
-            seed_hint = None
-            acct_name = None
-            for ln in logs:
-                if "AnchorError caused by account:" in ln:
-                    acct_name = ln.split("account:", 1)[-1].strip().split()[0]
-                    break
-            right_b58 = _extract_right_from_logs(logs)
-            if acct_name and right_b58:
-                seed_hint = (acct_name, right_b58)
+            seed_hint = _parse_anchor_constraint_seeds(logs)
+            if not seed_hint:
+                acct_name = None
+                for ln in logs:
+                    if "AnchorError caused by account:" in ln:
+                        acct_name = ln.split("account:", 1)[-1].strip().split()[0]
+                        break
+                right_b58 = _extract_right_from_logs(logs)
+                if acct_name and right_b58:
+                    seed_hint = (acct_name, right_b58)
             if seed_hint:
                 acct_name, right_b58 = seed_hint
                 acct_lc = acct_name.lower()
