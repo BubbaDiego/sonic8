@@ -12,9 +12,8 @@
 
 @import './_sonic-themes.scss';
 
-/* Apply the theme background everywhere the viewport can show through */
+/* Apply the theme background everywhere (color + optional wallpaper) */
 html, body, #root {
-  /* Ensure gutters match the active theme */
   background-color: var(--bg);
   background-image: var(--body-bg-image);
   background-size: cover;
