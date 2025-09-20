@@ -34,3 +34,12 @@ ui-doc:
 spec-all:
 	python backend/scripts/validate_all_specs.py
 
+.PHONY: spec-daily
+spec-daily:
+	python backend/scripts/spec_api_mapper.py
+	python backend/scripts/spec_schema_sampler.py
+	python backend/scripts/ui_sweeper.py
+	python backend/scripts/export_openapi.py || true
+	python backend/scripts/build_ui_components_doc.py
+	python backend/scripts/validate_all_specs.py
+

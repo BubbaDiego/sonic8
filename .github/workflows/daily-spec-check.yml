@@ -1,0 +1,26 @@
+name: Daily Spec Check
+on:
+  schedule:
+    - cron: "30 10 * * *"  # 10:30 UTC = 03:30 PT (adjust for DST)
+  workflow_dispatch:
+
+jobs:
+  sweep-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Install tooling
+        run: pip install pyyaml jsonschema fastapi
+      - name: Run sweepers (backend+UI)
+        run: |
+          python backend/scripts/spec_api_mapper.py
+          python backend/scripts/ui_sweeper.py
+      - name: Build OpenAPI (non-blocking)
+        run: python backend/scripts/export_openapi.py || echo "export skipped"
+      - name: Build UI components doc
+        run: python backend/scripts/build_ui_components_doc.py
+      - name: Validate ALL specs (backend + UI)
+        run: python backend/scripts/validate_all_specs.py
