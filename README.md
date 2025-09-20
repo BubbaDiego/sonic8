@@ -1,7 +1,12 @@
-# ---------------------------------------------------------
 # 🦔 Sonic
 
-Crypto automation & monitoring for Solana/Jupiter — wallet ops, swaps/perps, alerts, and dashboards.
+![Spec CI](https://github.com/BubbaDiego/sonic5/actions/workflows/spec-ci.yml/badge.svg)
+
+> Crypto automation & monitoring for Solana/Jupiter — wallet ops, swaps/perps, alerts, and dashboards.
+
+<!-- LAST_UPDATED:BEGIN -->
+_Last updated: (pending — auto-stamped by CI)_
+<!-- LAST_UPDATED:END -->
 
 - Backend: **FastAPI + service cores** (DataLocker, Cyclone, Alert V2, PositionStore)
 - Frontend: **React + Vite + Tailwind**
@@ -11,7 +16,7 @@ Crypto automation & monitoring for Solana/Jupiter — wallet ops, swaps/perps, a
 
 ---
 
-## 📑 Spec
+## 📑 Sonic Spec
 
 - **User Guide:** [`docs/spec/user_guide.md`](docs/spec/user_guide.md)  
 - **Human (overview):** [`docs/spec/software_spec.md`](docs/spec/software_spec.md)  
@@ -22,107 +27,179 @@ Crypto automation & monitoring for Solana/Jupiter — wallet ops, swaps/perps, a
 
 ---
 
+## 🛠️ Developer workflow cheat-sheet
+
+> Dependency management for Node.js packages occurs entirely inside **`frontend/`**.  
+> The repository root does not use `npm` or `yarn` directly.
+
+Common automation lives in the project **Makefile**. These shortcuts wrap Python and Node tooling:
+
+| Target              | What it does                                           |
+|--------------------|---------------------------------------------------------|
+| `make install`     | Install Python requirements + frontend deps             |
+| `make dev-api`     | Start FastAPI with auto-reload                          |
+| `make dev-web`     | Launch the Vite development server                      |
+| `make openapi`     | Regenerate `backend/api/openapi.yaml`                   |
+| `make spec-validate` | Validate schemas + manifest + response_schema coverage|
+| `make spec-ci`     | Run the same validation routine used in CI              |
+
+---
+
 ## 🚀 Quickstart (Dev)
 
 ### Backend
 ```bash
-# Windows PowerShell
-$env:VALIDATE_RESPONSES="1"   # optional: enable schema validation
-uvicorn backend.sonic_backend_app:app --reload --port 5000
+python backend/scripts/create_virtual_env.py
+.venv/bin/pip install -r requirements.txt       # Windows: .venv\Scripts\pip install -r requirements.txt
+.venv/bin/playwright install                    # browsers for AutoCore / Playwright tests
+uvicorn backend.sonic_backend_app:app --host 0.0.0.0 --port 5000 --reload
+```
 
-Frontend
+The backend expects JSON configuration files under `backend/config/`. Create these if missing:
+
+```
+backend/config/active_traders.json
+backend/config/alert_thresholds.json
+backend/config/sonic_config.json
+backend/config/sonic_sauce.json   # must include hedge_modifiers + heat_modifiers
+backend/config/comm_config.json   # supports ${VAR} env expansion
+backend/config/theme_config.json
+```
+
+Provider entries in `comm_config.json` merge into `xcom_providers` on startup; only specified keys overwrite existing ones.
+
+### Frontend
+```bash
 cd frontend
 npm install
 npm run dev
+# Optional:
+# npm run build:css    # if your UI uses a build step for Tailwind / SCSS
+```
 
-Export OpenAPI (dev tool)
-python backend/scripts/export_openapi.py
-# writes backend/api/openapi.yaml
+### Optional: HMR overlay
 
-🗺️ Repo Map (high level)
+Enable in `frontend/vite.config.mjs`:
+
+```
+server: { hmr: { overlay: true } }
+```
+
+### Serve from a sub-directory
+
+If hosting under a subpath (e.g. `/ui/`), set `VITE_APP_BASE_NAME` in `frontend/.env`.
+
+### Tailwind CSS
+
+Base directives live in `frontend/src/tailwind.css` and compile during the build step (e.g. `npm run build`).
+
+### 🗺️ Repo map (high level)
+```
 backend/
   api/                # FastAPI routes & API layer
   core/               # Cyclone, monitors, alerting, services
   wallet_core/        # Wallet ops & signing
-  scripts/            # CLIs and tooling (openapi export, spec tools)
+  scripts/            # CLIs and spec tools (openapi export, sweeper, validators)
 frontend/             # React/Vite/Tailwind UI
 docs/
   spec/               # Spec (human + machine) and JSON Schemas
+```
 
+See the detailed table in `docs/spec/software_spec.md` → Section 2.
 
-See the full table in docs/spec/software_spec.md → Section 2 (Repo Map).
+### 📦 Config & Secrets
 
-⚙️ Config
-KeyRequiredUsed byNotes
-RPC_URLyesMOD-AUTO, MOD-SVCSolana RPC (Helius/official)
-HELIUS_RPC_URLnoMOD-SVCOptional override
-WALLET_SECRET_BASE64yesMOD-WALLETBase64 keypair
-JUPITER_API_BASEnoMOD-API, MOD-AUTOOptional custom base
-REDIS_URLnoMOD-SVCOptional cache/bus
-VALIDATE_RESPONSESnoMOD-API (dev)1 enables schema validator
-EXPORT_OPENAPInoexporter (dev)1 to quiet heavy init on export
+| Key | Required | Used by | Notes |
+| --- | --- | --- | --- |
+| `RPC_URL` | yes | MOD-AUTO, MOD-SVC | Solana RPC (Helius/official) |
+| `HELIUS_RPC_URL` | no | MOD-SVC | Optional override |
+| `WALLET_SECRET_BASE64` | yes | MOD-WALLET | Base64 keypair |
+| `JUPITER_API_BASE` | no | MOD-API, MOD-AUTO | Optional custom base |
+| `REDIS_URL` | no | MOD-SVC | Optional cache/bus |
+| `VALIDATE_RESPONSES` | no | MOD-API (dev) | `1` enables schema validator headers |
+| `EXPORT_OPENAPI` | no | exporter (dev) | `1` to quiet heavy init on OpenAPI export |
+| `MOTHER_BRAIN_DB_PATH` | no | backend + Launch Pad | Overrides default `mother.db` in repo root |
+| `LIQ_MON_SMS_ALERT` | no | Liquidation Monitor | Enable SMS notifications |
+| `SOLFLARE_CRX` | no | AutoCore (Playwright) | Path to Solflare extension `.crx` |
 
-Secrets live in environment variables / .env — never in the repo.
+Secrets live in environment variables / `.env` — never in the repo.
 
-✅ Dev Safety Nets
+### 🔊 TTS & audio (optional)
 
-Response Validator (dev)
-VALIDATE_RESPONSES=1 adds:
+- `playsound` — MP3 alert sounds (fallback is ASCII bell if missing)
+- `pyttsx3` — local text-to-speech
+  - Install: `pip install playsound pyttsx3`
+  - Enable a TTS provider in `comm_config.json`:
 
-X-Validator-Enabled: 1
+```
+"tts": { "enabled": true, "voice": "Zira", "speed": 140 }
+```
 
-X-Schema-Invalid: <reason> (if payload doesn’t match the schema)
+### 🔌 API & data notes
 
-X-Validator-Skip: no-mapping (add a response_schema in the manifest)
+- `/portfolio/latest` returns data only after a portfolio snapshot exists. Create a snapshot with `POST /positions/snapshot` or run `POST /cyclone/run`.
+- Routers use DataLocker via DI in `backend/deps.py` (`dl: DataLocker = Depends(get_locker)`).
+- Debugging connectivity:
+  - Run `python backend/scripts/api_breakpoint_test.py` while the server is up to ping core endpoints.
 
-Spec CI
-GitHub Action validates JSON Schemas and manifest paths and ensures every API has a response_schema.
+### 💹 UI details
 
-🧰 Spec Tooling
+- Liquidation Bars card under `/positions` summarizes liquidation risk; powered by the same `/positions/` API as the table for consistency.
+- Icons for wallets/assets are served from `frontend/static/images`.
+- Thresholds UI at `/alert-thresholds`. Seed defaults via:
+
+```bash
+python backend/scripts/initialize_database.py --seed-thresholds
+```
+
+### 🧪 Tests
+
+**Frontend — Jest + React Testing Library:**
+
+```bash
+cd frontend
+npm install
+npm test
+```
+
+**Backend — Pytest:**
+
+```bash
+python backend/scripts/create_virtual_env.py
+.venv/bin/pip install -r requirements.txt
+.venv/bin/playwright install
+.venv/bin/pip install -r requirements-dev.txt
+pytest
+```
+
+### 📈 Observability (quick)
+
+- Logs: “CYCLONE ENGINE STARTUP”, “Loaded N positions :: [PositionStore] …”
+- Metrics (proposed): `request_latency_ms`, `monitor_events_processed_total`, `perps_order_failures_total`, `wallet_rpc_errors_total`
+- Tracing: HTTP → service → external (RPC/Jupiter)
+- Runbooks (RPC exhausted, Perps order failing, Solflare connect fails) live in `docs/spec/software_spec.md`.
+
+### 📚 More docs
+
+- Alert Thresholds API — `docs/alert_thresholds_api.md`
+- Backend routes list — `docs/backend_api_spec.md`
+- Frontend UI guide — `docs/berry_react_guide.md`
+
+### 🧰 Spec Tooling (local helpers)
+
+```bash
 # Map any newly added FastAPI routes into the manifest (method/path)
 python backend/scripts/spec_api_mapper.py
 
-# Sample live responses and auto-draft JSON Schemas (SPEC_BASE_URL optional)
+# Sample live responses and auto-draft JSON Schemas
 python backend/scripts/spec_schema_sampler.py
 
 # Refresh Repo Map & Module Inventory in the human spec
 python backend/scripts/spec_sweeper.py
+```
 
-📈 Observability & Runbooks
+---
 
-Logging: “CYCLONE ENGINE STARTUP”, “Loaded N positions :: [PositionStore] …”
-
-Metrics (proposed): request_latency_ms, monitor_events_processed_total, perps_order_failures_total, wallet_rpc_errors_total
-
-Tracing: HTTP → service → external (RPC/Jupiter)
-
-Runbooks: see docs/spec/software_spec.md → Section 10 (RB-01/02/03)
-
-🧪 Test / Validate
-# Schemas valid?
-python - <<'PY'
-import json, glob
-from jsonschema.validators import Draft202012Validator as V
-for p in glob.glob('docs/spec/schemas/*.json'):
-    V.check_schema(json.load(open(p, encoding='utf-8')))
-print("Schemas OK")
-PY
-
-🤝 Contributing
-
-Implement the route.
-
-Add/confirm apis[].response_schema in spec.manifest.yaml.
-
-Write/update the JSON Schema with examples under docs/spec/schemas/.
-
-(Optional) run the sweeper; export OpenAPI.
-
-Ensure Spec CI is green.
-
-📝 License
+## 📝 License
 
 Proprietary. All rights reserved. (Adjust if you plan to open-source.)
-
----------------------------------------------------------
-🔚 **END CODEX**

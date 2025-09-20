@@ -1,0 +1,54 @@
+name: README Stamp
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  stamp:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Set timezone
+        run: sudo timedatectl set-timezone America/Los_Angeles
+      - name: Build stamp line
+        id: stamp
+        run: |
+          TS="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+          SUBJ="$(git log -1 --pretty=%s)"
+          SHA="$(git rev-parse --short HEAD)"
+          echo "LINE=Last updated: ${TS} — ${SUBJ} (${SHA})" >> $GITHUB_OUTPUT
+      - name: Update README LAST_UPDATED block
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import re
+
+          readme = pathlib.Path("README.md")
+          text = readme.read_text(encoding="utf-8")
+          begin = "<!-- LAST_UPDATED:BEGIN -->"
+          end = "<!-- LAST_UPDATED:END -->"
+          line = os.environ["STAMP_LINE"]
+          new = re.sub(rf"({re.escape(begin)})(.*?)(\s*{re.escape(end)})", lambda m: f"{begin}\n{line}\n{end}", text, flags=re.S)
+          if new != text:
+              readme.write_text(new, encoding="utf-8")
+              print("README updated.")
+          else:
+              print("No change.")
+          PY
+        env:
+          STAMP_LINE: ${{ steps.stamp.outputs.LINE }}
+      - name: Commit & push (skip CI)
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -am "ci(readme): update Last updated stamp [skip ci]"
+            git push
+          fi
