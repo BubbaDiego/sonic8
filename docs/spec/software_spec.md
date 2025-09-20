@@ -41,7 +41,7 @@
 | MOD-DATA | `backend/data/` | Persistence utilities and data models. |  |
 | MOD-WALLET | `backend/core/wallet_core/` | Wallet operations, key derivation/management, signing. |  |
 | MOD-SCRIPTS | `backend/scripts/` | Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist). |  |
-| MOD-AUTO | `auto_core/` | Playwright automation (Solflare connect, Jupiter flows). |  |
+| MOD-AUTO | `backend/core/auto_core/` | Automation flows (Solflare/Jupiter) and helpers |  |
 | MOD-FRONTEND | `frontend/` | React/Vite/Tailwind UI (Sonic Dashboard, Monitor Manager, Trader Shop). |  |
 <!-- REPO_MAP:END -->
 

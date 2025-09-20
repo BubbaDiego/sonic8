@@ -48,8 +48,8 @@ modules:
   - MOD-WALLET
   - MOD-SVC
 - id: MOD-AUTO
-  path: auto_core/
-  purpose: Playwright automation (Solflare connect, Jupiter flows).
+  path: backend/core/auto_core/
+  purpose: "Automation flows (Solflare/Jupiter) and helpers."
   depends_on:
   - EXT-PLAYWRIGHT
   - EXT-JUPITER
