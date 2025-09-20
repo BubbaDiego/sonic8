@@ -28,3 +28,6 @@ jobs:
         run: python backend/scripts/export_openapi.py || echo "OpenAPI export skipped"
       - name: Spec validate (schemas + manifest + api->schema mapping)
         run: python backend/scripts/spec_validate.py
+      - name: Validate ALL specs (backend + UI)
+        run: python backend/scripts/validate_all_specs.py
+

@@ -30,3 +30,7 @@ ui-snap:
 .PHONY: ui-doc
 ui-doc:
 	python backend/scripts/build_ui_components_doc.py
+.PHONY: spec-all
+spec-all:
+	python backend/scripts/validate_all_specs.py
+
