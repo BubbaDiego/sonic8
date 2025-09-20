@@ -16,6 +16,7 @@ load_dotenv()
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 from pyfiglet import Figlet
 from backend.core.wallet_core import WalletService
 from test_core import TestCoreRunner, formatter, get_console_ui
@@ -24,6 +25,7 @@ from backend.models.session import Session
 from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.logging import log, configure_console_log
 from datetime import datetime
+from datetime import timedelta
 from backend.utils.time_utils import normalize_iso_timestamp
 
 wallet_service = WalletService()
@@ -47,6 +49,7 @@ ICON = {
     "cyclone": "🌪️",
     "test_ui": "🧑‍💻",
     "goals": "🎯",
+    "maintenance": "🧹",
     "exit": "❌",
 }
 
@@ -337,6 +340,173 @@ def operations_menu(db_path: str = str(MOTHER_DB_PATH)):
         else:
             console.print("[bold red]Invalid selection.[/]")
         input("")
+
+
+def _run_step(title: str, cmd: list[str], cwd: Path | None = None, soft: bool = False) -> dict:
+    """
+    Run a subprocess step and capture output.
+    soft=True marks a step as non-fatal (warn instead of fail on non-zero rc).
+    Returns dict with: title, rc, status, seconds, notes, stdout, stderr
+    """
+    import time, subprocess
+
+    t0 = time.perf_counter()
+    try:
+        p = subprocess.run(
+            cmd,
+            cwd=cwd or ROOT_DIR,
+            text=True,
+            capture_output=True,
+            encoding="utf-8",
+            errors="ignore",
+            shell=False,
+        )
+        rc = p.returncode
+        elapsed = time.perf_counter() - t0
+        if rc == 0:
+            status = "ok"
+            notes = "completed"
+        else:
+            status = "warn" if soft else "fail"
+            # Keep a short note line (first 120 chars from stderr/stdout)
+            msg = (p.stderr or p.stdout or "error").strip().splitlines()[:1]
+            notes = (msg[0] if msg else "error")[:120]
+        return {
+            "title": title,
+            "rc": rc,
+            "status": status,
+            "seconds": elapsed,
+            "notes": notes,
+            "stdout": p.stdout,
+            "stderr": p.stderr,
+            "cmd": cmd,
+        }
+    except FileNotFoundError as e:
+        elapsed = time.perf_counter() - t0
+        return {
+            "title": title,
+            "rc": 127,
+            "status": "fail" if not soft else "warn",
+            "seconds": elapsed,
+            "notes": f"not found: {e}",
+            "stdout": "",
+            "stderr": str(e),
+            "cmd": cmd,
+        }
+
+
+def _format_secs(s: float) -> str:
+    # short mm:ss
+    return str(timedelta(seconds=int(s)))
+
+
+def run_daily_maintenance():
+    """
+    On-demand Daily Maintenance with rich output.
+    Steps mirror the 'spec-daily' workflow; prints a emoji summary.
+    """
+
+    console.print(Panel.fit("🧹  [bold magenta]On-Demand Daily Maintenance[/]  🧹", border_style="bright_magenta"))
+    py = PYTHON_EXEC  # already defined near top
+    steps = [
+        {
+            "title": "Map API routes",
+            "cmd": [py, "backend/scripts/spec_api_mapper.py"],
+            "soft": False,
+        },
+        {
+            "title": "Draft schemas for unmapped routes",
+            "cmd": [py, "backend/scripts/spec_schema_sampler.py"],
+            "soft": True,  # sampling may skip if endpoints aren’t up
+        },
+        {
+            "title": "Sweep UI routes/components",
+            "cmd": [py, "backend/scripts/ui_sweeper.py"],
+            "soft": False,
+        },
+        {
+            "title": "Export OpenAPI",
+            "cmd": [py, "backend/scripts/export_openapi.py"],
+            "soft": True,  # allow WARN if exporter is noisy in this env
+        },
+        {
+            "title": "Build UI Components doc",
+            "cmd": [py, "backend/scripts/build_ui_components_doc.py"],
+            "soft": False,
+        },
+        {
+            "title": "Validate ALL specs (backend + UI)",
+            "cmd": [py, "backend/scripts/validate_all_specs.py"],
+            "soft": False,
+        },
+    ]
+
+    # Optional screenshot step if UI_BASE_URL is configured
+    if os.getenv("UI_BASE_URL"):
+        steps.append({
+            "title": "UI screenshots (Playwright)",
+            "cmd": [py, "backend/scripts/ui_snapshots.py"],
+            "soft": True,
+        })
+
+    results = []
+    for spec in steps:
+        res = _run_step(spec["title"], spec["cmd"], cwd=ROOT_DIR, soft=spec.get("soft", False))
+        results.append(res)
+
+    # Build a nice table
+    table = Table(title="Maintenance Report", show_lines=False, box=None)
+    table.add_column("Step", style="bold")
+    table.add_column("Status")
+    table.add_column("Time")
+    table.add_column("Notes", overflow="fold")
+
+    ICONS = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
+    c_ok = c_warn = c_fail = 0
+
+    for r in results:
+        if r["status"] == "ok":
+            c_ok += 1
+        elif r["status"] == "warn":
+            c_warn += 1
+        else:
+            c_fail += 1
+        table.add_row(
+            r["title"],
+            f"{ICONS.get(r['status'],'•')} {r['status']}",
+            _format_secs(r["seconds"]),
+            r["notes"],
+        )
+
+    console.print(table)
+
+    # Summary panel
+    if c_fail == 0 and c_warn == 0:
+        summary_style = "green"
+        summary_icon = "🎉"
+        headline = "All steps completed successfully."
+    elif c_fail == 0:
+        summary_style = "yellow"
+        summary_icon = "📝"
+        headline = "Completed with warnings."
+    else:
+        summary_style = "red"
+        summary_icon = "🚨"
+        headline = "Some steps failed."
+
+    console.print(Panel.fit(
+        f"{summary_icon}  [bold]{headline}[/]\n"
+        f"✅ OK: {c_ok}   ⚠️ WARN: {c_warn}   ❌ FAIL: {c_fail}",
+        border_style=summary_style
+    ))
+
+    # Offer quick tips for failures
+    if c_fail:
+        console.print("[bold red]Hints:[/]")
+        console.print("- Ensure the FastAPI server is reachable for schema sampling (or ignore if not needed).")
+        console.print("- Run missing sweepers locally first if files aren’t generated.")
+        console.print("- Check stderr by running the step directly (see commands above).")
+
 # Main menu loop
 def main():
     while True:
@@ -354,6 +524,7 @@ def main():
                 f"8. {ICON['wallet']} Wallet Manager",
                 f"9. {ICON['test_ui']} Test Console UI",
                 f"10. {ICON['goals']} Session / Goals",
+                f"11. {ICON['maintenance']} On-Demand Daily Maintenance",
                 f"0. {ICON['exit']} Exit",
             ]
         )
@@ -381,6 +552,8 @@ def main():
             run_test_console()
         elif choice == "10":
             goals_menu()
+        elif choice == "11":
+            run_daily_maintenance()
         elif choice == "0":
             console.print("[bold green]Exiting...[/]")
             break
