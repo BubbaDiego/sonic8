@@ -6,8 +6,10 @@ import hashlib
 import json
 import logging
 import os
+import subprocess
 import re
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
@@ -60,6 +62,106 @@ def _env_flag(name: str, default: bool = False) -> bool:
 def _env_str(name: str) -> str | None:
     v = os.getenv(name)
     return v.strip() if v else None
+
+
+def _project_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _call_ts_accounts(
+    owner: str,
+    market: str,
+    side: str,
+    size_usd: float,
+    collateral_usd: float,
+) -> Dict[str, Any]:
+    """Invoke the TypeScript CLI to fetch canonical perps account mappings."""
+
+    project_root = _project_root()
+    ts_cli = project_root / "perps_accounts.ts"
+    env = dict(os.environ)
+    tsconfig = project_root / "tsconfig.json"
+    if tsconfig.exists():
+        env.setdefault("TS_NODE_PROJECT", str(tsconfig))
+
+    helius_api_key = os.getenv("HELIUS_API_KEY")
+    helius_rpc = os.getenv("HELIUS_RPC_URL") or (
+        f"https://rpc.helius.xyz/?api-key={helius_api_key}"
+        if helius_api_key
+        else None
+    )
+
+    if ts_cli.exists():
+        cmd = [
+            "node",
+            "--loader",
+            "ts-node/esm",
+            str(ts_cli),
+            "--market",
+            market,
+            "--side",
+            side,
+            "--size-usd",
+            str(size_usd),
+            "--collateral-usd",
+            str(collateral_usd),
+            "--owner",
+            owner,
+        ]
+    else:
+        cmd = [
+            "npm",
+            "run",
+            "perps:accounts",
+            "--",
+            "--market",
+            market,
+            "--side",
+            side,
+            "--size-usd",
+            str(size_usd),
+            "--collateral-usd",
+            str(collateral_usd),
+            "--owner",
+            owner,
+        ]
+
+    if helius_rpc:
+        cmd.extend(["--rpc", helius_rpc])
+
+    proc = subprocess.run(
+        cmd,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=str(project_root),
+        env=env,
+    )
+
+    stdout = (proc.stdout or "").strip()
+    stderr = (proc.stderr or "").strip()
+    payload = stdout or stderr
+    if not payload:
+        raise RuntimeError(
+            f"TS accounts CLI returned no output (exit={proc.returncode})"
+        )
+
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "TS accounts CLI returned non-JSON output:\n"
+            f"stdout:\n{proc.stdout}\n"
+            f"stderr:\n{proc.stderr}"
+        ) from exc
+
+    if not data.get("ok"):
+        raise RuntimeError(
+            f"TS accounts CLI returned error: {json.dumps(data, indent=2)}"
+        )
+
+    return data
 
 
 def _rpc_client():
@@ -1872,7 +1974,21 @@ def open_position_request(
     if input_mint is None and program_id == JUP_PERPS_PROGRAM_ID:
         input_mint = JUP_USDC_MINT
 
-    metas, account_mapping = map_accounts(
+    ts_accounts: Optional[Dict[str, Any]] = None
+    try:
+        ts_accounts = _call_ts_accounts(
+            owner=str(owner),
+            market=market,
+            side=str(side),
+            size_usd=float(size_usd),
+            collateral_usd=float(collateral_usd),
+        )
+        logger.debug("[perps] TS accounts CLI response received for %s", market)
+    except Exception as ts_err:
+        logger.debug("[perps] TS accounts CLI unavailable: %s", ts_err)
+        ts_accounts = None
+
+    _, account_mapping = map_accounts(
         ix_idl,
         owner,
         position,
@@ -1889,6 +2005,96 @@ def open_position_request(
     mapping.setdefault("position", position)
     mapping.setdefault("positionRequest", request)
     mapping.setdefault("position_request", request)
+
+    ts_remaining_accounts: List[Dict[str, Any]] = []
+
+    if ts_accounts:
+        ts_mapping: Dict[str, Pubkey] = {}
+        accounts_payload = ts_accounts.get("accounts") or {}
+        if isinstance(accounts_payload, dict):
+            for key, value in accounts_payload.items():
+                if not value:
+                    continue
+                try:
+                    ts_mapping[key] = Pubkey.from_string(str(value))
+                except Exception as map_err:
+                    logger.warning(
+                        "[perps] TS accounts CLI provided invalid pubkey for %s: %s",
+                        key,
+                        map_err,
+                    )
+        if ts_mapping:
+            mapping.update(ts_mapping)
+            if "positionRequest" in ts_mapping:
+                mapping.setdefault("position_request", ts_mapping["positionRequest"])
+            if "positionRequestAta" in ts_mapping:
+                mapping.setdefault(
+                    "position_request_ata", ts_mapping["positionRequestAta"]
+                )
+            if "tokenProgram" in ts_mapping:
+                mapping.setdefault("token_program", ts_mapping["tokenProgram"])
+            if "associatedTokenProgram" in ts_mapping:
+                mapping.setdefault(
+                    "associated_token_program",
+                    ts_mapping["associatedTokenProgram"],
+                )
+            if "systemProgram" in ts_mapping:
+                mapping.setdefault("system_program", ts_mapping["systemProgram"])
+        if "position" in ts_mapping:
+            position = ts_mapping["position"]
+        if "positionRequest" in ts_mapping:
+            request = ts_mapping["positionRequest"]
+        elif "position_request" in ts_mapping:
+            request = ts_mapping["position_request"]
+        if "inputMint" in ts_mapping:
+            input_mint = ts_mapping["inputMint"]
+        elif "input_mint" in ts_mapping:
+            input_mint = ts_mapping["input_mint"]
+
+        ts_remaining = ts_accounts.get("remainingAccounts")
+        if isinstance(ts_remaining, list):
+            for entry in ts_remaining:
+                if not isinstance(entry, dict):
+                    continue
+                pk_value = entry.get("pubkey")
+                if not pk_value:
+                    continue
+                try:
+                    pk_obj = Pubkey.from_string(str(pk_value))
+                except Exception as rem_err:
+                    logger.warning(
+                        "[perps] TS remaining account invalid (%s): %s",
+                        pk_value,
+                        rem_err,
+                    )
+                    continue
+                ts_remaining_accounts.append(
+                    {
+                        "pubkey": pk_obj,
+                        "is_signer": bool(
+                            entry.get("isSigner") or entry.get("is_signer")
+                        ),
+                        "is_writable": bool(
+                            entry.get("isWritable") or entry.get("is_writable")
+                        ),
+                    }
+                )
+
+        ts_params = ts_accounts.get("params")
+        if isinstance(ts_params, dict):
+            candidate_keys = [
+                key
+                for key, value in args.items()
+                if isinstance(key, str) and isinstance(value, dict)
+            ]
+            params_key = candidate_keys[0] if len(candidate_keys) == 1 else "params"
+            if params_key in args and isinstance(args.get(params_key), dict):
+                try:
+                    args[params_key].update(ts_params)  # type: ignore[index]
+                except Exception:
+                    args[params_key] = ts_params  # type: ignore[index]
+            else:
+                args["params"] = ts_params
 
     # LONG trades post quote collateral (USDC) into the `custody` slot and keep
     # base collateral in `collateralCustody`. Adjust the default base→custody
@@ -2159,7 +2365,7 @@ def open_position_request(
 
         print("[perps] open::_send_with ACTIVE", __file__)  # prove live code path
 
-        remaining_accounts: List[Dict[str, Any]] = []
+        remaining_accounts: List[Dict[str, Any]] = list(ts_remaining_accounts)
         metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
         ok, logs = _simulate_with_label(raw, "initial")
 
