@@ -156,7 +156,8 @@
 
 ---
 
-## 5) Data Contracts (Schemas)
+## 5) Data Contracts (Schemas)  
+
 Machine-readable JSON Schemas live in `docs/spec/schemas/`:
 - `Position.json` (single position)
 - `Positions.json` (array wrapper)
