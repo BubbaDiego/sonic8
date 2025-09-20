@@ -1,0 +1,3509 @@
+ui_spec_version: 1
+frontend:
+  framework: react
+  bundler: vite
+  entry: frontend/src/main.tsx
+  router: react-router
+  base_url_hint: http://127.0.0.1:5173
+routes:
+- path: /
+  page_id: PAGE_ROOT
+  component: AuthLogin
+  file: null
+  uses: []
+- path: /login
+  page_id: PAGE_LOGIN
+  component: AuthLogin
+  file: null
+  uses: []
+- path: /register
+  page_id: PAGE_REGISTER
+  component: AuthRegister
+  file: null
+  uses: []
+- path: /forgot-password
+  page_id: PAGE_FORGOT_PASSWORD
+  component: AuthForgotPassword
+  file: frontend/src/views/pages/authentication/firebase/AuthForgotPassword.jsx
+  uses: []
+- path: /reset-password
+  page_id: PAGE_RESET_PASSWORD
+  component: AuthResetPassword
+  file: frontend/src/views/pages/authentication/firebase/AuthResetPassword.jsx
+  uses: []
+- path: /check-mail
+  page_id: PAGE_CHECK_MAIL
+  component: AuthCheckMail
+  file: null
+  uses: []
+- path: /code-verification
+  page_id: PAGE_CODE_VERIFICATION
+  component: AuthCodeVerification
+  file: frontend/src/views/pages/authentication/firebase/AuthCodeVerification.jsx
+  uses: []
+- path: /
+  page_id: PAGE_ROOT
+  component: MinimalLayout
+  file: frontend/src/layout/MinimalLayout/index.jsx
+  uses: []
+- path: /pages/error
+  page_id: PAGE_PAGES_ERROR
+  component: MaintenanceError
+  file: null
+  uses: []
+- path: /pages/500
+  page_id: PAGE_PAGES_500
+  component: MaintenanceError500
+  file: null
+  uses: []
+- path: /pages/coming-soon1
+  page_id: PAGE_PAGES_COMING_SOON1
+  component: MaintenanceComingSoon1
+  file: null
+  uses: []
+- path: /pages/coming-soon2
+  page_id: PAGE_PAGES_COMING_SOON2
+  component: MaintenanceComingSoon2
+  file: null
+  uses: []
+- path: /pages/under-construction
+  page_id: PAGE_PAGES_UNDER_CONSTRUCTION
+  component: MaintenanceUnderConstruction
+  file: null
+  uses: []
+- path: /forbidden
+  page_id: PAGE_FORBIDDEN
+  component: MaintenanceForbidden
+  file: null
+  uses: []
+- path: /
+  page_id: PAGE_ROOT
+  component: MainLayout
+  file: frontend/src/layout/MainLayout/index.jsx
+  uses: []
+- path: debug/db
+  page_id: PAGE_DEBUG_DB
+  component: DatabaseViewer
+  file: frontend/src/views/debug/DatabaseViewer.jsx
+  uses: []
+- path: /overview
+  page_id: PAGE_OVERVIEW
+  component: OverviewPage
+  file: frontend/src/views/overview/index.jsx
+  uses: []
+- path: /positions
+  page_id: PAGE_POSITIONS
+  component: PositionsPage
+  file: frontend/src/views/positions/PositionsPage.jsx
+  uses: []
+- path: /wallet-manager
+  page_id: PAGE_WALLET_MANAGER
+  component: WalletManagerPage
+  file: null
+  uses: []
+- path: /monitor-manager
+  page_id: PAGE_MONITOR_MANAGER
+  component: MonitorManagerPage
+  file: null
+  uses: []
+- path: /alert-thresholds
+  page_id: PAGE_ALERT_THRESHOLDS
+  component: AlertThresholdsPage
+  file: frontend/src/views/alertThresholds/AlertThresholdsPage.jsx
+  uses: []
+- path: /dashboard/analytics
+  page_id: PAGE_DASHBOARD_ANALYTICS
+  component: DashboardAnalytics
+  file: null
+  uses: []
+- path: /dashboard/default
+  page_id: PAGE_DASHBOARD_DEFAULT
+  component: DashboardDefault
+  file: null
+  uses: []
+- path: /dashboards/analytics-wire
+  page_id: PAGE_DASHBOARDS_ANALYTICS_WIRE
+  component: DashboardGrid
+  file: frontend/src/components/dashboard-grid/DashboardGrid.jsx
+  uses: []
+- path: /sonic-labs
+  page_id: PAGE_SONIC_LABS
+  component: SonicLabsPage
+  file: frontend/src/views/sonicLabs/SonicLabsPage.jsx
+  uses: []
+- path: /jupiter
+  page_id: PAGE_JUPITER
+  component: JupiterPage
+  file: frontend/src/views/jupiter/JupiterPage.jsx
+  uses: []
+- path: /trader-factory
+  page_id: PAGE_TRADER_FACTORY
+  component: TraderFactoryPage
+  file: frontend/src/views/traderFactory/TraderFactoryPage.jsx
+  uses: []
+- path: /communications/xcom
+  page_id: PAGE_COMMUNICATIONS_XCOM
+  component: XComSettingsPage
+  file: null
+  uses: []
+- path: /hedge-report
+  page_id: PAGE_HEDGE_REPORT
+  component: HedgeReportPage
+  file: frontend/src/hedge-report/pages/HedgeReportPage.tsx
+  uses: []
+- path: /apps/kanban
+  page_id: PAGE_APPS_KANBAN
+  component: KanbanPage
+  file: frontend/src/views/kanban/index.jsx
+  uses: []
+- path: board
+  page_id: PAGE_BOARD
+  component: KanbanBoard
+  file: null
+  uses: []
+- path: backlogs
+  page_id: PAGE_BACKLOGS
+  component: KanbanBacklogs
+  file: null
+  uses: []
+- path: /sonic
+  page_id: PAGE_SONIC
+  component: Sonic
+  file: null
+  uses: []
+- path: /trader-shop
+  page_id: PAGE_TRADER_SHOP
+  component: MainLayout
+  file: frontend/src/layout/MainLayout/index.jsx
+  uses: []
+- path: /images/vadervault.jpg
+  page_id: PAGE_IMAGES_VADERVAULT_JPG
+  component: null
+  file: null
+  uses: []
+- path: /images/lukevault.jpg
+  page_id: PAGE_IMAGES_LUKEVAULT_JPG
+  component: null
+  file: null
+  uses: []
+- path: /images/bobavault.jpg
+  page_id: PAGE_IMAGES_BOBAVAULT_JPG
+  component: null
+  file: null
+  uses: []
+- path: '*'
+  page_id: PAGE_ROOT
+  component: Navigate
+  file: null
+  uses: []
+components:
+- id: COMP_ACCORDION
+  file: frontend/src/ui-component/extended/Accordion.jsx
+  props:
+  - name: data
+    type: array
+    required: false
+  - name: defaultExpandedId
+    type: oneOfType
+    required: false
+  - name: expandIcon
+    type: node
+    required: false
+  - name: square
+    type: bool
+    required: false
+  - name: toggle
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_ACTIONBAR
+  file: frontend/src/views/forms/layouts/ActionBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ACTIONSCELL
+  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ACTIVETICKETS
+  file: frontend/src/views/widget/Data/ActiveTickets.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ADDCOLUMN
+  file: frontend/src/views/kanban/Board/AddColumn.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ADDITEM
+  file: frontend/src/views/kanban/Board/AddItem.jsx
+  props:
+  - name: open
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_ADDITEMCOMMENT
+  file: frontend/src/views/kanban/Board/AddItemComment.jsx
+  props:
+  - name: itemId
+    type: oneOfType
+    required: false
+  emits: []
+  state: []
+- id: COMP_ADDMENUITEM
+  file: frontend/src/views/forms/data-grid/ColumnMenu/AddMenuItem.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ADDRESSCELL
+  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ADDRESSFORM
+  file: frontend/src/views/forms/forms-wizard/ValidationWizard/AddressForm.jsx
+  props:
+  - name: shippingData
+    type: any
+    required: false
+  - name: setShippingData
+    type: func
+    required: false
+  - name: handleNext
+    type: func
+    required: false
+  - name: setErrorIndex
+    type: func
+    required: false
+  emits: []
+  state: []
+- id: COMP_ADDSTORY
+  file: frontend/src/views/kanban/Backlogs/AddStory.jsx
+  props:
+  - name: open
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_ADDSTORYCOMMENT
+  file: frontend/src/views/kanban/Backlogs/AddStoryComment.jsx
+  props:
+  - name: storyId
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_ADDTHRESHOLDDIALOG
+  file: frontend/src/views/alertThresholds/AddThresholdDialog.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ALERTCOLUMNDELETE
+  file: frontend/src/views/kanban/Board/AlertColumnDelete.jsx
+  props:
+  - name: title
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_ALERTITEMDELETE
+  file: frontend/src/views/kanban/Board/AlertItemDelete.jsx
+  props:
+  - name: title
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_ALERTSTORYDELETE
+  file: frontend/src/views/kanban/Backlogs/AlertStoryDelete.jsx
+  props:
+  - name: title
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_ALERTTHRESHOLDSPAGE
+  file: frontend/src/views/alertThresholds/AlertThresholdsPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ANALYTICS
+  file: frontend/src/views/dashboard/Analytics/index - Copy.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ANALYTICSCHARTCARD
+  file: frontend/src/ui-component/cards/AnalyticsChartCard.jsx
+  props:
+  - name: title
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_ANIMATEBUTTON
+  file: frontend/src/ui-component/extended/AnimateButton.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  - name: type
+    type: oneOf
+    required: false
+  - name: direction
+    type: oneOf
+    required: false
+  - name: offset
+    type: number
+    required: false
+  - name: scale
+    type: object
+    required: false
+  emits: []
+  state: []
+- id: COMP_ANIMATION
+  file: frontend/src/views/utilities/Animation.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APEXAREACHART
+  file: frontend/src/views/forms/chart/Apexchart/ApexAreaChart.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APEXBARCHART
+  file: frontend/src/views/forms/chart/Apexchart/ApexBarChart.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APEXCHART
+  file: frontend/src/views/forms/chart/Apexchart/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APEXCOLUMNCHART
+  file: frontend/src/views/forms/chart/Apexchart/ApexColumnChart.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APEXLINECHART
+  file: frontend/src/views/forms/chart/Apexchart/ApexLineChart.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APEXMIXEDCHART
+  file: frontend/src/views/forms/chart/Apexchart/ApexMixedChart.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APEXPIECHART
+  file: frontend/src/views/forms/chart/Apexchart/ApexPieChart.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APEXPOLARCHART
+  file: frontend/src/views/forms/chart/Apexchart/ApexPolarChart.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APEXREDIALBARCHART
+  file: frontend/src/views/forms/chart/Apexchart/ApexRedialChart.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APP
+  file: frontend/src/App.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APPBAR
+  file: frontend/src/ui-component/extended/AppBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APPGRID
+  file: frontend/src/components/AppGrid.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_APPLICATIONSALES
+  file: frontend/src/views/widget/Data/ApplicationSales.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ASKCONFIRMATIONBEFORESAVE
+  file: frontend/src/views/forms/data-grid/InLineEditing/ConfirmationSave.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ASSETLOGO
+  file: frontend/src/components/AssetLogo.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ATTACHMENTCARD
+  file: frontend/src/ui-component/cards/AttachmentCard.jsx
+  props:
+  - name: title
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_AUTH0CONTEXTPROVIDER
+  file: frontend/src/contexts/Auth0Context.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_AUTH0LOGIN
+  file: frontend/src/views/pages/authentication/auth0/AuthLogin.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_AUTH0PROVIDER
+  file: frontend/src/contexts/Auth0Context.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_AUTH0REGISTER
+  file: frontend/src/views/pages/authentication/auth0/AuthRegister.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_AUTHCARDWRAPPER
+  file: frontend/src/views/pages/authentication/AuthCardWrapper.jsx
+  props:
+  - name: children
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_AUTHCODEVERIFICATION
+  file: frontend/src/views/pages/authentication/firebase/AuthCodeVerification.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_AUTHFOOTER
+  file: frontend/src/ui-component/cards/AuthFooter.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_AUTHFORGOTPASSWORD
+  file: frontend/src/views/pages/authentication/firebase/AuthForgotPassword.jsx
+  props:
+  - name: link
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_AUTHGUARD
+  file: frontend/src/utils/route-guard/AuthGuard.jsx
+  props:
+  - name: children
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_AUTHRESETPASSWORD
+  file: frontend/src/views/pages/authentication/firebase/AuthResetPassword.jsx
+  props:
+  - name: link
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_AUTHSLIDER
+  file: frontend/src/ui-component/cards/AuthSlider.jsx
+  props:
+  - name: items
+    type: array
+    required: false
+  emits: []
+  state: []
+- id: COMP_AUTOCOMPLETE
+  file: frontend/src/views/forms/components/AutoComplete.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_AUTOCOMPLETEFORMS
+  file: frontend/src/views/forms/forms-validation/AutocompleteForms.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_AUTOGRID
+  file: frontend/src/views/utilities/Grid/AutoGrid.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_AUTOSTOPEDITCOMPONENT
+  file: frontend/src/views/forms/data-grid/InLineEditing/AutoStop.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_AVATAR
+  file: frontend/src/ui-component/extended/Avatar.jsx
+  props:
+  - name: className
+    type: string
+    required: false
+  - name: color
+    type: string
+    required: false
+  - name: outline
+    type: bool
+    required: false
+  - name: size
+    type: oneOf
+    required: false
+  - name: sx
+    type: any
+    required: false
+  - name: others
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_AVATARUPLOAD
+  file: frontend/src/ui-component/third-party/dropzone/Avatar.jsx
+  props:
+  - name: error
+    type: any
+    required: false
+  - name: file
+    type: array
+    required: false
+  - name: setFieldValue
+    type: any
+    required: false
+  - name: sx
+    type: any
+    required: false
+  - name: other
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_AWSCOGNITOLOGIN
+  file: frontend/src/views/pages/authentication/aws/AuthLogin.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_AWSCOGNITOPROVIDER
+  file: frontend/src/contexts/AWSCognitoContext.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_AWSCOGNITOREGISTER
+  file: frontend/src/views/pages/authentication/aws/AuthRegister.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BACKGROUNDPATTERN1
+  file: frontend/src/ui-component/cards/BackgroundPattern1.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_BACKGROUNDPATTERN2
+  file: frontend/src/ui-component/cards/BackgroundPattern2.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_BACKLOGS
+  file: frontend/src/views/kanban/Backlogs/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BAJAJAREACHARTCARD
+  file: frontend/src/views/dashboard/Default/BajajAreaChartCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BALANCEBREAKDOWNCARD
+  file: frontend/src/views/wallet/BalanceBreakdownCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BASICGRID
+  file: frontend/src/views/utilities/Grid/BasicGrid.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BASICGROUPING
+  file: frontend/src/views/forms/data-grid/ColumnGroups/BasicColumnGroup.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BASICGROUPINGDEMO
+  file: frontend/src/views/forms/data-grid/ColumnGroups/BasicColumnGroup.jsx
+  props:
+  - name: Selected
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_BASICROWEDITINGGRID
+  file: frontend/src/views/forms/data-grid/InLineEditing/EditableRow.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BASICSLIDER
+  file: frontend/src/views/forms/components/Slider/BasicSlider.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BASICWIZARD
+  file: frontend/src/views/forms/forms-wizard/BasicWizard/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BILLCARD
+  file: frontend/src/ui-component/cards/BillCard.jsx
+  props:
+  - name: primary
+    type: any
+    required: false
+  - name: secondary
+    type: any
+    required: false
+  - name: link
+    type: string
+    required: false
+  - name: color
+    type: any
+    required: false
+  - name: bg
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_BOARD
+  file: frontend/src/views/kanban/Board/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BODY
+  file: frontend/src/views/forms/plugins/Modal/SimpleModal.jsx
+  props:
+  - name: modalStyle
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_BORDERRADIUS
+  file: frontend/src/layout/Customization/BorderRadius.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BOXCONTAINER
+  file: frontend/src/layout/Customization/BoxContainer.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_BREADCRUMBS
+  file: frontend/src/ui-component/extended/Breadcrumbs.jsx
+  props:
+  - name: card
+    type: bool
+    required: false
+  - name: custom
+    type: bool
+    required: false
+  - name: divider
+    type: bool
+    required: false
+  - name: heading
+    type: string
+    required: false
+  - name: icon
+    type: bool
+    required: false
+  - name: icons
+    type: bool
+    required: false
+  - name: links
+    type: array
+    required: false
+  - name: maxItems
+    type: number
+    required: false
+  - name: rightAlign
+    type: bool
+    required: false
+  - name: separator
+    type: any
+    required: false
+  - name: IconChevronRight
+    type: any
+    required: false
+  - name: title
+    type: bool
+    required: false
+  - name: titleBottom
+    type: bool
+    required: false
+  - name: sx
+    type: any
+    required: false
+  - name: others
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_BTITLE
+  file: frontend/src/ui-component/extended/Breadcrumbs.jsx
+  props:
+  - name: title
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_CARD
+  file: frontend/src/views/forms/chart/OrgChart/Card.jsx
+  props:
+  - name: items
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_CARDSECONDARYACTION
+  file: frontend/src/ui-component/cards/CardSecondaryAction.jsx
+  props:
+  - name: title
+    type: string
+    required: false
+  - name: link
+    type: string
+    required: false
+  - name: icon
+    type: oneOfType
+    required: false
+  emits: []
+  state: []
+- id: COMP_CHART
+  file: frontend/src/views/widget/Chart/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CHECKBOXFORMS
+  file: frontend/src/views/forms/forms-validation/CheckboxForms.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CHECKMAIL
+  file: frontend/src/views/pages/authentication/CheckMail.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CHIP
+  file: frontend/src/themes/overrides/Chip.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CIRCULARCOUNTDOWN
+  file: frontend/src/views/monitorManager/SonicMonitorCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CLIPBOARDPAGE
+  file: frontend/src/views/forms/plugins/Clipboard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CODEVERIFICATION
+  file: frontend/src/views/pages/authentication/CodeVerification.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLORBOX
+  file: frontend/src/views/utilities/Color.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLORVARIANTS
+  file: frontend/src/ui-component/extended/notistack/ColorVariants.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLUMNGROUPS
+  file: frontend/src/views/forms/data-grid/ColumnGroups/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLUMNMENU
+  file: frontend/src/views/forms/data-grid/ColumnMenu/ColumnMenu.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLUMNMENUDEMU
+  file: frontend/src/views/forms/data-grid/ColumnMenu/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLUMNS
+  file: frontend/src/views/kanban/Board/Columns.jsx
+  props:
+  - name: column
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_COLUMNSGRID
+  file: frontend/src/views/utilities/Grid/ColumnsGrid.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLUMNSLAYOUTS
+  file: frontend/src/views/forms/layouts/MultiColumnForms.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLUMNVIRTUALIZATION
+  file: frontend/src/views/forms/data-grid/ColumnVirtualization/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLUMNVIRTUALIZATIONGRID
+  file: frontend/src/views/forms/data-grid/ColumnVirtualization/Virtualization.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLUMNVISIBILITY
+  file: frontend/src/views/forms/data-grid/ColumnVisibility/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLUMNVISIBILITYPANEL
+  file: frontend/src/views/forms/data-grid/ColumnVisibility/VisibilityPanel.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COMINGSOON1
+  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COMINGSOON2
+  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon2.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COMINGSOONSLIDER
+  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/Slider.jsx
+  props:
+  - name: handleClickOpen
+    type: func
+    required: false
+  emits: []
+  state: []
+- id: COMP_COMPLEXGRID
+  file: frontend/src/views/utilities/Grid/ComplexGrid.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COMPONENTSOVERRIDES
+  file: frontend/src/themes/overrides/index.js
+  props: []
+  emits: []
+  state: []
+- id: COMP_COMPOSITIONPIECARD
+  file: frontend/src/views/dashboard/CompositionPieCard.jsx
+  props:
+  - name: maxHeight
+    type: oneOfType
+    required: false
+  - name: maxWidth
+    type: oneOfType
+    required: false
+  emits: []
+  state: []
+- id: COMP_CONFIGPROVIDER
+  file: frontend/src/contexts/ConfigContext.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_CONTACTCARD
+  file: frontend/src/ui-component/cards/ContactCard.jsx
+  props:
+  - name: avatar
+    type: any
+    required: false
+  - name: contact
+    type: any
+    required: false
+  - name: email
+    type: any
+    required: false
+  - name: name
+    type: any
+    required: false
+  - name: location
+    type: any
+    required: false
+  - name: onActive
+    type: func
+    required: false
+  - name: role
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_CONTACTLIST
+  file: frontend/src/ui-component/cards/ContactList.jsx
+  props:
+  - name: avatar
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_CONVERSIONSCHARTCARD
+  file: frontend/src/views/widget/Chart/ConversionsChartCard.jsx
+  props:
+  - name: chartData
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_COOLDOWNTABLE
+  file: frontend/src/ui-component/thresholds/CooldownTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CSVEXPORT
+  file: frontend/src/views/forms/tables/TableExports.jsx
+  props:
+  - name: data
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_CUSTOMCOLUMNMENU
+  file: frontend/src/views/forms/data-grid/ColumnMenu/ReorderingMenu.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CUSTOMCOMPONENT
+  file: frontend/src/ui-component/extended/notistack/CustomComponent.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CUSTOMDATETIME
+  file: frontend/src/views/forms/components/DateTime/CustomDateTime.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CUSTOMEDITCOMPONENT
+  file: frontend/src/views/forms/data-grid/InLineEditing/CustomEdit.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CUSTOMERSATISFACTIONCARD
+  file: frontend/src/views/widget/Statistics/CustomerSatisfactionCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CUSTOMIZATION
+  file: frontend/src/layout/Customization/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CUSTOMIZATIONDEMO
+  file: frontend/src/views/forms/data-grid/ColumnGroups/CustomColumnGroup.jsx
+  props:
+  - name: Selected
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_CUSTOMIZEDTABLES
+  file: frontend/src/views/forms/tables/TablesCustomized.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CUSTOMMENU
+  file: frontend/src/views/forms/data-grid/ColumnMenu/CustomMenu.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CUSTOMNOTISTACK
+  file: frontend/src/ui-component/extended/notistack/CustomComponent.jsx
+  props:
+  - name: id
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_CUSTOMSHADOWBOX
+  file: frontend/src/views/utilities/Shadow.jsx
+  props:
+  - name: shadow
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_CUSTOMTABPANEL
+  file: frontend/src/layout/Customization/index.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_CUSTOMUSERITEM
+  file: frontend/src/views/forms/data-grid/ColumnMenu/AddMenuItem.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_CYCLONERUNSECTION
+  file: frontend/src/layout/MainLayout/Header/CycloneRunSection/CycloneRunSection.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DASHBOARD
+  file: frontend/src/views/sonic/index_BU.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DASHBOARDGRID
+  file: frontend/src/components/dashboard-grid/DashboardGrid.jsx
+  props:
+  - name: layout
+    type: object
+    required: true
+  - name: wireframe
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_DASHBOARDTOGGLE
+  file: frontend/src/components/StatusRail/DashboardToggle.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DASHROWCONTAINER
+  file: frontend/src/ui-component/containers/DashRowContainer.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DATABASEVIEWER
+  file: frontend/src/views/debug/DatabaseViewer.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DATACARD
+  file: frontend/src/views/forms/chart/OrgChart/DataCard.jsx
+  props:
+  - name: name
+    type: any
+    required: false
+  - name: role
+    type: any
+    required: false
+  - name: avatar
+    type: any
+    required: false
+  - name: linkedin
+    type: any
+    required: false
+  - name: meet
+    type: any
+    required: false
+  - name: skype
+    type: any
+    required: false
+  - name: root
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_DATAGRIDBASIC
+  file: frontend/src/views/forms/data-grid/DataGridBasic/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DATETIME
+  file: frontend/src/views/forms/components/DateTime/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DENSE
+  file: frontend/src/ui-component/extended/notistack/Dense.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DENSETABLE
+  file: frontend/src/views/forms/tables/TableDense.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DISABLECOLUMNMENU
+  file: frontend/src/views/forms/data-grid/ColumnMenu/DisableMenu.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DISABLESLIDER
+  file: frontend/src/views/forms/components/Slider/DisableSlider.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DISABLESTOPEDITMODEONFOCUSOUT
+  file: frontend/src/views/forms/data-grid/InLineEditing/EditingEvents.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DISMISSSNACKBAR
+  file: frontend/src/ui-component/extended/notistack/DismissSnackBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DONUTCOUNTDOWN
+  file: frontend/src/layout/MainLayout/Header/TimerSection/DonutCountdown.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_DROPZONE
+  file: frontend/src/views/forms/plugins/Dropzone.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_EARNINGCARD
+  file: frontend/src/ui-component/cards/Skeleton/EarningCard.jsx
+  props:
+  - name: isLoading
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_EDITABLECOLUMN
+  file: frontend/src/views/forms/data-grid/InLineEditing/EditableColumn.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_EDITCOLUMN
+  file: frontend/src/views/kanban/Board/EditColumn.jsx
+  props:
+  - name: column
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_EDITITEM
+  file: frontend/src/views/kanban/Board/EditItem.jsx
+  props:
+  - name: item
+    type: any
+    required: false
+  - name: profiles
+    type: array
+    required: false
+  - name: userStory
+    type: array
+    required: false
+  - name: columns
+    type: array
+    required: false
+  - name: handleDrawerOpen
+    type: func
+    required: false
+  emits: []
+  state: []
+- id: COMP_EDITOR
+  file: frontend/src/views/forms/plugins/Editor.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_EDITSTORY
+  file: frontend/src/views/kanban/Backlogs/EditStory.jsx
+  props:
+  - name: story
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_ELEVATIONSCROLL
+  file: frontend/src/layout/MainLayout/HorizontalBar.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_ENHANCEDTABLE
+  file: frontend/src/views/forms/tables/TableEnhanced.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ENHANCEDTABLEHEAD
+  file: frontend/src/views/forms/tables/TableEnhanced.jsx
+  props:
+  - name: onSelectAllClick
+    type: any
+    required: false
+  - name: order
+    type: any
+    required: false
+  - name: orderBy
+    type: any
+    required: false
+  - name: numSelected
+    type: any
+    required: false
+  - name: rowCount
+    type: any
+    required: false
+  - name: onRequestSort
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_ENHANCEDTABLETOOLBAR
+  file: frontend/src/views/forms/tables/TableEnhanced.jsx
+  props:
+  - name: numSelected
+    type: number
+    required: false
+  emits: []
+  state: []
+- id: COMP_ERROR
+  file: frontend/src/views/pages/maintenance/Error.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ERRORBOUNDARY
+  file: frontend/src/routes/ErrorBoundary.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_EXCLUDEHIDDENCOLUMN
+  file: frontend/src/views/forms/data-grid/QuickFilter/ExcludeHiddenColumns.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FEEDSCARD
+  file: frontend/src/views/widget/Data/FeedsCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FILESPREVIEW
+  file: frontend/src/ui-component/third-party/dropzone/FilePreview.jsx
+  props:
+  - name: showList
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_FIREBASELOGIN
+  file: frontend/src/views/pages/authentication/firebase/AuthLogin.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FIREBASEPROVIDER
+  file: frontend/src/contexts/FirebaseContext.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_FIREBASEREGISTER
+  file: frontend/src/views/pages/authentication/firebase/AuthRegister.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FIREBASESOCIAL
+  file: frontend/src/views/pages/authentication/firebase/FirebaseSocial.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FLOATINGCART
+  file: frontend/src/ui-component/cards/FloatingCart.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FOLLOWERCARD
+  file: frontend/src/ui-component/cards/FollowerCard.jsx
+  props:
+  - name: avatar
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_FONTFAMILYPAGE
+  file: frontend/src/layout/Customization/FontFamily.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FOOTER
+  file: frontend/src/layout/MainLayout/Footer.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FORBIDDEN
+  file: frontend/src/views/pages/maintenance/Forbidden.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FORGOTPASSWORD
+  file: frontend/src/views/pages/authentication/ForgotPassword.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FORMCONTROL
+  file: frontend/src/ui-component/extended/Form/FormControl.jsx
+  props:
+  - name: captionLabel
+    type: string
+    required: false
+  - name: formState
+    type: string
+    required: false
+  - name: iconPrimary
+    type: any
+    required: false
+  - name: iconSecondary
+    type: any
+    required: false
+  - name: placeholder
+    type: string
+    required: false
+  - name: textPrimary
+    type: string
+    required: false
+  - name: textSecondary
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_FORMCONTROLSELECT
+  file: frontend/src/ui-component/extended/Form/FormControlSelect.jsx
+  props:
+  - name: captionLabel
+    type: string
+    required: false
+  - name: currencies
+    type: object
+    required: false
+  - name: formState
+    type: string
+    required: false
+  - name: iconPrimary
+    type: any
+    required: false
+  - name: iconSecondary
+    type: any
+    required: false
+  - name: selected
+    type: string
+    required: false
+  - name: textPrimary
+    type: string
+    required: false
+  - name: textSecondary
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_FORMROW
+  file: frontend/src/views/utilities/Grid/NestedGrid.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FORMSVALIDATION
+  file: frontend/src/views/forms/forms-validation/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FORMSWIZARD
+  file: frontend/src/views/forms/forms-wizard/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FRIENDREQUESTCARD
+  file: frontend/src/ui-component/cards/FriendRequestCard.jsx
+  props:
+  - name: avatar
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_FRIENDSCARD
+  file: frontend/src/ui-component/cards/FriendsCard.jsx
+  props:
+  - name: avatar
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_FRMAUTOCOMPLETE
+  file: frontend/src/views/forms/plugins/AutoComplete.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FULLFEATUREDCRUDGRID
+  file: frontend/src/views/forms/data-grid/InLineEditing/FullFeatured.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FULLSCREEN
+  file: frontend/src/layout/MainLayout/Header/FullScreenSection/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FULLWIDTHPAPER
+  file: frontend/src/ui-component/cards/FullWidthPaper.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_FUNCARD
+  file: frontend/src/ui-component/fun/FunCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_GALLERYCARD
+  file: frontend/src/ui-component/cards/GalleryCard.jsx
+  props:
+  - name: dateTime
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_GRIDSECTION
+  file: frontend/src/components/dashboard-grid/GridSection.jsx
+  props:
+  - name: section
+    type: object
+    required: true
+  - name: wireframe
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_GRIDSLOT
+  file: frontend/src/components/dashboard-grid/GridSlot.jsx
+  props:
+  - name: slotDef
+    type: object
+    required: true
+  - name: wireframe
+    type: bool
+    required: false
+  - name: Widget
+    type: elementType
+    required: false
+  emits: []
+  state: []
+- id: COMP_GRIDSYSTEM
+  file: frontend/src/views/utilities/Grid/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_GROWTRANSITION
+  file: frontend/src/ui-component/extended/Snackbar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_GUESTGUARD
+  file: frontend/src/utils/route-guard/GuestGuard.jsx
+  props:
+  - name: children
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_HEADER
+  file: frontend/src/layout/MainLayout/Header/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_HEADERAVATAR
+  file: frontend/src/layout/MainLayout/Header/SearchSection/index.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_HEADERWITHICON
+  file: frontend/src/views/forms/data-grid/ColumnGroups/CustomColumnGroup.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_HEDGEEVALUATOR
+  file: frontend/src/hedge-report/components/HedgeEvaluator.tsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_HEDGEREPORTPAGE
+  file: frontend/src/hedge-report/pages/HedgeReportPage.tsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_HIDEDURATION
+  file: frontend/src/ui-component/extended/notistack/HideDuration.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_HIDEMENUITEM
+  file: frontend/src/views/forms/data-grid/ColumnMenu/HideMenuItem.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_HORIZONTALBAR
+  file: frontend/src/layout/MainLayout/HorizontalBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_HOVERDATACARD
+  file: frontend/src/ui-component/cards/HoverDataCard.jsx
+  props:
+  - name: title
+    type: any
+    required: false
+  - name: iconPrimary
+    type: object
+    required: false
+  - name: primary
+    type: any
+    required: false
+  - name: secondary
+    type: any
+    required: false
+  - name: color
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_HOVERSOCIALCARD
+  file: frontend/src/ui-component/cards/HoverSocialCard.jsx
+  props:
+  - name: primary
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_ICONGRIDCARD
+  file: frontend/src/views/widget/Statistics/IconGridCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ICONNUMBERCARD
+  file: frontend/src/ui-component/cards/IconNumberCard.jsx
+  props:
+  - name: title
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_ICONVARIANTS
+  file: frontend/src/ui-component/extended/notistack/IconVariants.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ICONVARIANTSCONTENT
+  file: frontend/src/ui-component/extended/notistack/IconVariants.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_IMAGELIST
+  file: frontend/src/ui-component/extended/ImageList.jsx
+  props:
+  - name: itemData
+    type: array
+    required: false
+  emits: []
+  state: []
+- id: COMP_IMAGEPLACEHOLDER
+  file: frontend/src/ui-component/cards/Skeleton/ImagePlaceholder.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_INCOMINGREQUESTS
+  file: frontend/src/views/widget/Data/IncomingRequests.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_INITIALSTATE
+  file: frontend/src/views/forms/data-grid/SaveRestoreState/InitialState.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_INLINEEDITING
+  file: frontend/src/views/forms/data-grid/InLineEditing/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_INPUTFILLED
+  file: frontend/src/layout/Customization/InputFilled.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_INPUTLABEL
+  file: frontend/src/ui-component/extended/Form/InputLabel.jsx
+  props:
+  - name: children
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_INSTANTFEEDBACK
+  file: frontend/src/views/forms/forms-validation/InstantFeedback.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ISCELLEDITABLEGRID
+  file: frontend/src/views/forms/data-grid/InLineEditing/DisableEditing.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ITEM
+  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/Slider.jsx
+  props:
+  - name: item
+    type: object
+    required: false
+  emits: []
+  state: []
+- id: COMP_ITEMCOMMENT
+  file: frontend/src/views/kanban/Board/ItemComment.jsx
+  props:
+  - name: comment
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_ITEMDETAILS
+  file: frontend/src/views/kanban/Board/ItemDetails.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ITEMS
+  file: frontend/src/views/kanban/Board/Items.jsx
+  props:
+  - name: itemId
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_JUPITERPAGE
+  file: frontend/src/views/jupiter/JupiterPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_JWTLOGIN
+  file: frontend/src/views/pages/authentication/jwt/AuthLogin.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_JWTPROVIDER
+  file: frontend/src/contexts/JWTContext.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_JWTREGISTER
+  file: frontend/src/views/pages/authentication/jwt/AuthRegister.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_KANBANPAGE
+  file: frontend/src/views/kanban/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LABELSLIDER
+  file: frontend/src/views/forms/components/Slider/LabelSlider.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LANDSCAPEDATETIME
+  file: frontend/src/views/forms/components/DateTime/LandscapeDateTime.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LATESTCUSTOMERS
+  file: frontend/src/views/widget/Data/LatestCustomers.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LATESTMESSAGES
+  file: frontend/src/views/widget/Data/LatestMessages.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LATESTORDER
+  file: frontend/src/views/widget/Data/LatestOrder.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LATESTPOSTS
+  file: frontend/src/views/widget/Data/LatestPosts.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LAYOUT
+  file: frontend/src/layout/Customization/Layout.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LAYOUTS
+  file: frontend/src/views/forms/layouts/Layouts.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LINEARPROGRESSWITHLABEL
+  file: frontend/src/layout/MainLayout/Sidebar/MenuCard/index.jsx
+  props:
+  - name: value
+    type: number
+    required: true
+  emits: []
+  state: []
+- id: COMP_LINKEDIN
+  file: frontend/src/views/forms/chart/OrgChart/LinkedIn.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LIQROW
+  file: frontend/src/ui-component/liquidation/LiqRow.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LIQUIDATIONBARS
+  file: frontend/src/ui-component/liquidation/LiquidationBars.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LIQUIDATIONBARSCARD
+  file: frontend/src/views/positions/LiquidationBarsCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LIQUIDATIONDISTANCEICON
+  file: frontend/src/views/alertThresholds/icons.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LIQUIDATIONMONITORCARD
+  file: frontend/src/views/monitorManager/LiquidationMonitorCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LISTITEMWRAPPER
+  file: frontend/src/layout/MainLayout/Header/NotificationSection/NotificationList.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LOADABLE
+  file: frontend/src/ui-component/Loadable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LOADER
+  file: frontend/src/ui-component/Loader.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LOCALES
+  file: frontend/src/ui-component/Locales.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_LOCALIZATIONSECTION
+  file: frontend/src/layout/MainLayout/Header/LocalizationSection/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LOGCONSOLE
+  file: frontend/src/views/sonicLabs/SonicLabsPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LOGIN
+  file: frontend/src/views/pages/authentication/Login.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LOGINFORMS
+  file: frontend/src/views/forms/forms-validation/LoginForms.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LOGINPROVIDER
+  file: frontend/src/views/pages/authentication/LoginProvider.jsx
+  props:
+  - name: currentLoginWith
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_LOGO
+  file: frontend/src/ui-component/Logo.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LOGOSECTION
+  file: frontend/src/layout/MainLayout/LogoSection/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MAILERSUBSCRIBER
+  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/MailerSubscriber.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MAINCARD
+  file: frontend/src/ui-component/cards/MainCard.jsx
+  props:
+  - name: border
+    type: bool
+    required: false
+  - name: boxShadow
+    type: bool
+    required: false
+  - name: children
+    type: oneOfType
+    required: false
+  - name: content
+    type: bool
+    required: false
+  - name: contentClass
+    type: string
+    required: false
+  - name: contentSX
+    type: object
+    required: false
+  - name: headerSX
+    type: object
+    required: false
+  - name: darkTitle
+    type: bool
+    required: false
+  - name: secondary
+    type: any
+    required: false
+  - name: shadow
+    type: string
+    required: false
+  - name: sx
+    type: object
+    required: false
+  - name: title
+    type: oneOfType
+    required: false
+  - name: ref
+    type: object
+    required: false
+  - name: others
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_MAINLAYOUT
+  file: frontend/src/layout/MainLayout/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MARKETCHARTCARD
+  file: frontend/src/views/widget/Chart/MarketSaleChartCard.jsx
+  props:
+  - name: chartData
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_MARKETMONITORCARD
+  file: frontend/src/views/monitorManager/MarketMonitorCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MARKETMOVEMENTCARD
+  file: frontend/src/components/MarketMovementCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MARKETSPANEL
+  file: frontend/src/components/jupiter/Perps/MarketsPanel.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MASKPAGE
+  file: frontend/src/views/forms/plugins/Mask.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MAXSNACKBAR
+  file: frontend/src/ui-component/extended/notistack/MaxSnackbar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MEETICON
+  file: frontend/src/views/forms/chart/OrgChart/MeetIcon.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MEGAMENUBANNER
+  file: frontend/src/layout/MainLayout/Header/MegaMenuSection/Banner.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MEGAMENUSECTION
+  file: frontend/src/layout/MainLayout/Header/MegaMenuSection/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MENUCARD
+  file: frontend/src/layout/MainLayout/Sidebar/MenuCard/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MENUCLOSECOMPONENT
+  file: frontend/src/views/forms/data-grid/ColumnMenu/CustomMenu.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MENULIST
+  file: frontend/src/layout/MainLayout/MenuList/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MENUORIENTATIONPAGE
+  file: frontend/src/layout/Customization/MenuOrientation.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MINIMALLAYOUT
+  file: frontend/src/layout/MinimalLayout/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MOBILESEARCH
+  file: frontend/src/layout/MainLayout/Header/SearchSection/index.jsx
+  props:
+  - name: value
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_MOBILESECTION
+  file: frontend/src/layout/MainLayout/Header/MobileSection/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MODAL
+  file: frontend/src/views/forms/plugins/Modal/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MONITORMANAGER
+  file: frontend/src/views/monitorManager/MonitorManager.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MONITORUPDATEBAR
+  file: frontend/src/views/monitorManager/MonitorUpdateBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_MULTIFILEUPLOAD
+  file: frontend/src/ui-component/third-party/dropzone/MultiFile.jsx
+  props:
+  - name: error
+    type: any
+    required: false
+  - name: showList
+    type: bool
+    required: false
+  - name: files
+    type: any
+    required: false
+  - name: type
+    type: any
+    required: false
+  - name: setFieldValue
+    type: any
+    required: false
+  - name: sx
+    type: any
+    required: false
+  - name: onUpload
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_MULTIPLEBREAKPOINTS
+  file: frontend/src/views/utilities/Grid/MultipleBreakPoints.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_NAMEEDITINPUTCELL
+  file: frontend/src/views/forms/data-grid/InLineEditing/Validation.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_NAVCOLLAPSE
+  file: frontend/src/layout/MainLayout/MenuList/NavCollapse/index.jsx
+  props:
+  - name: menu
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_NAVGROUP
+  file: frontend/src/layout/MainLayout/MenuList/NavGroup/index.jsx
+  props:
+  - name: item
+    type: any
+    required: false
+  - name: lastItem
+    type: number
+    required: false
+  - name: remItems
+    type: array
+    required: false
+  - name: lastItemId
+    type: string
+    required: false
+  - name: selectedID
+    type: oneOfType
+    required: false
+  - name: setSelectedID
+    type: oneOfType
+    required: false
+  emits: []
+  state: []
+- id: COMP_NAVIGATIONSCROLL
+  file: frontend/src/layout/NavigationScroll.jsx
+  props:
+  - name: children
+    type: oneOfType
+    required: false
+  emits: []
+  state: []
+- id: COMP_NAVITEM
+  file: frontend/src/layout/MainLayout/MenuList/NavItem/index.jsx
+  props:
+  - name: item
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_NAVMOTION
+  file: frontend/src/layout/NavMotion.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_NESTEDGRID
+  file: frontend/src/views/utilities/Grid/NestedGrid.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_NEWCUSTOMERS
+  file: frontend/src/views/widget/Data/NewCustomers.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_NOTIFICATIONLIST
+  file: frontend/src/layout/MainLayout/Header/NotificationSection/NotificationList.jsx
+  props:
+  - name: items
+    type: array
+    required: false
+  emits: []
+  state: []
+- id: COMP_NOTIFICATIONSECTION
+  file: frontend/src/layout/MainLayout/Header/NotificationSection/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_NOTISTACK
+  file: frontend/src/ui-component/third-party/Notistack.jsx
+  props:
+  - name: children
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_OPERATIONSBAR
+  file: frontend/src/components/StatusRail/OperationsBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ORDERFORM
+  file: frontend/src/components/jupiter/Perps/OrderForm.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ORGCHARTPAGE
+  file: frontend/src/views/forms/chart/OrgChart/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_OVERRIDEMENU
+  file: frontend/src/views/forms/data-grid/ColumnMenu/OverrideMenu.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_OVERVIEWPAGE
+  file: frontend/src/views/overview/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PALETTE
+  file: frontend/src/themes/palette.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PARSINGVALUES
+  file: frontend/src/views/forms/data-grid/QuickFilter/ParsingValues.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PAYMENTFORM
+  file: frontend/src/views/forms/forms-wizard/ValidationWizard/PaymentForm.jsx
+  props:
+  - name: paymentData
+    type: any
+    required: false
+  - name: setPaymentData
+    type: func
+    required: false
+  - name: handleNext
+    type: func
+    required: false
+  - name: handleBack
+    type: func
+    required: false
+  - name: setErrorIndex
+    type: func
+    required: false
+  emits: []
+  state: []
+- id: COMP_PERFCHIP
+  file: frontend/src/components/PerformanceGraphCard/PerformanceGraphCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PERFORMANCEGRAPHCARD
+  file: frontend/src/views/dashboard/PerformanceGraphCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PLACEHOLDERCONTENT
+  file: frontend/src/ui-component/third-party/dropzone/PlaceHolderContent.jsx
+  props:
+  - name: type
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_POPULARCARD
+  file: frontend/src/ui-component/cards/Skeleton/PopularCard.jsx
+  props:
+  - name: isLoading
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_POPUPSLIDER
+  file: frontend/src/views/forms/components/Slider/PopupSlider.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PORTFOLIOBAR
+  file: frontend/src/components/StatusRail/PortfolioBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PORTFOLIOSESSIONCARD
+  file: frontend/src/components/PortfolioSessionCard/PortfolioSessionCard.jsx
+  props:
+  - name: snapshot
+    type: object
+    required: false
+  - name: currentValueUsd
+    type: number
+    required: false
+  - name: onModify
+    type: func
+    required: false
+  - name: onReset
+    type: func
+    required: false
+  emits: []
+  state: []
+- id: COMP_POSITIONINGSNACKBAR
+  file: frontend/src/ui-component/extended/notistack/PositioningSnackbar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_POSITIONLISTCARD
+  file: frontend/src/views/dashboard/PositionListCard.jsx
+  props:
+  - name: title
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_POSITIONPIECARD
+  file: frontend/src/components/PositionPieCard/PositionPieCard.jsx
+  props:
+  - name: maxHeight
+    type: oneOfType
+    required: false
+  - name: maxWidth
+    type: oneOfType
+    required: false
+  emits: []
+  state: []
+- id: COMP_POSITIONSCELL
+  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_POSITIONSPAGE
+  file: frontend/src/views/positions/PositionsPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_POSITIONSPANEL
+  file: frontend/src/components/jupiter/Perps/PositionsPanel.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_POSITIONSTABLE
+  file: frontend/src/hedge-report/components/PositionsTable.tsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_POSITIONSTABLECARD
+  file: frontend/src/ui-component/cards/positions/PositionsTableCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_POSITIONTABLECARD
+  file: frontend/src/views/positions/PositionTableCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PRESETCOLORBOX
+  file: frontend/src/layout/Customization/PresetColor.jsx
+  props:
+  - name: color
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_PRESETCOLORPAGE
+  file: frontend/src/layout/Customization/PresetColor.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PREVENTDUPLICATE
+  file: frontend/src/ui-component/extended/notistack/PreventDuplicate.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PRODUCTCARD
+  file: frontend/src/ui-component/cards/ProductCard.jsx
+  props:
+  - name: id
+    type: any
+    required: false
+  - name: color
+    type: any
+    required: false
+  - name: name
+    type: any
+    required: false
+  - name: image
+    type: any
+    required: false
+  - name: description
+    type: any
+    required: false
+  - name: offerPrice
+    type: any
+    required: false
+  - name: salePrice
+    type: any
+    required: false
+  - name: rating
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_PRODUCTPLACEHOLDER
+  file: frontend/src/ui-component/cards/Skeleton/ProductPlaceholder.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PRODUCTREVIEW
+  file: frontend/src/ui-component/cards/ProductReview.jsx
+  props:
+  - name: avatar
+    type: string
+    required: false
+  - name: date
+    type: oneOfType
+    required: false
+  - name: name
+    type: string
+    required: false
+  - name: status
+    type: bool
+    required: false
+  - name: rating
+    type: number
+    required: false
+  - name: review
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_PRODUCTSALES
+  file: frontend/src/views/widget/Data/ProductSales.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PROFITEMOJIICON
+  file: frontend/src/views/alertThresholds/icons.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PROFITMONITORCARD
+  file: frontend/src/views/monitorManager/ProfitMonitorCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PROFITRISKHEADERBADGES
+  file: frontend/src/components/ProfitRiskHeaderBadges.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PROJECTTABLE
+  file: frontend/src/views/widget/Data/ProjectTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PROJECTTASKCARD
+  file: frontend/src/views/widget/Statistics/ProjectTaskCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_PROVIDERACCORDION
+  file: frontend/src/views/xcomSettings/components/ProviderAccordion.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_QUICKFILTER
+  file: frontend/src/views/forms/data-grid/QuickFilter/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_QUICKFILTERINGCUSTOMLOGIC
+  file: frontend/src/views/forms/data-grid/QuickFilter/CustomFilter.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_QUICKFILTERINGINITIALIZE
+  file: frontend/src/views/forms/data-grid/QuickFilter/Initialize.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_QUICKIMPORTSTARWARS
+  file: frontend/src/views/traderShop/QuickImportStarWars.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_QUOTECARD
+  file: frontend/src/views/jupiter/JupiterPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_RADIOGROUPFORMS
+  file: frontend/src/views/forms/forms-validation/RadioGroupForms.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_RATINGEDITINPUTCELL
+  file: frontend/src/views/forms/data-grid/InLineEditing/CustomEdit.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_RECAPTCHAPAGE
+  file: frontend/src/views/forms/plugins/Recaptcha.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_RECENTTICKETS
+  file: frontend/src/views/widget/Data/RecentTickets.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_REGISTER
+  file: frontend/src/views/pages/authentication/Register.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_REJECTIONFILES
+  file: frontend/src/ui-component/third-party/dropzone/RejectionFile.jsx
+  props:
+  - name: fileRejections
+    type: array
+    required: false
+  emits: []
+  state: []
+- id: COMP_REORDERMENU
+  file: frontend/src/views/forms/data-grid/ColumnMenu/ReorderingMenu.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_REPORTCARD
+  file: frontend/src/ui-component/cards/ReportCard.jsx
+  props:
+  - name: primary
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_RESETPASSWORD
+  file: frontend/src/views/pages/authentication/ResetPassword.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_REVENUECARD
+  file: frontend/src/ui-component/cards/RevenueCard.jsx
+  props:
+  - name: primary
+    type: any
+    required: false
+  - name: secondary
+    type: any
+    required: false
+  - name: content
+    type: any
+    required: false
+  - name: iconPrimary
+    type: any
+    required: false
+  - name: color
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_REVENUECHARTCARD
+  file: frontend/src/views/widget/Chart/RevenueChartCard.jsx
+  props:
+  - name: chartData
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_REVIEW
+  file: frontend/src/views/forms/forms-wizard/ValidationWizard/Review.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_ROUNDICONCARD
+  file: frontend/src/ui-component/cards/RoundIconCard.jsx
+  props:
+  - name: primary
+    type: string
+    required: false
+  - name: secondary
+    type: string
+    required: false
+  - name: content
+    type: string
+    required: false
+  - name: iconPrimary
+    type: any
+    required: false
+  - name: color
+    type: string
+    required: false
+  - name: bgcolor
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_ROW
+  file: frontend/src/views/forms/tables/TableCollapsible.jsx
+  props:
+  - name: row
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_RTLLAYOUT
+  file: frontend/src/ui-component/RTLLayout.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_SALESLINECHARTCARD
+  file: frontend/src/ui-component/cards/SalesLineChartCard.jsx
+  props:
+  - name: bgColor
+    type: string
+    required: false
+  - name: chartData
+    type: any
+    required: false
+  - name: footerData
+    type: object
+    required: false
+  - name: icon
+    type: oneOfType
+    required: false
+  - name: title
+    type: string
+    required: false
+  - name: percentage
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_SATISFACTIONCHARTCARD
+  file: frontend/src/views/widget/Chart/SatisfactionChartCard.jsx
+  props:
+  - name: chartData
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_SAVERESTORESTATE
+  file: frontend/src/views/forms/data-grid/SaveRestoreState/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SEARCHSECTION
+  file: frontend/src/layout/MainLayout/Header/SearchSection/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SECTION
+  file: frontend/src/views/sonic/index_BU.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SELECTEDITINPUTCELL
+  file: frontend/src/views/forms/data-grid/InLineEditing/AutoStop.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SELECTFORMS
+  file: frontend/src/views/forms/forms-validation/SelectForms.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SENDCARD
+  file: frontend/src/views/jupiter/JupiterPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SEOCHARTCARD
+  file: frontend/src/ui-component/cards/SeoChartCard.jsx
+  props:
+  - name: chartData
+    type: any
+    required: false
+  - name: value
+    type: oneOfType
+    required: false
+  - name: title
+    type: string
+    required: false
+  - name: icon
+    type: oneOfType
+    required: false
+  - name: type
+    type: number
+    required: false
+  emits: []
+  state: []
+- id: COMP_SERVERMODAL
+  file: frontend/src/views/forms/plugins/Modal/ServerModal.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SERVERSIDEPERSISTENCE
+  file: frontend/src/views/forms/data-grid/InLineEditing/ServerValidation.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SETTINGSSECTION
+  file: frontend/src/layout/MainLayout/Header/SettingsSection/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SHADOWBOX
+  file: frontend/src/views/utilities/Shadow.jsx
+  props:
+  - name: shadow
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_SIDEBAR
+  file: frontend/src/layout/MainLayout/Sidebar/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SIDEBARDRAWER
+  file: frontend/src/layout/Customization/SidebarDrawer.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SIDEICONCARD
+  file: frontend/src/ui-component/cards/SideIconCard.jsx
+  props:
+  - name: iconPrimary
+    type: object
+    required: false
+  - name: primary
+    type: any
+    required: false
+  - name: secondary
+    type: any
+    required: false
+  - name: secondarySub
+    type: string
+    required: false
+  - name: color
+    type: any
+    required: false
+  - name: bgcolor
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_SIDEPANELWIDTHSLIDER
+  file: frontend/src/views/positions/SidePanelWidthSlider.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SIMPLEMODAL
+  file: frontend/src/views/forms/plugins/Modal/SimpleModal.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SIMPLETREE
+  file: frontend/src/views/forms/chart/OrgChart/index.jsx
+  props:
+  - name: name
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_SINGLEFILEUPLOAD
+  file: frontend/src/ui-component/third-party/dropzone/SingleFile.jsx
+  props:
+  - name: error
+    type: any
+    required: false
+  - name: file
+    type: any
+    required: false
+  - name: setFieldValue
+    type: any
+    required: false
+  - name: sx
+    type: any
+    required: false
+  - name: other
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_SKYPEICON
+  file: frontend/src/views/forms/chart/OrgChart/SkypeIcon.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SLIDER
+  file: frontend/src/views/forms/components/Slider/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SNACKBAR
+  file: frontend/src/ui-component/extended/Snackbar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SNACKBARACTION
+  file: frontend/src/ui-component/extended/notistack/SnackBarAction.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SONICLABSPAGE
+  file: frontend/src/views/sonicLabs/SonicLabsPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SONICMONITORCARD
+  file: frontend/src/views/monitorManager/SonicMonitorCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SPACINGGRID
+  file: frontend/src/views/utilities/Grid/SpacingGrid.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_STARTEDITBUTTONGRID
+  file: frontend/src/views/forms/data-grid/InLineEditing/Controlled.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_STATCARD
+  file: frontend/src/components/StatusRail/StatCard.jsx
+  props:
+  - name: icon
+    type: node
+    required: false
+  - name: label
+    type: string
+    required: false
+  - name: value
+    type: any
+    required: false
+  - name: secondary
+    type: any
+    required: false
+  - name: variant
+    type: oneOf
+    required: false
+  - name: onClick
+    type: func
+    required: false
+  emits: []
+  state: []
+- id: COMP_STATUSCARD
+  file: frontend/src/ui-component/status-rail/StatusCard.jsx
+  props:
+  - name: front
+    type: shape
+    required: false
+  - name: icon
+    type: node
+    required: false
+  - name: color
+    type: string
+    required: false
+  - name: label
+    type: string
+    required: false
+  - name: value
+    type: oneOfType
+    required: false
+  emits: []
+  state: []
+- id: COMP_STATUSCELL
+  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_STATUSRAIL
+  file: frontend/src/ui-component/rails/StatusRail.jsx
+  props:
+  - name: cards
+    type: array
+    required: false
+  emits: []
+  state: []
+- id: COMP_STEPCARD
+  file: frontend/src/views/sonicLabs/SonicLabsPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_STEPSLIDER
+  file: frontend/src/views/forms/components/Slider/StepSlider.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_STICKYACTIONBAR
+  file: frontend/src/views/forms/layouts/StickyActionBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_STICKYHEADTABLE
+  file: frontend/src/views/forms/tables/TableStickyHead.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_STORYCOMMENT
+  file: frontend/src/views/kanban/Backlogs/StoryComment.jsx
+  props:
+  - name: comment
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_SUBCARD
+  file: frontend/src/ui-component/cards/SubCard.jsx
+  props:
+  - name: children
+    type: oneOfType
+    required: false
+  - name: className
+    type: string
+    required: false
+  - name: content
+    type: bool
+    required: false
+  - name: contentClass
+    type: string
+    required: false
+  - name: darkTitle
+    type: bool
+    required: false
+  - name: secondary
+    type: oneOfType
+    required: false
+  - name: sx
+    type: object
+    required: false
+  - name: contentSX
+    type: object
+    required: false
+  - name: footerSX
+    type: object
+    required: false
+  - name: title
+    type: oneOfType
+    required: false
+  - name: actions
+    type: oneOfType
+    required: false
+  - name: others
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_SUPABASELOGIN
+  file: frontend/src/views/pages/authentication/supabase/AuthLogin.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SUPABASEREGISTER
+  file: frontend/src/views/pages/authentication/supabase/AuthRegister.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_SUPABSEPROVIDER
+  file: frontend/src/contexts/SupabaseContext.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_SWAPSTAB
+  file: frontend/src/views/jupiter/JupiterPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TABLEBASIC
+  file: frontend/src/views/forms/tables/TableBasic.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TABLECOLLAPSIBLE
+  file: frontend/src/views/forms/tables/TableCollapsible.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TABLEDATAGRID
+  file: frontend/src/views/forms/data-grid/DataGridBasic/index.jsx
+  props:
+  - name: Selected
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_TASKSCARD
+  file: frontend/src/views/widget/Data/TasksCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TEAMMEMBERS
+  file: frontend/src/views/widget/Data/TeamMembers.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TEXTFIELDPAGE
+  file: frontend/src/views/forms/components/TextField.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_THEMECUSTOMIZATION
+  file: frontend/src/themes/index.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  emits: []
+  state: []
+- id: COMP_THEMEMODELAYOUT
+  file: frontend/src/layout/Customization/ThemeMode.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_THEMEMODESECTION
+  file: frontend/src/layout/MainLayout/Header/ThemeModeSection/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_THRESHOLDSTABLE
+  file: frontend/src/views/alertThresholds/ThresholdsTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_THRESHOLDTABLE
+  file: frontend/src/ui-component/thresholds/ThresholdTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TIMERSECTION
+  file: frontend/src/layout/MainLayout/Header/TimerSection/TimerSection.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TODOLIST
+  file: frontend/src/views/widget/Data/ToDoList.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TOOLBAR
+  file: frontend/src/views/forms/data-grid/SaveRestoreState/UseGridSelector.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TOOLTIP
+  file: frontend/src/views/forms/plugins/Tooltip.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TOPCELL
+  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TOPTOKENSCHIPS
+  file: frontend/src/components/wallets/VerifiedCells.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TOTALGROWTHBARCHART
+  file: frontend/src/ui-component/cards/Skeleton/TotalGrowthBarChart.jsx
+  props:
+  - name: isLoading
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_TOTALINCOMECARD
+  file: frontend/src/ui-component/cards/Skeleton/TotalIncomeCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TOTALINCOMEDARKCARD
+  file: frontend/src/ui-component/cards/TotalIncomeDarkCard.jsx
+  props:
+  - name: isLoading
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_TOTALINCOMELIGHTCARD
+  file: frontend/src/ui-component/cards/TotalIncomeLightCard.jsx
+  props:
+  - name: isLoading
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_TOTALLINECHARTCARD
+  file: frontend/src/ui-component/cards/TotalLineChartCard.jsx
+  props:
+  - name: bgColor
+    type: string
+    required: false
+  - name: chartData
+    type: any
+    required: false
+  - name: title
+    type: string
+    required: false
+  - name: percentage
+    type: string
+    required: false
+  - name: value
+    type: number
+    required: false
+  emits: []
+  state: []
+- id: COMP_TOTALORDERLINECHARTCARD
+  file: frontend/src/views/dashboard/Default/TotalOrderLineChartCard.jsx
+  props:
+  - name: isLoading
+    type: bool
+    required: false
+  emits: []
+  state: []
+- id: COMP_TOTALREVENUE
+  file: frontend/src/views/widget/Data/TotalRevenue.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TOTALVALUECARD
+  file: frontend/src/ui-component/cards/TotalValueCard.jsx
+  props:
+  - name: primary
+    type: any
+    required: false
+  - name: secondary
+    type: any
+    required: false
+  - name: content
+    type: any
+    required: false
+  - name: iconPrimary
+    type: any
+    required: false
+  - name: color
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_TRADERBAR
+  file: frontend/src/views/traderFactory/TraderBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRADERCARD
+  file: frontend/src/views/traderFactory/TraderCard.jsx
+  props:
+  - name: trader
+    type: object
+    required: true
+  - name: onDelete
+    type: func
+    required: true
+  emits: []
+  state: []
+- id: COMP_TRADERENHANCEDTABLE
+  file: frontend/src/views/traderShop/TraderEnhancedTable.jsx
+  props:
+  - name: headCells
+    type: array
+    required: true
+  - name: rows
+    type: array
+    required: true
+  emits: []
+  state: []
+- id: COMP_TRADERENHANCEDTABLEHEAD
+  file: frontend/src/views/traderShop/TraderEnhancedTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRADERFACTORYPAGE
+  file: frontend/src/views/traderFactory/TraderFactoryPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRADERFORMDRAWER
+  file: frontend/src/views/traderShop/TraderFormDrawer.jsx
+  props:
+  - name: open
+    type: bool
+    required: false
+  - name: onClose
+    type: func
+    required: false
+  - name: initial
+    type: object
+    required: false
+  emits: []
+  state: []
+- id: COMP_TRADERLISTCARD
+  file: frontend/src/views/dashboard/TraderListCard.jsx
+  props:
+  - name: title
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_TRADERSHOPINDEX
+  file: frontend/src/views/traderShop/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRADERSHOPLIST
+  file: frontend/src/views/traderShop/TraderShopList.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRAFFICSOURCES
+  file: frontend/src/views/widget/Data/TrafficSources.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRANSACTIONCARD
+  file: frontend/src/views/jupiter/JupiterPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRANSITIONBAR
+  file: frontend/src/ui-component/extended/notistack/TransitionBar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRANSITIONS
+  file: frontend/src/ui-component/extended/Transitions.jsx
+  props:
+  - name: children
+    type: node
+    required: false
+  - name: position
+    type: string
+    required: false
+  - name: sx
+    type: any
+    required: false
+  - name: type
+    type: string
+    required: false
+  - name: direction
+    type: oneOf
+    required: false
+  - name: others
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_TRANSITIONSLIDEDOWN
+  file: frontend/src/ui-component/extended/Snackbar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRANSITIONSLIDELEFT
+  file: frontend/src/ui-component/extended/Snackbar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRANSITIONSLIDERIGHT
+  file: frontend/src/ui-component/extended/Snackbar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TRANSITIONSLIDEUP
+  file: frontend/src/ui-component/extended/Snackbar.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_TREECARD
+  file: frontend/src/views/forms/chart/OrgChart/index.jsx
+  props:
+  - name: items
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_TYPOGRAPHY
+  file: frontend/src/themes/typography.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_UIBUTTON
+  file: frontend/src/views/forms/components/Button.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_UICHECKBOX
+  file: frontend/src/views/forms/components/Checkbox.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_UICOLOR
+  file: frontend/src/views/utilities/Color.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_UIRADIO
+  file: frontend/src/views/forms/components/Radio.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_UISWITCH
+  file: frontend/src/views/forms/components/Switch.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_UNDERCONSTRUCTION
+  file: frontend/src/views/pages/maintenance/UnderConstruction.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_UPGRADEPLANCARD
+  file: frontend/src/layout/MainLayout/Header/SettingsSection/UpgradePlanCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_USEGRIDSELECTOR
+  file: frontend/src/views/forms/data-grid/SaveRestoreState/UseGridSelector.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_USERACTIVITY
+  file: frontend/src/views/widget/Data/UserActivity.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_USERCOUNTCARD
+  file: frontend/src/ui-component/cards/UserCountCard.jsx
+  props:
+  - name: primary
+    type: string
+    required: false
+  emits: []
+  state: []
+- id: COMP_USERDETAILSCARD
+  file: frontend/src/ui-component/cards/UserDetailsCard.jsx
+  props:
+  - name: about
+    type: any
+    required: false
+  - name: avatar
+    type: any
+    required: false
+  - name: contact
+    type: any
+    required: false
+  - name: email
+    type: any
+    required: false
+  - name: location
+    type: any
+    required: false
+  - name: name
+    type: any
+    required: false
+  - name: role
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_USERPROFILECARD
+  file: frontend/src/ui-component/cards/UserProfileCard.jsx
+  props:
+  - name: avatar
+    type: any
+    required: false
+  - name: name
+    type: any
+    required: false
+  - name: profile
+    type: any
+    required: false
+  - name: role
+    type: any
+    required: false
+  - name: status
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_USERSIMPLECARD
+  file: frontend/src/ui-component/cards/UserSimpleCard.jsx
+  props:
+  - name: avatar
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_USERSTORY
+  file: frontend/src/views/kanban/Backlogs/UserStory.jsx
+  props:
+  - name: story
+    type: any
+    required: false
+  emits: []
+  state: []
+- id: COMP_UTILITIESSHADOW
+  file: frontend/src/views/utilities/Shadow.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VALIDATESERVERNAMEGRID
+  file: frontend/src/views/forms/data-grid/InLineEditing/Validation.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VALIDATIONWIZARD
+  file: frontend/src/views/forms/forms-wizard/ValidationWizard/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VALUEPARSERSETTERGRID
+  file: frontend/src/views/forms/data-grid/InLineEditing/ParserSetter.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VALUETOCOLLATERALCHARTCARD
+  file: frontend/src/ui-component/cards/ValueToCollateralChartCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VERIFIEDCELL
+  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VERIFIEDSOLCELL
+  file: frontend/src/components/wallets/VerifiedCells.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VERIFIEDSTATUSCELL
+  file: frontend/src/components/wallets/VerifiedCells.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VERTICALMONITORSUMMARYCARD
+  file: frontend/src/views/dashboard/VerticalMonitorSummaryCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VERTICALSLIDER
+  file: frontend/src/views/forms/components/Slider/VerticalSlider.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VIEWONLYALERT
+  file: frontend/src/views/pages/authentication/ViewOnlyAlert.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VIEWRENDERERDATETIME
+  file: frontend/src/views/forms/components/DateTime/ViewRendererDateTime.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VIEWSDATETIMEPICKER
+  file: frontend/src/views/forms/components/DateTime/ViewsDateTimePicker.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VISIBLECOLUMNSMODELCONTROLLED
+  file: frontend/src/views/forms/data-grid/ColumnVisibility/ControlledVisibility.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VISIBLECOLUMNSMODELINITIALSTATE
+  file: frontend/src/views/forms/data-grid/ColumnVisibility/InitializeColumnVisibility.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_VOLUMESLIDER
+  file: frontend/src/views/forms/components/Slider/VolumeSlider.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_WALLETCARD
+  file: frontend/src/views/jupiter/JupiterPage.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_WALLETFORMMODAL
+  file: frontend/src/ui-component/wallet/WalletFormModal.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_WALLETMANAGER
+  file: frontend/src/views/wallet/WalletManager.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_WALLETPIECARD
+  file: frontend/src/ui-component/wallet/WalletPieCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_WALLETTABLE
+  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_WEATHERCARD
+  file: frontend/src/views/widget/Statistics/WeatherCard.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_WIDGETDATA
+  file: frontend/src/views/widget/Data/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_WIDGETSTATISTICS
+  file: frontend/src/views/widget/Statistics/index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_WRAPPEDCOMPONENT
+  file: frontend/src/ui-component/Loadable.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_XCOMSETTINGS
+  file: frontend/src/views/xcomSettings/XComSettings.jsx
+  props: []
+  emits: []
+  state: []
+design_tokens:
+  colors:
+    primary: '#0ea5e9'
+    danger: '#ef4444'
+  spacing_scale:
+  - 4
+  - 8
+  - 12
+  - 16
+  - 24
+  fonts:
+  - Inter
+  - Roboto
+notes:
+- This file is updated by backend/scripts/ui_sweeper.py
+- Routes come from <Route path='...'> and createBrowserRouter() usage
+- Props inferred from TypeScript interfaces or propTypes when available
