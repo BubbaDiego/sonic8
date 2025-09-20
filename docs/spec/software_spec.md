@@ -41,7 +41,7 @@
 | MOD-DATA | `backend/data/` | Persistence utilities and data models. |  |
 | MOD-WALLET | `backend/core/wallet_core/` | Wallet operations, key derivation/management, signing. |  |
 | MOD-SCRIPTS | `backend/scripts/` | Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist). |  |
-| MOD-AUTO | `auto_core/` | Playwright automation (Solflare connect, Jupiter flows). |  |
+| MOD-AUTO | `tests/auto_core/` | Playwright automation (Solflare connect, Jupiter flows). |  |
 | MOD-FRONTEND | `frontend/` | React/Vite/Tailwind UI (Sonic Dashboard, Monitor Manager, Trader Shop). |  |
 <!-- REPO_MAP:END -->
 
@@ -118,12 +118,16 @@
   - **create_virtual_env.py**: def run(cmd, cwd); def venv_python(); def create_venv(); def main()
 
 ### MOD-AUTO
-- **Path**: `auto_core/`
+- **Path**: `tests/auto_core/`
 - **Purpose**: Playwright automation (Solflare connect, Jupiter flows).
 - **Key files**
-  - _(none found)_
+  - `tests/auto_core/test_jupiter_connect.py`
+  - `tests/auto_core/test_playwright_extension.py`
+  - `tests/auto_core/test_web_browser_request.py`
 - **Public interfaces (signatures)**
-  - _(no public signatures detected)_
+  - **test_jupiter_connect.py**: def dummy_sync_playwright(); def test_jupiter_connect(monkeypatch, tmp_path)
+  - **test_playwright_extension.py**: class DummyLog; class FakeBrowser; class FakeChromium; class FakePlaywright
+  - **test_web_browser_request.py**: def test_web_browser_request(); def test_open_browser_missing_browsers(monkeypatch)
 
 ### MOD-FRONTEND
 - **Path**: `frontend/`
