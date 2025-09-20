@@ -26,10 +26,12 @@
   "examples": [
     {
       "status": "ok",
-      "timestamp": "2025-09-19T20:26:00Z",
+      "timestamp": "2025-09-19T18:26:41Z",
       "details": {
-        "backfillLag": 0,
-        "latencyMs": 120
+        "monitors": {
+          "portfolio": "ok",
+          "alerts": "ok"
+        }
       }
     }
   ]

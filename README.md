@@ -1,5 +1,7 @@
 # Sonic1
 
+![Spec CI](https://github.com/BubbaDiego/sonic5/actions/workflows/spec-ci.yml/badge.svg)
+
 Sonic brings together a FastAPI backend, a modern React frontend, and a deep
 library of operational scripts that power the trading monitors and automation
 tools used by the broader Sonic platform. The repository is organized into

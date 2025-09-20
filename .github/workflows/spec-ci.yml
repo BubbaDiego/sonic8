@@ -1,8 +1,15 @@
 name: Spec CI
 on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "docs/spec/**"
+      - "backend/scripts/export_openapi.py"
+      - ".github/workflows/spec-ci.yml"
   pull_request:
     paths:
       - "docs/spec/**"
+      - "backend/scripts/export_openapi.py"
       - ".github/workflows/spec-ci.yml"
 jobs:
   validate-spec:

@@ -22,11 +22,8 @@
         {
           "symbol": "SOL",
           "side": "long",
-          "sizeUsd": 125.5,
-          "entryPrice": 155.12,
-          "metadata": {
-            "note": "example position"
-          }
+          "sizeUsd": 25.0,
+          "entryPrice": 155.12
         }
       ],
       "count": 1
