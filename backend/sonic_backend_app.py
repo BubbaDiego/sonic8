@@ -24,6 +24,21 @@ if not load_dotenv(ROOT_DIR / ".env"):
     load_dotenv(ROOT_DIR / ".env.example")
 
 from fastapi import FastAPI
+
+
+def _unique_id(route) -> str:
+    """Return a stable, unique operationId for the given route."""
+
+    method = sorted(route.methods)[0].lower() if route.methods else "get"
+    name = (route.name or "op").replace(" ", "_")
+    path = (
+        route.path_format.replace("/", "_")
+        .strip("_")
+        .replace("{", "")
+        .replace("}", "")
+    )
+    line_no = getattr(getattr(route.endpoint, "__code__", None), "co_firstlineno", 0)
+    return f"{name}_{method}_{path}_{line_no}"
 from fastapi.middleware.cors import CORSMiddleware
 from backend.services.solana_rpc import _RPC_URLS
 
@@ -72,10 +87,11 @@ except Exception:
 # --------------------------------------------------------------------------
 # Create app FIRST, then include routers
 # --------------------------------------------------------------------------
-app = FastAPI(title="Sonic API")
-
-from backend.routes.wallet_send import router as wallet_send_router
-app.include_router(wallet_send_router)
+app = FastAPI(
+    title="Sonic API",
+    version="v1",
+    generate_unique_id_function=_unique_id,
+)
 
 if prewarm and os.getenv("FUN_CORE_MONITOR") == "1":
     loop = asyncio.get_event_loop()
