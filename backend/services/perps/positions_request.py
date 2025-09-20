@@ -7,7 +7,6 @@ import json
 import os
 import re
 import time
-from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
@@ -847,6 +846,338 @@ def _force_token_program_slot(ix_idl: Dict[str, Any],
     return list(metas)
 
 
+# --- DRY RUN HARNESS ---------------------------------------------------------
+
+
+def _name_metas(ix_idl: Dict[str, Any], metas: List[AccountMeta]) -> List[Dict[str, Any]]:
+    """Return [{idx, name, pubkey, is_signer, is_writable}] in IDL order (plus extras)."""
+    out: List[Dict[str, Any]] = []
+    accs = ix_idl.get("accounts") or []
+    for i, m in enumerate(metas):
+        name = accs[i]["name"] if i < len(accs) else "<extra>"
+        out.append(
+            {
+                "idx": i,
+                "name": name,
+                "pubkey": str(m.pubkey),
+                "is_signer": bool(m.is_signer),
+                "is_writable": bool(m.is_writable),
+            }
+        )
+    return out
+
+
+def _parse_err_code_and_msg(logs: List[str]) -> Tuple[Optional[str], Optional[str]]:
+    """Best-effort scrape of Anchor error code + descriptive line from logs."""
+    code = None
+    msg = None
+    for line in logs:
+        if "Error Code:" in line:
+            # Example: "Error Code: InvalidCollateralAccount. Error Number: 6006."
+            #          "Error Message: Invalid collateral account."
+            parts = line.split("Error Code:", 1)[-1].strip()
+            code = parts.split(".")[0].strip()
+        if "Error Message:" in line:
+            msg = line.split("Error Message:", 1)[-1].strip()
+    return code, msg
+
+
+def _metas_and_raw_for_mapping(
+    ix_idl: Dict[str, Any],
+    mapping: Dict[str, Pubkey],
+    wallet: Keypair,
+    owner: Pubkey,
+    program_id: Pubkey,
+    data: bytes,
+) -> Tuple[List[AccountMeta], List[Dict[str, Any]], str]:
+    """Build metas + raw tx from a current mapping snapshot."""
+    metas, remaining = build_metas_from_mapping(mapping, ix_idl, existing_remaining=None)
+    # mirror your existing prints & guardrails to keep parity
+    _print_idl_accounts_audit(ix_idl, mapping)
+    _print_remaining_accounts(metas, ix_idl)
+    _dump_idl_and_metas(ix_idl, metas)
+
+    ixs: List[Instruction] = []
+    ixs += compute_budget_ixs()
+    ixs.append(Instruction(program_id, data, metas))
+
+    bh = recent_blockhash()
+    msg = MessageV0.try_compile(
+        payer=owner,
+        instructions=ixs,
+        address_lookup_table_accounts=[],
+        recent_blockhash=bh,
+    )
+    tx_local = VersionedTransaction(msg, [wallet])
+    raw_tx = base64.b64encode(bytes(tx_local)).decode()
+    return metas, remaining, raw_tx
+
+
+def dry_run_open_position_request(
+    wallet: Keypair,
+    market: str,
+    side: Literal["long", "short"],
+    size_usd: float,
+    collateral_usd: float,
+    tp: Optional[float] = None,
+    sl: Optional[float] = None,
+    max_recover: int = 6,
+    log_limit: int = 240,
+    try_custody_swap_on_6006: bool = True,
+) -> Dict[str, Any]:
+    """
+    Prepare & simulate the 'create increase position market request' flow but never send.
+    Returns a structured report with mapping, metas, and step-by-step logs/diagnostics.
+    """
+    idl = load_idl()
+    program_id = program_id_from_idl(idl)
+    owner = wallet.pubkey()
+
+    # Market registry + PDAs
+    market_info = resolve_market(market)
+    market_mint = str(market_info.get("base_mint") or DEFAULT_BASE_MINT)
+    position, request, counter_seed = _pdas(owner, market, program_id, market_mint)
+    base_accounts, resolve_extra = _market_info(market, market_info)
+
+    # Instruction selection (same heuristic as live open) -------------
+    ix_idl = _find_ix_any(
+        idl,
+        candidates=[
+            "createincreasepositionmarketrequest",
+            "increaseposition4",
+            "instantincreaseposition",
+            "create_increase_position_request",
+            "increase_position_request",
+            "create_open_position_request",
+            "open_position_request",
+            "create_position_request",
+            "create_trade_request",
+            "trade_request",
+            "position_request",
+        ],
+        fallback_any=["request", "increase"],
+    )
+
+    types_idx = _types_index(idl)
+    idl_args = ix_idl.get("args", []) or []
+    args: Dict[str, Any] = {}
+
+    # Build args exactly like live path --------------------------------
+    referral_env = os.getenv("JUP_PERPS_REFERRAL", "").strip()
+    referral_pk = referral_env if referral_env else str(owner)
+
+    def _build_struct(def_name: str) -> Dict[str, Any]:
+        type_def = types_idx.get(def_name) or {}
+        fields: List[Dict[str, Any]] = (
+            type_def.get("fields") or [] if type_def.get("kind") == "struct" else []
+        )
+        out: Dict[str, Any] = {}
+        for field in fields:
+            fname = field["name"]
+            fkind = field["type"]
+            fl = fname.lower()
+            if fl in ("sizeusddelta", "sizeusd", "size", "amount", "makingamount"):
+                out[fname] = int(size_usd * USD_SCALE)
+            elif fl in ("collateraltokendelta", "collateralusd", "collateral", "margin"):
+                out[fname] = int(collateral_usd * USD_SCALE)
+            elif fl in ("side", "direction"):
+                out[fname] = "Long" if side == "long" else "Short"
+            elif fl in ("priceslippage", "slippage", "maxslippagebps"):
+                out[fname] = 0
+            elif fl in ("jupiterminimumout", "minimumout", "minout"):
+                out[fname] = None
+            elif fl in ("counter",):
+                out[fname] = int(time.time())
+            elif fl in ("tp", "tpprice", "takeprofitprice"):
+                out[fname] = int((tp or 0) * USD_SCALE)
+            elif fl in ("sl", "slprice", "stoplossprice"):
+                out[fname] = int((sl or 0) * USD_SCALE)
+            elif "referr" in fl and _is_pk_like(fkind):
+                out[fname] = referral_pk
+            elif "positionrequest" in fl and _is_pk_like(fkind):
+                out[fname] = str(request)
+            elif "position" in fl and _is_pk_like(fkind):
+                out[fname] = str(position)
+            elif _is_pk_like(fkind):
+                out[fname] = str(owner)
+            elif fkind == "bool":
+                out[fname] = False
+            elif isinstance(fkind, dict) and "option" in fkind:
+                out[fname] = None
+            else:
+                out[fname] = 0
+        return out
+
+    if len(idl_args) == 1 and isinstance(idl_args[0].get("type"), dict) and "defined" in idl_args[0]["type"]:
+        def_name = str(idl_args[0]["type"]["defined"])
+        args[idl_args[0]["name"]] = _build_struct(def_name)
+    else:
+        for arg in idl_args:
+            name = arg["name"]
+            type_def = arg["type"]
+            key = str(name).lower().replace("_", "")
+            if key in ("referral", "referrer", "referralaccount", "referreraccount", "refaccount", "ref"):
+                args[name] = referral_pk
+            elif key in ("owner", "user", "trader", "authority"):
+                args[name] = str(owner)
+            elif key in ("side", "direction"):
+                args[name] = 0 if side == "long" else 1
+            elif key in ("sizeusd", "size", "amount", "makingamount"):
+                args[name] = int(size_usd * USD_SCALE)
+            elif key in ("collateralusd", "collateral", "margin"):
+                args[name] = int(collateral_usd * USD_SCALE)
+            elif key in ("tp", "tpprice", "takeprofitprice"):
+                args[name] = int((tp or 0) * USD_SCALE)
+            elif key in ("sl", "slprice", "stoplossprice"):
+                args[name] = int((sl or 0) * USD_SCALE)
+            elif "positionrequest" in key and _is_pk_like(type_def):
+                args[name] = str(request)
+            elif key.startswith("position") and _is_pk_like(type_def):
+                args[name] = str(position)
+            elif _is_pk_like(type_def):
+                args[name] = str(owner)
+            elif type_def == "bool":
+                args[name] = False
+            else:
+                args[name] = 0
+
+    # Input mint used to derive ATAs
+    input_mint_value = base_accounts.get("input_mint")
+    input_mint: Optional[Pubkey] = None
+    if input_mint_value and "ReplaceWith" not in input_mint_value:
+        input_mint = Pubkey.from_string(str(input_mint_value))
+
+    # Map accounts (canonical programs in their proper slots)
+    metas_ignore, base_mapping = map_accounts(
+        ix_idl, owner, position, request, base_accounts, market, resolve_extra, program_id, input_mint
+    )
+
+    # Force position PDA and derive request PDA from it (exactly as live)
+    mapping = dict(base_mapping)
+    mapping["position"] = EXPECTED_POSITION_PDA
+    counter = int(args.get("params", {}).get("counter", int(time.time()))) if isinstance(args.get("params"), dict) else int(time.time())
+    mapping["positionRequest"] = Pubkey.find_program_address(
+        [b"position_request", bytes(EXPECTED_POSITION_PDA), counter.to_bytes(8, "little")],
+        program_id,
+    )[0]
+    mapping["position_request"] = mapping["positionRequest"]
+
+    # Canonical programs (SPL Token in tokenProgram slot; ATA program in associatedTokenProgram)
+    mapping["tokenProgram"] = SPL_TOKEN_PROGRAM
+    mapping["token_program"] = SPL_TOKEN_PROGRAM
+    mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
+    mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
+
+    # Ensure the request's ATA owner is the *request PDA* (not wallet)
+    if input_mint:
+        try:
+            mapping["positionRequestAta"] = _derive_ata(mapping["positionRequest"], input_mint)
+            mapping["position_request_ata"] = mapping["positionRequestAta"]
+        except Exception as _:
+            pass
+
+    # Serialize instruction data
+    data = build_data(ix_idl, args, types_idx)
+
+    # ---- simulate (multi-step) without send -----------------------------------
+    report: Dict[str, Any] = {
+        "programId": str(program_id),
+        "instruction": ix_idl.get("name"),
+        "market": market,
+        "side": side,
+        "args": args,
+        "position": str(EXPECTED_POSITION_PDA),
+        "positionRequest": str(mapping["positionRequest"]),
+        "positionRequestAta": str(mapping.get("positionRequestAta", "")),
+        "inputMint": str(input_mint) if input_mint else None,
+        "baseAccounts": {k: str(v) for k, v in base_accounts.items()},
+        "mapping": {k: str(v) for k, v in mapping.items()},
+        "steps": [],
+        "ok": False,
+    }
+
+    def _simulate_step(label: str, m: Dict[str, Pubkey]) -> Tuple[bool, List[str], List[AccountMeta], str]:
+        metas, rem, raw = _metas_and_raw_for_mapping(ix_idl, m, wallet, owner, program_id, data)
+        sim = rpc("simulateTransaction", [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}])
+        value = sim.get("value") or {}
+        logs = (value.get("logs") or [])[:log_limit]
+        ok = not bool(value.get("err"))
+        # Capture per-step info
+        report["steps"].append(
+            {
+                "label": label,
+                "ok": ok,
+                "unknownAccount": _parse_unknown_account(logs),
+                "rightPdaHint": _parse_anchor_right_pda(logs),
+                "errorCode": _parse_err_code_and_msg(logs)[0],
+                "errorMessage": _parse_err_code_and_msg(logs)[1],
+                "metas": _name_metas(ix_idl, metas),
+                "logs": logs,
+            }
+        )
+        return ok, logs, metas, raw
+
+    ok, logs, metas, raw = _simulate_step("initial", mapping)
+    if not ok:
+        # 1) PDA adoption for position_request if Anchor tells us the expected Right: <PDA>
+        right_pda = _parse_anchor_right_pda(logs)
+        if right_pda and input_mint:
+            _rebuild_after_request_adopt(mapping, right_pda, input_mint)
+            ok, logs, metas, raw = _simulate_step("after PR adopt", mapping)
+
+    # 2) Collateral error targeted handling (6006) — adopt from logs, then (optionally) swap
+    if not ok:
+        code, _msg = _parse_err_code_and_msg(logs)
+        if code and "InvalidCollateralAccount" in code:
+            # Try to read the pair the program printed and set mapping explicitly
+            lr = _parse_invalid_collateral(logs)
+            if lr:
+                left_b58, right_b58 = lr
+                try:
+                    mapping["custody"] = Pubkey.from_string(left_b58)
+                    mapping["collateralCustody"] = Pubkey.from_string(right_b58)
+                except Exception:
+                    pass
+                ok, logs, metas, raw = _simulate_step("after collateral adopt", mapping)
+
+            # If still failing, try swapping custody<->collateralCustody (some IDLs invert names)
+            if try_custody_swap_on_6006 and not ok and mapping.get("custody") and mapping.get("collateralCustody"):
+                swap_mapping = dict(mapping)
+                swap_mapping["custody"], swap_mapping["collateralCustody"] = mapping["collateralCustody"], mapping["custody"]
+                ok, logs, metas, raw = _simulate_step("after custody↔collateral swap", swap_mapping)
+                if ok:
+                    mapping.update(swap_mapping)
+
+    # 3) Unknown account recovery loop (append to remaining accounts)
+    recover = 0
+    last_unknown = None
+    while not ok and recover < max_recover:
+        unknown_b58 = _parse_unknown_account(logs)
+        if not unknown_b58:
+            # nothing left to infer
+            break
+        if last_unknown == unknown_b58:
+            make_writable = _saw_writable_privilege_escalated(logs)
+            make_signer = _saw_unauthorized_signer_or_writable(logs) and not make_writable
+            _append_remaining_account([], unknown_b58, signer=make_signer, writable=make_writable)  # logged for parity
+        else:
+            _append_remaining_account([], unknown_b58, signer=False, writable=False)  # logged for parity
+        # NOTE: We do not persist remaining accounts inside the mapping here; the function above is used only for logging parity.
+        ok, logs, metas, raw = _simulate_step(f"after remaining-account append #{recover+1}", mapping)
+        last_unknown = unknown_b58
+        recover += 1
+
+    report["ok"] = bool(ok)
+    # Include final snapshot of mapping & metas we ended up with
+    metas_final, _, _raw_final = _metas_and_raw_for_mapping(ix_idl, mapping, wallet, owner, program_id, data)
+    report["finalMapping"] = {k: str(v) for k, v in mapping.items()}
+    report["finalMetas"] = _name_metas(ix_idl, metas_final)
+    return report
+
+
+# --- END DRY RUN HARNESS -----------------------------------------------------
+
+
 def open_position_request(
     wallet: Keypair,
     market: str,
@@ -1362,334 +1693,6 @@ def close_position_request(wallet: Keypair, market: str) -> Dict[str, Any]:
     return {"signature": signature, "programId": str(program_id), "market": market}
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DRY‑RUN / SIMULATION HARNESS
-# ─────────────────────────────────────────────────────────────────────────────
-@dataclass
-class DryRunReport:
-    ok: bool
-    stage: str
-    market: str
-    side: str
-    size_usd: float
-    collateral_usd: float
-    counter: int
-    program_id: str
-    request_pda: str
-    position_pda: str
-    mapping: Dict[str, str]
-    remaining: List[Dict[str, Any]]
-    metas: List[Dict[str, Any]]
-    raw_tx_base64: str
-    logs: List[str]
-
-
-def _metas_as_rows(ix_idl: Dict[str, Any], metas: List[AccountMeta]) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-    decl = ix_idl.get("accounts") or []
-    for idx, m in enumerate(metas):
-        nm = decl[idx]["name"] if idx < len(decl) else "<extra>"
-        rows.append(
-            {
-                "idx": idx,
-                "name": nm,
-                "pubkey": str(m.pubkey),
-                "is_signer": m.is_signer,
-                "is_writable": m.is_writable,
-            }
-        )
-    return rows
-
-
-def dry_run_open_position_request(
-    market: str,
-    side: Literal["long", "short"],
-    size_usd: float,
-    collateral_usd: float,
-    tp: Optional[float] = None,
-    sl: Optional[float] = None,
-    out_path: Optional[str] = None,
-) -> DryRunReport:
-    """Simulate CreateIncreasePositionMarketRequest without sending."""
-
-    wallet = load_signer()
-    idl = load_idl()
-    program_id = program_id_from_idl(idl)
-    owner = wallet.pubkey()
-    market_info = resolve_market(market)
-    market_mint = str(market_info.get("base_mint") or DEFAULT_BASE_MINT)
-    position, request, counter = _pdas(owner, market, program_id, market_mint)
-    base_accounts, resolve_extra = _market_info(market, market_info)
-
-    ix_idl = _find_ix_any(
-        idl,
-        candidates=[
-            "createincreasepositionmarketrequest",
-            "increaseposition4",
-            "instantincreaseposition",
-            "create_increase_position_request",
-            "increase_position_request",
-            "create_open_position_request",
-            "open_position_request",
-            "create_position_request",
-            "create_trade_request",
-            "trade_request",
-            "position_request",
-        ],
-        fallback_any=["request", "increase"],
-    )
-    types_idx = _types_index(idl)
-    idl_args = ix_idl.get("args", []) or []
-    args: Dict[str, Any] = {}
-
-    referral_env = os.getenv("JUP_PERPS_REFERRAL", "").strip()
-    referral_pk = referral_env if referral_env else str(owner)
-
-    def _build_struct(def_name: str) -> Dict[str, Any]:
-        type_def = types_idx.get(def_name) or {}
-        fields: List[Dict[str, Any]] = (
-            type_def.get("fields") or [] if type_def.get("kind") == "struct" else []
-        )
-        out: Dict[str, Any] = {}
-        for field in fields:
-            fname = field["name"]
-            fkind = field["type"]
-            fl = fname.lower()
-            if fl in ("sizeusddelta", "sizeusd", "size", "amount", "makingamount"):
-                out[fname] = int(size_usd * USD_SCALE)
-            elif fl in ("collateraltokendelta", "collateralusd", "collateral", "margin"):
-                out[fname] = int(collateral_usd * USD_SCALE)
-            elif fl in ("side", "direction"):
-                out[fname] = "Long" if side == "long" else "Short"
-            elif fl in ("priceslippage", "slippage", "maxslippagebps"):
-                out[fname] = 0
-            elif fl in ("jupiterminimumout", "minimumout", "minout"):
-                out[fname] = None
-            elif fl in ("counter",):
-                out[fname] = counter
-            elif fl in ("tp", "tpprice", "takeprofitprice"):
-                out[fname] = int((tp or 0) * USD_SCALE)
-            elif fl in ("sl", "slprice", "stoplossprice"):
-                out[fname] = int((sl or 0) * USD_SCALE)
-            elif "referr" in fl and _is_pk_like(fkind):
-                out[fname] = referral_pk
-            elif "positionrequest" in fl and _is_pk_like(fkind):
-                out[fname] = str(request)
-            elif "position" in fl and _is_pk_like(fkind):
-                out[fname] = str(position)
-            elif _is_pk_like(fkind):
-                out[fname] = str(owner)
-            elif fkind == "bool":
-                out[fname] = False
-            elif isinstance(fkind, dict) and "option" in fkind:
-                out[fname] = None
-            else:
-                out[fname] = 0
-        return out
-
-    if (
-        len(idl_args) == 1
-        and isinstance(idl_args[0].get("type"), dict)
-        and "defined" in idl_args[0]["type"]
-    ):
-        def_name = str(idl_args[0]["type"]["defined"])
-        args[idl_args[0]["name"]] = _build_struct(def_name)
-    else:
-        for arg in idl_args:
-            name = arg["name"]
-            type_def = arg["type"]
-            key = str(name).lower().replace("_", "")
-            if key in ("referral", "referrer", "referralaccount", "referreraccount", "refaccount", "ref"):
-                args[name] = referral_pk
-            elif key in ("owner", "user", "trader", "authority"):
-                args[name] = str(owner)
-            elif key in ("side", "direction"):
-                args[name] = 0 if side == "long" else 1
-            elif key in ("sizeusd", "size", "amount", "makingamount"):
-                args[name] = int(size_usd * USD_SCALE)
-            elif key in ("collateralusd", "collateral", "margin"):
-                args[name] = int(collateral_usd * USD_SCALE)
-            elif key in ("tp", "tpprice", "takeprofitprice"):
-                args[name] = int((tp or 0) * USD_SCALE)
-            elif key in ("sl", "slprice", "stoplossprice"):
-                args[name] = int((sl or 0) * USD_SCALE)
-            elif "positionrequest" in key and _is_pk_like(type_def):
-                args[name] = str(request)
-            elif key.startswith("position") and _is_pk_like(type_def):
-                args[name] = str(position)
-            elif _is_pk_like(type_def):
-                args[name] = str(owner)
-            elif type_def == "bool":
-                args[name] = False
-            else:
-                args[name] = 0
-
-    input_mint_value = base_accounts.get("input_mint")
-    input_mint: Optional[Pubkey] = None
-    if input_mint_value and "ReplaceWith" not in input_mint_value:
-        input_mint = Pubkey.from_string(str(input_mint_value))
-
-    metas, account_mapping = map_accounts(
-        ix_idl,
-        owner,
-        position,
-        request,
-        base_accounts,
-        market,
-        resolve_extra,
-        program_id,
-        input_mint,
-    )
-
-    mapping = dict(account_mapping)
-    mapping["position"] = EXPECTED_POSITION_PDA
-    try:
-        counter_override = int(args.get("params", {}).get("counter", counter))
-    except Exception:
-        counter_override = int(counter)
-    mapping["positionRequest"] = Pubkey.find_program_address(
-        [b"position_request", bytes(EXPECTED_POSITION_PDA), counter_override.to_bytes(8, "little")],
-        program_id,
-    )[0]
-    mapping["position_request"] = mapping["positionRequest"]
-    request = mapping["positionRequest"]
-    mapping["tokenProgram"] = SPL_TOKEN_PROGRAM
-    mapping["token_program"] = SPL_TOKEN_PROGRAM
-    mapping["associatedTokenProgram"] = ASSOCIATED_TOKEN_PROG
-    mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
-
-    data = build_data(ix_idl, args, types_idx)
-
-    def _make_raw_tx(_metas: List[AccountMeta]) -> str:
-        ixs: List[Instruction] = []
-        ixs += compute_budget_ixs()
-        ixs.append(Instruction(program_id, data, _metas))
-        bh = recent_blockhash()
-        msg = MessageV0.try_compile(
-            payer=owner,
-            instructions=ixs,
-            address_lookup_table_accounts=[],
-            recent_blockhash=bh,
-        )
-        tx_local = VersionedTransaction(msg, [wallet])
-        return base64.b64encode(bytes(tx_local)).decode()
-
-    def _prepare_tx(
-        curr_mapping: Dict[str, Pubkey],
-        curr_remaining: Optional[List[Dict[str, Any]]] = None,
-    ) -> Tuple[List[AccountMeta], List[Dict[str, Any]], str]:
-        metas, rem = build_metas_from_mapping(
-            curr_mapping, ix_idl, existing_remaining=curr_remaining
-        )
-        raw_tx = _make_raw_tx(metas)
-        return metas, rem, raw_tx
-
-    remaining_accounts: List[Dict[str, Any]] = []
-    req_metas, remaining_accounts, raw = _prepare_tx(mapping, remaining_accounts)
-    sim = rpc(
-        "simulateTransaction",
-        [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}],
-    )
-    sim_value = sim.get("value") or {}
-    logs = sim_value.get("logs") or []
-    ok = not bool(sim_value.get("err"))
-
-    if not ok:
-        right = _parse_anchor_right_pda(logs)
-        if right and input_mint:
-            _rebuild_after_request_adopt(mapping, right, input_mint)
-            req_metas, remaining_accounts, raw = _prepare_tx(mapping, remaining_accounts)
-            sim = rpc(
-                "simulateTransaction",
-                [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}],
-            )
-            sim_value = sim.get("value") or {}
-            logs = sim_value.get("logs") or []
-            ok = not bool(sim_value.get("err"))
-
-    if not ok:
-        lr = _parse_invalid_collateral(logs)
-        if lr:
-            left_b58, right_b58 = lr
-            mapping["custody"] = Pubkey.from_string(left_b58)
-            mapping["collateralCustody"] = Pubkey.from_string(right_b58)
-            req_metas, remaining_accounts, raw = _prepare_tx(mapping, remaining_accounts)
-            sim = rpc(
-                "simulateTransaction",
-                [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}],
-            )
-            sim_value = sim.get("value") or {}
-            logs = sim_value.get("logs") or []
-            ok = not bool(sim_value.get("err"))
-
-    MAX_RECOVER = 6
-    recover_count = 0
-    last_unknown: Optional[str] = None
-
-    while not ok and recover_count < MAX_RECOVER:
-        unknown_b58 = _parse_unknown_account(logs)
-        if not unknown_b58:
-            break
-
-        if last_unknown == unknown_b58:
-            make_writable = _saw_writable_privilege_escalated(logs)
-            make_signer = _saw_unauthorized_signer_or_writable(logs) and not make_writable
-            _append_remaining_account(
-                remaining_accounts,
-                unknown_b58,
-                signer=make_signer,
-                writable=make_writable,
-            )
-        else:
-            _append_remaining_account(remaining_accounts, unknown_b58, signer=False, writable=False)
-
-        req_metas, remaining_accounts, raw = _prepare_tx(mapping, remaining_accounts)
-        sim = rpc(
-            "simulateTransaction",
-            [raw, {"encoding": "base64", "sigVerify": False, "replaceRecentBlockhash": True}],
-        )
-        sim_value = sim.get("value") or {}
-        logs = sim_value.get("logs") or []
-        ok = not bool(sim_value.get("err"))
-
-        last_unknown = unknown_b58
-        recover_count += 1
-
-    remaining_serialized = [
-        {
-            "pubkey": str(r["pubkey"]),
-            "is_signer": bool(r.get("is_signer")),
-            "is_writable": bool(r.get("is_writable")),
-        }
-        for r in remaining_accounts
-    ]
-
-    report = DryRunReport(
-        ok=ok,
-        stage="after-initial-recoveries",
-        market=market,
-        side=side,
-        size_usd=size_usd,
-        collateral_usd=collateral_usd,
-        counter=counter_override,
-        program_id=str(program_id),
-        request_pda=str(mapping["positionRequest"]),
-        position_pda=str(EXPECTED_POSITION_PDA),
-        mapping={k: str(v) for k, v in mapping.items() if isinstance(v, Pubkey)},
-        remaining=remaining_serialized,
-        metas=_metas_as_rows(ix_idl, req_metas),
-        raw_tx_base64=raw,
-        logs=list(logs),
-    )
-
-    if out_path:
-        with open(out_path, "w", encoding="utf-8") as fh:
-            json.dump(asdict(report), fh, indent=2)
-        print(f"[perps] dry‑run report → {out_path}")
-
-    return report
-
-
 if __name__ == "__main__":
     import argparse
     import sys
@@ -1717,16 +1720,21 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.cmd == "dry-open":
+        wallet = load_signer()
         rep = dry_run_open_position_request(
+            wallet=wallet,
             market=args.market,
             side=args.side,
             size_usd=args.size,
             collateral_usd=args.collateral,
             tp=args.tp,
             sl=args.sl,
-            out_path=(args.out or None),
         )
-        print(json.dumps(asdict(rep), indent=2))
+        if args.out:
+            with open(args.out, "w", encoding="utf-8") as fh:
+                json.dump(rep, fh, indent=2)
+            print(f"[perps] dry-run report → {args.out}")
+        print(json.dumps(rep, indent=2))
     else:
         parser.print_help(sys.stderr)
         sys.exit(2)
