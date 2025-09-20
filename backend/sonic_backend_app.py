@@ -77,7 +77,7 @@ from backend.core.fun_core.fun_router import router as fun_core_router
 from backend.routers import jupiter
 from backend.routes.jupiter_api import router as jupiter_router
 from backend.routes.jupiter_perps_api import router as perps_router
-from backend.middleware.response_validator import install_response_validator
+from backend.middleware.response_validator import install_response_validator, ResponseValidatorMiddleware, schema_map_router
 
 # Optional prewarm
 try:
@@ -152,6 +152,14 @@ app.include_router(auto_core_router)  # <-- mounted once, after app is defined
 app.include_router(fun_core_router)
 
 install_response_validator(app)
+
+if os.getenv("VALIDATE_RESPONSES") == "1":
+    # find the middleware instance we just added
+    mw = next((m for m in app.user_middleware if getattr(m.cls, "__name__", "") == "ResponseValidatorMiddleware"), None)
+    if mw is not None:
+        # user_middleware stores config; app.middleware_stack is built lazily,
+        # so we attach using the class instead (safe for dev):
+        app.include_router(schema_map_router(ResponseValidatorMiddleware(app)))
 
 @app.get("/api/status")
 async def status():
