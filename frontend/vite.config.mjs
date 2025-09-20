@@ -47,6 +47,8 @@ export default defineConfig(({ mode }) => {
         }
       }
     },
+    // Serve static assets from "frontend/static" at the site root.
+    // Example: file at frontend/static/images/wally.png -> reachable at /images/wally.png
     publicDir: 'static',
     build: {
       chunkSizeWarningLimit: 1600

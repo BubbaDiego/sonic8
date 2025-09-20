@@ -2,7 +2,7 @@
 import { styled } from '@mui/material/styles';
 
 // project imports
-import { MenuOrientation, ThemeMode } from 'config';
+import { MenuOrientation } from 'config';
 import { drawerWidth } from 'store/constant';
 
 // ==============================|| MAIN LAYOUT - STYLED ||============================== //
@@ -10,7 +10,9 @@ import { drawerWidth } from 'store/constant';
 const MainContentStyled = styled('main', {
   shouldForwardProp: (prop) => prop !== 'open' && prop !== 'menuOrientation' && prop !== 'borderRadius'
 })(({ theme, open, menuOrientation, borderRadius }) => ({
-  backgroundColor: theme.palette.mode === ThemeMode.DARK ? theme.palette.dark[800] : theme.palette.grey[100],
+  // Let the global page/wallpaper show through.
+  // The canvas color is now driven by CSS var --page (set in Theme Lab).
+  background: 'transparent',
   minWidth: '1%',
   width: '100%',
   minHeight: 'calc(100vh - 88px)',
