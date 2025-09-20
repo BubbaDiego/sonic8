@@ -13,16 +13,15 @@ import Typography from './typography';
 
 import componentStyleOverrides from './compStyleOverride';
 import customShadows from './shadows';
+import { loadTokens } from '../theme/tokens';
 
 export default function ThemeCustomization({ children }) {
   const { borderRadius, fontFamily, mode, outlinedFilled, presetColor, themeDirection } = useConfig();
 
-  const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)').matches : false
+  );
+  const [themeVersion, setThemeVersion] = useState(0);
 
   const resolvedMode = useMemo(() => {
     if (mode === ThemeMode.SYSTEM) {
@@ -34,21 +33,38 @@ export default function ThemeCustomization({ children }) {
     return mode;
   }, [mode, systemPrefersDark]);
 
-  const theme = useMemo(() => Palette(resolvedMode, presetColor), [resolvedMode, presetColor]);
+  const cssMode = useMemo(() => (mode === ThemeMode.FUNKY ? 'funky' : resolvedMode), [mode, resolvedMode]);
+  const tokens = useMemo(() => loadTokens(cssMode), [cssMode, themeVersion]);
 
-  const effectiveFontFamily = mode === ThemeMode.SYSTEM ? `'Roboto', sans-serif` : fontFamily;
+  const palette = useMemo(() => {
+    const base = Palette(resolvedMode, presetColor).palette;
+    return {
+      ...base,
+      mode: resolvedMode === ThemeMode.DARK ? 'dark' : 'light',
+      primary: {
+        ...base.primary,
+        main: tokens.primary
+      },
+      background: {
+        ...base.background,
+        default: tokens.bg,
+        paper: tokens.surface
+      },
+      text: {
+        ...base.text,
+        primary: tokens.text
+      }
+    };
+  }, [resolvedMode, presetColor, tokens]);
 
-  const themeTypography = useMemo(
-    () => Typography(theme, borderRadius, effectiveFontFamily),
-    [theme, borderRadius, effectiveFontFamily]
-  );
-  const themeCustomShadows = useMemo(() => customShadows(resolvedMode, theme), [resolvedMode, theme]);
-
+  const baseTheme = useMemo(() => createTheme({ palette }), [palette]);
+  const themeTypography = useMemo(() => Typography(baseTheme, borderRadius, fontFamily), [baseTheme, borderRadius, fontFamily]);
+  const themeCustomShadows = useMemo(() => customShadows(resolvedMode, baseTheme), [resolvedMode, baseTheme]);
 
   const themeOptions = useMemo(
     () => ({
       direction: themeDirection,
-      palette: theme.palette,
+      palette,
       mixins: {
         toolbar: {
           minHeight: '48px',
@@ -61,14 +77,17 @@ export default function ThemeCustomization({ children }) {
       typography: themeTypography,
       customShadows: themeCustomShadows
     }),
-    [themeDirection, theme, themeCustomShadows, themeTypography]
+    [themeDirection, palette, themeTypography, themeCustomShadows]
   );
 
-  const themes = createTheme(themeOptions);
-  themes.components = useMemo(
+  const themes = useMemo(() => createTheme(themeOptions), [themeOptions]);
+  const components = useMemo(
     () => componentStyleOverrides(themes, borderRadius, outlinedFilled),
     [themes, borderRadius, outlinedFilled]
   );
+  themes.components = components;
+  themes.applyStyles =
+    themes.applyStyles || ((targetMode, styles) => (themes.palette.mode === targetMode ? styles : {}));
 
   useEffect(() => {
     if (typeof document === 'undefined') {
@@ -80,62 +99,66 @@ export default function ThemeCustomization({ children }) {
       return;
     }
 
-    // Use resolved value so CSS and MUI agree.
-    // Keep funky as its own CSS theme (MUI still uses dark palette via resolvedMode).
-    const cssMode = mode === ThemeMode.FUNKY ? 'funky' : resolvedMode;
     html.dataset.theme = cssMode;
     html.style.setProperty('--asset-base', import.meta.env.BASE_URL);
 
-    let wallpaper;
-    if (typeof window !== 'undefined' && window.localStorage) {
-      wallpaper = window.localStorage.getItem(`sonic:wallpaper:${cssMode}`) || undefined;
-
-      try {
-        const rawOverrides = window.localStorage.getItem(`sonic:theme.overrides:${cssMode}`);
-        if (rawOverrides) {
-          const overrides = JSON.parse(rawOverrides);
-          Object.entries(overrides).forEach(([key, value]) => {
-            html.style.setProperty(String(key), String(value));
-          });
-        }
-      } catch (error) {
-        // ignore malformed overrides
+    const setVar = (key, value) => {
+      if (value != null && value !== '') {
+        html.style.setProperty(key, String(value));
+      } else {
+        html.style.removeProperty(key);
       }
-    }
+    };
 
-    if (!wallpaper && mode === ThemeMode.SYSTEM) {
-      wallpaper = `${import.meta.env.BASE_URL}images/abstract_mural.png`;
-    }
+    setVar('--bg', tokens.bg);
+    setVar('--surface', tokens.surface);
+    setVar('--card', tokens.card || tokens.surface);
+    setVar('--text', tokens.text);
+    setVar('--primary', tokens.primary);
 
-    if (wallpaper) {
-      html.style.setProperty('--body-bg-image', `url('${wallpaper}')`);
+    if (tokens.wallpaper && tokens.wallpaper !== 'none') {
+      setVar('--body-bg-image', `url('${tokens.wallpaper}')`);
     } else {
       html.style.removeProperty('--body-bg-image');
     }
-  }, [mode, resolvedMode]);
+  }, [cssMode, tokens]);
 
   useEffect(() => {
-    if (mode !== ThemeMode.SYSTEM || typeof window === 'undefined') {
+    if (typeof window === 'undefined') {
       return undefined;
     }
 
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const listener = (event) => setSystemPrefersDark(event.matches);
+    const bump = () => setThemeVersion((v) => v + 1);
+    const storageHandler = () => bump();
+    const themeEvt = () => bump();
 
-    if (media.addEventListener) {
-      media.addEventListener('change', listener);
-    } else if (media.addListener) {
-      media.addListener(listener);
+    window.addEventListener('sonic-theme-updated', themeEvt);
+    window.addEventListener('storage', storageHandler);
+
+    const mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    const handler = (event) => setSystemPrefersDark(event.matches);
+
+    if (mql) {
+      if (mql.addEventListener) {
+        mql.addEventListener('change', handler);
+      } else if (mql.addListener) {
+        mql.addListener(handler);
+      }
     }
 
     return () => {
-      if (media.removeEventListener) {
-        media.removeEventListener('change', listener);
-      } else if (media.removeListener) {
-        media.removeListener(listener);
+      window.removeEventListener('sonic-theme-updated', themeEvt);
+      window.removeEventListener('storage', storageHandler);
+
+      if (mql) {
+        if (mql.removeEventListener) {
+          mql.removeEventListener('change', handler);
+        } else if (mql.removeListener) {
+          mql.removeListener(handler);
+        }
       }
     };
-  }, [mode]);
+  }, []);
 
   return (
     <StyledEngineProvider injectFirst>
