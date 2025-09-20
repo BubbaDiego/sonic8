@@ -18,6 +18,13 @@ from solders.pubkey import Pubkey
 from solders.transaction import VersionedTransaction
 
 from backend.services.perps.markets import resolve_market, resolve_extra_account
+from backend.services.perps.pdas_jup import (
+    associated_token_address as jup_associated_token_address,
+    position_pda as jup_position_pda,
+    position_request_pda as jup_position_request_pda,
+    PERPS_PROGRAM_ID as JUP_PERPS_PROGRAM_ID,
+    USDC_MINT as JUP_USDC_MINT,
+)
 from backend.services.solana_rpc import rpc_post as rpc
 
 CU_LIMIT = int(os.getenv("PERPS_CU_LIMIT", 800_000))
@@ -27,7 +34,6 @@ USD_SCALE = int(os.getenv("PERPS_USD_SCALE", 1_000_000))
 SYSTEM_PROGRAM = Pubkey.from_string("11111111111111111111111111111111")
 SPL_TOKEN_PROGRAM = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 ASSOCIATED_TOKEN_PROG = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-EXPECTED_POSITION_PDA = Pubkey.from_string("7fpqAhNYnRegBsWDfoSNSLD6aDMXLQHzuruABfpnxYVv")
 
 IDL_PATH = os.path.join(os.path.dirname(__file__), "idl", "jupiter_perpetuals.json")
 
@@ -637,22 +643,28 @@ def map_accounts(
         elif name in ("program",):
             mapping[name] = program_id
         elif name in ("fundingAccount", "receivingAccount"):
-            if input_mint is None:
+            mint = input_mint
+            if mint is None:
                 mint_value = base_accounts.get("input_mint")
                 if mint_value:
-                    input_mint = _pubkey_from_str(mint_value, market, "input_mint")
-            if input_mint is None:
+                    mint = _pubkey_from_str(mint_value, market, "input_mint")
+            if mint is None and program_id == JUP_PERPS_PROGRAM_ID:
+                mint = JUP_USDC_MINT
+            if mint is None:
                 raise RuntimeError("input mint not configured for funding/receiving account derivation")
-            owner_for_ata = owner
-            mapping[name] = derive_ata(owner_for_ata, input_mint)
+            mapping[name] = derive_ata(owner, mint)
         elif name in ("positionRequestAta", "position_request_ata"):
-            if input_mint is None:
-                mint_value = base_accounts.get("input_mint")
-                if mint_value:
-                    input_mint = _pubkey_from_str(mint_value, market, "input_mint")
-            if input_mint is None:
-                raise RuntimeError("input mint not configured for position request ATA derivation")
-            mapping[name] = derive_ata(request, input_mint)
+            if program_id == JUP_PERPS_PROGRAM_ID:
+                mapping[name] = jup_associated_token_address(request, JUP_USDC_MINT)
+            else:
+                mint = input_mint
+                if mint is None:
+                    mint_value = base_accounts.get("input_mint")
+                    if mint_value:
+                        mint = _pubkey_from_str(mint_value, market, "input_mint")
+                if mint is None:
+                    raise RuntimeError("input mint not configured for position request ATA derivation")
+                mapping[name] = derive_ata(request, mint)
         elif name in ("inputMint", "input_mint"):
             mint_value = base_accounts.get("input_mint")
             if mint_value:
@@ -699,6 +711,19 @@ def _pdas(
     program_id: Pubkey,
     market_mint: Optional[str],
 ) -> Tuple[Pubkey, Pubkey, int]:
+    counter = int(time.time())
+    market_mint_pk: Optional[Pubkey] = None
+    if market_mint:
+        try:
+            market_mint_pk = Pubkey.from_string(str(market_mint))
+        except Exception:
+            market_mint_pk = None
+
+    if program_id == JUP_PERPS_PROGRAM_ID and market_mint_pk is not None:
+        position = jup_position_pda(owner, market_mint_pk)
+        request = jup_position_request_pda(owner, market_mint_pk, counter)
+        return position, request, counter
+
     from backend.perps.pdas import (
         derive_position_request_pda,
         position_pda,
@@ -706,7 +731,6 @@ def _pdas(
     )
 
     position = position_pda(owner, market, program_id, market_mint=market_mint)
-    counter = int(time.time())
     try:
         request = position_request_pda(owner, market, program_id, market_mint=market_mint)
     except Exception:
@@ -764,10 +788,6 @@ def _metas_from(ix_idl: Dict[str, Any], mapping: Dict[str, Pubkey]) -> List[Acco
         is_signer = bool(acc_def.get("isSigner"))
         is_writable = bool(acc_def.get("isMut"))
         is_opt = bool(acc_def.get("isOptional"))
-
-        if nm.lower() == "position":
-            metas.append(AccountMeta(EXPECTED_POSITION_PDA, is_signer, is_writable))
-            continue
 
         if nm not in mapping:
             if is_opt:
@@ -1027,6 +1047,8 @@ def dry_run_open_position_request(
     input_mint: Optional[Pubkey] = None
     if input_mint_value and "ReplaceWith" not in input_mint_value:
         input_mint = Pubkey.from_string(str(input_mint_value))
+    if input_mint is None and program_id == JUP_PERPS_PROGRAM_ID:
+        input_mint = JUP_USDC_MINT
 
     # Map accounts (canonical programs in their proper slots)
     metas_ignore, base_mapping = map_accounts(
@@ -1035,8 +1057,7 @@ def dry_run_open_position_request(
 
     # Use the real PDAs discovered earlier
     mapping = dict(base_mapping)
-    mapping["position"] = EXPECTED_POSITION_PDA
-    print(f"[perps] FORCE position (dry-run) → {str(EXPECTED_POSITION_PDA)}")
+    mapping["position"] = position
     mapping["positionRequest"] = request
     mapping["position_request"] = request
 
@@ -1047,11 +1068,14 @@ def dry_run_open_position_request(
     mapping["associated_token_program"] = ASSOCIATED_TOKEN_PROG
 
     # Ensure the request's ATA owner is the *request PDA* (not wallet)
-    if input_mint:
+    if program_id == JUP_PERPS_PROGRAM_ID:
+        mapping["positionRequestAta"] = jup_associated_token_address(request, JUP_USDC_MINT)
+        mapping["position_request_ata"] = mapping["positionRequestAta"]
+    elif input_mint:
         try:
             mapping["positionRequestAta"] = _derive_ata(mapping["positionRequest"], input_mint)
             mapping["position_request_ata"] = mapping["positionRequestAta"]
-        except Exception as _:
+        except Exception:
             pass
 
     # Serialize instruction data
@@ -1064,7 +1088,7 @@ def dry_run_open_position_request(
         "market": market,
         "side": side,
         "args": args,
-        "position": str(EXPECTED_POSITION_PDA),
+        "position": str(position),
         "positionRequest": str(mapping["positionRequest"]),
         "positionRequestAta": str(mapping.get("positionRequestAta", "")),
         "inputMint": str(input_mint) if input_mint else None,
@@ -1307,6 +1331,8 @@ def open_position_request(
     input_mint: Optional[Pubkey] = None
     if input_mint_value and "ReplaceWith" not in input_mint_value:
         input_mint = _pubkey_from_str(input_mint_value, market, "input_mint")
+    if input_mint is None and program_id == JUP_PERPS_PROGRAM_ID:
+        input_mint = JUP_USDC_MINT
 
     metas, account_mapping = map_accounts(
         ix_idl,
