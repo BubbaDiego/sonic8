@@ -10,7 +10,7 @@ import subprocess
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Mapping, Optional, Sequence, Tuple
 
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 from solders.hash import Hash
@@ -48,6 +48,58 @@ FORCE_POSITION_ENV = "PERPS_FORCE_POSITION"
 
 
 logger = logging.getLogger(__name__)
+
+
+def _warn_if_base_quote_swapped(logs: Sequence[str], accounts: Mapping[str, str]) -> None:
+    """
+    Print a clear, read-only warning if the program logs indicate
+    InvalidCollateralAccount (i.e., base/quote custody are flipped).
+    This DOES NOT mutate any state or env. It just points you to the fix.
+    """
+
+    def _next_pubkey_after(label: str) -> Optional[str]:
+        try:
+            i = next(ix for ix, ln in enumerate(logs) if label in ln)
+        except StopIteration:
+            return None
+        # find the next "Program log: <pubkey>" line
+        for j in range(i + 1, min(i + 8, len(logs))):
+            ln = logs[j].strip()
+            if ln.startswith("Program log: ") and len(ln.split()) == 3:
+                # format seen in your logs: "Program log: <pubkey>"
+                return ln.split()[-1]
+        return None
+
+    # Only fire if the program explicitly threw InvalidCollateralAccount
+    if not any("InvalidCollateralAccount" in ln for ln in logs):
+        return
+
+    # Anchor prints:
+    #   Program log: Left:
+    #   Program log: <custody>
+    #   Program log: Right:
+    #   Program log: <collateralCustody>
+    left_pk = _next_pubkey_after("Left:")
+    right_pk = _next_pubkey_after("Right:")
+
+    if not left_pk or not right_pk:
+        return
+
+    actual_custody = accounts.get("custody")
+    actual_collateral = accounts.get("collateralCustody")
+
+    if (left_pk != actual_custody) or (right_pk != actual_collateral):
+        print("\n" + "=" * 94)
+        print(" [perps][GUARD] Detected InvalidCollateralAccount — base/quote look flipped")
+        print("    Expected from program logs:")
+        print(f"      custody(BASE)          = {left_pk}")
+        print(f"      collateralCustody(QUOTE)= {right_pk}")
+        print("    You passed:")
+        print(f"      custody                = {actual_custody}")
+        print(f"      collateralCustody      = {actual_collateral}")
+        print("    Action: pass the custody pair shown under 'Expected',")
+        print("            or set PERPS_FORCE_POSITION to the correct Position PDA and retry the dry-run.")
+        print("=" * 94 + "\n")
 
 
 # Env/flag helpers
@@ -1592,6 +1644,10 @@ def dry_run_open_position_request(
         value = sim.get("value") or {}
         logs = (value.get("logs") or [])[:log_limit]
         ok = not bool(value.get("err"))
+        final_mapping = {k: str(v) for k, v in m.items()}
+        _warn_if_base_quote_swapped(
+            logs, metas_normalized if "metas_normalized" in locals() else final_mapping
+        )
         # Capture per-step info
         report["steps"].append(
             {
