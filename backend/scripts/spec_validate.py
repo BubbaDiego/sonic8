@@ -1,61 +1,112 @@
 from __future__ import annotations
-
-import glob
 import json
-import os
-import sys
 from pathlib import Path
+from typing import Dict, Union
 
 import yaml
+
 try:
-    from jsonschema import Draft2020Validator
-except ImportError:
-    from jsonschema import Draft202012Validator as Draft2020Validator
+    from jsonschema.validators import Draft202012Validator as V
+except Exception:  # pragma: no cover - fallback import
+    from jsonschema import Draft7Validator as V  # type: ignore
+
+
+ROOT = Path(__file__).resolve().parents[2]
+SCHEMA_DIR = ROOT / "docs" / "spec" / "schemas"
+MANIFEST = ROOT / "docs" / "spec" / "spec.manifest.yaml"
 
 
 def validate_schemas() -> bool:
     ok = True
-    for path_str in glob.glob("docs/spec/schemas/*.json"):
-        path = Path(path_str)
+    for p in sorted(SCHEMA_DIR.glob("*.json")):
         try:
-            with path.open("r", encoding="utf-8") as fh:
-                Draft2020Validator.check_schema(json.load(fh))
-            print("OK", path)
-        except Exception as exc:  # noqa: BLE001 - we want to surface jsonschema errors
+            V.check_schema(json.loads(p.read_text(encoding="utf-8")))
+            print("OK", p)
+        except Exception as e:  # pragma: no cover - diagnostic output
             ok = False
-            print("ERR", path, exc)
+            print("ERR", p, e)
     return ok
 
 
+def _index_schema_ids(manifest: Dict) -> Dict[str, Union[Path, str]]:
+    out: Dict[str, Union[Path, str]] = {}
+    for s in manifest.get("schemas") or []:
+        sid, spath = s.get("id"), s.get("path")
+        if not sid or not spath:
+            continue
+        if isinstance(spath, str) and spath.startswith(("http://", "https://", "/")):
+            out[str(sid)] = spath
+        else:
+            out[str(sid)] = (ROOT / spath).resolve()
+    return out
+
+
 def validate_manifest() -> bool:
-    manifest_path = Path("docs/spec/spec.manifest.yaml")
-    with manifest_path.open("r", encoding="utf-8") as fh:
-        manifest = yaml.safe_load(fh)
-
-    repo_root = manifest_path.parents[2]
-
-    def check(path: str | None) -> bool:
-        if not path or not isinstance(path, str):
-            return False
-        if path.startswith(('http://', 'https://', '/')):
-            return True
-        candidate = repo_root / path
-        return candidate.exists()
-
     ok = True
-    for section in ("modules", "apis", "schemas"):
-        for item in manifest.get(section) or []:
-            ref_path = item.get("path")
-            if ref_path and not check(ref_path):
+    data = yaml.safe_load(MANIFEST.read_text(encoding="utf-8")) or {}
+
+    # modules: path must exist on disk if relative
+    for m in data.get("modules") or []:
+        mp = m.get("path")
+        if not mp:
+            continue
+        if isinstance(mp, str) and mp.startswith(("http://", "https://", "/")):
+            # treat absolute/URL as non-file
+            continue
+        fp = (ROOT / mp).resolve()
+        if not fp.exists():
+            ok = False
+            print("MISSING modules", mp)
+
+    # schemas: each file must exist if local
+    schema_idx = _index_schema_ids(data)
+    for sid, spath in schema_idx.items():
+        if isinstance(spath, str) and spath.startswith(("http://", "https://", "/")):
+            continue
+        local_path = Path(spath)
+        if not local_path.exists():
+            ok = False
+            print("MISSING schemas", local_path.as_posix())
+
+    # apis: validate based on type
+    for a in data.get("apis") or []:
+        api_type = str(a.get("type") or "http").lower()
+        path = a.get("path")
+        if not path or not isinstance(path, str):
+            ok = False
+            print("MISSING apis", path)
+            continue
+
+        if api_type == "http":
+            if not path.startswith("/") and path != "*":
                 ok = False
-                print("MISSING", section, ref_path)
+                print("MISSING apis", path)
+
+            rs_id = a.get("response_schema")
+            if rs_id:
+                sp = schema_idx.get(rs_id)
+                if sp is None:
+                    ok = False
+                    print("MISSING apis response_schema", rs_id)
+            else:
+                ok = False
+                print("MISSING apis response_schema (none set) for", path)
+        else:
+            # treat non-http paths as file references relative to repo root
+            if path.startswith(("http://", "https://")):
+                continue
+
+            file_path = (ROOT / path) if not path.startswith("/") else Path(path)
+            if not file_path.exists():
+                ok = False
+                print("MISSING apis path", path)
     return ok
 
 
 def main() -> int:
-    ok = validate_schemas()
-    ok &= validate_manifest()
-    return 0 if ok else 1
+    schemas_ok = validate_schemas()
+    manifest_ok = validate_manifest()
+    return 0 if (schemas_ok and manifest_ok) else 1
 
 
 if __name__ == "__main__":
