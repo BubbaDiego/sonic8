@@ -317,6 +317,15 @@ def _parse_right_from_logs(logs: List[str], needle: str) -> Optional[str]:
         return None
 
 
+def _extract_right_pda_from_logs(logs: List[str], account_name: str) -> Optional[str]:
+    """
+    Scan Anchor logs for a seeds mismatch on `account_name` and return the
+    expected (Right:) PDA if present.
+    """
+
+    return _parse_right_from_logs(logs, account_name)
+
+
 def _parse_unknown_account(logs: List[str]) -> Optional[str]:
     """
     Looks for: 'Instruction references an unknown account <PUBKEY>'
@@ -2088,11 +2097,97 @@ def open_position_request(
             print(f"[perps] === simulateTransaction ({label}) :: END ===")
             return (not bool(val_resp.get("err"))), logs_resp
 
+        def _adopt_position_pda(right_b58: str, prev_logs: List[str]) -> Tuple[bool, List[str]]:
+            nonlocal counter, metas, remaining_accounts
+            try:
+                pos_pk = Pubkey.from_string(right_b58)
+                print(f"[perps] ADOPT position PDA → {right_b58}")
+                effective["position"] = pos_pk
+
+                counter_override = counter
+                params_counter = args.get("params")
+                if isinstance(params_counter, dict) and "counter" in params_counter:
+                    try:
+                        counter_override = int(params_counter.get("counter", counter_override))
+                    except Exception:
+                        counter_override = counter_override
+                elif "counter" in args:
+                    try:
+                        counter_override = int(args.get("counter", counter_override))
+                    except Exception:
+                        counter_override = counter_override
+
+                req_pk = Pubkey.find_program_address(
+                    [
+                        b"position_request",
+                        bytes(pos_pk),
+                        int(counter_override).to_bytes(8, "little"),
+                    ],
+                    program_id,
+                )[0]
+                effective["positionRequest"] = req_pk
+                effective["position_request"] = req_pk
+                if input_mint:
+                    _rebuild_after_request_adopt(effective, str(req_pk), input_mint)
+                _sync_args_after_adopt(
+                    args,
+                    position_pk=pos_pk,
+                    request_pk=req_pk,
+                    counter=int(counter_override),
+                )
+                counter = counter_override
+
+                metas, remaining_accounts, raw_tx = _prepare_tx(effective, remaining_accounts)
+                return _simulate_with_label(raw_tx, "after position adopt")
+            except Exception:
+                return False, prev_logs
+
+        def _adopt_position_request_pda(right_b58: str, prev_logs: List[str]) -> Tuple[bool, List[str]]:
+            nonlocal metas, remaining_accounts
+            if not input_mint:
+                return False, prev_logs
+            print(f"[perps] ADOPT position_request PDA → {right_b58}")
+            _rebuild_after_request_adopt(effective, right_b58, input_mint)
+            _sync_args_after_adopt(args, request_pk=Pubkey.from_string(right_b58))
+            metas, remaining_accounts, raw_tx = _prepare_tx(effective, remaining_accounts)
+            ok_inner, logs_inner = _simulate_with_label(raw_tx, "after PR adopt")
+            if _is_invalid_program_id_for_token_program(logs_inner):
+                raise RuntimeError(
+                    "InvalidProgramId for token_program — VERIFY we never insert unknown into the required accounts area."
+                )
+            return ok_inner, logs_inner
+
         print("[perps] open::_send_with ACTIVE", __file__)  # prove live code path
 
         remaining_accounts: List[Dict[str, Any]] = []
         metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
         ok, logs = _simulate_with_label(raw, "initial")
+
+        pos_hint: Optional[str] = None
+        pr_hint: Optional[str] = None
+        pos_adopt_attempted = False
+        pr_adopt_attempted = False
+
+        if not ok:
+            pos_hint = _extract_right_pda_from_logs(logs, "position")
+            current_pos = effective.get("position")
+            current_pos_str = str(current_pos) if current_pos else ""
+            if pos_hint and pos_hint != current_pos_str:
+                pos_adopt_attempted = True
+                if forced_position_active:
+                    print(
+                        f"[perps] SKIP adopting position because {FORCE_POSITION_ENV} is set"
+                    )
+                else:
+                    ok, logs = _adopt_position_pda(pos_hint, logs)
+
+        if not ok:
+            pr_hint = _extract_right_pda_from_logs(logs, "position_request")
+            current_req = effective.get("position_request") or effective.get("positionRequest")
+            current_req_str = str(current_req) if current_req else ""
+            if pr_hint and pr_hint != current_req_str and input_mint:
+                pr_adopt_attempted = True
+                ok, logs = _adopt_position_request_pda(pr_hint, logs)
 
         if not ok:
             seed_hint = _parse_anchor_constraint_seeds(logs)
@@ -2109,72 +2204,18 @@ def open_position_request(
                 acct_name, right_b58 = seed_hint
                 acct_lc = acct_name.lower()
 
-                if "position_request" in acct_lc:
-                    if input_mint:
-                        print(f"[perps] ADOPT position_request PDA → {right_b58}")
-                        _rebuild_after_request_adopt(effective, right_b58, input_mint)
-                        _sync_args_after_adopt(args, request_pk=Pubkey.from_string(right_b58))
-                        metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
-                        ok, logs = _simulate_with_label(raw, "after PR adopt")
-                        if _is_invalid_program_id_for_token_program(logs):
-                            raise RuntimeError(
-                                "InvalidProgramId for token_program — VERIFY we never insert unknown into the required accounts area."
-                            )
-
-                elif acct_lc == "position":
+                if acct_lc == "position" and not pos_adopt_attempted:
+                    pos_adopt_attempted = True
                     if forced_position_active:
                         print(
                             f"[perps] SKIP adopting position because {FORCE_POSITION_ENV} is set"
                         )
                     else:
-                        # Update the position PDA to what the program expects, re-derive request & its ATA
-                        try:
-                            pos_pk = Pubkey.from_string(right_b58)
-                            effective["position"] = pos_pk
+                        ok, logs = _adopt_position_pda(right_b58, logs)
 
-                            counter_override = counter
-                            params_counter = args.get("params")
-                            if isinstance(params_counter, dict) and "counter" in params_counter:
-                                try:
-                                    counter_override = int(
-                                        params_counter.get("counter", counter_override)
-                                    )
-                                except Exception:
-                                    counter_override = counter_override
-                            elif "counter" in args:
-                                try:
-                                    counter_override = int(args.get("counter", counter_override))
-                                except Exception:
-                                    counter_override = counter_override
-
-                            req_pk = Pubkey.find_program_address(
-                                [
-                                    b"position_request",
-                                    bytes(pos_pk),
-                                    int(counter_override).to_bytes(8, "little"),
-                                ],
-                                program_id,
-                            )[0]
-                            effective["positionRequest"] = req_pk
-                            effective["position_request"] = req_pk
-                            if input_mint:
-                                _rebuild_after_request_adopt(
-                                    effective, str(req_pk), input_mint
-                                )
-                            _sync_args_after_adopt(
-                                args,
-                                position_pk=pos_pk,
-                                request_pk=req_pk,
-                                counter=int(counter_override),
-                            )
-                            counter = counter_override
-
-                            metas, remaining_accounts, raw = _prepare_tx(
-                                effective, remaining_accounts
-                            )
-                            ok, logs = _simulate_with_label(raw, "after position adopt")
-                        except Exception:
-                            pass
+                elif "position_request" in acct_lc and not pr_adopt_attempted and input_mint:
+                    pr_adopt_attempted = True
+                    ok, logs = _adopt_position_request_pda(right_b58, logs)
 
         # Targeted recovery for Jupiter Perps "InvalidCollateralAccount" (6006).
         if not ok:
@@ -2200,6 +2241,10 @@ def open_position_request(
                     logger.info(
                         "[perps] 6006 received; custody swap disabled by PERPS_DISABLE_CUSTODY_SWAP_ON_6006=1"
                     )
+
+        # NOTE: for LONG we must present QUOTE/USDC in `custody`
+        # and BASE/SOL in `collateralCustody`. This mapping is set in the
+        # earlier account-build step and should not be changed here.
 
         MAX_RECOVER = 6
         recover_count = 0
