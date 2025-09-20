@@ -1,0 +1,5815 @@
+{
+  "meta": {
+    "generated_at": "2025-09-20 17:09:11 UTC",
+    "count": 116
+  },
+  "schemas": {
+    "SCHEMA-POSITION": {
+      "$id": "schema/Position.json",
+      "type": "object",
+      "required": [
+        "symbol",
+        "side",
+        "sizeUsd",
+        "entryPrice"
+      ],
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "examples": [
+            "SOL",
+            "ETH"
+          ]
+        },
+        "side": {
+          "type": "string",
+          "enum": [
+            "long",
+            "short"
+          ]
+        },
+        "sizeUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "entryPrice": {
+          "type": "number",
+          "minimum": 0
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "examples": [
+        {
+          "symbol": "SOL",
+          "side": "long",
+          "sizeUsd": 25.0,
+          "entryPrice": 155.12,
+          "metadata": {
+            "note": "typical small long"
+          }
+        },
+        {
+          "symbol": "ETH",
+          "side": "short",
+          "sizeUsd": 10000.0,
+          "entryPrice": 3100.0,
+          "metadata": {
+            "risk": "hedge"
+          }
+        }
+      ]
+    },
+    "SCHEMA-POSITIONS": {
+      "$id": "schema/Positions.json",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "Position.json"
+          }
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "examples": [
+        {
+          "items": [
+            {
+              "symbol": "SOL",
+              "side": "long",
+              "sizeUsd": 25.0,
+              "entryPrice": 155.12
+            }
+          ],
+          "count": 1
+        }
+      ]
+    },
+    "SCHEMA-ALERT": {
+      "$id": "schema/Alert.json",
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "message",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "warning",
+            "error",
+            "info"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "context": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "examples": [
+        {
+          "id": "evt_123",
+          "type": "warning",
+          "message": "SOL balance low for fees",
+          "context": {
+            "lamports": 13018072,
+            "min": 10000000
+          },
+          "createdAt": "2025-09-11T19:49:10Z"
+        }
+      ]
+    },
+    "SCHEMA-MONITORSTATUS": {
+      "$id": "schema/MonitorStatus.json",
+      "type": "object",
+      "required": [
+        "timestamp"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "degraded",
+            "error"
+          ]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": true,
+      "examples": [
+        {
+          "timestamp": "2025-09-20T11:51:39Z",
+          "status": "ok"
+        }
+      ]
+    },
+    "SCHEMA-PORTFOLIO": {
+      "$id": "schema/Portfolio.json",
+      "type": "object",
+      "required": [
+        "balances",
+        "positions"
+      ],
+      "properties": {
+        "balances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "mint",
+              "amount",
+              "decimals"
+            ],
+            "properties": {
+              "mint": {
+                "type": "string"
+              },
+              "amount": {
+                "type": "string",
+                "description": "raw atoms as string"
+              },
+              "decimals": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "positions": {
+          "$ref": "Positions.json"
+        }
+      },
+      "examples": [
+        {
+          "balances": [
+            {
+              "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "amount": "1000000",
+              "decimals": 6
+            }
+          ],
+          "positions": {
+            "items": [
+              {
+                "symbol": "SOL",
+                "side": "long",
+                "sizeUsd": 25.0,
+                "entryPrice": 155.12
+              }
+            ],
+            "count": 1
+          }
+        }
+      ]
+    },
+    "SCHEMA-POSITIONS_{POS_ID}": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/positions_{pos_id}.json",
+      "examples": [
+        {
+          "status": "deleted"
+        }
+      ]
+    },
+    "SCHEMA-POSITIONS_SNAPSHOT": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/positions_snapshot.json",
+      "examples": [
+        {
+          "status": "snapshot recorded"
+        }
+      ]
+    },
+    "SCHEMA-POSITIONS_UPDATE": {
+      "type": "object",
+      "properties": {
+        "msg": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/positions_update.json",
+      "examples": [
+        {
+          "msg": "Position sync started"
+        }
+      ]
+    },
+    "SCHEMA-POSITIONS_ENRICH": {
+      "type": "object",
+      "properties": {
+        "msg": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/positions_enrich.json",
+      "examples": [
+        {
+          "msg": "Enrichment started"
+        }
+      ]
+    },
+    "SCHEMA-PORTFOLIO_{ENTRY_ID}": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/portfolio_{entry_id}.json",
+      "examples": [
+        {
+          "status": "deleted"
+        }
+      ]
+    },
+    "SCHEMA-API_PORTFOLIO_LATEST_SNAPSHOT": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "snapshot_time": {
+          "type": "string"
+        },
+        "total_size": {
+          "type": "number"
+        },
+        "total_long_size": {
+          "type": "number"
+        },
+        "total_short_size": {
+          "type": "number"
+        },
+        "total_value": {
+          "type": "number"
+        },
+        "total_collateral": {
+          "type": "number"
+        },
+        "avg_leverage": {
+          "type": "number"
+        },
+        "avg_travel_percent": {
+          "type": "number"
+        },
+        "avg_heat_index": {
+          "type": "number"
+        },
+        "total_heat_index": {
+          "type": "number"
+        },
+        "market_average_sp500": {
+          "type": "number"
+        },
+        "session_start_time": {
+          "type": "string"
+        },
+        "session_start_value": {
+          "type": "number"
+        },
+        "current_session_value": {
+          "type": "number"
+        },
+        "session_goal_value": {
+          "type": "number"
+        },
+        "session_performance_value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/api_portfolio_latest_snapshot.json",
+      "examples": [
+        {
+          "id": "8071140e-98c0-4b69-8797-d27886b663e9",
+          "snapshot_time": "2025-09-20T12:07:58.406202",
+          "total_size": 1857.4499999999998,
+          "total_long_size": 518.3299999999999,
+          "total_short_size": 1339.12,
+          "total_value": 143.0,
+          "total_collateral": 142.87,
+          "avg_leverage": 14.539847425233518,
+          "avg_travel_percent": 0.15390243015538882,
+          "avg_heat_index": 8.782821771783897,
+          "total_heat_index": 44.08,
+          "market_average_sp500": 0.0,
+          "session_start_time": "2025-09-20T12:07:58.859859",
+          "session_start_value": 0.0,
+          "current_session_value": 143.0,
+          "session_goal_value": 0.0,
+          "session_performance_value": 0.0
+        }
+      ]
+    },
+    "SCHEMA-API_PORTFOLIO_UPDATE_SNAPSHOT": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_portfolio_update_snapshot.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-CYCLONE_RUN": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/cyclone_run.json",
+      "examples": [
+        {
+          "status": "cycle started"
+        }
+      ]
+    },
+    "SCHEMA-CYCLONE_PRICES": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/cyclone_prices.json",
+      "examples": [
+        {
+          "status": "price update started"
+        }
+      ]
+    },
+    "SCHEMA-CYCLONE_POSITIONS": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/cyclone_positions.json",
+      "examples": [
+        {
+          "status": "position update started"
+        }
+      ]
+    },
+    "SCHEMA-CYCLONE_DATA": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/cyclone_data.json",
+      "examples": [
+        {
+          "status": "clear started"
+        }
+      ]
+    },
+    "SCHEMA-WALLETS": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/wallets.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-WALLETS_{NAME}": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/wallets_{name}.json",
+      "examples": [
+        {
+          "status": "deleted"
+        }
+      ]
+    },
+    "SCHEMA-WALLETS_STAR_WARS": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "count": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/wallets_star_wars.json",
+      "examples": [
+        {
+          "status": "inserted",
+          "count": 0
+        }
+      ]
+    },
+    "SCHEMA-API_TRADERS": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_traders.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_TRADERS_{NAME}": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_traders_{name}.json",
+      "examples": [
+        {
+          "detail": "Trader not found"
+        }
+      ]
+    },
+    "SCHEMA-API_TRADERS_QUICK_IMPORT": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/api_traders_quick_import.json",
+      "examples": [
+        {
+          "status": "created"
+        }
+      ]
+    },
+    "SCHEMA-API_TRADERS_EXPORT": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_traders_export.json",
+      "examples": [
+        {
+          "detail": "Trader not found"
+        }
+      ]
+    },
+    "SCHEMA-ALERT_THRESHOLDS": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/alert_thresholds.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-ALERT_THRESHOLDS_BULK": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/alert_thresholds_bulk.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-ALERT_THRESHOLDS_{THRESHOLD_ID}": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/alert_thresholds_{threshold_id}.json",
+      "examples": [
+        {
+          "status": "deleted"
+        }
+      ]
+    },
+    "SCHEMA-DB_ADMIN_TABLES": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "$id": "schema/db_admin_tables.json",
+      "examples": [
+        [
+          "monitor_ledger",
+          "wallets",
+          "alerts",
+          "alert_thresholds",
+          "brokers",
+          "positions",
+          "positions_totals_history",
+          "modifiers",
+          "prices",
+          "monitor_heartbeat",
+          "global_config",
+          "system_vars",
+          "traders",
+          "sessions",
+          "alert_config",
+          "alert_threshold",
+          "alert_state",
+          "alert_event",
+          "sonic_monitor_log"
+        ]
+      ]
+    },
+    "SCHEMA-DB_ADMIN_TABLES_{TABLE}": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "$id": "schema/db_admin_tables_{table}.json",
+      "examples": [
+        []
+      ]
+    },
+    "SCHEMA-ALERTS_REFRESH": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/alerts_refresh.json",
+      "examples": [
+        {
+          "success": true
+        }
+      ]
+    },
+    "SCHEMA-ALERTS_CREATE_ALL": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/alerts_create_all.json",
+      "examples": [
+        {
+          "success": true
+        }
+      ]
+    },
+    "SCHEMA-ALERTS_DELETE_ALL": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/alerts_delete_all.json",
+      "examples": [
+        {
+          "success": true
+        }
+      ]
+    },
+    "SCHEMA-ALERTS_MONITOR": {
+      "type": "object",
+      "properties": {
+        "alerts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/alerts_monitor.json",
+      "examples": [
+        {
+          "alerts": []
+        }
+      ]
+    },
+    "SCHEMA-XCOM_PROVIDERS": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/xcom_providers.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-XCOM_TEST": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/xcom_test.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-XCOM_LAST_PING": {
+      "type": "object",
+      "properties": {
+        "comm_type": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "timestamp"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/xcom_last_ping.json",
+      "examples": [
+        {
+          "comm_type": "system",
+          "source": "system",
+          "timestamp": "6:16 PM"
+        }
+      ]
+    },
+    "SCHEMA-SESSION_HISTORY": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "$id": "schema/session_history.json",
+      "examples": [
+        []
+      ]
+    },
+    "SCHEMA-SESSION": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/session.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-SESSION_{SID}": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/session_{sid}.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_NOTIFICATIONS": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "monitor_name": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "string"
+          },
+          "read": {
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": true
+      },
+      "$id": "schema/api_notifications.json",
+      "examples": [
+        [
+          {
+            "id": 10,
+            "monitor_name": "position_monitor",
+            "level": "HIGH",
+            "subject": "❗ position_monitor error",
+            "body": "No module named 'rich'",
+            "metadata": "{\"trace\":\"Traceback (most recent call last):\\n  File \\\"/workspace/sonic5/backend/core/monitor_core/base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"/workspace/sonic5/backend/core/monitor_core/position_monitor.py\\\", line 26, in _do_work\\n    sync_result = self.core.update_positions_from_jupiter(source=\\\"position_monitor\\\")\\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/workspace/sonic5/backend/core/positions_core/position_core.py\\\", line 174, in update_positions_from_jupiter\\n    from backend.core.positions_core.position_sync_service import (\\n  File \\\"/workspace/sonic5/backend/core/positions_core/position_sync_service.py\\\", line 6, in <module>\\n    from rich.console import Console\\nModuleNotFoundError: No module named 'rich'\\n\"}",
+            "read": 0,
+            "created_at": "2025-09-20T12:07:58.983Z"
+          },
+          {
+            "id": 9,
+            "monitor_name": "market_monitor",
+            "level": "HIGH",
+            "subject": "❗ market_monitor error",
+            "body": "Binance API failure",
+            "metadata": "{\"trace\":\"1024, in raise_for_status\\n    raise HTTPError(http_error_msg, response=self)\\nrequests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin%2Cethereum%2Csolana\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 56, in _do_work\\n    hi_lo = self.swing.fetch(self.ASSETS)\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 56, in fetch\\n    return self._from_binance(assets)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 46, in _from_binance\\n    raise RuntimeError(\\\"Binance API failure\\\")\\nRuntimeError: Binance API failure\\n\"}",
+            "read": 0,
+            "created_at": "2025-07-26T02:37:07.582Z"
+          },
+          {
+            "id": 8,
+            "monitor_name": "market_monitor",
+            "level": "HIGH",
+            "subject": "❗ market_monitor error",
+            "body": "Binance API failure",
+            "metadata": "{\"trace\":\"1024, in raise_for_status\\n    raise HTTPError(http_error_msg, response=self)\\nrequests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin%2Cethereum%2Csolana\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 56, in _do_work\\n    hi_lo = self.swing.fetch(self.ASSETS)\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 56, in fetch\\n    return self._from_binance(assets)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 46, in _from_binance\\n    raise RuntimeError(\\\"Binance API failure\\\")\\nRuntimeError: Binance API failure\\n\"}",
+            "read": 0,
+            "created_at": "2025-07-26T02:36:46.677Z"
+          },
+          {
+            "id": 7,
+            "monitor_name": "market_monitor",
+            "level": "HIGH",
+            "subject": "❗ market_monitor error",
+            "body": "Binance API failure",
+            "metadata": "{\"trace\":\"1024, in raise_for_status\\n    raise HTTPError(http_error_msg, response=self)\\nrequests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin%2Cethereum%2Csolana\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 52, in _do_work\\n    hi_lo = self.swing.fetch(self.ASSETS)\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 56, in fetch\\n    return self._from_binance(assets)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 46, in _from_binance\\n    raise RuntimeError(\\\"Binance API failure\\\")\\nRuntimeError: Binance API failure\\n\"}",
+            "read": 0,
+            "created_at": "2025-07-26T02:33:21.075Z"
+          },
+          {
+            "id": 6,
+            "monitor_name": "market_monitor",
+            "level": "LOW",
+            "subject": "✅ market_monitor finished",
+            "body": "market_monitor completed successfully",
+            "metadata": "{\"result\":\"{'status': 'Success', 'timestamp': '2025-07-26T02:30:06.652660+00:00', 'trigger_any': False, 'details': [{'asset': 'BTC', 'price': 118755.0, 'pct_move': 0.0, 'baseline': 118755.0, 'blast_radius': 2.14\"}",
+            "read": 0,
+            "created_at": "2025-07-26T02:30:06.669Z"
+          },
+          {
+            "id": 5,
+            "monitor_name": "market_monitor",
+            "level": "HIGH",
+            "subject": "❗ market_monitor error",
+            "body": "Binance API failure",
+            "metadata": "{\"trace\":\"1024, in raise_for_status\\n    raise HTTPError(http_error_msg, response=self)\\nrequests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin%2Cethereum%2Csolana\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 50, in _do_work\\n    hi_lo = self.swing.fetch(self.ASSETS)\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 56, in fetch\\n    return self._from_binance(assets)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\market_core\\\\daily_swing_service.py\\\", line 46, in _from_binance\\n    raise RuntimeError(\\\"Binance API failure\\\")\\nRuntimeError: Binance API failure\\n\"}",
+            "read": 0,
+            "created_at": "2025-07-26T02:24:58.172Z"
+          },
+          {
+            "id": 4,
+            "monitor_name": "market_monitor",
+            "level": "LOW",
+            "subject": "✅ market_monitor finished",
+            "body": "market_monitor completed successfully",
+            "metadata": "{\"result\":\"{'status': 'Success', 'timestamp': '2025-07-26T02:23:51.108081+00:00', 'trigger_any': False, 'details': [{'asset': 'BTC', 'price': 118755.0, 'pct_move': 0.0, 'baseline': 118755.0, 'blast_radius': 2.14\"}",
+            "read": 0,
+            "created_at": "2025-07-26T02:23:51.126Z"
+          },
+          {
+            "id": 3,
+            "monitor_name": "market_monitor",
+            "level": "LOW",
+            "subject": "✅ market_monitor finished",
+            "body": "market_monitor completed successfully",
+            "metadata": "{\"result\":\"{'status': 'Success', 'timestamp': '2025-07-26T02:07:15.081139+00:00', 'trigger_any': False, 'details': [{'asset': 'BTC', 'price': 118755.0, 'pct_move': 0.0, 'baseline': 118755.0, 'blast_radius': 2.14\"}",
+            "read": 0,
+            "created_at": "2025-07-26T02:07:15.100Z"
+          },
+          {
+            "id": 2,
+            "monitor_name": "market_monitor",
+            "level": "HIGH",
+            "subject": "❗ market_monitor error",
+            "body": "'NoneType' object has no attribute 'get_var'",
+            "metadata": "{\"trace\":\"Traceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 44, in _do_work\\n    cfg = self._cfg()\\n          ^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 20, in _cfg\\n    cfg = self.dl.system.get_var(\\\"market_monitor\\\") or {}\\n          ^^^^^^^^^^^^^^^^^^^^^^\\nAttributeError: 'NoneType' object has no attribute 'get_var'\\n\"}",
+            "read": 0,
+            "created_at": "2025-07-26T02:02:11.961Z"
+          },
+          {
+            "id": 1,
+            "monitor_name": "market_monitor",
+            "level": "HIGH",
+            "subject": "❗ market_monitor error",
+            "body": "'NoneType' object has no attribute 'get_var'",
+            "metadata": "{\"trace\":\"Traceback (most recent call last):\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\base_monitor.py\\\", line 44, in run_cycle\\n    result = self._do_work()\\n             ^^^^^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 44, in _do_work\\n    cfg = self._cfg()\\n          ^^^^^^^^^^^\\n  File \\\"C:\\\\sonic4\\\\backend\\\\core\\\\monitor_core\\\\market_monitor.py\\\", line 20, in _cfg\\n    cfg = self.dl.system.get_var(\\\"market_monitor\\\") or {}\\n          ^^^^^^^^^^^^^^^^^^^^^^\\nAttributeError: 'NoneType' object has no attribute 'get_var'\\n\"}",
+            "read": 0,
+            "created_at": "2025-07-26T02:01:16.668Z"
+          }
+        ]
+      ]
+    },
+    "SCHEMA-API_NOTIFICATIONS_UNREAD-COUNT": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_notifications_unread-count.json",
+      "examples": [
+        {
+          "count": 10
+        }
+      ]
+    },
+    "SCHEMA-API_NOTIFICATIONS_{NOTIF_ID}_READ": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_notifications_{notif_id}_read.json",
+      "examples": [
+        {
+          "success": true
+        }
+      ]
+    },
+    "SCHEMA-API_NOTIFICATIONS_MARK_ALL_READ": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_notifications_mark_all_read.json",
+      "examples": [
+        {
+          "success": true
+        }
+      ]
+    },
+    "SCHEMA-API_MONITOR-SETTINGS_MARKET": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_monitor-settings_market.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_MONITOR-SETTINGS_MARKET_RESET-ANCHORS": {
+      "type": "object",
+      "properties": {
+        "baseline": {
+          "type": "object",
+          "properties": {
+            "BTC": {
+              "type": "object",
+              "properties": {
+                "price": {
+                  "type": "number"
+                },
+                "timestamp": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "timestamp"
+              ],
+              "additionalProperties": true
+            },
+            "ETH": {
+              "type": "object",
+              "properties": {
+                "price": {
+                  "type": "number"
+                },
+                "timestamp": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "timestamp"
+              ],
+              "additionalProperties": true
+            },
+            "SOL": {
+              "type": "object",
+              "properties": {
+                "price": {
+                  "type": "number"
+                },
+                "timestamp": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "timestamp"
+              ],
+              "additionalProperties": true
+            },
+            "SPX": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number"
+                },
+                "time": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "thresholds": {
+          "type": "object",
+          "properties": {
+            "BTC": {
+              "type": "object",
+              "properties": {
+                "1h": {
+                  "type": "number"
+                },
+                "6h": {
+                  "type": "number"
+                },
+                "24h": {
+                  "type": "number"
+                },
+                "delta": {
+                  "type": "number"
+                },
+                "direction": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "ETH": {
+              "type": "object",
+              "properties": {
+                "1h": {
+                  "type": "number"
+                },
+                "6h": {
+                  "type": "number"
+                },
+                "24h": {
+                  "type": "number"
+                },
+                "delta": {
+                  "type": "number"
+                },
+                "direction": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "SOL": {
+              "type": "object",
+              "properties": {
+                "1h": {
+                  "type": "number"
+                },
+                "6h": {
+                  "type": "number"
+                },
+                "24h": {
+                  "type": "number"
+                },
+                "delta": {
+                  "type": "number"
+                },
+                "direction": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "SPX": {
+              "type": "object",
+              "properties": {
+                "1h": {
+                  "type": "number"
+                },
+                "6h": {
+                  "type": "number"
+                },
+                "24h": {
+                  "type": "number"
+                },
+                "delta": {
+                  "type": "number"
+                },
+                "direction": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "blast_radius": {
+          "type": "object",
+          "properties": {
+            "BTC": {
+              "type": "number"
+            },
+            "ETH": {
+              "type": "number"
+            },
+            "SOL": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": true
+        },
+        "blast_filters": {
+          "type": "object",
+          "properties": {
+            "window": {
+              "type": "string"
+            },
+            "exchange": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "notifications": {
+          "type": "object",
+          "properties": {
+            "system": {
+              "type": "boolean"
+            },
+            "voice": {
+              "type": "boolean"
+            },
+            "sms": {
+              "type": "boolean"
+            },
+            "tts": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": true
+        },
+        "rearm_mode": {
+          "type": "string"
+        },
+        "anchors": {
+          "type": "object",
+          "properties": {
+            "SPX": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number"
+                },
+                "time": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "BTC": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number"
+                },
+                "time": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "ETH": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number"
+                },
+                "time": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "SOL": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "number"
+                },
+                "time": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "armed": {
+          "type": "object",
+          "properties": {
+            "SPX": {
+              "type": "boolean"
+            },
+            "BTC": {
+              "type": "boolean"
+            },
+            "ETH": {
+              "type": "boolean"
+            },
+            "SOL": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_monitor-settings_market_reset-anchors.json",
+      "examples": [
+        {
+          "baseline": {
+            "BTC": {
+              "price": 118755.0,
+              "timestamp": "2025-07-26T02:07:14.887106+00:00",
+              "mode": "EITHER"
+            },
+            "ETH": {
+              "price": 2994.97,
+              "timestamp": "2025-07-26T02:07:14.888106+00:00",
+              "mode": "EITHER"
+            },
+            "SOL": {
+              "price": 162.69,
+              "timestamp": "2025-07-26T02:07:14.888106+00:00",
+              "mode": "EITHER"
+            },
+            "SPX": {
+              "value": 0,
+              "time": 0
+            }
+          },
+          "thresholds": {
+            "BTC": {
+              "1h": 2.0,
+              "6h": 2.0,
+              "24h": 5.0,
+              "delta": 5.0,
+              "direction": "both"
+            },
+            "ETH": {
+              "1h": 2.0,
+              "6h": 2.0,
+              "24h": 5.0,
+              "delta": 5.0,
+              "direction": "both"
+            },
+            "SOL": {
+              "1h": 2.0,
+              "6h": 2.0,
+              "24h": 5.0,
+              "delta": 5.0,
+              "direction": "both"
+            },
+            "SPX": {
+              "1h": 2.0,
+              "6h": 2.0,
+              "24h": 5.0,
+              "delta": 5.0,
+              "direction": "both"
+            }
+          },
+          "blast_radius": {
+            "BTC": 2.1496967485184992,
+            "ETH": 4.279853982436626,
+            "SOL": 5.470781055725109
+          },
+          "blast_filters": {
+            "window": "24h",
+            "exchange": "coingecko"
+          },
+          "notifications": {
+            "system": true,
+            "voice": true,
+            "sms": false,
+            "tts": true
+          },
+          "rearm_mode": "ladder",
+          "anchors": {
+            "SPX": {
+              "value": 0.0,
+              "time": "2025-09-20T12:07:59.867286+00:00"
+            },
+            "BTC": {
+              "value": 0.0,
+              "time": "2025-09-20T12:07:59.867286+00:00"
+            },
+            "ETH": {
+              "value": 0.0,
+              "time": "2025-09-20T12:07:59.867286+00:00"
+            },
+            "SOL": {
+              "value": 0.0,
+              "time": "2025-09-20T12:07:59.867286+00:00"
+            }
+          },
+          "armed": {
+            "SPX": true,
+            "BTC": true,
+            "ETH": true,
+            "SOL": true
+          }
+        }
+      ]
+    },
+    "SCHEMA-API_MONITOR-SETTINGS_SONIC": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_monitor-settings_sonic.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_MONITOR-SETTINGS_LIQUIDATION": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_monitor-settings_liquidation.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_MONITOR-SETTINGS_PROFIT": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_monitor-settings_profit.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_LIQUIDATION_NEAREST-DISTANCE": {
+      "type": "object",
+      "properties": {
+        "BTC": {
+          "type": [
+            "null",
+            "string",
+            "number",
+            "object",
+            "array",
+            "boolean"
+          ]
+        },
+        "ETH": {
+          "type": [
+            "null",
+            "string",
+            "number",
+            "object",
+            "array",
+            "boolean"
+          ]
+        },
+        "SOL": {
+          "type": [
+            "null",
+            "string",
+            "number",
+            "object",
+            "array",
+            "boolean"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_liquidation_nearest-distance.json",
+      "examples": [
+        {
+          "BTC": null,
+          "ETH": null,
+          "SOL": null
+        }
+      ]
+    },
+    "SCHEMA-API_MARKET_LATEST": {
+      "type": "object",
+      "properties": {
+        "BTC": {
+          "type": "object",
+          "properties": {
+            "1h": {
+              "type": "object",
+              "properties": {
+                "pct_move": {
+                  "type": "number"
+                },
+                "threshold": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "trigger": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            },
+            "6h": {
+              "type": "object",
+              "properties": {
+                "pct_move": {
+                  "type": "number"
+                },
+                "threshold": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "trigger": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            },
+            "24h": {
+              "type": "object",
+              "properties": {
+                "pct_move": {
+                  "type": "number"
+                },
+                "threshold": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "trigger": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "SOL": {
+          "type": "object",
+          "properties": {
+            "1h": {
+              "type": "object",
+              "properties": {
+                "pct_move": {
+                  "type": "number"
+                },
+                "threshold": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "trigger": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            },
+            "6h": {
+              "type": "object",
+              "properties": {
+                "pct_move": {
+                  "type": "number"
+                },
+                "threshold": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "trigger": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            },
+            "24h": {
+              "type": "object",
+              "properties": {
+                "pct_move": {
+                  "type": "number"
+                },
+                "threshold": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "trigger": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "ETH": {
+          "type": "object",
+          "properties": {
+            "1h": {
+              "type": "object",
+              "properties": {
+                "pct_move": {
+                  "type": "number"
+                },
+                "threshold": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "trigger": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            },
+            "6h": {
+              "type": "object",
+              "properties": {
+                "pct_move": {
+                  "type": "number"
+                },
+                "threshold": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "trigger": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            },
+            "24h": {
+              "type": "object",
+              "properties": {
+                "pct_move": {
+                  "type": "number"
+                },
+                "threshold": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "trigger": {
+                  "type": [
+                    "null",
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_market_latest.json",
+      "examples": [
+        {
+          "BTC": {
+            "1h": {
+              "pct_move": 0.0,
+              "threshold": null,
+              "trigger": null
+            },
+            "6h": {
+              "pct_move": 0.0,
+              "threshold": null,
+              "trigger": null
+            },
+            "24h": {
+              "pct_move": -4.1775,
+              "threshold": null,
+              "trigger": null
+            }
+          },
+          "SOL": {
+            "1h": {
+              "pct_move": 0.0,
+              "threshold": null,
+              "trigger": null
+            },
+            "6h": {
+              "pct_move": 0.0,
+              "threshold": null,
+              "trigger": null
+            },
+            "24h": {
+              "pct_move": 1.8932,
+              "threshold": null,
+              "trigger": null
+            }
+          },
+          "ETH": {
+            "1h": {
+              "pct_move": 0.0,
+              "threshold": null,
+              "trigger": null
+            },
+            "6h": {
+              "pct_move": 0.0,
+              "threshold": null,
+              "trigger": null
+            },
+            "24h": {
+              "pct_move": 18.6776,
+              "threshold": null,
+              "trigger": null
+            }
+          }
+        }
+      ]
+    },
+    "SCHEMA-PRICES": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "$id": "schema/prices.json",
+      "examples": [
+        []
+      ]
+    },
+    "SCHEMA-API_SOLANA_BALANCE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_solana_balance.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_WALLETS_VERIFY": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_wallets_verify.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_WALLETS_VERIFY-BULK": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_wallets_verify-bulk.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_WALLET_SEND": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_wallet_send.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_WALLET_DEBUG": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_wallet_debug.json",
+      "examples": [
+        {
+          "detail": "wallet debug failed: Signer file not found: signer.txt. Tried: ['/workspace/sonic5/signer.txt', '/workspace/sonic5/backend/services/signer.txt', '/workspace/sonic5/backend/signer.txt']"
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_WALLET_SEND": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_wallet_send.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_WALLET_PREFLIGHT-SEND": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_wallet_preflight-send.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_HEALTH": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "triggerApi": {
+          "type": "boolean"
+        },
+        "rpcUrl": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_health.json",
+      "examples": [
+        {
+          "ok": true,
+          "triggerApi": true,
+          "rpcUrl": "https://api.mainnet-beta.solana.com"
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_SIGNER_INFO": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_signer_info.json",
+      "examples": [
+        {
+          "method": "unknown",
+          "path": "",
+          "note": ""
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_DEBUG_SIGNER": {
+      "type": "object",
+      "properties": {
+        "spec": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "module_dir": {
+          "type": "string"
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "found": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string"
+        },
+        "load_signer": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "error": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_debug_signer.json",
+      "examples": [
+        {
+          "spec": "signer.txt",
+          "cwd": "/workspace/sonic5",
+          "module_dir": "/workspace/sonic5/backend/services",
+          "candidates": [
+            "/workspace/sonic5/signer.txt",
+            "/workspace/sonic5/backend/services/signer.txt",
+            "/workspace/sonic5/backend/signer.txt"
+          ],
+          "found": "",
+          "exists": false,
+          "error": "no candidate signer.txt found",
+          "load_signer": {
+            "ok": false,
+            "error": "FileNotFoundError: Signer file not found: signer.txt. Tried: ['/workspace/sonic5/signer.txt', '/workspace/sonic5/backend/services/signer.txt', '/workspace/sonic5/backend/signer.txt']"
+          }
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_DEBUG_CONFIG": {
+      "type": "object",
+      "properties": {
+        "SONIC_SIGNER_PATH": {
+          "type": "string"
+        },
+        "SONIC_MNEMONIC_DERIVE_CMD": {
+          "type": "string"
+        },
+        "HELIUS_API_KEY_set": {
+          "type": "boolean"
+        },
+        "RPC_URL": {
+          "type": "string"
+        },
+        "resolvedRpcUrl": {
+          "type": "string"
+        },
+        "JUP_BASE_URL": {
+          "type": "string"
+        },
+        "JUP_API_KEY_set": {
+          "type": "boolean"
+        },
+        "JITO_TIP_LAMPORTS": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_debug_config.json",
+      "examples": [
+        {
+          "SONIC_SIGNER_PATH": "signer.txt",
+          "SONIC_MNEMONIC_DERIVE_CMD": "",
+          "HELIUS_API_KEY_set": false,
+          "RPC_URL": "",
+          "resolvedRpcUrl": "https://api.mainnet-beta.solana.com",
+          "JUP_BASE_URL": "https://lite-api.jup.ag",
+          "JUP_API_KEY_set": false,
+          "JITO_TIP_LAMPORTS": "0"
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_WHOAMI": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_whoami.json",
+      "examples": [
+        {
+          "detail": "Failed to load signer: Signer file not found: signer.txt. Tried: ['/workspace/sonic5/signer.txt', '/workspace/sonic5/backend/services/signer.txt', '/workspace/sonic5/backend/signer.txt']"
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_WALLET_BALANCE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_wallet_balance.json",
+      "examples": [
+        {
+          "detail": "Signer file not found: signer.txt. Tried: ['/workspace/sonic5/signer.txt', '/workspace/sonic5/backend/services/signer.txt', '/workspace/sonic5/backend/signer.txt']"
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_WALLET_ESTIMATE-SOL-SPEND": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_wallet_estimate-sol-spend.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "query",
+                "outMint"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_WALLET_PORTFOLIO": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_wallet_portfolio.json",
+      "examples": [
+        {
+          "detail": "portfolio failed: Signer file not found: signer.txt. Tried: ['/workspace/sonic5/signer.txt', '/workspace/sonic5/backend/services/signer.txt', '/workspace/sonic5/backend/signer.txt']"
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_PRICE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_price.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "query",
+                "id"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_TRIGGER_CREATE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_trigger_create.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_TRIGGER_CANCEL": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_trigger_cancel.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_SWAP_QUOTE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_swap_quote.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_SWAP_EXECUTE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_swap_execute.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_TXLOG": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_txlog.json",
+      "examples": [
+        {
+          "items": []
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_TXLOG_BY-SIG": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_txlog_by-sig.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "query",
+                "sig"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_TXLOG_LATEST": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_txlog_latest.json",
+      "examples": [
+        {
+          "detail": "empty"
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_ORDER": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_order.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_CLOSE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_close.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_POSITIONS_DETAILED": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_positions_detailed.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "query",
+                "owner"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_DEBUG_IDL": {
+      "type": "object",
+      "properties": {
+        "programId": {
+          "type": "string"
+        },
+        "instructions": {
+          "type": "number"
+        },
+        "accounts": {
+          "type": "number"
+        },
+        "accountNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_debug_idl.json",
+      "examples": [
+        {
+          "programId": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+          "instructions": 35,
+          "accounts": 5,
+          "accountNames": [
+            "Custody",
+            "Perpetuals",
+            "Pool",
+            "PositionRequest",
+            "Position"
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_DEBUG_IDL-NAMES": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number"
+        },
+        "instructions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_debug_idl-names.json",
+      "examples": [
+        {
+          "count": 35,
+          "instructions": [
+            "init",
+            "addPool",
+            "addCustody",
+            "setCustodyConfig",
+            "setCustodyGlobalLimit",
+            "reallocCustody",
+            "setPoolConfig",
+            "setPerpetualsConfig",
+            "transferAdmin",
+            "withdrawFees2",
+            "createTokenMetadata",
+            "testInit",
+            "setTestTime",
+            "swap2",
+            "addLiquidity2",
+            "removeLiquidity2",
+            "createIncreasePositionMarketRequest",
+            "createDecreasePositionRequest2",
+            "createDecreasePositionMarketRequest",
+            "updateDecreasePositionRequest2",
+            "closePositionRequest",
+            "increasePosition4",
+            "increasePositionPreSwap",
+            "decreasePosition4",
+            "liquidateFullPosition4",
+            "refreshAssetsUnderManagement",
+            "instantCreateTpsl",
+            "instantCreateLimitOrder",
+            "instantIncreasePosition",
+            "instantDecreasePosition",
+            "instantUpdateLimitOrder",
+            "instantUpdateTpsl",
+            "getAddLiquidityAmountAndFee2",
+            "getRemoveLiquidityAmountAndFee2",
+            "getAssetsUnderManagement2"
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_DEBUG_IDL-INSPECT": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_debug_idl-inspect.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "query",
+                "name"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_DEBUG_OWNER-OFFSET": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_debug_owner-offset.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "query",
+                "owner"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_POSITIONS_RAW": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_positions_raw.json",
+      "examples": [
+        {
+          "detail": "raw fetch failed: Signer file not found: signer.txt. Tried: ['/workspace/sonic5/signer.txt', '/workspace/sonic5/backend/services/signer.txt', '/workspace/sonic5/backend/signer.txt']"
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_ORDER_OPEN": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_order_open.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_ORDER_CLOSE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_order_close.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_POSITION_BY-MARKET": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_position_by-market.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "query",
+                "market"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_POSITIONS_DB": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_positions_db.json",
+      "examples": [
+        {
+          "detail": "DB probe failed: DataLocker.__init__() missing 1 required positional argument: 'db_path'"
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_POSITIONS_HEALTH": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_perps_positions_health.json",
+      "examples": [
+        {
+          "detail": "health failed: Signer file not found: signer.txt. Tried: ['/workspace/sonic5/signer.txt', '/workspace/sonic5/backend/services/signer.txt', '/workspace/sonic5/backend/signer.txt']"
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_OPEN": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_open.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_CLOSE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_close.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_STATUS": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_status.json",
+      "examples": [
+        {}
+      ]
+    },
+    "SCHEMA-API_JUPITER_DEBUG-PATHS": {
+      "type": "object",
+      "properties": {
+        "repo_root": {
+          "type": "string"
+        },
+        "launcher": {
+          "type": "string"
+        },
+        "launcher_exists": {
+          "type": "boolean"
+        },
+        "sessions_file": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_debug-paths.json",
+      "examples": [
+        {
+          "repo_root": "/workspace/sonic5",
+          "launcher": "/workspace/sonic5/auto_core/launcher/open_jupiter.py",
+          "launcher_exists": false,
+          "sessions_file": "/workspace/sonic5/auto_core/state/jupiter_sessions.json"
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_CONNECT": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_connect.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_JUPITER_SELECT-ASSET": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_jupiter_select-asset.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_MONITOR-STATUS_{MONITOR_TYPE}": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_monitor-status_{monitor_type}.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_MONITOR-STATUS_RESET-LIQUID-SNOOZE": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_monitor-status_reset-liquid-snooze.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-MONITOR_STATUS": {
+      "type": "object",
+      "properties": {
+        "monitors": {
+          "type": "object",
+          "properties": {
+            "Sonic Monitoring": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "last_updated": {
+                  "type": "string"
+                },
+                "metadata": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "status"
+              ],
+              "additionalProperties": true
+            },
+            "Price Monitoring": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "last_updated": {
+                  "type": "string"
+                },
+                "metadata": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "status"
+              ],
+              "additionalProperties": true
+            },
+            "Positions Monitoring": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "last_updated": {
+                  "type": "string"
+                },
+                "metadata": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "status"
+              ],
+              "additionalProperties": true
+            },
+            "XCom Communication": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "last_updated": {
+                  "type": "string"
+                },
+                "metadata": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "status"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "sonic_next": {
+          "type": "number"
+        },
+        "liquid_snooze": {
+          "type": "number"
+        },
+        "sonic_last_complete": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/monitor_status.json",
+      "examples": [
+        {
+          "monitors": {
+            "Sonic Monitoring": {
+              "status": "Healthy",
+              "last_updated": "2025-07-13T17:06:13.150233Z",
+              "metadata": {}
+            },
+            "Price Monitoring": {
+              "status": "Error",
+              "last_updated": "2025-09-20T12:07:58.921221Z",
+              "metadata": {}
+            },
+            "Positions Monitoring": {
+              "status": "Error",
+              "last_updated": "2025-09-20T12:07:59.087978Z",
+              "metadata": {}
+            },
+            "XCom Communication": {
+              "status": "Warning",
+              "last_updated": "2025-07-13T18:16:12.176846Z",
+              "metadata": {}
+            }
+          },
+          "sonic_next": 0,
+          "liquid_snooze": 0,
+          "sonic_last_complete": "2025-07-13T17:06:13.150233+00:00"
+        }
+      ]
+    },
+    "SCHEMA-MONITORS": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "$id": "schema/monitors.json",
+      "examples": [
+        [
+          "liquid_monitor",
+          "market_monitor",
+          "operations_monitor",
+          "position_monitor",
+          "price_monitor",
+          "profit_monitor",
+          "risk_monitor",
+          "twilio_monitor",
+          "xcom_monitor"
+        ]
+      ]
+    },
+    "SCHEMA-MONITORS_SONIC_CYCLE": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/monitors_sonic_cycle.json",
+      "examples": [
+        {
+          "status": "sonic cycle started"
+        }
+      ]
+    },
+    "SCHEMA-MONITORS_{NAME}": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/monitors_{name}.json",
+      "examples": [
+        {
+          "detail": "Monitor '{name}' not found"
+        }
+      ]
+    },
+    "SCHEMA-API_AUTO-CORE_WALLET-ADDRESS": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_auto-core_wallet-address.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "query",
+                "wallet_id"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_AUTO-CORE_REGISTER-WALLET-ADDRESS": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_auto-core_register-wallet-address.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_AUTO-CORE_OPEN-BROWSER": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_auto-core_open-browser.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_AUTO-CORE_CONNECT-JUPITER": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_auto-core_connect-jupiter.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_AUTO-CORE_SELECT-ASSET": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_auto-core_select-asset.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_AUTO-CORE_SOLFLARE-UNLOCK": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_auto-core_solflare-unlock.json",
+      "examples": [
+        {
+          "detail": "solflare_unlock_only step not available"
+        }
+      ]
+    },
+    "SCHEMA-API_AUTO-CORE_JUPITER-STATUS": {
+      "type": "object",
+      "properties": {
+        "sessions": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_auto-core_jupiter-status.json",
+      "examples": [
+        {
+          "sessions": {}
+        }
+      ]
+    },
+    "SCHEMA-API_AUTO-CORE_CLOSE-BROWSER": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "closed_pids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_auto-core_close-browser.json",
+      "examples": [
+        {
+          "ok": true,
+          "closed_pids": []
+        }
+      ]
+    },
+    "SCHEMA-API_AUTO-CORE_RUN-REQUEST": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "loc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "msg": {
+                "type": "string"
+              },
+              "input": {
+                "type": [
+                  "null",
+                  "string",
+                  "number",
+                  "object",
+                  "array",
+                  "boolean"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_auto-core_run-request.json",
+      "examples": [
+        {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body"
+              ],
+              "msg": "Field required",
+              "input": null
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEMA-API_FUN_RANDOM": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "$id": "schema/api_fun_random.json",
+      "examples": [
+        {
+          "detail": "403 Forbidden"
+        }
+      ]
+    },
+    "SCHEMA-API_STATUS": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "$id": "schema/api_status.json",
+      "examples": [
+        {
+          "status": "FastAPI backend online 🚀"
+        }
+      ]
+    },
+    "SCHEMA-XCOM_STATUS": {
+      "$id": "schema/xcom_status.json",
+      "type": "object",
+      "description": "Status flags returned by the XCom health probe.",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "examples": [
+        {
+          "smtp": "please run connection tests",
+          "twilio": "Missing Twilio credentials"
+        }
+      ]
+    },
+    "SCHEMA-SESSION_STATE": {
+      "$id": "schema/session_state.json",
+      "type": [
+        "null",
+        "object"
+      ],
+      "description": "Active session state when no session is running the API returns null.",
+      "properties": {},
+      "examples": [
+        null
+      ],
+      "additionalProperties": true
+    },
+    "SCHEMA-API_JUPITER_TRIGGER_ORDERS": {
+      "$id": "schema/api_jupiter_trigger_orders.json",
+      "type": "string",
+      "description": "Plain-text error emitted when trigger order listing fails.",
+      "examples": [
+        "Internal Server Error"
+      ]
+    },
+    "SCHEMA-API_PERPS_MARKETS": {
+      "$id": "schema/api_perps_markets.json",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string"
+        },
+        "programId": {
+          "type": "string"
+        },
+        "accounts": {
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "error"
+      ],
+      "additionalProperties": true,
+      "examples": [
+        {
+          "ok": false,
+          "error": "Pool GPA failed: RPC exhausted for getProgramAccounts",
+          "programId": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+          "accounts": null
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_MARKETS_RESOLVE": {
+      "$id": "schema/api_perps_markets_resolve.json",
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "detail"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "detail": "resolve failed: Pool GPA failed: RPC exhausted for getProgramAccounts"
+        }
+      ]
+    },
+    "SCHEMA-API_PERPS_POSITIONS": {
+      "$id": "schema/api_perps_positions.json",
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "detail"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "detail": "positions fetch failed: RPC exhausted for getProgramAccounts"
+        }
+      ]
+    },
+    "SCHEMA-MONITORS_SONIC_EVENTS": {
+      "$id": "schema/monitors_sonic_events.json",
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "event": "sonic_complete",
+          "data": "done"
+        }
+      ]
+    }
+  },
+  "used_by_apis": {
+    "SCHEMA-MONITORSTATUS": [
+      {
+        "method": "GET",
+        "path": "/api/monitor-status/",
+        "id": "API-MONITOR-STATUS"
+      }
+    ],
+    "SCHEMA-PORTFOLIO": [
+      {
+        "method": "GET",
+        "path": "/portfolio/latest",
+        "id": "API-PORTFOLIO-LATEST"
+      },
+      {
+        "method": "GET",
+        "path": "/portfolio/",
+        "id": "API-get-portfolio"
+      },
+      {
+        "method": "POST",
+        "path": "/portfolio/",
+        "id": "API-post-portfolio"
+      }
+    ],
+    "SCHEMA-POSITIONS": [
+      {
+        "method": "GET",
+        "path": "/positions/",
+        "id": "API-POSITIONS"
+      },
+      {
+        "method": "POST",
+        "path": "/positions/",
+        "id": "API-post-positions"
+      }
+    ],
+    "SCHEMA-POSITIONS_{POS_ID}": [
+      {
+        "method": "DELETE",
+        "path": "/positions/{pos_id}",
+        "id": "API-delete-positions_{pos_id}"
+      }
+    ],
+    "SCHEMA-POSITIONS_SNAPSHOT": [
+      {
+        "method": "POST",
+        "path": "/positions/snapshot",
+        "id": "API-post-positions_snapshot"
+      }
+    ],
+    "SCHEMA-POSITIONS_UPDATE": [
+      {
+        "method": "POST",
+        "path": "/positions/update",
+        "id": "API-post-positions_update"
+      }
+    ],
+    "SCHEMA-POSITIONS_ENRICH": [
+      {
+        "method": "POST",
+        "path": "/positions/enrich",
+        "id": "API-post-positions_enrich"
+      }
+    ],
+    "SCHEMA-PORTFOLIO_{ENTRY_ID}": [
+      {
+        "method": "PUT",
+        "path": "/portfolio/{entry_id}",
+        "id": "API-put-portfolio_{entry_id}"
+      },
+      {
+        "method": "DELETE",
+        "path": "/portfolio/{entry_id}",
+        "id": "API-delete-portfolio_{entry_id}"
+      }
+    ],
+    "SCHEMA-API_PORTFOLIO_LATEST_SNAPSHOT": [
+      {
+        "method": "GET",
+        "path": "/api/portfolio/latest_snapshot",
+        "id": "API-get-api_portfolio_latest_snapshot"
+      }
+    ],
+    "SCHEMA-API_PORTFOLIO_UPDATE_SNAPSHOT": [
+      {
+        "method": "POST",
+        "path": "/api/portfolio/update_snapshot",
+        "id": "API-post-api_portfolio_update_snapshot"
+      }
+    ],
+    "SCHEMA-CYCLONE_RUN": [
+      {
+        "method": "POST",
+        "path": "/cyclone/run",
+        "id": "API-post-cyclone_run"
+      }
+    ],
+    "SCHEMA-CYCLONE_PRICES": [
+      {
+        "method": "POST",
+        "path": "/cyclone/prices",
+        "id": "API-post-cyclone_prices"
+      }
+    ],
+    "SCHEMA-CYCLONE_POSITIONS": [
+      {
+        "method": "POST",
+        "path": "/cyclone/positions",
+        "id": "API-post-cyclone_positions"
+      }
+    ],
+    "SCHEMA-CYCLONE_DATA": [
+      {
+        "method": "DELETE",
+        "path": "/cyclone/data",
+        "id": "API-delete-cyclone_data"
+      }
+    ],
+    "SCHEMA-WALLETS": [
+      {
+        "method": "GET",
+        "path": "/wallets/",
+        "id": "API-get-wallets"
+      },
+      {
+        "method": "POST",
+        "path": "/wallets/",
+        "id": "API-post-wallets"
+      }
+    ],
+    "SCHEMA-WALLETS_{NAME}": [
+      {
+        "method": "PUT",
+        "path": "/wallets/{name}",
+        "id": "API-put-wallets_{name}"
+      },
+      {
+        "method": "DELETE",
+        "path": "/wallets/{name}",
+        "id": "API-delete-wallets_{name}"
+      }
+    ],
+    "SCHEMA-WALLETS_STAR_WARS": [
+      {
+        "method": "POST",
+        "path": "/wallets/star_wars",
+        "id": "API-post-wallets_star_wars"
+      }
+    ],
+    "SCHEMA-API_TRADERS": [
+      {
+        "method": "GET",
+        "path": "/api/traders/",
+        "id": "API-get-api_traders"
+      },
+      {
+        "method": "POST",
+        "path": "/api/traders/",
+        "id": "API-post-api_traders"
+      }
+    ],
+    "SCHEMA-API_TRADERS_{NAME}": [
+      {
+        "method": "GET",
+        "path": "/api/traders/{name}",
+        "id": "API-get-api_traders_{name}"
+      },
+      {
+        "method": "PUT",
+        "path": "/api/traders/{name}",
+        "id": "API-put-api_traders_{name}"
+      },
+      {
+        "method": "DELETE",
+        "path": "/api/traders/{name}",
+        "id": "API-delete-api_traders_{name}"
+      }
+    ],
+    "SCHEMA-API_TRADERS_QUICK_IMPORT": [
+      {
+        "method": "POST",
+        "path": "/api/traders/quick_import",
+        "id": "API-post-api_traders_quick_import"
+      }
+    ],
+    "SCHEMA-API_TRADERS_EXPORT": [
+      {
+        "method": "GET",
+        "path": "/api/traders/export",
+        "id": "API-get-api_traders_export"
+      }
+    ],
+    "SCHEMA-ALERT_THRESHOLDS": [
+      {
+        "method": "GET",
+        "path": "/alert_thresholds/",
+        "id": "API-get-alert_thresholds"
+      },
+      {
+        "method": "POST",
+        "path": "/alert_thresholds/",
+        "id": "API-post-alert_thresholds"
+      }
+    ],
+    "SCHEMA-ALERT_THRESHOLDS_BULK": [
+      {
+        "method": "GET",
+        "path": "/alert_thresholds/bulk",
+        "id": "API-get-alert_thresholds_bulk"
+      },
+      {
+        "method": "PUT",
+        "path": "/alert_thresholds/bulk",
+        "id": "API-put-alert_thresholds_bulk"
+      }
+    ],
+    "SCHEMA-ALERT_THRESHOLDS_{THRESHOLD_ID}": [
+      {
+        "method": "GET",
+        "path": "/alert_thresholds/{threshold_id}",
+        "id": "API-get-alert_thresholds_{threshold_id}"
+      },
+      {
+        "method": "PUT",
+        "path": "/alert_thresholds/{threshold_id}",
+        "id": "API-put-alert_thresholds_{threshold_id}"
+      },
+      {
+        "method": "DELETE",
+        "path": "/alert_thresholds/{threshold_id}",
+        "id": "API-delete-alert_thresholds_{threshold_id}"
+      }
+    ],
+    "SCHEMA-DB_ADMIN_TABLES": [
+      {
+        "method": "GET",
+        "path": "/db_admin/tables",
+        "id": "API-get-db_admin_tables"
+      }
+    ],
+    "SCHEMA-DB_ADMIN_TABLES_{TABLE}": [
+      {
+        "method": "GET",
+        "path": "/db_admin/tables/{table}",
+        "id": "API-get-db_admin_tables_{table}"
+      }
+    ],
+    "SCHEMA-ALERTS_REFRESH": [
+      {
+        "method": "POST",
+        "path": "/alerts/refresh",
+        "id": "API-post-alerts_refresh"
+      }
+    ],
+    "SCHEMA-ALERTS_CREATE_ALL": [
+      {
+        "method": "POST",
+        "path": "/alerts/create_all",
+        "id": "API-post-alerts_create_all"
+      }
+    ],
+    "SCHEMA-ALERTS_DELETE_ALL": [
+      {
+        "method": "POST",
+        "path": "/alerts/delete_all",
+        "id": "API-post-alerts_delete_all"
+      }
+    ],
+    "SCHEMA-ALERTS_MONITOR": [
+      {
+        "method": "GET",
+        "path": "/alerts/monitor",
+        "id": "API-get-alerts_monitor"
+      }
+    ],
+    "SCHEMA-XCOM_PROVIDERS": [
+      {
+        "method": "GET",
+        "path": "/xcom/providers",
+        "id": "API-get-xcom_providers"
+      },
+      {
+        "method": "PUT",
+        "path": "/xcom/providers",
+        "id": "API-put-xcom_providers"
+      }
+    ],
+    "SCHEMA-XCOM_STATUS": [
+      {
+        "method": "GET",
+        "path": "/xcom/status",
+        "id": "API-get-xcom_status"
+      }
+    ],
+    "SCHEMA-XCOM_TEST": [
+      {
+        "method": "POST",
+        "path": "/xcom/test",
+        "id": "API-post-xcom_test"
+      }
+    ],
+    "SCHEMA-XCOM_LAST_PING": [
+      {
+        "method": "GET",
+        "path": "/xcom/last_ping",
+        "id": "API-get-xcom_last_ping"
+      }
+    ],
+    "SCHEMA-SESSION_STATE": [
+      {
+        "method": "GET",
+        "path": "/session/",
+        "id": "API-get-session"
+      },
+      {
+        "method": "POST",
+        "path": "/session/",
+        "id": "API-post-session"
+      },
+      {
+        "method": "PUT",
+        "path": "/session/",
+        "id": "API-put-session"
+      },
+      {
+        "method": "POST",
+        "path": "/session/reset",
+        "id": "API-post-session_reset"
+      },
+      {
+        "method": "POST",
+        "path": "/session/close",
+        "id": "API-post-session_close"
+      }
+    ],
+    "SCHEMA-SESSION_HISTORY": [
+      {
+        "method": "GET",
+        "path": "/session/history",
+        "id": "API-get-session_history"
+      }
+    ],
+    "SCHEMA-SESSION_{SID}": [
+      {
+        "method": "PUT",
+        "path": "/session/{sid}",
+        "id": "API-put-session_{sid}"
+      }
+    ],
+    "SCHEMA-API_NOTIFICATIONS": [
+      {
+        "method": "GET",
+        "path": "/api/notifications/",
+        "id": "API-get-api_notifications"
+      }
+    ],
+    "SCHEMA-API_NOTIFICATIONS_UNREAD-COUNT": [
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "id": "API-get-api_notifications_unread-count"
+      }
+    ],
+    "SCHEMA-API_NOTIFICATIONS_{NOTIF_ID}_READ": [
+      {
+        "method": "POST",
+        "path": "/api/notifications/{notif_id}/read",
+        "id": "API-post-api_notifications_{notif_id}_read"
+      }
+    ],
+    "SCHEMA-API_NOTIFICATIONS_MARK_ALL_READ": [
+      {
+        "method": "POST",
+        "path": "/api/notifications/mark_all_read",
+        "id": "API-post-api_notifications_mark_all_read"
+      }
+    ],
+    "SCHEMA-API_MONITOR-SETTINGS_MARKET": [
+      {
+        "method": "GET",
+        "path": "/api/monitor-settings/market",
+        "id": "API-get-api_monitor-settings_market"
+      },
+      {
+        "method": "POST",
+        "path": "/api/monitor-settings/market",
+        "id": "API-post-api_monitor-settings_market"
+      }
+    ],
+    "SCHEMA-API_MONITOR-SETTINGS_MARKET_RESET-ANCHORS": [
+      {
+        "method": "POST",
+        "path": "/api/monitor-settings/market/reset-anchors",
+        "id": "API-post-api_monitor-settings_market_reset-anchors"
+      }
+    ],
+    "SCHEMA-API_MONITOR-SETTINGS_SONIC": [
+      {
+        "method": "GET",
+        "path": "/api/monitor-settings/sonic",
+        "id": "API-get-api_monitor-settings_sonic"
+      },
+      {
+        "method": "POST",
+        "path": "/api/monitor-settings/sonic",
+        "id": "API-post-api_monitor-settings_sonic"
+      }
+    ],
+    "SCHEMA-API_MONITOR-SETTINGS_LIQUIDATION": [
+      {
+        "method": "GET",
+        "path": "/api/monitor-settings/liquidation",
+        "id": "API-get-api_monitor-settings_liquidation"
+      },
+      {
+        "method": "POST",
+        "path": "/api/monitor-settings/liquidation",
+        "id": "API-post-api_monitor-settings_liquidation"
+      }
+    ],
+    "SCHEMA-API_MONITOR-SETTINGS_PROFIT": [
+      {
+        "method": "GET",
+        "path": "/api/monitor-settings/profit",
+        "id": "API-get-api_monitor-settings_profit"
+      },
+      {
+        "method": "POST",
+        "path": "/api/monitor-settings/profit",
+        "id": "API-post-api_monitor-settings_profit"
+      }
+    ],
+    "SCHEMA-API_LIQUIDATION_NEAREST-DISTANCE": [
+      {
+        "method": "GET",
+        "path": "/api/liquidation/nearest-distance",
+        "id": "API-get-api_liquidation_nearest-distance"
+      }
+    ],
+    "SCHEMA-API_MARKET_LATEST": [
+      {
+        "method": "GET",
+        "path": "/api/market/latest",
+        "id": "API-get-api_market_latest"
+      }
+    ],
+    "SCHEMA-PRICES": [
+      {
+        "method": "GET",
+        "path": "/prices/",
+        "id": "API-get-prices"
+      }
+    ],
+    "SCHEMA-API_SOLANA_BALANCE": [
+      {
+        "method": "POST",
+        "path": "/api/solana/balance",
+        "id": "API-post-api_solana_balance"
+      }
+    ],
+    "SCHEMA-API_WALLETS_VERIFY": [
+      {
+        "method": "POST",
+        "path": "/api/wallets/verify",
+        "id": "API-post-api_wallets_verify"
+      }
+    ],
+    "SCHEMA-API_WALLETS_VERIFY-BULK": [
+      {
+        "method": "POST",
+        "path": "/api/wallets/verify-bulk",
+        "id": "API-post-api_wallets_verify-bulk"
+      }
+    ],
+    "SCHEMA-API_WALLET_SEND": [
+      {
+        "method": "POST",
+        "path": "/api/wallet/send",
+        "id": "API-post-api_wallet_send"
+      }
+    ],
+    "SCHEMA-API_WALLET_DEBUG": [
+      {
+        "method": "GET",
+        "path": "/api/wallet/debug",
+        "id": "API-get-api_wallet_debug"
+      }
+    ],
+    "SCHEMA-API_JUPITER_WALLET_SEND": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/wallet/send",
+        "id": "API-post-api_jupiter_wallet_send"
+      }
+    ],
+    "SCHEMA-API_JUPITER_WALLET_PREFLIGHT-SEND": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/wallet/preflight-send",
+        "id": "API-post-api_jupiter_wallet_preflight-send"
+      }
+    ],
+    "SCHEMA-API_JUPITER_HEALTH": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/health",
+        "id": "API-get-api_jupiter_health"
+      }
+    ],
+    "SCHEMA-API_JUPITER_SIGNER_INFO": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/signer/info",
+        "id": "API-get-api_jupiter_signer_info"
+      }
+    ],
+    "SCHEMA-API_JUPITER_DEBUG_SIGNER": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/debug/signer",
+        "id": "API-get-api_jupiter_debug_signer"
+      }
+    ],
+    "SCHEMA-API_JUPITER_DEBUG_CONFIG": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/debug/config",
+        "id": "API-get-api_jupiter_debug_config"
+      }
+    ],
+    "SCHEMA-API_JUPITER_WHOAMI": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/whoami",
+        "id": "API-get-api_jupiter_whoami"
+      }
+    ],
+    "SCHEMA-API_JUPITER_WALLET_BALANCE": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/wallet/balance",
+        "id": "API-get-api_jupiter_wallet_balance"
+      }
+    ],
+    "SCHEMA-API_JUPITER_WALLET_ESTIMATE-SOL-SPEND": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/wallet/estimate-sol-spend",
+        "id": "API-get-api_jupiter_wallet_estimate-sol-spend"
+      }
+    ],
+    "SCHEMA-API_JUPITER_WALLET_PORTFOLIO": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/wallet/portfolio",
+        "id": "API-get-api_jupiter_wallet_portfolio"
+      }
+    ],
+    "SCHEMA-API_JUPITER_PRICE": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/price",
+        "id": "API-get-api_jupiter_price"
+      }
+    ],
+    "SCHEMA-API_JUPITER_TRIGGER_CREATE": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/trigger/create",
+        "id": "API-post-api_jupiter_trigger_create"
+      }
+    ],
+    "SCHEMA-API_JUPITER_TRIGGER_ORDERS": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/trigger/orders",
+        "id": "API-get-api_jupiter_trigger_orders"
+      }
+    ],
+    "SCHEMA-API_JUPITER_TRIGGER_CANCEL": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/trigger/cancel",
+        "id": "API-post-api_jupiter_trigger_cancel"
+      }
+    ],
+    "SCHEMA-API_JUPITER_SWAP_QUOTE": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/swap/quote",
+        "id": "API-post-api_jupiter_swap_quote"
+      }
+    ],
+    "SCHEMA-API_JUPITER_SWAP_EXECUTE": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/swap/execute",
+        "id": "API-post-api_jupiter_swap_execute"
+      }
+    ],
+    "SCHEMA-API_JUPITER_TXLOG": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/txlog",
+        "id": "API-get-api_jupiter_txlog"
+      }
+    ],
+    "SCHEMA-API_JUPITER_TXLOG_BY-SIG": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/txlog/by-sig",
+        "id": "API-get-api_jupiter_txlog_by-sig"
+      }
+    ],
+    "SCHEMA-API_JUPITER_TXLOG_LATEST": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/txlog/latest",
+        "id": "API-get-api_jupiter_txlog_latest"
+      }
+    ],
+    "SCHEMA-API_PERPS_MARKETS": [
+      {
+        "method": "GET",
+        "path": "/api/perps/markets",
+        "id": "API-get-api_perps_markets"
+      }
+    ],
+    "SCHEMA-API_PERPS_MARKETS_RESOLVE": [
+      {
+        "method": "GET",
+        "path": "/api/perps/markets/resolve",
+        "id": "API-get-api_perps_markets_resolve"
+      }
+    ],
+    "SCHEMA-API_PERPS_POSITIONS": [
+      {
+        "method": "GET",
+        "path": "/api/perps/positions",
+        "id": "API-get-api_perps_positions"
+      }
+    ],
+    "SCHEMA-API_PERPS_ORDER": [
+      {
+        "method": "POST",
+        "path": "/api/perps/order",
+        "id": "API-post-api_perps_order"
+      }
+    ],
+    "SCHEMA-API_PERPS_CLOSE": [
+      {
+        "method": "POST",
+        "path": "/api/perps/close",
+        "id": "API-post-api_perps_close"
+      }
+    ],
+    "SCHEMA-API_PERPS_POSITIONS_DETAILED": [
+      {
+        "method": "GET",
+        "path": "/api/perps/positions/detailed",
+        "id": "API-get-api_perps_positions_detailed"
+      },
+      {
+        "method": "GET",
+        "path": "/api/perps/positions/detailed",
+        "id": "API-get-api_perps_positions_detailed"
+      },
+      {
+        "method": "GET",
+        "path": "/api/perps/positions/detailed",
+        "id": "API-get-api_perps_positions_detailed"
+      }
+    ],
+    "SCHEMA-API_PERPS_DEBUG_IDL": [
+      {
+        "method": "GET",
+        "path": "/api/perps/debug/idl",
+        "id": "API-get-api_perps_debug_idl"
+      }
+    ],
+    "SCHEMA-API_PERPS_DEBUG_IDL-NAMES": [
+      {
+        "method": "GET",
+        "path": "/api/perps/debug/idl-names",
+        "id": "API-get-api_perps_debug_idl-names"
+      }
+    ],
+    "SCHEMA-API_PERPS_DEBUG_IDL-INSPECT": [
+      {
+        "method": "GET",
+        "path": "/api/perps/debug/idl-inspect",
+        "id": "API-get-api_perps_debug_idl-inspect"
+      }
+    ],
+    "SCHEMA-API_PERPS_DEBUG_OWNER-OFFSET": [
+      {
+        "method": "GET",
+        "path": "/api/perps/debug/owner-offset",
+        "id": "API-get-api_perps_debug_owner-offset"
+      }
+    ],
+    "SCHEMA-API_PERPS_POSITIONS_RAW": [
+      {
+        "method": "GET",
+        "path": "/api/perps/positions/raw",
+        "id": "API-get-api_perps_positions_raw"
+      }
+    ],
+    "SCHEMA-API_PERPS_ORDER_OPEN": [
+      {
+        "method": "POST",
+        "path": "/api/perps/order/open",
+        "id": "API-post-api_perps_order_open"
+      }
+    ],
+    "SCHEMA-API_PERPS_ORDER_CLOSE": [
+      {
+        "method": "POST",
+        "path": "/api/perps/order/close",
+        "id": "API-post-api_perps_order_close"
+      }
+    ],
+    "SCHEMA-API_PERPS_POSITION_BY-MARKET": [
+      {
+        "method": "GET",
+        "path": "/api/perps/position/by-market",
+        "id": "API-get-api_perps_position_by-market"
+      }
+    ],
+    "SCHEMA-API_PERPS_POSITIONS_DB": [
+      {
+        "method": "GET",
+        "path": "/api/perps/positions/db",
+        "id": "API-get-api_perps_positions_db"
+      }
+    ],
+    "SCHEMA-API_PERPS_POSITIONS_HEALTH": [
+      {
+        "method": "GET",
+        "path": "/api/perps/positions/health",
+        "id": "API-get-api_perps_positions_health"
+      }
+    ],
+    "SCHEMA-API_JUPITER_OPEN": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/open",
+        "id": "API-post-api_jupiter_open"
+      }
+    ],
+    "SCHEMA-API_JUPITER_CLOSE": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/close",
+        "id": "API-post-api_jupiter_close"
+      }
+    ],
+    "SCHEMA-API_JUPITER_STATUS": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/status",
+        "id": "API-get-api_jupiter_status"
+      }
+    ],
+    "SCHEMA-API_JUPITER_DEBUG-PATHS": [
+      {
+        "method": "GET",
+        "path": "/api/jupiter/debug-paths",
+        "id": "API-get-api_jupiter_debug-paths"
+      }
+    ],
+    "SCHEMA-API_JUPITER_CONNECT": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/connect",
+        "id": "API-post-api_jupiter_connect"
+      }
+    ],
+    "SCHEMA-API_JUPITER_SELECT-ASSET": [
+      {
+        "method": "POST",
+        "path": "/api/jupiter/select-asset",
+        "id": "API-post-api_jupiter_select-asset"
+      }
+    ],
+    "SCHEMA-API_MONITOR-STATUS_{MONITOR_TYPE}": [
+      {
+        "method": "GET",
+        "path": "/api/monitor-status/{monitor_type}",
+        "id": "API-get-api_monitor-status_{monitor_type}"
+      },
+      {
+        "method": "POST",
+        "path": "/api/monitor-status/{monitor_type}",
+        "id": "API-post-api_monitor-status_{monitor_type}"
+      }
+    ],
+    "SCHEMA-API_MONITOR-STATUS_RESET-LIQUID-SNOOZE": [
+      {
+        "method": "POST",
+        "path": "/api/monitor-status/reset-liquid-snooze",
+        "id": "API-post-api_monitor-status_reset-liquid-snooze"
+      }
+    ],
+    "SCHEMA-MONITOR_STATUS": [
+      {
+        "method": "GET",
+        "path": "/monitor_status/",
+        "id": "API-get-monitor_status"
+      }
+    ],
+    "SCHEMA-MONITORS": [
+      {
+        "method": "GET",
+        "path": "/monitors/",
+        "id": "API-get-monitors"
+      }
+    ],
+    "SCHEMA-MONITORS_SONIC_CYCLE": [
+      {
+        "method": "POST",
+        "path": "/monitors/sonic_cycle",
+        "id": "API-post-monitors_sonic_cycle"
+      }
+    ],
+    "SCHEMA-MONITORS_SONIC_EVENTS": [
+      {
+        "method": "GET",
+        "path": "/monitors/sonic_events",
+        "id": "API-get-monitors_sonic_events"
+      }
+    ],
+    "SCHEMA-MONITORS_{NAME}": [
+      {
+        "method": "POST",
+        "path": "/monitors/{name}",
+        "id": "API-post-monitors_{name}"
+      }
+    ],
+    "SCHEMA-API_AUTO-CORE_WALLET-ADDRESS": [
+      {
+        "method": "GET",
+        "path": "/api/auto-core/wallet-address",
+        "id": "API-get-api_auto-core_wallet-address"
+      }
+    ],
+    "SCHEMA-API_AUTO-CORE_REGISTER-WALLET-ADDRESS": [
+      {
+        "method": "POST",
+        "path": "/api/auto-core/register-wallet-address",
+        "id": "API-post-api_auto-core_register-wallet-address"
+      }
+    ],
+    "SCHEMA-API_AUTO-CORE_OPEN-BROWSER": [
+      {
+        "method": "POST",
+        "path": "/api/auto-core/open-browser",
+        "id": "API-post-api_auto-core_open-browser"
+      }
+    ],
+    "SCHEMA-API_AUTO-CORE_CONNECT-JUPITER": [
+      {
+        "method": "POST",
+        "path": "/api/auto-core/connect-jupiter",
+        "id": "API-post-api_auto-core_connect-jupiter"
+      }
+    ],
+    "SCHEMA-API_AUTO-CORE_SELECT-ASSET": [
+      {
+        "method": "POST",
+        "path": "/api/auto-core/select-asset",
+        "id": "API-post-api_auto-core_select-asset"
+      }
+    ],
+    "SCHEMA-API_AUTO-CORE_SOLFLARE-UNLOCK": [
+      {
+        "method": "POST",
+        "path": "/api/auto-core/solflare-unlock",
+        "id": "API-post-api_auto-core_solflare-unlock"
+      }
+    ],
+    "SCHEMA-API_AUTO-CORE_JUPITER-STATUS": [
+      {
+        "method": "GET",
+        "path": "/api/auto-core/jupiter-status",
+        "id": "API-get-api_auto-core_jupiter-status"
+      }
+    ],
+    "SCHEMA-API_AUTO-CORE_CLOSE-BROWSER": [
+      {
+        "method": "POST",
+        "path": "/api/auto-core/close-browser",
+        "id": "API-post-api_auto-core_close-browser"
+      }
+    ],
+    "SCHEMA-API_AUTO-CORE_RUN-REQUEST": [
+      {
+        "method": "POST",
+        "path": "/api/auto-core/run-request",
+        "id": "API-post-api_auto-core_run-request"
+      }
+    ],
+    "SCHEMA-API_FUN_RANDOM": [
+      {
+        "method": "GET",
+        "path": "/api/fun/random",
+        "id": "API-get-api_fun_random"
+      }
+    ],
+    "SCHEMA-API_STATUS": [
+      {
+        "method": "GET",
+        "path": "/api/status",
+        "id": "API-get-api_status"
+      }
+    ]
+  }
+}
