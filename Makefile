@@ -17,3 +17,9 @@ spec-validate:
 	python backend/scripts/spec_validate_checks.py
 
 spec-ci: spec-validate
+
+.PHONY: ui-validate
+ui-validate:
+	python backend/scripts/validate_ui_manifest.py
+
+

@@ -1,0 +1,32 @@
+name: UI Spec CI
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "frontend/**"
+      - "docs/spec/ui.*"
+      - "docs/spec/ui_shots/**"
+      - "backend/scripts/ui_sweeper.py"
+      - "backend/scripts/validate_ui_manifest.py"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "docs/spec/ui.*"
+      - "docs/spec/ui_shots/**"
+      - "backend/scripts/ui_sweeper.py"
+      - "backend/scripts/validate_ui_manifest.py"
+
+jobs:
+  validate-ui-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install tooling
+        run: pip install pyyaml
+      - name: Validate UI manifest
+        run: python backend/scripts/validate_ui_manifest.py
