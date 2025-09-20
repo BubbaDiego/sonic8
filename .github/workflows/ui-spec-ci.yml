@@ -33,6 +33,10 @@ jobs:
           python backend/scripts/ui_sweeper.py
           # fail if the sweeper would change tracked files
           git diff --exit-code || (echo "::error::ui.manifest.yaml changed. Please run ui_sweeper.py locally and commit." && exit 1)
+      - name: Build UI components doc (dry)
+        run: |
+          python backend/scripts/build_ui_components_doc.py
+          git diff --exit-code || (echo "::error::ui_components.md changed. Please run 'make ui-doc' and commit." && exit 1)
       - name: Validate UI manifest
         run: python backend/scripts/validate_ui_manifest.py
 
