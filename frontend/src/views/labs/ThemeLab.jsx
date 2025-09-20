@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -8,11 +8,22 @@ import {
   Divider,
   Grid,
   MenuItem,
+  FormControlLabel,
+  Switch,
   Stack,
   TextField,
   Typography
 } from '@mui/material';
-import { DEFAULT_TOKENS, loadTokens, saveTokens, removeTokens, exportAllThemes, importAllThemes } from '../../theme/tokens';
+import {
+  DEFAULT_TOKENS,
+  loadTokens,
+  saveTokens,
+  removeTokens,
+  exportAllThemes,
+  importAllThemes,
+  previewTokens,
+  clearPreview
+} from '../../theme/tokens';
 
 const THEME_NAMES = ['light', 'dark', 'funky'];
 const ColorInput = ({ label, value, onChange }) => (
@@ -26,16 +37,25 @@ const ColorInput = ({ label, value, onChange }) => (
 export default function ThemeLab() {
   const [name, setName] = useState('dark');
   const [state, setState] = useState(loadTokens('dark'));
+  const [livePreview, setLivePreview] = useState(true);
   const base = useMemo(() => DEFAULT_TOKENS[name], [name]);
 
   const setField = (k, v) => setState((s) => ({ ...s, [k]: v }));
   const resetToDefaults = () => setState(base);
   const save = () => {
     saveTokens(name, state);
+    clearPreview();
   };
   const remove = () => {
     removeTokens(name);
-    setState(loadTokens(name));
+    const fresh = loadTokens(name);
+    setState(fresh);
+    if (livePreview) previewTokens(name, fresh);
+  };
+  const discard = () => {
+    const fresh = loadTokens(name);
+    setState(fresh);
+    clearPreview();
   };
   const doExport = () => {
     const data = exportAllThemes();
@@ -53,11 +73,23 @@ export default function ThemeLab() {
     const text = await file.text();
     try {
       importAllThemes(JSON.parse(text));
-      setState(loadTokens(name));
+      const fresh = loadTokens(name);
+      setState(fresh);
+      if (livePreview) previewTokens(name, fresh);
     } catch {
       alert('Invalid JSON');
     }
   };
+
+  useEffect(() => {
+    if (!livePreview) {
+      clearPreview();
+      return;
+    }
+    previewTokens(name, state);
+  }, [name, state, livePreview]);
+
+  useEffect(() => () => clearPreview(), []);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -69,12 +101,20 @@ export default function ThemeLab() {
           <Stack spacing={3}>
             <Stack direction="row" spacing={2} alignItems="center">
               <Typography sx={{ minWidth: 120 }}>Theme</Typography>
-              <TextField select size="small" value={name} onChange={(e) => { const n = e.target.value; setName(n); setState(loadTokens(n)); }}>
+              <TextField select size="small" value={name} onChange={(e) => {
+                const n = e.target.value;
+                setName(n);
+                const fresh = loadTokens(n);
+                setState(fresh);
+                if (livePreview) previewTokens(n, fresh);
+              }}>
                 {THEME_NAMES.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
               </TextField>
-              <Button variant="outlined" onClick={resetToDefaults}>Reset to defaults</Button>
+              <FormControlLabel control={<Switch checked={livePreview} onChange={(e) => setLivePreview(e.target.checked)} />} label="Live Preview" />
+              <Button variant="outlined" onClick={resetToDefaults}>Reset to Defaults</Button>
               <Button variant="contained" onClick={save}>Save & Apply</Button>
               <Button color="error" onClick={remove}>Remove Override</Button>
+              <Button onClick={discard}>Discard Unsaved</Button>
             </Stack>
             <Divider />
             <Grid container spacing={3}>
