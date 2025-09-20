@@ -106,6 +106,38 @@ def _find_ix_any(idl: Dict[str, Any], candidates: List[str], fallback_any: List[
 
 _PK_RE = re.compile(r"([1-9A-HJ-NP-Za-km-z]{32,})")
 
+# Accept either native Anchor "Right:" or our own "RightPdaHint:" helper,
+# and allow the PDA to be on the *same* line or the *next* line.
+RIGHT_RE = re.compile(
+    r"(?:RightPdaHint:|Right:)\s*([1-9A-HJ-NP-Za-km-z]{32,48})"
+)
+
+
+def _extract_right_from_logs(logs: list[str]) -> str | None:
+    """
+    Find the first plausible Right-hand PDA in the simulator logs.
+    Works with:
+      - 'Right: HHHH...'        (same line)
+      - 'Right:' then next line contains base58
+      - 'RightPdaHint: HHHH...' (our helper)
+    """
+
+    # 1) Same-line hits
+    for line in logs:
+        m = RIGHT_RE.search(line)
+        if m:
+            return m.group(1)
+
+    # 2) Two-line pattern: 'Right:' then next non-empty base58
+    for i, line in enumerate(logs):
+        if "Right:" in line:
+            # scan forward to the first line that looks like a base58 key
+            for j in range(i + 1, min(i + 4, len(logs))):
+                nxt = logs[j].strip()
+                if re.fullmatch(r"[1-9A-HJ-NP-Za-km-z]{32,48}", nxt):
+                    return nxt
+    return None
+
 
 # --- begin: helpers for PDA adoption and unknown-account resolution ---
 
@@ -1173,7 +1205,7 @@ def dry_run_open_position_request(
                 "label": label,
                 "ok": ok,
                 "unknownAccount": _parse_unknown_account(logs),
-                "rightPdaHint": _parse_anchor_right_pda(logs),
+                "rightPdaHint": _extract_right_from_logs(logs),
                 "errorCode": _parse_err_code_and_msg(logs)[0],
                 "errorMessage": _parse_err_code_and_msg(logs)[1],
                 "metas": _name_metas(ix_idl, metas),
@@ -1185,7 +1217,17 @@ def dry_run_open_position_request(
     ok, logs, metas, raw = _simulate_step("initial", mapping)
     if not ok:
         # 1) PDA adoption guided by which account triggered ConstraintSeeds
-        seed_hint = _parse_anchor_constraint_seeds(logs)
+        # Build a seed hint from Anchor's error line PLUS a tolerant Right-PDA scan
+        seed_hint = None
+        acct_name = None
+        for ln in logs:
+            # Anchor line: "AnchorError caused by account: position_request"
+            if "AnchorError caused by account:" in ln:
+                acct_name = ln.split("account:", 1)[-1].strip().split()[0]
+                break
+        right_b58 = _extract_right_from_logs(logs)
+        if acct_name and right_b58:
+            seed_hint = (acct_name, right_b58)
         if seed_hint:
             acct_name, right_b58 = seed_hint
             acct_lc = acct_name.lower()
@@ -1575,7 +1617,15 @@ def open_position_request(
         ok, logs = _simulate_with_label(raw, "initial")
 
         if not ok:
-            seed_hint = _parse_anchor_constraint_seeds(logs)
+            seed_hint = None
+            acct_name = None
+            for ln in logs:
+                if "AnchorError caused by account:" in ln:
+                    acct_name = ln.split("account:", 1)[-1].strip().split()[0]
+                    break
+            right_b58 = _extract_right_from_logs(logs)
+            if acct_name and right_b58:
+                seed_hint = (acct_name, right_b58)
             if seed_hint:
                 acct_name, right_b58 = seed_hint
                 acct_lc = acct_name.lower()
