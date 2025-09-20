@@ -202,7 +202,7 @@ python backend/scripts/spec_schema_sampler.py
 python backend/scripts/spec_sweeper.py
 ```
 
----
+---[software_spec.md](docs/spec/software_spec.md)
 
 ## 📝 License
 
