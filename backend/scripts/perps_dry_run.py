@@ -138,6 +138,13 @@ def main() -> int:
     print(f"Request       : {position_request}")
     print(f"Request ATA   : {position_request_ata}")
 
+    # Highlight the custody pair (BASE/QUOTE) up front
+    m = report.get("finalMapping", {})
+    print(
+        f"Custody pair (BASE/QUOTE): custody={m.get('custody')} ; "
+        f"collateralCustody={m.get('collateralCustody')} ; inputMint={m.get('inputMint')}"
+    )
+
     _print_line()
     print("Final account mapping (normalized):")
     print(_pretty(final_mapping))

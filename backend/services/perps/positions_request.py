@@ -4,6 +4,7 @@ import base64
 import binascii
 import hashlib
 import json
+import logging
 import os
 import re
 import time
@@ -43,6 +44,22 @@ DEFAULT_QUOTE_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 DEFAULT_ORACLE_PUBKEY = "11111111111111111111111111111111"
 
 FORCE_POSITION_ENV = "PERPS_FORCE_POSITION"
+
+
+logger = logging.getLogger(__name__)
+
+
+# Env/flag helpers
+def _env_flag(name: str, default: bool = False) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return default
+    return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
+
+
+def _env_str(name: str) -> str | None:
+    v = os.getenv(name)
+    return v.strip() if v else None
 
 
 def _rpc_client():
@@ -1273,6 +1290,9 @@ def dry_run_open_position_request(
     program_id = program_id_from_idl(idl)
     owner = wallet.pubkey()
 
+    if _env_flag("PERPS_DISABLE_CUSTODY_SWAP_ON_6006", default=False):
+        try_custody_swap_on_6006 = False
+
     # Market registry + PDAs
     market_info = resolve_market(market)
     market_mint = str(market_info.get("base_mint") or DEFAULT_BASE_MINT)
@@ -1876,6 +1896,47 @@ def open_position_request(
         f"[perps] DERIVED positionRequest from counter={counter} → {str(mapping['positionRequest'])}"
     )
 
+    accounts = mapping
+
+    # --- allow overriding the derived position_request via env (debug) ---
+    _pr_hint = _env_str("PERPS_POSITION_REQUEST_PDA_HINT")
+    if _pr_hint:
+        try:
+            accounts["positionRequest"] = _pr_hint  # keep as str; downstream converts to Pubkey
+            accounts["position_request"] = _pr_hint
+            hint_pk = Pubkey.from_string(_pr_hint)
+            rebuilt_ata: Optional[Pubkey] = None
+            if input_mint:
+                try:
+                    _rebuild_after_request_adopt(accounts, _pr_hint, input_mint)
+                    rebuilt_ata = accounts.get("positionRequestAta")
+                    logger.info(
+                        "[perps] position_request overridden from env → %s ; rebuilt ATA → %s",
+                        _pr_hint,
+                        rebuilt_ata,
+                    )
+                except Exception as rebuild_err:
+                    logger.warning(
+                        "[perps] PERPS_POSITION_REQUEST_PDA_HINT rebuild failed (%s): %s",
+                        _pr_hint,
+                        rebuild_err,
+                    )
+            else:
+                logger.info("[perps] position_request overridden from env → %s", _pr_hint)
+            try:
+                _sync_args_after_adopt(args, request_pk=hint_pk)
+            except Exception as sync_err:
+                logger.warning(
+                    "[perps] PERPS_POSITION_REQUEST_PDA_HINT sync failed (%s): %s",
+                    _pr_hint,
+                    sync_err,
+                )
+            else:
+                request = hint_pk
+        except Exception as e:
+            logger.warning("[perps] PERPS_POSITION_REQUEST_PDA_HINT invalid (%s): %s", _pr_hint, e)
+    # --------------------------------------------------------------------
+
     # --- normalize token program mapping for this instruction -------------------
     # Ensure canonical program mappings are set explicitly for downstream metas.
     mapping["tokenProgram"] = SPL_TOKEN_PROGRAM
@@ -2075,20 +2136,26 @@ def open_position_request(
         if not ok:
             lr = _parse_invalid_collateral(logs)
             if lr:
-                left_b58, right_b58 = lr
-                try:
-                    left_pk = Pubkey.from_string(left_b58)
-                    right_pk = Pubkey.from_string(right_b58)
-                    # Respect what the program printed: Left=custody, Right=collateralCustody
-                    effective["custody"] = left_pk
-                    effective["collateralCustody"] = right_pk
-                    print(
-                        f"[perps] adopting custody={left_b58} collateralCustody={right_b58} from program logs"
+                _try_swap = not _env_flag("PERPS_DISABLE_CUSTODY_SWAP_ON_6006", default=False)
+                if _try_swap:
+                    left_b58, right_b58 = lr
+                    try:
+                        left_pk = Pubkey.from_string(left_b58)
+                        right_pk = Pubkey.from_string(right_b58)
+                        # Respect what the program printed: Left=custody, Right=collateralCustody
+                        effective["custody"] = left_pk
+                        effective["collateralCustody"] = right_pk
+                        print(
+                            f"[perps] adopting custody={left_b58} collateralCustody={right_b58} from program logs"
+                        )
+                        metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
+                        ok, logs = _simulate_with_label(raw, "after collateral adopt")
+                    except Exception as _:
+                        pass
+                else:
+                    logger.info(
+                        "[perps] 6006 received; custody swap disabled by PERPS_DISABLE_CUSTODY_SWAP_ON_6006=1"
                     )
-                    metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
-                    ok, logs = _simulate_with_label(raw, "after collateral adopt")
-                except Exception as _:
-                    pass
 
         MAX_RECOVER = 6
         recover_count = 0
