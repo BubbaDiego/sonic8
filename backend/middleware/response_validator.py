@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, os, re
+import json, os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Iterable
 from fastapi import Request, APIRouter
@@ -23,13 +23,14 @@ _allowed_hdrs = {
     "vary", "expires", "content-language", "content-encoding",
 }
 
-def _safe_header_value(val: str, max_len: int = 200) -> str:
-    # strip CR/LF and non-printable, cap length
-    val = re.sub(r"[\r\n]+", " ", str(val))
-    val = "".join(ch for ch in val if 32 <= ord(ch) <= 126)
-    if len(val) > max_len:
-        val = val[:max_len] + "…"
-    return val
+def _safe_header_value(val: str, max_len: int = 180) -> str:
+    s = str(val).replace("\r", " ").replace("\n", " ")
+    # Replace any non-ASCII with '?'
+    s = "".join(ch if 32 <= ord(ch) <= 126 else "?" for ch in s)
+    # Trim and use ASCII-only ellipsis
+    if len(s) > max_len:
+        s = s[: max_len - 3] + "..."
+    return s
 
 def _copy_allowed_headers(src) -> Dict[str,str]:
     out: Dict[str,str] = {}
@@ -106,7 +107,7 @@ class ResponseValidatorMiddleware(BaseHTTPMiddleware):
 
         if not schema:
             # mark skip reason but keep it short + safe
-            base_headers["X-Validator-Skip"] = "no-mapping"
+            base_headers["X-Validator-Skip"] = _safe_header_value("no-mapping")
             return StarletteResponse(content=body, status_code=resp.status_code,
                                      headers=base_headers, media_type=resp.media_type)
 
