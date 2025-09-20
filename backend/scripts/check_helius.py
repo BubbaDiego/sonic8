@@ -1,28 +1,22 @@
+# Loads .env and does a single JSON-RPC call (blockhash) via the same client setup
+import asyncio
 try:
-    from dotenv import load_dotenv
-    load_dotenv()
+    from dotenv import load_dotenv, find_dotenv
+    load_dotenv(find_dotenv(), override=True)
 except Exception:
     pass
 
-import asyncio
-import json
-
-from backend.config.rpc import helius_url, redacted
-from solana.rpc.async_api import AsyncClient
+from backend.infra.solana_client import get_async_client
 
 
-async def main() -> None:
-    url = helius_url()
-    print(f"Using Helius RPC  : {redacted(url)}")
-    client = AsyncClient(url, commitment="processed")
+async def main():
+    client = get_async_client()
     resp = await client.get_latest_blockhash()
     await client.close()
-    if resp.get("result"):
-        print("HTTP 200")
-        print(json.dumps(resp, indent=2))
-        print("\nHelius RPC OK ✅")
-    else:
-        print("Helius RPC issue:\n", json.dumps(resp, indent=2))
+    ok = bool(resp.get("result"))
+    print("HTTP 200" if ok else "HTTP ?")
+    print(resp)
+    print("\nHelius RPC OK ✅" if ok else "\nHelius RPC problem ❌")
 
 
 if __name__ == "__main__":

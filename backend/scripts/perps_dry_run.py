@@ -1,19 +1,20 @@
-from __future__ import annotations
-
 try:
-    from dotenv import load_dotenv  # type: ignore
+    from dotenv import load_dotenv, find_dotenv  # type: ignore
 
-    load_dotenv()
+    load_dotenv(find_dotenv(), override=True)
 except Exception:
     pass
 
+from __future__ import annotations
+
 import argparse
+import asyncio
 import json
 import os
 import sys
 from typing import Any, Dict
 
-from backend.config.rpc import helius_url, redacted
+from backend.infra.solana_client import get_async_client
 
 from backend.services.perps.positions_request import (
     dry_run_open_position_request,
@@ -74,11 +75,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_arg_parser().parse_args()
 
+    client = None
     try:
-        rpc_url = helius_url()
-        print(f"[rpc] using {redacted(rpc_url)}")
+        client = get_async_client()
     except RuntimeError as exc:
         print(f"[rpc] WARN: {exc}")
+    else:
+        try:
+            asyncio.run(client.close())
+        except Exception:
+            pass
 
     wallet = load_signer()
 

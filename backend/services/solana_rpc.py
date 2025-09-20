@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import random
 import time
 from typing import Any, Dict, List
 
@@ -16,27 +15,15 @@ class RpcError(RuntimeError):
     pass
 
 
-def _parse_urls() -> List[str]:
-    """Build the RPC rotation based on available environment variables."""
-
-    urls = [u.strip() for u in os.getenv("RPC_URLS", "").split(",") if u.strip()]
-    if urls:
-        return urls
-
-    one = os.getenv("RPC_URL", "").strip()
-    if one:
-        return [one]
-
-    try:
-        return [helius_url()]
-    except RuntimeError:
-        pass
-
-    # last resort: Solana public RPC (rate-limited)
-    return ["https://api.mainnet-beta.solana.com"]
+def _resolve_url() -> str:
+    override = os.getenv("RPC_URL", "").strip()
+    if override:
+        return override
+    return helius_url()
 
 
-_RPC_URLS: List[str] = _parse_urls()
+_RPC_URL = _resolve_url()
+_RPC_URLS: List[str] = [_RPC_URL]
 _RPC_MAX_RETRIES = max(1, int(os.getenv("RPC_MAX_RETRIES", "5")))
 _HEADERS = {"User-Agent": "Cyclone/PerpsRPC"}
 
@@ -57,15 +44,12 @@ def _post_json(url: str, payload: Dict[str, Any], timeout: float) -> Dict[str, A
 
 
 def rpc_post(method: str, params: Any, timeout: float = 30.0) -> Any:
-    """
-    JSON-RPC POST with rotation + backoff.
-    Retries on HTTP 429/5xx, DNS failures, connect timeouts.
-    """
+    """JSON-RPC POST with retry/backoff against the configured Helius endpoint."""
 
     attempt = 0
     err_last: Exception | None = None
     while attempt < _RPC_MAX_RETRIES:
-        url = _RPC_URLS[attempt % len(_RPC_URLS)]
+        url = _RPC_URL
         try:
             payload = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
             response = _post_json(url, payload, timeout)
@@ -80,7 +64,7 @@ def rpc_post(method: str, params: Any, timeout: float = 30.0) -> Any:
             return body.get("result")
         except Exception as e:
             err_last = e
-            sleep = min(2**attempt, 8) + random.random()
+            sleep = min(2**attempt, 8)
             print(
                 f"[rpc] {method} via {redacted(url)} failed (attempt {attempt + 1}/{_RPC_MAX_RETRIES}): {e} "
                 f"→ retry in {sleep:.1f}s"

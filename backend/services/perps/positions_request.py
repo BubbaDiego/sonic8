@@ -17,6 +17,7 @@ from solders.message import MessageV0
 from solders.pubkey import Pubkey
 from solders.transaction import VersionedTransaction
 
+from backend.infra.solana_client import get_async_client
 from backend.services.perps.markets import resolve_market, resolve_extra_account
 from backend.services.perps.pdas_jup import (
     associated_token_address as jup_associated_token_address,
@@ -40,6 +41,10 @@ IDL_PATH = os.path.join(os.path.dirname(__file__), "idl", "jupiter_perpetuals.js
 DEFAULT_BASE_MINT = "So11111111111111111111111111111111111111112"
 DEFAULT_QUOTE_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 DEFAULT_ORACLE_PUBKEY = "11111111111111111111111111111111"
+
+
+def _rpc_client():
+    return get_async_client()
 def recent_blockhash() -> Hash:
     result = rpc("getLatestBlockhash", [{"commitment": "finalized"}])
     return Hash.from_string(result["value"]["blockhash"])
@@ -142,6 +147,36 @@ def _extract_right_from_logs(logs: list[str]) -> str | None:
 # --- begin: helpers for PDA adoption and unknown-account resolution ---
 
 _B58 = r"[1-9A-HJ-NP-Za-km-z]{32,44}"
+
+
+def _adopt_position_from_logs(logs: list[str]) -> str | None:
+    grab = False
+    want_next = False
+    for ln in logs:
+        text = ln.strip()
+        if "AnchorError" in text and "account: position" in text:
+            grab = True
+            want_next = False
+            continue
+        if not grab:
+            continue
+        if "Right:" in text:
+            part = text.split("Right:", 1)[-1].strip()
+            if part:
+                m = re.search(_B58, part)
+                if m:
+                    return m.group(0)
+            want_next = True
+            continue
+        if want_next:
+            candidate = text
+            if candidate.startswith("Program log:"):
+                candidate = candidate.split("Program log:", 1)[-1].strip()
+            m = re.search(_B58, candidate)
+            if m:
+                return m.group(0)
+            want_next = False
+    return None
 
 
 def _derive_ata(owner: Pubkey, mint: Pubkey) -> Pubkey:
@@ -335,6 +370,52 @@ def _sync_args_after_adopt(
                     params[key] = str(request_pk)
         if counter is not None:
             _maybe_set(params, "counter", int(counter))
+
+
+def _apply_position_adopt(
+    mapping: Dict[str, Pubkey],
+    args: Dict[str, Any],
+    position_b58: str,
+    *,
+    program_id: Pubkey,
+    input_mint: Optional[Pubkey],
+    counter_seed: int,
+) -> int:
+    pos_pk = Pubkey.from_string(position_b58)
+    mapping["position"] = pos_pk
+
+    counter_seed_local = counter_seed
+    params_counter = args.get("params")
+    if isinstance(params_counter, dict) and "counter" in params_counter:
+        try:
+            counter_seed_local = int(params_counter.get("counter", counter_seed_local))
+        except Exception:
+            counter_seed_local = counter_seed_local
+    elif "counter" in args:
+        try:
+            counter_seed_local = int(args.get("counter", counter_seed_local))
+        except Exception:
+            counter_seed_local = counter_seed_local
+
+    req_pk = Pubkey.find_program_address(
+        [
+            b"position_request",
+            bytes(pos_pk),
+            int(counter_seed_local).to_bytes(8, "little"),
+        ],
+        program_id,
+    )[0]
+    mapping["positionRequest"] = req_pk
+    mapping["position_request"] = req_pk
+    if input_mint:
+        _rebuild_after_request_adopt(mapping, str(req_pk), input_mint)
+    _sync_args_after_adopt(
+        args,
+        position_pk=pos_pk,
+        request_pk=req_pk,
+        counter=int(counter_seed_local),
+    )
+    return counter_seed_local
 
 
 def _append_remaining_account(remaining: list, pk_b58: str, signer: bool = False, writable: bool = False) -> None:
@@ -1215,6 +1296,23 @@ def dry_run_open_position_request(
         return ok, logs, metas, raw
 
     ok, logs, metas, raw = _simulate_step("initial", mapping)
+    adopted_position_from_logs = False
+    if not ok:
+        pos_pda_hint = _adopt_position_from_logs(logs)
+        if pos_pda_hint:
+            try:
+                counter_seed = _apply_position_adopt(
+                    mapping,
+                    args,
+                    pos_pda_hint,
+                    program_id=program_id,
+                    input_mint=input_mint,
+                    counter_seed=counter_seed,
+                )
+                ok, logs, metas, raw = _simulate_step("after position adopt", mapping)
+                adopted_position_from_logs = True
+            except Exception:
+                pass
     if not ok:
         # 1) PDA adoption guided by which account triggered ConstraintSeeds
         # Build a seed hint from Anchor's error line PLUS a tolerant Right-PDA scan
@@ -1235,41 +1333,18 @@ def dry_run_open_position_request(
                 _rebuild_after_request_adopt(mapping, right_b58, input_mint)
                 _sync_args_after_adopt(args, request_pk=Pubkey.from_string(right_b58))
                 ok, logs, metas, raw = _simulate_step("after PR adopt", mapping)
-            elif acct_lc == "position":
-                # Trust the program’s canonical position PDA for this run
+            elif acct_lc == "position" and not adopted_position_from_logs:
                 try:
-                    pos_pk = Pubkey.from_string(right_b58)
-                    mapping["position"] = pos_pk
-
-                    counter_seed_local = counter_seed
-                    params_counter = args.get("params")
-                    if isinstance(params_counter, dict) and "counter" in params_counter:
-                        try:
-                            counter_seed_local = int(params_counter.get("counter", counter_seed_local))
-                        except Exception:
-                            counter_seed_local = counter_seed_local
-                    elif "counter" in args:
-                        try:
-                            counter_seed_local = int(args.get("counter", counter_seed_local))
-                        except Exception:
-                            counter_seed_local = counter_seed_local
-
-                    req_pk = Pubkey.find_program_address(
-                        [b"position_request", bytes(pos_pk), int(counter_seed_local).to_bytes(8, "little")],
-                        program_id,
-                    )[0]
-                    mapping["positionRequest"] = req_pk
-                    mapping["position_request"] = req_pk
-                    if input_mint:
-                        _rebuild_after_request_adopt(mapping, str(req_pk), input_mint)
-                    _sync_args_after_adopt(
+                    counter_seed = _apply_position_adopt(
+                        mapping,
                         args,
-                        position_pk=pos_pk,
-                        request_pk=req_pk,
-                        counter=int(counter_seed_local),
+                        right_b58,
+                        program_id=program_id,
+                        input_mint=input_mint,
+                        counter_seed=counter_seed,
                     )
-                    counter_seed = counter_seed_local
                     ok, logs, metas, raw = _simulate_step("after position adopt", mapping)
+                    adopted_position_from_logs = True
                 except Exception:
                     pass
 
