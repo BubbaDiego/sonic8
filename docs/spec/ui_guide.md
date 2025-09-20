@@ -20,7 +20,7 @@ This guide helps humans (and GPTs) understand the **React/Vite** frontend quickl
 - If you use Tailwind, tokens map to your tailwind theme values.
 
 ## Dev Quickstart
-```bash
+```bash[user_guide.md](user_guide.md)
 cd frontend
 npm install
 npm run dev   # vite on http://127.0.0.1:5173

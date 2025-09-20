@@ -15,7 +15,7 @@ Sonic Spec — User Guide
 4. **Contracts first** → Read the JSON schema (look at `examples`) before coding.
 5. **Run locally**
    - API: `uvicorn backend.sonic_backend_app:app --reload` (or your launcher)
-   - Web: `cd frontend && npm run dev`
+   - Web: `cd frontend && npm run dev`[xcom_last_ping.json](schemas/xcom_last_ping.json)
    - Export OpenAPI: `python backend/scripts/export_openapi.py`
 
 ## Dev safety nets

@@ -23,173 +23,173 @@ routes:
   uses: []
 - path: /
   page_id: PAGE_ROOT
-  component: AuthLogin
-  file: frontend/src/routes/LoginRoutes.jsx
-  uses: []
-- path: /login
-  page_id: PAGE_LOGIN
-  component: AuthLogin
-  file: frontend/src/routes/LoginRoutes.jsx
-  uses: []
-- path: /register
-  page_id: PAGE_REGISTER
-  component: AuthRegister
-  file: frontend/src/routes/LoginRoutes.jsx
-  uses: []
-- path: /forgot-password
-  page_id: PAGE_FORGOT_PASSWORD
-  component: AuthForgotPassword
-  file: frontend/src/routes/LoginRoutes.jsx
-  uses: []
-- path: /reset-password
-  page_id: PAGE_RESET_PASSWORD
-  component: AuthResetPassword
-  file: frontend/src/routes/LoginRoutes.jsx
-  uses: []
-- path: /check-mail
-  page_id: PAGE_CHECK_MAIL
-  component: AuthCheckMail
-  file: frontend/src/routes/LoginRoutes.jsx
-  uses: []
-- path: /code-verification
-  page_id: PAGE_CODE_VERIFICATION
-  component: AuthCodeVerification
-  file: frontend/src/routes/LoginRoutes.jsx
-  uses: []
-- path: /trader-shop
-  page_id: PAGE_TRADER_SHOP
-  component: MainLayout
-  file: frontend/src/layout/MainLayout/index.jsx
-  uses: []
-- path: /
-  page_id: PAGE_ROOT
   component: MinimalLayout
-  file: frontend/src/layout/MinimalLayout/index.jsx
+  file: frontend\src\layout\MinimalLayout\index.jsx
   uses: []
 - path: /pages/error
   page_id: PAGE_PAGES_ERROR
   component: MaintenanceError
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   uses: []
 - path: /pages/500
   page_id: PAGE_PAGES_500
   component: MaintenanceError500
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   uses: []
 - path: /pages/coming-soon1
   page_id: PAGE_PAGES_COMING_SOON1
   component: MaintenanceComingSoon1
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   uses: []
 - path: /pages/coming-soon2
   page_id: PAGE_PAGES_COMING_SOON2
   component: MaintenanceComingSoon2
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   uses: []
 - path: /pages/under-construction
   page_id: PAGE_PAGES_UNDER_CONSTRUCTION
   component: MaintenanceUnderConstruction
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   uses: []
 - path: /forbidden
   page_id: PAGE_FORBIDDEN
   component: MaintenanceForbidden
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
+  uses: []
+- path: /
+  page_id: PAGE_ROOT
+  component: AuthLogin
+  file: frontend\src\routes\LoginRoutes.jsx
+  uses: []
+- path: /login
+  page_id: PAGE_LOGIN
+  component: AuthLogin
+  file: frontend\src\routes\LoginRoutes.jsx
+  uses: []
+- path: /register
+  page_id: PAGE_REGISTER
+  component: AuthRegister
+  file: frontend\src\routes\LoginRoutes.jsx
+  uses: []
+- path: /forgot-password
+  page_id: PAGE_FORGOT_PASSWORD
+  component: AuthForgotPassword
+  file: frontend\src\routes\LoginRoutes.jsx
+  uses: []
+- path: /reset-password
+  page_id: PAGE_RESET_PASSWORD
+  component: AuthResetPassword
+  file: frontend\src\routes\LoginRoutes.jsx
+  uses: []
+- path: /check-mail
+  page_id: PAGE_CHECK_MAIL
+  component: AuthCheckMail
+  file: frontend\src\routes\LoginRoutes.jsx
+  uses: []
+- path: /code-verification
+  page_id: PAGE_CODE_VERIFICATION
+  component: AuthCodeVerification
+  file: frontend\src\routes\LoginRoutes.jsx
   uses: []
 - path: /
   page_id: PAGE_ROOT
   component: MainLayout
-  file: frontend/src/layout/MainLayout/index.jsx
+  file: frontend\src\layout\MainLayout\index.jsx
   uses: []
 - path: debug/db
   page_id: PAGE_DEBUG_DB
   component: DatabaseViewer
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /overview
   page_id: PAGE_OVERVIEW
   component: OverviewPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /positions
   page_id: PAGE_POSITIONS
   component: PositionsPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /wallet-manager
   page_id: PAGE_WALLET_MANAGER
   component: WalletManagerPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /monitor-manager
   page_id: PAGE_MONITOR_MANAGER
   component: MonitorManagerPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /alert-thresholds
   page_id: PAGE_ALERT_THRESHOLDS
   component: AlertThresholdsPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /dashboard/analytics
   page_id: PAGE_DASHBOARD_ANALYTICS
   component: DashboardAnalytics
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /dashboard/default
   page_id: PAGE_DASHBOARD_DEFAULT
   component: DashboardDefault
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /dashboards/analytics-wire
   page_id: PAGE_DASHBOARDS_ANALYTICS_WIRE
   component: DashboardGrid
-  file: frontend/src/components/dashboard-grid/DashboardGrid.jsx
+  file: frontend\src\components\dashboard-grid\DashboardGrid.jsx
   uses: []
 - path: /sonic-labs
   page_id: PAGE_SONIC_LABS
   component: SonicLabsPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /jupiter
   page_id: PAGE_JUPITER
   component: JupiterPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /trader-factory
   page_id: PAGE_TRADER_FACTORY
   component: TraderFactoryPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /communications/xcom
   page_id: PAGE_COMMUNICATIONS_XCOM
   component: XComSettingsPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /hedge-report
   page_id: PAGE_HEDGE_REPORT
   component: HedgeReportPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /apps/kanban
   page_id: PAGE_APPS_KANBAN
   component: KanbanPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: board
   page_id: PAGE_BOARD
   component: KanbanBoard
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: backlogs
   page_id: PAGE_BACKLOGS
   component: KanbanBacklogs
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   uses: []
 - path: /sonic
   page_id: PAGE_SONIC
   component: Sonic
-  file: frontend/src/views/sonic/index.jsx
+  file: frontend\src\views\sonic\index.jsx
+  uses: []
+- path: /trader-shop
+  page_id: PAGE_TRADER_SHOP
+  component: MainLayout
+  file: frontend\src\layout\MainLayout\index.jsx
   uses: []
 - path: '*'
   page_id: PAGE_ROOT
@@ -199,7 +199,7 @@ routes:
 components:
 - id: COMP_ACCORDION
   name: Accordion
-  file: frontend/src/ui-component/extended/Accordion.jsx
+  file: frontend\src\ui-component\extended\Accordion.jsx
   props:
   - name: data
     type: array
@@ -220,40 +220,40 @@ components:
   state: []
 - id: COMP_ACTIONBAR
   name: ActionBar
-  file: frontend/src/views/forms/layouts/ActionBar.jsx
+  file: frontend\src\views\forms\layouts\ActionBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ACTIONSCELL
   name: ActionsCell
-  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  file: frontend\src\ui-component\wallet\WalletTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ACTIVETICKETS
   name: ActiveTickets
-  file: frontend/src/views/widget/Data/ActiveTickets.jsx
+  file: frontend\src\views\widget\Data\ActiveTickets.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ADDCOLUMN
   name: AddColumn
-  file: frontend/src/views/kanban/Board/AddColumn.jsx
+  file: frontend\src\views\kanban\Board\AddColumn.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ADDITEM
   name: AddItem
-  file: frontend/src/views/kanban/Board/AddItem.jsx
+  file: frontend\src\views\kanban\Backlogs\AddItem.jsx
   props:
-  - name: open
-    type: bool
+  - name: columnId
+    type: string
     required: false
   emits: []
   state: []
 - id: COMP_ADDITEMCOMMENT
   name: AddItemComment
-  file: frontend/src/views/kanban/Board/AddItemComment.jsx
+  file: frontend\src\views\kanban\Board\AddItemComment.jsx
   props:
   - name: itemId
     type: oneOfType
@@ -262,19 +262,19 @@ components:
   state: []
 - id: COMP_ADDMENUITEM
   name: AddMenuItem
-  file: frontend/src/views/forms/data-grid/ColumnMenu/AddMenuItem.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\AddMenuItem.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ADDRESSCELL
   name: AddressCell
-  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  file: frontend\src\ui-component\wallet\WalletTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ADDRESSFORM
   name: AddressForm
-  file: frontend/src/views/forms/forms-wizard/BasicWizard/AddressForm.jsx
+  file: frontend\src\views\forms\forms-wizard\BasicWizard\AddressForm.jsx
   props:
   - name: shippingData
     type: any
@@ -292,7 +292,7 @@ components:
   state: []
 - id: COMP_ADDSTORY
   name: AddStory
-  file: frontend/src/views/kanban/Backlogs/AddStory.jsx
+  file: frontend\src\views\kanban\Backlogs\AddStory.jsx
   props:
   - name: open
     type: bool
@@ -301,7 +301,7 @@ components:
   state: []
 - id: COMP_ADDSTORYCOMMENT
   name: AddStoryComment
-  file: frontend/src/views/kanban/Backlogs/AddStoryComment.jsx
+  file: frontend\src\views\kanban\Backlogs\AddStoryComment.jsx
   props:
   - name: storyId
     type: string
@@ -310,13 +310,13 @@ components:
   state: []
 - id: COMP_ADDTHRESHOLDDIALOG
   name: AddThresholdDialog
-  file: frontend/src/views/alertThresholds/AddThresholdDialog.jsx
+  file: frontend\src\views\alertThresholds\AddThresholdDialog.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ALERTCOLUMNDELETE
   name: AlertColumnDelete
-  file: frontend/src/views/kanban/Board/AlertColumnDelete.jsx
+  file: frontend\src\views\kanban\Board\AlertColumnDelete.jsx
   props:
   - name: title
     type: string
@@ -325,7 +325,7 @@ components:
   state: []
 - id: COMP_ALERTITEMDELETE
   name: AlertItemDelete
-  file: frontend/src/views/kanban/Board/AlertItemDelete.jsx
+  file: frontend\src\views\kanban\Board\AlertItemDelete.jsx
   props:
   - name: title
     type: string
@@ -334,7 +334,7 @@ components:
   state: []
 - id: COMP_ALERTSTORYDELETE
   name: AlertStoryDelete
-  file: frontend/src/views/kanban/Backlogs/AlertStoryDelete.jsx
+  file: frontend\src\views\kanban\Backlogs\AlertStoryDelete.jsx
   props:
   - name: title
     type: string
@@ -343,19 +343,19 @@ components:
   state: []
 - id: COMP_ALERTTHRESHOLDSPAGE
   name: AlertThresholdsPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ANALYTICS
   name: Analytics
-  file: frontend/src/views/dashboard/Analytics/index.jsx
+  file: frontend\src\views\dashboard\Analytics\index - Copy (2).jsx
   props: []
   emits: []
   state: []
 - id: COMP_ANALYTICSCHARTCARD
   name: AnalyticsChartCard
-  file: frontend/src/ui-component/cards/AnalyticsChartCard.jsx
+  file: frontend\src\ui-component\cards\AnalyticsChartCard.jsx
   props:
   - name: title
     type: any
@@ -364,7 +364,7 @@ components:
   state: []
 - id: COMP_ANIMATEBUTTON
   name: AnimateButton
-  file: frontend/src/ui-component/extended/AnimateButton.jsx
+  file: frontend\src\ui-component\extended\AnimateButton.jsx
   props:
   - name: children
     type: node
@@ -385,103 +385,103 @@ components:
   state: []
 - id: COMP_ANIMATION
   name: Animation
-  file: frontend/src/views/utilities/Animation.jsx
+  file: frontend\src\views\utilities\Animation.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APEXAREACHART
   name: ApexAreaChart
-  file: frontend/src/views/forms/chart/Apexchart/ApexAreaChart.jsx
+  file: frontend\src\views\forms\chart\Apexchart\ApexAreaChart.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APEXBARCHART
   name: ApexBarChart
-  file: frontend/src/views/forms/chart/Apexchart/ApexBarChart.jsx
+  file: frontend\src\views\forms\chart\Apexchart\ApexBarChart.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APEXCHART
   name: Apexchart
-  file: frontend/src/views/forms/chart/Apexchart/index.jsx
+  file: frontend\src\views\forms\chart\Apexchart\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APEXCOLUMNCHART
   name: ApexColumnChart
-  file: frontend/src/views/forms/chart/Apexchart/ApexColumnChart.jsx
+  file: frontend\src\views\forms\chart\Apexchart\ApexColumnChart.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APEXLINECHART
   name: ApexLineChart
-  file: frontend/src/views/forms/chart/Apexchart/ApexLineChart.jsx
+  file: frontend\src\views\forms\chart\Apexchart\ApexLineChart.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APEXMIXEDCHART
   name: ApexMixedChart
-  file: frontend/src/views/forms/chart/Apexchart/ApexMixedChart.jsx
+  file: frontend\src\views\forms\chart\Apexchart\ApexMixedChart.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APEXPIECHART
   name: ApexPieChart
-  file: frontend/src/views/forms/chart/Apexchart/ApexPieChart.jsx
+  file: frontend\src\views\forms\chart\Apexchart\ApexPieChart.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APEXPOLARCHART
   name: ApexPolarChart
-  file: frontend/src/views/forms/chart/Apexchart/ApexPolarChart.jsx
+  file: frontend\src\views\forms\chart\Apexchart\ApexPolarChart.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APEXREDIALBARCHART
   name: ApexRedialBarChart
-  file: frontend/src/views/forms/chart/Apexchart/ApexRedialChart.jsx
+  file: frontend\src\views\forms\chart\Apexchart\ApexRedialChart.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APP
   name: App
-  file: frontend/src/App.jsx
+  file: frontend\src\App.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APPBAR
   name: AppBar
-  file: frontend/src/ui-component/extended/AppBar.jsx
+  file: frontend\src\ui-component\extended\AppBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APPGRID
   name: AppGrid
-  file: frontend/src/components/AppGrid.jsx
+  file: frontend\src\components\AppGrid.jsx
   props: []
   emits: []
   state: []
 - id: COMP_APPLICATIONSALES
   name: ApplicationSales
-  file: frontend/src/views/widget/Data/ApplicationSales.jsx
+  file: frontend\src\views\widget\Data\ApplicationSales.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ASKCONFIRMATIONBEFORESAVE
   name: AskConfirmationBeforeSave
-  file: frontend/src/views/forms/data-grid/InLineEditing/ConfirmationSave.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\ConfirmationSave.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ASSETLOGO
   name: AssetLogo
-  file: frontend/src/components/AssetLogo.jsx
+  file: frontend\src\components\AssetLogo.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ATTACHMENTCARD
   name: AttachmentCard
-  file: frontend/src/ui-component/cards/AttachmentCard.jsx
+  file: frontend\src\ui-component\cards\AttachmentCard.jsx
   props:
   - name: title
     type: string
@@ -490,7 +490,7 @@ components:
   state: []
 - id: COMP_AUTH0CONTEXTPROVIDER
   name: Auth0ContextProvider
-  file: frontend/src/contexts/Auth0Context.jsx
+  file: frontend\src\contexts\Auth0Context.jsx
   props:
   - name: children
     type: node
@@ -499,13 +499,13 @@ components:
   state: []
 - id: COMP_AUTH0LOGIN
   name: Auth0Login
-  file: frontend/src/views/pages/authentication/auth0/AuthLogin.jsx
+  file: frontend\src\views\pages\authentication\auth0\AuthLogin.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTH0PROVIDER
   name: Auth0Provider
-  file: frontend/src/contexts/Auth0Context.jsx
+  file: frontend\src\contexts\Auth0Context.jsx
   props:
   - name: children
     type: node
@@ -514,13 +514,13 @@ components:
   state: []
 - id: COMP_AUTH0REGISTER
   name: Auth0Register
-  file: frontend/src/views/pages/authentication/auth0/AuthRegister.jsx
+  file: frontend\src\views\pages\authentication\auth0\AuthRegister.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTHCARDWRAPPER
   name: AuthCardWrapper
-  file: frontend/src/views/pages/authentication/AuthCardWrapper.jsx
+  file: frontend\src\views\pages\authentication\AuthCardWrapper.jsx
   props:
   - name: children
     type: any
@@ -529,25 +529,25 @@ components:
   state: []
 - id: COMP_AUTHCHECKMAIL
   name: AuthCheckMail
-  file: frontend/src/routes/LoginRoutes.jsx
+  file: frontend\src\routes\LoginRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTHCODEVERIFICATION
   name: AuthCodeVerification
-  file: frontend/src/routes/LoginRoutes.jsx
+  file: frontend\src\routes\LoginRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTHFOOTER
   name: AuthFooter
-  file: frontend/src/ui-component/cards/AuthFooter.jsx
+  file: frontend\src\ui-component\cards\AuthFooter.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTHFORGOTPASSWORD
   name: AuthForgotPassword
-  file: frontend/src/routes/LoginRoutes.jsx
+  file: frontend\src\routes\LoginRoutes.jsx
   props:
   - name: link
     type: string
@@ -556,7 +556,7 @@ components:
   state: []
 - id: COMP_AUTHGUARD
   name: AuthGuard
-  file: frontend/src/utils/route-guard/AuthGuard.jsx
+  file: frontend\src\utils\route-guard\AuthGuard.jsx
   props:
   - name: children
     type: any
@@ -565,19 +565,19 @@ components:
   state: []
 - id: COMP_AUTHLOGIN
   name: AuthLogin
-  file: frontend/src/routes/LoginRoutes.jsx
+  file: frontend\src\routes\LoginRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTHREGISTER
   name: AuthRegister
-  file: frontend/src/routes/LoginRoutes.jsx
+  file: frontend\src\routes\LoginRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTHRESETPASSWORD
   name: AuthResetPassword
-  file: frontend/src/routes/LoginRoutes.jsx
+  file: frontend\src\routes\LoginRoutes.jsx
   props:
   - name: link
     type: string
@@ -586,7 +586,7 @@ components:
   state: []
 - id: COMP_AUTHSLIDER
   name: AuthSlider
-  file: frontend/src/ui-component/cards/AuthSlider.jsx
+  file: frontend\src\ui-component\cards\AuthSlider.jsx
   props:
   - name: items
     type: array
@@ -595,31 +595,31 @@ components:
   state: []
 - id: COMP_AUTOCOMPLETE
   name: AutoComplete
-  file: frontend/src/views/forms/components/AutoComplete.jsx
+  file: frontend\src\views\forms\components\AutoComplete.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTOCOMPLETEFORMS
   name: AutocompleteForms
-  file: frontend/src/views/forms/forms-validation/AutocompleteForms.jsx
+  file: frontend\src\views\forms\forms-validation\AutocompleteForms.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTOGRID
   name: AutoGrid
-  file: frontend/src/views/utilities/Grid/AutoGrid.jsx
+  file: frontend\src\views\utilities\Grid\AutoGrid.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AUTOSTOPEDITCOMPONENT
   name: AutoStopEditComponent
-  file: frontend/src/views/forms/data-grid/InLineEditing/AutoStop.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\AutoStop.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AVATAR
   name: Avatar
-  file: frontend/src/ui-component/extended/Avatar.jsx
+  file: frontend\src\ui-component\extended\Avatar.jsx
   props:
   - name: className
     type: string
@@ -643,7 +643,7 @@ components:
   state: []
 - id: COMP_AVATARUPLOAD
   name: AvatarUpload
-  file: frontend/src/ui-component/third-party/dropzone/Avatar.jsx
+  file: frontend\src\ui-component\third-party\dropzone\Avatar.jsx
   props:
   - name: error
     type: any
@@ -664,13 +664,13 @@ components:
   state: []
 - id: COMP_AWSCOGNITOLOGIN
   name: AwsCognitoLogin
-  file: frontend/src/views/pages/authentication/aws/AuthLogin.jsx
+  file: frontend\src\views\pages\authentication\aws\AuthLogin.jsx
   props: []
   emits: []
   state: []
 - id: COMP_AWSCOGNITOPROVIDER
   name: AWSCognitoProvider
-  file: frontend/src/contexts/AWSCognitoContext.jsx
+  file: frontend\src\contexts\AWSCognitoContext.jsx
   props:
   - name: children
     type: node
@@ -679,13 +679,13 @@ components:
   state: []
 - id: COMP_AWSCOGNITOREGISTER
   name: AWSCognitoRegister
-  file: frontend/src/views/pages/authentication/aws/AuthRegister.jsx
+  file: frontend\src\views\pages\authentication\aws\AuthRegister.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BACKGROUNDPATTERN1
   name: BackgroundPattern1
-  file: frontend/src/ui-component/cards/BackgroundPattern1.jsx
+  file: frontend\src\ui-component\cards\BackgroundPattern1.jsx
   props:
   - name: children
     type: node
@@ -694,7 +694,7 @@ components:
   state: []
 - id: COMP_BACKGROUNDPATTERN2
   name: BackgroundPattern2
-  file: frontend/src/ui-component/cards/BackgroundPattern2.jsx
+  file: frontend\src\ui-component\cards\BackgroundPattern2.jsx
   props:
   - name: children
     type: node
@@ -703,37 +703,37 @@ components:
   state: []
 - id: COMP_BACKLOGS
   name: Backlogs
-  file: frontend/src/views/kanban/Backlogs/index.jsx
+  file: frontend\src\views\kanban\Backlogs\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BAJAJAREACHARTCARD
   name: BajajAreaChartCard
-  file: frontend/src/views/dashboard/Default/BajajAreaChartCard.jsx
+  file: frontend\src\views\dashboard\Default\BajajAreaChartCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BALANCEBREAKDOWNCARD
   name: BalanceBreakdownCard
-  file: frontend/src/views/wallet/BalanceBreakdownCard.jsx
+  file: frontend\src\views\wallet\BalanceBreakdownCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BASICGRID
   name: BasicGrid
-  file: frontend/src/views/utilities/Grid/BasicGrid.jsx
+  file: frontend\src\views\utilities\Grid\BasicGrid.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BASICGROUPING
   name: BasicGrouping
-  file: frontend/src/views/forms/data-grid/ColumnGroups/BasicColumnGroup.jsx
+  file: frontend\src\views\forms\data-grid\ColumnGroups\BasicColumnGroup.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BASICGROUPINGDEMO
   name: BasicGroupingDemo
-  file: frontend/src/views/forms/data-grid/ColumnGroups/BasicColumnGroup.jsx
+  file: frontend\src\views\forms\data-grid\ColumnGroups\BasicColumnGroup.jsx
   props:
   - name: Selected
     type: any
@@ -742,25 +742,25 @@ components:
   state: []
 - id: COMP_BASICROWEDITINGGRID
   name: BasicRowEditingGrid
-  file: frontend/src/views/forms/data-grid/InLineEditing/EditableRow.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\EditableRow.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BASICSLIDER
   name: BasicSlider
-  file: frontend/src/views/forms/components/Slider/BasicSlider.jsx
+  file: frontend\src\views\forms\components\Slider\BasicSlider.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BASICWIZARD
   name: BasicWizard
-  file: frontend/src/views/forms/forms-wizard/BasicWizard/index.jsx
+  file: frontend\src\views\forms\forms-wizard\BasicWizard\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BILLCARD
   name: BillCard
-  file: frontend/src/ui-component/cards/BillCard.jsx
+  file: frontend\src\ui-component\cards\BillCard.jsx
   props:
   - name: primary
     type: any
@@ -781,13 +781,13 @@ components:
   state: []
 - id: COMP_BOARD
   name: Board
-  file: frontend/src/views/kanban/Board/index.jsx
+  file: frontend\src\views\kanban\Board\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BODY
   name: Body
-  file: frontend/src/views/forms/plugins/Modal/SimpleModal.jsx
+  file: frontend\src\views\forms\plugins\Modal\SimpleModal.jsx
   props:
   - name: modalStyle
     type: any
@@ -796,19 +796,19 @@ components:
   state: []
 - id: COMP_BORDERRADIUS
   name: BorderRadius
-  file: frontend/src/layout/Customization/BorderRadius.jsx
+  file: frontend\src\layout\Customization\BorderRadius.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BOXCONTAINER
   name: BoxContainer
-  file: frontend/src/layout/Customization/BoxContainer.jsx
+  file: frontend\src\layout\Customization\BoxContainer.jsx
   props: []
   emits: []
   state: []
 - id: COMP_BREADCRUMBS
   name: Breadcrumbs
-  file: frontend/src/ui-component/extended/Breadcrumbs.jsx
+  file: frontend\src\ui-component\extended\Breadcrumbs.jsx
   props:
   - name: card
     type: bool
@@ -859,7 +859,7 @@ components:
   state: []
 - id: COMP_BTITLE
   name: BTitle
-  file: frontend/src/ui-component/extended/Breadcrumbs.jsx
+  file: frontend\src\ui-component\extended\Breadcrumbs.jsx
   props:
   - name: title
     type: string
@@ -868,7 +868,7 @@ components:
   state: []
 - id: COMP_CARD
   name: Card
-  file: frontend/src/views/forms/chart/OrgChart/Card.jsx
+  file: frontend\src\views\forms\chart\OrgChart\Card.jsx
   props:
   - name: items
     type: any
@@ -877,7 +877,7 @@ components:
   state: []
 - id: COMP_CARDSECONDARYACTION
   name: CardSecondaryAction
-  file: frontend/src/ui-component/cards/CardSecondaryAction.jsx
+  file: frontend\src\ui-component\cards\CardSecondaryAction.jsx
   props:
   - name: title
     type: string
@@ -892,79 +892,79 @@ components:
   state: []
 - id: COMP_CHART
   name: Chart
-  file: frontend/src/views/widget/Chart/index.jsx
+  file: frontend\src\views\widget\Chart\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CHECKBOXFORMS
   name: CheckboxForms
-  file: frontend/src/views/forms/forms-validation/CheckboxForms.jsx
+  file: frontend\src\views\forms\forms-validation\CheckboxForms.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CHECKMAIL
   name: CheckMail
-  file: frontend/src/views/pages/authentication/CheckMail.jsx
+  file: frontend\src\views\pages\authentication\CheckMail.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CHIP
   name: Chip
-  file: frontend/src/themes/overrides/Chip.jsx
+  file: frontend\src\themes\overrides\Chip.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CIRCULARCOUNTDOWN
   name: CircularCountdown
-  file: frontend/src/views/monitorManager/SonicMonitorCard.jsx
+  file: frontend\src\views\monitorManager\SonicMonitorCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CLIPBOARDPAGE
   name: ClipboardPage
-  file: frontend/src/views/forms/plugins/Clipboard.jsx
+  file: frontend\src\views\forms\plugins\Clipboard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CODEVERIFICATION
   name: CodeVerification
-  file: frontend/src/views/pages/authentication/CodeVerification.jsx
+  file: frontend\src\views\pages\authentication\CodeVerification.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLORBOX
   name: ColorBox
-  file: frontend/src/views/utilities/Color.jsx
+  file: frontend\src\views\utilities\Color.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLORVARIANTS
   name: ColorVariants
-  file: frontend/src/ui-component/extended/notistack/ColorVariants.jsx
+  file: frontend\src\ui-component\extended\notistack\ColorVariants.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLUMNGROUPS
   name: ColumnGroups
-  file: frontend/src/views/forms/data-grid/ColumnGroups/index.jsx
+  file: frontend\src\views\forms\data-grid\ColumnGroups\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLUMNMENU
   name: ColumnMenu
-  file: frontend/src/views/forms/data-grid/ColumnMenu/ColumnMenu.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\ColumnMenu.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLUMNMENUDEMU
   name: ColumnMenuDemu
-  file: frontend/src/views/forms/data-grid/ColumnMenu/index.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLUMNS
   name: Columns
-  file: frontend/src/views/kanban/Board/Columns.jsx
+  file: frontend\src\views\kanban\Board\Columns.jsx
   props:
   - name: column
     type: any
@@ -973,55 +973,55 @@ components:
   state: []
 - id: COMP_COLUMNSGRID
   name: ColumnsGrid
-  file: frontend/src/views/utilities/Grid/ColumnsGrid.jsx
+  file: frontend\src\views\utilities\Grid\ColumnsGrid.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLUMNSLAYOUTS
   name: ColumnsLayouts
-  file: frontend/src/views/forms/layouts/MultiColumnForms.jsx
+  file: frontend\src\views\forms\layouts\MultiColumnForms.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLUMNVIRTUALIZATION
   name: ColumnVirtualization
-  file: frontend/src/views/forms/data-grid/ColumnVirtualization/index.jsx
+  file: frontend\src\views\forms\data-grid\ColumnVirtualization\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLUMNVIRTUALIZATIONGRID
   name: ColumnVirtualizationGrid
-  file: frontend/src/views/forms/data-grid/ColumnVirtualization/Virtualization.jsx
+  file: frontend\src\views\forms\data-grid\ColumnVirtualization\Virtualization.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLUMNVISIBILITY
   name: ColumnVisibility
-  file: frontend/src/views/forms/data-grid/ColumnVisibility/index.jsx
+  file: frontend\src\views\forms\data-grid\ColumnVisibility\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COLUMNVISIBILITYPANEL
   name: ColumnVisibilityPanel
-  file: frontend/src/views/forms/data-grid/ColumnVisibility/VisibilityPanel.jsx
+  file: frontend\src\views\forms\data-grid\ColumnVisibility\VisibilityPanel.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COMINGSOON1
   name: ComingSoon1
-  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/index.jsx
+  file: frontend\src\views\pages\maintenance\ComingSoon\ComingSoon1\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COMINGSOON2
   name: ComingSoon2
-  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon2.jsx
+  file: frontend\src\views\pages\maintenance\ComingSoon\ComingSoon2.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COMINGSOONSLIDER
   name: ComingSoonSlider
-  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/Slider.jsx
+  file: frontend\src\views\pages\maintenance\ComingSoon\ComingSoon1\Slider.jsx
   props:
   - name: handleClickOpen
     type: func
@@ -1030,19 +1030,19 @@ components:
   state: []
 - id: COMP_COMPLEXGRID
   name: ComplexGrid
-  file: frontend/src/views/utilities/Grid/ComplexGrid.jsx
+  file: frontend\src\views\utilities\Grid\ComplexGrid.jsx
   props: []
   emits: []
   state: []
 - id: COMP_COMPONENTSOVERRIDES
   name: ComponentsOverrides
-  file: frontend/src/themes/overrides/index.js
+  file: frontend\src\themes\overrides\index.js
   props: []
   emits: []
   state: []
 - id: COMP_COMPOSITIONPIECARD
   name: CompositionPieCard
-  file: frontend/src/components/CompositionPieCard/CompositionPieCard.jsx
+  file: frontend\src\components\CompositionPieCard\CompositionPieCard.jsx
   props:
   - name: maxHeight
     type: oneOfType
@@ -1054,7 +1054,7 @@ components:
   state: []
 - id: COMP_CONFIGPROVIDER
   name: ConfigProvider
-  file: frontend/src/contexts/ConfigContext.jsx
+  file: frontend\src\contexts\ConfigContext.jsx
   props:
   - name: children
     type: node
@@ -1063,7 +1063,7 @@ components:
   state: []
 - id: COMP_CONTACTCARD
   name: ContactCard
-  file: frontend/src/ui-component/cards/ContactCard.jsx
+  file: frontend\src\ui-component\cards\ContactCard.jsx
   props:
   - name: avatar
     type: any
@@ -1090,7 +1090,7 @@ components:
   state: []
 - id: COMP_CONTACTLIST
   name: ContactList
-  file: frontend/src/ui-component/cards/ContactList.jsx
+  file: frontend\src\ui-component\cards\ContactList.jsx
   props:
   - name: avatar
     type: any
@@ -1099,7 +1099,7 @@ components:
   state: []
 - id: COMP_CONVERSIONSCHARTCARD
   name: ConversionsChartCard
-  file: frontend/src/views/widget/Chart/ConversionsChartCard.jsx
+  file: frontend\src\views\widget\Chart\ConversionsChartCard.jsx
   props:
   - name: chartData
     type: any
@@ -1108,13 +1108,13 @@ components:
   state: []
 - id: COMP_COOLDOWNTABLE
   name: CooldownTable
-  file: frontend/src/ui-component/thresholds/CooldownTable.jsx
+  file: frontend\src\ui-component\thresholds\CooldownTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CSVEXPORT
   name: CSVExport
-  file: frontend/src/views/forms/tables/TableExports.jsx
+  file: frontend\src\views\forms\tables\TableExports.jsx
   props:
   - name: data
     type: any
@@ -1123,43 +1123,43 @@ components:
   state: []
 - id: COMP_CUSTOMCOLUMNMENU
   name: CustomColumnMenu
-  file: frontend/src/views/forms/data-grid/ColumnMenu/ReorderingMenu.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\AddMenuItem.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CUSTOMCOMPONENT
   name: CustomComponent
-  file: frontend/src/ui-component/extended/notistack/CustomComponent.jsx
+  file: frontend\src\ui-component\extended\notistack\CustomComponent.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CUSTOMDATETIME
   name: CustomDateTime
-  file: frontend/src/views/forms/components/DateTime/CustomDateTime.jsx
+  file: frontend\src\views\forms\components\DateTime\CustomDateTime.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CUSTOMEDITCOMPONENT
   name: CustomEditComponent
-  file: frontend/src/views/forms/data-grid/InLineEditing/CustomEdit.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\CustomEdit.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CUSTOMERSATISFACTIONCARD
   name: CustomerSatisfactionCard
-  file: frontend/src/views/widget/Statistics/CustomerSatisfactionCard.jsx
+  file: frontend\src\views\widget\Statistics\CustomerSatisfactionCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CUSTOMIZATION
   name: Customization
-  file: frontend/src/views/forms/data-grid/ColumnGroups/CustomColumnGroup.jsx
+  file: frontend\src\layout\Customization\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CUSTOMIZATIONDEMO
   name: CustomizationDemo
-  file: frontend/src/views/forms/data-grid/ColumnGroups/CustomColumnGroup.jsx
+  file: frontend\src\views\forms\data-grid\ColumnGroups\CustomColumnGroup.jsx
   props:
   - name: Selected
     type: any
@@ -1168,19 +1168,19 @@ components:
   state: []
 - id: COMP_CUSTOMIZEDTABLES
   name: CustomizedTables
-  file: frontend/src/views/forms/tables/TablesCustomized.jsx
+  file: frontend\src\views\forms\tables\TablesCustomized.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CUSTOMMENU
   name: CustomMenu
-  file: frontend/src/views/forms/data-grid/ColumnMenu/CustomMenu.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\CustomMenu.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CUSTOMNOTISTACK
   name: CustomNotistack
-  file: frontend/src/ui-component/extended/notistack/CustomComponent.jsx
+  file: frontend\src\ui-component\extended\notistack\CustomComponent.jsx
   props:
   - name: id
     type: any
@@ -1189,7 +1189,7 @@ components:
   state: []
 - id: COMP_CUSTOMSHADOWBOX
   name: CustomShadowBox
-  file: frontend/src/views/utilities/Shadow.jsx
+  file: frontend\src\views\utilities\Shadow.jsx
   props:
   - name: shadow
     type: string
@@ -1198,7 +1198,7 @@ components:
   state: []
 - id: COMP_CUSTOMTABPANEL
   name: CustomTabPanel
-  file: frontend/src/layout/Customization/index.jsx
+  file: frontend\src\layout\Customization\index.jsx
   props:
   - name: children
     type: node
@@ -1207,37 +1207,37 @@ components:
   state: []
 - id: COMP_CUSTOMUSERITEM
   name: CustomUserItem
-  file: frontend/src/views/forms/data-grid/ColumnMenu/AddMenuItem.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\AddMenuItem.jsx
   props: []
   emits: []
   state: []
 - id: COMP_CYCLONERUNSECTION
   name: CycloneRunSection
-  file: frontend/src/layout/MainLayout/Header/CycloneRunSection/CycloneRunSection.jsx
+  file: frontend\src\layout\MainLayout\Header\CycloneRunSection\CycloneRunSection.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DASHBOARD
   name: Dashboard
-  file: frontend/src/views/sonic/index_BU.jsx
+  file: frontend\src\views\sonic\index_BU.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DASHBOARDANALYTICS
   name: DashboardAnalytics
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DASHBOARDDEFAULT
   name: DashboardDefault
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DASHBOARDGRID
   name: DashboardGrid
-  file: frontend/src/components/dashboard-grid/DashboardGrid.jsx
+  file: frontend\src\components\dashboard-grid\DashboardGrid.jsx
   props:
   - name: layout
     type: object
@@ -1249,25 +1249,25 @@ components:
   state: []
 - id: COMP_DASHBOARDTOGGLE
   name: DashboardToggle
-  file: frontend/src/components/old/DashboardToggle.jsx
+  file: frontend\src\components\old\DashboardToggle.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DASHROWCONTAINER
   name: DashRowContainer
-  file: frontend/src/ui-component/containers/DashRowContainer.jsx
+  file: frontend\src\ui-component\containers\DashRowContainer.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DATABASEVIEWER
   name: DatabaseViewer
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DATACARD
   name: DataCard
-  file: frontend/src/views/forms/chart/OrgChart/DataCard.jsx
+  file: frontend\src\views\forms\chart\OrgChart\DataCard.jsx
   props:
   - name: name
     type: any
@@ -1294,67 +1294,67 @@ components:
   state: []
 - id: COMP_DATAGRIDBASIC
   name: DataGridBasic
-  file: frontend/src/views/forms/data-grid/DataGridBasic/index.jsx
+  file: frontend\src\views\forms\data-grid\DataGridBasic\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DATETIME
   name: DateTime
-  file: frontend/src/views/forms/components/DateTime/index.jsx
+  file: frontend\src\views\forms\components\DateTime\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DENSE
   name: Dense
-  file: frontend/src/ui-component/extended/notistack/Dense.jsx
+  file: frontend\src\ui-component\extended\notistack\Dense.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DENSETABLE
   name: DenseTable
-  file: frontend/src/views/forms/tables/TableDense.jsx
+  file: frontend\src\views\forms\tables\TableDense.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DISABLECOLUMNMENU
   name: DisableColumnMenu
-  file: frontend/src/views/forms/data-grid/ColumnMenu/DisableMenu.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\DisableMenu.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DISABLESLIDER
   name: DisableSlider
-  file: frontend/src/views/forms/components/Slider/DisableSlider.jsx
+  file: frontend\src\views\forms\components\Slider\DisableSlider.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DISABLESTOPEDITMODEONFOCUSOUT
   name: DisableStopEditModeOnFocusOut
-  file: frontend/src/views/forms/data-grid/InLineEditing/EditingEvents.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\EditingEvents.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DISMISSSNACKBAR
   name: DismissSnackBar
-  file: frontend/src/ui-component/extended/notistack/DismissSnackBar.jsx
+  file: frontend\src\ui-component\extended\notistack\DismissSnackBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DONUTCOUNTDOWN
   name: DonutCountdown
-  file: frontend/src/layout/MainLayout/Header/TimerSection/DonutCountdown.jsx
+  file: frontend\src\layout\MainLayout\Header\TimerSection\DonutCountdown.jsx
   props: []
   emits: []
   state: []
 - id: COMP_DROPZONE
   name: Dropzone
-  file: frontend/src/views/forms/plugins/Dropzone.jsx
+  file: frontend\src\views\forms\plugins\Dropzone.jsx
   props: []
   emits: []
   state: []
 - id: COMP_EARNINGCARD
   name: EarningCard
-  file: frontend/src/views/dashboard/Default/EarningCard.jsx
+  file: frontend\src\ui-component\cards\Skeleton\EarningCard.jsx
   props:
   - name: isLoading
     type: bool
@@ -1363,13 +1363,13 @@ components:
   state: []
 - id: COMP_EDITABLECOLUMN
   name: EditableColumn
-  file: frontend/src/views/forms/data-grid/InLineEditing/EditableColumn.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\EditableColumn.jsx
   props: []
   emits: []
   state: []
 - id: COMP_EDITCOLUMN
   name: EditColumn
-  file: frontend/src/views/kanban/Board/EditColumn.jsx
+  file: frontend\src\views\kanban\Board\EditColumn.jsx
   props:
   - name: column
     type: any
@@ -1378,7 +1378,7 @@ components:
   state: []
 - id: COMP_EDITITEM
   name: EditItem
-  file: frontend/src/views/kanban/Board/EditItem.jsx
+  file: frontend\src\views\kanban\Board\EditItem.jsx
   props:
   - name: item
     type: any
@@ -1399,13 +1399,13 @@ components:
   state: []
 - id: COMP_EDITOR
   name: Editor
-  file: frontend/src/views/forms/plugins/Editor.jsx
+  file: frontend\src\views\forms\plugins\Editor.jsx
   props: []
   emits: []
   state: []
 - id: COMP_EDITSTORY
   name: EditStory
-  file: frontend/src/views/kanban/Backlogs/EditStory.jsx
+  file: frontend\src\views\kanban\Backlogs\EditStory.jsx
   props:
   - name: story
     type: any
@@ -1414,7 +1414,7 @@ components:
   state: []
 - id: COMP_ELEVATIONSCROLL
   name: ElevationScroll
-  file: frontend/src/layout/MainLayout/HorizontalBar.jsx
+  file: frontend\src\layout\MainLayout\HorizontalBar.jsx
   props:
   - name: children
     type: node
@@ -1423,13 +1423,13 @@ components:
   state: []
 - id: COMP_ENHANCEDTABLE
   name: EnhancedTable
-  file: frontend/src/views/forms/tables/TableEnhanced.jsx
+  file: frontend\src\views\forms\tables\TableData.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ENHANCEDTABLEHEAD
   name: EnhancedTableHead
-  file: frontend/src/views/forms/tables/TableEnhanced.jsx
+  file: frontend\src\views\forms\tables\TableData.jsx
   props:
   - name: onSelectAllClick
     type: any
@@ -1453,7 +1453,7 @@ components:
   state: []
 - id: COMP_ENHANCEDTABLETOOLBAR
   name: EnhancedTableToolbar
-  file: frontend/src/views/forms/tables/TableEnhanced.jsx
+  file: frontend\src\views\forms\tables\TableData.jsx
   props:
   - name: numSelected
     type: number
@@ -1462,31 +1462,31 @@ components:
   state: []
 - id: COMP_ERROR
   name: Error
-  file: frontend/src/views/pages/maintenance/Error.jsx
+  file: frontend\src\views\pages\maintenance\Error.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ERRORBOUNDARY
   name: ErrorBoundary
-  file: frontend/src/routes/ErrorBoundary.jsx
+  file: frontend\src\routes\ErrorBoundary.jsx
   props: []
   emits: []
   state: []
 - id: COMP_EXCLUDEHIDDENCOLUMN
   name: ExcludeHiddenColumn
-  file: frontend/src/views/forms/data-grid/QuickFilter/ExcludeHiddenColumns.jsx
+  file: frontend\src\views\forms\data-grid\QuickFilter\ExcludeHiddenColumns.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FEEDSCARD
   name: FeedsCard
-  file: frontend/src/views/widget/Data/FeedsCard.jsx
+  file: frontend\src\views\widget\Data\FeedsCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FILESPREVIEW
   name: FilesPreview
-  file: frontend/src/ui-component/third-party/dropzone/FilePreview.jsx
+  file: frontend\src\ui-component\third-party\dropzone\FilePreview.jsx
   props:
   - name: showList
     type: bool
@@ -1495,13 +1495,13 @@ components:
   state: []
 - id: COMP_FIREBASELOGIN
   name: FirebaseLogin
-  file: frontend/src/views/pages/authentication/firebase/AuthLogin.jsx
+  file: frontend\src\views\pages\authentication\firebase\AuthLogin.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FIREBASEPROVIDER
   name: FirebaseProvider
-  file: frontend/src/contexts/FirebaseContext.jsx
+  file: frontend\src\contexts\FirebaseContext.jsx
   props:
   - name: children
     type: node
@@ -1510,25 +1510,25 @@ components:
   state: []
 - id: COMP_FIREBASEREGISTER
   name: FirebaseRegister
-  file: frontend/src/views/pages/authentication/firebase/AuthRegister.jsx
+  file: frontend\src\views\pages\authentication\firebase\AuthRegister.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FIREBASESOCIAL
   name: FirebaseSocial
-  file: frontend/src/views/pages/authentication/firebase/FirebaseSocial.jsx
+  file: frontend\src\views\pages\authentication\firebase\FirebaseSocial.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FLOATINGCART
   name: FloatingCart
-  file: frontend/src/ui-component/cards/FloatingCart.jsx
+  file: frontend\src\ui-component\cards\FloatingCart.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FOLLOWERCARD
   name: FollowerCard
-  file: frontend/src/ui-component/cards/FollowerCard.jsx
+  file: frontend\src\ui-component\cards\FollowerCard.jsx
   props:
   - name: avatar
     type: any
@@ -1537,31 +1537,31 @@ components:
   state: []
 - id: COMP_FONTFAMILYPAGE
   name: FontFamilyPage
-  file: frontend/src/layout/Customization/FontFamily.jsx
+  file: frontend\src\layout\Customization\FontFamily.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FOOTER
   name: Footer
-  file: frontend/src/layout/MainLayout/Footer.jsx
+  file: frontend\src\layout\MainLayout\Footer.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FORBIDDEN
   name: Forbidden
-  file: frontend/src/views/pages/maintenance/Forbidden.jsx
+  file: frontend\src\views\pages\maintenance\Forbidden.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FORGOTPASSWORD
   name: ForgotPassword
-  file: frontend/src/views/pages/authentication/ForgotPassword.jsx
+  file: frontend\src\views\pages\authentication\ForgotPassword.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FORMCONTROL
   name: FormControl
-  file: frontend/src/ui-component/extended/Form/FormControl.jsx
+  file: frontend\src\ui-component\extended\Form\FormControl.jsx
   props:
   - name: captionLabel
     type: string
@@ -1588,7 +1588,7 @@ components:
   state: []
 - id: COMP_FORMCONTROLSELECT
   name: FormControlSelect
-  file: frontend/src/ui-component/extended/Form/FormControlSelect.jsx
+  file: frontend\src\ui-component\extended\Form\FormControlSelect.jsx
   props:
   - name: captionLabel
     type: string
@@ -1618,25 +1618,25 @@ components:
   state: []
 - id: COMP_FORMROW
   name: FormRow
-  file: frontend/src/views/utilities/Grid/NestedGrid.jsx
+  file: frontend\src\views\utilities\Grid\NestedGrid.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FORMSVALIDATION
   name: FormsValidation
-  file: frontend/src/views/forms/forms-validation/index.jsx
+  file: frontend\src\views\forms\forms-validation\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FORMSWIZARD
   name: FormsWizard
-  file: frontend/src/views/forms/forms-wizard/index.jsx
+  file: frontend\src\views\forms\forms-wizard\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FRIENDREQUESTCARD
   name: FriendRequestCard
-  file: frontend/src/ui-component/cards/FriendRequestCard.jsx
+  file: frontend\src\ui-component\cards\FriendRequestCard.jsx
   props:
   - name: avatar
     type: any
@@ -1645,7 +1645,7 @@ components:
   state: []
 - id: COMP_FRIENDSCARD
   name: FriendsCard
-  file: frontend/src/ui-component/cards/FriendsCard.jsx
+  file: frontend\src\ui-component\cards\FriendsCard.jsx
   props:
   - name: avatar
     type: any
@@ -1654,37 +1654,37 @@ components:
   state: []
 - id: COMP_FRMAUTOCOMPLETE
   name: FrmAutocomplete
-  file: frontend/src/views/forms/plugins/AutoComplete.jsx
+  file: frontend\src\views\forms\plugins\AutoComplete.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FULLFEATUREDCRUDGRID
   name: FullFeaturedCrudGrid
-  file: frontend/src/views/forms/data-grid/InLineEditing/FullFeatured.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\FullFeatured.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FULLSCREEN
   name: FullScreen
-  file: frontend/src/layout/MainLayout/Header/FullScreenSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\FullScreenSection\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FULLWIDTHPAPER
   name: FullWidthPaper
-  file: frontend/src/ui-component/cards/FullWidthPaper.jsx
+  file: frontend\src\ui-component\cards\FullWidthPaper.jsx
   props: []
   emits: []
   state: []
 - id: COMP_FUNCARD
   name: FunCard
-  file: frontend/src/ui-component/fun/FunCard.jsx
+  file: frontend\src\ui-component\fun\FunCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_GALLERYCARD
   name: GalleryCard
-  file: frontend/src/ui-component/cards/GalleryCard.jsx
+  file: frontend\src\ui-component\cards\GalleryCard.jsx
   props:
   - name: dateTime
     type: any
@@ -1693,7 +1693,7 @@ components:
   state: []
 - id: COMP_GRIDSECTION
   name: GridSection
-  file: frontend/src/components/dashboard-grid/GridSection.jsx
+  file: frontend\src\components\dashboard-grid\GridSection.jsx
   props:
   - name: section
     type: object
@@ -1705,7 +1705,7 @@ components:
   state: []
 - id: COMP_GRIDSLOT
   name: GridSlot
-  file: frontend/src/components/dashboard-grid/GridSlot.jsx
+  file: frontend\src\components\dashboard-grid\GridSlot.jsx
   props:
   - name: slotDef
     type: object
@@ -1720,19 +1720,19 @@ components:
   state: []
 - id: COMP_GRIDSYSTEM
   name: GridSystem
-  file: frontend/src/views/utilities/Grid/index.jsx
+  file: frontend\src\views\utilities\Grid\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_GROWTRANSITION
   name: GrowTransition
-  file: frontend/src/ui-component/extended/Snackbar.jsx
+  file: frontend\src\ui-component\extended\Snackbar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_GUESTGUARD
   name: GuestGuard
-  file: frontend/src/utils/route-guard/GuestGuard.jsx
+  file: frontend\src\utils\route-guard\GuestGuard.jsx
   props:
   - name: children
     type: any
@@ -1741,13 +1741,13 @@ components:
   state: []
 - id: COMP_HEADER
   name: Header
-  file: frontend/src/layout/MainLayout/Header/index.jsx
+  file: frontend\src\layout\MainLayout\Header\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_HEADERAVATAR
   name: HeaderAvatar
-  file: frontend/src/layout/MainLayout/Header/MegaMenuSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\MegaMenuSection\index.jsx
   props:
   - name: children
     type: node
@@ -1756,43 +1756,43 @@ components:
   state: []
 - id: COMP_HEADERWITHICON
   name: HeaderWithIcon
-  file: frontend/src/views/forms/data-grid/ColumnGroups/CustomColumnGroup.jsx
+  file: frontend\src\views\forms\data-grid\ColumnGroups\CustomColumnGroup.jsx
   props: []
   emits: []
   state: []
 - id: COMP_HEDGEEVALUATOR
   name: HedgeEvaluator
-  file: frontend/src/hedge-report/components/HedgeEvaluator.tsx
+  file: frontend\src\hedge-report\components\HedgeEvaluator.tsx
   props: []
   emits: []
   state: []
 - id: COMP_HEDGEREPORTPAGE
   name: HedgeReportPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_HIDEDURATION
   name: HideDuration
-  file: frontend/src/ui-component/extended/notistack/HideDuration.jsx
+  file: frontend\src\ui-component\extended\notistack\HideDuration.jsx
   props: []
   emits: []
   state: []
 - id: COMP_HIDEMENUITEM
   name: HideMenuItem
-  file: frontend/src/views/forms/data-grid/ColumnMenu/HideMenuItem.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\HideMenuItem.jsx
   props: []
   emits: []
   state: []
 - id: COMP_HORIZONTALBAR
   name: HorizontalBar
-  file: frontend/src/layout/MainLayout/HorizontalBar.jsx
+  file: frontend\src\layout\MainLayout\HorizontalBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_HOVERDATACARD
   name: HoverDataCard
-  file: frontend/src/ui-component/cards/HoverDataCard.jsx
+  file: frontend\src\ui-component\cards\HoverDataCard.jsx
   props:
   - name: title
     type: any
@@ -1813,7 +1813,7 @@ components:
   state: []
 - id: COMP_HOVERSOCIALCARD
   name: HoverSocialCard
-  file: frontend/src/ui-component/cards/HoverSocialCard.jsx
+  file: frontend\src\ui-component\cards\HoverSocialCard.jsx
   props:
   - name: primary
     type: any
@@ -1822,13 +1822,13 @@ components:
   state: []
 - id: COMP_ICONGRIDCARD
   name: IconGridCard
-  file: frontend/src/views/widget/Statistics/IconGridCard.jsx
+  file: frontend\src\views\widget\Statistics\IconGridCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ICONNUMBERCARD
   name: IconNumberCard
-  file: frontend/src/ui-component/cards/IconNumberCard.jsx
+  file: frontend\src\ui-component\cards\IconNumberCard.jsx
   props:
   - name: title
     type: any
@@ -1837,19 +1837,19 @@ components:
   state: []
 - id: COMP_ICONVARIANTS
   name: IconVariants
-  file: frontend/src/ui-component/extended/notistack/IconVariants.jsx
+  file: frontend\src\ui-component\extended\notistack\IconVariants.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ICONVARIANTSCONTENT
   name: IconVariantsContent
-  file: frontend/src/ui-component/extended/notistack/IconVariants.jsx
+  file: frontend\src\ui-component\extended\notistack\IconVariants.jsx
   props: []
   emits: []
   state: []
 - id: COMP_IMAGELIST
   name: ImageList
-  file: frontend/src/ui-component/extended/ImageList.jsx
+  file: frontend\src\ui-component\extended\ImageList.jsx
   props:
   - name: itemData
     type: array
@@ -1858,37 +1858,37 @@ components:
   state: []
 - id: COMP_IMAGEPLACEHOLDER
   name: ImagePlaceholder
-  file: frontend/src/ui-component/cards/Skeleton/ImagePlaceholder.jsx
+  file: frontend\src\ui-component\cards\Skeleton\ImagePlaceholder.jsx
   props: []
   emits: []
   state: []
 - id: COMP_INCOMINGREQUESTS
   name: IncomingRequests
-  file: frontend/src/views/widget/Data/IncomingRequests.jsx
+  file: frontend\src\views\widget\Data\IncomingRequests.jsx
   props: []
   emits: []
   state: []
 - id: COMP_INITIALSTATE
   name: InitialState
-  file: frontend/src/views/forms/data-grid/SaveRestoreState/InitialState.jsx
+  file: frontend\src\views\forms\data-grid\SaveRestoreState\InitialState.jsx
   props: []
   emits: []
   state: []
 - id: COMP_INLINEEDITING
   name: InlineEditing
-  file: frontend/src/views/forms/data-grid/InLineEditing/index.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_INPUTFILLED
   name: InputFilled
-  file: frontend/src/layout/Customization/InputFilled.jsx
+  file: frontend\src\layout\Customization\InputFilled.jsx
   props: []
   emits: []
   state: []
 - id: COMP_INPUTLABEL
   name: InputLabel
-  file: frontend/src/ui-component/extended/Form/InputLabel.jsx
+  file: frontend\src\ui-component\extended\Form\InputLabel.jsx
   props:
   - name: children
     type: any
@@ -1897,19 +1897,19 @@ components:
   state: []
 - id: COMP_INSTANTFEEDBACK
   name: InstantFeedback
-  file: frontend/src/views/forms/forms-validation/InstantFeedback.jsx
+  file: frontend\src\views\forms\forms-validation\InstantFeedback.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ISCELLEDITABLEGRID
   name: IsCellEditableGrid
-  file: frontend/src/views/forms/data-grid/InLineEditing/DisableEditing.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\DisableEditing.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ITEM
   name: Item
-  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/Slider.jsx
+  file: frontend\src\views\pages\maintenance\ComingSoon\ComingSoon1\Slider.jsx
   props:
   - name: item
     type: object
@@ -1918,7 +1918,7 @@ components:
   state: []
 - id: COMP_ITEMCOMMENT
   name: ItemComment
-  file: frontend/src/views/kanban/Board/ItemComment.jsx
+  file: frontend\src\views\kanban\Board\ItemComment.jsx
   props:
   - name: comment
     type: any
@@ -1927,34 +1927,34 @@ components:
   state: []
 - id: COMP_ITEMDETAILS
   name: ItemDetails
-  file: frontend/src/views/kanban/Board/ItemDetails.jsx
+  file: frontend\src\views\kanban\Board\ItemDetails.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ITEMS
   name: Items
-  file: frontend/src/views/kanban/Board/Items.jsx
+  file: frontend\src\views\kanban\Backlogs\Items.jsx
   props:
-  - name: itemId
-    type: string
+  - name: item
+    type: any
     required: false
   emits: []
   state: []
 - id: COMP_JUPITERPAGE
   name: JupiterPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_JWTLOGIN
   name: JWTLogin
-  file: frontend/src/views/pages/authentication/jwt/AuthLogin.jsx
+  file: frontend\src\views\pages\authentication\jwt\AuthLogin.jsx
   props: []
   emits: []
   state: []
 - id: COMP_JWTPROVIDER
   name: JWTProvider
-  file: frontend/src/contexts/JWTContext.jsx
+  file: frontend\src\contexts\JWTContext.jsx
   props:
   - name: children
     type: node
@@ -1963,79 +1963,79 @@ components:
   state: []
 - id: COMP_JWTREGISTER
   name: JWTRegister
-  file: frontend/src/views/pages/authentication/jwt/AuthRegister.jsx
+  file: frontend\src\views\pages\authentication\jwt\AuthRegister.jsx
   props: []
   emits: []
   state: []
 - id: COMP_KANBANBACKLOGS
   name: KanbanBacklogs
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_KANBANBOARD
   name: KanbanBoard
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_KANBANPAGE
   name: KanbanPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LABELSLIDER
   name: LabelSlider
-  file: frontend/src/views/forms/components/Slider/LabelSlider.jsx
+  file: frontend\src\views\forms\components\Slider\LabelSlider.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LANDSCAPEDATETIME
   name: LandscapeDateTime
-  file: frontend/src/views/forms/components/DateTime/LandscapeDateTime.jsx
+  file: frontend\src\views\forms\components\DateTime\LandscapeDateTime.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LATESTCUSTOMERS
   name: LatestCustomers
-  file: frontend/src/views/widget/Data/LatestCustomers.jsx
+  file: frontend\src\views\widget\Data\LatestCustomers.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LATESTMESSAGES
   name: LatestMessages
-  file: frontend/src/views/widget/Data/LatestMessages.jsx
+  file: frontend\src\views\widget\Data\LatestMessages.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LATESTORDER
   name: LatestOrder
-  file: frontend/src/views/widget/Data/LatestOrder.jsx
+  file: frontend\src\views\widget\Data\LatestOrder.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LATESTPOSTS
   name: LatestPosts
-  file: frontend/src/views/widget/Data/LatestPosts.jsx
+  file: frontend\src\views\widget\Data\LatestPosts.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LAYOUT
   name: Layout
-  file: frontend/src/layout/Customization/Layout.jsx
+  file: frontend\src\layout\Customization\Layout.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LAYOUTS
   name: Layouts
-  file: frontend/src/views/forms/layouts/Layouts.jsx
+  file: frontend\src\views\forms\layouts\Layouts.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LINEARPROGRESSWITHLABEL
   name: LinearProgressWithLabel
-  file: frontend/src/layout/MainLayout/Sidebar/MenuCard/index.jsx
+  file: frontend\src\layout\MainLayout\Sidebar\MenuCard\index.jsx
   props:
   - name: value
     type: number
@@ -2044,61 +2044,61 @@ components:
   state: []
 - id: COMP_LINKEDIN
   name: LinkedIn
-  file: frontend/src/views/forms/chart/OrgChart/LinkedIn.jsx
+  file: frontend\src\views\forms\chart\OrgChart\LinkedIn.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LIQROW
   name: LiqRow
-  file: frontend/src/ui-component/liquidation/LiqRow.jsx
+  file: frontend\src\ui-component\liquidation\LiqRow.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LIQUIDATIONBARS
   name: LiquidationBars
-  file: frontend/src/ui-component/liquidation/LiquidationBars.jsx
+  file: frontend\src\ui-component\liquidation\LiquidationBars.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LIQUIDATIONBARSCARD
   name: LiquidationBarsCard
-  file: frontend/src/views/positions/LiquidationBarsCard.jsx
+  file: frontend\src\views\positions\LiquidationBarsCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LIQUIDATIONDISTANCEICON
   name: LiquidationDistanceIcon
-  file: frontend/src/views/alertThresholds/icons.jsx
+  file: frontend\src\views\alertThresholds\icons.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LIQUIDATIONMONITORCARD
   name: LiquidationMonitorCard
-  file: frontend/src/views/monitorManager/LiquidationMonitorCard.jsx
+  file: frontend\src\views\monitorManager\LiquidationMonitorCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LISTITEMWRAPPER
   name: ListItemWrapper
-  file: frontend/src/layout/MainLayout/Header/NotificationSection/NotificationList.jsx
+  file: frontend\src\layout\MainLayout\Header\NotificationSection\NotificationList.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LOADABLE
   name: Loadable
-  file: frontend/src/ui-component/Loadable.jsx
+  file: frontend\src\ui-component\Loadable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LOADER
   name: Loader
-  file: frontend/src/ui-component/Loader.jsx
+  file: frontend\src\ui-component\Loader.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LOCALES
   name: Locales
-  file: frontend/src/ui-component/Locales.jsx
+  file: frontend\src\ui-component\Locales.jsx
   props:
   - name: children
     type: node
@@ -2107,31 +2107,31 @@ components:
   state: []
 - id: COMP_LOCALIZATIONSECTION
   name: LocalizationSection
-  file: frontend/src/layout/MainLayout/Header/LocalizationSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\LocalizationSection\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LOGCONSOLE
   name: LogConsole
-  file: frontend/src/views/sonicLabs/SonicLabsPage.jsx
+  file: frontend\src\views\sonicLabs\SonicLabsPage.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LOGIN
   name: Login
-  file: frontend/src/views/pages/authentication/Login.jsx
+  file: frontend\src\views\pages\authentication\Login.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LOGINFORMS
   name: LoginForms
-  file: frontend/src/views/forms/forms-validation/LoginForms.jsx
+  file: frontend\src\views\forms\forms-validation\LoginForms.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LOGINPROVIDER
   name: LoginProvider
-  file: frontend/src/views/pages/authentication/LoginProvider.jsx
+  file: frontend\src\views\pages\authentication\LoginProvider.jsx
   props:
   - name: currentLoginWith
     type: string
@@ -2140,25 +2140,25 @@ components:
   state: []
 - id: COMP_LOGO
   name: Logo
-  file: frontend/src/ui-component/Logo.jsx
+  file: frontend\src\ui-component\Logo.jsx
   props: []
   emits: []
   state: []
 - id: COMP_LOGOSECTION
   name: LogoSection
-  file: frontend/src/layout/MainLayout/LogoSection/index.jsx
+  file: frontend\src\layout\MainLayout\LogoSection\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MAILERSUBSCRIBER
   name: MailerSubscriber
-  file: frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/MailerSubscriber.jsx
+  file: frontend\src\views\pages\maintenance\ComingSoon\ComingSoon1\MailerSubscriber.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MAINCARD
   name: MainCard
-  file: frontend/src/ui-component/cards/MainCard.jsx
+  file: frontend\src\ui-component\cards\MainCard.jsx
   props:
   - name: border
     type: bool
@@ -2206,49 +2206,49 @@ components:
   state: []
 - id: COMP_MAINLAYOUT
   name: MainLayout
-  file: frontend/src/layout/MainLayout/index.jsx
+  file: frontend\src\layout\MainLayout\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MAINTENANCECOMINGSOON1
   name: MaintenanceComingSoon1
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MAINTENANCECOMINGSOON2
   name: MaintenanceComingSoon2
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MAINTENANCEERROR
   name: MaintenanceError
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MAINTENANCEERROR500
   name: MaintenanceError500
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MAINTENANCEFORBIDDEN
   name: MaintenanceForbidden
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MAINTENANCEUNDERCONSTRUCTION
   name: MaintenanceUnderConstruction
-  file: frontend/src/routes/AuthenticationRoutes.jsx
+  file: frontend\src\routes\AuthenticationRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MARKETCHARTCARD
   name: MarketChartCard
-  file: frontend/src/views/widget/Chart/MarketSaleChartCard.jsx
+  file: frontend\src\views\widget\Chart\MarketSaleChartCard.jsx
   props:
   - name: chartData
     type: any
@@ -2257,85 +2257,85 @@ components:
   state: []
 - id: COMP_MARKETMONITORCARD
   name: MarketMonitorCard
-  file: frontend/src/views/monitorManager/MarketMonitorCard.jsx
+  file: frontend\src\views\monitorManager\MarketMonitorCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MARKETMOVEMENTCARD
   name: MarketMovementCard
-  file: frontend/src/components/MarketMovementCard.jsx
+  file: frontend\src\components\MarketMovementCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MARKETSPANEL
   name: MarketsPanel
-  file: frontend/src/components/jupiter/Perps/MarketsPanel.jsx
+  file: frontend\src\components\jupiter\Perps\MarketsPanel.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MASKPAGE
   name: MaskPage
-  file: frontend/src/views/forms/plugins/Mask.jsx
+  file: frontend\src\views\forms\plugins\Mask.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MAXSNACKBAR
   name: MaxSnackbar
-  file: frontend/src/ui-component/extended/notistack/MaxSnackbar.jsx
+  file: frontend\src\ui-component\extended\notistack\MaxSnackbar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MEETICON
   name: MeetIcon
-  file: frontend/src/views/forms/chart/OrgChart/MeetIcon.jsx
+  file: frontend\src\views\forms\chart\OrgChart\MeetIcon.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MEGAMENUBANNER
   name: MegaMenuBanner
-  file: frontend/src/layout/MainLayout/Header/MegaMenuSection/Banner.jsx
+  file: frontend\src\layout\MainLayout\Header\MegaMenuSection\Banner.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MEGAMENUSECTION
   name: MegaMenuSection
-  file: frontend/src/layout/MainLayout/Header/MegaMenuSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\MegaMenuSection\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MENUCARD
   name: MenuCard
-  file: frontend/src/layout/MainLayout/Sidebar/MenuCard/index.jsx
+  file: frontend\src\layout\MainLayout\Sidebar\MenuCard\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MENUCLOSECOMPONENT
   name: MenuCloseComponent
-  file: frontend/src/views/forms/data-grid/ColumnMenu/CustomMenu.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\CustomMenu.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MENULIST
   name: MenuList
-  file: frontend/src/layout/MainLayout/MenuList/index.jsx
+  file: frontend\src\layout\MainLayout\MenuList\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MENUORIENTATIONPAGE
   name: MenuOrientationPage
-  file: frontend/src/layout/Customization/MenuOrientation.jsx
+  file: frontend\src\layout\Customization\MenuOrientation.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MINIMALLAYOUT
   name: MinimalLayout
-  file: frontend/src/layout/MinimalLayout/index.jsx
+  file: frontend\src\layout\MinimalLayout\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MOBILESEARCH
   name: MobileSearch
-  file: frontend/src/layout/MainLayout/Header/SearchSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\SearchSection\index.jsx
   props:
   - name: value
     type: string
@@ -2344,37 +2344,37 @@ components:
   state: []
 - id: COMP_MOBILESECTION
   name: MobileSection
-  file: frontend/src/layout/MainLayout/Header/MobileSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\MobileSection\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MODAL
   name: Modal
-  file: frontend/src/views/forms/plugins/Modal/index.jsx
+  file: frontend\src\views\forms\plugins\Modal\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MONITORMANAGER
   name: MonitorManager
-  file: frontend/src/views/monitorManager/MonitorManager.jsx
+  file: frontend\src\views\monitorManager\MonitorManager.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MONITORMANAGERPAGE
   name: MonitorManagerPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MONITORUPDATEBAR
   name: MonitorUpdateBar
-  file: frontend/src/views/monitorManager/MonitorUpdateBar.jsx
+  file: frontend\src\views\monitorManager\MonitorUpdateBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_MULTIFILEUPLOAD
   name: MultiFileUpload
-  file: frontend/src/ui-component/third-party/dropzone/MultiFile.jsx
+  file: frontend\src\ui-component\third-party\dropzone\MultiFile.jsx
   props:
   - name: error
     type: any
@@ -2401,19 +2401,19 @@ components:
   state: []
 - id: COMP_MULTIPLEBREAKPOINTS
   name: MultipleBreakPoints
-  file: frontend/src/views/utilities/Grid/MultipleBreakPoints.jsx
+  file: frontend\src\views\utilities\Grid\MultipleBreakPoints.jsx
   props: []
   emits: []
   state: []
 - id: COMP_NAMEEDITINPUTCELL
   name: NameEditInputCell
-  file: frontend/src/views/forms/data-grid/InLineEditing/Validation.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\Validation.jsx
   props: []
   emits: []
   state: []
 - id: COMP_NAVCOLLAPSE
   name: NavCollapse
-  file: frontend/src/layout/MainLayout/MenuList/NavCollapse/index.jsx
+  file: frontend\src\layout\MainLayout\MenuList\NavCollapse\index.jsx
   props:
   - name: menu
     type: any
@@ -2422,7 +2422,7 @@ components:
   state: []
 - id: COMP_NAVGROUP
   name: NavGroup
-  file: frontend/src/layout/MainLayout/MenuList/NavGroup/index.jsx
+  file: frontend\src\layout\MainLayout\MenuList\NavGroup\index.jsx
   props:
   - name: item
     type: any
@@ -2446,7 +2446,7 @@ components:
   state: []
 - id: COMP_NAVIGATIONSCROLL
   name: NavigationScroll
-  file: frontend/src/layout/NavigationScroll.jsx
+  file: frontend\src\layout\NavigationScroll.jsx
   props:
   - name: children
     type: oneOfType
@@ -2455,7 +2455,7 @@ components:
   state: []
 - id: COMP_NAVITEM
   name: NavItem
-  file: frontend/src/layout/MainLayout/MenuList/NavItem/index.jsx
+  file: frontend\src\layout\MainLayout\MenuList\NavItem\index.jsx
   props:
   - name: item
     type: any
@@ -2464,7 +2464,7 @@ components:
   state: []
 - id: COMP_NAVMOTION
   name: NavMotion
-  file: frontend/src/layout/NavMotion.jsx
+  file: frontend\src\layout\NavMotion.jsx
   props:
   - name: children
     type: node
@@ -2473,19 +2473,19 @@ components:
   state: []
 - id: COMP_NESTEDGRID
   name: NestedGrid
-  file: frontend/src/views/utilities/Grid/NestedGrid.jsx
+  file: frontend\src\views\utilities\Grid\NestedGrid.jsx
   props: []
   emits: []
   state: []
 - id: COMP_NEWCUSTOMERS
   name: NewCustomers
-  file: frontend/src/views/widget/Data/NewCustomers.jsx
+  file: frontend\src\views\widget\Data\NewCustomers.jsx
   props: []
   emits: []
   state: []
 - id: COMP_NOTIFICATIONLIST
   name: NotificationList
-  file: frontend/src/layout/MainLayout/Header/NotificationSection/NotificationList.jsx
+  file: frontend\src\layout\MainLayout\Header\NotificationSection\NotificationList.jsx
   props:
   - name: items
     type: array
@@ -2494,13 +2494,13 @@ components:
   state: []
 - id: COMP_NOTIFICATIONSECTION
   name: NotificationSection
-  file: frontend/src/layout/MainLayout/Header/NotificationSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\NotificationSection\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_NOTISTACK
   name: Notistack
-  file: frontend/src/ui-component/third-party/Notistack.jsx
+  file: frontend\src\ui-component\third-party\Notistack.jsx
   props:
   - name: children
     type: any
@@ -2509,49 +2509,49 @@ components:
   state: []
 - id: COMP_OPERATIONSBAR
   name: OperationsBar
-  file: frontend/src/components/old/OperationsBar.jsx
+  file: frontend\src\components\old\OperationsBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ORDERFORM
   name: OrderForm
-  file: frontend/src/components/jupiter/Perps/OrderForm.jsx
+  file: frontend\src\components\jupiter\Perps\OrderForm.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ORGCHARTPAGE
   name: OrgChartPage
-  file: frontend/src/views/forms/chart/OrgChart/index.jsx
+  file: frontend\src\views\forms\chart\OrgChart\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_OVERRIDEMENU
   name: OverrideMenu
-  file: frontend/src/views/forms/data-grid/ColumnMenu/OverrideMenu.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\OverrideMenu.jsx
   props: []
   emits: []
   state: []
 - id: COMP_OVERVIEWPAGE
   name: OverviewPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PALETTE
   name: Palette
-  file: frontend/src/themes/palette.jsx
+  file: frontend\src\themes\palette.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PARSINGVALUES
   name: ParsingValues
-  file: frontend/src/views/forms/data-grid/QuickFilter/ParsingValues.jsx
+  file: frontend\src\views\forms\data-grid\QuickFilter\ParsingValues.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PAYMENTFORM
   name: PaymentForm
-  file: frontend/src/views/forms/forms-wizard/BasicWizard/PaymentForm.jsx
+  file: frontend\src\views\forms\forms-wizard\BasicWizard\PaymentForm.jsx
   props:
   - name: paymentData
     type: any
@@ -2572,19 +2572,19 @@ components:
   state: []
 - id: COMP_PERFCHIP
   name: PerfChip
-  file: frontend/src/components/PerformanceGraphCard/PerformanceGraphCard.jsx
+  file: frontend\src\components\PerformanceGraphCard\PerformanceGraphCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PERFORMANCEGRAPHCARD
   name: PerformanceGraphCard
-  file: frontend/src/components/PerformanceGraphCard/PerformanceGraphCard.jsx
+  file: frontend\src\components\PerformanceGraphCard\PerformanceGraphCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PLACEHOLDERCONTENT
   name: PlaceholderContent
-  file: frontend/src/ui-component/third-party/dropzone/PlaceHolderContent.jsx
+  file: frontend\src\ui-component\third-party\dropzone\PlaceHolderContent.jsx
   props:
   - name: type
     type: string
@@ -2593,7 +2593,7 @@ components:
   state: []
 - id: COMP_POPULARCARD
   name: PopularCard
-  file: frontend/src/views/dashboard/Default/PopularCard.jsx
+  file: frontend\src\ui-component\cards\Skeleton\PopularCard.jsx
   props:
   - name: isLoading
     type: bool
@@ -2602,19 +2602,19 @@ components:
   state: []
 - id: COMP_POPUPSLIDER
   name: PopupSlider
-  file: frontend/src/views/forms/components/Slider/PopupSlider.jsx
+  file: frontend\src\views\forms\components\Slider\PopupSlider.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PORTFOLIOBAR
   name: PortfolioBar
-  file: frontend/src/components/old/PortfolioBar.jsx
+  file: frontend\src\components\old\PortfolioBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PORTFOLIOSESSIONCARD
   name: PortfolioSessionCard
-  file: frontend/src/components/PortfolioSessionCard/PortfolioSessionCard.jsx
+  file: frontend\src\components\PortfolioSessionCard\PortfolioSessionCard.jsx
   props:
   - name: snapshot
     type: object
@@ -2632,13 +2632,13 @@ components:
   state: []
 - id: COMP_POSITIONINGSNACKBAR
   name: PositioningSnackbar
-  file: frontend/src/ui-component/extended/notistack/PositioningSnackbar.jsx
+  file: frontend\src\ui-component\extended\notistack\PositioningSnackbar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_POSITIONLISTCARD
   name: PositionListCard
-  file: frontend/src/components/PositionListCard/PositionListCard.jsx
+  file: frontend\src\components\PositionListCard\PositionListCard.jsx
   props:
   - name: title
     type: string
@@ -2647,7 +2647,7 @@ components:
   state: []
 - id: COMP_POSITIONPIECARD
   name: PositionPieCard
-  file: frontend/src/components/PositionPieCard/PositionPieCard.jsx
+  file: frontend\src\components\PositionPieCard\PositionPieCard.jsx
   props:
   - name: maxHeight
     type: oneOfType
@@ -2659,43 +2659,43 @@ components:
   state: []
 - id: COMP_POSITIONSCELL
   name: PositionsCell
-  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  file: frontend\src\ui-component\wallet\WalletTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_POSITIONSPAGE
   name: PositionsPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_POSITIONSPANEL
   name: PositionsPanel
-  file: frontend/src/components/jupiter/Perps/PositionsPanel.jsx
+  file: frontend\src\components\jupiter\Perps\PositionsPanel.jsx
   props: []
   emits: []
   state: []
 - id: COMP_POSITIONSTABLE
   name: PositionsTable
-  file: frontend/src/hedge-report/components/PositionsTable.tsx
+  file: frontend\src\hedge-report\components\PositionsTable.tsx
   props: []
   emits: []
   state: []
 - id: COMP_POSITIONSTABLECARD
   name: PositionsTableCard
-  file: frontend/src/ui-component/cards/positions/PositionsTableCard.jsx
+  file: frontend\src\ui-component\cards\positions\PositionsTableCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_POSITIONTABLECARD
   name: PositionTableCard
-  file: frontend/src/views/positions/PositionTableCard.jsx
+  file: frontend\src\views\positions\PositionTableCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PRESETCOLORBOX
   name: PresetColorBox
-  file: frontend/src/layout/Customization/PresetColor.jsx
+  file: frontend\src\layout\Customization\PresetColor.jsx
   props:
   - name: color
     type: any
@@ -2704,19 +2704,19 @@ components:
   state: []
 - id: COMP_PRESETCOLORPAGE
   name: PresetColorPage
-  file: frontend/src/layout/Customization/PresetColor.jsx
+  file: frontend\src\layout\Customization\PresetColor.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PREVENTDUPLICATE
   name: PreventDuplicate
-  file: frontend/src/ui-component/extended/notistack/PreventDuplicate.jsx
+  file: frontend\src\ui-component\extended\notistack\PreventDuplicate.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PRODUCTCARD
   name: ProductCard
-  file: frontend/src/ui-component/cards/ProductCard.jsx
+  file: frontend\src\ui-component\cards\ProductCard.jsx
   props:
   - name: id
     type: any
@@ -2746,13 +2746,13 @@ components:
   state: []
 - id: COMP_PRODUCTPLACEHOLDER
   name: ProductPlaceholder
-  file: frontend/src/ui-component/cards/Skeleton/ProductPlaceholder.jsx
+  file: frontend\src\ui-component\cards\Skeleton\ProductPlaceholder.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PRODUCTREVIEW
   name: ProductReview
-  file: frontend/src/ui-component/cards/ProductReview.jsx
+  file: frontend\src\ui-component\cards\ProductReview.jsx
   props:
   - name: avatar
     type: string
@@ -2776,109 +2776,109 @@ components:
   state: []
 - id: COMP_PRODUCTSALES
   name: ProductSales
-  file: frontend/src/views/widget/Data/ProductSales.jsx
+  file: frontend\src\views\widget\Data\ProductSales.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PROFITEMOJIICON
   name: ProfitEmojiIcon
-  file: frontend/src/views/alertThresholds/icons.jsx
+  file: frontend\src\views\alertThresholds\icons.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PROFITMONITORCARD
   name: ProfitMonitorCard
-  file: frontend/src/views/monitorManager/ProfitMonitorCard.jsx
+  file: frontend\src\views\monitorManager\ProfitMonitorCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PROFITRISKHEADERBADGES
   name: ProfitRiskHeaderBadges
-  file: frontend/src/components/ProfitRiskHeaderBadges.jsx
+  file: frontend\src\components\ProfitRiskHeaderBadges.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PROJECTTABLE
   name: ProjectTable
-  file: frontend/src/views/widget/Data/ProjectTable.jsx
+  file: frontend\src\views\widget\Data\ProjectTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PROJECTTASKCARD
   name: ProjectTaskCard
-  file: frontend/src/views/widget/Statistics/ProjectTaskCard.jsx
+  file: frontend\src\views\widget\Statistics\ProjectTaskCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_PROVIDERACCORDION
   name: ProviderAccordion
-  file: frontend/src/views/xcomSettings/components/ProviderAccordion.jsx
+  file: frontend\src\views\xcomSettings\components\ProviderAccordion.jsx
   props: []
   emits: []
   state: []
 - id: COMP_QUICKFILTER
   name: QuickFilter
-  file: frontend/src/views/forms/data-grid/QuickFilter/index.jsx
+  file: frontend\src\views\forms\data-grid\QuickFilter\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_QUICKFILTERINGCUSTOMLOGIC
   name: QuickFilteringCustomLogic
-  file: frontend/src/views/forms/data-grid/QuickFilter/CustomFilter.jsx
+  file: frontend\src\views\forms\data-grid\QuickFilter\CustomFilter.jsx
   props: []
   emits: []
   state: []
 - id: COMP_QUICKFILTERINGINITIALIZE
   name: QuickFilteringInitialize
-  file: frontend/src/views/forms/data-grid/QuickFilter/Initialize.jsx
+  file: frontend\src\views\forms\data-grid\QuickFilter\Initialize.jsx
   props: []
   emits: []
   state: []
 - id: COMP_QUICKIMPORTSTARWARS
   name: QuickImportStarWars
-  file: frontend/src/views/traderShop/QuickImportStarWars.jsx
+  file: frontend\src\views\traderShop\QuickImportStarWars.jsx
   props: []
   emits: []
   state: []
 - id: COMP_QUOTECARD
   name: QuoteCard
-  file: frontend/src/views/jupiter/JupiterPage.jsx
+  file: frontend\src\views\jupiter\JupiterPage.jsx
   props: []
   emits: []
   state: []
 - id: COMP_RADIOGROUPFORMS
   name: RadioGroupForms
-  file: frontend/src/views/forms/forms-validation/RadioGroupForms.jsx
+  file: frontend\src\views\forms\forms-validation\RadioGroupForms.jsx
   props: []
   emits: []
   state: []
 - id: COMP_RATINGEDITINPUTCELL
   name: RatingEditInputCell
-  file: frontend/src/views/forms/data-grid/InLineEditing/CustomEdit.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\CustomEdit.jsx
   props: []
   emits: []
   state: []
 - id: COMP_RECAPTCHAPAGE
   name: RecaptchaPage
-  file: frontend/src/views/forms/plugins/Recaptcha.jsx
+  file: frontend\src\views\forms\plugins\Recaptcha.jsx
   props: []
   emits: []
   state: []
 - id: COMP_RECENTTICKETS
   name: RecentTickets
-  file: frontend/src/views/widget/Data/RecentTickets.jsx
+  file: frontend\src\views\widget\Data\RecentTickets.jsx
   props: []
   emits: []
   state: []
 - id: COMP_REGISTER
   name: Register
-  file: frontend/src/views/pages/authentication/Register.jsx
+  file: frontend\src\views\pages\authentication\Register.jsx
   props: []
   emits: []
   state: []
 - id: COMP_REJECTIONFILES
   name: RejectionFiles
-  file: frontend/src/ui-component/third-party/dropzone/RejectionFile.jsx
+  file: frontend\src\ui-component\third-party\dropzone\RejectionFile.jsx
   props:
   - name: fileRejections
     type: array
@@ -2887,13 +2887,13 @@ components:
   state: []
 - id: COMP_REORDERMENU
   name: ReorderMenu
-  file: frontend/src/views/forms/data-grid/ColumnMenu/ReorderingMenu.jsx
+  file: frontend\src\views\forms\data-grid\ColumnMenu\ReorderingMenu.jsx
   props: []
   emits: []
   state: []
 - id: COMP_REPORTCARD
   name: ReportCard
-  file: frontend/src/ui-component/cards/ReportCard.jsx
+  file: frontend\src\ui-component\cards\ReportCard.jsx
   props:
   - name: primary
     type: any
@@ -2902,13 +2902,13 @@ components:
   state: []
 - id: COMP_RESETPASSWORD
   name: ResetPassword
-  file: frontend/src/views/pages/authentication/ResetPassword.jsx
+  file: frontend\src\views\pages\authentication\ResetPassword.jsx
   props: []
   emits: []
   state: []
 - id: COMP_REVENUECARD
   name: RevenueCard
-  file: frontend/src/ui-component/cards/RevenueCard.jsx
+  file: frontend\src\ui-component\cards\RevenueCard.jsx
   props:
   - name: primary
     type: any
@@ -2929,7 +2929,7 @@ components:
   state: []
 - id: COMP_REVENUECHARTCARD
   name: RevenueChartCard
-  file: frontend/src/views/widget/Chart/RevenueChartCard.jsx
+  file: frontend\src\views\widget\Chart\RevenueChartCard.jsx
   props:
   - name: chartData
     type: any
@@ -2938,13 +2938,13 @@ components:
   state: []
 - id: COMP_REVIEW
   name: Review
-  file: frontend/src/views/forms/forms-wizard/BasicWizard/Review.jsx
+  file: frontend\src\views\forms\forms-wizard\BasicWizard\Review.jsx
   props: []
   emits: []
   state: []
 - id: COMP_ROUNDICONCARD
   name: RoundIconCard
-  file: frontend/src/ui-component/cards/RoundIconCard.jsx
+  file: frontend\src\ui-component\cards\RoundIconCard.jsx
   props:
   - name: primary
     type: string
@@ -2968,7 +2968,7 @@ components:
   state: []
 - id: COMP_ROW
   name: Row
-  file: frontend/src/views/forms/tables/TableCollapsible.jsx
+  file: frontend\src\views\forms\tables\TableCollapsible.jsx
   props:
   - name: row
     type: any
@@ -2977,7 +2977,7 @@ components:
   state: []
 - id: COMP_RTLLAYOUT
   name: RTLLayout
-  file: frontend/src/ui-component/RTLLayout.jsx
+  file: frontend\src\ui-component\RTLLayout.jsx
   props:
   - name: children
     type: node
@@ -2986,7 +2986,7 @@ components:
   state: []
 - id: COMP_SALESLINECHARTCARD
   name: SalesLineChartCard
-  file: frontend/src/ui-component/cards/SalesLineChartCard.jsx
+  file: frontend\src\ui-component\cards\SalesLineChartCard.jsx
   props:
   - name: bgColor
     type: string
@@ -3010,7 +3010,7 @@ components:
   state: []
 - id: COMP_SATISFACTIONCHARTCARD
   name: SatisfactionChartCard
-  file: frontend/src/views/widget/Chart/SatisfactionChartCard.jsx
+  file: frontend\src\views\widget\Chart\SatisfactionChartCard.jsx
   props:
   - name: chartData
     type: any
@@ -3019,43 +3019,43 @@ components:
   state: []
 - id: COMP_SAVERESTORESTATE
   name: SaveRestoreState
-  file: frontend/src/views/forms/data-grid/SaveRestoreState/index.jsx
+  file: frontend\src\views\forms\data-grid\SaveRestoreState\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SEARCHSECTION
   name: SearchSection
-  file: frontend/src/layout/MainLayout/Header/SearchSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\SearchSection\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SECTION
   name: Section
-  file: frontend/src/views/sonic/index_BU.jsx
+  file: frontend\src\views\sonic\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SELECTEDITINPUTCELL
   name: SelectEditInputCell
-  file: frontend/src/views/forms/data-grid/InLineEditing/AutoStop.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\AutoStop.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SELECTFORMS
   name: SelectForms
-  file: frontend/src/views/forms/forms-validation/SelectForms.jsx
+  file: frontend\src\views\forms\forms-validation\SelectForms.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SENDCARD
   name: SendCard
-  file: frontend/src/views/jupiter/JupiterPage.jsx
+  file: frontend\src\views\jupiter\JupiterPage.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SEOCHARTCARD
   name: SeoChartCard
-  file: frontend/src/ui-component/cards/SeoChartCard.jsx
+  file: frontend\src\ui-component\cards\SeoChartCard.jsx
   props:
   - name: chartData
     type: any
@@ -3076,25 +3076,25 @@ components:
   state: []
 - id: COMP_SERVERMODAL
   name: ServerModal
-  file: frontend/src/views/forms/plugins/Modal/ServerModal.jsx
+  file: frontend\src\views\forms\plugins\Modal\ServerModal.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SERVERSIDEPERSISTENCE
   name: ServerSidePersistence
-  file: frontend/src/views/forms/data-grid/InLineEditing/ServerValidation.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\ServerValidation.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SETTINGSSECTION
   name: SettingsSection
-  file: frontend/src/layout/MainLayout/Header/SettingsSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\SettingsSection\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SHADOWBOX
   name: ShadowBox
-  file: frontend/src/views/utilities/Shadow.jsx
+  file: frontend\src\views\utilities\Shadow.jsx
   props:
   - name: shadow
     type: string
@@ -3103,19 +3103,19 @@ components:
   state: []
 - id: COMP_SIDEBAR
   name: Sidebar
-  file: frontend/src/layout/MainLayout/Sidebar/index.jsx
+  file: frontend\src\layout\MainLayout\Sidebar\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SIDEBARDRAWER
   name: SidebarDrawer
-  file: frontend/src/layout/Customization/SidebarDrawer.jsx
+  file: frontend\src\layout\Customization\SidebarDrawer.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SIDEICONCARD
   name: SideIconCard
-  file: frontend/src/ui-component/cards/SideIconCard.jsx
+  file: frontend\src\ui-component\cards\SideIconCard.jsx
   props:
   - name: iconPrimary
     type: object
@@ -3139,19 +3139,19 @@ components:
   state: []
 - id: COMP_SIDEPANELWIDTHSLIDER
   name: SidePanelWidthSlider
-  file: frontend/src/views/positions/SidePanelWidthSlider.jsx
+  file: frontend\src\views\positions\SidePanelWidthSlider.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SIMPLEMODAL
   name: SimpleModal
-  file: frontend/src/views/forms/plugins/Modal/SimpleModal.jsx
+  file: frontend\src\views\forms\plugins\Modal\SimpleModal.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SIMPLETREE
   name: SimpleTree
-  file: frontend/src/views/forms/chart/OrgChart/index.jsx
+  file: frontend\src\views\forms\chart\OrgChart\index.jsx
   props:
   - name: name
     type: any
@@ -3160,7 +3160,7 @@ components:
   state: []
 - id: COMP_SINGLEFILEUPLOAD
   name: SingleFileUpload
-  file: frontend/src/ui-component/third-party/dropzone/SingleFile.jsx
+  file: frontend\src\ui-component\third-party\dropzone\SingleFile.jsx
   props:
   - name: error
     type: any
@@ -3181,61 +3181,61 @@ components:
   state: []
 - id: COMP_SKYPEICON
   name: SkypeIcon
-  file: frontend/src/views/forms/chart/OrgChart/SkypeIcon.jsx
+  file: frontend\src\views\forms\chart\OrgChart\SkypeIcon.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SLIDER
   name: Slider
-  file: frontend/src/views/forms/components/Slider/index.jsx
+  file: frontend\src\views\forms\components\Slider\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SNACKBAR
   name: Snackbar
-  file: frontend/src/ui-component/extended/Snackbar.jsx
+  file: frontend\src\ui-component\extended\Snackbar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SNACKBARACTION
   name: SnackBarAction
-  file: frontend/src/ui-component/extended/notistack/SnackBarAction.jsx
+  file: frontend\src\ui-component\extended\notistack\SnackBarAction.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SONIC
   name: Sonic
-  file: frontend/src/views/sonic/index.jsx
+  file: frontend\src\views\sonic\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SONICLABSPAGE
   name: SonicLabsPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SONICMONITORCARD
   name: SonicMonitorCard
-  file: frontend/src/views/monitorManager/SonicMonitorCard.jsx
+  file: frontend\src\views\monitorManager\SonicMonitorCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SPACINGGRID
   name: SpacingGrid
-  file: frontend/src/views/utilities/Grid/SpacingGrid.jsx
+  file: frontend\src\views\utilities\Grid\SpacingGrid.jsx
   props: []
   emits: []
   state: []
 - id: COMP_STARTEDITBUTTONGRID
   name: StartEditButtonGrid
-  file: frontend/src/views/forms/data-grid/InLineEditing/Controlled.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\Controlled.jsx
   props: []
   emits: []
   state: []
 - id: COMP_STATCARD
   name: StatCard
-  file: frontend/src/components/old/StatCard.jsx
+  file: frontend\src\components\old\StatCard.jsx
   props:
   - name: icon
     type: node
@@ -3259,7 +3259,7 @@ components:
   state: []
 - id: COMP_STATUSCARD
   name: StatusCard
-  file: frontend/src/ui-component/status-rail/StatusCard.jsx
+  file: frontend\src\ui-component\status-rail\StatusCard.jsx
   props:
   - name: front
     type: shape
@@ -3280,13 +3280,13 @@ components:
   state: []
 - id: COMP_STATUSCELL
   name: StatusCell
-  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  file: frontend\src\ui-component\wallet\WalletTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_STATUSRAIL
   name: StatusRail
-  file: frontend/src/components/StatusRail/StatusRail.jsx
+  file: frontend\src\components\StatusRail\StatusRail.jsx
   props:
   - name: cards
     type: array
@@ -3295,31 +3295,31 @@ components:
   state: []
 - id: COMP_STEPCARD
   name: StepCard
-  file: frontend/src/views/sonicLabs/SonicLabsPage.jsx
+  file: frontend\src\views\sonicLabs\SonicLabsPage.jsx
   props: []
   emits: []
   state: []
 - id: COMP_STEPSLIDER
   name: StepSlider
-  file: frontend/src/views/forms/components/Slider/StepSlider.jsx
+  file: frontend\src\views\forms\components\Slider\StepSlider.jsx
   props: []
   emits: []
   state: []
 - id: COMP_STICKYACTIONBAR
   name: StickyActionBar
-  file: frontend/src/views/forms/layouts/StickyActionBar.jsx
+  file: frontend\src\views\forms\layouts\StickyActionBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_STICKYHEADTABLE
   name: StickyHeadTable
-  file: frontend/src/views/forms/tables/TableStickyHead.jsx
+  file: frontend\src\views\forms\tables\TableStickyHead.jsx
   props: []
   emits: []
   state: []
 - id: COMP_STORYCOMMENT
   name: StoryComment
-  file: frontend/src/views/kanban/Backlogs/StoryComment.jsx
+  file: frontend\src\views\kanban\Backlogs\StoryComment.jsx
   props:
   - name: comment
     type: any
@@ -3328,7 +3328,7 @@ components:
   state: []
 - id: COMP_SUBCARD
   name: SubCard
-  file: frontend/src/ui-component/cards/SubCard.jsx
+  file: frontend\src\ui-component\cards\SubCard.jsx
   props:
   - name: children
     type: oneOfType
@@ -3370,19 +3370,19 @@ components:
   state: []
 - id: COMP_SUPABASELOGIN
   name: SupabaseLogin
-  file: frontend/src/views/pages/authentication/supabase/AuthLogin.jsx
+  file: frontend\src\views\pages\authentication\supabase\AuthLogin.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SUPABASEREGISTER
   name: SupabaseRegister
-  file: frontend/src/views/pages/authentication/supabase/AuthRegister.jsx
+  file: frontend\src\views\pages\authentication\supabase\AuthRegister.jsx
   props: []
   emits: []
   state: []
 - id: COMP_SUPABSEPROVIDER
   name: SupabseProvider
-  file: frontend/src/contexts/SupabaseContext.jsx
+  file: frontend\src\contexts\SupabaseContext.jsx
   props:
   - name: children
     type: node
@@ -3391,25 +3391,25 @@ components:
   state: []
 - id: COMP_SWAPSTAB
   name: SwapsTab
-  file: frontend/src/views/jupiter/JupiterPage.jsx
+  file: frontend\src\views\jupiter\JupiterPage.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TABLEBASIC
   name: TableBasic
-  file: frontend/src/views/forms/tables/TableBasic.jsx
+  file: frontend\src\views\forms\tables\TableBasic.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TABLECOLLAPSIBLE
   name: TableCollapsible
-  file: frontend/src/views/forms/tables/TableCollapsible.jsx
+  file: frontend\src\views\forms\tables\TableCollapsible.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TABLEDATAGRID
   name: TableDataGrid
-  file: frontend/src/views/forms/data-grid/DataGridBasic/index.jsx
+  file: frontend\src\views\forms\data-grid\DataGridBasic\index.jsx
   props:
   - name: Selected
     type: any
@@ -3418,25 +3418,25 @@ components:
   state: []
 - id: COMP_TASKSCARD
   name: TasksCard
-  file: frontend/src/views/widget/Data/TasksCard.jsx
+  file: frontend\src\views\widget\Data\TasksCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TEAMMEMBERS
   name: TeamMembers
-  file: frontend/src/views/widget/Data/TeamMembers.jsx
+  file: frontend\src\views\widget\Data\TeamMembers.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TEXTFIELDPAGE
   name: TextFieldPage
-  file: frontend/src/views/forms/components/TextField.jsx
+  file: frontend\src\views\forms\components\TextField.jsx
   props: []
   emits: []
   state: []
 - id: COMP_THEMECUSTOMIZATION
   name: ThemeCustomization
-  file: frontend/src/themes/index.jsx
+  file: frontend\src\themes\index.jsx
   props:
   - name: children
     type: node
@@ -3445,67 +3445,67 @@ components:
   state: []
 - id: COMP_THEMEMODELAYOUT
   name: ThemeModeLayout
-  file: frontend/src/layout/Customization/ThemeMode.jsx
+  file: frontend\src\layout\Customization\ThemeMode.jsx
   props: []
   emits: []
   state: []
 - id: COMP_THEMEMODESECTION
   name: ThemeModeSection
-  file: frontend/src/layout/MainLayout/Header/ThemeModeSection/index.jsx
+  file: frontend\src\layout\MainLayout\Header\ThemeModeSection\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_THRESHOLDSTABLE
   name: ThresholdsTable
-  file: frontend/src/views/alertThresholds/ThresholdsTable.jsx
+  file: frontend\src\views\alertThresholds\ThresholdsTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_THRESHOLDTABLE
   name: ThresholdTable
-  file: frontend/src/ui-component/thresholds/ThresholdTable.jsx
+  file: frontend\src\ui-component\thresholds\ThresholdTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TIMERSECTION
   name: TimerSection
-  file: frontend/src/layout/MainLayout/Header/TimerSection/TimerSection.jsx
+  file: frontend\src\layout\MainLayout\Header\TimerSection\TimerSection.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TODOLIST
   name: ToDoList
-  file: frontend/src/views/widget/Data/ToDoList.jsx
+  file: frontend\src\views\widget\Data\ToDoList.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TOOLBAR
   name: Toolbar
-  file: frontend/src/views/forms/data-grid/SaveRestoreState/UseGridSelector.jsx
+  file: frontend\src\views\forms\data-grid\SaveRestoreState\UseGridSelector.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TOOLTIP
   name: Tooltip
-  file: frontend/src/views/forms/plugins/Tooltip.jsx
+  file: frontend\src\views\forms\plugins\Tooltip.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TOPCELL
   name: TopCell
-  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  file: frontend\src\ui-component\wallet\WalletTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TOPTOKENSCHIPS
   name: TopTokensChips
-  file: frontend/src/components/wallets/VerifiedCells.jsx
+  file: frontend\src\components\wallets\VerifiedCells.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TOTALGROWTHBARCHART
   name: TotalGrowthBarChart
-  file: frontend/src/views/dashboard/Default/TotalGrowthBarChart.jsx
+  file: frontend\src\ui-component\cards\Skeleton\TotalGrowthBarChart.jsx
   props:
   - name: isLoading
     type: bool
@@ -3514,13 +3514,13 @@ components:
   state: []
 - id: COMP_TOTALINCOMECARD
   name: TotalIncomeCard
-  file: frontend/src/ui-component/cards/Skeleton/TotalIncomeCard.jsx
+  file: frontend\src\ui-component\cards\Skeleton\TotalIncomeCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TOTALINCOMEDARKCARD
   name: TotalIncomeDarkCard
-  file: frontend/src/ui-component/cards/TotalIncomeDarkCard.jsx
+  file: frontend\src\ui-component\cards\TotalIncomeDarkCard.jsx
   props:
   - name: isLoading
     type: bool
@@ -3529,7 +3529,7 @@ components:
   state: []
 - id: COMP_TOTALINCOMELIGHTCARD
   name: TotalIncomeLightCard
-  file: frontend/src/ui-component/cards/TotalIncomeLightCard.jsx
+  file: frontend\src\ui-component\cards\TotalIncomeLightCard.jsx
   props:
   - name: isLoading
     type: bool
@@ -3538,7 +3538,7 @@ components:
   state: []
 - id: COMP_TOTALLINECHARTCARD
   name: TotalLineChartCard
-  file: frontend/src/ui-component/cards/TotalLineChartCard.jsx
+  file: frontend\src\ui-component\cards\TotalLineChartCard.jsx
   props:
   - name: bgColor
     type: string
@@ -3559,7 +3559,7 @@ components:
   state: []
 - id: COMP_TOTALORDERLINECHARTCARD
   name: TotalOrderLineChartCard
-  file: frontend/src/views/dashboard/Default/TotalOrderLineChartCard.jsx
+  file: frontend\src\views\dashboard\Default\TotalOrderLineChartCard.jsx
   props:
   - name: isLoading
     type: bool
@@ -3568,13 +3568,13 @@ components:
   state: []
 - id: COMP_TOTALREVENUE
   name: TotalRevenue
-  file: frontend/src/views/widget/Data/TotalRevenue.jsx
+  file: frontend\src\views\widget\Data\TotalRevenue.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TOTALVALUECARD
   name: TotalValueCard
-  file: frontend/src/ui-component/cards/TotalValueCard.jsx
+  file: frontend\src\ui-component\cards\TotalValueCard.jsx
   props:
   - name: primary
     type: any
@@ -3595,13 +3595,13 @@ components:
   state: []
 - id: COMP_TRADERBAR
   name: TraderBar
-  file: frontend/src/views/traderFactory/TraderBar.jsx
+  file: frontend\src\views\traderFactory\TraderBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRADERCARD
   name: TraderCard
-  file: frontend/src/views/traderFactory/TraderCard.jsx
+  file: frontend\src\views\traderFactory\TraderCard.jsx
   props:
   - name: trader
     type: object
@@ -3613,7 +3613,7 @@ components:
   state: []
 - id: COMP_TRADERENHANCEDTABLE
   name: TraderEnhancedTable
-  file: frontend/src/views/traderShop/TraderEnhancedTable.jsx
+  file: frontend\src\views\traderShop\TraderEnhancedTable.jsx
   props:
   - name: headCells
     type: array
@@ -3625,19 +3625,19 @@ components:
   state: []
 - id: COMP_TRADERENHANCEDTABLEHEAD
   name: TraderEnhancedTableHead
-  file: frontend/src/views/traderShop/TraderEnhancedTable.jsx
+  file: frontend\src\views\traderShop\TraderEnhancedTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRADERFACTORYPAGE
   name: TraderFactoryPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRADERFORMDRAWER
   name: TraderFormDrawer
-  file: frontend/src/views/traderShop/TraderFormDrawer.jsx
+  file: frontend\src\views\traderShop\TraderFormDrawer.jsx
   props:
   - name: open
     type: bool
@@ -3652,7 +3652,7 @@ components:
   state: []
 - id: COMP_TRADERLISTCARD
   name: TraderListCard
-  file: frontend/src/components/TraderListCard/TraderListCard.jsx
+  file: frontend\src\components\TraderListCard\TraderListCard.jsx
   props:
   - name: title
     type: string
@@ -3661,37 +3661,37 @@ components:
   state: []
 - id: COMP_TRADERSHOPINDEX
   name: TraderShopIndex
-  file: frontend/src/routes/TraderShopRoutes.jsx
+  file: frontend\src\routes\TraderShopRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRADERSHOPLIST
   name: TraderShopList
-  file: frontend/src/views/traderShop/TraderShopList.jsx
+  file: frontend\src\views\traderShop\TraderShopList.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRAFFICSOURCES
   name: TrafficSources
-  file: frontend/src/views/widget/Data/TrafficSources.jsx
+  file: frontend\src\views\widget\Data\TrafficSources.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRANSACTIONCARD
   name: TransactionCard
-  file: frontend/src/views/jupiter/JupiterPage.jsx
+  file: frontend\src\views\jupiter\JupiterPage.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRANSITIONBAR
   name: TransitionBar
-  file: frontend/src/ui-component/extended/notistack/TransitionBar.jsx
+  file: frontend\src\ui-component\extended\notistack\TransitionBar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRANSITIONS
   name: Transitions
-  file: frontend/src/ui-component/extended/Transitions.jsx
+  file: frontend\src\ui-component\extended\Transitions.jsx
   props:
   - name: children
     type: node
@@ -3715,31 +3715,31 @@ components:
   state: []
 - id: COMP_TRANSITIONSLIDEDOWN
   name: TransitionSlideDown
-  file: frontend/src/ui-component/extended/Snackbar.jsx
+  file: frontend\src\ui-component\extended\Snackbar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRANSITIONSLIDELEFT
   name: TransitionSlideLeft
-  file: frontend/src/ui-component/extended/Snackbar.jsx
+  file: frontend\src\ui-component\extended\Snackbar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRANSITIONSLIDERIGHT
   name: TransitionSlideRight
-  file: frontend/src/ui-component/extended/Snackbar.jsx
+  file: frontend\src\ui-component\extended\Snackbar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TRANSITIONSLIDEUP
   name: TransitionSlideUp
-  file: frontend/src/ui-component/extended/Snackbar.jsx
+  file: frontend\src\ui-component\extended\Snackbar.jsx
   props: []
   emits: []
   state: []
 - id: COMP_TREECARD
   name: TreeCard
-  file: frontend/src/views/forms/chart/OrgChart/index.jsx
+  file: frontend\src\views\forms\chart\OrgChart\index.jsx
   props:
   - name: items
     type: any
@@ -3748,67 +3748,67 @@ components:
   state: []
 - id: COMP_TYPOGRAPHY
   name: Typography
-  file: frontend/src/themes/typography.jsx
+  file: frontend\src\themes\typography.jsx
   props: []
   emits: []
   state: []
 - id: COMP_UIBUTTON
   name: UIButton
-  file: frontend/src/views/forms/components/Button.jsx
+  file: frontend\src\views\forms\components\Button.jsx
   props: []
   emits: []
   state: []
 - id: COMP_UICHECKBOX
   name: UICheckbox
-  file: frontend/src/views/forms/components/Checkbox.jsx
+  file: frontend\src\views\forms\components\Checkbox.jsx
   props: []
   emits: []
   state: []
 - id: COMP_UICOLOR
   name: UIColor
-  file: frontend/src/views/utilities/Color.jsx
+  file: frontend\src\views\utilities\Color.jsx
   props: []
   emits: []
   state: []
 - id: COMP_UIRADIO
   name: UIRadio
-  file: frontend/src/views/forms/components/Radio.jsx
+  file: frontend\src\views\forms\components\Radio.jsx
   props: []
   emits: []
   state: []
 - id: COMP_UISWITCH
   name: UISwitch
-  file: frontend/src/views/forms/components/Switch.jsx
+  file: frontend\src\views\forms\components\Switch.jsx
   props: []
   emits: []
   state: []
 - id: COMP_UNDERCONSTRUCTION
   name: UnderConstruction
-  file: frontend/src/views/pages/maintenance/UnderConstruction.jsx
+  file: frontend\src\views\pages\maintenance\UnderConstruction.jsx
   props: []
   emits: []
   state: []
 - id: COMP_UPGRADEPLANCARD
   name: UpgradePlanCard
-  file: frontend/src/layout/MainLayout/Header/SettingsSection/UpgradePlanCard.jsx
+  file: frontend\src\layout\MainLayout\Header\SettingsSection\UpgradePlanCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_USEGRIDSELECTOR
   name: UseGridSelector
-  file: frontend/src/views/forms/data-grid/SaveRestoreState/UseGridSelector.jsx
+  file: frontend\src\views\forms\data-grid\SaveRestoreState\UseGridSelector.jsx
   props: []
   emits: []
   state: []
 - id: COMP_USERACTIVITY
   name: UserActivity
-  file: frontend/src/views/widget/Data/UserActivity.jsx
+  file: frontend\src\views\widget\Data\UserActivity.jsx
   props: []
   emits: []
   state: []
 - id: COMP_USERCOUNTCARD
   name: UserCountCard
-  file: frontend/src/ui-component/cards/UserCountCard.jsx
+  file: frontend\src\ui-component\cards\UserCountCard.jsx
   props:
   - name: primary
     type: string
@@ -3817,7 +3817,7 @@ components:
   state: []
 - id: COMP_USERDETAILSCARD
   name: UserDetailsCard
-  file: frontend/src/ui-component/cards/UserDetailsCard.jsx
+  file: frontend\src\ui-component\cards\UserDetailsCard.jsx
   props:
   - name: about
     type: any
@@ -3844,7 +3844,7 @@ components:
   state: []
 - id: COMP_USERPROFILECARD
   name: UserProfileCard
-  file: frontend/src/ui-component/cards/UserProfileCard.jsx
+  file: frontend\src\ui-component\cards\UserProfileCard.jsx
   props:
   - name: avatar
     type: any
@@ -3865,7 +3865,7 @@ components:
   state: []
 - id: COMP_USERSIMPLECARD
   name: UserSimpleCard
-  file: frontend/src/ui-component/cards/UserSimpleCard.jsx
+  file: frontend\src\ui-component\cards\UserSimpleCard.jsx
   props:
   - name: avatar
     type: any
@@ -3874,7 +3874,7 @@ components:
   state: []
 - id: COMP_USERSTORY
   name: UserStory
-  file: frontend/src/views/kanban/Backlogs/UserStory.jsx
+  file: frontend\src\views\kanban\Backlogs\UserStory.jsx
   props:
   - name: story
     type: any
@@ -3883,169 +3883,169 @@ components:
   state: []
 - id: COMP_UTILITIESSHADOW
   name: UtilitiesShadow
-  file: frontend/src/views/utilities/Shadow.jsx
+  file: frontend\src\views\utilities\Shadow.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VALIDATESERVERNAMEGRID
   name: ValidateServerNameGrid
-  file: frontend/src/views/forms/data-grid/InLineEditing/Validation.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\Validation.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VALIDATIONWIZARD
   name: ValidationWizard
-  file: frontend/src/views/forms/forms-wizard/ValidationWizard/index.jsx
+  file: frontend\src\views\forms\forms-wizard\ValidationWizard\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VALUEPARSERSETTERGRID
   name: ValueParserSetterGrid
-  file: frontend/src/views/forms/data-grid/InLineEditing/ParserSetter.jsx
+  file: frontend\src\views\forms\data-grid\InLineEditing\ParserSetter.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VALUETOCOLLATERALCHARTCARD
   name: ValueToCollateralChartCard
-  file: frontend/src/ui-component/cards/ValueToCollateralChartCard.jsx
+  file: frontend\src\ui-component\cards\ValueToCollateralChartCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VERIFIEDCELL
   name: VerifiedCell
-  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  file: frontend\src\ui-component\wallet\WalletTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VERIFIEDSOLCELL
   name: VerifiedSolCell
-  file: frontend/src/components/wallets/VerifiedCells.jsx
+  file: frontend\src\components\wallets\VerifiedCells.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VERIFIEDSTATUSCELL
   name: VerifiedStatusCell
-  file: frontend/src/components/wallets/VerifiedCells.jsx
+  file: frontend\src\components\wallets\VerifiedCells.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VERTICALMONITORSUMMARYCARD
   name: VerticalMonitorSummaryCard
-  file: frontend/src/views/dashboard/VerticalMonitorSummaryCard.jsx
+  file: frontend\src\views\dashboard\VerticalMonitorSummaryCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VERTICALSLIDER
   name: VerticalSlider
-  file: frontend/src/views/forms/components/Slider/VerticalSlider.jsx
+  file: frontend\src\views\forms\components\Slider\VerticalSlider.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VIEWONLYALERT
   name: ViewOnlyAlert
-  file: frontend/src/views/pages/authentication/ViewOnlyAlert.jsx
+  file: frontend\src\views\pages\authentication\ViewOnlyAlert.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VIEWRENDERERDATETIME
   name: ViewRendererDateTime
-  file: frontend/src/views/forms/components/DateTime/ViewRendererDateTime.jsx
+  file: frontend\src\views\forms\components\DateTime\ViewRendererDateTime.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VIEWSDATETIMEPICKER
   name: ViewsDateTimePicker
-  file: frontend/src/views/forms/components/DateTime/ViewsDateTimePicker.jsx
+  file: frontend\src\views\forms\components\DateTime\ViewsDateTimePicker.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VISIBLECOLUMNSMODELCONTROLLED
   name: VisibleColumnsModelControlled
-  file: frontend/src/views/forms/data-grid/ColumnVisibility/ControlledVisibility.jsx
+  file: frontend\src\views\forms\data-grid\ColumnVisibility\ControlledVisibility.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VISIBLECOLUMNSMODELINITIALSTATE
   name: VisibleColumnsModelInitialState
-  file: frontend/src/views/forms/data-grid/ColumnVisibility/InitializeColumnVisibility.jsx
+  file: frontend\src\views\forms\data-grid\ColumnVisibility\InitializeColumnVisibility.jsx
   props: []
   emits: []
   state: []
 - id: COMP_VOLUMESLIDER
   name: VolumeSlider
-  file: frontend/src/views/forms/components/Slider/VolumeSlider.jsx
+  file: frontend\src\views\forms\components\Slider\VolumeSlider.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WALLETCARD
   name: WalletCard
-  file: frontend/src/views/jupiter/JupiterPage.jsx
+  file: frontend\src\views\jupiter\JupiterPage.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WALLETFORMMODAL
   name: WalletFormModal
-  file: frontend/src/ui-component/wallet/WalletFormModal.jsx
+  file: frontend\src\ui-component\wallet\WalletFormModal.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WALLETMANAGER
   name: WalletManager
-  file: frontend/src/views/wallet/WalletManager.jsx
+  file: frontend\src\views\wallet\WalletManager.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WALLETMANAGERPAGE
   name: WalletManagerPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WALLETPIECARD
   name: WalletPieCard
-  file: frontend/src/ui-component/wallet/WalletPieCard.jsx
+  file: frontend\src\ui-component\wallet\WalletPieCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WALLETTABLE
   name: WalletTable
-  file: frontend/src/ui-component/wallet/WalletTable.jsx
+  file: frontend\src\ui-component\wallet\WalletTable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WEATHERCARD
   name: WeatherCard
-  file: frontend/src/views/widget/Statistics/WeatherCard.jsx
+  file: frontend\src\views\widget\Statistics\WeatherCard.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WIDGETDATA
   name: WidgetData
-  file: frontend/src/views/widget/Data/index.jsx
+  file: frontend\src\views\widget\Data\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WIDGETSTATISTICS
   name: WidgetStatistics
-  file: frontend/src/views/widget/Statistics/index.jsx
+  file: frontend\src\views\widget\Statistics\index.jsx
   props: []
   emits: []
   state: []
 - id: COMP_WRAPPEDCOMPONENT
   name: WrappedComponent
-  file: frontend/src/ui-component/Loadable.jsx
+  file: frontend\src\ui-component\Loadable.jsx
   props: []
   emits: []
   state: []
 - id: COMP_XCOMSETTINGS
   name: XComSettings
-  file: frontend/src/views/xcomSettings/XComSettings.jsx
+  file: frontend\src\views\xcomSettings\XComSettings.jsx
   props: []
   emits: []
   state: []
 - id: COMP_XCOMSETTINGSPAGE
   name: XComSettingsPage
-  file: frontend/src/routes/MainRoutes.jsx
+  file: frontend\src\routes\MainRoutes.jsx
   props: []
   emits: []
   state: []

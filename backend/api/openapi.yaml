@@ -3,48 +3,12 @@ info:
   title: Sonic API
   version: v1
 paths:
-  /api/wallet/send:
-    post:
-      tags:
-      - wallet
-      summary: Send Token Api
-      operationId: send_token_api_api_wallet_send_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SendReq'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/wallet/debug:
-    get:
-      tags:
-      - wallet
-      summary: Wallet Debug
-      operationId: wallet_debug_api_wallet_debug_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
   /positions/:
     get:
       tags:
       - positions
       summary: List Positions
-      operationId: list_positions_positions__get
+      operationId: list_positions_get_positions_11
       responses:
         '200':
           description: Successful Response
@@ -54,12 +18,12 @@ paths:
                 items:
                   $ref: '#/components/schemas/PositionDB'
                 type: array
-                title: Response List Positions Positions  Get
+                title: Response List Positions Get Positions 11
     post:
       tags:
       - positions
       summary: Create Position
-      operationId: create_position_positions__post
+      operationId: create_position_post_positions_15
       requestBody:
         content:
           application/json:
@@ -83,7 +47,7 @@ paths:
       tags:
       - positions
       summary: Delete Position
-      operationId: delete_position_positions__pos_id__delete
+      operationId: delete_position_delete_positions_pos_id_22
       parameters:
       - name: pos_id
         in: path
@@ -108,7 +72,7 @@ paths:
       tags:
       - positions
       summary: Snapshot
-      operationId: snapshot_positions_snapshot_post
+      operationId: snapshot_post_positions_snapshot_27
       responses:
         '200':
           description: Successful Response
@@ -120,7 +84,7 @@ paths:
       tags:
       - positions
       summary: Run Jupiter position sync in background
-      operationId: update_positions_positions_update_post
+      operationId: update_positions_post_positions_update_33
       responses:
         '202':
           description: Successful Response
@@ -132,7 +96,7 @@ paths:
       tags:
       - positions
       summary: Enrich all positions with live data
-      operationId: enrich_positions_enrich_post
+      operationId: enrich_post_positions_enrich_40
       responses:
         '202':
           description: Successful Response
@@ -144,7 +108,7 @@ paths:
       tags:
       - portfolio
       summary: List Portfolio History
-      operationId: list_portfolio_history_portfolio__get
+      operationId: list_portfolio_history_get_portfolio_15
       responses:
         '200':
           description: Successful Response
@@ -154,13 +118,13 @@ paths:
                 items:
                   $ref: '#/components/schemas/PortfolioSnapshot'
                 type: array
-                title: Response List Portfolio History Portfolio  Get
+                title: Response List Portfolio History Get Portfolio 15
     post:
       tags:
       - portfolio
       summary: Add Portfolio Entry
       description: Insert a portfolio history entry using the PortfolioSnapshot model.
-      operationId: add_portfolio_entry_portfolio__post
+      operationId: add_portfolio_entry_post_portfolio_32
       requestBody:
         content:
           application/json:
@@ -184,7 +148,7 @@ paths:
       tags:
       - portfolio
       summary: Get Latest Snapshot
-      operationId: get_latest_snapshot_portfolio_latest_get
+      operationId: get_latest_snapshot_get_portfolio_latest_20
       responses:
         '200':
           description: Successful Response
@@ -194,13 +158,13 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/PortfolioSnapshot'
                 - type: 'null'
-                title: Response Get Latest Snapshot Portfolio Latest Get
+                title: Response Get Latest Snapshot Get Portfolio Latest 20
   /portfolio/{entry_id}:
     put:
       tags:
       - portfolio
       summary: Update Portfolio Entry
-      operationId: update_portfolio_entry_portfolio__entry_id__put
+      operationId: update_portfolio_entry_put_portfolio_entry_id_46
       parameters:
       - name: entry_id
         in: path
@@ -214,7 +178,6 @@ paths:
           application/json:
             schema:
               type: object
-              additionalProperties: true
               title: Fields
       responses:
         '200':
@@ -232,7 +195,7 @@ paths:
       tags:
       - portfolio
       summary: Delete Portfolio Entry
-      operationId: delete_portfolio_entry_portfolio__entry_id__delete
+      operationId: delete_portfolio_entry_delete_portfolio_entry_id_52
       parameters:
       - name: entry_id
         in: path
@@ -260,7 +223,7 @@ paths:
       description: 'Alias of /portfolio/latest that includes the /api prefix for
 
         backwards compatibility.'
-      operationId: get_latest_snapshot_api_api_portfolio_latest_snapshot_get
+      operationId: get_latest_snapshot_api_get_api_portfolio_latest_snapshot_25
       responses:
         '200':
           description: Successful Response
@@ -270,14 +233,14 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/PortfolioSnapshot'
                 - type: 'null'
-                title: Response Get Latest Snapshot Api Api Portfolio Latest Snapshot
-                  Get
+                title: Response Get Latest Snapshot Api Get Api Portfolio Latest Snapshot
+                  25
   /api/portfolio/update_snapshot:
     post:
       tags:
       - portfolio
       summary: Update Snapshot
-      operationId: update_snapshot_api_portfolio_update_snapshot_post
+      operationId: update_snapshot_post_api_portfolio_update_snapshot_57
       requestBody:
         content:
           application/json:
@@ -302,7 +265,7 @@ paths:
       tags:
       - cyclone
       summary: Run Cycle
-      operationId: run_cycle_cyclone_run_post
+      operationId: run_cycle_post_cyclone_run_15
       responses:
         '202':
           description: Successful Response
@@ -314,7 +277,7 @@ paths:
       tags:
       - cyclone
       summary: Run Price Update
-      operationId: run_price_update_cyclone_prices_post
+      operationId: run_price_update_post_cyclone_prices_21
       responses:
         '202':
           description: Successful Response
@@ -326,7 +289,7 @@ paths:
       tags:
       - cyclone
       summary: Run Position Update
-      operationId: run_position_update_cyclone_positions_post
+      operationId: run_position_update_post_cyclone_positions_27
       responses:
         '202':
           description: Successful Response
@@ -338,7 +301,7 @@ paths:
       tags:
       - cyclone
       summary: Clear All Data
-      operationId: clear_all_data_cyclone_data_delete
+      operationId: clear_all_data_delete_cyclone_data_33
       responses:
         '202':
           description: Successful Response
@@ -351,7 +314,7 @@ paths:
       - wallets
       summary: List Wallets
       description: Return wallets without forcing a balance refresh.
-      operationId: list_wallets_wallets__get
+      operationId: list_wallets_get_wallets_9
       responses:
         '200':
           description: Successful Response
@@ -359,15 +322,14 @@ paths:
             application/json:
               schema:
                 items:
-                  additionalProperties: true
                   type: object
                 type: array
-                title: Response List Wallets Wallets  Get
+                title: Response List Wallets Get Wallets 9
     post:
       tags:
       - wallets
       summary: Create Wallet
-      operationId: create_wallet_wallets__post
+      operationId: create_wallet_post_wallets_14
       requestBody:
         content:
           application/json:
@@ -391,7 +353,7 @@ paths:
       tags:
       - wallets
       summary: Update Wallet
-      operationId: update_wallet_wallets__name__put
+      operationId: update_wallet_put_wallets_name_22
       parameters:
       - name: name
         in: path
@@ -421,7 +383,7 @@ paths:
       tags:
       - wallets
       summary: Delete Wallet
-      operationId: delete_wallet_wallets__name__delete
+      operationId: delete_wallet_delete_wallets_name_30
       parameters:
       - name: name
         in: path
@@ -447,7 +409,7 @@ paths:
       - wallets
       summary: Insert Star Wars Wallets Route
       description: Insert sample Star Wars wallets via helper script.
-      operationId: insert_star_wars_wallets_route_wallets_star_wars_post
+      operationId: insert_star_wars_wallets_route_post_wallets_star_wars_38
       responses:
         '201':
           description: Successful Response
@@ -459,7 +421,7 @@ paths:
       tags:
       - traders
       summary: Get Traders
-      operationId: get_traders_api_traders__get
+      operationId: get_traders_get_api_traders_11
       responses:
         '200':
           description: Successful Response
@@ -469,12 +431,12 @@ paths:
                 items:
                   $ref: '#/components/schemas/Trader'
                 type: array
-                title: Response Get Traders Api Traders  Get
+                title: Response Get Traders Get Api Traders 11
     post:
       tags:
       - traders
       summary: Create Trader
-      operationId: create_trader_api_traders__post
+      operationId: create_trader_post_api_traders_22
       requestBody:
         content:
           application/json:
@@ -498,7 +460,7 @@ paths:
       tags:
       - traders
       summary: Get Trader
-      operationId: get_trader_api_traders__name__get
+      operationId: get_trader_get_api_traders_name_15
       parameters:
       - name: name
         in: path
@@ -523,7 +485,7 @@ paths:
       tags:
       - traders
       summary: Update Trader
-      operationId: update_trader_api_traders__name__put
+      operationId: update_trader_put_api_traders_name_28
       parameters:
       - name: name
         in: path
@@ -537,7 +499,6 @@ paths:
           application/json:
             schema:
               type: object
-              additionalProperties: true
               title: Trader
       responses:
         '200':
@@ -555,7 +516,7 @@ paths:
       tags:
       - traders
       summary: Delete Trader
-      operationId: delete_trader_api_traders__name__delete
+      operationId: delete_trader_delete_api_traders_name_33
       parameters:
       - name: name
         in: path
@@ -580,7 +541,7 @@ paths:
       tags:
       - traders
       summary: Quick Import Traders
-      operationId: quick_import_traders_api_traders_quick_import_post
+      operationId: quick_import_traders_post_api_traders_quick_import_40
       responses:
         '201':
           description: Successful Response
@@ -593,7 +554,7 @@ paths:
       - traders
       summary: Export Traders
       description: Export traders to ``active_traders.json`` and return the file.
-      operationId: export_traders_api_traders_export_get
+      operationId: export_traders_get_api_traders_export_47
       responses:
         '200':
           description: Successful Response
@@ -605,7 +566,7 @@ paths:
       tags:
       - alert_thresholds
       summary: List Thresholds
-      operationId: list_thresholds_alert_thresholds__get
+      operationId: list_thresholds_get_alert_thresholds_18
       responses:
         '200':
           description: Successful Response
@@ -615,12 +576,12 @@ paths:
                 items:
                   $ref: '#/components/schemas/AlertThreshold'
                 type: array
-                title: Response List Thresholds Alert Thresholds  Get
+                title: Response List Thresholds Get Alert Thresholds 18
     post:
       tags:
       - alert_thresholds
       summary: Create Threshold
-      operationId: create_threshold_alert_thresholds__post
+      operationId: create_threshold_post_alert_thresholds_43
       requestBody:
         content:
           application/json:
@@ -646,27 +607,25 @@ paths:
       - alert_thresholds
       summary: Get Bulk
       description: Return the entire thresholds configuration.
-      operationId: get_bulk_alert_thresholds_bulk_get
+      operationId: get_bulk_get_alert_thresholds_bulk_23
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                additionalProperties: true
                 type: object
-                title: Response Get Bulk Alert Thresholds Bulk Get
+                title: Response Get Bulk Get Alert Thresholds Bulk 23
     put:
       tags:
       - alert_thresholds
       summary: Replace Bulk
       description: Replace all thresholds and cooldowns.
-      operationId: replace_bulk_alert_thresholds_bulk_put
+      operationId: replace_bulk_put_alert_thresholds_bulk_29
       requestBody:
         content:
           application/json:
             schema:
-              additionalProperties: true
               type: object
               title: Config
         required: true
@@ -687,7 +646,7 @@ paths:
       tags:
       - alert_thresholds
       summary: Get Threshold
-      operationId: get_threshold_alert_thresholds__threshold_id__get
+      operationId: get_threshold_get_alert_thresholds_threshold_id_38
       parameters:
       - name: threshold_id
         in: path
@@ -704,7 +663,7 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/AlertThreshold'
                 - type: 'null'
-                title: Response Get Threshold Alert Thresholds  Threshold Id  Get
+                title: Response Get Threshold Get Alert Thresholds Threshold Id 38
         '422':
           description: Validation Error
           content:
@@ -715,7 +674,7 @@ paths:
       tags:
       - alert_thresholds
       summary: Update Threshold
-      operationId: update_threshold_alert_thresholds__threshold_id__put
+      operationId: update_threshold_put_alert_thresholds_threshold_id_52
       parameters:
       - name: threshold_id
         in: path
@@ -729,7 +688,6 @@ paths:
           application/json:
             schema:
               type: object
-              additionalProperties: true
               title: Updates
       responses:
         '200':
@@ -747,7 +705,7 @@ paths:
       tags:
       - alert_thresholds
       summary: Delete Threshold
-      operationId: delete_threshold_alert_thresholds__threshold_id__delete
+      operationId: delete_threshold_delete_alert_thresholds_threshold_id_60
       parameters:
       - name: threshold_id
         in: path
@@ -772,7 +730,7 @@ paths:
       tags:
       - db_admin
       summary: List Tables
-      operationId: list_tables_db_admin_tables_get
+      operationId: list_tables_get_db_admin_tables_8
       responses:
         '200':
           description: Successful Response
@@ -782,13 +740,13 @@ paths:
                 items:
                   type: string
                 type: array
-                title: Response List Tables Db Admin Tables Get
+                title: Response List Tables Get Db Admin Tables 8
   /db_admin/tables/{table}:
     get:
       tags:
       - db_admin
       summary: Read Table
-      operationId: read_table_db_admin_tables__table__get
+      operationId: read_table_get_db_admin_tables_table_13
       parameters:
       - name: table
         in: path
@@ -812,8 +770,7 @@ paths:
                 type: array
                 items:
                   type: object
-                  additionalProperties: true
-                title: Response Read Table Db Admin Tables  Table  Get
+                title: Response Read Table Get Db Admin Tables Table 13
         '422':
           description: Validation Error
           content:
@@ -825,7 +782,7 @@ paths:
       tags:
       - alerts
       summary: Refresh Alerts
-      operationId: refresh_alerts_alerts_refresh_post
+      operationId: refresh_alerts_post_alerts_refresh_70
       responses:
         '200':
           description: Successful Response
@@ -837,7 +794,7 @@ paths:
       tags:
       - alerts
       summary: Create All Alerts
-      operationId: create_all_alerts_alerts_create_all_post
+      operationId: create_all_alerts_post_alerts_create_all_80
       responses:
         '200':
           description: Successful Response
@@ -849,7 +806,7 @@ paths:
       tags:
       - alerts
       summary: Delete All Alerts
-      operationId: delete_all_alerts_alerts_delete_all_post
+      operationId: delete_all_alerts_post_alerts_delete_all_96
       responses:
         '200':
           description: Successful Response
@@ -861,7 +818,7 @@ paths:
       tags:
       - alerts
       summary: Monitor Alerts
-      operationId: monitor_alerts_alerts_monitor_get
+      operationId: monitor_alerts_get_alerts_monitor_102
       responses:
         '200':
           description: Successful Response
@@ -873,7 +830,7 @@ paths:
       tags:
       - XCom
       summary: Read Providers
-      operationId: read_providers_xcom_providers_get
+      operationId: read_providers_get_xcom_providers_19
       responses:
         '200':
           description: Successful Response
@@ -885,7 +842,7 @@ paths:
       tags:
       - XCom
       summary: Write Providers
-      operationId: write_providers_xcom_providers_put
+      operationId: write_providers_put_xcom_providers_33
       requestBody:
         content:
           application/json:
@@ -909,7 +866,7 @@ paths:
       tags:
       - XCom
       summary: Check Status
-      operationId: check_status_xcom_status_get
+      operationId: check_status_get_xcom_status_38
       responses:
         '200':
           description: Successful Response
@@ -922,7 +879,7 @@ paths:
       tags:
       - XCom
       summary: Run Test
-      operationId: run_test_xcom_test_post
+      operationId: run_test_post_xcom_test_44
       requestBody:
         content:
           application/json:
@@ -947,7 +904,7 @@ paths:
       tags:
       - XCom
       summary: Last Ping
-      operationId: last_ping_xcom_last_ping_get
+      operationId: last_ping_get_xcom_last_ping_57
       responses:
         '200':
           description: Successful Response
@@ -959,7 +916,7 @@ paths:
       tags:
       - session
       summary: Get Active Session
-      operationId: get_active_session_session__get
+      operationId: get_active_session_get_session_8
       responses:
         '200':
           description: Successful Response
@@ -969,12 +926,12 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/Session'
                 - type: 'null'
-                title: Response Get Active Session Session  Get
+                title: Response Get Active Session Get Session 8
     put:
       tags:
       - session
       summary: Update Active Session
-      operationId: update_active_session_session__put
+      operationId: update_active_session_put_session_28
       requestBody:
         content:
           application/json:
@@ -990,7 +947,7 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/Session'
                 - type: 'null'
-                title: Response Update Active Session Session  Put
+                title: Response Update Active Session Put Session 28
         '422':
           description: Validation Error
           content:
@@ -1001,7 +958,7 @@ paths:
       tags:
       - session
       summary: Start Session
-      operationId: start_session_session__post
+      operationId: start_session_post_session_16
       requestBody:
         content:
           application/json:
@@ -1026,7 +983,7 @@ paths:
       tags:
       - session
       summary: List Sessions
-      operationId: list_sessions_session_history_get
+      operationId: list_sessions_get_session_history_12
       parameters:
       - name: limit
         in: query
@@ -1045,7 +1002,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Session'
-                title: Response List Sessions Session History Get
+                title: Response List Sessions Get Session History 12
         '422':
           description: Validation Error
           content:
@@ -1057,7 +1014,7 @@ paths:
       tags:
       - session
       summary: Update Session
-      operationId: update_session_session__sid__put
+      operationId: update_session_put_session_sid_24
       parameters:
       - name: sid
         in: path
@@ -1080,7 +1037,7 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/Session'
                 - type: 'null'
-                title: Response Update Session Session  Sid  Put
+                title: Response Update Session Put Session Sid 24
         '422':
           description: Validation Error
           content:
@@ -1092,7 +1049,7 @@ paths:
       tags:
       - session
       summary: Reset Session
-      operationId: reset_session_session_reset_post
+      operationId: reset_session_post_session_reset_32
       responses:
         '200':
           description: Successful Response
@@ -1102,13 +1059,13 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/Session'
                 - type: 'null'
-                title: Response Reset Session Session Reset Post
+                title: Response Reset Session Post Session Reset 32
   /session/close:
     post:
       tags:
       - session
       summary: Close Session
-      operationId: close_session_session_close_post
+      operationId: close_session_post_session_close_36
       responses:
         '200':
           description: Successful Response
@@ -1118,13 +1075,13 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/Session'
                 - type: 'null'
-                title: Response Close Session Session Close Post
+                title: Response Close Session Post Session Close 36
   /api/notifications/:
     get:
       tags:
       - notifications
       summary: List Notifications
-      operationId: list_notifications_api_notifications__get
+      operationId: list_notifications_get_api_notifications_11
       parameters:
       - name: status
         in: query
@@ -1150,7 +1107,7 @@ paths:
       tags:
       - notifications
       summary: Unread Count
-      operationId: unread_count_api_notifications_unread_count_get
+      operationId: unread_count_get_api_notifications_unread-count_17
       responses:
         '200':
           description: Successful Response
@@ -1162,7 +1119,7 @@ paths:
       tags:
       - notifications
       summary: Mark Read
-      operationId: mark_read_api_notifications__notif_id__read_post
+      operationId: mark_read_post_api_notifications_notif_id_read_23
       parameters:
       - name: notif_id
         in: path
@@ -1187,7 +1144,7 @@ paths:
       tags:
       - notifications
       summary: Mark All Read
-      operationId: mark_all_read_api_notifications_mark_all_read_post
+      operationId: mark_all_read_post_api_notifications_mark_all_read_30
       responses:
         '200':
           description: Successful Response
@@ -1200,7 +1157,7 @@ paths:
       - monitor-settings
       summary: Get Market Settings
       description: Return current MarketMovementMonitor configuration with defaults.
-      operationId: get_market_settings_api_monitor_settings_market_get
+      operationId: get_market_settings_get_api_monitor-settings_market_22
       responses:
         '200':
           description: Successful Response
@@ -1211,12 +1168,11 @@ paths:
       tags:
       - monitor-settings
       summary: Update Market Settings
-      operationId: update_market_settings_api_monitor_settings_market_post
+      operationId: update_market_settings_post_api_monitor-settings_market_30
       requestBody:
         content:
           application/json:
             schema:
-              additionalProperties: true
               type: object
               title: Payload
         required: true
@@ -1237,7 +1193,7 @@ paths:
       tags:
       - monitor-settings
       summary: Reset Market Anchors
-      operationId: reset_market_anchors_api_monitor_settings_market_reset_anchors_post
+      operationId: reset_market_anchors_post_api_monitor-settings_market_reset-anchors_41
       responses:
         '200':
           description: Successful Response
@@ -1250,7 +1206,7 @@ paths:
       - monitor-settings
       summary: Get Sonic Settings
       description: Return current Sonic monitor settings.
-      operationId: get_sonic_settings_api_monitor_settings_sonic_get
+      operationId: get_sonic_settings_get_api_monitor-settings_sonic_61
       responses:
         '200':
           description: Successful Response
@@ -1262,12 +1218,11 @@ paths:
       - monitor-settings
       summary: Update Sonic Settings
       description: Update Sonic monitor settings.
-      operationId: update_sonic_settings_api_monitor_settings_sonic_post
+      operationId: update_sonic_settings_post_api_monitor-settings_sonic_86
       requestBody:
         content:
           application/json:
             schema:
-              additionalProperties: true
               type: object
               title: Payload
         required: true
@@ -1289,7 +1244,7 @@ paths:
       - monitor-settings
       summary: Get Liquidation Settings
       description: Return the current liquidation monitor configuration.
-      operationId: get_liquidation_settings_api_monitor_settings_liquidation_get
+      operationId: get_liquidation_settings_get_api_monitor-settings_liquidation_211
       responses:
         '200':
           description: Successful Response
@@ -1304,12 +1259,11 @@ paths:
 
 
         Accepts both new nested structure and legacy flat keys.'
-      operationId: update_liquidation_settings_api_monitor_settings_liquidation_post
+      operationId: update_liquidation_settings_post_api_monitor-settings_liquidation_225
       requestBody:
         content:
           application/json:
             schema:
-              additionalProperties: true
               type: object
               title: Payload
         required: true
@@ -1331,7 +1285,7 @@ paths:
       - monitor-settings
       summary: Get Profit Settings
       description: Return the profit monitor threshold configuration.
-      operationId: get_profit_settings_api_monitor_settings_profit_get
+      operationId: get_profit_settings_get_api_monitor-settings_profit_244
       responses:
         '200':
           description: Successful Response
@@ -1343,12 +1297,11 @@ paths:
       - monitor-settings
       summary: Update Profit Settings
       description: Update profit monitor thresholds.
-      operationId: update_profit_settings_api_monitor_settings_profit_post
+      operationId: update_profit_settings_post_api_monitor-settings_profit_270
       requestBody:
         content:
           application/json:
             schema:
-              additionalProperties: true
               type: object
               title: Payload
         required: true
@@ -1369,7 +1322,7 @@ paths:
       tags:
       - liquidation
       summary: Nearest Liq
-      operationId: nearest_liq_api_liquidation_nearest_distance_get
+      operationId: nearest_liq_get_api_liquidation_nearest-distance_7
       responses:
         '200':
           description: Successful Response
@@ -1381,7 +1334,7 @@ paths:
       tags:
       - market
       summary: Market Latest
-      operationId: market_latest_api_market_latest_get
+      operationId: market_latest_get_api_market_latest_9
       responses:
         '200':
           description: Successful Response
@@ -1394,7 +1347,7 @@ paths:
       - prices
       summary: List Prices
       description: Return all price entries ordered by most recent.
-      operationId: list_prices_prices__get
+      operationId: list_prices_get_prices_7
       responses:
         '200':
           description: Successful Response
@@ -1402,16 +1355,15 @@ paths:
             application/json:
               schema:
                 items:
-                  additionalProperties: true
                   type: object
                 type: array
-                title: Response List Prices Prices  Get
+                title: Response List Prices Get Prices 7
   /api/solana/balance:
     post:
       tags:
       - solana
       summary: Solana Balance
-      operationId: solana_balance_api_solana_balance_post
+      operationId: solana_balance_post_api_solana_balance_29
       requestBody:
         content:
           application/json:
@@ -1435,7 +1387,7 @@ paths:
       tags:
       - wallets-verify
       summary: Verify One
-      operationId: verify_one_api_wallets_verify_post
+      operationId: verify_one_post_api_wallets_verify_133
       requestBody:
         content:
           application/json:
@@ -1459,7 +1411,7 @@ paths:
       tags:
       - wallets-verify
       summary: Verify Bulk
-      operationId: verify_bulk_api_wallets_verify_bulk_post
+      operationId: verify_bulk_post_api_wallets_verify-bulk_138
       requestBody:
         content:
           application/json:
@@ -1478,10 +1430,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/wallet/send:
+    post:
+      tags:
+      - wallet
+      summary: Send Token Api
+      operationId: send_token_api_post_api_wallet_send_186
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendReq'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/wallet/debug:
+    get:
+      tags:
+      - wallet
+      summary: Wallet Debug
+      operationId: wallet_debug_get_api_wallet_debug_257
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /api/jupiter/wallet/send:
     post:
       summary: Send Token Api
-      operationId: send_token_api_api_jupiter_wallet_send_post
+      operationId: send_token_api_post_api_jupiter_wallet_send_186
       requestBody:
         content:
           application/json:
@@ -1503,7 +1491,7 @@ paths:
   /api/jupiter/wallet/preflight-send:
     post:
       summary: Preflight Send
-      operationId: preflight_send_api_jupiter_wallet_preflight_send_post
+      operationId: preflight_send_post_api_jupiter_wallet_preflight-send_74
       requestBody:
         content:
           application/json:
@@ -1527,7 +1515,7 @@ paths:
       tags:
       - jupiter
       summary: Health
-      operationId: health_api_jupiter_health_get
+      operationId: health_get_api_jupiter_health_57
       responses:
         '200':
           description: Successful Response
@@ -1539,7 +1527,7 @@ paths:
       tags:
       - jupiter
       summary: Api Signer Info
-      operationId: api_signer_info_api_jupiter_signer_info_get
+      operationId: api_signer_info_get_api_jupiter_signer_info_61
       responses:
         '200':
           description: Successful Response
@@ -1551,7 +1539,7 @@ paths:
       tags:
       - jupiter
       summary: Api Debug Signer
-      operationId: api_debug_signer_api_jupiter_debug_signer_get
+      operationId: api_debug_signer_get_api_jupiter_debug_signer_67
       responses:
         '200':
           description: Successful Response
@@ -1563,7 +1551,7 @@ paths:
       tags:
       - jupiter
       summary: Api Debug Config
-      operationId: api_debug_config_api_jupiter_debug_config_get
+      operationId: api_debug_config_get_api_jupiter_debug_config_77
       responses:
         '200':
           description: Successful Response
@@ -1575,7 +1563,7 @@ paths:
       tags:
       - jupiter
       summary: Whoami
-      operationId: whoami_api_jupiter_whoami_get
+      operationId: whoami_get_api_jupiter_whoami_90
       responses:
         '200':
           description: Successful Response
@@ -1587,7 +1575,7 @@ paths:
       tags:
       - jupiter
       summary: Wallet Balance
-      operationId: wallet_balance_api_jupiter_wallet_balance_get
+      operationId: wallet_balance_get_api_jupiter_wallet_balance_98
       responses:
         '200':
           description: Successful Response
@@ -1599,7 +1587,7 @@ paths:
       tags:
       - jupiter
       summary: Wallet Estimate Sol Spend
-      operationId: wallet_estimate_sol_spend_api_jupiter_wallet_estimate_sol_spend_get
+      operationId: wallet_estimate_sol_spend_get_api_jupiter_wallet_estimate-sol-spend_107
       parameters:
       - name: outMint
         in: query
@@ -1624,7 +1612,7 @@ paths:
       tags:
       - jupiter
       summary: Wallet Portfolio
-      operationId: wallet_portfolio_api_jupiter_wallet_portfolio_get
+      operationId: wallet_portfolio_get_api_jupiter_wallet_portfolio_115
       parameters:
       - name: mints
         in: query
@@ -1651,7 +1639,7 @@ paths:
       tags:
       - jupiter
       summary: Jup Price
-      operationId: jup_price_api_jupiter_price_get
+      operationId: jup_price_get_api_jupiter_price_127
       parameters:
       - name: id
         in: query
@@ -1683,7 +1671,7 @@ paths:
       tags:
       - jupiter
       summary: Create Trigger
-      operationId: create_trigger_api_jupiter_trigger_create_post
+      operationId: create_trigger_post_api_jupiter_trigger_create_152
       requestBody:
         content:
           application/json:
@@ -1707,7 +1695,7 @@ paths:
       tags:
       - jupiter
       summary: Trigger Orders
-      operationId: trigger_orders_api_jupiter_trigger_orders_get
+      operationId: trigger_orders_get_api_jupiter_trigger_orders_188
       parameters:
       - name: status
         in: query
@@ -1742,7 +1730,7 @@ paths:
       tags:
       - jupiter
       summary: Trigger Cancel
-      operationId: trigger_cancel_api_jupiter_trigger_cancel_post
+      operationId: trigger_cancel_post_api_jupiter_trigger_cancel_195
       requestBody:
         content:
           application/json:
@@ -1766,7 +1754,7 @@ paths:
       tags:
       - jupiter
       summary: Swap Quote
-      operationId: swap_quote_api_jupiter_swap_quote_post
+      operationId: swap_quote_post_api_jupiter_swap_quote_207
       requestBody:
         content:
           application/json:
@@ -1790,7 +1778,7 @@ paths:
       tags:
       - jupiter
       summary: Swap Execute
-      operationId: swap_execute_api_jupiter_swap_execute_post
+      operationId: swap_execute_post_api_jupiter_swap_execute_223
       requestBody:
         content:
           application/json:
@@ -1814,7 +1802,7 @@ paths:
       tags:
       - jupiter
       summary: Txlog List
-      operationId: txlog_list_api_jupiter_txlog_get
+      operationId: txlog_list_get_api_jupiter_txlog_276
       parameters:
       - name: limit
         in: query
@@ -1840,7 +1828,7 @@ paths:
       tags:
       - jupiter
       summary: Txlog By Sig
-      operationId: txlog_by_sig_api_jupiter_txlog_by_sig_get
+      operationId: txlog_by_sig_get_api_jupiter_txlog_by-sig_284
       parameters:
       - name: sig
         in: query
@@ -1865,7 +1853,7 @@ paths:
       tags:
       - jupiter
       summary: Txlog Latest
-      operationId: txlog_latest_api_jupiter_txlog_latest_get
+      operationId: txlog_latest_get_api_jupiter_txlog_latest_293
       responses:
         '200':
           description: Successful Response
@@ -1877,7 +1865,7 @@ paths:
       tags:
       - perps
       summary: Perps Markets
-      operationId: perps_markets_api_perps_markets_get
+      operationId: perps_markets_get_api_perps_markets_67
       responses:
         '200':
           description: Successful Response
@@ -1889,7 +1877,7 @@ paths:
       tags:
       - perps
       summary: Perps Markets Resolve
-      operationId: perps_markets_resolve_api_perps_markets_resolve_get
+      operationId: perps_markets_resolve_get_api_perps_markets_resolve_75
       parameters:
       - name: market
         in: query
@@ -1915,7 +1903,7 @@ paths:
       tags:
       - perps
       summary: Perps Positions
-      operationId: perps_positions_api_perps_positions_get
+      operationId: perps_positions_get_api_perps_positions_83
       parameters:
       - name: owner
         in: query
@@ -1944,7 +1932,7 @@ paths:
       tags:
       - perps
       summary: Perps Create Order
-      operationId: perps_create_order_api_perps_order_post
+      operationId: perps_create_order_post_api_perps_order_91
       requestBody:
         content:
           application/json:
@@ -1968,7 +1956,7 @@ paths:
       tags:
       - perps
       summary: Perps Close Position
-      operationId: perps_close_position_api_perps_close_post
+      operationId: perps_close_position_post_api_perps_close_106
       requestBody:
         content:
           application/json:
@@ -1995,7 +1983,7 @@ paths:
       description: "Returns exactly what the Perps PositionsPanel expects:\n  { \"\
         count\": N, \"items\": [ { pubkey, side, size, entry, mark, pnlUsd }, ...\
         \ ] }"
-      operationId: perps_positions_detailed_api_perps_positions_detailed_get
+      operationId: perps_positions_detailed_get_api_perps_positions_detailed_520
       parameters:
       - name: owner
         in: query
@@ -2042,7 +2030,7 @@ paths:
       tags:
       - perps
       summary: Perps Idl Debug
-      operationId: perps_idl_debug_api_perps_debug_idl_get
+      operationId: perps_idl_debug_get_api_perps_debug_idl_150
       responses:
         '200':
           description: Successful Response
@@ -2058,7 +2046,7 @@ paths:
         see
 
         exactly what the current program exposes on this server.'
-      operationId: perps_idl_names_api_perps_debug_idl_names_get
+      operationId: perps_idl_names_get_api_perps_debug_idl-names_166
       responses:
         '200':
           description: Successful Response
@@ -2074,7 +2062,7 @@ paths:
         name.
 
         Example: /api/perps/debug/idl-inspect?name=createincreasepositionmarketrequest'
-      operationId: perps_idl_inspect_api_perps_debug_idl_inspect_get
+      operationId: perps_idl_inspect_get_api_perps_debug_idl-inspect_182
       parameters:
       - name: name
         in: query
@@ -2108,7 +2096,7 @@ paths:
 
 
         Example: /api/perps/debug/owner-offset?owner=YourPubkey&start=8&stop=192&step=4'
-      operationId: perps_owner_offset_api_perps_debug_owner_offset_get
+      operationId: perps_owner_offset_get_api_perps_debug_owner-offset_205
       parameters:
       - name: owner
         in: query
@@ -2163,7 +2151,7 @@ paths:
       summary: Perps Positions Raw
       description: Fetch raw Jupiter positions JSON for debugging (defaults to server
         signer).
-      operationId: perps_positions_raw_api_perps_positions_raw_get
+      operationId: perps_positions_raw_get_api_perps_positions_raw_248
       parameters:
       - name: wallet
         in: query
@@ -2190,7 +2178,7 @@ paths:
       tags:
       - perps
       summary: Perps Order Open
-      operationId: perps_order_open_api_perps_order_open_post
+      operationId: perps_order_open_post_api_perps_order_open_283
       requestBody:
         content:
           application/json:
@@ -2214,7 +2202,7 @@ paths:
       tags:
       - perps
       summary: Perps Order Close
-      operationId: perps_order_close_api_perps_order_close_post
+      operationId: perps_order_close_post_api_perps_order_close_300
       requestBody:
         content:
           application/json:
@@ -2242,7 +2230,7 @@ paths:
         account exists.
 
         Default owner is the server signer (same wallet you see in /api/jupiter/whoami).'
-      operationId: perps_position_by_market_api_perps_position_by_market_get
+      operationId: perps_position_by_market_get_api_perps_position_by-market_312
       parameters:
       - name: market
         in: query
@@ -2285,7 +2273,7 @@ paths:
         - only_active=True filters status=''ACTIVE'' (what most panels expect)
 
         - wallet can filter by wallet_name, if you want (e.g., ''Signer'')'
-      operationId: perps_positions_from_db_api_perps_positions_db_get
+      operationId: perps_positions_from_db_get_api_perps_positions_db_331
       parameters:
       - name: limit
         in: query
@@ -2327,7 +2315,7 @@ paths:
       - perps
       summary: Perps Positions Health
       description: Small probe to confirm signer, perps base, and raw count.
-      operationId: perps_positions_health_api_perps_positions_health_get
+      operationId: perps_positions_health_get_api_perps_positions_health_505
       responses:
         '200':
           description: Successful Response
@@ -2339,7 +2327,7 @@ paths:
       tags:
       - jupiter
       summary: Open Jupiter
-      operationId: open_jupiter_api_jupiter_open_post
+      operationId: open_jupiter_post_api_jupiter_open_54
       requestBody:
         content:
           application/json:
@@ -2363,7 +2351,7 @@ paths:
       tags:
       - jupiter
       summary: Close Jupiter
-      operationId: close_jupiter_api_jupiter_close_post
+      operationId: close_jupiter_post_api_jupiter_close_86
       requestBody:
         content:
           application/json:
@@ -2387,7 +2375,7 @@ paths:
       tags:
       - jupiter
       summary: Status
-      operationId: status_api_jupiter_status_get
+      operationId: status_get_api_jupiter_status_136
       responses:
         '200':
           description: Successful Response
@@ -2399,7 +2387,7 @@ paths:
       tags:
       - jupiter
       summary: Debug Paths
-      operationId: debug_paths_api_jupiter_debug_paths_get
+      operationId: debug_paths_get_api_jupiter_debug-paths_141
       responses:
         '200':
           description: Successful Response
@@ -2411,7 +2399,7 @@ paths:
       tags:
       - jupiter
       summary: Connect Wallet
-      operationId: connect_wallet_api_jupiter_connect_post
+      operationId: connect_wallet_post_api_jupiter_connect_151
       requestBody:
         content:
           application/json:
@@ -2435,7 +2423,7 @@ paths:
       tags:
       - jupiter
       summary: Select Asset
-      operationId: select_asset_api_jupiter_select_asset_post
+      operationId: select_asset_post_api_jupiter_select-asset_178
       requestBody:
         content:
           application/json:
@@ -2459,7 +2447,7 @@ paths:
       tags:
       - monitor_status
       summary: Get Status
-      operationId: get_status_api_monitor_status__get
+      operationId: get_status_get_api_monitor-status_53
       responses:
         '200':
           description: Successful Response
@@ -2472,7 +2460,7 @@ paths:
       tags:
       - monitor_status
       summary: Get Monitor
-      operationId: get_monitor_api_monitor_status__monitor_type__get
+      operationId: get_monitor_get_api_monitor-status_monitor_type_100
       parameters:
       - name: monitor_type
         in: path
@@ -2497,7 +2485,7 @@ paths:
       tags:
       - monitor_status
       summary: Update Monitor
-      operationId: update_monitor_api_monitor_status__monitor_type__post
+      operationId: update_monitor_post_api_monitor-status_monitor_type_106
       parameters:
       - name: monitor_type
         in: path
@@ -2530,7 +2518,7 @@ paths:
       - monitor_status
       summary: Reset Liquid Snooze
       description: Clear the liquidation monitor snooze timer and run a check.
-      operationId: reset_liquid_snooze_api_monitor_status_reset_liquid_snooze_post
+      operationId: reset_liquid_snooze_post_api_monitor-status_reset-liquid-snooze_113
       responses:
         '200':
           description: Successful Response
@@ -2540,7 +2528,7 @@ paths:
   /monitor_status/:
     get:
       summary: Get Status
-      operationId: get_status_monitor_status__get
+      operationId: get_status_get_monitor_status_53
       responses:
         '200':
           description: Successful Response
@@ -2554,7 +2542,7 @@ paths:
       - Monitors
       summary: List Monitors
       description: Return sorted list of monitor keys.
-      operationId: list_monitors_monitors__get
+      operationId: list_monitors_get_monitors_18
       responses:
         '200':
           description: Successful Response
@@ -2564,14 +2552,14 @@ paths:
                 items:
                   type: string
                 type: array
-                title: Response List Monitors Monitors  Get
+                title: Response List Monitors Get Monitors 18
   /monitors/sonic_cycle:
     post:
       tags:
       - Monitors
       summary: Run Sonic Cycle
       description: Execute the Sonic monitor cycle asynchronously.
-      operationId: run_sonic_cycle_monitors_sonic_cycle_post
+      operationId: run_sonic_cycle_post_monitors_sonic_cycle_23
       responses:
         '202':
           description: Successful Response
@@ -2584,7 +2572,7 @@ paths:
       - Monitors
       summary: Sonic Events
       description: Server-Sent Events stream for Sonic cycle completion.
-      operationId: sonic_events_monitors_sonic_events_get
+      operationId: sonic_events_get_monitors_sonic_events_35
       responses:
         '200':
           description: Successful Response
@@ -2596,7 +2584,7 @@ paths:
       tags:
       - Monitors
       summary: Run Monitor
-      operationId: run_monitor_monitors__name__post
+      operationId: run_monitor_post_monitors_name_58
       parameters:
       - name: name
         in: path
@@ -2621,7 +2609,7 @@ paths:
       tags:
       - auto_core
       summary: Get Wallet Address
-      operationId: get_wallet_address_api_auto_core_wallet_address_get
+      operationId: get_wallet_address_get_api_auto-core_wallet-address_78
       parameters:
       - name: wallet_id
         in: query
@@ -2646,7 +2634,7 @@ paths:
       tags:
       - auto_core
       summary: Register Wallet Address
-      operationId: register_wallet_address_api_auto_core_register_wallet_address_post
+      operationId: register_wallet_address_post_api_auto-core_register-wallet-address_87
       requestBody:
         content:
           application/json:
@@ -2674,7 +2662,7 @@ paths:
         for the Chrome
 
         CDP port to be reachable. If a session (port) is already up, reuse it.'
-      operationId: open_browser_api_auto_core_open_browser_post
+      operationId: open_browser_post_api_auto-core_open-browser_106
       requestBody:
         content:
           application/json:
@@ -2698,7 +2686,7 @@ paths:
       tags:
       - auto_core
       summary: Connect Jupiter
-      operationId: connect_jupiter_api_auto_core_connect_jupiter_post
+      operationId: connect_jupiter_post_api_auto-core_connect-jupiter_187
       requestBody:
         content:
           application/json:
@@ -2722,7 +2710,7 @@ paths:
       tags:
       - auto_core
       summary: Select Asset
-      operationId: select_asset_api_auto_core_select_asset_post
+      operationId: select_asset_post_api_auto-core_select-asset_205
       requestBody:
         content:
           application/json:
@@ -2746,7 +2734,7 @@ paths:
       tags:
       - auto_core
       summary: Solflare Unlock
-      operationId: solflare_unlock_api_auto_core_solflare_unlock_post
+      operationId: solflare_unlock_post_api_auto-core_solflare-unlock_220
       responses:
         '200':
           description: Successful Response
@@ -2758,7 +2746,7 @@ paths:
       tags:
       - auto_core
       summary: Jupiter Status
-      operationId: jupiter_status_api_auto_core_jupiter_status_get
+      operationId: jupiter_status_get_api_auto-core_jupiter-status_229
       responses:
         '200':
           description: Successful Response
@@ -2770,7 +2758,7 @@ paths:
       tags:
       - auto_core
       summary: Close Browser
-      operationId: close_browser_api_auto_core_close_browser_post
+      operationId: close_browser_post_api_auto-core_close-browser_233
       responses:
         '200':
           description: Successful Response
@@ -2782,7 +2770,7 @@ paths:
       tags:
       - auto_core
       summary: Run Request
-      operationId: run_request_api_auto_core_run_request_post
+      operationId: run_request_post_api_auto-core_run-request_251
       requestBody:
         content:
           application/json:
@@ -2806,7 +2794,7 @@ paths:
       tags:
       - fun
       summary: Get Random Fun
-      operationId: get_random_fun_api_fun_random_get
+      operationId: get_random_fun_get_api_fun_random_11
       parameters:
       - name: type
         in: query
@@ -2830,7 +2818,7 @@ paths:
   /api/status:
     get:
       summary: Status
-      operationId: status_api_status_get
+      operationId: status_get_api_status_159
       responses:
         '200':
           description: Successful Response
@@ -2902,8 +2890,7 @@ components:
           title: Request Type
         params:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - type: object
           - type: 'null'
           title: Params
       type: object
@@ -2999,8 +2986,7 @@ components:
           title: Fetched At
         extra:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - type: object
           - type: 'null'
           title: Extra
       type: object
@@ -3050,8 +3036,7 @@ components:
           description: Timestamp of the last successful update
         metadata:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - type: object
           - type: 'null'
           title: Metadata
           description: Additional contextual metadata
@@ -3704,8 +3689,7 @@ components:
           default: true
         quoteResponse:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - type: object
           - type: 'null'
           title: Quoteresponse
         dynamicSlippageMaxBps:
@@ -3794,7 +3778,6 @@ components:
           type: boolean
           title: Success
         results:
-          additionalProperties: true
           type: object
           title: Results
       type: object
@@ -3866,18 +3849,15 @@ components:
           title: Profit
           default: 0.0
         portfolio:
-          additionalProperties: true
           type: object
           title: Portfolio
         positions:
           items:
-            additionalProperties: true
             type: object
           type: array
           title: Positions
         hedges:
           items:
-            additionalProperties: true
             type: object
           type: array
           title: Hedges
@@ -3899,8 +3879,7 @@ components:
           $ref: '#/components/schemas/MonitorHealth'
         metadata:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - type: object
           - type: 'null'
           title: Metadata
       type: object

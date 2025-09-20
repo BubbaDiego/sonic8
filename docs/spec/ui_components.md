@@ -1,7 +1,7 @@
 # Sonic UI Components — Catalog (auto-generated)
 
 > Source of truth: `docs/spec/ui.manifest.yaml`  
-> Generated: 2025-09-20 15:42:28
+> Generated: 2025-09-20 10:18:03
 
 Use this catalog to discover components, props, and example usage.  
 To regenerate: `python backend/scripts/build_ui_components_doc.py`
@@ -483,7 +483,7 @@ To regenerate: `python backend/scripts/build_ui_components_doc.py`
 - [XComSettingsPage](#xcomsettingspage)
 
 ## Accordion (`COMP_ACCORDION`)
-- **File**: `frontend/src/ui-component/extended/Accordion.jsx`
+- **File**: `frontend\src\ui-component\extended\Accordion.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -514,7 +514,7 @@ export default function Example() {
 ```
 ---
 ## ActionBar (`COMP_ACTIONBAR`)
-- **File**: `frontend/src/views/forms/layouts/ActionBar.jsx`
+- **File**: `frontend\src\views\forms\layouts\ActionBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -534,7 +534,7 @@ export default function Example() {
 ```
 ---
 ## ActionsCell (`COMP_ACTIONSCELL`)
-- **File**: `frontend/src/ui-component/wallet/WalletTable.jsx`
+- **File**: `frontend\src\ui-component\wallet\WalletTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -554,7 +554,7 @@ export default function Example() {
 ```
 ---
 ## ActiveTickets (`COMP_ACTIVETICKETS`)
-- **File**: `frontend/src/views/widget/Data/ActiveTickets.jsx`
+- **File**: `frontend\src\views\widget\Data\ActiveTickets.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -574,7 +574,7 @@ export default function Example() {
 ```
 ---
 ## AddColumn (`COMP_ADDCOLUMN`)
-- **File**: `frontend/src/views/kanban/Board/AddColumn.jsx`
+- **File**: `frontend\src\views\kanban\Board\AddColumn.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -594,30 +594,30 @@ export default function Example() {
 ```
 ---
 ## AddItem (`COMP_ADDITEM`)
-- **File**: `frontend/src/views/kanban/Board/AddItem.jsx`
+- **File**: `frontend\src\views\kanban\Backlogs\AddItem.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
 | Prop | Type | Required | Default |
 |------|------|----------|---------|
-| `open` | `bool` | no | — |
+| `columnId` | `string` | no | — |
 
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import AddItem from "views/kanban/Board/AddItem";
+import AddItem from "views/kanban/Backlogs/AddItem";
 
 export default function Example() {
   return (
     <AddItem
-    open={false}
+    columnId="example"
     />
   );
 }
 ```
 ---
 ## AddItemComment (`COMP_ADDITEMCOMMENT`)
-- **File**: `frontend/src/views/kanban/Board/AddItemComment.jsx`
+- **File**: `frontend\src\views\kanban\Board\AddItemComment.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -640,7 +640,7 @@ export default function Example() {
 ```
 ---
 ## AddMenuItem (`COMP_ADDMENUITEM`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/AddMenuItem.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\AddMenuItem.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -660,7 +660,7 @@ export default function Example() {
 ```
 ---
 ## AddressCell (`COMP_ADDRESSCELL`)
-- **File**: `frontend/src/ui-component/wallet/WalletTable.jsx`
+- **File**: `frontend\src\ui-component\wallet\WalletTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -680,7 +680,7 @@ export default function Example() {
 ```
 ---
 ## AddressForm (`COMP_ADDRESSFORM`)
-- **File**: `frontend/src/views/forms/forms-wizard/BasicWizard/AddressForm.jsx`
+- **File**: `frontend\src\views\forms\forms-wizard\BasicWizard\AddressForm.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -709,7 +709,7 @@ export default function Example() {
 ```
 ---
 ## AddStory (`COMP_ADDSTORY`)
-- **File**: `frontend/src/views/kanban/Backlogs/AddStory.jsx`
+- **File**: `frontend\src\views\kanban\Backlogs\AddStory.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -732,7 +732,7 @@ export default function Example() {
 ```
 ---
 ## AddStoryComment (`COMP_ADDSTORYCOMMENT`)
-- **File**: `frontend/src/views/kanban/Backlogs/AddStoryComment.jsx`
+- **File**: `frontend\src\views\kanban\Backlogs\AddStoryComment.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -755,7 +755,7 @@ export default function Example() {
 ```
 ---
 ## AddThresholdDialog (`COMP_ADDTHRESHOLDDIALOG`)
-- **File**: `frontend/src/views/alertThresholds/AddThresholdDialog.jsx`
+- **File**: `frontend\src\views\alertThresholds\AddThresholdDialog.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -775,7 +775,7 @@ export default function Example() {
 ```
 ---
 ## AlertColumnDelete (`COMP_ALERTCOLUMNDELETE`)
-- **File**: `frontend/src/views/kanban/Board/AlertColumnDelete.jsx`
+- **File**: `frontend\src\views\kanban\Board\AlertColumnDelete.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -798,7 +798,7 @@ export default function Example() {
 ```
 ---
 ## AlertItemDelete (`COMP_ALERTITEMDELETE`)
-- **File**: `frontend/src/views/kanban/Board/AlertItemDelete.jsx`
+- **File**: `frontend\src\views\kanban\Board\AlertItemDelete.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -821,7 +821,7 @@ export default function Example() {
 ```
 ---
 ## AlertStoryDelete (`COMP_ALERTSTORYDELETE`)
-- **File**: `frontend/src/views/kanban/Backlogs/AlertStoryDelete.jsx`
+- **File**: `frontend\src\views\kanban\Backlogs\AlertStoryDelete.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -844,7 +844,7 @@ export default function Example() {
 ```
 ---
 ## AlertThresholdsPage (`COMP_ALERTTHRESHOLDSPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -864,7 +864,7 @@ export default function Example() {
 ```
 ---
 ## Analytics (`COMP_ANALYTICS`)
-- **File**: `frontend/src/views/dashboard/Analytics/index.jsx`
+- **File**: `frontend\src\views\dashboard\Analytics\index - Copy (2).jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -873,7 +873,7 @@ _No props documented._
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import Analytics from "views/dashboard/Analytics/index";
+import Analytics from "views/dashboard/Analytics/index - Copy (2)";
 
 export default function Example() {
   return (
@@ -884,7 +884,7 @@ export default function Example() {
 ```
 ---
 ## AnalyticsChartCard (`COMP_ANALYTICSCHARTCARD`)
-- **File**: `frontend/src/ui-component/cards/AnalyticsChartCard.jsx`
+- **File**: `frontend\src\ui-component\cards\AnalyticsChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -907,7 +907,7 @@ export default function Example() {
 ```
 ---
 ## AnimateButton (`COMP_ANIMATEBUTTON`)
-- **File**: `frontend/src/ui-component/extended/AnimateButton.jsx`
+- **File**: `frontend\src\ui-component\extended\AnimateButton.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -938,7 +938,7 @@ export default function Example() {
 ```
 ---
 ## Animation (`COMP_ANIMATION`)
-- **File**: `frontend/src/views/utilities/Animation.jsx`
+- **File**: `frontend\src\views\utilities\Animation.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -958,7 +958,7 @@ export default function Example() {
 ```
 ---
 ## ApexAreaChart (`COMP_APEXAREACHART`)
-- **File**: `frontend/src/views/forms/chart/Apexchart/ApexAreaChart.jsx`
+- **File**: `frontend\src\views\forms\chart\Apexchart\ApexAreaChart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -978,7 +978,7 @@ export default function Example() {
 ```
 ---
 ## ApexBarChart (`COMP_APEXBARCHART`)
-- **File**: `frontend/src/views/forms/chart/Apexchart/ApexBarChart.jsx`
+- **File**: `frontend\src\views\forms\chart\Apexchart\ApexBarChart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -998,7 +998,7 @@ export default function Example() {
 ```
 ---
 ## Apexchart (`COMP_APEXCHART`)
-- **File**: `frontend/src/views/forms/chart/Apexchart/index.jsx`
+- **File**: `frontend\src\views\forms\chart\Apexchart\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1018,7 +1018,7 @@ export default function Example() {
 ```
 ---
 ## ApexColumnChart (`COMP_APEXCOLUMNCHART`)
-- **File**: `frontend/src/views/forms/chart/Apexchart/ApexColumnChart.jsx`
+- **File**: `frontend\src\views\forms\chart\Apexchart\ApexColumnChart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1038,7 +1038,7 @@ export default function Example() {
 ```
 ---
 ## ApexLineChart (`COMP_APEXLINECHART`)
-- **File**: `frontend/src/views/forms/chart/Apexchart/ApexLineChart.jsx`
+- **File**: `frontend\src\views\forms\chart\Apexchart\ApexLineChart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1058,7 +1058,7 @@ export default function Example() {
 ```
 ---
 ## ApexMixedChart (`COMP_APEXMIXEDCHART`)
-- **File**: `frontend/src/views/forms/chart/Apexchart/ApexMixedChart.jsx`
+- **File**: `frontend\src\views\forms\chart\Apexchart\ApexMixedChart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1078,7 +1078,7 @@ export default function Example() {
 ```
 ---
 ## ApexPieChart (`COMP_APEXPIECHART`)
-- **File**: `frontend/src/views/forms/chart/Apexchart/ApexPieChart.jsx`
+- **File**: `frontend\src\views\forms\chart\Apexchart\ApexPieChart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1098,7 +1098,7 @@ export default function Example() {
 ```
 ---
 ## ApexPolarChart (`COMP_APEXPOLARCHART`)
-- **File**: `frontend/src/views/forms/chart/Apexchart/ApexPolarChart.jsx`
+- **File**: `frontend\src\views\forms\chart\Apexchart\ApexPolarChart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1118,7 +1118,7 @@ export default function Example() {
 ```
 ---
 ## ApexRedialBarChart (`COMP_APEXREDIALBARCHART`)
-- **File**: `frontend/src/views/forms/chart/Apexchart/ApexRedialChart.jsx`
+- **File**: `frontend\src\views\forms\chart\Apexchart\ApexRedialChart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1138,7 +1138,7 @@ export default function Example() {
 ```
 ---
 ## App (`COMP_APP`)
-- **File**: `frontend/src/App.jsx`
+- **File**: `frontend\src\App.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1158,7 +1158,7 @@ export default function Example() {
 ```
 ---
 ## AppBar (`COMP_APPBAR`)
-- **File**: `frontend/src/ui-component/extended/AppBar.jsx`
+- **File**: `frontend\src\ui-component\extended\AppBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1178,7 +1178,7 @@ export default function Example() {
 ```
 ---
 ## AppGrid (`COMP_APPGRID`)
-- **File**: `frontend/src/components/AppGrid.jsx`
+- **File**: `frontend\src\components\AppGrid.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1198,7 +1198,7 @@ export default function Example() {
 ```
 ---
 ## ApplicationSales (`COMP_APPLICATIONSALES`)
-- **File**: `frontend/src/views/widget/Data/ApplicationSales.jsx`
+- **File**: `frontend\src\views\widget\Data\ApplicationSales.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1218,7 +1218,7 @@ export default function Example() {
 ```
 ---
 ## AskConfirmationBeforeSave (`COMP_ASKCONFIRMATIONBEFORESAVE`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/ConfirmationSave.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\ConfirmationSave.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1238,7 +1238,7 @@ export default function Example() {
 ```
 ---
 ## AssetLogo (`COMP_ASSETLOGO`)
-- **File**: `frontend/src/components/AssetLogo.jsx`
+- **File**: `frontend\src\components\AssetLogo.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1258,7 +1258,7 @@ export default function Example() {
 ```
 ---
 ## AttachmentCard (`COMP_ATTACHMENTCARD`)
-- **File**: `frontend/src/ui-component/cards/AttachmentCard.jsx`
+- **File**: `frontend\src\ui-component\cards\AttachmentCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1281,7 +1281,7 @@ export default function Example() {
 ```
 ---
 ## Auth0ContextProvider (`COMP_AUTH0CONTEXTPROVIDER`)
-- **File**: `frontend/src/contexts/Auth0Context.jsx`
+- **File**: `frontend\src\contexts\Auth0Context.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1304,7 +1304,7 @@ export default function Example() {
 ```
 ---
 ## Auth0Login (`COMP_AUTH0LOGIN`)
-- **File**: `frontend/src/views/pages/authentication/auth0/AuthLogin.jsx`
+- **File**: `frontend\src\views\pages\authentication\auth0\AuthLogin.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1324,7 +1324,7 @@ export default function Example() {
 ```
 ---
 ## Auth0Provider (`COMP_AUTH0PROVIDER`)
-- **File**: `frontend/src/contexts/Auth0Context.jsx`
+- **File**: `frontend\src\contexts\Auth0Context.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1347,7 +1347,7 @@ export default function Example() {
 ```
 ---
 ## Auth0Register (`COMP_AUTH0REGISTER`)
-- **File**: `frontend/src/views/pages/authentication/auth0/AuthRegister.jsx`
+- **File**: `frontend\src\views\pages\authentication\auth0\AuthRegister.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1367,7 +1367,7 @@ export default function Example() {
 ```
 ---
 ## AuthCardWrapper (`COMP_AUTHCARDWRAPPER`)
-- **File**: `frontend/src/views/pages/authentication/AuthCardWrapper.jsx`
+- **File**: `frontend\src\views\pages\authentication\AuthCardWrapper.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1390,7 +1390,7 @@ export default function Example() {
 ```
 ---
 ## AuthCheckMail (`COMP_AUTHCHECKMAIL`)
-- **File**: `frontend/src/routes/LoginRoutes.jsx`
+- **File**: `frontend\src\routes\LoginRoutes.jsx`
 - **Used by routes**: `/`, `/check-mail`, `/code-verification`, `/forgot-password`, `/login`, `/register`, `/reset-password`
 
 **Props**
@@ -1410,7 +1410,7 @@ export default function Example() {
 ```
 ---
 ## AuthCodeVerification (`COMP_AUTHCODEVERIFICATION`)
-- **File**: `frontend/src/routes/LoginRoutes.jsx`
+- **File**: `frontend\src\routes\LoginRoutes.jsx`
 - **Used by routes**: `/`, `/check-mail`, `/code-verification`, `/forgot-password`, `/login`, `/register`, `/reset-password`
 
 **Props**
@@ -1430,7 +1430,7 @@ export default function Example() {
 ```
 ---
 ## AuthFooter (`COMP_AUTHFOOTER`)
-- **File**: `frontend/src/ui-component/cards/AuthFooter.jsx`
+- **File**: `frontend\src\ui-component\cards\AuthFooter.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1450,7 +1450,7 @@ export default function Example() {
 ```
 ---
 ## AuthForgotPassword (`COMP_AUTHFORGOTPASSWORD`)
-- **File**: `frontend/src/routes/LoginRoutes.jsx`
+- **File**: `frontend\src\routes\LoginRoutes.jsx`
 - **Used by routes**: `/`, `/check-mail`, `/code-verification`, `/forgot-password`, `/login`, `/register`, `/reset-password`
 
 **Props**
@@ -1473,7 +1473,7 @@ export default function Example() {
 ```
 ---
 ## AuthGuard (`COMP_AUTHGUARD`)
-- **File**: `frontend/src/utils/route-guard/AuthGuard.jsx`
+- **File**: `frontend\src\utils\route-guard\AuthGuard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1496,7 +1496,7 @@ export default function Example() {
 ```
 ---
 ## AuthLogin (`COMP_AUTHLOGIN`)
-- **File**: `frontend/src/routes/LoginRoutes.jsx`
+- **File**: `frontend\src\routes\LoginRoutes.jsx`
 - **Used by routes**: `/`, `/check-mail`, `/code-verification`, `/forgot-password`, `/login`, `/register`, `/reset-password`
 
 **Props**
@@ -1516,7 +1516,7 @@ export default function Example() {
 ```
 ---
 ## AuthRegister (`COMP_AUTHREGISTER`)
-- **File**: `frontend/src/routes/LoginRoutes.jsx`
+- **File**: `frontend\src\routes\LoginRoutes.jsx`
 - **Used by routes**: `/`, `/check-mail`, `/code-verification`, `/forgot-password`, `/login`, `/register`, `/reset-password`
 
 **Props**
@@ -1536,7 +1536,7 @@ export default function Example() {
 ```
 ---
 ## AuthResetPassword (`COMP_AUTHRESETPASSWORD`)
-- **File**: `frontend/src/routes/LoginRoutes.jsx`
+- **File**: `frontend\src\routes\LoginRoutes.jsx`
 - **Used by routes**: `/`, `/check-mail`, `/code-verification`, `/forgot-password`, `/login`, `/register`, `/reset-password`
 
 **Props**
@@ -1559,7 +1559,7 @@ export default function Example() {
 ```
 ---
 ## AuthSlider (`COMP_AUTHSLIDER`)
-- **File**: `frontend/src/ui-component/cards/AuthSlider.jsx`
+- **File**: `frontend\src\ui-component\cards\AuthSlider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1582,7 +1582,7 @@ export default function Example() {
 ```
 ---
 ## AutoComplete (`COMP_AUTOCOMPLETE`)
-- **File**: `frontend/src/views/forms/components/AutoComplete.jsx`
+- **File**: `frontend\src\views\forms\components\AutoComplete.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1602,7 +1602,7 @@ export default function Example() {
 ```
 ---
 ## AutocompleteForms (`COMP_AUTOCOMPLETEFORMS`)
-- **File**: `frontend/src/views/forms/forms-validation/AutocompleteForms.jsx`
+- **File**: `frontend\src\views\forms\forms-validation\AutocompleteForms.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1622,7 +1622,7 @@ export default function Example() {
 ```
 ---
 ## AutoGrid (`COMP_AUTOGRID`)
-- **File**: `frontend/src/views/utilities/Grid/AutoGrid.jsx`
+- **File**: `frontend\src\views\utilities\Grid\AutoGrid.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1642,7 +1642,7 @@ export default function Example() {
 ```
 ---
 ## AutoStopEditComponent (`COMP_AUTOSTOPEDITCOMPONENT`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/AutoStop.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\AutoStop.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1662,7 +1662,7 @@ export default function Example() {
 ```
 ---
 ## Avatar (`COMP_AVATAR`)
-- **File**: `frontend/src/ui-component/extended/Avatar.jsx`
+- **File**: `frontend\src\ui-component\extended\Avatar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1695,7 +1695,7 @@ export default function Example() {
 ```
 ---
 ## AvatarUpload (`COMP_AVATARUPLOAD`)
-- **File**: `frontend/src/ui-component/third-party/dropzone/Avatar.jsx`
+- **File**: `frontend\src\ui-component\third-party\dropzone\Avatar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1726,7 +1726,7 @@ export default function Example() {
 ```
 ---
 ## AwsCognitoLogin (`COMP_AWSCOGNITOLOGIN`)
-- **File**: `frontend/src/views/pages/authentication/aws/AuthLogin.jsx`
+- **File**: `frontend\src\views\pages\authentication\aws\AuthLogin.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1746,7 +1746,7 @@ export default function Example() {
 ```
 ---
 ## AWSCognitoProvider (`COMP_AWSCOGNITOPROVIDER`)
-- **File**: `frontend/src/contexts/AWSCognitoContext.jsx`
+- **File**: `frontend\src\contexts\AWSCognitoContext.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1769,7 +1769,7 @@ export default function Example() {
 ```
 ---
 ## AWSCognitoRegister (`COMP_AWSCOGNITOREGISTER`)
-- **File**: `frontend/src/views/pages/authentication/aws/AuthRegister.jsx`
+- **File**: `frontend\src\views\pages\authentication\aws\AuthRegister.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1789,7 +1789,7 @@ export default function Example() {
 ```
 ---
 ## BackgroundPattern1 (`COMP_BACKGROUNDPATTERN1`)
-- **File**: `frontend/src/ui-component/cards/BackgroundPattern1.jsx`
+- **File**: `frontend\src\ui-component\cards\BackgroundPattern1.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1812,7 +1812,7 @@ export default function Example() {
 ```
 ---
 ## BackgroundPattern2 (`COMP_BACKGROUNDPATTERN2`)
-- **File**: `frontend/src/ui-component/cards/BackgroundPattern2.jsx`
+- **File**: `frontend\src\ui-component\cards\BackgroundPattern2.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1835,7 +1835,7 @@ export default function Example() {
 ```
 ---
 ## Backlogs (`COMP_BACKLOGS`)
-- **File**: `frontend/src/views/kanban/Backlogs/index.jsx`
+- **File**: `frontend\src\views\kanban\Backlogs\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1855,7 +1855,7 @@ export default function Example() {
 ```
 ---
 ## BajajAreaChartCard (`COMP_BAJAJAREACHARTCARD`)
-- **File**: `frontend/src/views/dashboard/Default/BajajAreaChartCard.jsx`
+- **File**: `frontend\src\views\dashboard\Default\BajajAreaChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1875,7 +1875,7 @@ export default function Example() {
 ```
 ---
 ## BalanceBreakdownCard (`COMP_BALANCEBREAKDOWNCARD`)
-- **File**: `frontend/src/views/wallet/BalanceBreakdownCard.jsx`
+- **File**: `frontend\src\views\wallet\BalanceBreakdownCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1895,7 +1895,7 @@ export default function Example() {
 ```
 ---
 ## BasicGrid (`COMP_BASICGRID`)
-- **File**: `frontend/src/views/utilities/Grid/BasicGrid.jsx`
+- **File**: `frontend\src\views\utilities\Grid\BasicGrid.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1915,7 +1915,7 @@ export default function Example() {
 ```
 ---
 ## BasicGrouping (`COMP_BASICGROUPING`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnGroups/BasicColumnGroup.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnGroups\BasicColumnGroup.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1935,7 +1935,7 @@ export default function Example() {
 ```
 ---
 ## BasicGroupingDemo (`COMP_BASICGROUPINGDEMO`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnGroups/BasicColumnGroup.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnGroups\BasicColumnGroup.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1958,7 +1958,7 @@ export default function Example() {
 ```
 ---
 ## BasicRowEditingGrid (`COMP_BASICROWEDITINGGRID`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/EditableRow.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\EditableRow.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1978,7 +1978,7 @@ export default function Example() {
 ```
 ---
 ## BasicSlider (`COMP_BASICSLIDER`)
-- **File**: `frontend/src/views/forms/components/Slider/BasicSlider.jsx`
+- **File**: `frontend\src\views\forms\components\Slider\BasicSlider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -1998,7 +1998,7 @@ export default function Example() {
 ```
 ---
 ## BasicWizard (`COMP_BASICWIZARD`)
-- **File**: `frontend/src/views/forms/forms-wizard/BasicWizard/index.jsx`
+- **File**: `frontend\src\views\forms\forms-wizard\BasicWizard\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2018,7 +2018,7 @@ export default function Example() {
 ```
 ---
 ## BillCard (`COMP_BILLCARD`)
-- **File**: `frontend/src/ui-component/cards/BillCard.jsx`
+- **File**: `frontend\src\ui-component\cards\BillCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2049,7 +2049,7 @@ export default function Example() {
 ```
 ---
 ## Board (`COMP_BOARD`)
-- **File**: `frontend/src/views/kanban/Board/index.jsx`
+- **File**: `frontend\src\views\kanban\Board\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2069,7 +2069,7 @@ export default function Example() {
 ```
 ---
 ## Body (`COMP_BODY`)
-- **File**: `frontend/src/views/forms/plugins/Modal/SimpleModal.jsx`
+- **File**: `frontend\src\views\forms\plugins\Modal\SimpleModal.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2092,7 +2092,7 @@ export default function Example() {
 ```
 ---
 ## BorderRadius (`COMP_BORDERRADIUS`)
-- **File**: `frontend/src/layout/Customization/BorderRadius.jsx`
+- **File**: `frontend\src\layout\Customization\BorderRadius.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2112,7 +2112,7 @@ export default function Example() {
 ```
 ---
 ## BoxContainer (`COMP_BOXCONTAINER`)
-- **File**: `frontend/src/layout/Customization/BoxContainer.jsx`
+- **File**: `frontend\src\layout\Customization\BoxContainer.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2132,7 +2132,7 @@ export default function Example() {
 ```
 ---
 ## Breadcrumbs (`COMP_BREADCRUMBS`)
-- **File**: `frontend/src/ui-component/extended/Breadcrumbs.jsx`
+- **File**: `frontend\src\ui-component\extended\Breadcrumbs.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2174,7 +2174,7 @@ export default function Example() {
 ```
 ---
 ## BTitle (`COMP_BTITLE`)
-- **File**: `frontend/src/ui-component/extended/Breadcrumbs.jsx`
+- **File**: `frontend\src\ui-component\extended\Breadcrumbs.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2197,7 +2197,7 @@ export default function Example() {
 ```
 ---
 ## Card (`COMP_CARD`)
-- **File**: `frontend/src/views/forms/chart/OrgChart/Card.jsx`
+- **File**: `frontend\src\views\forms\chart\OrgChart\Card.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2220,7 +2220,7 @@ export default function Example() {
 ```
 ---
 ## CardSecondaryAction (`COMP_CARDSECONDARYACTION`)
-- **File**: `frontend/src/ui-component/cards/CardSecondaryAction.jsx`
+- **File**: `frontend\src\ui-component\cards\CardSecondaryAction.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2247,7 +2247,7 @@ export default function Example() {
 ```
 ---
 ## Chart (`COMP_CHART`)
-- **File**: `frontend/src/views/widget/Chart/index.jsx`
+- **File**: `frontend\src\views\widget\Chart\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2267,7 +2267,7 @@ export default function Example() {
 ```
 ---
 ## CheckboxForms (`COMP_CHECKBOXFORMS`)
-- **File**: `frontend/src/views/forms/forms-validation/CheckboxForms.jsx`
+- **File**: `frontend\src\views\forms\forms-validation\CheckboxForms.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2287,7 +2287,7 @@ export default function Example() {
 ```
 ---
 ## CheckMail (`COMP_CHECKMAIL`)
-- **File**: `frontend/src/views/pages/authentication/CheckMail.jsx`
+- **File**: `frontend\src\views\pages\authentication\CheckMail.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2307,7 +2307,7 @@ export default function Example() {
 ```
 ---
 ## Chip (`COMP_CHIP`)
-- **File**: `frontend/src/themes/overrides/Chip.jsx`
+- **File**: `frontend\src\themes\overrides\Chip.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2327,7 +2327,7 @@ export default function Example() {
 ```
 ---
 ## CircularCountdown (`COMP_CIRCULARCOUNTDOWN`)
-- **File**: `frontend/src/views/monitorManager/SonicMonitorCard.jsx`
+- **File**: `frontend\src\views\monitorManager\SonicMonitorCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2347,7 +2347,7 @@ export default function Example() {
 ```
 ---
 ## ClipboardPage (`COMP_CLIPBOARDPAGE`)
-- **File**: `frontend/src/views/forms/plugins/Clipboard.jsx`
+- **File**: `frontend\src\views\forms\plugins\Clipboard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2367,7 +2367,7 @@ export default function Example() {
 ```
 ---
 ## CodeVerification (`COMP_CODEVERIFICATION`)
-- **File**: `frontend/src/views/pages/authentication/CodeVerification.jsx`
+- **File**: `frontend\src\views\pages\authentication\CodeVerification.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2387,7 +2387,7 @@ export default function Example() {
 ```
 ---
 ## ColorBox (`COMP_COLORBOX`)
-- **File**: `frontend/src/views/utilities/Color.jsx`
+- **File**: `frontend\src\views\utilities\Color.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2407,7 +2407,7 @@ export default function Example() {
 ```
 ---
 ## ColorVariants (`COMP_COLORVARIANTS`)
-- **File**: `frontend/src/ui-component/extended/notistack/ColorVariants.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\ColorVariants.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2427,7 +2427,7 @@ export default function Example() {
 ```
 ---
 ## ColumnGroups (`COMP_COLUMNGROUPS`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnGroups/index.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnGroups\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2447,7 +2447,7 @@ export default function Example() {
 ```
 ---
 ## ColumnMenu (`COMP_COLUMNMENU`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/ColumnMenu.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\ColumnMenu.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2467,7 +2467,7 @@ export default function Example() {
 ```
 ---
 ## ColumnMenuDemu (`COMP_COLUMNMENUDEMU`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/index.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2487,7 +2487,7 @@ export default function Example() {
 ```
 ---
 ## Columns (`COMP_COLUMNS`)
-- **File**: `frontend/src/views/kanban/Board/Columns.jsx`
+- **File**: `frontend\src\views\kanban\Board\Columns.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2510,7 +2510,7 @@ export default function Example() {
 ```
 ---
 ## ColumnsGrid (`COMP_COLUMNSGRID`)
-- **File**: `frontend/src/views/utilities/Grid/ColumnsGrid.jsx`
+- **File**: `frontend\src\views\utilities\Grid\ColumnsGrid.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2530,7 +2530,7 @@ export default function Example() {
 ```
 ---
 ## ColumnsLayouts (`COMP_COLUMNSLAYOUTS`)
-- **File**: `frontend/src/views/forms/layouts/MultiColumnForms.jsx`
+- **File**: `frontend\src\views\forms\layouts\MultiColumnForms.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2550,7 +2550,7 @@ export default function Example() {
 ```
 ---
 ## ColumnVirtualization (`COMP_COLUMNVIRTUALIZATION`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnVirtualization/index.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnVirtualization\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2570,7 +2570,7 @@ export default function Example() {
 ```
 ---
 ## ColumnVirtualizationGrid (`COMP_COLUMNVIRTUALIZATIONGRID`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnVirtualization/Virtualization.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnVirtualization\Virtualization.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2590,7 +2590,7 @@ export default function Example() {
 ```
 ---
 ## ColumnVisibility (`COMP_COLUMNVISIBILITY`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnVisibility/index.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnVisibility\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2610,7 +2610,7 @@ export default function Example() {
 ```
 ---
 ## ColumnVisibilityPanel (`COMP_COLUMNVISIBILITYPANEL`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnVisibility/VisibilityPanel.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnVisibility\VisibilityPanel.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2630,7 +2630,7 @@ export default function Example() {
 ```
 ---
 ## ComingSoon1 (`COMP_COMINGSOON1`)
-- **File**: `frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/index.jsx`
+- **File**: `frontend\src\views\pages\maintenance\ComingSoon\ComingSoon1\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2650,7 +2650,7 @@ export default function Example() {
 ```
 ---
 ## ComingSoon2 (`COMP_COMINGSOON2`)
-- **File**: `frontend/src/views/pages/maintenance/ComingSoon/ComingSoon2.jsx`
+- **File**: `frontend\src\views\pages\maintenance\ComingSoon\ComingSoon2.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2670,7 +2670,7 @@ export default function Example() {
 ```
 ---
 ## ComingSoonSlider (`COMP_COMINGSOONSLIDER`)
-- **File**: `frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/Slider.jsx`
+- **File**: `frontend\src\views\pages\maintenance\ComingSoon\ComingSoon1\Slider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2693,7 +2693,7 @@ export default function Example() {
 ```
 ---
 ## ComplexGrid (`COMP_COMPLEXGRID`)
-- **File**: `frontend/src/views/utilities/Grid/ComplexGrid.jsx`
+- **File**: `frontend\src\views\utilities\Grid\ComplexGrid.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2713,7 +2713,7 @@ export default function Example() {
 ```
 ---
 ## ComponentsOverrides (`COMP_COMPONENTSOVERRIDES`)
-- **File**: `frontend/src/themes/overrides/index.js`
+- **File**: `frontend\src\themes\overrides\index.js`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2733,7 +2733,7 @@ export default function Example() {
 ```
 ---
 ## CompositionPieCard (`COMP_COMPOSITIONPIECARD`)
-- **File**: `frontend/src/components/CompositionPieCard/CompositionPieCard.jsx`
+- **File**: `frontend\src\components\CompositionPieCard\CompositionPieCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2758,7 +2758,7 @@ export default function Example() {
 ```
 ---
 ## ConfigProvider (`COMP_CONFIGPROVIDER`)
-- **File**: `frontend/src/contexts/ConfigContext.jsx`
+- **File**: `frontend\src\contexts\ConfigContext.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2781,7 +2781,7 @@ export default function Example() {
 ```
 ---
 ## ContactCard (`COMP_CONTACTCARD`)
-- **File**: `frontend/src/ui-component/cards/ContactCard.jsx`
+- **File**: `frontend\src\ui-component\cards\ContactCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2815,7 +2815,7 @@ export default function Example() {
 ```
 ---
 ## ContactList (`COMP_CONTACTLIST`)
-- **File**: `frontend/src/ui-component/cards/ContactList.jsx`
+- **File**: `frontend\src\ui-component\cards\ContactList.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2838,7 +2838,7 @@ export default function Example() {
 ```
 ---
 ## ConversionsChartCard (`COMP_CONVERSIONSCHARTCARD`)
-- **File**: `frontend/src/views/widget/Chart/ConversionsChartCard.jsx`
+- **File**: `frontend\src\views\widget\Chart\ConversionsChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2861,7 +2861,7 @@ export default function Example() {
 ```
 ---
 ## CooldownTable (`COMP_COOLDOWNTABLE`)
-- **File**: `frontend/src/ui-component/thresholds/CooldownTable.jsx`
+- **File**: `frontend\src\ui-component\thresholds\CooldownTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2881,7 +2881,7 @@ export default function Example() {
 ```
 ---
 ## CSVExport (`COMP_CSVEXPORT`)
-- **File**: `frontend/src/views/forms/tables/TableExports.jsx`
+- **File**: `frontend\src\views\forms\tables\TableExports.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2904,7 +2904,7 @@ export default function Example() {
 ```
 ---
 ## CustomColumnMenu (`COMP_CUSTOMCOLUMNMENU`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/ReorderingMenu.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\AddMenuItem.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2913,7 +2913,7 @@ _No props documented._
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import CustomColumnMenu from "views/forms/data-grid/ColumnMenu/ReorderingMenu";
+import CustomColumnMenu from "views/forms/data-grid/ColumnMenu/AddMenuItem";
 
 export default function Example() {
   return (
@@ -2924,7 +2924,7 @@ export default function Example() {
 ```
 ---
 ## CustomComponent (`COMP_CUSTOMCOMPONENT`)
-- **File**: `frontend/src/ui-component/extended/notistack/CustomComponent.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\CustomComponent.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2944,7 +2944,7 @@ export default function Example() {
 ```
 ---
 ## CustomDateTime (`COMP_CUSTOMDATETIME`)
-- **File**: `frontend/src/views/forms/components/DateTime/CustomDateTime.jsx`
+- **File**: `frontend\src\views\forms\components\DateTime\CustomDateTime.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2964,7 +2964,7 @@ export default function Example() {
 ```
 ---
 ## CustomEditComponent (`COMP_CUSTOMEDITCOMPONENT`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/CustomEdit.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\CustomEdit.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -2984,7 +2984,7 @@ export default function Example() {
 ```
 ---
 ## CustomerSatisfactionCard (`COMP_CUSTOMERSATISFACTIONCARD`)
-- **File**: `frontend/src/views/widget/Statistics/CustomerSatisfactionCard.jsx`
+- **File**: `frontend\src\views\widget\Statistics\CustomerSatisfactionCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3004,7 +3004,7 @@ export default function Example() {
 ```
 ---
 ## Customization (`COMP_CUSTOMIZATION`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnGroups/CustomColumnGroup.jsx`
+- **File**: `frontend\src\layout\Customization\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3013,7 +3013,7 @@ _No props documented._
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import Customization from "views/forms/data-grid/ColumnGroups/CustomColumnGroup";
+import Customization from "layout/Customization/index";
 
 export default function Example() {
   return (
@@ -3024,7 +3024,7 @@ export default function Example() {
 ```
 ---
 ## CustomizationDemo (`COMP_CUSTOMIZATIONDEMO`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnGroups/CustomColumnGroup.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnGroups\CustomColumnGroup.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3047,7 +3047,7 @@ export default function Example() {
 ```
 ---
 ## CustomizedTables (`COMP_CUSTOMIZEDTABLES`)
-- **File**: `frontend/src/views/forms/tables/TablesCustomized.jsx`
+- **File**: `frontend\src\views\forms\tables\TablesCustomized.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3067,7 +3067,7 @@ export default function Example() {
 ```
 ---
 ## CustomMenu (`COMP_CUSTOMMENU`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/CustomMenu.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\CustomMenu.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3087,7 +3087,7 @@ export default function Example() {
 ```
 ---
 ## CustomNotistack (`COMP_CUSTOMNOTISTACK`)
-- **File**: `frontend/src/ui-component/extended/notistack/CustomComponent.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\CustomComponent.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3110,7 +3110,7 @@ export default function Example() {
 ```
 ---
 ## CustomShadowBox (`COMP_CUSTOMSHADOWBOX`)
-- **File**: `frontend/src/views/utilities/Shadow.jsx`
+- **File**: `frontend\src\views\utilities\Shadow.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3133,7 +3133,7 @@ export default function Example() {
 ```
 ---
 ## CustomTabPanel (`COMP_CUSTOMTABPANEL`)
-- **File**: `frontend/src/layout/Customization/index.jsx`
+- **File**: `frontend\src\layout\Customization\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3156,7 +3156,7 @@ export default function Example() {
 ```
 ---
 ## CustomUserItem (`COMP_CUSTOMUSERITEM`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/AddMenuItem.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\AddMenuItem.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3176,7 +3176,7 @@ export default function Example() {
 ```
 ---
 ## CycloneRunSection (`COMP_CYCLONERUNSECTION`)
-- **File**: `frontend/src/layout/MainLayout/Header/CycloneRunSection/CycloneRunSection.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\CycloneRunSection\CycloneRunSection.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3196,7 +3196,7 @@ export default function Example() {
 ```
 ---
 ## Dashboard (`COMP_DASHBOARD`)
-- **File**: `frontend/src/views/sonic/index_BU.jsx`
+- **File**: `frontend\src\views\sonic\index_BU.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3216,7 +3216,7 @@ export default function Example() {
 ```
 ---
 ## DashboardAnalytics (`COMP_DASHBOARDANALYTICS`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -3236,7 +3236,7 @@ export default function Example() {
 ```
 ---
 ## DashboardDefault (`COMP_DASHBOARDDEFAULT`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -3256,7 +3256,7 @@ export default function Example() {
 ```
 ---
 ## DashboardGrid (`COMP_DASHBOARDGRID`)
-- **File**: `frontend/src/components/dashboard-grid/DashboardGrid.jsx`
+- **File**: `frontend\src\components\dashboard-grid\DashboardGrid.jsx`
 - **Used by routes**: `/dashboards/analytics-wire`
 
 **Props**
@@ -3281,7 +3281,7 @@ export default function Example() {
 ```
 ---
 ## DashboardToggle (`COMP_DASHBOARDTOGGLE`)
-- **File**: `frontend/src/components/old/DashboardToggle.jsx`
+- **File**: `frontend\src\components\old\DashboardToggle.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3301,7 +3301,7 @@ export default function Example() {
 ```
 ---
 ## DashRowContainer (`COMP_DASHROWCONTAINER`)
-- **File**: `frontend/src/ui-component/containers/DashRowContainer.jsx`
+- **File**: `frontend\src\ui-component\containers\DashRowContainer.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3321,7 +3321,7 @@ export default function Example() {
 ```
 ---
 ## DatabaseViewer (`COMP_DATABASEVIEWER`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -3341,7 +3341,7 @@ export default function Example() {
 ```
 ---
 ## DataCard (`COMP_DATACARD`)
-- **File**: `frontend/src/views/forms/chart/OrgChart/DataCard.jsx`
+- **File**: `frontend\src\views\forms\chart\OrgChart\DataCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3375,7 +3375,7 @@ export default function Example() {
 ```
 ---
 ## DataGridBasic (`COMP_DATAGRIDBASIC`)
-- **File**: `frontend/src/views/forms/data-grid/DataGridBasic/index.jsx`
+- **File**: `frontend\src\views\forms\data-grid\DataGridBasic\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3395,7 +3395,7 @@ export default function Example() {
 ```
 ---
 ## DateTime (`COMP_DATETIME`)
-- **File**: `frontend/src/views/forms/components/DateTime/index.jsx`
+- **File**: `frontend\src\views\forms\components\DateTime\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3415,7 +3415,7 @@ export default function Example() {
 ```
 ---
 ## Dense (`COMP_DENSE`)
-- **File**: `frontend/src/ui-component/extended/notistack/Dense.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\Dense.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3435,7 +3435,7 @@ export default function Example() {
 ```
 ---
 ## DenseTable (`COMP_DENSETABLE`)
-- **File**: `frontend/src/views/forms/tables/TableDense.jsx`
+- **File**: `frontend\src\views\forms\tables\TableDense.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3455,7 +3455,7 @@ export default function Example() {
 ```
 ---
 ## DisableColumnMenu (`COMP_DISABLECOLUMNMENU`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/DisableMenu.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\DisableMenu.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3475,7 +3475,7 @@ export default function Example() {
 ```
 ---
 ## DisableSlider (`COMP_DISABLESLIDER`)
-- **File**: `frontend/src/views/forms/components/Slider/DisableSlider.jsx`
+- **File**: `frontend\src\views\forms\components\Slider\DisableSlider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3495,7 +3495,7 @@ export default function Example() {
 ```
 ---
 ## DisableStopEditModeOnFocusOut (`COMP_DISABLESTOPEDITMODEONFOCUSOUT`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/EditingEvents.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\EditingEvents.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3515,7 +3515,7 @@ export default function Example() {
 ```
 ---
 ## DismissSnackBar (`COMP_DISMISSSNACKBAR`)
-- **File**: `frontend/src/ui-component/extended/notistack/DismissSnackBar.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\DismissSnackBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3535,7 +3535,7 @@ export default function Example() {
 ```
 ---
 ## DonutCountdown (`COMP_DONUTCOUNTDOWN`)
-- **File**: `frontend/src/layout/MainLayout/Header/TimerSection/DonutCountdown.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\TimerSection\DonutCountdown.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3555,7 +3555,7 @@ export default function Example() {
 ```
 ---
 ## Dropzone (`COMP_DROPZONE`)
-- **File**: `frontend/src/views/forms/plugins/Dropzone.jsx`
+- **File**: `frontend\src\views\forms\plugins\Dropzone.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3575,7 +3575,7 @@ export default function Example() {
 ```
 ---
 ## EarningCard (`COMP_EARNINGCARD`)
-- **File**: `frontend/src/views/dashboard/Default/EarningCard.jsx`
+- **File**: `frontend\src\ui-component\cards\Skeleton\EarningCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3586,7 +3586,7 @@ export default function Example() {
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import EarningCard from "views/dashboard/Default/EarningCard";
+import EarningCard from "ui-component/cards/Skeleton/EarningCard";
 
 export default function Example() {
   return (
@@ -3598,7 +3598,7 @@ export default function Example() {
 ```
 ---
 ## EditableColumn (`COMP_EDITABLECOLUMN`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/EditableColumn.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\EditableColumn.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3618,7 +3618,7 @@ export default function Example() {
 ```
 ---
 ## EditColumn (`COMP_EDITCOLUMN`)
-- **File**: `frontend/src/views/kanban/Board/EditColumn.jsx`
+- **File**: `frontend\src\views\kanban\Board\EditColumn.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3641,7 +3641,7 @@ export default function Example() {
 ```
 ---
 ## EditItem (`COMP_EDITITEM`)
-- **File**: `frontend/src/views/kanban/Board/EditItem.jsx`
+- **File**: `frontend\src\views\kanban\Board\EditItem.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3672,7 +3672,7 @@ export default function Example() {
 ```
 ---
 ## Editor (`COMP_EDITOR`)
-- **File**: `frontend/src/views/forms/plugins/Editor.jsx`
+- **File**: `frontend\src\views\forms\plugins\Editor.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3692,7 +3692,7 @@ export default function Example() {
 ```
 ---
 ## EditStory (`COMP_EDITSTORY`)
-- **File**: `frontend/src/views/kanban/Backlogs/EditStory.jsx`
+- **File**: `frontend\src\views\kanban\Backlogs\EditStory.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3715,7 +3715,7 @@ export default function Example() {
 ```
 ---
 ## ElevationScroll (`COMP_ELEVATIONSCROLL`)
-- **File**: `frontend/src/layout/MainLayout/HorizontalBar.jsx`
+- **File**: `frontend\src\layout\MainLayout\HorizontalBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3738,7 +3738,7 @@ export default function Example() {
 ```
 ---
 ## EnhancedTable (`COMP_ENHANCEDTABLE`)
-- **File**: `frontend/src/views/forms/tables/TableEnhanced.jsx`
+- **File**: `frontend\src\views\forms\tables\TableData.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3747,7 +3747,7 @@ _No props documented._
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import EnhancedTable from "views/forms/tables/TableEnhanced";
+import EnhancedTable from "views/forms/tables/TableData";
 
 export default function Example() {
   return (
@@ -3758,7 +3758,7 @@ export default function Example() {
 ```
 ---
 ## EnhancedTableHead (`COMP_ENHANCEDTABLEHEAD`)
-- **File**: `frontend/src/views/forms/tables/TableEnhanced.jsx`
+- **File**: `frontend\src\views\forms\tables\TableData.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3774,7 +3774,7 @@ export default function Example() {
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import EnhancedTableHead from "views/forms/tables/TableEnhanced";
+import EnhancedTableHead from "views/forms/tables/TableData";
 
 export default function Example() {
   return (
@@ -3791,7 +3791,7 @@ export default function Example() {
 ```
 ---
 ## EnhancedTableToolbar (`COMP_ENHANCEDTABLETOOLBAR`)
-- **File**: `frontend/src/views/forms/tables/TableEnhanced.jsx`
+- **File**: `frontend\src\views\forms\tables\TableData.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3802,7 +3802,7 @@ export default function Example() {
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import EnhancedTableToolbar from "views/forms/tables/TableEnhanced";
+import EnhancedTableToolbar from "views/forms/tables/TableData";
 
 export default function Example() {
   return (
@@ -3814,7 +3814,7 @@ export default function Example() {
 ```
 ---
 ## Error (`COMP_ERROR`)
-- **File**: `frontend/src/views/pages/maintenance/Error.jsx`
+- **File**: `frontend\src\views\pages\maintenance\Error.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3834,7 +3834,7 @@ export default function Example() {
 ```
 ---
 ## ErrorBoundary (`COMP_ERRORBOUNDARY`)
-- **File**: `frontend/src/routes/ErrorBoundary.jsx`
+- **File**: `frontend\src\routes\ErrorBoundary.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3854,7 +3854,7 @@ export default function Example() {
 ```
 ---
 ## ExcludeHiddenColumn (`COMP_EXCLUDEHIDDENCOLUMN`)
-- **File**: `frontend/src/views/forms/data-grid/QuickFilter/ExcludeHiddenColumns.jsx`
+- **File**: `frontend\src\views\forms\data-grid\QuickFilter\ExcludeHiddenColumns.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3874,7 +3874,7 @@ export default function Example() {
 ```
 ---
 ## FeedsCard (`COMP_FEEDSCARD`)
-- **File**: `frontend/src/views/widget/Data/FeedsCard.jsx`
+- **File**: `frontend\src\views\widget\Data\FeedsCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3894,7 +3894,7 @@ export default function Example() {
 ```
 ---
 ## FilesPreview (`COMP_FILESPREVIEW`)
-- **File**: `frontend/src/ui-component/third-party/dropzone/FilePreview.jsx`
+- **File**: `frontend\src\ui-component\third-party\dropzone\FilePreview.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3917,7 +3917,7 @@ export default function Example() {
 ```
 ---
 ## FirebaseLogin (`COMP_FIREBASELOGIN`)
-- **File**: `frontend/src/views/pages/authentication/firebase/AuthLogin.jsx`
+- **File**: `frontend\src\views\pages\authentication\firebase\AuthLogin.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3937,7 +3937,7 @@ export default function Example() {
 ```
 ---
 ## FirebaseProvider (`COMP_FIREBASEPROVIDER`)
-- **File**: `frontend/src/contexts/FirebaseContext.jsx`
+- **File**: `frontend\src\contexts\FirebaseContext.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3960,7 +3960,7 @@ export default function Example() {
 ```
 ---
 ## FirebaseRegister (`COMP_FIREBASEREGISTER`)
-- **File**: `frontend/src/views/pages/authentication/firebase/AuthRegister.jsx`
+- **File**: `frontend\src\views\pages\authentication\firebase\AuthRegister.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -3980,7 +3980,7 @@ export default function Example() {
 ```
 ---
 ## FirebaseSocial (`COMP_FIREBASESOCIAL`)
-- **File**: `frontend/src/views/pages/authentication/firebase/FirebaseSocial.jsx`
+- **File**: `frontend\src\views\pages\authentication\firebase\FirebaseSocial.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4000,7 +4000,7 @@ export default function Example() {
 ```
 ---
 ## FloatingCart (`COMP_FLOATINGCART`)
-- **File**: `frontend/src/ui-component/cards/FloatingCart.jsx`
+- **File**: `frontend\src\ui-component\cards\FloatingCart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4020,7 +4020,7 @@ export default function Example() {
 ```
 ---
 ## FollowerCard (`COMP_FOLLOWERCARD`)
-- **File**: `frontend/src/ui-component/cards/FollowerCard.jsx`
+- **File**: `frontend\src\ui-component\cards\FollowerCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4043,7 +4043,7 @@ export default function Example() {
 ```
 ---
 ## FontFamilyPage (`COMP_FONTFAMILYPAGE`)
-- **File**: `frontend/src/layout/Customization/FontFamily.jsx`
+- **File**: `frontend\src\layout\Customization\FontFamily.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4063,7 +4063,7 @@ export default function Example() {
 ```
 ---
 ## Footer (`COMP_FOOTER`)
-- **File**: `frontend/src/layout/MainLayout/Footer.jsx`
+- **File**: `frontend\src\layout\MainLayout\Footer.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4083,7 +4083,7 @@ export default function Example() {
 ```
 ---
 ## Forbidden (`COMP_FORBIDDEN`)
-- **File**: `frontend/src/views/pages/maintenance/Forbidden.jsx`
+- **File**: `frontend\src\views\pages\maintenance\Forbidden.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4103,7 +4103,7 @@ export default function Example() {
 ```
 ---
 ## ForgotPassword (`COMP_FORGOTPASSWORD`)
-- **File**: `frontend/src/views/pages/authentication/ForgotPassword.jsx`
+- **File**: `frontend\src\views\pages\authentication\ForgotPassword.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4123,7 +4123,7 @@ export default function Example() {
 ```
 ---
 ## FormControl (`COMP_FORMCONTROL`)
-- **File**: `frontend/src/ui-component/extended/Form/FormControl.jsx`
+- **File**: `frontend\src\ui-component\extended\Form\FormControl.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4157,7 +4157,7 @@ export default function Example() {
 ```
 ---
 ## FormControlSelect (`COMP_FORMCONTROLSELECT`)
-- **File**: `frontend/src/ui-component/extended/Form/FormControlSelect.jsx`
+- **File**: `frontend\src\ui-component\extended\Form\FormControlSelect.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4192,7 +4192,7 @@ export default function Example() {
 ```
 ---
 ## FormRow (`COMP_FORMROW`)
-- **File**: `frontend/src/views/utilities/Grid/NestedGrid.jsx`
+- **File**: `frontend\src\views\utilities\Grid\NestedGrid.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4212,7 +4212,7 @@ export default function Example() {
 ```
 ---
 ## FormsValidation (`COMP_FORMSVALIDATION`)
-- **File**: `frontend/src/views/forms/forms-validation/index.jsx`
+- **File**: `frontend\src\views\forms\forms-validation\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4232,7 +4232,7 @@ export default function Example() {
 ```
 ---
 ## FormsWizard (`COMP_FORMSWIZARD`)
-- **File**: `frontend/src/views/forms/forms-wizard/index.jsx`
+- **File**: `frontend\src\views\forms\forms-wizard\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4252,7 +4252,7 @@ export default function Example() {
 ```
 ---
 ## FriendRequestCard (`COMP_FRIENDREQUESTCARD`)
-- **File**: `frontend/src/ui-component/cards/FriendRequestCard.jsx`
+- **File**: `frontend\src\ui-component\cards\FriendRequestCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4275,7 +4275,7 @@ export default function Example() {
 ```
 ---
 ## FriendsCard (`COMP_FRIENDSCARD`)
-- **File**: `frontend/src/ui-component/cards/FriendsCard.jsx`
+- **File**: `frontend\src\ui-component\cards\FriendsCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4298,7 +4298,7 @@ export default function Example() {
 ```
 ---
 ## FrmAutocomplete (`COMP_FRMAUTOCOMPLETE`)
-- **File**: `frontend/src/views/forms/plugins/AutoComplete.jsx`
+- **File**: `frontend\src\views\forms\plugins\AutoComplete.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4318,7 +4318,7 @@ export default function Example() {
 ```
 ---
 ## FullFeaturedCrudGrid (`COMP_FULLFEATUREDCRUDGRID`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/FullFeatured.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\FullFeatured.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4338,7 +4338,7 @@ export default function Example() {
 ```
 ---
 ## FullScreen (`COMP_FULLSCREEN`)
-- **File**: `frontend/src/layout/MainLayout/Header/FullScreenSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\FullScreenSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4358,7 +4358,7 @@ export default function Example() {
 ```
 ---
 ## FullWidthPaper (`COMP_FULLWIDTHPAPER`)
-- **File**: `frontend/src/ui-component/cards/FullWidthPaper.jsx`
+- **File**: `frontend\src\ui-component\cards\FullWidthPaper.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4378,7 +4378,7 @@ export default function Example() {
 ```
 ---
 ## FunCard (`COMP_FUNCARD`)
-- **File**: `frontend/src/ui-component/fun/FunCard.jsx`
+- **File**: `frontend\src\ui-component\fun\FunCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4398,7 +4398,7 @@ export default function Example() {
 ```
 ---
 ## GalleryCard (`COMP_GALLERYCARD`)
-- **File**: `frontend/src/ui-component/cards/GalleryCard.jsx`
+- **File**: `frontend\src\ui-component\cards\GalleryCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4421,7 +4421,7 @@ export default function Example() {
 ```
 ---
 ## GridSection (`COMP_GRIDSECTION`)
-- **File**: `frontend/src/components/dashboard-grid/GridSection.jsx`
+- **File**: `frontend\src\components\dashboard-grid\GridSection.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4446,7 +4446,7 @@ export default function Example() {
 ```
 ---
 ## GridSlot (`COMP_GRIDSLOT`)
-- **File**: `frontend/src/components/dashboard-grid/GridSlot.jsx`
+- **File**: `frontend\src\components\dashboard-grid\GridSlot.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4473,7 +4473,7 @@ export default function Example() {
 ```
 ---
 ## GridSystem (`COMP_GRIDSYSTEM`)
-- **File**: `frontend/src/views/utilities/Grid/index.jsx`
+- **File**: `frontend\src\views\utilities\Grid\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4493,7 +4493,7 @@ export default function Example() {
 ```
 ---
 ## GrowTransition (`COMP_GROWTRANSITION`)
-- **File**: `frontend/src/ui-component/extended/Snackbar.jsx`
+- **File**: `frontend\src\ui-component\extended\Snackbar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4513,7 +4513,7 @@ export default function Example() {
 ```
 ---
 ## GuestGuard (`COMP_GUESTGUARD`)
-- **File**: `frontend/src/utils/route-guard/GuestGuard.jsx`
+- **File**: `frontend\src\utils\route-guard\GuestGuard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4536,7 +4536,7 @@ export default function Example() {
 ```
 ---
 ## Header (`COMP_HEADER`)
-- **File**: `frontend/src/layout/MainLayout/Header/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4556,7 +4556,7 @@ export default function Example() {
 ```
 ---
 ## HeaderAvatar (`COMP_HEADERAVATAR`)
-- **File**: `frontend/src/layout/MainLayout/Header/MegaMenuSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\MegaMenuSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4579,7 +4579,7 @@ export default function Example() {
 ```
 ---
 ## HeaderWithIcon (`COMP_HEADERWITHICON`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnGroups/CustomColumnGroup.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnGroups\CustomColumnGroup.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4599,7 +4599,7 @@ export default function Example() {
 ```
 ---
 ## HedgeEvaluator (`COMP_HEDGEEVALUATOR`)
-- **File**: `frontend/src/hedge-report/components/HedgeEvaluator.tsx`
+- **File**: `frontend\src\hedge-report\components\HedgeEvaluator.tsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4619,7 +4619,7 @@ export default function Example() {
 ```
 ---
 ## HedgeReportPage (`COMP_HEDGEREPORTPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -4639,7 +4639,7 @@ export default function Example() {
 ```
 ---
 ## HideDuration (`COMP_HIDEDURATION`)
-- **File**: `frontend/src/ui-component/extended/notistack/HideDuration.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\HideDuration.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4659,7 +4659,7 @@ export default function Example() {
 ```
 ---
 ## HideMenuItem (`COMP_HIDEMENUITEM`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/HideMenuItem.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\HideMenuItem.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4679,7 +4679,7 @@ export default function Example() {
 ```
 ---
 ## HorizontalBar (`COMP_HORIZONTALBAR`)
-- **File**: `frontend/src/layout/MainLayout/HorizontalBar.jsx`
+- **File**: `frontend\src\layout\MainLayout\HorizontalBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4699,7 +4699,7 @@ export default function Example() {
 ```
 ---
 ## HoverDataCard (`COMP_HOVERDATACARD`)
-- **File**: `frontend/src/ui-component/cards/HoverDataCard.jsx`
+- **File**: `frontend\src\ui-component\cards\HoverDataCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4730,7 +4730,7 @@ export default function Example() {
 ```
 ---
 ## HoverSocialCard (`COMP_HOVERSOCIALCARD`)
-- **File**: `frontend/src/ui-component/cards/HoverSocialCard.jsx`
+- **File**: `frontend\src\ui-component\cards\HoverSocialCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4753,7 +4753,7 @@ export default function Example() {
 ```
 ---
 ## IconGridCard (`COMP_ICONGRIDCARD`)
-- **File**: `frontend/src/views/widget/Statistics/IconGridCard.jsx`
+- **File**: `frontend\src\views\widget\Statistics\IconGridCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4773,7 +4773,7 @@ export default function Example() {
 ```
 ---
 ## IconNumberCard (`COMP_ICONNUMBERCARD`)
-- **File**: `frontend/src/ui-component/cards/IconNumberCard.jsx`
+- **File**: `frontend\src\ui-component\cards\IconNumberCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4796,7 +4796,7 @@ export default function Example() {
 ```
 ---
 ## IconVariants (`COMP_ICONVARIANTS`)
-- **File**: `frontend/src/ui-component/extended/notistack/IconVariants.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\IconVariants.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4816,7 +4816,7 @@ export default function Example() {
 ```
 ---
 ## IconVariantsContent (`COMP_ICONVARIANTSCONTENT`)
-- **File**: `frontend/src/ui-component/extended/notistack/IconVariants.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\IconVariants.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4836,7 +4836,7 @@ export default function Example() {
 ```
 ---
 ## ImageList (`COMP_IMAGELIST`)
-- **File**: `frontend/src/ui-component/extended/ImageList.jsx`
+- **File**: `frontend\src\ui-component\extended\ImageList.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4859,7 +4859,7 @@ export default function Example() {
 ```
 ---
 ## ImagePlaceholder (`COMP_IMAGEPLACEHOLDER`)
-- **File**: `frontend/src/ui-component/cards/Skeleton/ImagePlaceholder.jsx`
+- **File**: `frontend\src\ui-component\cards\Skeleton\ImagePlaceholder.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4879,7 +4879,7 @@ export default function Example() {
 ```
 ---
 ## IncomingRequests (`COMP_INCOMINGREQUESTS`)
-- **File**: `frontend/src/views/widget/Data/IncomingRequests.jsx`
+- **File**: `frontend\src\views\widget\Data\IncomingRequests.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4899,7 +4899,7 @@ export default function Example() {
 ```
 ---
 ## InitialState (`COMP_INITIALSTATE`)
-- **File**: `frontend/src/views/forms/data-grid/SaveRestoreState/InitialState.jsx`
+- **File**: `frontend\src\views\forms\data-grid\SaveRestoreState\InitialState.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4919,7 +4919,7 @@ export default function Example() {
 ```
 ---
 ## InlineEditing (`COMP_INLINEEDITING`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/index.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4939,7 +4939,7 @@ export default function Example() {
 ```
 ---
 ## InputFilled (`COMP_INPUTFILLED`)
-- **File**: `frontend/src/layout/Customization/InputFilled.jsx`
+- **File**: `frontend\src\layout\Customization\InputFilled.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4959,7 +4959,7 @@ export default function Example() {
 ```
 ---
 ## InputLabel (`COMP_INPUTLABEL`)
-- **File**: `frontend/src/ui-component/extended/Form/InputLabel.jsx`
+- **File**: `frontend\src\ui-component\extended\Form\InputLabel.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -4982,7 +4982,7 @@ export default function Example() {
 ```
 ---
 ## InstantFeedback (`COMP_INSTANTFEEDBACK`)
-- **File**: `frontend/src/views/forms/forms-validation/InstantFeedback.jsx`
+- **File**: `frontend\src\views\forms\forms-validation\InstantFeedback.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5002,7 +5002,7 @@ export default function Example() {
 ```
 ---
 ## IsCellEditableGrid (`COMP_ISCELLEDITABLEGRID`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/DisableEditing.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\DisableEditing.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5022,7 +5022,7 @@ export default function Example() {
 ```
 ---
 ## Item (`COMP_ITEM`)
-- **File**: `frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/Slider.jsx`
+- **File**: `frontend\src\views\pages\maintenance\ComingSoon\ComingSoon1\Slider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5045,7 +5045,7 @@ export default function Example() {
 ```
 ---
 ## ItemComment (`COMP_ITEMCOMMENT`)
-- **File**: `frontend/src/views/kanban/Board/ItemComment.jsx`
+- **File**: `frontend\src\views\kanban\Board\ItemComment.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5068,7 +5068,7 @@ export default function Example() {
 ```
 ---
 ## ItemDetails (`COMP_ITEMDETAILS`)
-- **File**: `frontend/src/views/kanban/Board/ItemDetails.jsx`
+- **File**: `frontend\src\views\kanban\Board\ItemDetails.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5088,30 +5088,30 @@ export default function Example() {
 ```
 ---
 ## Items (`COMP_ITEMS`)
-- **File**: `frontend/src/views/kanban/Board/Items.jsx`
+- **File**: `frontend\src\views\kanban\Backlogs\Items.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
 | Prop | Type | Required | Default |
 |------|------|----------|---------|
-| `itemId` | `string` | no | — |
+| `item` | `any` | no | — |
 
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import Items from "views/kanban/Board/Items";
+import Items from "views/kanban/Backlogs/Items";
 
 export default function Example() {
   return (
     <Items
-    itemId="example"
+    item={{}}
     />
   );
 }
 ```
 ---
 ## JupiterPage (`COMP_JUPITERPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -5131,7 +5131,7 @@ export default function Example() {
 ```
 ---
 ## JWTLogin (`COMP_JWTLOGIN`)
-- **File**: `frontend/src/views/pages/authentication/jwt/AuthLogin.jsx`
+- **File**: `frontend\src\views\pages\authentication\jwt\AuthLogin.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5151,7 +5151,7 @@ export default function Example() {
 ```
 ---
 ## JWTProvider (`COMP_JWTPROVIDER`)
-- **File**: `frontend/src/contexts/JWTContext.jsx`
+- **File**: `frontend\src\contexts\JWTContext.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5174,7 +5174,7 @@ export default function Example() {
 ```
 ---
 ## JWTRegister (`COMP_JWTREGISTER`)
-- **File**: `frontend/src/views/pages/authentication/jwt/AuthRegister.jsx`
+- **File**: `frontend\src\views\pages\authentication\jwt\AuthRegister.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5194,7 +5194,7 @@ export default function Example() {
 ```
 ---
 ## KanbanBacklogs (`COMP_KANBANBACKLOGS`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -5214,7 +5214,7 @@ export default function Example() {
 ```
 ---
 ## KanbanBoard (`COMP_KANBANBOARD`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -5234,7 +5234,7 @@ export default function Example() {
 ```
 ---
 ## KanbanPage (`COMP_KANBANPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -5254,7 +5254,7 @@ export default function Example() {
 ```
 ---
 ## LabelSlider (`COMP_LABELSLIDER`)
-- **File**: `frontend/src/views/forms/components/Slider/LabelSlider.jsx`
+- **File**: `frontend\src\views\forms\components\Slider\LabelSlider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5274,7 +5274,7 @@ export default function Example() {
 ```
 ---
 ## LandscapeDateTime (`COMP_LANDSCAPEDATETIME`)
-- **File**: `frontend/src/views/forms/components/DateTime/LandscapeDateTime.jsx`
+- **File**: `frontend\src\views\forms\components\DateTime\LandscapeDateTime.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5294,7 +5294,7 @@ export default function Example() {
 ```
 ---
 ## LatestCustomers (`COMP_LATESTCUSTOMERS`)
-- **File**: `frontend/src/views/widget/Data/LatestCustomers.jsx`
+- **File**: `frontend\src\views\widget\Data\LatestCustomers.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5314,7 +5314,7 @@ export default function Example() {
 ```
 ---
 ## LatestMessages (`COMP_LATESTMESSAGES`)
-- **File**: `frontend/src/views/widget/Data/LatestMessages.jsx`
+- **File**: `frontend\src\views\widget\Data\LatestMessages.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5334,7 +5334,7 @@ export default function Example() {
 ```
 ---
 ## LatestOrder (`COMP_LATESTORDER`)
-- **File**: `frontend/src/views/widget/Data/LatestOrder.jsx`
+- **File**: `frontend\src\views\widget\Data\LatestOrder.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5354,7 +5354,7 @@ export default function Example() {
 ```
 ---
 ## LatestPosts (`COMP_LATESTPOSTS`)
-- **File**: `frontend/src/views/widget/Data/LatestPosts.jsx`
+- **File**: `frontend\src\views\widget\Data\LatestPosts.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5374,7 +5374,7 @@ export default function Example() {
 ```
 ---
 ## Layout (`COMP_LAYOUT`)
-- **File**: `frontend/src/layout/Customization/Layout.jsx`
+- **File**: `frontend\src\layout\Customization\Layout.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5394,7 +5394,7 @@ export default function Example() {
 ```
 ---
 ## Layouts (`COMP_LAYOUTS`)
-- **File**: `frontend/src/views/forms/layouts/Layouts.jsx`
+- **File**: `frontend\src\views\forms\layouts\Layouts.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5414,7 +5414,7 @@ export default function Example() {
 ```
 ---
 ## LinearProgressWithLabel (`COMP_LINEARPROGRESSWITHLABEL`)
-- **File**: `frontend/src/layout/MainLayout/Sidebar/MenuCard/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Sidebar\MenuCard\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5437,7 +5437,7 @@ export default function Example() {
 ```
 ---
 ## LinkedIn (`COMP_LINKEDIN`)
-- **File**: `frontend/src/views/forms/chart/OrgChart/LinkedIn.jsx`
+- **File**: `frontend\src\views\forms\chart\OrgChart\LinkedIn.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5457,7 +5457,7 @@ export default function Example() {
 ```
 ---
 ## LiqRow (`COMP_LIQROW`)
-- **File**: `frontend/src/ui-component/liquidation/LiqRow.jsx`
+- **File**: `frontend\src\ui-component\liquidation\LiqRow.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5477,7 +5477,7 @@ export default function Example() {
 ```
 ---
 ## LiquidationBars (`COMP_LIQUIDATIONBARS`)
-- **File**: `frontend/src/ui-component/liquidation/LiquidationBars.jsx`
+- **File**: `frontend\src\ui-component\liquidation\LiquidationBars.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5497,7 +5497,7 @@ export default function Example() {
 ```
 ---
 ## LiquidationBarsCard (`COMP_LIQUIDATIONBARSCARD`)
-- **File**: `frontend/src/views/positions/LiquidationBarsCard.jsx`
+- **File**: `frontend\src\views\positions\LiquidationBarsCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5517,7 +5517,7 @@ export default function Example() {
 ```
 ---
 ## LiquidationDistanceIcon (`COMP_LIQUIDATIONDISTANCEICON`)
-- **File**: `frontend/src/views/alertThresholds/icons.jsx`
+- **File**: `frontend\src\views\alertThresholds\icons.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5537,7 +5537,7 @@ export default function Example() {
 ```
 ---
 ## LiquidationMonitorCard (`COMP_LIQUIDATIONMONITORCARD`)
-- **File**: `frontend/src/views/monitorManager/LiquidationMonitorCard.jsx`
+- **File**: `frontend\src\views\monitorManager\LiquidationMonitorCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5557,7 +5557,7 @@ export default function Example() {
 ```
 ---
 ## ListItemWrapper (`COMP_LISTITEMWRAPPER`)
-- **File**: `frontend/src/layout/MainLayout/Header/NotificationSection/NotificationList.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\NotificationSection\NotificationList.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5577,7 +5577,7 @@ export default function Example() {
 ```
 ---
 ## Loadable (`COMP_LOADABLE`)
-- **File**: `frontend/src/ui-component/Loadable.jsx`
+- **File**: `frontend\src\ui-component\Loadable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5597,7 +5597,7 @@ export default function Example() {
 ```
 ---
 ## Loader (`COMP_LOADER`)
-- **File**: `frontend/src/ui-component/Loader.jsx`
+- **File**: `frontend\src\ui-component\Loader.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5617,7 +5617,7 @@ export default function Example() {
 ```
 ---
 ## Locales (`COMP_LOCALES`)
-- **File**: `frontend/src/ui-component/Locales.jsx`
+- **File**: `frontend\src\ui-component\Locales.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5640,7 +5640,7 @@ export default function Example() {
 ```
 ---
 ## LocalizationSection (`COMP_LOCALIZATIONSECTION`)
-- **File**: `frontend/src/layout/MainLayout/Header/LocalizationSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\LocalizationSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5660,7 +5660,7 @@ export default function Example() {
 ```
 ---
 ## LogConsole (`COMP_LOGCONSOLE`)
-- **File**: `frontend/src/views/sonicLabs/SonicLabsPage.jsx`
+- **File**: `frontend\src\views\sonicLabs\SonicLabsPage.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5680,7 +5680,7 @@ export default function Example() {
 ```
 ---
 ## Login (`COMP_LOGIN`)
-- **File**: `frontend/src/views/pages/authentication/Login.jsx`
+- **File**: `frontend\src\views\pages\authentication\Login.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5700,7 +5700,7 @@ export default function Example() {
 ```
 ---
 ## LoginForms (`COMP_LOGINFORMS`)
-- **File**: `frontend/src/views/forms/forms-validation/LoginForms.jsx`
+- **File**: `frontend\src\views\forms\forms-validation\LoginForms.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5720,7 +5720,7 @@ export default function Example() {
 ```
 ---
 ## LoginProvider (`COMP_LOGINPROVIDER`)
-- **File**: `frontend/src/views/pages/authentication/LoginProvider.jsx`
+- **File**: `frontend\src\views\pages\authentication\LoginProvider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5743,7 +5743,7 @@ export default function Example() {
 ```
 ---
 ## Logo (`COMP_LOGO`)
-- **File**: `frontend/src/ui-component/Logo.jsx`
+- **File**: `frontend\src\ui-component\Logo.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5763,7 +5763,7 @@ export default function Example() {
 ```
 ---
 ## LogoSection (`COMP_LOGOSECTION`)
-- **File**: `frontend/src/layout/MainLayout/LogoSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\LogoSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5783,7 +5783,7 @@ export default function Example() {
 ```
 ---
 ## MailerSubscriber (`COMP_MAILERSUBSCRIBER`)
-- **File**: `frontend/src/views/pages/maintenance/ComingSoon/ComingSoon1/MailerSubscriber.jsx`
+- **File**: `frontend\src\views\pages\maintenance\ComingSoon\ComingSoon1\MailerSubscriber.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5803,7 +5803,7 @@ export default function Example() {
 ```
 ---
 ## MainCard (`COMP_MAINCARD`)
-- **File**: `frontend/src/ui-component/cards/MainCard.jsx`
+- **File**: `frontend\src\ui-component\cards\MainCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -5844,7 +5844,7 @@ export default function Example() {
 ```
 ---
 ## MainLayout (`COMP_MAINLAYOUT`)
-- **File**: `frontend/src/layout/MainLayout/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\index.jsx`
 - **Used by routes**: `/`, `/trader-shop`
 
 **Props**
@@ -5864,7 +5864,7 @@ export default function Example() {
 ```
 ---
 ## MaintenanceComingSoon1 (`COMP_MAINTENANCECOMINGSOON1`)
-- **File**: `frontend/src/routes/AuthenticationRoutes.jsx`
+- **File**: `frontend\src\routes\AuthenticationRoutes.jsx`
 - **Used by routes**: `/forbidden`, `/pages/500`, `/pages/coming-soon1`, `/pages/coming-soon2`, `/pages/error`, `/pages/under-construction`
 
 **Props**
@@ -5884,7 +5884,7 @@ export default function Example() {
 ```
 ---
 ## MaintenanceComingSoon2 (`COMP_MAINTENANCECOMINGSOON2`)
-- **File**: `frontend/src/routes/AuthenticationRoutes.jsx`
+- **File**: `frontend\src\routes\AuthenticationRoutes.jsx`
 - **Used by routes**: `/forbidden`, `/pages/500`, `/pages/coming-soon1`, `/pages/coming-soon2`, `/pages/error`, `/pages/under-construction`
 
 **Props**
@@ -5904,7 +5904,7 @@ export default function Example() {
 ```
 ---
 ## MaintenanceError (`COMP_MAINTENANCEERROR`)
-- **File**: `frontend/src/routes/AuthenticationRoutes.jsx`
+- **File**: `frontend\src\routes\AuthenticationRoutes.jsx`
 - **Used by routes**: `/forbidden`, `/pages/500`, `/pages/coming-soon1`, `/pages/coming-soon2`, `/pages/error`, `/pages/under-construction`
 
 **Props**
@@ -5924,7 +5924,7 @@ export default function Example() {
 ```
 ---
 ## MaintenanceError500 (`COMP_MAINTENANCEERROR500`)
-- **File**: `frontend/src/routes/AuthenticationRoutes.jsx`
+- **File**: `frontend\src\routes\AuthenticationRoutes.jsx`
 - **Used by routes**: `/forbidden`, `/pages/500`, `/pages/coming-soon1`, `/pages/coming-soon2`, `/pages/error`, `/pages/under-construction`
 
 **Props**
@@ -5944,7 +5944,7 @@ export default function Example() {
 ```
 ---
 ## MaintenanceForbidden (`COMP_MAINTENANCEFORBIDDEN`)
-- **File**: `frontend/src/routes/AuthenticationRoutes.jsx`
+- **File**: `frontend\src\routes\AuthenticationRoutes.jsx`
 - **Used by routes**: `/forbidden`, `/pages/500`, `/pages/coming-soon1`, `/pages/coming-soon2`, `/pages/error`, `/pages/under-construction`
 
 **Props**
@@ -5964,7 +5964,7 @@ export default function Example() {
 ```
 ---
 ## MaintenanceUnderConstruction (`COMP_MAINTENANCEUNDERCONSTRUCTION`)
-- **File**: `frontend/src/routes/AuthenticationRoutes.jsx`
+- **File**: `frontend\src\routes\AuthenticationRoutes.jsx`
 - **Used by routes**: `/forbidden`, `/pages/500`, `/pages/coming-soon1`, `/pages/coming-soon2`, `/pages/error`, `/pages/under-construction`
 
 **Props**
@@ -5984,7 +5984,7 @@ export default function Example() {
 ```
 ---
 ## MarketChartCard (`COMP_MARKETCHARTCARD`)
-- **File**: `frontend/src/views/widget/Chart/MarketSaleChartCard.jsx`
+- **File**: `frontend\src\views\widget\Chart\MarketSaleChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6007,7 +6007,7 @@ export default function Example() {
 ```
 ---
 ## MarketMonitorCard (`COMP_MARKETMONITORCARD`)
-- **File**: `frontend/src/views/monitorManager/MarketMonitorCard.jsx`
+- **File**: `frontend\src\views\monitorManager\MarketMonitorCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6027,7 +6027,7 @@ export default function Example() {
 ```
 ---
 ## MarketMovementCard (`COMP_MARKETMOVEMENTCARD`)
-- **File**: `frontend/src/components/MarketMovementCard.jsx`
+- **File**: `frontend\src\components\MarketMovementCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6047,7 +6047,7 @@ export default function Example() {
 ```
 ---
 ## MarketsPanel (`COMP_MARKETSPANEL`)
-- **File**: `frontend/src/components/jupiter/Perps/MarketsPanel.jsx`
+- **File**: `frontend\src\components\jupiter\Perps\MarketsPanel.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6067,7 +6067,7 @@ export default function Example() {
 ```
 ---
 ## MaskPage (`COMP_MASKPAGE`)
-- **File**: `frontend/src/views/forms/plugins/Mask.jsx`
+- **File**: `frontend\src\views\forms\plugins\Mask.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6087,7 +6087,7 @@ export default function Example() {
 ```
 ---
 ## MaxSnackbar (`COMP_MAXSNACKBAR`)
-- **File**: `frontend/src/ui-component/extended/notistack/MaxSnackbar.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\MaxSnackbar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6107,7 +6107,7 @@ export default function Example() {
 ```
 ---
 ## MeetIcon (`COMP_MEETICON`)
-- **File**: `frontend/src/views/forms/chart/OrgChart/MeetIcon.jsx`
+- **File**: `frontend\src\views\forms\chart\OrgChart\MeetIcon.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6127,7 +6127,7 @@ export default function Example() {
 ```
 ---
 ## MegaMenuBanner (`COMP_MEGAMENUBANNER`)
-- **File**: `frontend/src/layout/MainLayout/Header/MegaMenuSection/Banner.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\MegaMenuSection\Banner.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6147,7 +6147,7 @@ export default function Example() {
 ```
 ---
 ## MegaMenuSection (`COMP_MEGAMENUSECTION`)
-- **File**: `frontend/src/layout/MainLayout/Header/MegaMenuSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\MegaMenuSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6167,7 +6167,7 @@ export default function Example() {
 ```
 ---
 ## MenuCard (`COMP_MENUCARD`)
-- **File**: `frontend/src/layout/MainLayout/Sidebar/MenuCard/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Sidebar\MenuCard\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6187,7 +6187,7 @@ export default function Example() {
 ```
 ---
 ## MenuCloseComponent (`COMP_MENUCLOSECOMPONENT`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/CustomMenu.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\CustomMenu.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6207,7 +6207,7 @@ export default function Example() {
 ```
 ---
 ## MenuList (`COMP_MENULIST`)
-- **File**: `frontend/src/layout/MainLayout/MenuList/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\MenuList\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6227,7 +6227,7 @@ export default function Example() {
 ```
 ---
 ## MenuOrientationPage (`COMP_MENUORIENTATIONPAGE`)
-- **File**: `frontend/src/layout/Customization/MenuOrientation.jsx`
+- **File**: `frontend\src\layout\Customization\MenuOrientation.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6247,7 +6247,7 @@ export default function Example() {
 ```
 ---
 ## MinimalLayout (`COMP_MINIMALLAYOUT`)
-- **File**: `frontend/src/layout/MinimalLayout/index.jsx`
+- **File**: `frontend\src\layout\MinimalLayout\index.jsx`
 - **Used by routes**: `/`
 
 **Props**
@@ -6267,7 +6267,7 @@ export default function Example() {
 ```
 ---
 ## MobileSearch (`COMP_MOBILESEARCH`)
-- **File**: `frontend/src/layout/MainLayout/Header/SearchSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\SearchSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6290,7 +6290,7 @@ export default function Example() {
 ```
 ---
 ## MobileSection (`COMP_MOBILESECTION`)
-- **File**: `frontend/src/layout/MainLayout/Header/MobileSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\MobileSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6310,7 +6310,7 @@ export default function Example() {
 ```
 ---
 ## Modal (`COMP_MODAL`)
-- **File**: `frontend/src/views/forms/plugins/Modal/index.jsx`
+- **File**: `frontend\src\views\forms\plugins\Modal\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6330,7 +6330,7 @@ export default function Example() {
 ```
 ---
 ## MonitorManager (`COMP_MONITORMANAGER`)
-- **File**: `frontend/src/views/monitorManager/MonitorManager.jsx`
+- **File**: `frontend\src\views\monitorManager\MonitorManager.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6350,7 +6350,7 @@ export default function Example() {
 ```
 ---
 ## MonitorManagerPage (`COMP_MONITORMANAGERPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -6370,7 +6370,7 @@ export default function Example() {
 ```
 ---
 ## MonitorUpdateBar (`COMP_MONITORUPDATEBAR`)
-- **File**: `frontend/src/views/monitorManager/MonitorUpdateBar.jsx`
+- **File**: `frontend\src\views\monitorManager\MonitorUpdateBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6390,7 +6390,7 @@ export default function Example() {
 ```
 ---
 ## MultiFileUpload (`COMP_MULTIFILEUPLOAD`)
-- **File**: `frontend/src/ui-component/third-party/dropzone/MultiFile.jsx`
+- **File**: `frontend\src\ui-component\third-party\dropzone\MultiFile.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6424,7 +6424,7 @@ export default function Example() {
 ```
 ---
 ## MultipleBreakPoints (`COMP_MULTIPLEBREAKPOINTS`)
-- **File**: `frontend/src/views/utilities/Grid/MultipleBreakPoints.jsx`
+- **File**: `frontend\src\views\utilities\Grid\MultipleBreakPoints.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6444,7 +6444,7 @@ export default function Example() {
 ```
 ---
 ## NameEditInputCell (`COMP_NAMEEDITINPUTCELL`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/Validation.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\Validation.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6464,7 +6464,7 @@ export default function Example() {
 ```
 ---
 ## NavCollapse (`COMP_NAVCOLLAPSE`)
-- **File**: `frontend/src/layout/MainLayout/MenuList/NavCollapse/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\MenuList\NavCollapse\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6487,7 +6487,7 @@ export default function Example() {
 ```
 ---
 ## NavGroup (`COMP_NAVGROUP`)
-- **File**: `frontend/src/layout/MainLayout/MenuList/NavGroup/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\MenuList\NavGroup\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6520,7 +6520,7 @@ export default function Example() {
 ```
 ---
 ## NavigationScroll (`COMP_NAVIGATIONSCROLL`)
-- **File**: `frontend/src/layout/NavigationScroll.jsx`
+- **File**: `frontend\src\layout\NavigationScroll.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6543,7 +6543,7 @@ export default function Example() {
 ```
 ---
 ## NavItem (`COMP_NAVITEM`)
-- **File**: `frontend/src/layout/MainLayout/MenuList/NavItem/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\MenuList\NavItem\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6566,7 +6566,7 @@ export default function Example() {
 ```
 ---
 ## NavMotion (`COMP_NAVMOTION`)
-- **File**: `frontend/src/layout/NavMotion.jsx`
+- **File**: `frontend\src\layout\NavMotion.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6589,7 +6589,7 @@ export default function Example() {
 ```
 ---
 ## NestedGrid (`COMP_NESTEDGRID`)
-- **File**: `frontend/src/views/utilities/Grid/NestedGrid.jsx`
+- **File**: `frontend\src\views\utilities\Grid\NestedGrid.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6609,7 +6609,7 @@ export default function Example() {
 ```
 ---
 ## NewCustomers (`COMP_NEWCUSTOMERS`)
-- **File**: `frontend/src/views/widget/Data/NewCustomers.jsx`
+- **File**: `frontend\src\views\widget\Data\NewCustomers.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6629,7 +6629,7 @@ export default function Example() {
 ```
 ---
 ## NotificationList (`COMP_NOTIFICATIONLIST`)
-- **File**: `frontend/src/layout/MainLayout/Header/NotificationSection/NotificationList.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\NotificationSection\NotificationList.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6652,7 +6652,7 @@ export default function Example() {
 ```
 ---
 ## NotificationSection (`COMP_NOTIFICATIONSECTION`)
-- **File**: `frontend/src/layout/MainLayout/Header/NotificationSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\NotificationSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6672,7 +6672,7 @@ export default function Example() {
 ```
 ---
 ## Notistack (`COMP_NOTISTACK`)
-- **File**: `frontend/src/ui-component/third-party/Notistack.jsx`
+- **File**: `frontend\src\ui-component\third-party\Notistack.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6695,7 +6695,7 @@ export default function Example() {
 ```
 ---
 ## OperationsBar (`COMP_OPERATIONSBAR`)
-- **File**: `frontend/src/components/old/OperationsBar.jsx`
+- **File**: `frontend\src\components\old\OperationsBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6715,7 +6715,7 @@ export default function Example() {
 ```
 ---
 ## OrderForm (`COMP_ORDERFORM`)
-- **File**: `frontend/src/components/jupiter/Perps/OrderForm.jsx`
+- **File**: `frontend\src\components\jupiter\Perps\OrderForm.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6735,7 +6735,7 @@ export default function Example() {
 ```
 ---
 ## OrgChartPage (`COMP_ORGCHARTPAGE`)
-- **File**: `frontend/src/views/forms/chart/OrgChart/index.jsx`
+- **File**: `frontend\src\views\forms\chart\OrgChart\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6755,7 +6755,7 @@ export default function Example() {
 ```
 ---
 ## OverrideMenu (`COMP_OVERRIDEMENU`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/OverrideMenu.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\OverrideMenu.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6775,7 +6775,7 @@ export default function Example() {
 ```
 ---
 ## OverviewPage (`COMP_OVERVIEWPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -6795,7 +6795,7 @@ export default function Example() {
 ```
 ---
 ## Palette (`COMP_PALETTE`)
-- **File**: `frontend/src/themes/palette.jsx`
+- **File**: `frontend\src\themes\palette.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6815,7 +6815,7 @@ export default function Example() {
 ```
 ---
 ## ParsingValues (`COMP_PARSINGVALUES`)
-- **File**: `frontend/src/views/forms/data-grid/QuickFilter/ParsingValues.jsx`
+- **File**: `frontend\src\views\forms\data-grid\QuickFilter\ParsingValues.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6835,7 +6835,7 @@ export default function Example() {
 ```
 ---
 ## PaymentForm (`COMP_PAYMENTFORM`)
-- **File**: `frontend/src/views/forms/forms-wizard/BasicWizard/PaymentForm.jsx`
+- **File**: `frontend\src\views\forms\forms-wizard\BasicWizard\PaymentForm.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6866,7 +6866,7 @@ export default function Example() {
 ```
 ---
 ## PerfChip (`COMP_PERFCHIP`)
-- **File**: `frontend/src/components/PerformanceGraphCard/PerformanceGraphCard.jsx`
+- **File**: `frontend\src\components\PerformanceGraphCard\PerformanceGraphCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6886,7 +6886,7 @@ export default function Example() {
 ```
 ---
 ## PerformanceGraphCard (`COMP_PERFORMANCEGRAPHCARD`)
-- **File**: `frontend/src/components/PerformanceGraphCard/PerformanceGraphCard.jsx`
+- **File**: `frontend\src\components\PerformanceGraphCard\PerformanceGraphCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6906,7 +6906,7 @@ export default function Example() {
 ```
 ---
 ## PlaceholderContent (`COMP_PLACEHOLDERCONTENT`)
-- **File**: `frontend/src/ui-component/third-party/dropzone/PlaceHolderContent.jsx`
+- **File**: `frontend\src\ui-component\third-party\dropzone\PlaceHolderContent.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6929,7 +6929,7 @@ export default function Example() {
 ```
 ---
 ## PopularCard (`COMP_POPULARCARD`)
-- **File**: `frontend/src/views/dashboard/Default/PopularCard.jsx`
+- **File**: `frontend\src\ui-component\cards\Skeleton\PopularCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6940,7 +6940,7 @@ export default function Example() {
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import PopularCard from "views/dashboard/Default/PopularCard";
+import PopularCard from "ui-component/cards/Skeleton/PopularCard";
 
 export default function Example() {
   return (
@@ -6952,7 +6952,7 @@ export default function Example() {
 ```
 ---
 ## PopupSlider (`COMP_POPUPSLIDER`)
-- **File**: `frontend/src/views/forms/components/Slider/PopupSlider.jsx`
+- **File**: `frontend\src\views\forms\components\Slider\PopupSlider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6972,7 +6972,7 @@ export default function Example() {
 ```
 ---
 ## PortfolioBar (`COMP_PORTFOLIOBAR`)
-- **File**: `frontend/src/components/old/PortfolioBar.jsx`
+- **File**: `frontend\src\components\old\PortfolioBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -6992,7 +6992,7 @@ export default function Example() {
 ```
 ---
 ## PortfolioSessionCard (`COMP_PORTFOLIOSESSIONCARD`)
-- **File**: `frontend/src/components/PortfolioSessionCard/PortfolioSessionCard.jsx`
+- **File**: `frontend\src\components\PortfolioSessionCard\PortfolioSessionCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7021,7 +7021,7 @@ export default function Example() {
 ```
 ---
 ## PositioningSnackbar (`COMP_POSITIONINGSNACKBAR`)
-- **File**: `frontend/src/ui-component/extended/notistack/PositioningSnackbar.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\PositioningSnackbar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7041,7 +7041,7 @@ export default function Example() {
 ```
 ---
 ## PositionListCard (`COMP_POSITIONLISTCARD`)
-- **File**: `frontend/src/components/PositionListCard/PositionListCard.jsx`
+- **File**: `frontend\src\components\PositionListCard\PositionListCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7064,7 +7064,7 @@ export default function Example() {
 ```
 ---
 ## PositionPieCard (`COMP_POSITIONPIECARD`)
-- **File**: `frontend/src/components/PositionPieCard/PositionPieCard.jsx`
+- **File**: `frontend\src\components\PositionPieCard\PositionPieCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7089,7 +7089,7 @@ export default function Example() {
 ```
 ---
 ## PositionsCell (`COMP_POSITIONSCELL`)
-- **File**: `frontend/src/ui-component/wallet/WalletTable.jsx`
+- **File**: `frontend\src\ui-component\wallet\WalletTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7109,7 +7109,7 @@ export default function Example() {
 ```
 ---
 ## PositionsPage (`COMP_POSITIONSPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -7129,7 +7129,7 @@ export default function Example() {
 ```
 ---
 ## PositionsPanel (`COMP_POSITIONSPANEL`)
-- **File**: `frontend/src/components/jupiter/Perps/PositionsPanel.jsx`
+- **File**: `frontend\src\components\jupiter\Perps\PositionsPanel.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7149,7 +7149,7 @@ export default function Example() {
 ```
 ---
 ## PositionsTable (`COMP_POSITIONSTABLE`)
-- **File**: `frontend/src/hedge-report/components/PositionsTable.tsx`
+- **File**: `frontend\src\hedge-report\components\PositionsTable.tsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7169,7 +7169,7 @@ export default function Example() {
 ```
 ---
 ## PositionsTableCard (`COMP_POSITIONSTABLECARD`)
-- **File**: `frontend/src/ui-component/cards/positions/PositionsTableCard.jsx`
+- **File**: `frontend\src\ui-component\cards\positions\PositionsTableCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7189,7 +7189,7 @@ export default function Example() {
 ```
 ---
 ## PositionTableCard (`COMP_POSITIONTABLECARD`)
-- **File**: `frontend/src/views/positions/PositionTableCard.jsx`
+- **File**: `frontend\src\views\positions\PositionTableCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7209,7 +7209,7 @@ export default function Example() {
 ```
 ---
 ## PresetColorBox (`COMP_PRESETCOLORBOX`)
-- **File**: `frontend/src/layout/Customization/PresetColor.jsx`
+- **File**: `frontend\src\layout\Customization\PresetColor.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7232,7 +7232,7 @@ export default function Example() {
 ```
 ---
 ## PresetColorPage (`COMP_PRESETCOLORPAGE`)
-- **File**: `frontend/src/layout/Customization/PresetColor.jsx`
+- **File**: `frontend\src\layout\Customization\PresetColor.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7252,7 +7252,7 @@ export default function Example() {
 ```
 ---
 ## PreventDuplicate (`COMP_PREVENTDUPLICATE`)
-- **File**: `frontend/src/ui-component/extended/notistack/PreventDuplicate.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\PreventDuplicate.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7272,7 +7272,7 @@ export default function Example() {
 ```
 ---
 ## ProductCard (`COMP_PRODUCTCARD`)
-- **File**: `frontend/src/ui-component/cards/ProductCard.jsx`
+- **File**: `frontend\src\ui-component\cards\ProductCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7307,7 +7307,7 @@ export default function Example() {
 ```
 ---
 ## ProductPlaceholder (`COMP_PRODUCTPLACEHOLDER`)
-- **File**: `frontend/src/ui-component/cards/Skeleton/ProductPlaceholder.jsx`
+- **File**: `frontend\src\ui-component\cards\Skeleton\ProductPlaceholder.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7327,7 +7327,7 @@ export default function Example() {
 ```
 ---
 ## ProductReview (`COMP_PRODUCTREVIEW`)
-- **File**: `frontend/src/ui-component/cards/ProductReview.jsx`
+- **File**: `frontend\src\ui-component\cards\ProductReview.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7360,7 +7360,7 @@ export default function Example() {
 ```
 ---
 ## ProductSales (`COMP_PRODUCTSALES`)
-- **File**: `frontend/src/views/widget/Data/ProductSales.jsx`
+- **File**: `frontend\src\views\widget\Data\ProductSales.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7380,7 +7380,7 @@ export default function Example() {
 ```
 ---
 ## ProfitEmojiIcon (`COMP_PROFITEMOJIICON`)
-- **File**: `frontend/src/views/alertThresholds/icons.jsx`
+- **File**: `frontend\src\views\alertThresholds\icons.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7400,7 +7400,7 @@ export default function Example() {
 ```
 ---
 ## ProfitMonitorCard (`COMP_PROFITMONITORCARD`)
-- **File**: `frontend/src/views/monitorManager/ProfitMonitorCard.jsx`
+- **File**: `frontend\src\views\monitorManager\ProfitMonitorCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7420,7 +7420,7 @@ export default function Example() {
 ```
 ---
 ## ProfitRiskHeaderBadges (`COMP_PROFITRISKHEADERBADGES`)
-- **File**: `frontend/src/components/ProfitRiskHeaderBadges.jsx`
+- **File**: `frontend\src\components\ProfitRiskHeaderBadges.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7440,7 +7440,7 @@ export default function Example() {
 ```
 ---
 ## ProjectTable (`COMP_PROJECTTABLE`)
-- **File**: `frontend/src/views/widget/Data/ProjectTable.jsx`
+- **File**: `frontend\src\views\widget\Data\ProjectTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7460,7 +7460,7 @@ export default function Example() {
 ```
 ---
 ## ProjectTaskCard (`COMP_PROJECTTASKCARD`)
-- **File**: `frontend/src/views/widget/Statistics/ProjectTaskCard.jsx`
+- **File**: `frontend\src\views\widget\Statistics\ProjectTaskCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7480,7 +7480,7 @@ export default function Example() {
 ```
 ---
 ## ProviderAccordion (`COMP_PROVIDERACCORDION`)
-- **File**: `frontend/src/views/xcomSettings/components/ProviderAccordion.jsx`
+- **File**: `frontend\src\views\xcomSettings\components\ProviderAccordion.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7500,7 +7500,7 @@ export default function Example() {
 ```
 ---
 ## QuickFilter (`COMP_QUICKFILTER`)
-- **File**: `frontend/src/views/forms/data-grid/QuickFilter/index.jsx`
+- **File**: `frontend\src\views\forms\data-grid\QuickFilter\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7520,7 +7520,7 @@ export default function Example() {
 ```
 ---
 ## QuickFilteringCustomLogic (`COMP_QUICKFILTERINGCUSTOMLOGIC`)
-- **File**: `frontend/src/views/forms/data-grid/QuickFilter/CustomFilter.jsx`
+- **File**: `frontend\src\views\forms\data-grid\QuickFilter\CustomFilter.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7540,7 +7540,7 @@ export default function Example() {
 ```
 ---
 ## QuickFilteringInitialize (`COMP_QUICKFILTERINGINITIALIZE`)
-- **File**: `frontend/src/views/forms/data-grid/QuickFilter/Initialize.jsx`
+- **File**: `frontend\src\views\forms\data-grid\QuickFilter\Initialize.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7560,7 +7560,7 @@ export default function Example() {
 ```
 ---
 ## QuickImportStarWars (`COMP_QUICKIMPORTSTARWARS`)
-- **File**: `frontend/src/views/traderShop/QuickImportStarWars.jsx`
+- **File**: `frontend\src\views\traderShop\QuickImportStarWars.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7580,7 +7580,7 @@ export default function Example() {
 ```
 ---
 ## QuoteCard (`COMP_QUOTECARD`)
-- **File**: `frontend/src/views/jupiter/JupiterPage.jsx`
+- **File**: `frontend\src\views\jupiter\JupiterPage.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7600,7 +7600,7 @@ export default function Example() {
 ```
 ---
 ## RadioGroupForms (`COMP_RADIOGROUPFORMS`)
-- **File**: `frontend/src/views/forms/forms-validation/RadioGroupForms.jsx`
+- **File**: `frontend\src\views\forms\forms-validation\RadioGroupForms.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7620,7 +7620,7 @@ export default function Example() {
 ```
 ---
 ## RatingEditInputCell (`COMP_RATINGEDITINPUTCELL`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/CustomEdit.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\CustomEdit.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7640,7 +7640,7 @@ export default function Example() {
 ```
 ---
 ## RecaptchaPage (`COMP_RECAPTCHAPAGE`)
-- **File**: `frontend/src/views/forms/plugins/Recaptcha.jsx`
+- **File**: `frontend\src\views\forms\plugins\Recaptcha.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7660,7 +7660,7 @@ export default function Example() {
 ```
 ---
 ## RecentTickets (`COMP_RECENTTICKETS`)
-- **File**: `frontend/src/views/widget/Data/RecentTickets.jsx`
+- **File**: `frontend\src\views\widget\Data\RecentTickets.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7680,7 +7680,7 @@ export default function Example() {
 ```
 ---
 ## Register (`COMP_REGISTER`)
-- **File**: `frontend/src/views/pages/authentication/Register.jsx`
+- **File**: `frontend\src\views\pages\authentication\Register.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7700,7 +7700,7 @@ export default function Example() {
 ```
 ---
 ## RejectionFiles (`COMP_REJECTIONFILES`)
-- **File**: `frontend/src/ui-component/third-party/dropzone/RejectionFile.jsx`
+- **File**: `frontend\src\ui-component\third-party\dropzone\RejectionFile.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7723,7 +7723,7 @@ export default function Example() {
 ```
 ---
 ## ReorderMenu (`COMP_REORDERMENU`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnMenu/ReorderingMenu.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnMenu\ReorderingMenu.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7743,7 +7743,7 @@ export default function Example() {
 ```
 ---
 ## ReportCard (`COMP_REPORTCARD`)
-- **File**: `frontend/src/ui-component/cards/ReportCard.jsx`
+- **File**: `frontend\src\ui-component\cards\ReportCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7766,7 +7766,7 @@ export default function Example() {
 ```
 ---
 ## ResetPassword (`COMP_RESETPASSWORD`)
-- **File**: `frontend/src/views/pages/authentication/ResetPassword.jsx`
+- **File**: `frontend\src\views\pages\authentication\ResetPassword.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7786,7 +7786,7 @@ export default function Example() {
 ```
 ---
 ## RevenueCard (`COMP_REVENUECARD`)
-- **File**: `frontend/src/ui-component/cards/RevenueCard.jsx`
+- **File**: `frontend\src\ui-component\cards\RevenueCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7817,7 +7817,7 @@ export default function Example() {
 ```
 ---
 ## RevenueChartCard (`COMP_REVENUECHARTCARD`)
-- **File**: `frontend/src/views/widget/Chart/RevenueChartCard.jsx`
+- **File**: `frontend\src\views\widget\Chart\RevenueChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7840,7 +7840,7 @@ export default function Example() {
 ```
 ---
 ## Review (`COMP_REVIEW`)
-- **File**: `frontend/src/views/forms/forms-wizard/BasicWizard/Review.jsx`
+- **File**: `frontend\src\views\forms\forms-wizard\BasicWizard\Review.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7860,7 +7860,7 @@ export default function Example() {
 ```
 ---
 ## RoundIconCard (`COMP_ROUNDICONCARD`)
-- **File**: `frontend/src/ui-component/cards/RoundIconCard.jsx`
+- **File**: `frontend\src\ui-component\cards\RoundIconCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7893,7 +7893,7 @@ export default function Example() {
 ```
 ---
 ## Row (`COMP_ROW`)
-- **File**: `frontend/src/views/forms/tables/TableCollapsible.jsx`
+- **File**: `frontend\src\views\forms\tables\TableCollapsible.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7916,7 +7916,7 @@ export default function Example() {
 ```
 ---
 ## RTLLayout (`COMP_RTLLAYOUT`)
-- **File**: `frontend/src/ui-component/RTLLayout.jsx`
+- **File**: `frontend\src\ui-component\RTLLayout.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7939,7 +7939,7 @@ export default function Example() {
 ```
 ---
 ## SalesLineChartCard (`COMP_SALESLINECHARTCARD`)
-- **File**: `frontend/src/ui-component/cards/SalesLineChartCard.jsx`
+- **File**: `frontend\src\ui-component\cards\SalesLineChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7972,7 +7972,7 @@ export default function Example() {
 ```
 ---
 ## SatisfactionChartCard (`COMP_SATISFACTIONCHARTCARD`)
-- **File**: `frontend/src/views/widget/Chart/SatisfactionChartCard.jsx`
+- **File**: `frontend\src\views\widget\Chart\SatisfactionChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -7995,7 +7995,7 @@ export default function Example() {
 ```
 ---
 ## SaveRestoreState (`COMP_SAVERESTORESTATE`)
-- **File**: `frontend/src/views/forms/data-grid/SaveRestoreState/index.jsx`
+- **File**: `frontend\src\views\forms\data-grid\SaveRestoreState\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8015,7 +8015,7 @@ export default function Example() {
 ```
 ---
 ## SearchSection (`COMP_SEARCHSECTION`)
-- **File**: `frontend/src/layout/MainLayout/Header/SearchSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\SearchSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8035,8 +8035,8 @@ export default function Example() {
 ```
 ---
 ## Section (`COMP_SECTION`)
-- **File**: `frontend/src/views/sonic/index_BU.jsx`
-- **Used by routes**: _not referenced directly by a route_
+- **File**: `frontend\src\views\sonic\index.jsx`
+- **Used by routes**: `/sonic`
 
 **Props**
 _No props documented._
@@ -8044,7 +8044,7 @@ _No props documented._
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import Section from "views/sonic/index_BU";
+import Section from "views/sonic/index";
 
 export default function Example() {
   return (
@@ -8055,7 +8055,7 @@ export default function Example() {
 ```
 ---
 ## SelectEditInputCell (`COMP_SELECTEDITINPUTCELL`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/AutoStop.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\AutoStop.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8075,7 +8075,7 @@ export default function Example() {
 ```
 ---
 ## SelectForms (`COMP_SELECTFORMS`)
-- **File**: `frontend/src/views/forms/forms-validation/SelectForms.jsx`
+- **File**: `frontend\src\views\forms\forms-validation\SelectForms.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8095,7 +8095,7 @@ export default function Example() {
 ```
 ---
 ## SendCard (`COMP_SENDCARD`)
-- **File**: `frontend/src/views/jupiter/JupiterPage.jsx`
+- **File**: `frontend\src\views\jupiter\JupiterPage.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8115,7 +8115,7 @@ export default function Example() {
 ```
 ---
 ## SeoChartCard (`COMP_SEOCHARTCARD`)
-- **File**: `frontend/src/ui-component/cards/SeoChartCard.jsx`
+- **File**: `frontend\src\ui-component\cards\SeoChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8146,7 +8146,7 @@ export default function Example() {
 ```
 ---
 ## ServerModal (`COMP_SERVERMODAL`)
-- **File**: `frontend/src/views/forms/plugins/Modal/ServerModal.jsx`
+- **File**: `frontend\src\views\forms\plugins\Modal\ServerModal.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8166,7 +8166,7 @@ export default function Example() {
 ```
 ---
 ## ServerSidePersistence (`COMP_SERVERSIDEPERSISTENCE`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/ServerValidation.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\ServerValidation.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8186,7 +8186,7 @@ export default function Example() {
 ```
 ---
 ## SettingsSection (`COMP_SETTINGSSECTION`)
-- **File**: `frontend/src/layout/MainLayout/Header/SettingsSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\SettingsSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8206,7 +8206,7 @@ export default function Example() {
 ```
 ---
 ## ShadowBox (`COMP_SHADOWBOX`)
-- **File**: `frontend/src/views/utilities/Shadow.jsx`
+- **File**: `frontend\src\views\utilities\Shadow.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8229,7 +8229,7 @@ export default function Example() {
 ```
 ---
 ## Sidebar (`COMP_SIDEBAR`)
-- **File**: `frontend/src/layout/MainLayout/Sidebar/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Sidebar\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8249,7 +8249,7 @@ export default function Example() {
 ```
 ---
 ## SidebarDrawer (`COMP_SIDEBARDRAWER`)
-- **File**: `frontend/src/layout/Customization/SidebarDrawer.jsx`
+- **File**: `frontend\src\layout\Customization\SidebarDrawer.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8269,7 +8269,7 @@ export default function Example() {
 ```
 ---
 ## SideIconCard (`COMP_SIDEICONCARD`)
-- **File**: `frontend/src/ui-component/cards/SideIconCard.jsx`
+- **File**: `frontend\src\ui-component\cards\SideIconCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8302,7 +8302,7 @@ export default function Example() {
 ```
 ---
 ## SidePanelWidthSlider (`COMP_SIDEPANELWIDTHSLIDER`)
-- **File**: `frontend/src/views/positions/SidePanelWidthSlider.jsx`
+- **File**: `frontend\src\views\positions\SidePanelWidthSlider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8322,7 +8322,7 @@ export default function Example() {
 ```
 ---
 ## SimpleModal (`COMP_SIMPLEMODAL`)
-- **File**: `frontend/src/views/forms/plugins/Modal/SimpleModal.jsx`
+- **File**: `frontend\src\views\forms\plugins\Modal\SimpleModal.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8342,7 +8342,7 @@ export default function Example() {
 ```
 ---
 ## SimpleTree (`COMP_SIMPLETREE`)
-- **File**: `frontend/src/views/forms/chart/OrgChart/index.jsx`
+- **File**: `frontend\src\views\forms\chart\OrgChart\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8365,7 +8365,7 @@ export default function Example() {
 ```
 ---
 ## SingleFileUpload (`COMP_SINGLEFILEUPLOAD`)
-- **File**: `frontend/src/ui-component/third-party/dropzone/SingleFile.jsx`
+- **File**: `frontend\src\ui-component\third-party\dropzone\SingleFile.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8396,7 +8396,7 @@ export default function Example() {
 ```
 ---
 ## SkypeIcon (`COMP_SKYPEICON`)
-- **File**: `frontend/src/views/forms/chart/OrgChart/SkypeIcon.jsx`
+- **File**: `frontend\src\views\forms\chart\OrgChart\SkypeIcon.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8416,7 +8416,7 @@ export default function Example() {
 ```
 ---
 ## Slider (`COMP_SLIDER`)
-- **File**: `frontend/src/views/forms/components/Slider/index.jsx`
+- **File**: `frontend\src\views\forms\components\Slider\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8436,7 +8436,7 @@ export default function Example() {
 ```
 ---
 ## Snackbar (`COMP_SNACKBAR`)
-- **File**: `frontend/src/ui-component/extended/Snackbar.jsx`
+- **File**: `frontend\src\ui-component\extended\Snackbar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8456,7 +8456,7 @@ export default function Example() {
 ```
 ---
 ## SnackBarAction (`COMP_SNACKBARACTION`)
-- **File**: `frontend/src/ui-component/extended/notistack/SnackBarAction.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\SnackBarAction.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8476,7 +8476,7 @@ export default function Example() {
 ```
 ---
 ## Sonic (`COMP_SONIC`)
-- **File**: `frontend/src/views/sonic/index.jsx`
+- **File**: `frontend\src\views\sonic\index.jsx`
 - **Used by routes**: `/sonic`
 
 **Props**
@@ -8496,7 +8496,7 @@ export default function Example() {
 ```
 ---
 ## SonicLabsPage (`COMP_SONICLABSPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -8516,7 +8516,7 @@ export default function Example() {
 ```
 ---
 ## SonicMonitorCard (`COMP_SONICMONITORCARD`)
-- **File**: `frontend/src/views/monitorManager/SonicMonitorCard.jsx`
+- **File**: `frontend\src\views\monitorManager\SonicMonitorCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8536,7 +8536,7 @@ export default function Example() {
 ```
 ---
 ## SpacingGrid (`COMP_SPACINGGRID`)
-- **File**: `frontend/src/views/utilities/Grid/SpacingGrid.jsx`
+- **File**: `frontend\src\views\utilities\Grid\SpacingGrid.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8556,7 +8556,7 @@ export default function Example() {
 ```
 ---
 ## StartEditButtonGrid (`COMP_STARTEDITBUTTONGRID`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/Controlled.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\Controlled.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8576,7 +8576,7 @@ export default function Example() {
 ```
 ---
 ## StatCard (`COMP_STATCARD`)
-- **File**: `frontend/src/components/old/StatCard.jsx`
+- **File**: `frontend\src\components\old\StatCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8609,7 +8609,7 @@ export default function Example() {
 ```
 ---
 ## StatusCard (`COMP_STATUSCARD`)
-- **File**: `frontend/src/ui-component/status-rail/StatusCard.jsx`
+- **File**: `frontend\src\ui-component\status-rail\StatusCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8640,7 +8640,7 @@ export default function Example() {
 ```
 ---
 ## StatusCell (`COMP_STATUSCELL`)
-- **File**: `frontend/src/ui-component/wallet/WalletTable.jsx`
+- **File**: `frontend\src\ui-component\wallet\WalletTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8660,7 +8660,7 @@ export default function Example() {
 ```
 ---
 ## StatusRail (`COMP_STATUSRAIL`)
-- **File**: `frontend/src/components/StatusRail/StatusRail.jsx`
+- **File**: `frontend\src\components\StatusRail\StatusRail.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8683,7 +8683,7 @@ export default function Example() {
 ```
 ---
 ## StepCard (`COMP_STEPCARD`)
-- **File**: `frontend/src/views/sonicLabs/SonicLabsPage.jsx`
+- **File**: `frontend\src\views\sonicLabs\SonicLabsPage.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8703,7 +8703,7 @@ export default function Example() {
 ```
 ---
 ## StepSlider (`COMP_STEPSLIDER`)
-- **File**: `frontend/src/views/forms/components/Slider/StepSlider.jsx`
+- **File**: `frontend\src\views\forms\components\Slider\StepSlider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8723,7 +8723,7 @@ export default function Example() {
 ```
 ---
 ## StickyActionBar (`COMP_STICKYACTIONBAR`)
-- **File**: `frontend/src/views/forms/layouts/StickyActionBar.jsx`
+- **File**: `frontend\src\views\forms\layouts\StickyActionBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8743,7 +8743,7 @@ export default function Example() {
 ```
 ---
 ## StickyHeadTable (`COMP_STICKYHEADTABLE`)
-- **File**: `frontend/src/views/forms/tables/TableStickyHead.jsx`
+- **File**: `frontend\src\views\forms\tables\TableStickyHead.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8763,7 +8763,7 @@ export default function Example() {
 ```
 ---
 ## StoryComment (`COMP_STORYCOMMENT`)
-- **File**: `frontend/src/views/kanban/Backlogs/StoryComment.jsx`
+- **File**: `frontend\src\views\kanban\Backlogs\StoryComment.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8786,7 +8786,7 @@ export default function Example() {
 ```
 ---
 ## SubCard (`COMP_SUBCARD`)
-- **File**: `frontend/src/ui-component/cards/SubCard.jsx`
+- **File**: `frontend\src\ui-component\cards\SubCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8825,7 +8825,7 @@ export default function Example() {
 ```
 ---
 ## SupabaseLogin (`COMP_SUPABASELOGIN`)
-- **File**: `frontend/src/views/pages/authentication/supabase/AuthLogin.jsx`
+- **File**: `frontend\src\views\pages\authentication\supabase\AuthLogin.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8845,7 +8845,7 @@ export default function Example() {
 ```
 ---
 ## SupabaseRegister (`COMP_SUPABASEREGISTER`)
-- **File**: `frontend/src/views/pages/authentication/supabase/AuthRegister.jsx`
+- **File**: `frontend\src\views\pages\authentication\supabase\AuthRegister.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8865,7 +8865,7 @@ export default function Example() {
 ```
 ---
 ## SupabseProvider (`COMP_SUPABSEPROVIDER`)
-- **File**: `frontend/src/contexts/SupabaseContext.jsx`
+- **File**: `frontend\src\contexts\SupabaseContext.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8888,7 +8888,7 @@ export default function Example() {
 ```
 ---
 ## SwapsTab (`COMP_SWAPSTAB`)
-- **File**: `frontend/src/views/jupiter/JupiterPage.jsx`
+- **File**: `frontend\src\views\jupiter\JupiterPage.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8908,7 +8908,7 @@ export default function Example() {
 ```
 ---
 ## TableBasic (`COMP_TABLEBASIC`)
-- **File**: `frontend/src/views/forms/tables/TableBasic.jsx`
+- **File**: `frontend\src\views\forms\tables\TableBasic.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8928,7 +8928,7 @@ export default function Example() {
 ```
 ---
 ## TableCollapsible (`COMP_TABLECOLLAPSIBLE`)
-- **File**: `frontend/src/views/forms/tables/TableCollapsible.jsx`
+- **File**: `frontend\src\views\forms\tables\TableCollapsible.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8948,7 +8948,7 @@ export default function Example() {
 ```
 ---
 ## TableDataGrid (`COMP_TABLEDATAGRID`)
-- **File**: `frontend/src/views/forms/data-grid/DataGridBasic/index.jsx`
+- **File**: `frontend\src\views\forms\data-grid\DataGridBasic\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8971,7 +8971,7 @@ export default function Example() {
 ```
 ---
 ## TasksCard (`COMP_TASKSCARD`)
-- **File**: `frontend/src/views/widget/Data/TasksCard.jsx`
+- **File**: `frontend\src\views\widget\Data\TasksCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -8991,7 +8991,7 @@ export default function Example() {
 ```
 ---
 ## TeamMembers (`COMP_TEAMMEMBERS`)
-- **File**: `frontend/src/views/widget/Data/TeamMembers.jsx`
+- **File**: `frontend\src\views\widget\Data\TeamMembers.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9011,7 +9011,7 @@ export default function Example() {
 ```
 ---
 ## TextFieldPage (`COMP_TEXTFIELDPAGE`)
-- **File**: `frontend/src/views/forms/components/TextField.jsx`
+- **File**: `frontend\src\views\forms\components\TextField.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9031,7 +9031,7 @@ export default function Example() {
 ```
 ---
 ## ThemeCustomization (`COMP_THEMECUSTOMIZATION`)
-- **File**: `frontend/src/themes/index.jsx`
+- **File**: `frontend\src\themes\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9054,7 +9054,7 @@ export default function Example() {
 ```
 ---
 ## ThemeModeLayout (`COMP_THEMEMODELAYOUT`)
-- **File**: `frontend/src/layout/Customization/ThemeMode.jsx`
+- **File**: `frontend\src\layout\Customization\ThemeMode.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9074,7 +9074,7 @@ export default function Example() {
 ```
 ---
 ## ThemeModeSection (`COMP_THEMEMODESECTION`)
-- **File**: `frontend/src/layout/MainLayout/Header/ThemeModeSection/index.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\ThemeModeSection\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9094,7 +9094,7 @@ export default function Example() {
 ```
 ---
 ## ThresholdsTable (`COMP_THRESHOLDSTABLE`)
-- **File**: `frontend/src/views/alertThresholds/ThresholdsTable.jsx`
+- **File**: `frontend\src\views\alertThresholds\ThresholdsTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9114,7 +9114,7 @@ export default function Example() {
 ```
 ---
 ## ThresholdTable (`COMP_THRESHOLDTABLE`)
-- **File**: `frontend/src/ui-component/thresholds/ThresholdTable.jsx`
+- **File**: `frontend\src\ui-component\thresholds\ThresholdTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9134,7 +9134,7 @@ export default function Example() {
 ```
 ---
 ## TimerSection (`COMP_TIMERSECTION`)
-- **File**: `frontend/src/layout/MainLayout/Header/TimerSection/TimerSection.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\TimerSection\TimerSection.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9154,7 +9154,7 @@ export default function Example() {
 ```
 ---
 ## ToDoList (`COMP_TODOLIST`)
-- **File**: `frontend/src/views/widget/Data/ToDoList.jsx`
+- **File**: `frontend\src\views\widget\Data\ToDoList.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9174,7 +9174,7 @@ export default function Example() {
 ```
 ---
 ## Toolbar (`COMP_TOOLBAR`)
-- **File**: `frontend/src/views/forms/data-grid/SaveRestoreState/UseGridSelector.jsx`
+- **File**: `frontend\src\views\forms\data-grid\SaveRestoreState\UseGridSelector.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9194,7 +9194,7 @@ export default function Example() {
 ```
 ---
 ## Tooltip (`COMP_TOOLTIP`)
-- **File**: `frontend/src/views/forms/plugins/Tooltip.jsx`
+- **File**: `frontend\src\views\forms\plugins\Tooltip.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9214,7 +9214,7 @@ export default function Example() {
 ```
 ---
 ## TopCell (`COMP_TOPCELL`)
-- **File**: `frontend/src/ui-component/wallet/WalletTable.jsx`
+- **File**: `frontend\src\ui-component\wallet\WalletTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9234,7 +9234,7 @@ export default function Example() {
 ```
 ---
 ## TopTokensChips (`COMP_TOPTOKENSCHIPS`)
-- **File**: `frontend/src/components/wallets/VerifiedCells.jsx`
+- **File**: `frontend\src\components\wallets\VerifiedCells.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9254,7 +9254,7 @@ export default function Example() {
 ```
 ---
 ## TotalGrowthBarChart (`COMP_TOTALGROWTHBARCHART`)
-- **File**: `frontend/src/views/dashboard/Default/TotalGrowthBarChart.jsx`
+- **File**: `frontend\src\ui-component\cards\Skeleton\TotalGrowthBarChart.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9265,7 +9265,7 @@ export default function Example() {
 **Example**
 ```jsx
 // Adjust import per your alias setup (e.g., "@/...")
-import TotalGrowthBarChart from "views/dashboard/Default/TotalGrowthBarChart";
+import TotalGrowthBarChart from "ui-component/cards/Skeleton/TotalGrowthBarChart";
 
 export default function Example() {
   return (
@@ -9277,7 +9277,7 @@ export default function Example() {
 ```
 ---
 ## TotalIncomeCard (`COMP_TOTALINCOMECARD`)
-- **File**: `frontend/src/ui-component/cards/Skeleton/TotalIncomeCard.jsx`
+- **File**: `frontend\src\ui-component\cards\Skeleton\TotalIncomeCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9297,7 +9297,7 @@ export default function Example() {
 ```
 ---
 ## TotalIncomeDarkCard (`COMP_TOTALINCOMEDARKCARD`)
-- **File**: `frontend/src/ui-component/cards/TotalIncomeDarkCard.jsx`
+- **File**: `frontend\src\ui-component\cards\TotalIncomeDarkCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9320,7 +9320,7 @@ export default function Example() {
 ```
 ---
 ## TotalIncomeLightCard (`COMP_TOTALINCOMELIGHTCARD`)
-- **File**: `frontend/src/ui-component/cards/TotalIncomeLightCard.jsx`
+- **File**: `frontend\src\ui-component\cards\TotalIncomeLightCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9343,7 +9343,7 @@ export default function Example() {
 ```
 ---
 ## TotalLineChartCard (`COMP_TOTALLINECHARTCARD`)
-- **File**: `frontend/src/ui-component/cards/TotalLineChartCard.jsx`
+- **File**: `frontend\src\ui-component\cards\TotalLineChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9374,7 +9374,7 @@ export default function Example() {
 ```
 ---
 ## TotalOrderLineChartCard (`COMP_TOTALORDERLINECHARTCARD`)
-- **File**: `frontend/src/views/dashboard/Default/TotalOrderLineChartCard.jsx`
+- **File**: `frontend\src\views\dashboard\Default\TotalOrderLineChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9397,7 +9397,7 @@ export default function Example() {
 ```
 ---
 ## TotalRevenue (`COMP_TOTALREVENUE`)
-- **File**: `frontend/src/views/widget/Data/TotalRevenue.jsx`
+- **File**: `frontend\src\views\widget\Data\TotalRevenue.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9417,7 +9417,7 @@ export default function Example() {
 ```
 ---
 ## TotalValueCard (`COMP_TOTALVALUECARD`)
-- **File**: `frontend/src/ui-component/cards/TotalValueCard.jsx`
+- **File**: `frontend\src\ui-component\cards\TotalValueCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9448,7 +9448,7 @@ export default function Example() {
 ```
 ---
 ## TraderBar (`COMP_TRADERBAR`)
-- **File**: `frontend/src/views/traderFactory/TraderBar.jsx`
+- **File**: `frontend\src\views\traderFactory\TraderBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9468,7 +9468,7 @@ export default function Example() {
 ```
 ---
 ## TraderCard (`COMP_TRADERCARD`)
-- **File**: `frontend/src/views/traderFactory/TraderCard.jsx`
+- **File**: `frontend\src\views\traderFactory\TraderCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9493,7 +9493,7 @@ export default function Example() {
 ```
 ---
 ## TraderEnhancedTable (`COMP_TRADERENHANCEDTABLE`)
-- **File**: `frontend/src/views/traderShop/TraderEnhancedTable.jsx`
+- **File**: `frontend\src\views\traderShop\TraderEnhancedTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9518,7 +9518,7 @@ export default function Example() {
 ```
 ---
 ## TraderEnhancedTableHead (`COMP_TRADERENHANCEDTABLEHEAD`)
-- **File**: `frontend/src/views/traderShop/TraderEnhancedTable.jsx`
+- **File**: `frontend\src\views\traderShop\TraderEnhancedTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9538,7 +9538,7 @@ export default function Example() {
 ```
 ---
 ## TraderFactoryPage (`COMP_TRADERFACTORYPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -9558,7 +9558,7 @@ export default function Example() {
 ```
 ---
 ## TraderFormDrawer (`COMP_TRADERFORMDRAWER`)
-- **File**: `frontend/src/views/traderShop/TraderFormDrawer.jsx`
+- **File**: `frontend\src\views\traderShop\TraderFormDrawer.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9585,7 +9585,7 @@ export default function Example() {
 ```
 ---
 ## TraderListCard (`COMP_TRADERLISTCARD`)
-- **File**: `frontend/src/components/TraderListCard/TraderListCard.jsx`
+- **File**: `frontend\src\components\TraderListCard\TraderListCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9608,7 +9608,7 @@ export default function Example() {
 ```
 ---
 ## TraderShopIndex (`COMP_TRADERSHOPINDEX`)
-- **File**: `frontend/src/routes/TraderShopRoutes.jsx`
+- **File**: `frontend\src\routes\TraderShopRoutes.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9628,7 +9628,7 @@ export default function Example() {
 ```
 ---
 ## TraderShopList (`COMP_TRADERSHOPLIST`)
-- **File**: `frontend/src/views/traderShop/TraderShopList.jsx`
+- **File**: `frontend\src\views\traderShop\TraderShopList.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9648,7 +9648,7 @@ export default function Example() {
 ```
 ---
 ## TrafficSources (`COMP_TRAFFICSOURCES`)
-- **File**: `frontend/src/views/widget/Data/TrafficSources.jsx`
+- **File**: `frontend\src\views\widget\Data\TrafficSources.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9668,7 +9668,7 @@ export default function Example() {
 ```
 ---
 ## TransactionCard (`COMP_TRANSACTIONCARD`)
-- **File**: `frontend/src/views/jupiter/JupiterPage.jsx`
+- **File**: `frontend\src\views\jupiter\JupiterPage.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9688,7 +9688,7 @@ export default function Example() {
 ```
 ---
 ## TransitionBar (`COMP_TRANSITIONBAR`)
-- **File**: `frontend/src/ui-component/extended/notistack/TransitionBar.jsx`
+- **File**: `frontend\src\ui-component\extended\notistack\TransitionBar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9708,7 +9708,7 @@ export default function Example() {
 ```
 ---
 ## Transitions (`COMP_TRANSITIONS`)
-- **File**: `frontend/src/ui-component/extended/Transitions.jsx`
+- **File**: `frontend\src\ui-component\extended\Transitions.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9741,7 +9741,7 @@ export default function Example() {
 ```
 ---
 ## TransitionSlideDown (`COMP_TRANSITIONSLIDEDOWN`)
-- **File**: `frontend/src/ui-component/extended/Snackbar.jsx`
+- **File**: `frontend\src\ui-component\extended\Snackbar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9761,7 +9761,7 @@ export default function Example() {
 ```
 ---
 ## TransitionSlideLeft (`COMP_TRANSITIONSLIDELEFT`)
-- **File**: `frontend/src/ui-component/extended/Snackbar.jsx`
+- **File**: `frontend\src\ui-component\extended\Snackbar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9781,7 +9781,7 @@ export default function Example() {
 ```
 ---
 ## TransitionSlideRight (`COMP_TRANSITIONSLIDERIGHT`)
-- **File**: `frontend/src/ui-component/extended/Snackbar.jsx`
+- **File**: `frontend\src\ui-component\extended\Snackbar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9801,7 +9801,7 @@ export default function Example() {
 ```
 ---
 ## TransitionSlideUp (`COMP_TRANSITIONSLIDEUP`)
-- **File**: `frontend/src/ui-component/extended/Snackbar.jsx`
+- **File**: `frontend\src\ui-component\extended\Snackbar.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9821,7 +9821,7 @@ export default function Example() {
 ```
 ---
 ## TreeCard (`COMP_TREECARD`)
-- **File**: `frontend/src/views/forms/chart/OrgChart/index.jsx`
+- **File**: `frontend\src\views\forms\chart\OrgChart\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9844,7 +9844,7 @@ export default function Example() {
 ```
 ---
 ## Typography (`COMP_TYPOGRAPHY`)
-- **File**: `frontend/src/themes/typography.jsx`
+- **File**: `frontend\src\themes\typography.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9864,7 +9864,7 @@ export default function Example() {
 ```
 ---
 ## UIButton (`COMP_UIBUTTON`)
-- **File**: `frontend/src/views/forms/components/Button.jsx`
+- **File**: `frontend\src\views\forms\components\Button.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9884,7 +9884,7 @@ export default function Example() {
 ```
 ---
 ## UICheckbox (`COMP_UICHECKBOX`)
-- **File**: `frontend/src/views/forms/components/Checkbox.jsx`
+- **File**: `frontend\src\views\forms\components\Checkbox.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9904,7 +9904,7 @@ export default function Example() {
 ```
 ---
 ## UIColor (`COMP_UICOLOR`)
-- **File**: `frontend/src/views/utilities/Color.jsx`
+- **File**: `frontend\src\views\utilities\Color.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9924,7 +9924,7 @@ export default function Example() {
 ```
 ---
 ## UIRadio (`COMP_UIRADIO`)
-- **File**: `frontend/src/views/forms/components/Radio.jsx`
+- **File**: `frontend\src\views\forms\components\Radio.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9944,7 +9944,7 @@ export default function Example() {
 ```
 ---
 ## UISwitch (`COMP_UISWITCH`)
-- **File**: `frontend/src/views/forms/components/Switch.jsx`
+- **File**: `frontend\src\views\forms\components\Switch.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9964,7 +9964,7 @@ export default function Example() {
 ```
 ---
 ## UnderConstruction (`COMP_UNDERCONSTRUCTION`)
-- **File**: `frontend/src/views/pages/maintenance/UnderConstruction.jsx`
+- **File**: `frontend\src\views\pages\maintenance\UnderConstruction.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -9984,7 +9984,7 @@ export default function Example() {
 ```
 ---
 ## UpgradePlanCard (`COMP_UPGRADEPLANCARD`)
-- **File**: `frontend/src/layout/MainLayout/Header/SettingsSection/UpgradePlanCard.jsx`
+- **File**: `frontend\src\layout\MainLayout\Header\SettingsSection\UpgradePlanCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10004,7 +10004,7 @@ export default function Example() {
 ```
 ---
 ## UseGridSelector (`COMP_USEGRIDSELECTOR`)
-- **File**: `frontend/src/views/forms/data-grid/SaveRestoreState/UseGridSelector.jsx`
+- **File**: `frontend\src\views\forms\data-grid\SaveRestoreState\UseGridSelector.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10024,7 +10024,7 @@ export default function Example() {
 ```
 ---
 ## UserActivity (`COMP_USERACTIVITY`)
-- **File**: `frontend/src/views/widget/Data/UserActivity.jsx`
+- **File**: `frontend\src\views\widget\Data\UserActivity.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10044,7 +10044,7 @@ export default function Example() {
 ```
 ---
 ## UserCountCard (`COMP_USERCOUNTCARD`)
-- **File**: `frontend/src/ui-component/cards/UserCountCard.jsx`
+- **File**: `frontend\src\ui-component\cards\UserCountCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10067,7 +10067,7 @@ export default function Example() {
 ```
 ---
 ## UserDetailsCard (`COMP_USERDETAILSCARD`)
-- **File**: `frontend/src/ui-component/cards/UserDetailsCard.jsx`
+- **File**: `frontend\src\ui-component\cards\UserDetailsCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10101,7 +10101,7 @@ export default function Example() {
 ```
 ---
 ## UserProfileCard (`COMP_USERPROFILECARD`)
-- **File**: `frontend/src/ui-component/cards/UserProfileCard.jsx`
+- **File**: `frontend\src\ui-component\cards\UserProfileCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10132,7 +10132,7 @@ export default function Example() {
 ```
 ---
 ## UserSimpleCard (`COMP_USERSIMPLECARD`)
-- **File**: `frontend/src/ui-component/cards/UserSimpleCard.jsx`
+- **File**: `frontend\src\ui-component\cards\UserSimpleCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10155,7 +10155,7 @@ export default function Example() {
 ```
 ---
 ## UserStory (`COMP_USERSTORY`)
-- **File**: `frontend/src/views/kanban/Backlogs/UserStory.jsx`
+- **File**: `frontend\src\views\kanban\Backlogs\UserStory.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10178,7 +10178,7 @@ export default function Example() {
 ```
 ---
 ## UtilitiesShadow (`COMP_UTILITIESSHADOW`)
-- **File**: `frontend/src/views/utilities/Shadow.jsx`
+- **File**: `frontend\src\views\utilities\Shadow.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10198,7 +10198,7 @@ export default function Example() {
 ```
 ---
 ## ValidateServerNameGrid (`COMP_VALIDATESERVERNAMEGRID`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/Validation.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\Validation.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10218,7 +10218,7 @@ export default function Example() {
 ```
 ---
 ## ValidationWizard (`COMP_VALIDATIONWIZARD`)
-- **File**: `frontend/src/views/forms/forms-wizard/ValidationWizard/index.jsx`
+- **File**: `frontend\src\views\forms\forms-wizard\ValidationWizard\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10238,7 +10238,7 @@ export default function Example() {
 ```
 ---
 ## ValueParserSetterGrid (`COMP_VALUEPARSERSETTERGRID`)
-- **File**: `frontend/src/views/forms/data-grid/InLineEditing/ParserSetter.jsx`
+- **File**: `frontend\src\views\forms\data-grid\InLineEditing\ParserSetter.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10258,7 +10258,7 @@ export default function Example() {
 ```
 ---
 ## ValueToCollateralChartCard (`COMP_VALUETOCOLLATERALCHARTCARD`)
-- **File**: `frontend/src/ui-component/cards/ValueToCollateralChartCard.jsx`
+- **File**: `frontend\src\ui-component\cards\ValueToCollateralChartCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10278,7 +10278,7 @@ export default function Example() {
 ```
 ---
 ## VerifiedCell (`COMP_VERIFIEDCELL`)
-- **File**: `frontend/src/ui-component/wallet/WalletTable.jsx`
+- **File**: `frontend\src\ui-component\wallet\WalletTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10298,7 +10298,7 @@ export default function Example() {
 ```
 ---
 ## VerifiedSolCell (`COMP_VERIFIEDSOLCELL`)
-- **File**: `frontend/src/components/wallets/VerifiedCells.jsx`
+- **File**: `frontend\src\components\wallets\VerifiedCells.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10318,7 +10318,7 @@ export default function Example() {
 ```
 ---
 ## VerifiedStatusCell (`COMP_VERIFIEDSTATUSCELL`)
-- **File**: `frontend/src/components/wallets/VerifiedCells.jsx`
+- **File**: `frontend\src\components\wallets\VerifiedCells.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10338,7 +10338,7 @@ export default function Example() {
 ```
 ---
 ## VerticalMonitorSummaryCard (`COMP_VERTICALMONITORSUMMARYCARD`)
-- **File**: `frontend/src/views/dashboard/VerticalMonitorSummaryCard.jsx`
+- **File**: `frontend\src\views\dashboard\VerticalMonitorSummaryCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10358,7 +10358,7 @@ export default function Example() {
 ```
 ---
 ## VerticalSlider (`COMP_VERTICALSLIDER`)
-- **File**: `frontend/src/views/forms/components/Slider/VerticalSlider.jsx`
+- **File**: `frontend\src\views\forms\components\Slider\VerticalSlider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10378,7 +10378,7 @@ export default function Example() {
 ```
 ---
 ## ViewOnlyAlert (`COMP_VIEWONLYALERT`)
-- **File**: `frontend/src/views/pages/authentication/ViewOnlyAlert.jsx`
+- **File**: `frontend\src\views\pages\authentication\ViewOnlyAlert.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10398,7 +10398,7 @@ export default function Example() {
 ```
 ---
 ## ViewRendererDateTime (`COMP_VIEWRENDERERDATETIME`)
-- **File**: `frontend/src/views/forms/components/DateTime/ViewRendererDateTime.jsx`
+- **File**: `frontend\src\views\forms\components\DateTime\ViewRendererDateTime.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10418,7 +10418,7 @@ export default function Example() {
 ```
 ---
 ## ViewsDateTimePicker (`COMP_VIEWSDATETIMEPICKER`)
-- **File**: `frontend/src/views/forms/components/DateTime/ViewsDateTimePicker.jsx`
+- **File**: `frontend\src\views\forms\components\DateTime\ViewsDateTimePicker.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10438,7 +10438,7 @@ export default function Example() {
 ```
 ---
 ## VisibleColumnsModelControlled (`COMP_VISIBLECOLUMNSMODELCONTROLLED`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnVisibility/ControlledVisibility.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnVisibility\ControlledVisibility.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10458,7 +10458,7 @@ export default function Example() {
 ```
 ---
 ## VisibleColumnsModelInitialState (`COMP_VISIBLECOLUMNSMODELINITIALSTATE`)
-- **File**: `frontend/src/views/forms/data-grid/ColumnVisibility/InitializeColumnVisibility.jsx`
+- **File**: `frontend\src\views\forms\data-grid\ColumnVisibility\InitializeColumnVisibility.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10478,7 +10478,7 @@ export default function Example() {
 ```
 ---
 ## VolumeSlider (`COMP_VOLUMESLIDER`)
-- **File**: `frontend/src/views/forms/components/Slider/VolumeSlider.jsx`
+- **File**: `frontend\src\views\forms\components\Slider\VolumeSlider.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10498,7 +10498,7 @@ export default function Example() {
 ```
 ---
 ## WalletCard (`COMP_WALLETCARD`)
-- **File**: `frontend/src/views/jupiter/JupiterPage.jsx`
+- **File**: `frontend\src\views\jupiter\JupiterPage.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10518,7 +10518,7 @@ export default function Example() {
 ```
 ---
 ## WalletFormModal (`COMP_WALLETFORMMODAL`)
-- **File**: `frontend/src/ui-component/wallet/WalletFormModal.jsx`
+- **File**: `frontend\src\ui-component\wallet\WalletFormModal.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10538,7 +10538,7 @@ export default function Example() {
 ```
 ---
 ## WalletManager (`COMP_WALLETMANAGER`)
-- **File**: `frontend/src/views/wallet/WalletManager.jsx`
+- **File**: `frontend\src\views\wallet\WalletManager.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10558,7 +10558,7 @@ export default function Example() {
 ```
 ---
 ## WalletManagerPage (`COMP_WALLETMANAGERPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
@@ -10578,7 +10578,7 @@ export default function Example() {
 ```
 ---
 ## WalletPieCard (`COMP_WALLETPIECARD`)
-- **File**: `frontend/src/ui-component/wallet/WalletPieCard.jsx`
+- **File**: `frontend\src\ui-component\wallet\WalletPieCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10598,7 +10598,7 @@ export default function Example() {
 ```
 ---
 ## WalletTable (`COMP_WALLETTABLE`)
-- **File**: `frontend/src/ui-component/wallet/WalletTable.jsx`
+- **File**: `frontend\src\ui-component\wallet\WalletTable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10618,7 +10618,7 @@ export default function Example() {
 ```
 ---
 ## WeatherCard (`COMP_WEATHERCARD`)
-- **File**: `frontend/src/views/widget/Statistics/WeatherCard.jsx`
+- **File**: `frontend\src\views\widget\Statistics\WeatherCard.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10638,7 +10638,7 @@ export default function Example() {
 ```
 ---
 ## WidgetData (`COMP_WIDGETDATA`)
-- **File**: `frontend/src/views/widget/Data/index.jsx`
+- **File**: `frontend\src\views\widget\Data\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10658,7 +10658,7 @@ export default function Example() {
 ```
 ---
 ## WidgetStatistics (`COMP_WIDGETSTATISTICS`)
-- **File**: `frontend/src/views/widget/Statistics/index.jsx`
+- **File**: `frontend\src\views\widget\Statistics\index.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10678,7 +10678,7 @@ export default function Example() {
 ```
 ---
 ## WrappedComponent (`COMP_WRAPPEDCOMPONENT`)
-- **File**: `frontend/src/ui-component/Loadable.jsx`
+- **File**: `frontend\src\ui-component\Loadable.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10698,7 +10698,7 @@ export default function Example() {
 ```
 ---
 ## XComSettings (`COMP_XCOMSETTINGS`)
-- **File**: `frontend/src/views/xcomSettings/XComSettings.jsx`
+- **File**: `frontend\src\views\xcomSettings\XComSettings.jsx`
 - **Used by routes**: _not referenced directly by a route_
 
 **Props**
@@ -10718,7 +10718,7 @@ export default function Example() {
 ```
 ---
 ## XComSettingsPage (`COMP_XCOMSETTINGSPAGE`)
-- **File**: `frontend/src/routes/MainRoutes.jsx`
+- **File**: `frontend\src\routes\MainRoutes.jsx`
 - **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
