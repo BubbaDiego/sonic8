@@ -261,6 +261,50 @@ def _rebuild_after_request_adopt(account_mapping: dict, request_pda_b58: str, in
         print(f"[perps] WARN: failed to derive ATA for adopted request {request_pda_b58}: {e}")
 
 
+def _sync_args_after_adopt(
+    args: Dict[str, Any],
+    *,
+    position_pk: Optional[Pubkey] = None,
+    request_pk: Optional[Pubkey] = None,
+    counter: Optional[int] = None,
+) -> None:
+    """
+    Mutates `args` in-place so any struct/flat fields that carry 'position', 'positionRequest',
+    or 'counter' mirror the adopted values. This is crucial because many Anchor programs
+    validate PDAs against the *exact* seeds you pass in your params.
+    """
+
+    def _maybe_set(container: Dict[str, Any], key: str, val: str | int) -> None:
+        if key in container:
+            container[key] = val
+
+    # Flat args
+    for k in list(args.keys()):
+        lk = k.lower()
+        if position_pk and "positionrequest" not in lk and "position" in lk and isinstance(args[k], (str, int)):
+            args[k] = str(position_pk)
+        if request_pk and "positionrequest" in lk and isinstance(args[k], (str, int)):
+            args[k] = str(request_pk)
+        if counter is not None and lk == "counter":
+            args[k] = int(counter)
+
+    # Struct payload (common in IDLs)
+    params = args.get("params")
+    if isinstance(params, dict):
+        if position_pk:
+            # common field spellings
+            for key in list(params.keys()):
+                l = key.lower()
+                if "positionrequest" not in l and "position" in l:
+                    params[key] = str(position_pk)
+        if request_pk:
+            for key in list(params.keys()):
+                if "positionrequest" in key.lower():
+                    params[key] = str(request_pk)
+        if counter is not None:
+            _maybe_set(params, "counter", int(counter))
+
+
 def _append_remaining_account(remaining: list, pk_b58: str, signer: bool = False, writable: bool = False) -> None:
     """
     Add once if not already present. Keeps order stable and never touches required accounts.
@@ -325,27 +369,46 @@ def _print_remaining_accounts(metas: list, ix_idl: dict):
 
 def _disc_from_idl(ix_idl: Dict[str, Any]) -> bytes:
     """
-    Prefer discriminator embedded in the IDL. If absent, derive the Anchor sighash
-    using a *deterministic snake_case* of the instruction name, with a special-case
-    fix for Jupiter Perps' "createIncreasePositionMarketRequest".
+    Prefer discriminator embedded in the IDL, but HARDEN for Jupiter Perps:
+      - If the instruction name looks like "createIncreasePositionMarketRequest"
+        we ALWAYS use the canonical Anchor snake-case ("create_increase_position_market_request")
+        to derive the sighash, even if the IDL carries a different/stale byte array.
+        This avoids InstructionFallbackNotFound (0x65) when the local IDL lags the on-chain program.
     """
 
+    raw_name = str(ix_idl.get("name", "")).strip()
+    n = raw_name.lower()
+
+    # Canonical for the Jupiter Increase-Request flow (most critical path for us)
+    looks_like_increase_req = (
+        "increase" in n and "position" in n and "request" in n and "market" in n
+    )
+    if looks_like_increase_req:
+        canon = "create_increase_position_market_request"
+        canon_disc = hashlib.sha256(f"global:{canon}".encode("utf-8")).digest()[:8]
+        # If IDL ships bytes and they *match*, we keep them; if they don't, we override with canonical.
+        disc = ix_idl.get("discriminant") or ix_idl.get("discriminator")
+        if isinstance(disc, dict):
+            arr = disc.get("bytes") or disc.get("value")
+            if isinstance(arr, list) and len(arr) == 8:
+                idl_disc = bytes(int(x) & 0xFF for x in arr)
+                if idl_disc == canon_disc:
+                    return idl_disc
+        elif isinstance(disc, list) and len(disc) == 8:
+            idl_disc = bytes(int(x) & 0xFF for x in disc)
+            if idl_disc == canon_disc:
+                return idl_disc
+        # Force canonical (prevents 0x65 when IDL is stale)
+        return canon_disc
+
+    # Non-increase paths: prefer IDL bytes if present, else derive from name as before.
     disc = ix_idl.get("discriminant") or ix_idl.get("discriminator")
-    # Newer Anchor: {"discriminant":{"bytes":[..8..]}} or {"discriminant":{"value":[..8..]}}
     if isinstance(disc, dict):
         arr = disc.get("bytes") or disc.get("value")
         if isinstance(arr, list) and len(arr) == 8:
             return bytes(int(x) & 0xFF for x in arr)
-    # Very old Anchor: {"discriminator":[..8..]}
     if isinstance(disc, list) and len(disc) == 8:
         return bytes(int(x) & 0xFF for x in disc)
-
-    raw_name = str(ix_idl.get("name", "")).strip()
-    n = raw_name.lower()
-    # 🔒 harden: if this looks like the perps "createIncreasePositionMarketRequest", enforce the canonical snake
-    if "increase" in n and "position" in n and "request" in n and "market" in n:
-        canon = "create_increase_position_market_request"
-        return hashlib.sha256(f"global:{canon}".encode("utf-8")).digest()[:8]
 
     # generic snake_case fallback
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", raw_name).lower()
@@ -1128,11 +1191,42 @@ def dry_run_open_position_request(
             acct_lc = acct_name.lower()
             if "position_request" in acct_lc and input_mint:
                 _rebuild_after_request_adopt(mapping, right_b58, input_mint)
+                _sync_args_after_adopt(args, request_pk=Pubkey.from_string(right_b58))
                 ok, logs, metas, raw = _simulate_step("after PR adopt", mapping)
             elif acct_lc == "position":
                 # Trust the program’s canonical position PDA for this run
                 try:
-                    mapping["position"] = Pubkey.from_string(right_b58)
+                    pos_pk = Pubkey.from_string(right_b58)
+                    mapping["position"] = pos_pk
+
+                    counter_seed_local = counter_seed
+                    params_counter = args.get("params")
+                    if isinstance(params_counter, dict) and "counter" in params_counter:
+                        try:
+                            counter_seed_local = int(params_counter.get("counter", counter_seed_local))
+                        except Exception:
+                            counter_seed_local = counter_seed_local
+                    elif "counter" in args:
+                        try:
+                            counter_seed_local = int(args.get("counter", counter_seed_local))
+                        except Exception:
+                            counter_seed_local = counter_seed_local
+
+                    req_pk = Pubkey.find_program_address(
+                        [b"position_request", bytes(pos_pk), int(counter_seed_local).to_bytes(8, "little")],
+                        program_id,
+                    )[0]
+                    mapping["positionRequest"] = req_pk
+                    mapping["position_request"] = req_pk
+                    if input_mint:
+                        _rebuild_after_request_adopt(mapping, str(req_pk), input_mint)
+                    _sync_args_after_adopt(
+                        args,
+                        position_pk=pos_pk,
+                        request_pk=req_pk,
+                        counter=int(counter_seed_local),
+                    )
+                    counter_seed = counter_seed_local
                     ok, logs, metas, raw = _simulate_step("after position adopt", mapping)
                 except Exception:
                     pass
@@ -1490,6 +1584,7 @@ def open_position_request(
                     if input_mint:
                         print(f"[perps] ADOPT position_request PDA → {right_b58}")
                         _rebuild_after_request_adopt(effective, right_b58, input_mint)
+                        _sync_args_after_adopt(args, request_pk=Pubkey.from_string(right_b58))
                         metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
                         ok, logs = _simulate_with_label(raw, "after PR adopt")
                         if _is_invalid_program_id_for_token_program(logs):
@@ -1503,17 +1598,34 @@ def open_position_request(
                         pos_pk = Pubkey.from_string(right_b58)
                         effective["position"] = pos_pk
 
-                        if input_mint:
+                        counter_override = counter
+                        params_counter = args.get("params")
+                        if isinstance(params_counter, dict) and "counter" in params_counter:
                             try:
-                                counter_override = int(args.get("params", {}).get("counter", counter))
+                                counter_override = int(params_counter.get("counter", counter_override))
                             except Exception:
-                                counter_override = int(counter)
-                            effective["positionRequest"] = Pubkey.find_program_address(
-                                [b"position_request", bytes(pos_pk), counter_override.to_bytes(8, "little")],
-                                program_id,
-                            )[0]
-                            effective["position_request"] = effective["positionRequest"]
-                            _rebuild_after_request_adopt(effective, str(effective["positionRequest"]), input_mint)
+                                counter_override = counter_override
+                        elif "counter" in args:
+                            try:
+                                counter_override = int(args.get("counter", counter_override))
+                            except Exception:
+                                counter_override = counter_override
+
+                        req_pk = Pubkey.find_program_address(
+                            [b"position_request", bytes(pos_pk), int(counter_override).to_bytes(8, "little")],
+                            program_id,
+                        )[0]
+                        effective["positionRequest"] = req_pk
+                        effective["position_request"] = req_pk
+                        if input_mint:
+                            _rebuild_after_request_adopt(effective, str(req_pk), input_mint)
+                        _sync_args_after_adopt(
+                            args,
+                            position_pk=pos_pk,
+                            request_pk=req_pk,
+                            counter=int(counter_override),
+                        )
+                        counter = counter_override
 
                         metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
                         ok, logs = _simulate_with_label(raw, "after position adopt")
