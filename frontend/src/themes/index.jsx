@@ -86,13 +86,9 @@ export default function ThemeCustomization({ children }) {
     html.dataset.theme = cssMode;
     html.style.setProperty('--asset-base', import.meta.env.BASE_URL);
 
+    let wallpaper;
     if (typeof window !== 'undefined' && window.localStorage) {
-      const wallpaper = window.localStorage.getItem(`sonic:wallpaper:${cssMode}`);
-      if (wallpaper) {
-        html.style.setProperty('--body-bg-image', `url('${wallpaper}')`);
-      } else {
-        html.style.removeProperty('--body-bg-image');
-      }
+      wallpaper = window.localStorage.getItem(`sonic:wallpaper:${cssMode}`) || undefined;
 
       try {
         const rawOverrides = window.localStorage.getItem(`sonic:theme.overrides:${cssMode}`);
@@ -105,6 +101,16 @@ export default function ThemeCustomization({ children }) {
       } catch (error) {
         // ignore malformed overrides
       }
+    }
+
+    if (!wallpaper && mode === ThemeMode.SYSTEM) {
+      wallpaper = `${import.meta.env.BASE_URL}images/abstract_mural.png`;
+    }
+
+    if (wallpaper) {
+      html.style.setProperty('--body-bg-image', `url('${wallpaper}')`);
+    } else {
+      html.style.removeProperty('--body-bg-image');
     }
   }, [mode, resolvedMode]);
 
