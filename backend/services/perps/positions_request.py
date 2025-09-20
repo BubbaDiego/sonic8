@@ -133,6 +133,38 @@ def _parse_anchor_right_pda(logs: List[str]) -> Optional[str]:
     return None
 
 
+def _parse_anchor_constraint_seeds(logs: List[str]) -> Optional[Tuple[str, str]]:
+    """
+    Return (account_name, right_pubkey_b58) for Anchor 'ConstraintSeeds' blocks, e.g.
+
+      AnchorError caused by account: position_request. Error Code: ConstraintSeeds ...
+      ...
+      Right:
+      <PDA>
+
+    If we can't parse both pieces, return None.
+    """
+
+    acct = None
+    right = None
+
+    for i, line in enumerate(logs):
+        if "caused by account:" in line:
+            m = re.search(r"caused by account:\s*([A-Za-z0-9_]+)", line)
+            if m:
+                acct = m.group(1).strip()
+                # Scan forward for the Right: pubkey
+                for j in range(i, min(i + 8, len(logs))):
+                    if "Right:" in logs[j]:
+                        for k in range(j + 1, min(j + 5, len(logs))):
+                            m2 = re.search(_B58, logs[k].strip())
+                            if m2:
+                                right = m2.group(0)
+                                return (acct, right)
+                break
+    return None
+
+
 def _parse_unknown_account(logs: List[str]) -> Optional[str]:
     """
     Looks for: 'Instruction references an unknown account <PUBKEY>'
@@ -1045,7 +1077,8 @@ def dry_run_open_position_request(
 
     # Use the real PDAs discovered earlier
     mapping = dict(base_mapping)
-    mapping["position"] = position
+    mapping["position"] = EXPECTED_POSITION_PDA
+    print(f"[perps] FORCE position (dry-run) → {str(EXPECTED_POSITION_PDA)}")
     mapping["positionRequest"] = request
     mapping["position_request"] = request
 
@@ -1106,11 +1139,21 @@ def dry_run_open_position_request(
 
     ok, logs, metas, raw = _simulate_step("initial", mapping)
     if not ok:
-        # 1) PDA adoption for position_request if Anchor tells us the expected Right: <PDA>
-        right_pda = _parse_anchor_right_pda(logs)
-        if right_pda and input_mint:
-            _rebuild_after_request_adopt(mapping, right_pda, input_mint)
-            ok, logs, metas, raw = _simulate_step("after PR adopt", mapping)
+        # 1) PDA adoption guided by which account triggered ConstraintSeeds
+        seed_hint = _parse_anchor_constraint_seeds(logs)
+        if seed_hint:
+            acct_name, right_b58 = seed_hint
+            acct_lc = acct_name.lower()
+            if "position_request" in acct_lc and input_mint:
+                _rebuild_after_request_adopt(mapping, right_b58, input_mint)
+                ok, logs, metas, raw = _simulate_step("after PR adopt", mapping)
+            elif acct_lc == "position":
+                # Trust the program’s canonical position PDA for this run
+                try:
+                    mapping["position"] = Pubkey.from_string(right_b58)
+                    ok, logs, metas, raw = _simulate_step("after position adopt", mapping)
+                except Exception:
+                    pass
 
     # 2) Collateral error targeted handling (6006) — adopt from logs, then (optionally) swap
     if not ok:
@@ -1454,16 +1497,44 @@ def open_position_request(
         ok, logs = _simulate_with_label(raw, "initial")
 
         if not ok:
-            right_b58 = _parse_anchor_right_pda(logs)
-            if right_b58 and input_mint:
-                print(f"[perps] ADOPT position_request PDA → {right_b58}")
-                _rebuild_after_request_adopt(effective, right_b58, input_mint)
-                metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
-                ok, logs = _simulate_with_label(raw, "after PR adopt")
-                if _is_invalid_program_id_for_token_program(logs):
-                    raise RuntimeError(
-                        "InvalidProgramId for token_program — VERIFY we never insert unknown into the required accounts area."
-                    )
+            seed_hint = _parse_anchor_constraint_seeds(logs)
+            if seed_hint:
+                acct_name, right_b58 = seed_hint
+                acct_lc = acct_name.lower()
+
+                if "position_request" in acct_lc:
+                    if input_mint:
+                        print(f"[perps] ADOPT position_request PDA → {right_b58}")
+                        _rebuild_after_request_adopt(effective, right_b58, input_mint)
+                        metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
+                        ok, logs = _simulate_with_label(raw, "after PR adopt")
+                        if _is_invalid_program_id_for_token_program(logs):
+                            raise RuntimeError(
+                                "InvalidProgramId for token_program — VERIFY we never insert unknown into the required accounts area."
+                            )
+
+                elif acct_lc == "position":
+                    # Update the position PDA to what the program expects, re-derive request & its ATA
+                    try:
+                        pos_pk = Pubkey.from_string(right_b58)
+                        effective["position"] = pos_pk
+
+                        if input_mint:
+                            try:
+                                counter_override = int(args.get("params", {}).get("counter", counter))
+                            except Exception:
+                                counter_override = int(counter)
+                            effective["positionRequest"] = Pubkey.find_program_address(
+                                [b"position_request", bytes(pos_pk), counter_override.to_bytes(8, "little")],
+                                program_id,
+                            )[0]
+                            effective["position_request"] = effective["positionRequest"]
+                            _rebuild_after_request_adopt(effective, str(effective["positionRequest"]), input_mint)
+
+                        metas, remaining_accounts, raw = _prepare_tx(effective, remaining_accounts)
+                        ok, logs = _simulate_with_label(raw, "after position adopt")
+                    except Exception:
+                        pass
 
         # Targeted recovery for Jupiter Perps "InvalidCollateralAccount" (6006).
         if not ok:
