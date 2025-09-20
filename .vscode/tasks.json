@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Spec: Daily Maintenance",
+      "type": "shell",
+      "command": "python backend/scripts/spec_api_mapper.py && python backend/scripts/spec_schema_sampler.py && python backend/scripts/ui_sweeper.py && python backend/scripts/export_openapi.py || true && python backend/scripts/build_ui_components_doc.py && python backend/scripts/validate_all_specs.py",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ]
+}

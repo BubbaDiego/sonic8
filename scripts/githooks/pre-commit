@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "[pre-commit] Sweeping & validating specs..."
+python backend/scripts/spec_api_mapper.py
+python backend/scripts/ui_sweeper.py
+python backend/scripts/export_openapi.py || true
+python backend/scripts/build_ui_components_doc.py
+
+python backend/scripts/validate_all_specs.py
+
+# Re-run diff to ensure generated files are staged
+git add docs/spec/*.md docs/spec/ui.manifest.yaml backend/api/openapi.yaml || true
+# If anything changed but wasn't re-staged, fail so you commit cleanly
+if ! git diff --cached --quiet; then
+  echo "✋ Generated files changed and have been staged. Review & commit again."
+  exit 1
+fi
+echo "[pre-commit] OK"
