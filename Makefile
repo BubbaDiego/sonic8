@@ -43,3 +43,11 @@ spec-daily:
 	python backend/scripts/build_ui_components_doc.py
 	python backend/scripts/validate_all_specs.py
 
+.PHONY: schema-bundle schema-book schema-bundle-lite
+schema-bundle:
+	python backend/scripts/build_schema_bundle.py
+schema-book:
+	python backend/scripts/build_schema_bundle.py --output-md docs/spec/schema_book.md
+schema-bundle-lite:
+	# example: just include portfolio+positions families
+	python backend/scripts/build_schema_bundle.py --include-prefix SCHEMA-PORTFOLIO SCHEMA-POSITIONS

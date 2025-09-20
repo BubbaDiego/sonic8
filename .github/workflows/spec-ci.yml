@@ -30,4 +30,8 @@ jobs:
         run: python backend/scripts/spec_validate.py
       - name: Validate ALL specs (backend + UI)
         run: python backend/scripts/validate_all_specs.py
+      - name: Build Schema Bundle (dry)
+        run: |
+          python backend/scripts/build_schema_bundle.py
+          git diff --exit-code || (echo "::error::schema bundle changed. Please run 'make schema-bundle' and commit." && exit 1)
 
