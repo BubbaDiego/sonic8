@@ -75,3 +75,15 @@ export function previewTokens(name, tokens) {
 export function clearPreview() {
   window.dispatchEvent(new Event('sonic-theme-preview-clear'));
 }
+
+// Clear every theme override (useful when things feel "stuck")
+export function resetAllThemeData() {
+  try {
+    Object.keys(DEFAULT_TOKENS).forEach((n) => {
+      localStorage.removeItem(`sonic:theme.tokens:${n}`);
+      localStorage.removeItem(`sonic:theme.overrides:${n}`);
+      localStorage.removeItem(`sonic:wallpaper:${n}`);
+    });
+  } catch {}
+  window.dispatchEvent(new Event('sonic-theme-updated'));
+}

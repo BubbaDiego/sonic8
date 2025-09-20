@@ -5,13 +5,15 @@ import {
   Card,
   CardContent,
   CardHeader,
+  Chip,
   Divider,
+  FormControlLabel,
   Grid,
   MenuItem,
-  FormControlLabel,
-  Switch,
   Stack,
+  Switch,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import {
@@ -22,7 +24,8 @@ import {
   exportAllThemes,
   importAllThemes,
   previewTokens,
-  clearPreview
+  clearPreview,
+  resetAllThemeData
 } from '../../theme/tokens';
 
 const THEME_NAMES = ['light', 'dark', 'funky'];
@@ -38,6 +41,8 @@ export default function ThemeLab() {
   const [name, setName] = useState('dark');
   const [state, setState] = useState(loadTokens('dark'));
   const [livePreview, setLivePreview] = useState(true);
+  const [wallThumb, setWallThumb] = useState({ url: '', ok: null, loading: false });
+
   const base = useMemo(() => DEFAULT_TOKENS[name], [name]);
 
   const setField = (k, v) => setState((s) => ({ ...s, [k]: v }));
@@ -82,39 +87,70 @@ export default function ThemeLab() {
   };
 
   useEffect(() => {
-    if (!livePreview) {
-      clearPreview();
-      return;
-    }
+    if (!livePreview) return;
     previewTokens(name, state);
+    return () => {};
   }, [name, state, livePreview]);
 
   useEffect(() => () => clearPreview(), []);
+
+  useEffect(() => {
+    const v = state.wallpaper;
+    if (!v || v === 'none') {
+      setWallThumb({ url: '', ok: null, loading: false });
+      return;
+    }
+    const url = v.startsWith('data:') ? v : v.startsWith('http') ? v : `${location.origin}${v.startsWith('/') ? '' : '/'}${v}`;
+    setWallThumb({ url, ok: null, loading: true });
+    const img = new Image();
+    img.onload = () => setWallThumb({ url, ok: true, loading: false });
+    img.onerror = () => setWallThumb({ url, ok: false, loading: false });
+    img.src = url;
+  }, [state.wallpaper]);
 
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>Theme Lab</Typography>
       <Typography variant="body2" sx={{ mb: 2 }}>Edit colors & wallpaper per theme. Changes save to your browser and apply instantly.</Typography>
       <Card>
-        <CardHeader title="Editor" />
+        <CardHeader
+          title="Editor"
+          subheader={(
+            <Stack direction="row" spacing={2}>
+              <Tooltip title="The UI mode currently applied by the header toggle">
+                <Chip size="small" label={`Active UI Mode: ${document.documentElement.dataset.theme || 'unknown'}`} />
+              </Tooltip>
+              <Tooltip title="The theme you are editing in this panel">
+                <Chip size="small" color="primary" variant="outlined" label={`Editing: ${name}`} />
+              </Tooltip>
+              {document.documentElement.dataset.theme !== name && (
+                <Tooltip title="You are editing a different theme than the one currently active — toggle the header to this theme or use Live Preview">
+                  <Chip size="small" color="warning" label="Note: editing ≠ active" />
+                </Tooltip>
+              )}
+            </Stack>
+          )}
+        />
         <CardContent>
           <Stack spacing={3}>
             <Stack direction="row" spacing={2} alignItems="center">
               <Typography sx={{ minWidth: 120 }}>Theme</Typography>
-              <TextField select size="small" value={name} onChange={(e) => {
-                const n = e.target.value;
-                setName(n);
-                const fresh = loadTokens(n);
-                setState(fresh);
-                if (livePreview) previewTokens(n, fresh);
-              }}>
+              <TextField select size="small" value={name} onChange={(e) => { const n = e.target.value; setName(n); setState(loadTokens(n)); }}>
                 {THEME_NAMES.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
               </TextField>
               <FormControlLabel control={<Switch checked={livePreview} onChange={(e) => setLivePreview(e.target.checked)} />} label="Live Preview" />
-              <Button variant="outlined" onClick={resetToDefaults}>Reset to Defaults</Button>
+              <Button variant="outlined" onClick={resetToDefaults}>Revert to Defaults</Button>
               <Button variant="contained" onClick={save}>Save & Apply</Button>
               <Button color="error" onClick={remove}>Remove Override</Button>
               <Button onClick={discard}>Discard Unsaved</Button>
+              <Button onClick={() => { resetAllThemeData(); setState(loadTokens(name)); }} title="Clears all saved theme data for all themes">Reset All</Button>
+            </Stack>
+            <Divider />
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Button variant="contained">Primary Button</Button>
+              <Button variant="outlined">Outlined</Button>
+              <Chip label="Chip" />
+              <Card sx={{ p: 1 }}><Typography variant="body2">Card sample</Typography></Card>
             </Stack>
             <Divider />
             <Grid container spacing={3}>
@@ -132,10 +168,23 @@ export default function ThemeLab() {
                   <Typography>Wallpaper (URL or data URI)</Typography>
                   <TextField
                     fullWidth
-                    placeholder="e.g., /images/abstract_mural.png or data:image/png;base64,..."
+                    placeholder="e.g., /images/wally.png or data:image/png;base64,..."
                     value={state.wallpaper || 'none'}
                     onChange={(e) => setField('wallpaper', e.target.value)}
                   />
+                  {wallThumb.loading && <Typography variant="caption">Checking…</Typography>}
+                  {wallThumb.ok === true && (
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <img src={wallThumb.url} alt="wallpaper" style={{ width: 120, height: 60, objectFit: 'cover', borderRadius: 6 }} />
+                      <Chip size="small" color="success" label="Loaded" />
+                    </Stack>
+                  )}
+                  {wallThumb.ok === false && (
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Chip size="small" color="error" label="Not found / blocked" />
+                      <Typography variant="caption">Ensure the path is reachable. For local files in the app, use a leading slash like <code>/images/wally.png</code>.</Typography>
+                    </Stack>
+                  )}
                   <Typography variant="caption">Tip: leave <code>none</code> for no wallpaper.</Typography>
                 </Stack>
               </Grid>
