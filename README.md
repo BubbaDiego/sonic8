@@ -11,10 +11,11 @@ three primary areas so you can jump directly to the part of the stack you need:
 - **frontend/** – a React + Vite application used for the UI.
 - **docs/** – documentation and additional resources.
 
-## 📑 Spec
-- Human: [docs/spec/software_spec.md](docs/spec/software_spec.md)
-- Machine: [docs/spec/spec.manifest.yaml](docs/spec/spec.manifest.yaml)
-- OpenAPI: [backend/api/openapi.yaml](backend/api/openapi.yaml)
+## 📑 Sonic Spec
+- **User Guide:** [docs/spec/user_guide.md](docs/spec/user_guide.md)
+- **Human (overview):** [docs/spec/software_spec.md](docs/spec/software_spec.md)
+- **Machine (manifest):** [docs/spec/spec.manifest.yaml](docs/spec/spec.manifest.yaml)
+- **OpenAPI:** [backend/api/openapi.yaml](backend/api/openapi.yaml)
 
 Dependency management for Node.js packages occurs entirely inside
 **frontend/**. The repository root does not use `npm` or `yarn` directly.
