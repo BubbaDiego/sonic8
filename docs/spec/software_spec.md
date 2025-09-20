@@ -41,7 +41,7 @@
 | MOD-DATA | `backend/data/` | Persistence utilities and data models. |  |
 | MOD-WALLET | `backend/core/wallet_core/` | Wallet operations, key derivation/management, signing. |  |
 | MOD-SCRIPTS | `backend/scripts/` | Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist). |  |
-| MOD-AUTO | `backend/core/auto_core/` | Automation flows (Solflare/Jupiter) and helpers |  |
+| MOD-AUTO | `backend/core/auto_core/` | Automation flows (Solflare/Jupiter) and helpers. |  |
 | MOD-FRONTEND | `frontend/` | React/Vite/Tailwind UI (Sonic Dashboard, Monitor Manager, Trader Shop). |  |
 <!-- REPO_MAP:END -->
 
@@ -114,23 +114,27 @@
   - `backend/scripts/__init__.py`
   - `backend/scripts/api_breakpoint_test.py`
   - `backend/scripts/backfill_price_history.py`
+  - `backend/scripts/build_ui_components_doc.py`
   - `backend/scripts/check_helius.py`
   - `backend/scripts/create_virtual_env.py`
   - `backend/scripts/diagnose_market_monitor.py`
   - `backend/scripts/env_load_test.py`
-  - `backend/scripts/export_openapi.py`
 - **Public interfaces (signatures)**
   - **api_breakpoint_test.py**: def check_endpoint(base, path); def main(argv)
   - **backfill_price_history.py**: def get_price_at(asset, ts)
-  - **check_helius.py**: def main()
+  - **build_ui_components_doc.py**: def main()
 
 ### MOD-AUTO
-- **Path**: `auto_core/`
-- **Purpose**: Playwright automation (Solflare connect, Jupiter flows).
+- **Path**: `backend/core/auto_core/`
+- **Purpose**: Automation flows (Solflare/Jupiter) and helpers.
 - **Key files**
-  - _(none found)_
+  - `backend/core/auto_core/__init__.py`
+  - `backend/core/auto_core/auto_core.py`
+  - `backend/core/auto_core/playwright_helper.py`
+  - `backend/core/auto_core/requests/__init__.py`
+  - `backend/core/auto_core/steps/connect_jupiter_solflare.py`
 - **Public interfaces (signatures)**
-  - _(no public signatures detected)_
+  - **auto_core.py**: class AutoCore
 
 ### MOD-FRONTEND
 - **Path**: `frontend/`
