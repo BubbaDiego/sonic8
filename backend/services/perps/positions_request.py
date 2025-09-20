@@ -268,13 +268,16 @@ def _parse_anchor_constraint_seeds(logs: List[str]) -> Optional[Tuple[str, str]]
 
 
 def _parse_right_from_logs(logs: List[str], needle: str) -> Optional[str]:
-    """Return the first 'Right:' pubkey referring to the given account name."""
+    """
+    STRICT mode: only return a "Right:" pubkey when it belongs to the AnchorError
+    block that explicitly names `account: {needle}`. This avoids accidentally
+    adopting a PDA from another account's error block.
+    """
 
     try:
-        # Prefer an Anchor block that explicitly names the account.
         for i, line in enumerate(logs):
             if "AnchorError" in line and f"account: {needle}" in line:
-                window = logs[i : i + 14]
+                window = logs[i : i + 16]
                 for j, candidate in enumerate(window):
                     text = candidate.strip()
                     if text.startswith("Program log:"):
@@ -288,30 +291,11 @@ def _parse_right_from_logs(logs: List[str], needle: str) -> Optional[str]:
                         nxt = window[j + 1].strip()
                         if nxt.startswith("Program log:"):
                             nxt = nxt.split("Program log:", 1)[-1].strip()
-                        m = re.search(_B58, nxt)
-                        if m:
-                            return m.group(0)
-
-        # Fallback: grab the next plausible base58 following any Right: marker.
-        for idx, line in enumerate(logs):
-            if "Right:" not in line:
-                continue
-            text = line.strip()
-            if text.startswith("Program log:"):
-                text = text.split("Program log:", 1)[-1].strip()
-            parts = text.split()
-            if len(parts) >= 2 and len(parts[1]) >= 20:
-                return parts[1]
-            if idx + 1 < len(logs):
-                nxt = logs[idx + 1].strip()
-                if nxt.startswith("Program log:"):
-                    nxt = nxt.split("Program log:", 1)[-1].strip()
-                m = re.search(_B58, nxt)
-                if m:
-                    return m.group(0)
+                        if len(nxt) >= 20:
+                            return nxt
+        return None
     except Exception:
-        pass
-    return None
+        return None
 
 
 def _parse_unknown_account(logs: List[str]) -> Optional[str]:
@@ -1233,7 +1217,7 @@ def dry_run_open_position_request(
     collateral_usd: float,
     tp: Optional[float] = None,
     sl: Optional[float] = None,
-    max_recover: int = 6,
+    max_recover: int = 7,
     log_limit: int = 240,
     try_custody_swap_on_6006: bool = True,
 ) -> Dict[str, Any]:
@@ -1451,6 +1435,7 @@ def dry_run_open_position_request(
     tried_swap = False
     loop_reason = "not_run"
     ok = False
+    seen_pairs: set[Tuple[str, str]] = set()
 
     while attempt < max_attempts:
         label = "initial" if attempt == 0 else f"retry #{attempt}"
@@ -1461,6 +1446,17 @@ def dry_run_open_position_request(
             break
 
         changed = False
+
+        position_key = str(mapping.get("position", ""))
+        request_key = str(mapping.get("positionRequest", ""))
+        pair = (position_key, request_key)
+        if pair in seen_pairs:
+            loop_reason = "repeat_pair"
+            events.append(
+                f"halted adaptive loop after seeing repeated (position, request) pair {pair}"
+            )
+            break
+        seen_pairs.add(pair)
 
         right_pos = _parse_right_from_logs(logs, "position")
         if right_pos and str(mapping.get("position", "")) != right_pos:
@@ -1480,21 +1476,26 @@ def dry_run_open_position_request(
 
         right_req = _parse_right_from_logs(logs, "position_request")
         if right_req and str(mapping.get("positionRequest", "")) != right_req:
-            try:
-                req_pk = Pubkey.from_string(right_req)
-            except Exception:
-                req_pk = None
-            if req_pk is not None:
-                mapping["positionRequest"] = req_pk
-                mapping["position_request"] = req_pk
-                if input_mint:
-                    try:
-                        _rebuild_after_request_adopt(mapping, right_req, input_mint)
-                    except Exception:
-                        pass
-                _sync_args_after_adopt(args, request_pk=req_pk)
-                events.append(f"adopted positionRequest → {right_req}")
-                changed = True
+            if right_req == position_key:
+                events.append(
+                    f"skipped adopting positionRequest because RIGHT matched position ({right_req})"
+                )
+            else:
+                try:
+                    req_pk = Pubkey.from_string(right_req)
+                except Exception:
+                    req_pk = None
+                if req_pk is not None:
+                    mapping["positionRequest"] = req_pk
+                    mapping["position_request"] = req_pk
+                    if input_mint:
+                        try:
+                            _rebuild_after_request_adopt(mapping, right_req, input_mint)
+                        except Exception:
+                            pass
+                    _sync_args_after_adopt(args, request_pk=req_pk)
+                    events.append(f"adopted positionRequest → {right_req}")
+                    changed = True
 
         if not changed:
             seed_hint = _parse_anchor_constraint_seeds(logs)
@@ -1516,21 +1517,26 @@ def dry_run_open_position_request(
                     except Exception:
                         pass
                 elif "position_request" in acct_lc:
-                    try:
-                        req_pk = Pubkey.from_string(right_b58)
-                    except Exception:
-                        req_pk = None
-                    if req_pk is not None:
-                        mapping["positionRequest"] = req_pk
-                        mapping["position_request"] = req_pk
-                        if input_mint:
-                            try:
-                                _rebuild_after_request_adopt(mapping, right_b58, input_mint)
-                            except Exception:
-                                pass
-                        _sync_args_after_adopt(args, request_pk=req_pk)
-                        events.append(f"adopted positionRequest → {right_b58}")
-                        changed = True
+                    if right_b58 == position_key:
+                        events.append(
+                            f"skipped adopting positionRequest (seed hint) because RIGHT matched position ({right_b58})"
+                        )
+                    else:
+                        try:
+                            req_pk = Pubkey.from_string(right_b58)
+                        except Exception:
+                            req_pk = None
+                        if req_pk is not None:
+                            mapping["positionRequest"] = req_pk
+                            mapping["position_request"] = req_pk
+                            if input_mint:
+                                try:
+                                    _rebuild_after_request_adopt(mapping, right_b58, input_mint)
+                                except Exception:
+                                    pass
+                            _sync_args_after_adopt(args, request_pk=req_pk)
+                            events.append(f"adopted positionRequest → {right_b58}")
+                            changed = True
 
         if not changed and _has_code(logs, "InvalidCollateralAccount"):
             lr = _parse_invalid_collateral(logs)
