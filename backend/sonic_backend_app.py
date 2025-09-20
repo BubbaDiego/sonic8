@@ -77,6 +77,7 @@ from backend.core.fun_core.fun_router import router as fun_core_router
 from backend.routers import jupiter
 from backend.routes.jupiter_api import router as jupiter_router
 from backend.routes.jupiter_perps_api import router as perps_router
+from backend.middleware.response_validator import install_response_validator
 
 # Optional prewarm
 try:
@@ -149,6 +150,8 @@ app.add_api_route("/monitor_status/", _monitor_status_get, methods=["GET"])
 app.include_router(monitor_router)
 app.include_router(auto_core_router)  # <-- mounted once, after app is defined
 app.include_router(fun_core_router)
+
+install_response_validator(app)
 
 @app.get("/api/status")
 async def status():
