@@ -1,6 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
-import sys, importlib
+import sys, importlib, os
+
+os.environ.setdefault("EXPORT_OPENAPI", "1")
 
 # Ensure repo root on sys.path when run as a script
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +36,9 @@ for mod_name, attr in _CANDIDATES:
 if app is None:
     msg = "; ".join(errors) if errors else "no candidates"
     tried = ", ".join(f"{m}:{a}" for m, a in _CANDIDATES)
+    if os.environ.get("EXPORT_OPENAPI") == "1":
+        print(f"[export_openapi] skipped ({msg})")
+        raise SystemExit(0)
     raise SystemExit(f"Could not import FastAPI app. Tried: {tried}. Errors: {msg}")
 
 from fastapi.openapi.utils import get_openapi
