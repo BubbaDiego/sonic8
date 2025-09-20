@@ -2,7 +2,7 @@ from __future__ import annotations
 import json, os, re
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Iterable
-from fastapi import Request
+from fastapi import Request, APIRouter
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response as StarletteResponse
 from starlette.types import ASGIApp
@@ -126,3 +126,21 @@ class ResponseValidatorMiddleware(BaseHTTPMiddleware):
 
 def install_response_validator(app) -> None:
     app.add_middleware(ResponseValidatorMiddleware)
+
+
+def schema_map_router() -> APIRouter:
+    """
+    Dev-only helper: GET /__schema-map shows whether validation is enabled and
+    which (method, path) pairs have schema mappings (from the manifest).
+    This does NOT depend on internal middleware state, so it's safe to include anytime.
+    """
+    r = APIRouter()
+
+    @r.get("/__schema-map")
+    def _map():
+        enabled = os.getenv("VALIDATE_RESPONSES") == "1" and _VAL is not None
+        manifest_map = _load_manifest_map()
+        mappings = {f"{m} {p}": rel for (m, p), rel in manifest_map.items()}
+        return {"enabled": enabled, "mappings": mappings}
+
+    return r
