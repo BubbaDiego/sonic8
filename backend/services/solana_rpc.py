@@ -9,6 +9,8 @@ from typing import Any, Dict, List
 from urllib import error as urlerror
 from urllib import request as urlrequest
 
+from backend.config.rpc import helius_url, redacted
+
 
 class RpcError(RuntimeError):
     pass
@@ -25,9 +27,10 @@ def _parse_urls() -> List[str]:
     if one:
         return [one]
 
-    key = os.getenv("HELIUS_API_KEY", "").strip()
-    if key:
-        return [f"https://mainnet.helius-rpc.com/?api-key={key}"]
+    try:
+        return [helius_url()]
+    except RuntimeError:
+        pass
 
     # last resort: Solana public RPC (rate-limited)
     return ["https://api.mainnet-beta.solana.com"]
@@ -79,7 +82,7 @@ def rpc_post(method: str, params: Any, timeout: float = 30.0) -> Any:
             err_last = e
             sleep = min(2**attempt, 8) + random.random()
             print(
-                f"[rpc] {method} via {url} failed (attempt {attempt + 1}/{_RPC_MAX_RETRIES}): {e} "
+                f"[rpc] {method} via {redacted(url)} failed (attempt {attempt + 1}/{_RPC_MAX_RETRIES}): {e} "
                 f"→ retry in {sleep:.1f}s"
             )
             time.sleep(sleep)

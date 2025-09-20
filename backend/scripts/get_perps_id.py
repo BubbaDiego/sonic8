@@ -1,7 +1,18 @@
-import requests, json
+try:
+    from dotenv import load_dotenv
 
-HELIUS_API_KEY = "a8809bee-20ba-48e9-b841-0bd2bafd60b9"
-RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+    load_dotenv()
+except Exception:
+    pass
+
+import os
+
+import requests
+
+from backend.config.rpc import helius_url, redacted
+
+RPC = os.getenv("RPC_URL") or helius_url()
+print(f"[rpc] using {redacted(RPC)}")
 POOL = "5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq"  # JLP Pool from Jupiter docs
 
 def rpc(method, params):

@@ -1,15 +1,29 @@
-import os, json, requests
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 
-KEY = os.getenv("HELIUS_API_KEY")
-assert KEY and KEY != "<YOUR_KEY>", "HELIUS_API_KEY missing or placeholder"
+import asyncio
+import json
 
-URL = f"https://rpc.helius.xyz/?api-key={KEY}"
-payload = {"jsonrpc":"2.0","id":1,"method":"getLatestBlockhash","params":[{"commitment":"processed"}]}
+from backend.config.rpc import helius_url, redacted
+from solana.rpc.async_api import AsyncClient
 
-r = requests.post(URL, json=payload, timeout=10)
-print("HTTP", r.status_code)
-print(r.text)
-r.raise_for_status()
-resp = r.json()
-assert "result" in resp, f"Unexpected response: {resp}"
-print("Helius RPC OK ✅")
+
+async def main() -> None:
+    url = helius_url()
+    print(f"Using Helius RPC  : {redacted(url)}")
+    client = AsyncClient(url, commitment="processed")
+    resp = await client.get_latest_blockhash()
+    await client.close()
+    if resp.get("result"):
+        print("HTTP 200")
+        print(json.dumps(resp, indent=2))
+        print("\nHelius RPC OK ✅")
+    else:
+        print("Helius RPC issue:\n", json.dumps(resp, indent=2))
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

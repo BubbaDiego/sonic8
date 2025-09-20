@@ -21,14 +21,21 @@ from solders.transaction import VersionedTransaction
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 
 # Use the centralized signer loader used elsewhere (Jupiter routes, etc.)
+from backend.config.rpc import helius_url
 from backend.services.signer_loader import load_signer  # <<< unify signer
 
 router = APIRouter(prefix="/api/wallet", tags=["wallet"])
 
 # ------------------------------ ENV / CONFIG ------------------------------
 
-HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
-RPC_URL        = os.getenv("RPC_URL", f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}")
+def _rpc_url() -> str:
+    override = os.getenv("RPC_URL")
+    if override:
+        return override
+    return helius_url()
+
+
+RPC_URL = _rpc_url()
 
 # Programs
 SYSTEM_PROGRAM        = Pubkey.from_string("11111111111111111111111111111111")

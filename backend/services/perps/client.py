@@ -6,21 +6,26 @@ import os
 from pathlib import Path
 from typing import Tuple
 
+from anchorpy import Idl, Program, Provider, Wallet
+from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 
-from solana.rpc.async_api import AsyncClient
-from anchorpy import Program, Provider, Wallet, Idl
-
+from backend.config.rpc import helius_url
 from backend.services.signer_loader import load_signer
 
 
 # ---------- RPC URL ----------
-RPC_URL = os.getenv("RPC_URL") or (
-    f"https://mainnet.helius-rpc.com/?api-key={os.getenv('HELIUS_API_KEY')}"
-    if os.getenv("HELIUS_API_KEY") else
-    "https://api.mainnet-beta.solana.com"
-)
+
+
+def _rpc_url() -> str:
+    override = os.getenv("RPC_URL")
+    if override:
+        return override
+    return helius_url()
+
+
+RPC_URL = _rpc_url()
 
 # ---------- IDL paths ----------
 IDL_DIR = Path(__file__).parent / "idl"

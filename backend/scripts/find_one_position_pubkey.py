@@ -4,14 +4,28 @@
 
 from __future__ import annotations
 
-import base64, json, random, time, requests
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
+import base64
+import json
+import os
+import random
+import time
 from typing import Any, Optional
+
+import requests
+
+from backend.config.rpc import helius_url, redacted
 
 # ---- CONFIG (edit if needed) ----
 OWNER_PUBKEY   = "V8iveiirFvX7m7psPHWBJW85xPk1ZB6U4Ep9GUV2THW"
 PROGRAM_ID     = "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu"  # verified from pool owner
-HELIUS_API_KEY = "a8809bee-20ba-48e9-b841-0bd2bafd60b9"
-RPC_URL        = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+RPC_URL        = os.getenv("RPC_URL") or helius_url()
 
 PAGE_LIMIT     = 800    # accounts per page (tune if needed)
 MAX_PAGES      = 550     # how many pages to scan before giving up
@@ -66,7 +80,7 @@ def raw_from_data(data: Any) -> Optional[bytes]:
 
 def main():
     print("== Find ONE Position pubkey ==")
-    print(f"RPC:     {RPC_URL}")
+    print(f"RPC:     {redacted(RPC_URL)}")
     print(f"Program: {PROGRAM_ID}")
     print(f"Owner:   {OWNER_PUBKEY}\n")
 

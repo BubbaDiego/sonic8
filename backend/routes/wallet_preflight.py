@@ -1,7 +1,12 @@
 # backend/routes/wallet_preflight.py
 from __future__ import annotations
-import base64, json, os, requests
+
+import base64
+import json
+import os
 from typing import Any, List
+
+import requests
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -12,12 +17,19 @@ from solders.instruction import Instruction, AccountMeta
 from solders.message import MessageV0, to_bytes_versioned
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 
+from backend.config.rpc import helius_url
 from backend.services.signer_loader import load_signer  # <<< unify signer
 
 router = APIRouter(prefix="/api/wallet", tags=["wallet"])
 
-HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
-RPC_URL        = os.getenv("RPC_URL", f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}")
+def _rpc_url() -> str:
+    override = os.getenv("RPC_URL")
+    if override:
+        return override
+    return helius_url()
+
+
+RPC_URL = _rpc_url()
 
 SYSTEM_PROGRAM        = Pubkey.from_string("11111111111111111111111111111111")
 SPL_TOKEN_PROGRAM     = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")

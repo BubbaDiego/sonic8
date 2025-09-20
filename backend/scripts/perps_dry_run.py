@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-import argparse
-import json
-import os
-import sys
-from typing import Any, Dict
-
 try:
     from dotenv import load_dotenv  # type: ignore
 
     load_dotenv()
 except Exception:
     pass
+
+import argparse
+import json
+import os
+import sys
+from typing import Any, Dict
+
+from backend.config.rpc import helius_url, redacted
 
 from backend.services.perps.positions_request import (
     dry_run_open_position_request,
@@ -71,6 +73,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_arg_parser().parse_args()
+
+    try:
+        rpc_url = helius_url()
+        print(f"[rpc] using {redacted(rpc_url)}")
+    except RuntimeError as exc:
+        print(f"[rpc] WARN: {exc}")
 
     wallet = load_signer()
 

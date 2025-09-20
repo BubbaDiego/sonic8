@@ -1,21 +1,22 @@
 # backend/services/jupiter_swap.py
 from __future__ import annotations
 
-import os
 import base64
-import requests
-from typing import Dict, Any, Optional, List, Tuple
+import os
 from time import sleep
+from typing import Any, Dict, List, Optional, Tuple
 
+import requests
 from solders.keypair import Keypair
+from solders.message import to_bytes_versioned
 from solders.pubkey import Pubkey
 from solders.signature import Signature as Sig
 from solders.transaction import VersionedTransaction
-from solders.message import to_bytes_versioned
 
 from solana.rpc.api import Client as SolClient
-from solana.rpc.types import TxOpts, TokenAccountOpts
+from solana.rpc.types import TokenAccountOpts, TxOpts
 
+from backend.config.rpc import helius_url, redacted
 from backend.services import txlog  # JSONL tx log
 
 # ---------------- RPC URL selection ----------------
@@ -23,12 +24,10 @@ def _default_rpc_url() -> str:
     rpc_env = os.getenv("RPC_URL", "").strip()
     if rpc_env:
         return rpc_env
-    helius_key = os.getenv("HELIUS_API_KEY", "").strip()
-    if helius_key:
-        return f"https://mainnet.helius-rpc.com/?api-key={helius_key}"
-    return "https://api.mainnet-beta.solana.com"
+    return helius_url()
 
 RPC_URL = _default_rpc_url()
+RPC_URL_REDACTED = redacted(RPC_URL)
 
 # ---------------- Known tokens (mint/decimals) ----------------
 TOKENS: Dict[str, Dict[str, Any]] = {
@@ -364,7 +363,7 @@ def log_swap(owner_pubkey: str, sig: str, in_mint: str, out_mint: str,
         "pair": {"in": MINT_TO_SYM.get(in_mint, in_mint[:4]+"…"),
                  "out": MINT_TO_SYM.get(out_mint, out_mint[:4]+"…")},
         "mode": "ExactIn",
-        "rpc": RPC_URL,
+        "rpc": RPC_URL_REDACTED,
         "amountInAtoms": int(amount_atoms),
         "decIn": in_dec,
         "projection": projection,
