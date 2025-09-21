@@ -77,6 +77,7 @@ from backend.core.fun_core.fun_router import router as fun_core_router
 from backend.routers import jupiter
 from backend.routes.jupiter_api import router as jupiter_router
 from backend.routes.jupiter_perps_api import router as perps_router
+from backend.api.routes_perps import router as perps_cli_router
 from backend.middleware.response_validator import install_response_validator, schema_map_router
 
 # Optional prewarm
@@ -135,6 +136,7 @@ app.add_api_route("/api/jupiter/wallet/send", _wallet_send_token, methods=["POST
 app.add_api_route("/api/jupiter/wallet/preflight-send", _wallet_preflight_send, methods=["POST"])
 app.include_router(jupiter_router)
 app.include_router(perps_router)
+app.include_router(perps_cli_router)
 
 # Jupiter legacy API stays under /api for compatibility
 app.include_router(jupiter.router, prefix="/api")
