@@ -161,10 +161,25 @@ export default function ThemeCustomization({ children }) {
   );
 
   const themes = useMemo(() => createTheme(themeOptions), [themeOptions]);
-  const components = useMemo(
-    () => componentStyleOverrides(themes, borderRadius, outlinedFilled),
-    [themes, borderRadius, outlinedFilled]
-  );
+  const components = useMemo(() => {
+    const base = componentStyleOverrides(themes, borderRadius, outlinedFilled);
+    const baseTypographyOverrides = base.MuiTypography?.styleOverrides || {};
+    return {
+      ...base,
+      MuiTypography: {
+        ...base.MuiTypography,
+        styleOverrides: {
+          ...baseTypographyOverrides,
+          h1: { ...baseTypographyOverrides.h1, color: 'var(--text-title)' },
+          h2: { ...baseTypographyOverrides.h2, color: 'var(--text-title)' },
+          h3: { ...baseTypographyOverrides.h3, color: 'var(--text-title)' },
+          h4: { ...baseTypographyOverrides.h4, color: 'var(--text-title)' },
+          h5: { ...baseTypographyOverrides.h5, color: 'var(--text-title)' },
+          h6: { ...baseTypographyOverrides.h6, color: 'var(--text-title)' }
+        }
+      }
+    };
+  }, [themes, borderRadius, outlinedFilled]);
   themes.components = components;
   themes.applyStyles =
     themes.applyStyles || ((targetMode, styles) => (themes.palette.mode === targetMode ? styles : {}));
@@ -195,6 +210,7 @@ export default function ThemeCustomization({ children }) {
     setVar('--surface', tokens.surface);
     setVar('--card', tokens.card || tokens.surface);
     setVar('--text', tokens.text);
+    setVar('--text-title', tokens.textTitle || tokens.text);
     setVar('--primary', tokens.primary);
     setVar('--font-size-base', `${Number(tokens.fontSize || 14)}px`);
 
