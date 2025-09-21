@@ -1,0 +1,19 @@
+{
+  "wallpaper.main": {
+    "default": { "src": "/images/wally.png", "type": "image/png" },
+    "2x":      { "src": "/images/wally@2x.png" }
+  },
+  "wallpaper.funky": {
+    "default": { "src": "/images/funky-mural.webp", "type": "image/webp" }
+  },
+  "cards.texture.grid": {
+    "default": { "src": "/images/textures/grid.webp", "type": "image/webp" }
+  },
+  "logos.sonic.round": {
+    "light": { "src": "/images/logo-round-dark.svg",  "type": "image/svg+xml" },
+    "dark":  { "src": "/images/logo-round-light.svg", "type": "image/svg+xml" }
+  },
+  "images.missing": {
+    "default": { "src": "/images/missing.png", "type": "image/png" }
+  }
+}

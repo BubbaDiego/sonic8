@@ -13,7 +13,8 @@ import Typography from './typography';
 
 import componentStyleOverrides from './compStyleOverride';
 import customShadows from './shadows';
-import { loadTokens } from '../theme/tokens';
+import { DEFAULT_TOKENS, loadTokens } from '../theme/tokens';
+import { resolveAsset, isAssetPointer, toAssetKey } from '../lib/assetsResolver';
 
 // --- Font stacks + on-demand loader ---
 const FONT_STACKS = {
@@ -98,7 +99,10 @@ export default function ThemeCustomization({ children }) {
   }, [mode, systemPrefersDark]);
 
   const cssMode = useMemo(() => (mode === ThemeMode.FUNKY ? 'funky' : resolvedMode), [mode, resolvedMode]);
-  const baseTokens = useMemo(() => loadTokens(cssMode), [cssMode, themeVersion]);
+  const baseTokens = useMemo(() => {
+    const loaded = loadTokens(cssMode);
+    return loaded || DEFAULT_TOKENS[cssMode] || DEFAULT_TOKENS.light;
+  }, [cssMode, themeVersion]);
   const tokens = useMemo(
     () => (preview && preview.name === cssMode ? { ...baseTokens, ...preview.tokens } : baseTokens),
     [baseTokens, preview, cssMode]
@@ -194,14 +198,30 @@ export default function ThemeCustomization({ children }) {
     setVar('--primary', tokens.primary);
     setVar('--font-size-base', `${Number(tokens.fontSize || 14)}px`);
 
-    const wallpaperUrl = tokens.useImage ? normalizeWallpaperUrl(tokens.wallpaper) : null;
+    let wallpaperUrl = null;
+    if (tokens.useImage) {
+      if (isAssetPointer(tokens.wallpaper)) {
+        const key = toAssetKey(tokens.wallpaper);
+        wallpaperUrl = key ? resolveAsset(key, { theme: cssMode }) : null;
+      } else {
+        wallpaperUrl = normalizeWallpaperUrl(tokens.wallpaper);
+      }
+    }
     if (wallpaperUrl) {
       setVar('--body-bg-image', `url('${wallpaperUrl}')`);
     } else {
       html.style.removeProperty('--body-bg-image');
     }
 
-    const cardImageUrl = tokens.cardUseImage ? normalizeWallpaperUrl(tokens.cardImage) : null;
+    let cardImageUrl = null;
+    if (tokens.cardUseImage) {
+      if (isAssetPointer(tokens.cardImage)) {
+        const key = toAssetKey(tokens.cardImage);
+        cardImageUrl = key ? resolveAsset(key, { theme: cssMode }) : null;
+      } else {
+        cardImageUrl = normalizeWallpaperUrl(tokens.cardImage);
+      }
+    }
     if (cardImageUrl) {
       setVar('--card-bg-image', `url('${cardImageUrl}')`);
     } else {
