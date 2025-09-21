@@ -2,7 +2,7 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import type { Idl } from "@coral-xyz/anchor";
-import { PublicKey, SystemProgram, Keypair } from "@solana/web3.js";
+import { PublicKey, SystemProgram, Keypair, Transaction } from "@solana/web3.js";
 import { bar, info, kv, ok, fail } from "../utils/logger";
 import {
   BN,
@@ -100,7 +100,7 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
   kv("Collateral", `${argv.collat} → ${collateralTokenDelta.toString()} raw (dec=${decimals})`);
   kv("Guardrail", `${priceGuard.toString()} μUSD`);
 
-  // 4) Build & send: createIncreasePositionMarketRequest
+  // 4) Build & send — MANUAL TX to enforce instruction order
   bar("Submit", "📤");
 
   const accounts: Record<string, PublicKey> = {
@@ -112,7 +112,7 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
     custody: custody.pubkey,
     collateralCustody: collateralCustody.pubkey,
     inputMint: collateralMint,
-    referral: wallet.publicKey,               // safe default
+    referral: wallet.publicKey,
     perpetuals: perpetuals.publicKey,
     pool: pool.publicKey,
     tokenProgram: SYS.TOKEN_PROGRAM_ID,
@@ -126,18 +126,22 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
     (accounts as any).program = programId;
   } catch {}
 
-  const preIxs = [...ataInit.ixs, ...prAtaInit.ixs, ...topUp];
+  // Build the Perps request instruction
+  const reqIx = await (program as any).methods
+    .createIncreasePositionMarketRequest({
+      sizeUsdDelta,
+      collateralTokenDelta,
+      side: sideEnum,
+      priceSlippage: priceGuard,
+      jupiterMinimumOut: null,
+    })
+    .accounts(accounts)
+    .instruction();
 
-  const method = (program as any).methods.createIncreasePositionMarketRequest({
-    sizeUsdDelta,
-    collateralTokenDelta,
-    side: sideEnum,
-    priceSlippage: priceGuard,
-    jupiterMinimumOut: null,
-  });
-
-  // ✅ ensure ATAs & WSOL sync run BEFORE perps instruction
-  const tx = await method.accounts(accounts).preInstructions(preIxs).transaction();
+  // Force order: create ATAs / wrap WSOL first, then Perps ix
+  const tx = new Transaction();
+  for (const ix of [...ataInit.ixs, ...prAtaInit.ixs, ...topUp]) tx.add(ix);
+  tx.add(reqIx);
   tx.feePayer = wallet.publicKey;
   tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
 
