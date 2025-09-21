@@ -192,7 +192,20 @@ export default function ThemeCustomization({ children }) {
     const themeEvt = () => bump();
     const onPreview = (event) => {
       const detail = event.detail || {};
-      setPreview({ name: detail.name, tokens: detail.tokens || {} });
+      const next = { name: detail.name, tokens: detail.tokens || {} };
+      setPreview((prev) => {
+        if (prev && prev.name === next.name) {
+          const prevKeys = Object.keys(prev.tokens || {});
+          const nextKeys = Object.keys(next.tokens || {});
+          if (
+            prevKeys.length === nextKeys.length &&
+            nextKeys.every((key) => prev.tokens[key] === next.tokens[key])
+          ) {
+            return prev;
+          }
+        }
+        return next;
+      });
     };
     const onPreviewClear = () => setPreview(null);
 
