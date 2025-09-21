@@ -15,6 +15,46 @@ import componentStyleOverrides from './compStyleOverride';
 import customShadows from './shadows';
 import { loadTokens } from '../theme/tokens';
 
+// --- Font stacks + on-demand loader ---
+const FONT_STACKS = {
+  'System UI': "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'",
+  Roboto: "'Roboto', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial",
+  Inter: "'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial",
+  Poppins: "'Poppins', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial",
+  'Space Grotesk': "'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial",
+  'JetBrains Mono': "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace"
+};
+
+const FONT_HREFS = {
+  Roboto: 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap',
+  Inter: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
+  Poppins: 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap',
+  'Space Grotesk': 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap',
+  'JetBrains Mono': 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap'
+};
+
+function ensureFontLoaded(name) {
+  if (typeof document === 'undefined') return;
+  const href = FONT_HREFS[name];
+  if (!href) return;
+  const id = `font-${name.replace(/\s+/g, '-').toLowerCase()}`;
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+// Normalize wallpaper path → absolute URL honoring BASE_URL
+function normalizeWallpaperUrl(value) {
+  if (!value || value === 'none') return null;
+  if (value.startsWith('data:') || /^https?:\/\//i.test(value)) return value;
+  const base = import.meta.env?.BASE_URL ? String(import.meta.env.BASE_URL) : '/';
+  const join = (a, b) => a.replace(/\/+$/, '/') + b.replace(/^\/+/, '');
+  return join(base, value);
+}
+
 export default function ThemeCustomization({ children }) {
   const { borderRadius, fontFamily, mode, outlinedFilled, presetColor, themeDirection } = useConfig();
 
@@ -63,7 +103,14 @@ export default function ThemeCustomization({ children }) {
   }, [resolvedMode, presetColor, tokens]);
 
   const baseTheme = useMemo(() => createTheme({ palette }), [palette]);
-  const themeTypography = useMemo(() => Typography(baseTheme, borderRadius, fontFamily), [baseTheme, borderRadius, fontFamily]);
+  const effectiveFontFamily = useMemo(
+    () => (tokens.font ? FONT_STACKS[tokens.font] || fontFamily : fontFamily),
+    [tokens.font, fontFamily]
+  );
+  const themeTypography = useMemo(
+    () => Typography(baseTheme, borderRadius, effectiveFontFamily),
+    [baseTheme, borderRadius, effectiveFontFamily]
+  );
   const themeCustomShadows = useMemo(() => customShadows(resolvedMode, baseTheme), [resolvedMode, baseTheme]);
 
   const themeOptions = useMemo(
@@ -122,11 +169,17 @@ export default function ThemeCustomization({ children }) {
     setVar('--text', tokens.text);
     setVar('--primary', tokens.primary);
 
-    if (tokens.useImage && tokens.wallpaper && tokens.wallpaper !== 'none') {
-      setVar('--body-bg-image', `url('${tokens.wallpaper}')`);
+    const wallpaperUrl = tokens.useImage ? normalizeWallpaperUrl(tokens.wallpaper) : null;
+    if (wallpaperUrl) {
+      setVar('--body-bg-image', `url('${wallpaperUrl}')`);
     } else {
       html.style.removeProperty('--body-bg-image');
     }
+
+    const chosenFont = tokens.font || 'System UI';
+    ensureFontLoaded(chosenFont);
+    const stack = FONT_STACKS[chosenFont] || FONT_STACKS['System UI'];
+    setVar('--font-ui', stack);
   }, [cssMode, tokens]);
 
   useEffect(() => {
