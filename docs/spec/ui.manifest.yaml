@@ -146,6 +146,11 @@ routes:
   component: SonicLabsPage
   file: frontend\src\routes\MainRoutes.jsx
   uses: []
+- path: /sonic-labs/theme-lab
+  page_id: PAGE_SONIC_LABS_THEME_LAB
+  component: ThemeLabPage
+  file: frontend\src\routes\MainRoutes.jsx
+  uses: []
 - path: /jupiter
   page_id: PAGE_JUPITER
   component: JupiterPage
@@ -935,6 +940,12 @@ components:
 - id: COMP_COLORBOX
   name: ColorBox
   file: frontend\src\views\utilities\Color.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_COLORINPUT
+  name: ColorInput
+  file: frontend\src\views\labs\ThemeLab.jsx
   props: []
   emits: []
   state: []
@@ -2147,6 +2158,12 @@ components:
 - id: COMP_LOGOSECTION
   name: LogoSection
   file: frontend\src\layout\MainLayout\LogoSection\index.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_LS_KEY
+  name: LS_KEY
+  file: frontend\src\theme\tokens.js
   props: []
   emits: []
   state: []
@@ -3441,6 +3458,18 @@ components:
   - name: children
     type: node
     required: false
+  emits: []
+  state: []
+- id: COMP_THEMELAB
+  name: ThemeLab
+  file: frontend\src\views\labs\ThemeLab.jsx
+  props: []
+  emits: []
+  state: []
+- id: COMP_THEMELABPAGE
+  name: ThemeLabPage
+  file: frontend\src\routes\MainRoutes.jsx
+  props: []
   emits: []
   state: []
 - id: COMP_THEMEMODELAYOUT

@@ -1,52 +1,32 @@
 {
+  "$id": "schema/Positions.json",
   "type": "object",
+  "required": [
+    "items"
+  ],
   "properties": {
-    "detail": {
+    "items": {
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string"
-          },
-          "loc": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "msg": {
-            "type": "string"
-          },
-          "input": {
-            "type": [
-              "null",
-              "string",
-              "number",
-              "object",
-              "array",
-              "boolean"
-            ]
-          }
-        },
-        "additionalProperties": true
+        "$ref": "Position.json"
       }
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
     }
   },
-  "additionalProperties": true,
-  "$id": "schema/positions.json",
   "examples": [
     {
-      "detail": [
+      "items": [
         {
-          "type": "missing",
-          "loc": [
-            "body"
-          ],
-          "msg": "Field required",
-          "input": null
+          "symbol": "SOL",
+          "side": "long",
+          "sizeUsd": 25.0,
+          "entryPrice": 155.12
         }
-      ]
+      ],
+      "count": 1
     }
   ]
 }

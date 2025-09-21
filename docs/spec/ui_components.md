@@ -1,7 +1,7 @@
 # Sonic UI Components — Catalog (auto-generated)
 
 > Source of truth: `docs/spec/ui.manifest.yaml`  
-> Generated: 2025-09-20 10:18:03
+> Generated: 2025-09-21 07:35:07
 
 Use this catalog to discover components, props, and example usage.  
 To regenerate: `python backend/scripts/build_ui_components_doc.py`
@@ -95,6 +95,7 @@ To regenerate: `python backend/scripts/build_ui_components_doc.py`
 - [ClipboardPage](#clipboardpage)
 - [CodeVerification](#codeverification)
 - [ColorBox](#colorbox)
+- [ColorInput](#colorinput)
 - [ColorVariants](#colorvariants)
 - [ColumnGroups](#columngroups)
 - [ColumnMenu](#columnmenu)
@@ -253,6 +254,7 @@ To regenerate: `python backend/scripts/build_ui_components_doc.py`
 - [LoginProvider](#loginprovider)
 - [Logo](#logo)
 - [LogoSection](#logosection)
+- [LS_KEY](#ls_key)
 - [MailerSubscriber](#mailersubscriber)
 - [MainCard](#maincard)
 - [MainLayout](#mainlayout)
@@ -402,6 +404,8 @@ To regenerate: `python backend/scripts/build_ui_components_doc.py`
 - [TeamMembers](#teammembers)
 - [TextFieldPage](#textfieldpage)
 - [ThemeCustomization](#themecustomization)
+- [ThemeLab](#themelab)
+- [ThemeLabPage](#themelabpage)
 - [ThemeModeLayout](#thememodelayout)
 - [ThemeModeSection](#thememodesection)
 - [ThresholdsTable](#thresholdstable)
@@ -845,7 +849,7 @@ export default function Example() {
 ---
 ## AlertThresholdsPage (`COMP_ALERTTHRESHOLDSPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -2406,6 +2410,26 @@ export default function Example() {
 }
 ```
 ---
+## ColorInput (`COMP_COLORINPUT`)
+- **File**: `frontend\src\views\labs\ThemeLab.jsx`
+- **Used by routes**: _not referenced directly by a route_
+
+**Props**
+_No props documented._
+
+**Example**
+```jsx
+// Adjust import per your alias setup (e.g., "@/...")
+import ColorInput from "views/labs/ThemeLab";
+
+export default function Example() {
+  return (
+    <ColorInput
+    />
+  );
+}
+```
+---
 ## ColorVariants (`COMP_COLORVARIANTS`)
 - **File**: `frontend\src\ui-component\extended\notistack\ColorVariants.jsx`
 - **Used by routes**: _not referenced directly by a route_
@@ -3217,7 +3241,7 @@ export default function Example() {
 ---
 ## DashboardAnalytics (`COMP_DASHBOARDANALYTICS`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -3237,7 +3261,7 @@ export default function Example() {
 ---
 ## DashboardDefault (`COMP_DASHBOARDDEFAULT`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -3322,7 +3346,7 @@ export default function Example() {
 ---
 ## DatabaseViewer (`COMP_DATABASEVIEWER`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -4620,7 +4644,7 @@ export default function Example() {
 ---
 ## HedgeReportPage (`COMP_HEDGEREPORTPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -5112,7 +5136,7 @@ export default function Example() {
 ---
 ## JupiterPage (`COMP_JUPITERPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -5195,7 +5219,7 @@ export default function Example() {
 ---
 ## KanbanBacklogs (`COMP_KANBANBACKLOGS`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -5215,7 +5239,7 @@ export default function Example() {
 ---
 ## KanbanBoard (`COMP_KANBANBOARD`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -5235,7 +5259,7 @@ export default function Example() {
 ---
 ## KanbanPage (`COMP_KANBANPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -5777,6 +5801,26 @@ import LogoSection from "layout/MainLayout/LogoSection/index";
 export default function Example() {
   return (
     <LogoSection
+    />
+  );
+}
+```
+---
+## LS_KEY (`COMP_LS_KEY`)
+- **File**: `frontend\src\theme\tokens.js`
+- **Used by routes**: _not referenced directly by a route_
+
+**Props**
+_No props documented._
+
+**Example**
+```jsx
+// Adjust import per your alias setup (e.g., "@/...")
+import LS_KEY from "theme/tokens";
+
+export default function Example() {
+  return (
+    <LS_KEY
     />
   );
 }
@@ -6351,7 +6395,7 @@ export default function Example() {
 ---
 ## MonitorManagerPage (`COMP_MONITORMANAGERPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -6776,7 +6820,7 @@ export default function Example() {
 ---
 ## OverviewPage (`COMP_OVERVIEWPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -7110,7 +7154,7 @@ export default function Example() {
 ---
 ## PositionsPage (`COMP_POSITIONSPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -8497,7 +8541,7 @@ export default function Example() {
 ---
 ## SonicLabsPage (`COMP_SONICLABSPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -9053,6 +9097,46 @@ export default function Example() {
 }
 ```
 ---
+## ThemeLab (`COMP_THEMELAB`)
+- **File**: `frontend\src\views\labs\ThemeLab.jsx`
+- **Used by routes**: _not referenced directly by a route_
+
+**Props**
+_No props documented._
+
+**Example**
+```jsx
+// Adjust import per your alias setup (e.g., "@/...")
+import ThemeLab from "views/labs/ThemeLab";
+
+export default function Example() {
+  return (
+    <ThemeLab
+    />
+  );
+}
+```
+---
+## ThemeLabPage (`COMP_THEMELABPAGE`)
+- **File**: `frontend\src\routes\MainRoutes.jsx`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+
+**Props**
+_No props documented._
+
+**Example**
+```jsx
+// Adjust import per your alias setup (e.g., "@/...")
+import ThemeLabPage from "routes/MainRoutes";
+
+export default function Example() {
+  return (
+    <ThemeLabPage
+    />
+  );
+}
+```
+---
 ## ThemeModeLayout (`COMP_THEMEMODELAYOUT`)
 - **File**: `frontend\src\layout\Customization\ThemeMode.jsx`
 - **Used by routes**: _not referenced directly by a route_
@@ -9539,7 +9623,7 @@ export default function Example() {
 ---
 ## TraderFactoryPage (`COMP_TRADERFACTORYPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -10559,7 +10643,7 @@ export default function Example() {
 ---
 ## WalletManagerPage (`COMP_WALLETMANAGERPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._
@@ -10719,7 +10803,7 @@ export default function Example() {
 ---
 ## XComSettingsPage (`COMP_XCOMSETTINGSPAGE`)
 - **File**: `frontend\src\routes\MainRoutes.jsx`
-- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
+- **Used by routes**: `/alert-thresholds`, `/apps/kanban`, `/communications/xcom`, `/dashboard/analytics`, `/dashboard/default`, `/hedge-report`, `/jupiter`, `/monitor-manager`, `/overview`, `/positions`, `/sonic-labs`, `/sonic-labs/theme-lab`, `/trader-factory`, `/wallet-manager`, `backlogs`, `board`, `debug/db`
 
 **Props**
 _No props documented._

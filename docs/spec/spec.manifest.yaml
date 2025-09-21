@@ -49,7 +49,7 @@ modules:
   - MOD-SVC
 - id: MOD-AUTO
   path: backend/core/auto_core/
-  purpose: "Automation flows (Solflare/Jupiter) and helpers."
+  purpose: Automation flows (Solflare/Jupiter) and helpers.
   depends_on:
   - EXT-PLAYWRIGHT
   - EXT-JUPITER
@@ -755,6 +755,11 @@ apis:
   method: GET
   path: /api/status
   response_schema: SCHEMA-API_STATUS
+- id: API-post-api_perps_dry-run_increase
+  type: http
+  method: POST
+  path: /api/perps/dry-run/increase
+  response_schema: null
 events:
 - id: EVT-SONIC_EVENTS
   topic: monitors.sonic_events

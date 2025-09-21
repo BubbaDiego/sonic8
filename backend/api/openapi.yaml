@@ -2322,6 +2322,37 @@ paths:
           content:
             application/json:
               schema: {}
+  /api/perps/dry-run/increase:
+    post:
+      tags:
+      - perps
+      summary: Api Perps Dry Run Increase
+      description: 'Thin pass-through to the TS CLI (JSON in/JSON out).
+
+        NOTE: Do not place secrets in the payload; pass only the minimal RPC endpoint/addresses.'
+      operationId: api_perps_dry_run_increase_post_api_perps_dry-run_increase_8
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                title: Response Api Perps Dry Run Increase Post Api Perps Dry-Run
+                  Increase 8
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/jupiter/open:
     post:
       tags:
@@ -2818,7 +2849,7 @@ paths:
   /api/status:
     get:
       summary: Status
-      operationId: status_get_api_status_159
+      operationId: status_get_api_status_161
       responses:
         '200':
           description: Successful Response

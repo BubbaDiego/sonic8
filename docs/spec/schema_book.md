@@ -1,6 +1,6 @@
 # Sonic Schema Book — Teaching Bundle
 
-> Generated: 2025-09-20 17:18:04 UTC  
+> Generated: 2025-09-21 14:35:09 UTC  
 > Source: `docs/spec/spec.manifest.yaml`  
 > Note: This file consolidates many repo schemas into one for *teaching*. In the repository, each schema lives as its own JSON file.
 
@@ -6857,70 +6857,85 @@
 **Example**
 ```json
 {
-  "detail": [
+  "balances": [
     {
-      "type": "missing",
-      "loc": [
-        "body"
-      ],
-      "msg": "Field required",
-      "input": null
+      "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "amount": "1000000",
+      "decimals": 6
     }
-  ]
+  ],
+  "positions": {
+    "items": [
+      {
+        "symbol": "SOL",
+        "side": "long",
+        "sizeUsd": 25.0,
+        "entryPrice": 155.12
+      }
+    ],
+    "count": 1
+  }
 }
 ```
 
 **Schema**
 ```json
 {
+  "$id": "schema/Portfolio.json",
   "type": "object",
+  "required": [
+    "balances",
+    "positions"
+  ],
   "properties": {
-    "detail": {
+    "balances": {
       "type": "array",
       "items": {
         "type": "object",
+        "required": [
+          "mint",
+          "amount",
+          "decimals"
+        ],
         "properties": {
-          "type": {
+          "mint": {
             "type": "string"
           },
-          "loc": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+          "amount": {
+            "type": "string",
+            "description": "raw atoms as string"
           },
-          "msg": {
-            "type": "string"
-          },
-          "input": {
-            "type": [
-              "null",
-              "string",
-              "number",
-              "object",
-              "array",
-              "boolean"
-            ]
+          "decimals": {
+            "type": "integer",
+            "minimum": 0
           }
-        },
-        "additionalProperties": true
+        }
       }
+    },
+    "positions": {
+      "$ref": "Positions.json"
     }
   },
-  "additionalProperties": true,
-  "$id": "schema/portfolio.json",
   "examples": [
     {
-      "detail": [
+      "balances": [
         {
-          "type": "missing",
-          "loc": [
-            "body"
-          ],
-          "msg": "Field required",
-          "input": null
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "amount": "1000000",
+          "decimals": 6
         }
-      ]
+      ],
+      "positions": {
+        "items": [
+          {
+            "symbol": "SOL",
+            "side": "long",
+            "sizeUsd": 25.0,
+            "entryPrice": 155.12
+          }
+        ],
+        "count": 1
+      }
     }
   ]
 }
@@ -7048,70 +7063,49 @@
 **Example**
 ```json
 {
-  "detail": [
+  "items": [
     {
-      "type": "missing",
-      "loc": [
-        "body"
-      ],
-      "msg": "Field required",
-      "input": null
+      "symbol": "SOL",
+      "side": "long",
+      "sizeUsd": 25.0,
+      "entryPrice": 155.12
     }
-  ]
+  ],
+  "count": 1
 }
 ```
 
 **Schema**
 ```json
 {
+  "$id": "schema/Positions.json",
   "type": "object",
+  "required": [
+    "items"
+  ],
   "properties": {
-    "detail": {
+    "items": {
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string"
-          },
-          "loc": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "msg": {
-            "type": "string"
-          },
-          "input": {
-            "type": [
-              "null",
-              "string",
-              "number",
-              "object",
-              "array",
-              "boolean"
-            ]
-          }
-        },
-        "additionalProperties": true
+        "$ref": "Position.json"
       }
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
     }
   },
-  "additionalProperties": true,
-  "$id": "schema/positions.json",
   "examples": [
     {
-      "detail": [
+      "items": [
         {
-          "type": "missing",
-          "loc": [
-            "body"
-          ],
-          "msg": "Field required",
-          "input": null
+          "symbol": "SOL",
+          "side": "long",
+          "sizeUsd": 25.0,
+          "entryPrice": 155.12
         }
-      ]
+      ],
+      "count": 1
     }
   ]
 }
