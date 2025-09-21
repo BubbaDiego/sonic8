@@ -107,10 +107,11 @@ export default function ThemeCustomization({ children }) {
     () => (tokens.font ? FONT_STACKS[tokens.font] || fontFamily : fontFamily),
     [tokens.font, fontFamily]
   );
-  const themeTypography = useMemo(
-    () => Typography(baseTheme, borderRadius, effectiveFontFamily),
-    [baseTheme, borderRadius, effectiveFontFamily]
-  );
+  const themeTypography = useMemo(() => {
+    const base = Typography(baseTheme, borderRadius, effectiveFontFamily);
+    const size = Number(tokens.fontSize || 14);
+    return { ...base, fontSize: size, htmlFontSize: 16 };
+  }, [baseTheme, borderRadius, effectiveFontFamily, tokens.fontSize]);
   const themeCustomShadows = useMemo(() => customShadows(resolvedMode, baseTheme), [resolvedMode, baseTheme]);
 
   const themeOptions = useMemo(
@@ -168,6 +169,7 @@ export default function ThemeCustomization({ children }) {
     setVar('--card', tokens.card || tokens.surface);
     setVar('--text', tokens.text);
     setVar('--primary', tokens.primary);
+    setVar('--font-size-base', `${Number(tokens.fontSize || 14)}px`);
 
     const wallpaperUrl = tokens.useImage ? normalizeWallpaperUrl(tokens.wallpaper) : null;
     if (wallpaperUrl) {
@@ -180,7 +182,7 @@ export default function ThemeCustomization({ children }) {
     ensureFontLoaded(chosenFont);
     const stack = FONT_STACKS[chosenFont] || FONT_STACKS['System UI'];
     setVar('--font-ui', stack);
-  }, [cssMode, tokens]);
+  }, [cssMode, tokens, themeVersion]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {

@@ -25,6 +25,7 @@ html, body, #root {
 /* App font driven by theme tokens */
 body {
   font-family: var(--font-ui, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial);
+  font-size: var(--font-size-base, 14px);
 }
 
 // ==============================|| TAP HIGHLIGHT ||============================== //

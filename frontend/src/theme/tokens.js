@@ -9,7 +9,8 @@ export const DEFAULT_TOKENS = {
     primary: '#4678d8',
     wallpaper: 'none',
     useImage: false,      // NEW: toggle wallpaper image on/off
-    font: 'Roboto'
+    font: 'Roboto',
+    fontSize: 14
   },
   dark: {
     bg: '#0f172a',
@@ -20,7 +21,8 @@ export const DEFAULT_TOKENS = {
     primary: '#4678d8',
     wallpaper: 'none',
     useImage: false,
-    font: 'Roboto'
+    font: 'Roboto',
+    fontSize: 14
   },
   funky: {
     bg: '#0e1731',
@@ -32,7 +34,8 @@ export const DEFAULT_TOKENS = {
     // You can point this to your mural, or leave 'none' and set in Theme Lab
     wallpaper: 'none',
     useImage: false,
-    font: 'Roboto'
+    font: 'Roboto',
+    fontSize: 14
   }
 };
 
