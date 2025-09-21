@@ -88,31 +88,31 @@ export default function ThemeCustomization({ children }) {
   const [themeVersion, setThemeVersion] = useState(0);
   const [preview, setPreview] = useState(null);
 
-  const resolvedMode = useMemo(() => {
-    if (mode === ThemeMode.SYSTEM) {
-      return systemPrefersDark ? ThemeMode.DARK : ThemeMode.LIGHT;
-    }
-    if (mode === ThemeMode.FUNKY) {
-      return ThemeMode.DARK;
-    }
-    return mode;
+  const cssMode = useMemo(() => {
+    if (mode === ThemeMode.SYSTEM) return systemPrefersDark ? 'dark' : 'light';
+    return String(mode || 'dark');
   }, [mode, systemPrefersDark]);
 
-  const cssMode = useMemo(() => (mode === ThemeMode.FUNKY ? 'funky' : resolvedMode), [mode, resolvedMode]);
   const baseTokens = useMemo(() => {
     const loaded = loadTokens(cssMode);
-    return loaded || DEFAULT_TOKENS[cssMode] || DEFAULT_TOKENS.light;
+    return loaded || DEFAULT_TOKENS[cssMode] || DEFAULT_TOKENS.dark;
   }, [cssMode, themeVersion]);
   const tokens = useMemo(
     () => (preview && preview.name === cssMode ? { ...baseTokens, ...preview.tokens } : baseTokens),
     [baseTokens, preview, cssMode]
   );
 
+  const muiMode = useMemo(() => {
+    if (mode === ThemeMode.SYSTEM) return systemPrefersDark ? ThemeMode.DARK : ThemeMode.LIGHT;
+    const base = tokens.base || (cssMode === 'dark' || cssMode === 'funky' ? 'dark' : 'light');
+    return base === 'dark' ? ThemeMode.DARK : ThemeMode.LIGHT;
+  }, [mode, systemPrefersDark, cssMode, tokens.base]);
+
   const palette = useMemo(() => {
-    const base = Palette(resolvedMode, presetColor).palette;
+    const base = Palette(muiMode, presetColor).palette;
     return {
       ...base,
-      mode: resolvedMode === ThemeMode.DARK ? 'dark' : 'light',
+      mode: muiMode === ThemeMode.DARK ? 'dark' : 'light',
       primary: {
         ...base.primary,
         main: tokens.primary
@@ -127,7 +127,7 @@ export default function ThemeCustomization({ children }) {
         primary: tokens.text
       }
     };
-  }, [resolvedMode, presetColor, tokens]);
+  }, [muiMode, presetColor, tokens]);
 
   const baseTheme = useMemo(() => createTheme({ palette }), [palette]);
   const effectiveFontFamily = useMemo(
@@ -139,7 +139,7 @@ export default function ThemeCustomization({ children }) {
     const size = Number(tokens.fontSize || 14);
     return { ...base, fontSize: size, htmlFontSize: 16 };
   }, [baseTheme, borderRadius, effectiveFontFamily, tokens.fontSize]);
-  const themeCustomShadows = useMemo(() => customShadows(resolvedMode, baseTheme), [resolvedMode, baseTheme]);
+  const themeCustomShadows = useMemo(() => customShadows(muiMode, baseTheme), [muiMode, baseTheme]);
 
   const themeOptions = useMemo(
     () => ({

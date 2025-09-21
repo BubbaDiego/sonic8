@@ -1,6 +1,7 @@
 // Source-of-truth theme tokens. You can add new themes later (e.g., "midnight").
 export const DEFAULT_TOKENS = {
   light: {
+    base: 'light',
     bg: '#e7ecfa',       // component background.default
     page: '#e7ecfa',     // NEW: viewport/page background color
     surface: '#ffffff',
@@ -30,6 +31,7 @@ export const DEFAULT_TOKENS = {
     borderHeaderWidth: 0
   },
   dark: {
+    base: 'dark',
     bg: '#0f172a',
     page: '#0b1220',
     surface: '#14161c',
@@ -56,6 +58,7 @@ export const DEFAULT_TOKENS = {
     borderHeaderWidth: 0
   },
   funky: {
+    base: 'dark',
     bg: '#0e1731',
     page: '#0e1731',
     surface: '#101a3a',
@@ -85,6 +88,8 @@ export const DEFAULT_TOKENS = {
 };
 
 const LS_KEY = (name) => `sonic:theme.tokens:${name}`;
+const LS_PROFILES = `sonic:theme.profiles`; // JSON string: ["light","dark","funky",...]
+const DEFAULT_PROFILES = ['light', 'dark', 'funky'];
 
 export function loadTokens(name) {
   try {
@@ -159,4 +164,54 @@ export function resetAllThemeData() {
     });
   } catch {}
   window.dispatchEvent(new Event('sonic-theme-updated'));
+}
+
+// ---------- Profile management ----------
+function readProfiles() {
+  try {
+    const raw = localStorage.getItem(LS_PROFILES);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) return Array.from(new Set([...DEFAULT_PROFILES, ...arr]));
+    }
+  } catch {}
+  return [...DEFAULT_PROFILES];
+}
+function writeProfiles(list) {
+  const keep = list.filter(Boolean);
+  localStorage.setItem(LS_PROFILES, JSON.stringify(keep));
+  window.dispatchEvent(new Event('sonic-theme-updated'));
+}
+
+export function getProfiles() {
+  return readProfiles();
+}
+export function addProfile(name, { base = 'dark', copyFrom = 'dark' } = {}) {
+  if (!name) return;
+  const profiles = readProfiles();
+  if (profiles.includes(name)) return;
+  const src = loadTokens(copyFrom);
+  saveTokens(name, { ...src, base });
+  writeProfiles([...profiles, name]);
+}
+export function renameProfile(oldName, newName) {
+  if (!oldName || !newName || DEFAULT_PROFILES.includes(oldName)) return; // don't rename defaults
+  const profiles = readProfiles();
+  if (!profiles.includes(oldName)) return;
+  const tokens = loadTokens(oldName);
+  removeTokens(oldName);
+  saveTokens(newName, tokens);
+  writeProfiles(profiles.map((p) => (p === oldName ? newName : p)));
+}
+export function deleteProfile(name) {
+  if (!name || DEFAULT_PROFILES.includes(name)) return; // protect defaults
+  const profiles = readProfiles().filter((p) => p !== name);
+  removeTokens(name);
+  writeProfiles(profiles);
+}
+export function isDefaultProfile(name) {
+  return DEFAULT_PROFILES.includes(name);
+}
+export function ensureProfilesInitialized() {
+  writeProfiles(readProfiles());
 }
