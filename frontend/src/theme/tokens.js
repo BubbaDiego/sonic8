@@ -10,7 +10,10 @@ export const DEFAULT_TOKENS = {
     wallpaper: 'none',
     useImage: false,      // NEW: toggle wallpaper image on/off
     font: 'Roboto',
-    fontSize: 14
+    fontSize: 14,
+    // NEW: themed card images
+    cardUseImage: false,
+    cardImage: 'none'
   },
   dark: {
     bg: '#0f172a',
@@ -22,7 +25,9 @@ export const DEFAULT_TOKENS = {
     wallpaper: 'none',
     useImage: false,
     font: 'Roboto',
-    fontSize: 14
+    fontSize: 14,
+    cardUseImage: false,
+    cardImage: 'none'
   },
   funky: {
     bg: '#0e1731',
@@ -35,7 +40,9 @@ export const DEFAULT_TOKENS = {
     wallpaper: 'none',
     useImage: false,
     font: 'Roboto',
-    fontSize: 14
+    fontSize: 14,
+    cardUseImage: false,
+    cardImage: 'none'
   }
 };
 

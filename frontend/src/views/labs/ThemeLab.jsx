@@ -30,7 +30,7 @@ import {
 } from '../../theme/tokens';
 
 const THEME_NAMES = ['light', 'dark', 'funky'];
-const FONT_OPTIONS = ['System UI', 'Roboto', 'Inter', 'Poppins', 'Space Grotesk', 'JetBrains Mono'];
+const FONT_OPTIONS = ['System UI', 'Roboto', 'Inter', 'Poppins', 'Space Grotesk', 'Orbitron', 'Neuropol', 'JetBrains Mono'];
 const ColorInput = ({ label, value, onChange }) => (
   <Stack direction="row" alignItems="center" spacing={2}>
     <Typography sx={{ minWidth: 120 }}>{label}</Typography>
@@ -44,6 +44,7 @@ export default function ThemeLab() {
   const [state, setState] = useState(loadTokens('dark'));
   const [livePreview, setLivePreview] = useState(true);
   const [wallThumb, setWallThumb] = useState({ url: '', ok: null, loading: false });
+  const [cardThumb, setCardThumb] = useState({ url: '', ok: null, loading: false });
 
   const base = useMemo(() => DEFAULT_TOKENS[name], [name]);
 
@@ -125,6 +126,23 @@ export default function ThemeLab() {
     img.onerror = () => setWallThumb({ url, ok: false, loading: false });
     img.src = url;
   }, [state.wallpaper, state.useImage]);
+
+  // Card image thumbnail + validation
+  useEffect(() => {
+    const v = state.cardImage;
+    if (!state.cardUseImage || !v || v === 'none') {
+      setCardThumb({ url: '', ok: null, loading: false });
+      return;
+    }
+    const base = import.meta.env?.BASE_URL ? String(import.meta.env.BASE_URL) : '/';
+    const join = (a, b) => a.replace(/\/+$/, '/') + b.replace(/^\/+/, '');
+    const url = v.startsWith('data:') ? v : /^https?:\/\//i.test(v) ? v : join(location.origin + base, v);
+    setCardThumb({ url, ok: null, loading: true });
+    const img = new Image();
+    img.onload = () => setCardThumb({ url, ok: true, loading: false });
+    img.onerror = () => setCardThumb({ url, ok: false, loading: false });
+    img.src = url;
+  }, [state.cardImage, state.cardUseImage]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -309,6 +327,33 @@ export default function ThemeLab() {
                 <ColorInput label="Surface / Paper (--surface)" value={state.surface} onChange={(v) => setField('surface', v)} />
                 <ColorInput label="Card (--card)" value={state.card} onChange={(v) => setField('card', v)} />
                 <ColorInput label="Primary (--primary)" value={state.primary} onChange={(v) => setField('primary', v)} />
+                <Divider />
+                <FormControlLabel
+                  control={<Switch checked={!!state.cardUseImage} onChange={(e) => setField('cardUseImage', e.target.checked)} />}
+                  label="Use Card Image"
+                />
+                <TextField
+                  fullWidth
+                  label="Card Image (URL or data URI)"
+                  placeholder="e.g., /images/panel-texture.png"
+                  value={state.cardImage || 'none'}
+                  onChange={(e) => setField('cardImage', e.target.value)}
+                />
+                {cardThumb.loading && <Typography variant="caption">Checking…</Typography>}
+                {cardThumb.ok === true && (
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <img src={cardThumb.url} alt="card" style={{ width: 120, height: 60, objectFit: 'cover', borderRadius: 6 }} />
+                    <Chip size="small" color="success" label="Loaded" />
+                  </Stack>
+                )}
+                {cardThumb.ok === false && (
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Chip size="small" color="error" label="Not found / blocked" />
+                    <Typography variant="caption">
+                      Place file in <code>frontend/static/images</code> (or <code>frontend/public/images</code>) and use <code>/images/&lt;name&gt;</code>.
+                    </Typography>
+                  </Stack>
+                )}
                 <Divider />
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   Panel preview

@@ -22,6 +22,8 @@ const FONT_STACKS = {
   Inter: "'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial",
   Poppins: "'Poppins', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial",
   'Space Grotesk': "'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial",
+  Orbitron: "'Orbitron', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial",
+  Neuropol: "'Neuropol', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial",
   'JetBrains Mono': "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace"
 };
 
@@ -30,6 +32,7 @@ const FONT_HREFS = {
   Inter: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
   Poppins: 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap',
   'Space Grotesk': 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap',
+  Orbitron: 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap',
   'JetBrains Mono': 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap'
 };
 
@@ -44,6 +47,26 @@ function ensureFontLoaded(name) {
   link.rel = 'stylesheet';
   link.href = href;
   document.head.appendChild(link);
+}
+
+// Local font helper (for Neuropol). Place files in frontend/static/fonts or frontend/public/fonts
+function normalizeAsset(path) {
+  const base = import.meta.env?.BASE_URL ? String(import.meta.env.BASE_URL) : '/';
+  const join = (a, b) => a.replace(/\/+$/, '/') + b.replace(/^\/+/, '');
+  return join(base, path);
+}
+
+function ensureLocalFont(name, sources) {
+  if (typeof document === 'undefined') return;
+  const id = `fontlocal-${name.replace(/\s+/g, '-').toLowerCase()}`;
+  if (document.getElementById(id)) return;
+  const css = `@font-face{font-family:'${name}';src:${sources
+    .map((s) => `url('${s.url}') format('${s.format}')`)
+    .join(',')};font-weight:400;font-style:normal;font-display:swap}`;
+  const style = document.createElement('style');
+  style.id = id;
+  style.textContent = css;
+  document.head.appendChild(style);
 }
 
 // Normalize wallpaper path → absolute URL honoring BASE_URL
@@ -178,8 +201,22 @@ export default function ThemeCustomization({ children }) {
       html.style.removeProperty('--body-bg-image');
     }
 
+    const cardImageUrl = tokens.cardUseImage ? normalizeWallpaperUrl(tokens.cardImage) : null;
+    if (cardImageUrl) {
+      setVar('--card-bg-image', `url('${cardImageUrl}')`);
+    } else {
+      html.style.removeProperty('--card-bg-image');
+    }
+
     const chosenFont = tokens.font || 'System UI';
-    ensureFontLoaded(chosenFont);
+    if (chosenFont === 'Neuropol') {
+      ensureLocalFont('Neuropol', [
+        { url: normalizeAsset('/fonts/neuropol.woff2'), format: 'woff2' },
+        { url: normalizeAsset('/fonts/neuropol.ttf'), format: 'truetype' }
+      ]);
+    } else {
+      ensureFontLoaded(chosenFont);
+    }
     const stack = FONT_STACKS[chosenFont] || FONT_STACKS['System UI'];
     setVar('--font-ui', stack);
   }, [cssMode, tokens, themeVersion]);
