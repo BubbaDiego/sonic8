@@ -29,6 +29,7 @@ import {
 } from '../../theme/tokens';
 
 const THEME_NAMES = ['light', 'dark', 'funky'];
+const FONT_OPTIONS = ['System UI', 'Roboto', 'Inter', 'Poppins', 'Space Grotesk', 'JetBrains Mono'];
 const ColorInput = ({ label, value, onChange }) => (
   <Stack direction="row" alignItems="center" spacing={2}>
     <Typography sx={{ minWidth: 120 }}>{label}</Typography>
@@ -100,7 +101,10 @@ export default function ThemeLab() {
       setWallThumb({ url: '', ok: null, loading: false });
       return;
     }
-    const url = v.startsWith('data:') ? v : v.startsWith('http') ? v : `${location.origin}${v.startsWith('/') ? '' : '/'}${v}`;
+    // Normalize with BASE_URL so /images/* works regardless of deploy base
+    const base = import.meta.env?.BASE_URL ? String(import.meta.env.BASE_URL) : '/';
+    const join = (a, b) => a.replace(/\/+$/, '/') + b.replace(/^\/+/, '');
+    const url = v.startsWith('data:') ? v : /^https?:\/\//i.test(v) ? v : join(location.origin + base, v);
     setWallThumb({ url, ok: null, loading: true });
     const img = new Image();
     img.onload = () => setWallThumb({ url, ok: true, loading: false });
@@ -162,6 +166,22 @@ export default function ThemeLab() {
                   <ColorInput label="Card (--card)" value={state.card} onChange={(v) => setField('card', v)} />
                   <ColorInput label="Text (--text)" value={state.text} onChange={(v) => setField('text', v)} />
                   <ColorInput label="Primary (--primary)" value={state.primary} onChange={(v) => setField('primary', v)} />
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Typography sx={{ minWidth: 120 }}>Font</Typography>
+                    <TextField
+                      select
+                      size="small"
+                      value={state.font || 'System UI'}
+                      onChange={(e) => setField('font', e.target.value)}
+                      sx={{ width: 220 }}
+                    >
+                      {FONT_OPTIONS.map((font) => (
+                        <MenuItem key={font} value={font}>
+                          {font}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Stack>
                 </Stack>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -184,7 +204,9 @@ export default function ThemeLab() {
                   {wallThumb.ok === false && (
                     <Stack direction="row" spacing={2} alignItems="center">
                       <Chip size="small" color="error" label="Not found / blocked" />
-                      <Typography variant="caption">Ensure the path is reachable. For local files in the app, use a leading slash like <code>/images/wally.png</code>.</Typography>
+                      <Typography variant="caption">
+                        If this is a local file, place it in <code>frontend/static/images</code> (or <code>frontend/public/images</code>) and reference it as <code>/images/&lt;name&gt;</code>.
+                      </Typography>
                     </Stack>
                   )}
                   <Typography variant="caption">Tip: toggle <b>Use Image</b> off to show only the Page color.</Typography>
@@ -192,7 +214,7 @@ export default function ThemeLab() {
               </Grid>
             </Grid>
             <Divider />
-            <Card sx={{ mt: 2, p: 2, minHeight: 120, background: 'var(--surface)' }}>
+            <Card sx={{ mt: 2, p: 2, minHeight: 140, background: 'var(--surface)' }}>
               <Box
                 sx={{
                   borderRadius: 2,
@@ -204,6 +226,12 @@ export default function ThemeLab() {
                   border: '1px solid rgba(255,255,255,0.08)'
                 }}
               />
+              <Typography variant="h6" sx={{ mt: 1 }}>
+                Font preview
+              </Typography>
+              <Typography variant="body2">
+                The quick brown fox jumps over the lazy dog — 1234567890 (Aa Bb Cc).
+              </Typography>
             </Card>
             <Divider />
             <Stack direction="row" spacing={2}>
