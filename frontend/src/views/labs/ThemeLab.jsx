@@ -395,7 +395,7 @@ export default function ThemeLab() {
       </Card>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6}>
           <Card>
             <CardHeader title="Text" />
             <CardContent>
@@ -418,7 +418,10 @@ export default function ThemeLab() {
                       min={11}
                       max={20}
                       step={1}
-                      onChange={(_, value) => setField('fontSize', Array.isArray(value) ? value[0] : value)}
+                      onChange={(_, value) => {
+                        const raw = Array.isArray(value) ? value[0] : value;
+                        setField('fontSize', Number(raw));
+                      }}
                       sx={{ width: 180 }}
                     />
                     <TextField
@@ -455,7 +458,265 @@ export default function ThemeLab() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardHeader title="Borders" />
+            <CardContent>
+              <Stack spacing={2}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Card borders
+                </Typography>
+                <Stack spacing={1}>
+                  <Typography variant="caption">Card border width (px)</Typography>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Slider
+                      value={Number(state.borderCardWidth ?? 0)}
+                      min={0}
+                      max={8}
+                      step={1}
+                      onChange={(_, value) => {
+                        const raw = Array.isArray(value) ? value[0] : value;
+                        setField('borderCardWidth', Number(raw));
+                      }}
+                      sx={{ width: 180 }}
+                    />
+                    <TextField
+                      size="small"
+                      type="number"
+                      sx={{ width: 90 }}
+                      value={Number(state.borderCardWidth ?? 0)}
+                      onChange={(e) =>
+                        setField('borderCardWidth', Math.max(0, Math.min(12, Number(e.target.value || 0))))
+                      }
+                    />
+                  </Stack>
+                  <ColorInput
+                    label="Color (--border-card)"
+                    value={state.borderCard || '#00000000'}
+                    onChange={(v) => setField('borderCard', v)}
+                  />
+                </Stack>
+                <Divider />
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Surface/Container borders
+                </Typography>
+                <Stack spacing={1}>
+                  <Typography variant="caption">Surface/Container border width (px)</Typography>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Slider
+                      value={Number(state.borderSurfaceWidth ?? 0)}
+                      min={0}
+                      max={8}
+                      step={1}
+                      onChange={(_, value) => {
+                        const raw = Array.isArray(value) ? value[0] : value;
+                        setField('borderSurfaceWidth', Number(raw));
+                      }}
+                      sx={{ width: 180 }}
+                    />
+                    <TextField
+                      size="small"
+                      type="number"
+                      sx={{ width: 90 }}
+                      value={Number(state.borderSurfaceWidth ?? 0)}
+                      onChange={(e) =>
+                        setField('borderSurfaceWidth', Math.max(0, Math.min(12, Number(e.target.value || 0))))
+                      }
+                    />
+                  </Stack>
+                  <ColorInput
+                    label="Color (--border-surface)"
+                    value={state.borderSurface || '#00000000'}
+                    onChange={(v) => setField('borderSurface', v)}
+                  />
+                </Stack>
+                <Divider />
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Header/menu separator
+                </Typography>
+                <Stack spacing={1}>
+                  <Typography variant="caption">Header separator width (px)</Typography>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Slider
+                      value={Number(state.borderHeaderWidth ?? 0)}
+                      min={0}
+                      max={8}
+                      step={1}
+                      onChange={(_, value) => {
+                        const raw = Array.isArray(value) ? value[0] : value;
+                        setField('borderHeaderWidth', Number(raw));
+                      }}
+                      sx={{ width: 180 }}
+                    />
+                    <TextField
+                      size="small"
+                      type="number"
+                      sx={{ width: 90 }}
+                      value={Number(state.borderHeaderWidth ?? 0)}
+                      onChange={(e) =>
+                        setField('borderHeaderWidth', Math.max(0, Math.min(12, Number(e.target.value || 0))))
+                      }
+                    />
+                  </Stack>
+                  <ColorInput
+                    label="Color (--border-header)"
+                    value={state.borderHeader || '#00000000'}
+                    onChange={(v) => setField('borderHeader', v)}
+                  />
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardHeader title="Panels" />
+            <CardContent>
+              <Stack spacing={2}>
+                <ColorInput label="Background (--bg)" value={state.bg} onChange={(v) => setField('bg', v)} />
+                <ColorInput label="Surface / Paper (--surface)" value={state.surface} onChange={(v) => setField('surface', v)} />
+                <ColorInput label="Card (--card)" value={state.card} onChange={(v) => setField('card', v)} />
+                <ColorInput label="Primary (--primary)" value={state.primary} onChange={(v) => setField('primary', v)} />
+                <Divider />
+                <FormControlLabel
+                  control={<Switch checked={!!state.cardUseImage} onChange={(e) => setField('cardUseImage', e.target.checked)} />}
+                  label="Use Card Image"
+                />
+                <Stack spacing={1}>
+                  <FormControlLabel
+                    control={(
+                      <Switch
+                        checked={useCardAsset}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setUseCardAsset(checked);
+                          if (checked) {
+                            const first = cardKeys[0] || '';
+                            setCardKey(first);
+                            setField('cardImage', first ? `asset:${first}` : 'none');
+                          } else {
+                            setCardKey('');
+                            setField('cardImage', 'none');
+                          }
+                        }}
+                      />
+                    )}
+                    label="Use Card Asset Key"
+                  />
+                  {useCardAsset ? (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Autocomplete
+                        options={cardKeys}
+                        disableClearable
+                        freeSolo={false}
+                        sx={{ flex: 1 }}
+                        value={cardKey || null}
+                        onChange={(_, v) => {
+                          const key = v || '';
+                          setCardKey(key);
+                          setField('cardImage', key ? `asset:${key}` : 'none');
+                        }}
+                        renderOption={(props, option) => (
+                          <li {...props}>
+                            <Stack>
+                              <Typography>{option}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {resolveAsset(option, { theme: name, absolute: true })}
+                              </Typography>
+                            </Stack>
+                          </li>
+                        )}
+                        renderInput={(params) => <TextField {...params} label="Card Image Asset Key" placeholder="cards.*" />}
+                      />
+                      <IconButton
+                        aria-label="open card asset"
+                        disabled={!cardKey}
+                        onClick={() => {
+                          const url = resolveAsset(cardKey, { theme: name, absolute: true });
+                          window.open(url, '_blank', 'noopener');
+                        }}
+                      >
+                        <OpenInNewIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  ) : (
+                    <TextField
+                      fullWidth
+                      label="Card Image (URL or data URI)"
+                      placeholder="e.g., /images/panel-texture.png"
+                      value={state.cardImage || 'none'}
+                      onChange={(e) => setField('cardImage', e.target.value)}
+                    />
+                  )}
+                  <Button
+                    variant="outlined"
+                    startIcon={<UploadIcon />}
+                    component="label"
+                  >
+                    Upload Card Image
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        setUseCardAsset(false);
+                        setCardKey('');
+                        uploadToField('cardImage', { cardUseImage: true })(e);
+                      }}
+                    />
+                  </Button>
+                </Stack>
+                {cardThumb.loading && <Typography variant="caption">Checking…</Typography>}
+                {cardThumb.ok === true && (
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <img src={cardThumb.url} alt="card" style={{ width: 120, height: 60, objectFit: 'cover', borderRadius: 6 }} />
+                    <Chip size="small" color="success" label="Loaded" />
+                  </Stack>
+                )}
+                {cardThumb.ok === false && (
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Chip size="small" color="error" label="Not found / blocked" />
+                    <Typography variant="caption">Place file in <code>frontend/static/images</code> / <code>frontend/public/images</code> or choose an Asset Key.</Typography>
+                  </Stack>
+                )}
+                <Divider />
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Panel preview
+                </Typography>
+                <Card
+                  sx={{
+                    p: 2,
+                    background: 'var(--surface)',
+                    border: 'var(--border-surface-width,0px) solid var(--border-surface,transparent)'
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Surface card
+                  </Typography>
+                  <Card
+                    sx={{
+                      p: 1,
+                      background: 'var(--card)',
+                      border: 'var(--border-card-width,0px) solid var(--border-card,transparent)'
+                    }}
+                  >
+                    <Typography variant="caption">Inner card (var(--card))</Typography>
+                  </Card>
+                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                    <Button variant="contained">Primary</Button>
+                    <Button variant="outlined">Outlined</Button>
+                    <Chip label="Chip" />
+                  </Stack>
+                </Card>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
           <Card>
             <CardHeader title="Background" />
             <CardContent>
@@ -753,237 +1014,6 @@ export default function ThemeLab() {
                     border: '1px solid rgba(255,255,255,0.08)'
                   }}
                 />
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardHeader title="Panels" />
-            <CardContent>
-              <Stack spacing={2}>
-                <ColorInput label="Background (--bg)" value={state.bg} onChange={(v) => setField('bg', v)} />
-                <ColorInput label="Surface / Paper (--surface)" value={state.surface} onChange={(v) => setField('surface', v)} />
-                <ColorInput label="Card (--card)" value={state.card} onChange={(v) => setField('card', v)} />
-                <ColorInput label="Primary (--primary)" value={state.primary} onChange={(v) => setField('primary', v)} />
-                <Divider />
-                {/* NEW: Borders */}
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  Borders
-                </Typography>
-                <Stack spacing={1}>
-                  <Typography variant="caption">Card border width (px)</Typography>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Slider
-                      value={Number(state.borderCardWidth ?? 0)}
-                      min={0}
-                      max={8}
-                      step={1}
-                      onChange={(_, v) => setField('borderCardWidth', v)}
-                      sx={{ width: 180 }}
-                    />
-                    <TextField
-                      size="small"
-                      type="number"
-                      sx={{ width: 90 }}
-                      value={Number(state.borderCardWidth ?? 0)}
-                      onChange={(e) =>
-                        setField('borderCardWidth', Math.max(0, Math.min(12, Number(e.target.value || 0))))
-                      }
-                    />
-                  </Stack>
-                  <ColorInput
-                    label="Card border color (--border-card)"
-                    value={state.borderCard || '#00000000'}
-                    onChange={(v) => setField('borderCard', v)}
-                  />
-                </Stack>
-                <Stack spacing={1}>
-                  <Typography variant="caption">Surface/Container border width (px)</Typography>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Slider
-                      value={Number(state.borderSurfaceWidth ?? 0)}
-                      min={0}
-                      max={8}
-                      step={1}
-                      onChange={(_, v) => setField('borderSurfaceWidth', v)}
-                      sx={{ width: 180 }}
-                    />
-                    <TextField
-                      size="small"
-                      type="number"
-                      sx={{ width: 90 }}
-                      value={Number(state.borderSurfaceWidth ?? 0)}
-                      onChange={(e) =>
-                        setField('borderSurfaceWidth', Math.max(0, Math.min(12, Number(e.target.value || 0))))
-                      }
-                    />
-                  </Stack>
-                  <ColorInput
-                    label="Surface border color (--border-surface)"
-                    value={state.borderSurface || '#00000000'}
-                    onChange={(v) => setField('borderSurface', v)}
-                  />
-                </Stack>
-                <Stack spacing={1}>
-                  <Typography variant="caption">Header/menu separator width (px)</Typography>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Slider
-                      value={Number(state.borderHeaderWidth ?? 0)}
-                      min={0}
-                      max={8}
-                      step={1}
-                      onChange={(_, v) => setField('borderHeaderWidth', v)}
-                      sx={{ width: 180 }}
-                    />
-                    <TextField
-                      size="small"
-                      type="number"
-                      sx={{ width: 90 }}
-                      value={Number(state.borderHeaderWidth ?? 0)}
-                      onChange={(e) =>
-                        setField('borderHeaderWidth', Math.max(0, Math.min(12, Number(e.target.value || 0))))
-                      }
-                    />
-                  </Stack>
-                  <ColorInput
-                    label="Header separator color (--border-header)"
-                    value={state.borderHeader || '#00000000'}
-                    onChange={(v) => setField('borderHeader', v)}
-                  />
-                </Stack>
-                <Divider />
-                <FormControlLabel
-                  control={<Switch checked={!!state.cardUseImage} onChange={(e) => setField('cardUseImage', e.target.checked)} />}
-                  label="Use Card Image"
-                />
-                <Stack spacing={1}>
-                  <FormControlLabel
-                    control={(
-                      <Switch
-                        checked={useCardAsset}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setUseCardAsset(checked);
-                          if (checked) {
-                            const first = cardKeys[0] || '';
-                            setCardKey(first);
-                            setField('cardImage', first ? `asset:${first}` : 'none');
-                          } else {
-                            setCardKey('');
-                            setField('cardImage', 'none');
-                          }
-                        }}
-                      />
-                    )}
-                    label="Use Card Asset Key"
-                  />
-                  {useCardAsset ? (
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Autocomplete
-                        options={cardKeys}
-                        disableClearable
-                        freeSolo={false}
-                        sx={{ flex: 1 }}
-                        value={cardKey || null}
-                        onChange={(_, v) => {
-                          const key = v || '';
-                          setCardKey(key);
-                          setField('cardImage', key ? `asset:${key}` : 'none');
-                        }}
-                        renderOption={(props, option) => (
-                          <li {...props}>
-                            <Stack>
-                              <Typography>{option}</Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {resolveAsset(option, { theme: name, absolute: true })}
-                              </Typography>
-                            </Stack>
-                          </li>
-                        )}
-                        renderInput={(params) => <TextField {...params} label="Card Image Asset Key" placeholder="cards.*" />}
-                      />
-                      <IconButton
-                        aria-label="open card asset"
-                        disabled={!cardKey}
-                        onClick={() => {
-                          const url = resolveAsset(cardKey, { theme: name, absolute: true });
-                          window.open(url, '_blank', 'noopener');
-                        }}
-                      >
-                        <OpenInNewIcon fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  ) : (
-                    <TextField
-                      fullWidth
-                      label="Card Image (URL or data URI)"
-                      placeholder="e.g., /images/panel-texture.png"
-                      value={state.cardImage || 'none'}
-                      onChange={(e) => setField('cardImage', e.target.value)}
-                    />
-                  )}
-                  <Button
-                    variant="outlined"
-                    startIcon={<UploadIcon />}
-                    component="label"
-                  >
-                    Upload Card Image
-                    <input
-                      hidden
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        setUseCardAsset(false);
-                        setCardKey('');
-                        uploadToField('cardImage', { cardUseImage: true })(e);
-                      }}
-                    />
-                  </Button>
-                </Stack>
-                {cardThumb.loading && <Typography variant="caption">Checking…</Typography>}
-                {cardThumb.ok === true && (
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <img src={cardThumb.url} alt="card" style={{ width: 120, height: 60, objectFit: 'cover', borderRadius: 6 }} />
-                    <Chip size="small" color="success" label="Loaded" />
-                  </Stack>
-                )}
-                {cardThumb.ok === false && (
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Chip size="small" color="error" label="Not found / blocked" />
-                    <Typography variant="caption">Place file in <code>frontend/static/images</code> / <code>frontend/public/images</code> or choose an Asset Key.</Typography>
-                  </Stack>
-                )}
-                <Divider />
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  Panel preview
-                </Typography>
-                <Card
-                  sx={{
-                    p: 2,
-                    background: 'var(--surface)',
-                    border: 'var(--border-surface-width,0px) solid var(--border-surface,transparent)'
-                  }}
-                >
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Surface card
-                  </Typography>
-                  <Card
-                    sx={{
-                      p: 1,
-                      background: 'var(--card)',
-                      border: 'var(--border-card-width,0px) solid var(--border-card,transparent)'
-                    }}
-                  >
-                    <Typography variant="caption">Inner card (var(--card))</Typography>
-                  </Card>
-                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                    <Button variant="contained">Primary</Button>
-                    <Button variant="outlined">Outlined</Button>
-                    <Chip label="Chip" />
-                  </Stack>
-                </Card>
               </Stack>
             </CardContent>
           </Card>
