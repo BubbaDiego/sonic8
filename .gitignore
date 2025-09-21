@@ -28,7 +28,10 @@ coverage.xml
 
 # Distribution / packaging
 build/
+# Allow CLI dist artifacts to be committed
 dist/
+!jupiter-perps-anchor-idl-parsing/dist/
+!jupiter-perps-anchor-idl-parsing/dist/**
 *.egg-info/
 .eggs/
 *.egg

@@ -1,0 +1,26 @@
+{
+  "name": "jupiter-perps-anchor-idl-parsing",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev:cli": "ts-node src/cli/perps.ts --help"
+  },
+  "bin": {
+    "perps": "dist/cli/perps.js"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@solana/web3.js": "^1.91.4",
+    "bn.js": "^5.2.1",
+    "chalk": "^5.3.0",
+    "source-map-support": "^0.5.21",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/yargs": "^17.0.33",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}
