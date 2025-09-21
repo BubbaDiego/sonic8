@@ -3,7 +3,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import type { Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Keypair } from "@solana/web3.js";
-import { bar, info, kv, ok, fail } from "../utils/logger.js";
+import { bar, info, kv, ok, fail } from "../utils/logger";
 import {
   BN,
   bootstrap,
@@ -11,12 +11,13 @@ import {
   getSingletonPool,
   findCustodyByMint,
   ensureAtaIx,
+  ensureAtaForOwner,
   topUpWsolIfNeededIx,
   MINTS,
   SYS,
-} from "../config/perps.js";
-import { toMicroUsd, toTokenAmount, derivePdaFromIdl, sideToEnum } from "../utils/resolve.js";
-import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
+} from "../config/perps";
+import { toMicroUsd, toTokenAmount, derivePdaFromIdl, sideToEnum } from "../utils/resolve";
+import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
 
 (async () => {
   const argv = await yargs(hideBin(process.argv))
@@ -68,8 +69,10 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
   kv("Position", position.toBase58());
   kv("PosRequest", positionRequest.toBase58());
 
-  // 2) Funding (collateral deposit)
+  // 2) Funding (owner ATA) & PositionRequest ATA (escrow)
   const ataInit = await ensureAtaIx(provider.connection, collateralMint, wallet.publicKey, wallet.publicKey);
+  const prAtaInit = await ensureAtaForOwner(provider.connection, collateralMint, positionRequest, wallet.publicKey, true);
+
   const decimals = (collateralCustody.account.decimals as number) ?? 9;
   const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
   const topUp = collateralMint.equals(MINTS.WSOL)
@@ -105,9 +108,11 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     fundingAccount: ataInit.ata,
     position,
     positionRequest,
+    positionRequestAta: prAtaInit.ata,
     custody: custody.pubkey,
     collateralCustody: collateralCustody.pubkey,
     inputMint: collateralMint,
+    referral: wallet.publicKey,               // safe default
     perpetuals: perpetuals.publicKey,
     pool: pool.publicKey,
     tokenProgram: SYS.TOKEN_PROGRAM_ID,
@@ -121,7 +126,7 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     (accounts as any).program = programId;
   } catch {}
 
-  const preIxs = [...ataInit.ixs, ...topUp];
+  const preIxs = [...ataInit.ixs, ...prAtaInit.ixs, ...topUp];
 
   const method = (program as any).methods.createIncreasePositionMarketRequest({
     sizeUsdDelta,
