@@ -30,6 +30,8 @@ import {
 } from '../../theme/tokens';
 import { resolveAsset, isAssetPointer, toAssetKey, listAssetKeys } from '../../lib/assetsResolver';
 import Autocomplete from '@mui/material/Autocomplete';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import IconButton from '@mui/material/IconButton';
 
 const THEME_NAMES = ['light', 'dark', 'funky'];
 const FONT_OPTIONS = ['System UI', 'Roboto', 'Inter', 'Poppins', 'Space Grotesk', 'Orbitron', 'Neuropol', 'JetBrains Mono'];
@@ -365,16 +367,41 @@ export default function ThemeLab() {
                     label="Use Asset Key"
                   />
                   {useWallAsset ? (
-                    <Autocomplete
-                      options={wallKeys}
-                      value={wallKey || null}
-                      onChange={(_, v) => {
-                        const key = v || '';
-                        setWallKey(key);
-                        setField('wallpaper', key ? `asset:${key}` : 'none');
-                      }}
-                      renderInput={(params) => <TextField {...params} label="Wallpaper Asset Key" placeholder="wallpaper.*" />}
-                    />
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Autocomplete
+                        options={wallKeys}
+                        disableClearable
+                        freeSolo={false}
+                        sx={{ flex: 1 }}
+                        value={wallKey || null}
+                        onChange={(_, v) => {
+                          const key = v || '';
+                          setWallKey(key);
+                          setField('wallpaper', key ? `asset:${key}` : 'none');
+                        }}
+                        renderOption={(props, option) => (
+                          <li {...props}>
+                            <Stack>
+                              <Typography>{option}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {resolveAsset(option, { theme: name, absolute: true })}
+                              </Typography>
+                            </Stack>
+                          </li>
+                        )}
+                        renderInput={(params) => <TextField {...params} label="Wallpaper Asset Key" placeholder="wallpaper.*" />}
+                      />
+                      <IconButton
+                        aria-label="open wallpaper asset"
+                        disabled={!wallKey}
+                        onClick={() => {
+                          const url = resolveAsset(wallKey, { theme: name, absolute: true });
+                          window.open(url, '_blank', 'noopener');
+                        }}
+                      >
+                        <OpenInNewIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
                   ) : (
                     <TextField
                       fullWidth
@@ -454,16 +481,41 @@ export default function ThemeLab() {
                     label="Use Card Asset Key"
                   />
                   {useCardAsset ? (
-                    <Autocomplete
-                      options={cardKeys}
-                      value={cardKey || null}
-                      onChange={(_, v) => {
-                        const key = v || '';
-                        setCardKey(key);
-                        setField('cardImage', key ? `asset:${key}` : 'none');
-                      }}
-                      renderInput={(params) => <TextField {...params} label="Card Image Asset Key" placeholder="cards.*" />}
-                    />
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Autocomplete
+                        options={cardKeys}
+                        disableClearable
+                        freeSolo={false}
+                        sx={{ flex: 1 }}
+                        value={cardKey || null}
+                        onChange={(_, v) => {
+                          const key = v || '';
+                          setCardKey(key);
+                          setField('cardImage', key ? `asset:${key}` : 'none');
+                        }}
+                        renderOption={(props, option) => (
+                          <li {...props}>
+                            <Stack>
+                              <Typography>{option}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {resolveAsset(option, { theme: name, absolute: true })}
+                              </Typography>
+                            </Stack>
+                          </li>
+                        )}
+                        renderInput={(params) => <TextField {...params} label="Card Image Asset Key" placeholder="cards.*" />}
+                      />
+                      <IconButton
+                        aria-label="open card asset"
+                        disabled={!cardKey}
+                        onClick={() => {
+                          const url = resolveAsset(cardKey, { theme: name, absolute: true });
+                          window.open(url, '_blank', 'noopener');
+                        }}
+                      >
+                        <OpenInNewIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
                   ) : (
                     <TextField
                       fullWidth

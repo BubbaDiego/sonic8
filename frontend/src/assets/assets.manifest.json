@@ -4,7 +4,7 @@
     "2x":      { "src": "/images/wally@2x.png" }
   },
   "wallpaper.funky": {
-    "default": { "src": "/images/funky-mural.webp", "type": "image/webp" }
+    "default": { "src": "/images/wally.png", "type": "image/png" }
   },
   "cards.texture.grid": {
     "default": { "src": "/images/textures/grid.webp", "type": "image/webp" }
