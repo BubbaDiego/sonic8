@@ -28,6 +28,8 @@ import {
   clearPreview,
   resetAllThemeData
 } from '../../theme/tokens';
+import { resolveAsset, isAssetPointer, toAssetKey, listAssetKeys } from '../../lib/assetsResolver';
+import Autocomplete from '@mui/material/Autocomplete';
 
 const THEME_NAMES = ['light', 'dark', 'funky'];
 const FONT_OPTIONS = ['System UI', 'Roboto', 'Inter', 'Poppins', 'Space Grotesk', 'Orbitron', 'Neuropol', 'JetBrains Mono'];
@@ -40,16 +42,57 @@ const ColorInput = ({ label, value, onChange }) => (
 );
 
 export default function ThemeLab() {
+  const initialTokensRef = useRef(loadTokens('dark'));
+  const initialTokens = initialTokensRef.current;
   const [name, setName] = useState('dark');
-  const [state, setState] = useState(loadTokens('dark'));
+  const [state, setState] = useState(() => initialTokens);
   const [livePreview, setLivePreview] = useState(true);
   const [wallThumb, setWallThumb] = useState({ url: '', ok: null, loading: false });
   const [cardThumb, setCardThumb] = useState({ url: '', ok: null, loading: false });
+  const [useWallAsset, setUseWallAsset] = useState(isAssetPointer(initialTokens.wallpaper));
+  const [wallKey, setWallKey] = useState(() => (isAssetPointer(initialTokens.wallpaper) ? toAssetKey(initialTokens.wallpaper) : ''));
+  const [useCardAsset, setUseCardAsset] = useState(isAssetPointer(initialTokens.cardImage));
+  const [cardKey, setCardKey] = useState(() => (isAssetPointer(initialTokens.cardImage) ? toAssetKey(initialTokens.cardImage) : ''));
+  const wallKeys = useMemo(() => listAssetKeys('wallpaper.'), []);
+  const cardKeys = useMemo(() => listAssetKeys('cards.'), []);
 
   const base = useMemo(() => DEFAULT_TOKENS[name], [name]);
 
-  const setField = (k, v) => setState((s) => ({ ...s, [k]: v }));
-  const resetToDefaults = () => setState(base);
+  const applyState = (next) => {
+    setState(next);
+    const wallPtr = isAssetPointer(next.wallpaper);
+    setUseWallAsset(wallPtr);
+    setWallKey(wallPtr ? toAssetKey(next.wallpaper) || '' : '');
+    const cardPtr = isAssetPointer(next.cardImage);
+    setUseCardAsset(cardPtr);
+    setCardKey(cardPtr ? toAssetKey(next.cardImage) || '' : '');
+  };
+
+  const setField = (k, v) => {
+    setState((s) => {
+      const next = { ...s, [k]: v };
+      if (k === 'wallpaper') {
+        const ptr = isAssetPointer(v);
+        if (ptr) {
+          setUseWallAsset(true);
+          setWallKey(toAssetKey(v) || '');
+        } else if (!useWallAsset) {
+          setWallKey('');
+        }
+      }
+      if (k === 'cardImage') {
+        const ptr = isAssetPointer(v);
+        if (ptr) {
+          setUseCardAsset(true);
+          setCardKey(toAssetKey(v) || '');
+        } else if (!useCardAsset) {
+          setCardKey('');
+        }
+      }
+      return next;
+    });
+  };
+  const resetToDefaults = () => applyState({ ...base });
   const save = () => {
     saveTokens(name, state);
     clearPreview();
@@ -57,12 +100,12 @@ export default function ThemeLab() {
   const remove = () => {
     removeTokens(name);
     const fresh = loadTokens(name);
-    setState(fresh);
+    applyState(fresh);
     if (livePreview) previewTokens(name, fresh);
   };
   const discard = () => {
     const fresh = loadTokens(name);
-    setState(fresh);
+    applyState(fresh);
     clearPreview();
   };
   const doExport = () => {
@@ -82,7 +125,7 @@ export default function ThemeLab() {
     try {
       importAllThemes(JSON.parse(text));
       const fresh = loadTokens(name);
-      setState(fresh);
+      applyState(fresh);
       if (livePreview) previewTokens(name, fresh);
     } catch {
       alert('Invalid JSON');
@@ -106,43 +149,49 @@ export default function ThemeLab() {
   useEffect(() => () => clearPreview(), []);
 
   useEffect(() => {
-    const v = state.wallpaper;
+    let v = state.wallpaper;
+    if (useWallAsset) v = wallKey ? `asset:${wallKey}` : 'none';
     if (!state.useImage || !v || v === 'none') {
       setWallThumb({ url: '', ok: null, loading: false });
       return;
     }
-    // Normalize with BASE_URL so /images/* works regardless of deploy base
     const base = import.meta.env?.BASE_URL ? String(import.meta.env.BASE_URL) : '/';
-    const join = (a, b) => a.replace(/\/+$/, '/') + b.replace(/^\/+/, '');
-    const url = v.startsWith('data:') ? v : /^https?:\/\//i.test(v) ? v : join(location.origin + base, v);
-    setWallThumb((prev) => {
-      if (prev.url === url && prev.loading === true) {
-        return prev;
-      }
-      return { url, ok: null, loading: true };
-    });
+    const normalize = (value) => {
+      if (value.startsWith('data:') || /^https?:\/\//i.test(value)) return value;
+      return `${location.origin}${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`;
+    };
+    const url = isAssetPointer(v)
+      ? resolveAsset(toAssetKey(v), { theme: name, absolute: true })
+      : normalize(v);
+    setWallThumb({ url, ok: null, loading: true });
     const img = new Image();
     img.onload = () => setWallThumb({ url, ok: true, loading: false });
     img.onerror = () => setWallThumb({ url, ok: false, loading: false });
     img.src = url;
-  }, [state.wallpaper, state.useImage]);
+  }, [state.wallpaper, state.useImage, useWallAsset, wallKey, name]);
 
   // Card image thumbnail + validation
   useEffect(() => {
-    const v = state.cardImage;
+    let v = state.cardImage;
+    if (useCardAsset) v = cardKey ? `asset:${cardKey}` : 'none';
     if (!state.cardUseImage || !v || v === 'none') {
       setCardThumb({ url: '', ok: null, loading: false });
       return;
     }
     const base = import.meta.env?.BASE_URL ? String(import.meta.env.BASE_URL) : '/';
-    const join = (a, b) => a.replace(/\/+$/, '/') + b.replace(/^\/+/, '');
-    const url = v.startsWith('data:') ? v : /^https?:\/\//i.test(v) ? v : join(location.origin + base, v);
+    const normalize = (value) => {
+      if (value.startsWith('data:') || /^https?:\/\//i.test(value)) return value;
+      return `${location.origin}${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`;
+    };
+    const url = isAssetPointer(v)
+      ? resolveAsset(toAssetKey(v), { theme: name, absolute: true })
+      : normalize(v);
     setCardThumb({ url, ok: null, loading: true });
     const img = new Image();
     img.onload = () => setCardThumb({ url, ok: true, loading: false });
     img.onerror = () => setCardThumb({ url, ok: false, loading: false });
     img.src = url;
-  }, [state.cardImage, state.cardUseImage]);
+  }, [state.cardImage, state.cardUseImage, useCardAsset, cardKey, name]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -172,8 +221,9 @@ export default function ThemeLab() {
                 value={name}
                 onChange={(e) => {
                   const n = e.target.value;
+                  const next = loadTokens(n);
                   setName(n);
-                  setState(loadTokens(n));
+                  applyState(next);
                 }}
               >
                 {THEME_NAMES.map((n) => (
@@ -198,7 +248,7 @@ export default function ThemeLab() {
               <Button
                 onClick={() => {
                   resetAllThemeData();
-                  setState(loadTokens(name));
+                  applyState(loadTokens(name));
                 }}
                 title="Clears all saved theme data for all themes"
               >
@@ -276,13 +326,48 @@ export default function ThemeLab() {
               <Stack spacing={2}>
                 <ColorInput label="Page / Wallpaper Base (--page)" value={state.page ?? state.bg} onChange={(v) => setField('page', v)} />
                 <FormControlLabel control={<Switch checked={!!state.useImage} onChange={(e) => setField('useImage', e.target.checked)} />} label="Use Image" />
-                <TextField
-                  fullWidth
-                  label="Wallpaper (URL or data URI)"
-                  placeholder="e.g., /images/wally.png"
-                  value={state.wallpaper || 'none'}
-                  onChange={(e) => setField('wallpaper', e.target.value)}
-                />
+                <Stack spacing={1}>
+                  <FormControlLabel
+                    control={(
+                      <Switch
+                        checked={useWallAsset}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setUseWallAsset(checked);
+                          if (checked) {
+                            const first = wallKeys[0] || '';
+                            setWallKey(first);
+                            setField('wallpaper', first ? `asset:${first}` : 'none');
+                          } else {
+                            setWallKey('');
+                            setField('wallpaper', 'none');
+                          }
+                        }}
+                      />
+                    )}
+                    label="Use Asset Key"
+                  />
+                  {useWallAsset ? (
+                    <Autocomplete
+                      options={wallKeys}
+                      value={wallKey || null}
+                      onChange={(_, v) => {
+                        const key = v || '';
+                        setWallKey(key);
+                        setField('wallpaper', key ? `asset:${key}` : 'none');
+                      }}
+                      renderInput={(params) => <TextField {...params} label="Wallpaper Asset Key" placeholder="wallpaper.*" />}
+                    />
+                  ) : (
+                    <TextField
+                      fullWidth
+                      label="Wallpaper (URL or data URI)"
+                      placeholder="e.g., /images/wally.png"
+                      value={state.wallpaper || 'none'}
+                      onChange={(e) => setField('wallpaper', e.target.value)}
+                    />
+                  )}
+                </Stack>
                 {wallThumb.loading && <Typography variant="caption">Checking…</Typography>}
                 {wallThumb.ok === true && (
                   <Stack direction="row" spacing={2} alignItems="center">
@@ -293,9 +378,7 @@ export default function ThemeLab() {
                 {wallThumb.ok === false && (
                   <Stack direction="row" spacing={2} alignItems="center">
                     <Chip size="small" color="error" label="Not found / blocked" />
-                    <Typography variant="caption">
-                      Place it in <code>frontend/static/images</code> (or <code>frontend/public/images</code>) and use <code>/images/&lt;name&gt;</code>.
-                    </Typography>
+                    <Typography variant="caption">Use an <b>Asset Key</b> from the dropdown, or place a file in <code>frontend/static/images</code> / <code>frontend/public/images</code> and reference it as <code>/images/&lt;name&gt;</code>.</Typography>
                   </Stack>
                 )}
                 <Divider />
@@ -332,13 +415,48 @@ export default function ThemeLab() {
                   control={<Switch checked={!!state.cardUseImage} onChange={(e) => setField('cardUseImage', e.target.checked)} />}
                   label="Use Card Image"
                 />
-                <TextField
-                  fullWidth
-                  label="Card Image (URL or data URI)"
-                  placeholder="e.g., /images/panel-texture.png"
-                  value={state.cardImage || 'none'}
-                  onChange={(e) => setField('cardImage', e.target.value)}
-                />
+                <Stack spacing={1}>
+                  <FormControlLabel
+                    control={(
+                      <Switch
+                        checked={useCardAsset}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setUseCardAsset(checked);
+                          if (checked) {
+                            const first = cardKeys[0] || '';
+                            setCardKey(first);
+                            setField('cardImage', first ? `asset:${first}` : 'none');
+                          } else {
+                            setCardKey('');
+                            setField('cardImage', 'none');
+                          }
+                        }}
+                      />
+                    )}
+                    label="Use Card Asset Key"
+                  />
+                  {useCardAsset ? (
+                    <Autocomplete
+                      options={cardKeys}
+                      value={cardKey || null}
+                      onChange={(_, v) => {
+                        const key = v || '';
+                        setCardKey(key);
+                        setField('cardImage', key ? `asset:${key}` : 'none');
+                      }}
+                      renderInput={(params) => <TextField {...params} label="Card Image Asset Key" placeholder="cards.*" />}
+                    />
+                  ) : (
+                    <TextField
+                      fullWidth
+                      label="Card Image (URL or data URI)"
+                      placeholder="e.g., /images/panel-texture.png"
+                      value={state.cardImage || 'none'}
+                      onChange={(e) => setField('cardImage', e.target.value)}
+                    />
+                  )}
+                </Stack>
                 {cardThumb.loading && <Typography variant="caption">Checking…</Typography>}
                 {cardThumb.ok === true && (
                   <Stack direction="row" spacing={2} alignItems="center">
@@ -349,9 +467,7 @@ export default function ThemeLab() {
                 {cardThumb.ok === false && (
                   <Stack direction="row" spacing={2} alignItems="center">
                     <Chip size="small" color="error" label="Not found / blocked" />
-                    <Typography variant="caption">
-                      Place file in <code>frontend/static/images</code> (or <code>frontend/public/images</code>) and use <code>/images/&lt;name&gt;</code>.
-                    </Typography>
+                    <Typography variant="caption">Place file in <code>frontend/static/images</code> / <code>frontend/public/images</code> or choose an Asset Key.</Typography>
                   </Stack>
                 )}
                 <Divider />
