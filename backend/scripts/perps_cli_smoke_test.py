@@ -64,7 +64,12 @@ def find_pos_request(text: str) -> Optional[str]:
     m = re.search(r"PositionRequest\s*=\s*(" + B58_RE + r")", text)
     return m.group(1) if m else None
 
-def run(cmd: List[str], cwd: Path, timeout: int = 240) -> Tuple[int, str, str]:
+def run(
+    cmd: List[str],
+    cwd: Path,
+    timeout: int = 240,
+    env: Optional[dict] = None,
+) -> Tuple[int, str, str]:
     """Run a command, capture stdout/stderr as text."""
     proc = subprocess.run(
         cmd,
@@ -74,12 +79,27 @@ def run(cmd: List[str], cwd: Path, timeout: int = 240) -> Tuple[int, str, str]:
         text=True,
         timeout=timeout,
         shell=False,
+        env=env,
     )
     return proc.returncode, proc.stdout, proc.stderr
 
 def ensure_npm_available() -> None:
     if shutil.which("npm") is None:
         fail("npm was not found on PATH. Install Node/npm or open a shell where npm is available.")
+
+def ensure_ts_node(repo: Path) -> None:
+    """Best-effort check that ts-node is accessible."""
+    ts_node_bin = repo / "node_modules" / ".bin" / "ts-node"
+    if ts_node_bin.exists() or shutil.which("ts-node") is not None:
+        return
+    warn("ts-node not found locally; relying on npx to download on first use.")
+
+def ensure_tsx(repo: Path) -> None:
+    """Best-effort check that tsx is accessible."""
+    tsx_bin = repo / "node_modules" / ".bin" / "tsx"
+    if tsx_bin.exists() or shutil.which("tsx") is not None:
+        return
+    warn("tsx not found locally; relying on npx to download on first use.")
 
 def repo_sanity(repo_dir: Path) -> None:
     pkg = repo_dir / "package.json"
@@ -116,6 +136,46 @@ def common_args(ns: argparse.Namespace) -> List[str]:
         args += ["--dry-run"]
     return args
 
+def try_runners(ns: argparse.Namespace, ts_path: str, extra: List[str]) -> Tuple[int, str, str]:
+    repo = Path(ns.repo_dir)
+    env = os.environ.copy()
+    env["TS_NODE_TRANSPILE_ONLY"] = "1"
+
+    base_args = common_args(ns)
+
+    # 1) node --loader ts-node/esm  (+ CJS-like extension resolution shim)
+    ensure_ts_node(repo)
+    cmd1 = [
+        "node",
+        "--loader", "ts-node/esm",
+        "--experimental-specifier-resolution=node",
+        ts_path,
+    ] + base_args + extra
+    bar("Runner: node --loader ts-node/esm", "🧪")
+    code, out, err = run(cmd1, cwd=repo, timeout=ns.timeout, env=env)
+    out = out or ""; err = err or ""
+    if code == 0:
+        return code, out, err
+    if "ERR_UNKNOWN_FILE_EXTENSION" not in (out + err):
+        return code, out, err
+
+    # 2) npx ts-node --transpile-only
+    cmd2 = ["npx", "ts-node", "--transpile-only", ts_path] + base_args + extra
+    bar("Runner: npx ts-node --transpile-only", "🧪")
+    code, out, err = run(cmd2, cwd=repo, timeout=ns.timeout, env=env)
+    out = out or ""; err = err or ""
+    if code == 0:
+        return code, out, err
+    if "ERR_UNKNOWN_FILE_EXTENSION" not in (out + err):
+        return code, out, err
+
+    # 3) npx tsx
+    ensure_tsx(repo)
+    cmd3 = ["npx", "tsx", ts_path] + base_args + extra
+    bar("Runner: npx tsx", "🧪")
+    code, out, err = run(cmd3, cwd=repo, timeout=ns.timeout, env=env)
+    return code, (out or ""), (err or "")
+
 def run_ts_action(ns: argparse.Namespace, action: str, extra: List[str]) -> Tuple[Optional[str], Optional[str]]:
     """
     Returns (tx_sig, position_request)
@@ -129,13 +189,11 @@ def run_ts_action(ns: argparse.Namespace, action: str, extra: List[str]) -> Tupl
     if not ts_path:
         fail(f"Unknown action {action}")
 
-    cmd = ["npm", "run", "script", "--", ts_path] + common_args(ns) + extra
-
     bar(f"Execute: {action}", "📤")
-    info("Command preview:", "🧾")
-    print("   ", " ".join(cmd))
+    info("TS module:", "🧾")
+    print("   ", ts_path)
 
-    code, out, err = run(cmd, cwd=Path(ns.repo_dir), timeout=ns.timeout)
+    code, out, err = try_runners(ns, ts_path, extra)
     print()
     if out.strip():
         bar("stdout", "🟢")
