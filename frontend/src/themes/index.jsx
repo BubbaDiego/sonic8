@@ -213,6 +213,13 @@ export default function ThemeCustomization({ children }) {
     setVar('--text-title', tokens.textTitle || tokens.text);
     setVar('--primary', tokens.primary);
     setVar('--font-size-base', `${Number(tokens.fontSize || 14)}px`);
+    // NEW: Border vars
+    setVar('--border-card', tokens.borderCard || 'transparent');
+    setVar('--border-card-width', `${Number(tokens.borderCardWidth ?? 0)}px`);
+    setVar('--border-surface', tokens.borderSurface || 'transparent');
+    setVar('--border-surface-width', `${Number(tokens.borderSurfaceWidth ?? 0)}px`);
+    setVar('--border-header', tokens.borderHeader || 'transparent');
+    setVar('--border-header-width', `${Number(tokens.borderHeaderWidth ?? 0)}px`);
 
     let wallpaperUrl = null;
     if (tokens.useImage) {

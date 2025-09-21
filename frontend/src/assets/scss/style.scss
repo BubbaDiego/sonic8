@@ -40,6 +40,10 @@ h5,
 h6 {
   color: var(--text-title);
 }
+/* Header/menu bar separator (title/menu bar → main frame) */
+.MuiAppBar-root {
+  border-bottom: var(--border-header-width, 0px) solid var(--border-header, transparent) !important;
+}
 /* Global card imagery support (theme-driven) */
 .MuiCard-root {
   background-color: var(--card);
@@ -47,6 +51,12 @@ h6 {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  border: var(--border-card-width, 0px) solid var(--border-card, transparent);
+}
+
+/* Non-card Paper surfaces (containers, panels that aren't Cards) */
+.MuiPaper-root:not(.MuiCard-root) {
+  border: var(--border-surface-width, 0px) solid var(--border-surface, transparent);
 }
 
 // ==============================|| TAP HIGHLIGHT ||============================== //
