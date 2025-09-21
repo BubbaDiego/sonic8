@@ -1,5 +1,4 @@
 import os
-import re
 import time
 from datetime import datetime
 
@@ -16,40 +15,31 @@ from backend.core.calc_core.calculation_core import CalculationCore
 from backend.core.hedge_core.hedge_core import HedgeCore
 from backend.core.trader_core import TraderUpdateService
 from backend.services.signer_loader import load_signer
+from backend.utils.pubkey import extract_pubkey, is_base58_pubkey
 
 console = Console()
 
-BASE58_RE = re.compile(r"^[1-9A-HJ-NP-Za-km-z]+$")
-BASE58_FIND = re.compile(r"[1-9A-HJ-NP-Za-km-z]{32,}")
+def _extract_wallet_pubkey(wallet: dict) -> tuple[str, str]:
+    """Return the first valid base58 pubkey found in *wallet* (if any)."""
 
+    if not isinstance(wallet, dict):
+        return "", ""
 
-def _extract_pubkey(value: str) -> str:
-    """Best-effort extraction of a base58 pubkey from noisy strings."""
+    candidates: list[str] = []
+    for key in ("public_address", "address", "pubkey", "wallet_address"):
+        raw = wallet.get(key)
+        if raw is None:
+            continue
+        text = str(raw).strip()
+        if text:
+            candidates.append(text)
 
-    if not value:
-        return ""
+    for raw in candidates:
+        candidate = extract_pubkey(raw)
+        if is_base58_pubkey(candidate):
+            return candidate, raw
 
-    value = str(value).strip()
-    lowered = value.lower()
-
-    if lowered.startswith("solana:"):
-        cleaned = value.split(":", 1)[1]
-        return cleaned.split("?", 1)[0]
-
-    match = re.search(r"address/([1-9A-HJ-NP-Za-km-z]+)", value)
-    if match:
-        return match.group(1)
-
-    leading = re.split(r"[?#\s]", value)[0]
-    if BASE58_RE.fullmatch(leading or ""):
-        return leading
-
-    hits = BASE58_FIND.findall(value)
-    if hits:
-        hits.sort(key=len, reverse=True)
-        return hits[0]
-
-    return leading
+    return "", candidates[0] if candidates else ""
 
 # Optional override; if unset we select perps-api explicitly
 JUPITER_PERPS_API_BASE = os.getenv("JUPITER_PERPS_API_BASE", "").strip()
@@ -235,14 +225,14 @@ class PositionSyncService:
         base = self._pick_api_base()
 
         for w in wallets:
-            raw_addr = (w.get("public_address") or "").strip()
             name = w.get("name", "Unnamed")
+            addr, raw_addr = _extract_wallet_pubkey(w)
+
             if not raw_addr:
                 log.warning(f"Skipping wallet with no address (name={name})", source="PositionSyncService")
                 continue
 
-            addr = _extract_pubkey(raw_addr)
-            if not addr or not BASE58_RE.fullmatch(addr) or len(addr) < 32:
+            if not addr:
                 log.warning(
                     f"Skipping wallet '{name}': unable to derive base58 pubkey from '{raw_addr}'",
                     source="PositionSyncService",
@@ -363,6 +353,11 @@ class PositionSyncService:
                             source="PositionSyncService")
                 return False
 
+            existing = False
+            if "id" in record:
+                cur.execute("SELECT 1 FROM positions WHERE id = ?", (record["id"],))
+                existing = cur.fetchone() is not None
+
             cols = ", ".join(valid)
             vals = ", ".join(f":{k}" for k in valid)
             updates = ", ".join(f"{c}=excluded.{c}" for c in valid if c != "id")
@@ -381,7 +376,7 @@ class PositionSyncService:
             except Exception as e:
                 log.error(f"Trader refresh error: {e}", source="PositionSyncService")
 
-            return cur.rowcount == 1
+            return not existing
         finally:
             cur.close()
 

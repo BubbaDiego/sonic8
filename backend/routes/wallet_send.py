@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import json
 import os
-import re
 from typing import Any
 
 import requests
@@ -19,6 +18,8 @@ from solders.instruction import Instruction, AccountMeta
 from solders.message import MessageV0
 from solders.transaction import VersionedTransaction
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
+
+from backend.utils.pubkey import BASE58_RE, BASE58_SET, extract_pubkey
 
 # Use the centralized signer loader used elsewhere (Jupiter routes, etc.)
 from backend.config.rpc import helius_url
@@ -54,43 +55,6 @@ CU_PRICE  = int(os.getenv("SEND_CU_PRICE",  "1"))       # 1–5 microLamports/CU
 
 
 # ------------------------------ Base58 helpers -----------------------------
-
-BASE58_ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-BASE58_SET  = set(BASE58_ALPH)
-BASE58_RE   = re.compile(r"^[1-9A-HJ-NP-Za-km-z]+$")
-BASE58_FIND = re.compile(r"[1-9A-HJ-NP-Za-km-z]{32,}")
-
-def extract_pubkey(s: str) -> str:
-    """
-    Normalize a value to a candidate pubkey:
-      - solana:<pk>?...
-      - explorer URLs .../address/<pk>
-      - raw text → longest base58 token
-    """
-    if not s:
-        return ""
-    s = str(s).strip()
-
-    low = s.lower()
-    if low.startswith("solana:"):
-        s = s.split(":", 1)[1]
-        s = s.split("?", 1)[0]
-        return s
-
-    m = re.search(r"address/([1-9A-HJ-NP-Za-km-z]+)", s)
-    if m:
-        return m.group(1)
-
-    s0 = re.split(r"[?#\s]", s)[0]
-    if BASE58_RE.fullmatch(s0 or ""):
-        return s0
-
-    hits = BASE58_FIND.findall(s)
-    if hits:
-        hits.sort(key=len, reverse=True)
-        return hits[0]
-
-    return s0
 
 def validate_base58_or_422(label: str, pk: str) -> str:
     """Return pk if valid; otherwise raise 422 with the exact bad char/index."""
