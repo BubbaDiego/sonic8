@@ -87,8 +87,6 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
     positionRequest,
     positionRequestAta: prAtaInit.ata,
     custody: custody.pubkey,
-    // NOTE: some builds of the IDL require oracle accounts for decrease.
-    // If your IDL errors after this change, we’ll plug in custody oracle accounts here.
     collateralCustody: collateralCustody.pubkey,
     desiredMint: collateralMint,
     referral: wallet.publicKey,
@@ -103,6 +101,8 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
     (accounts as any).eventAuthority = eventAuthority; (accounts as any).program = programId;
   } catch {}
 
+  const preIxs = [...ataInit.ixs, ...prAtaInit.ixs];
+
   const method = (program as any).methods.createDecreasePositionMarketRequest({
     collateralUsdDelta,
     sizeUsdDelta: new BN(0),
@@ -110,9 +110,9 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
     priceSlippage: priceGuard,
   });
 
-  const tx = await method.accounts(accounts).transaction();
+  // ✅ run ATA prep BEFORE the request
+  const tx = await method.accounts(accounts).preInstructions(preIxs).transaction();
   tx.feePayer = wallet.publicKey;
-  tx.add(...ataInit.ixs, ...prAtaInit.ixs);
   tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
 
   if (argv["dry-run"]) {
