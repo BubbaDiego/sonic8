@@ -5,7 +5,8 @@ export const DEFAULT_TOKENS = {
     page: '#e7ecfa',     // NEW: viewport/page background color
     surface: '#ffffff',
     card: '#f8fafc',
-    text: '#222222',
+    text: '#222222',          // body text
+    textTitle: '#111111',     // NEW: headings (h1-h6, Typography variants)
     primary: '#4678d8',
     wallpaper: 'none',
     useImage: false,      // NEW: toggle wallpaper image on/off
@@ -21,6 +22,7 @@ export const DEFAULT_TOKENS = {
     surface: '#14161c',
     card: '#0b1220',
     text: '#e6e6e6',
+    textTitle: '#ffffff',
     primary: '#4678d8',
     wallpaper: 'none',
     useImage: false,
@@ -35,6 +37,7 @@ export const DEFAULT_TOKENS = {
     surface: '#101a3a',
     card: '#0e1b36',
     text: '#eae6ff',
+    textTitle: '#ffffff',
     primary: '#8b5cf6',
     // You can point this to your mural, or leave 'none' and set in Theme Lab
     wallpaper: 'none',

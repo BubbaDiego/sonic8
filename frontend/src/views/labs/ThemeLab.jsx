@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -31,6 +31,7 @@ import {
 import { resolveAsset, isAssetPointer, toAssetKey, listAssetKeys } from '../../lib/assetsResolver';
 import Autocomplete from '@mui/material/Autocomplete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import UploadIcon from '@mui/icons-material/Upload';
 import IconButton from '@mui/material/IconButton';
 
 const THEME_NAMES = ['light', 'dark', 'funky'];
@@ -212,6 +213,21 @@ export default function ThemeLab() {
     img.src = url;
   }, [state.cardImage, state.cardUseImage, useCardAsset, cardKey, name]);
 
+  const uploadToField = (fieldName, extra = {}, onLoad) => async (evt) => {
+    const file = evt.target?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof onLoad === 'function') {
+        onLoad();
+      }
+      setField(fieldName, reader.result);
+      Object.entries(extra).forEach(([key, value]) => setField(key, value));
+    };
+    reader.readAsDataURL(file);
+    evt.target.value = '';
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
@@ -326,13 +342,22 @@ export default function ThemeLab() {
                     />
                   </Stack>
                 </Stack>
-                <ColorInput label="Text (--text)" value={state.text} onChange={(v) => setField('text', v)} />
+                <ColorInput label="Body text (--text)" value={state.text} onChange={(v) => setField('text', v)} />
+                <ColorInput
+                  label="Heading text (--text-title)"
+                  value={state.textTitle ?? state.text}
+                  onChange={(v) => setField('textTitle', v)}
+                />
                 <Divider />
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   Live text preview
                 </Typography>
-                <Typography variant="h6">Heading 6</Typography>
-                <Typography variant="body2">The quick brown fox jumps over the lazy dog — 1234567890.</Typography>
+                <Typography variant="h4" gutterBottom>
+                  Heading 4 uses --text-title
+                </Typography>
+                <Typography variant="body2">
+                  The quick brown fox jumps over the lazy dog — 1234567890 (body uses --text).
+                </Typography>
               </Stack>
             </CardContent>
           </Card>
@@ -411,6 +436,23 @@ export default function ThemeLab() {
                       onChange={(e) => setField('wallpaper', e.target.value)}
                     />
                   )}
+                  <Button
+                    variant="outlined"
+                    startIcon={<UploadIcon />}
+                    component="label"
+                  >
+                    Upload Wallpaper
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        setUseWallAsset(false);
+                        setWallKey('');
+                        uploadToField('wallpaper', { useImage: true })(e);
+                      }}
+                    />
+                  </Button>
                 </Stack>
                 {wallThumb.loading && <Typography variant="caption">Checking…</Typography>}
                 {wallThumb.ok === true && (
@@ -525,6 +567,23 @@ export default function ThemeLab() {
                       onChange={(e) => setField('cardImage', e.target.value)}
                     />
                   )}
+                  <Button
+                    variant="outlined"
+                    startIcon={<UploadIcon />}
+                    component="label"
+                  >
+                    Upload Card Image
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        setUseCardAsset(false);
+                        setCardKey('');
+                        uploadToField('cardImage', { cardUseImage: true })(e);
+                      }}
+                    />
+                  </Button>
                 </Stack>
                 {cardThumb.loading && <Typography variant="caption">Checking…</Typography>}
                 {cardThumb.ok === true && (
