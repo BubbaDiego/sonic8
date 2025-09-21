@@ -268,6 +268,24 @@ export default function ThemeCustomization({ children }) {
     };
     const onPreviewClear = () => setPreview(null);
 
+    // --- Direct preview bridge (preferred; bypasses events) ---
+    try {
+      window.__sonicPreview = (name, tokens) => {
+        const next = { name, tokens: tokens || {} };
+        setPreview((prev) => {
+          if (prev && prev.name === next.name) {
+            const prevKeys = Object.keys(prev.tokens || {});
+            const nextKeys = Object.keys(next.tokens || {});
+            if (prevKeys.length === nextKeys.length && nextKeys.every((key) => prev.tokens[key] === next.tokens[key])) {
+              return prev;
+            }
+          }
+          return next;
+        });
+      };
+      window.__sonicPreviewClear = () => setPreview(null);
+    } catch {}
+
     window.addEventListener('sonic-theme-updated', themeEvt);
     window.addEventListener('storage', storageHandler);
     window.addEventListener('sonic-theme-preview', onPreview);
@@ -289,6 +307,10 @@ export default function ThemeCustomization({ children }) {
       window.removeEventListener('storage', storageHandler);
       window.removeEventListener('sonic-theme-preview', onPreview);
       window.removeEventListener('sonic-theme-preview-clear', onPreviewClear);
+      try {
+        delete window.__sonicPreview;
+        delete window.__sonicPreviewClear;
+      } catch {}
 
       if (mql) {
         if (mql.removeEventListener) {

@@ -87,12 +87,28 @@ export function importAllThemes(bundle) {
 
 // ------ Live Preview helpers (non-persistent) ------
 export function previewTokens(name, tokens) {
-  // tokens: partial override to preview immediately
-  window.dispatchEvent(new CustomEvent('sonic-theme-preview', { detail: { name, tokens } }));
+  // Prefer direct bridge (fast, no event storms). Fallback to event.
+  try {
+    if (typeof window !== 'undefined' && typeof window.__sonicPreview === 'function') {
+      window.__sonicPreview(name, tokens);
+      return;
+    }
+  } catch {}
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sonic-theme-preview', { detail: { name, tokens } }));
+  }
 }
 
 export function clearPreview() {
-  window.dispatchEvent(new Event('sonic-theme-preview-clear'));
+  try {
+    if (typeof window !== 'undefined' && typeof window.__sonicPreviewClear === 'function') {
+      window.__sonicPreviewClear();
+      return;
+    }
+  } catch {}
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('sonic-theme-preview-clear'));
+  }
 }
 
 // Clear every theme override (useful when things feel "stuck")

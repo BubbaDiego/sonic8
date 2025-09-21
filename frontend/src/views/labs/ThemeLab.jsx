@@ -94,8 +94,16 @@ export default function ThemeLab() {
   };
   const resetToDefaults = () => applyState({ ...base });
   const save = () => {
-    saveTokens(name, state);
-    clearPreview();
+    saveTokens(name, state); // fires 'sonic-theme-updated'
+    try {
+      if (typeof window !== 'undefined' && typeof window.__sonicPreviewClear === 'function') {
+        window.__sonicPreviewClear();
+      } else {
+        clearPreview();
+      }
+    } catch {
+      clearPreview();
+    }
   };
   const remove = () => {
     removeTokens(name);
@@ -132,6 +140,7 @@ export default function ThemeLab() {
     }
   };
 
+  // Live preview current edits in context (debounced; uses direct bridge when available)
   const previewTimer = useRef(null);
   useEffect(() => {
     if (!livePreview) return;
@@ -139,8 +148,16 @@ export default function ThemeLab() {
     const snapshotName = name;
     const snapshotState = state;
     previewTimer.current = setTimeout(() => {
-      previewTokens(snapshotName, snapshotState);
-    }, 100);
+      try {
+        if (typeof window !== 'undefined' && typeof window.__sonicPreview === 'function') {
+          window.__sonicPreview(snapshotName, snapshotState);
+        } else {
+          previewTokens(snapshotName, snapshotState);
+        }
+      } catch {
+        previewTokens(snapshotName, snapshotState);
+      }
+    }, 150); // ~6-7 updates/sec while dragging
     return () => {
       if (previewTimer.current) clearTimeout(previewTimer.current);
     };

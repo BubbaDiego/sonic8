@@ -12,7 +12,7 @@ export function listAssetKeys(prefix = '') {
 
 export function resolveAsset(key, opts = {}) {
   const { theme, dpr = (typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1, absolute = false } = opts;
-  const entry = manifest?.[key] || manifest?.['images.missing'];
+  const entry = (manifest && manifest[key]) || (manifest && manifest['images.missing']);
   const missing = join(BASE, '/images/missing.png');
   if (!entry) {
     if (absolute) {
