@@ -2,7 +2,7 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import type { Idl } from "@coral-xyz/anchor";
-import { PublicKey, SystemProgram, Keypair } from "@solana/web3.js";
+import { PublicKey, SystemProgram, Keypair, Transaction } from "@solana/web3.js";
 import { bar, kv, ok, fail, info } from "../utils/logger";
 import {
   bootstrap,
@@ -111,7 +111,10 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
   });
 
   // ✅ run ATA prep BEFORE the request
-  const tx = await method.accounts(accounts).preInstructions(preIxs).transaction();
+  const reqIx = await method.accounts(accounts).instruction();
+  const tx = new Transaction();
+  for (const ix of preIxs) tx.add(ix);
+  tx.add(reqIx);
   tx.feePayer = wallet.publicKey;
   tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
 
