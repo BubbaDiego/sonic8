@@ -12,17 +12,18 @@
 
 @import './_sonic-themes.scss';
 
-/* Apply the theme background everywhere (color + optional wallpaper) */
+/* Apply the theme background everywhere (color + optional wallpaper)
+   NOTE: Marked !important so other 'background' shorthands can't clobber per-theme controls. */
 html, body, #root {
   /* Page color is the true canvas; change this in Theme Lab */
-  background-color: var(--page, var(--bg));
+  background-color: var(--page, var(--bg)) !important;
   /* Layer 1: overlay (gradient or 'none'); Layer 2: image */
-  background-image: var(--wall-overlay, none), var(--body-bg-image);
+  background-image: var(--wall-overlay, none), var(--body-bg-image) !important;
   /* For overlay, 'auto' is fine; image layer uses tokens */
-  background-size: auto, var(--wall-size, cover);
-  background-position: center, var(--wall-position, center);
-  background-repeat: no-repeat, var(--wall-repeat, no-repeat);
-  background-attachment: scroll, var(--wall-attach, fixed);
+  background-size: auto, var(--wall-size, cover) !important;
+  background-position: center, var(--wall-position, center) !important;
+  background-repeat: no-repeat, var(--wall-repeat, no-repeat) !important;
+  background-attachment: scroll, var(--wall-attach, fixed) !important;
 }
 /* App font driven by theme tokens */
 body {
