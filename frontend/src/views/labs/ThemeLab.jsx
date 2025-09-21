@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -87,10 +87,18 @@ export default function ThemeLab() {
     }
   };
 
+  const previewTimer = useRef(null);
   useEffect(() => {
     if (!livePreview) return;
-    previewTokens(name, state);
-    return () => {};
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+    const snapshotName = name;
+    const snapshotState = state;
+    previewTimer.current = setTimeout(() => {
+      previewTokens(snapshotName, snapshotState);
+    }, 100);
+    return () => {
+      if (previewTimer.current) clearTimeout(previewTimer.current);
+    };
   }, [name, state, livePreview]);
 
   useEffect(() => () => clearPreview(), []);
@@ -105,7 +113,12 @@ export default function ThemeLab() {
     const base = import.meta.env?.BASE_URL ? String(import.meta.env.BASE_URL) : '/';
     const join = (a, b) => a.replace(/\/+$/, '/') + b.replace(/^\/+/, '');
     const url = v.startsWith('data:') ? v : /^https?:\/\//i.test(v) ? v : join(location.origin + base, v);
-    setWallThumb({ url, ok: null, loading: true });
+    setWallThumb((prev) => {
+      if (prev.url === url && prev.loading === true) {
+        return prev;
+      }
+      return { url, ok: null, loading: true };
+    });
     const img = new Image();
     img.onload = () => setWallThumb({ url, ok: true, loading: false });
     img.onerror = () => setWallThumb({ url, ok: false, loading: false });
