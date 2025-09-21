@@ -26,7 +26,12 @@ import {
   importAllThemes,
   previewTokens,
   clearPreview,
-  resetAllThemeData
+  resetAllThemeData,
+  getProfiles,
+  addProfile,
+  renameProfile,
+  deleteProfile,
+  isDefaultProfile
 } from '../../theme/tokens';
 import { resolveAsset, isAssetPointer, toAssetKey, listAssetKeys } from '../../lib/assetsResolver';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -34,7 +39,6 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import UploadIcon from '@mui/icons-material/Upload';
 import IconButton from '@mui/material/IconButton';
 
-const THEME_NAMES = ['light', 'dark', 'funky'];
 const FONT_OPTIONS = ['System UI', 'Roboto', 'Inter', 'Poppins', 'Space Grotesk', 'Orbitron', 'Neuropol', 'JetBrains Mono'];
 const ColorInput = ({ label, value, onChange }) => (
   <Stack direction="row" alignItems="center" spacing={2}>
@@ -88,9 +92,12 @@ function parseSimpleOverlay(value) {
 }
 
 export default function ThemeLab() {
-  const initialTokensRef = useRef(loadTokens('dark'));
+  const initialProfiles = useMemo(() => getProfiles(), []);
+  const initialName = initialProfiles.includes('dark') ? 'dark' : initialProfiles[0] || 'dark';
+  const initialTokensRef = useRef(loadTokens(initialName));
   const initialTokens = initialTokensRef.current;
-  const [name, setName] = useState('dark');
+  const [profiles, setProfiles] = useState(initialProfiles);
+  const [name, setName] = useState(initialName);
   const [state, setState] = useState(() => initialTokens);
   const [livePreview, setLivePreview] = useState(true);
   const [wallThumb, setWallThumb] = useState({ url: '', ok: null, loading: false });
@@ -109,7 +116,7 @@ export default function ThemeLab() {
   const wallKeys = useMemo(() => listAssetKeys('wallpaper.'), []);
   const cardKeys = useMemo(() => listAssetKeys('cards.'), []);
 
-  const base = useMemo(() => DEFAULT_TOKENS[name], [name]);
+  const base = useMemo(() => DEFAULT_TOKENS[name] || DEFAULT_TOKENS.dark, [name]);
 
   const applyState = (next) => {
     setState(next);
@@ -192,6 +199,47 @@ export default function ThemeLab() {
     } catch {
       alert('Invalid JSON');
     }
+  };
+
+  const doAddProfile = () => {
+    const newName = prompt('New profile name (e.g., midnight):');
+    if (!newName) return;
+    const baseAns = (prompt("Base palette? type 'dark' or 'light' (default dark):") || 'dark')
+      .toLowerCase()
+      .includes('light')
+      ? 'light'
+      : 'dark';
+    addProfile(newName, { base: baseAns, copyFrom: name });
+    const nextProfiles = getProfiles();
+    setProfiles(nextProfiles);
+    setName(newName);
+    applyState(loadTokens(newName));
+  };
+  const doRenameProfile = () => {
+    if (isDefaultProfile(name)) {
+      alert("Can't rename a default profile (light/dark/funky). Create a new one instead.");
+      return;
+    }
+    const newName = prompt(`Rename profile "${name}" to:`, name);
+    if (!newName || newName === name) return;
+    renameProfile(name, newName);
+    const nextProfiles = getProfiles();
+    setProfiles(nextProfiles);
+    setName(newName);
+    applyState(loadTokens(newName));
+  };
+  const doDeleteProfile = () => {
+    if (isDefaultProfile(name)) {
+      alert("Can't delete a default profile (light/dark/funky).");
+      return;
+    }
+    if (!confirm(`Delete profile "${name}"? This cannot be undone.`)) return;
+    deleteProfile(name);
+    const next = getProfiles();
+    setProfiles(next);
+    const fallback = next.includes('dark') ? 'dark' : next[0] || 'dark';
+    setName(fallback);
+    applyState(loadTokens(fallback));
   };
 
   // Live preview current edits in context (debounced; uses direct bridge when available)
@@ -353,13 +401,20 @@ export default function ThemeLab() {
                   applyState(next);
                 }}
               >
-                {THEME_NAMES.map((n) => (
+                {profiles.map((n) => (
                   <MenuItem key={n} value={n}>
                     {n}
                   </MenuItem>
                 ))}
               </TextField>
               <FormControlLabel control={<Switch checked={livePreview} onChange={(e) => setLivePreview(e.target.checked)} />} label="Live Preview" />
+              <Button onClick={doAddProfile}>Add</Button>
+              <Button onClick={doRenameProfile} disabled={isDefaultProfile(name)}>
+                Rename
+              </Button>
+              <Button color="error" onClick={doDeleteProfile} disabled={isDefaultProfile(name)}>
+                Delete
+              </Button>
             </Stack>
             <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
               <Button variant="outlined" onClick={resetToDefaults}>
