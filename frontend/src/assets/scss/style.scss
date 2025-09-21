@@ -16,11 +16,13 @@
 html, body, #root {
   /* Page color is the true canvas; change this in Theme Lab */
   background-color: var(--page, var(--bg));
-  background-image: var(--body-bg-image);
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+  /* Layer 1: overlay (gradient or 'none'); Layer 2: image */
+  background-image: var(--wall-overlay, none), var(--body-bg-image);
+  /* For overlay, 'auto' is fine; image layer uses tokens */
+  background-size: auto, var(--wall-size, cover);
+  background-position: center, var(--wall-position, center);
+  background-repeat: no-repeat, var(--wall-repeat, no-repeat);
+  background-attachment: scroll, var(--wall-attach, fixed);
 }
 /* App font driven by theme tokens */
 body {

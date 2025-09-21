@@ -228,6 +228,11 @@ export default function ThemeCustomization({ children }) {
     } else {
       html.style.removeProperty('--body-bg-image');
     }
+    setVar('--wall-size', tokens.wallpaperSize || 'cover');
+    setVar('--wall-position', tokens.wallpaperPosition || 'center');
+    setVar('--wall-repeat', tokens.wallpaperRepeat || 'no-repeat');
+    setVar('--wall-attach', tokens.wallpaperAttachment || 'scroll');
+    setVar('--wall-overlay', tokens.wallpaperOverlay || 'none');
 
     let cardImageUrl = null;
     if (tokens.cardUseImage) {
