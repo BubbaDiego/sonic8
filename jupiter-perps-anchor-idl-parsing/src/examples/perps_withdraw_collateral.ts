@@ -3,18 +3,20 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import type { Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Keypair } from "@solana/web3.js";
-import { bar, kv, ok, fail, info } from "../utils/logger.js";
+import { bar, kv, ok, fail, info } from "../utils/logger";
 import {
   bootstrap,
   getSingletonPerpetuals,
   getSingletonPool,
   findCustodyByMint,
   ensureAtaIx,
+  ensureAtaForOwner,
   MINTS,
   SYS,
-} from "../config/perps.js";
-import { toMicroUsd, derivePdaFromIdl, sideToEnum } from "../utils/resolve.js";
-import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
+  BN,
+} from "../config/perps";
+import { toMicroUsd, derivePdaFromIdl, sideToEnum } from "../utils/resolve";
+import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
 
 (async () => {
   const argv = await yargs(hideBin(process.argv))
@@ -57,8 +59,9 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
   kv("Position", position.toBase58());
   kv("PosRequest", positionRequest.toBase58());
 
-  // Receiving ATA for withdrawn tokens
+  // Receiving ATA for withdrawn tokens & PositionRequest ATA (escrow)
   const ataInit = await ensureAtaIx(provider.connection, collateralMint, wallet.publicKey, wallet.publicKey);
+  const prAtaInit = await ensureAtaForOwner(provider.connection, collateralMint, positionRequest, wallet.publicKey, true);
 
   // Guardrail (must provide)
   let priceGuard = null as any;
@@ -77,15 +80,18 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
   bar("Amounts", "🧮");
   kv("Withdraw USD", `${argv["withdraw-usd"].toFixed(6)} → ${collateralUsdDelta.toString()} μUSD`);
 
-  // Build Tx: createDecreasePositionMarketRequest (collateral only)
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
     receivingAccount: ataInit.ata,
     position,
     positionRequest,
+    positionRequestAta: prAtaInit.ata,
     custody: custody.pubkey,
+    // NOTE: some builds of the IDL require oracle accounts for decrease.
+    // If your IDL errors after this change, we’ll plug in custody oracle accounts here.
     collateralCustody: collateralCustody.pubkey,
     desiredMint: collateralMint,
+    referral: wallet.publicKey,
     perpetuals: perpetuals.publicKey,
     pool: pool.publicKey,
     tokenProgram: SYS.TOKEN_PROGRAM_ID,
@@ -99,14 +105,14 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 
   const method = (program as any).methods.createDecreasePositionMarketRequest({
     collateralUsdDelta,
-    sizeUsdDelta: new (await import("../config/perps.js")).BN(0),
+    sizeUsdDelta: new BN(0),
     side: sideEnum,
     priceSlippage: priceGuard,
   });
 
   const tx = await method.accounts(accounts).transaction();
   tx.feePayer = wallet.publicKey;
-  tx.add(...ataInit.ixs);
+  tx.add(...ataInit.ixs, ...prAtaInit.ixs);
   tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
 
   if (argv["dry-run"]) {

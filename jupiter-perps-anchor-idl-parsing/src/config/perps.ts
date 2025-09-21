@@ -14,12 +14,8 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import BN from "bn.js";
-import { info, kv, ok, warn, bar } from "../utils/logger.js";
-import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
-
-// ————————————————————————————————————————————————————————————————————————
-// Bootstrapping & constants
-// ————————————————————————————————————————————————————————————————————————
+import { info, kv, ok, warn, bar } from "../utils/logger";
+import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
 
 export type PerpsCtx = {
   connection: Connection;
@@ -32,8 +28,8 @@ export type PerpsCtx = {
 export const SYS = { SystemProgram, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID };
 
 export const MINTS = {
-  WSOL: NATIVE_MINT, // So11111111111111111111111111111111111111112
-  SOL: NATIVE_MINT,  // alias
+  WSOL: NATIVE_MINT,
+  SOL: NATIVE_MINT,
   USDC: new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
   USDT: new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
   WETH: new PublicKey("7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs"),
@@ -75,10 +71,6 @@ export function bootstrap(rpc: string, keypairPath: string): PerpsCtx {
   return { connection, wallet, provider, programId, program };
 }
 
-// ————————————————————————————————————————————————————————————————————————
-// On-chain discovery helpers
-// ————————————————————————————————————————————————————————————————————————
-
 export async function getSingletonPerpetuals(program: Program) {
   bar("Fetch Perpetuals (singleton)", "📦");
   const all = await (program.account as any).perpetuals.all();
@@ -117,22 +109,34 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-// ————————————————————————————————————————————————————————————————————————
-// ATA / WSOL utilities
-// ————————————————————————————————————————————————————————————————————————
-
-export function getAta(mint: PublicKey, owner: PublicKey) {
-  return getAssociatedTokenAddressSync(mint, owner, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+export function getAta(mint: PublicKey, owner: PublicKey, allowOwnerOffCurve = false) {
+  return getAssociatedTokenAddressSync(mint, owner, allowOwnerOffCurve, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
 }
 
-export async function ensureAtaIx(connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey) {
-  const ata = getAta(mint, owner);
+export async function ensureAtaIx(
+  connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey
+) {
+  const ata = getAta(mint, owner, false);
   try {
     await getAccount(connection, ata);
     return { ata, ixs: [] as any[] };
   } catch {
     const ix = createAssociatedTokenAccountInstruction(payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
     info("🪙", `Create ATA: ${ata.toBase58()}`);
+    return { ata, ixs: [ix] };
+  }
+}
+
+export async function ensureAtaForOwner(
+  connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey, allowOwnerOffCurve: boolean
+) {
+  const ata = getAta(mint, owner, allowOwnerOffCurve);
+  try {
+    await getAccount(connection, ata);
+    return { ata, ixs: [] as any[] };
+  } catch {
+    const ix = createAssociatedTokenAccountInstruction(payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+    info("🪙", `Create ATA (owner offCurve=${allowOwnerOffCurve}): ${ata.toBase58()}`);
     return { ata, ixs: [ix] };
   }
 }
@@ -150,5 +154,4 @@ export async function topUpWsolIfNeededIx(connection: Connection, ata: PublicKey
   return ixs;
 }
 
-// Re-export BN so examples can import from here.
 export { BN };
