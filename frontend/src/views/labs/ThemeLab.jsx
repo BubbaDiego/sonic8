@@ -768,6 +768,92 @@ export default function ThemeLab() {
                 <ColorInput label="Card (--card)" value={state.card} onChange={(v) => setField('card', v)} />
                 <ColorInput label="Primary (--primary)" value={state.primary} onChange={(v) => setField('primary', v)} />
                 <Divider />
+                {/* NEW: Borders */}
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Borders
+                </Typography>
+                <Stack spacing={1}>
+                  <Typography variant="caption">Card border width (px)</Typography>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Slider
+                      value={Number(state.borderCardWidth ?? 0)}
+                      min={0}
+                      max={8}
+                      step={1}
+                      onChange={(_, v) => setField('borderCardWidth', v)}
+                      sx={{ width: 180 }}
+                    />
+                    <TextField
+                      size="small"
+                      type="number"
+                      sx={{ width: 90 }}
+                      value={Number(state.borderCardWidth ?? 0)}
+                      onChange={(e) =>
+                        setField('borderCardWidth', Math.max(0, Math.min(12, Number(e.target.value || 0))))
+                      }
+                    />
+                  </Stack>
+                  <ColorInput
+                    label="Card border color (--border-card)"
+                    value={state.borderCard || '#00000000'}
+                    onChange={(v) => setField('borderCard', v)}
+                  />
+                </Stack>
+                <Stack spacing={1}>
+                  <Typography variant="caption">Surface/Container border width (px)</Typography>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Slider
+                      value={Number(state.borderSurfaceWidth ?? 0)}
+                      min={0}
+                      max={8}
+                      step={1}
+                      onChange={(_, v) => setField('borderSurfaceWidth', v)}
+                      sx={{ width: 180 }}
+                    />
+                    <TextField
+                      size="small"
+                      type="number"
+                      sx={{ width: 90 }}
+                      value={Number(state.borderSurfaceWidth ?? 0)}
+                      onChange={(e) =>
+                        setField('borderSurfaceWidth', Math.max(0, Math.min(12, Number(e.target.value || 0))))
+                      }
+                    />
+                  </Stack>
+                  <ColorInput
+                    label="Surface border color (--border-surface)"
+                    value={state.borderSurface || '#00000000'}
+                    onChange={(v) => setField('borderSurface', v)}
+                  />
+                </Stack>
+                <Stack spacing={1}>
+                  <Typography variant="caption">Header/menu separator width (px)</Typography>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Slider
+                      value={Number(state.borderHeaderWidth ?? 0)}
+                      min={0}
+                      max={8}
+                      step={1}
+                      onChange={(_, v) => setField('borderHeaderWidth', v)}
+                      sx={{ width: 180 }}
+                    />
+                    <TextField
+                      size="small"
+                      type="number"
+                      sx={{ width: 90 }}
+                      value={Number(state.borderHeaderWidth ?? 0)}
+                      onChange={(e) =>
+                        setField('borderHeaderWidth', Math.max(0, Math.min(12, Number(e.target.value || 0))))
+                      }
+                    />
+                  </Stack>
+                  <ColorInput
+                    label="Header separator color (--border-header)"
+                    value={state.borderHeader || '#00000000'}
+                    onChange={(v) => setField('borderHeader', v)}
+                  />
+                </Stack>
+                <Divider />
                 <FormControlLabel
                   control={<Switch checked={!!state.cardUseImage} onChange={(e) => setField('cardUseImage', e.target.checked)} />}
                   label="Use Card Image"
@@ -873,11 +959,23 @@ export default function ThemeLab() {
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   Panel preview
                 </Typography>
-                <Card sx={{ p: 2, background: 'var(--surface)' }}>
+                <Card
+                  sx={{
+                    p: 2,
+                    background: 'var(--surface)',
+                    border: 'var(--border-surface-width,0px) solid var(--border-surface,transparent)'
+                  }}
+                >
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>
                     Surface card
                   </Typography>
-                  <Card sx={{ p: 1, background: 'var(--card)' }}>
+                  <Card
+                    sx={{
+                      p: 1,
+                      background: 'var(--card)',
+                      border: 'var(--border-card-width,0px) solid var(--border-card,transparent)'
+                    }}
+                  >
                     <Typography variant="caption">Inner card (var(--card))</Typography>
                   </Card>
                   <Stack direction="row" spacing={1} sx={{ mt: 1 }}>

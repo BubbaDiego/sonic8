@@ -20,7 +20,14 @@ export const DEFAULT_TOKENS = {
     wallpaperPosition: 'center',
     wallpaperRepeat: 'no-repeat',
     wallpaperAttachment: 'scroll',
-    wallpaperOverlay: 'none'
+    wallpaperOverlay: 'none',
+    // NEW: Border controls
+    borderCard: '#FFFFFF22',
+    borderCardWidth: 1,
+    borderSurface: '#FFFFFF14',
+    borderSurfaceWidth: 1,
+    borderHeader: '#00000022',
+    borderHeaderWidth: 0
   },
   dark: {
     bg: '#0f172a',
@@ -40,7 +47,13 @@ export const DEFAULT_TOKENS = {
     wallpaperPosition: 'center',
     wallpaperRepeat: 'no-repeat',
     wallpaperAttachment: 'fixed',
-    wallpaperOverlay: 'none'
+    wallpaperOverlay: 'none',
+    borderCard: '#FFFFFF22',
+    borderCardWidth: 1,
+    borderSurface: '#FFFFFF14',
+    borderSurfaceWidth: 1,
+    borderHeader: '#00000033',
+    borderHeaderWidth: 0
   },
   funky: {
     bg: '#0e1731',
@@ -61,7 +74,13 @@ export const DEFAULT_TOKENS = {
     wallpaperPosition: 'center',
     wallpaperRepeat: 'no-repeat',
     wallpaperAttachment: 'fixed',
-    wallpaperOverlay: 'none'
+    wallpaperOverlay: 'none',
+    borderCard: '#FFFFFF22',
+    borderCardWidth: 1,
+    borderSurface: '#FFFFFF14',
+    borderSurfaceWidth: 1,
+    borderHeader: '#00000033',
+    borderHeaderWidth: 0
   }
 };
 
