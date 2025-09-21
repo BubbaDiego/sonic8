@@ -136,9 +136,9 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
     jupiterMinimumOut: null,
   });
 
-  const tx = await method.accounts(accounts).transaction();
+  // ✅ ensure ATAs & WSOL sync run BEFORE perps instruction
+  const tx = await method.accounts(accounts).preInstructions(preIxs).transaction();
   tx.feePayer = wallet.publicKey;
-  if (preIxs.length) tx.add(...preIxs);
   tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
 
   if (argv["dry-run"]) {
