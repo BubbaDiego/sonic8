@@ -10,6 +10,7 @@ import {
   FormControlLabel,
   Grid,
   MenuItem,
+  Slider,
   Stack,
   Switch,
   TextField,
@@ -127,128 +128,68 @@ export default function ThemeLab() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>Theme Lab</Typography>
-      <Typography variant="body2" sx={{ mb: 2 }}>Edit colors & wallpaper per theme. Changes save to your browser and apply instantly.</Typography>
-      <Card>
-        <CardHeader
-          title="Editor"
-          subheader={(
-            <Stack direction="row" spacing={2}>
+      <Typography variant="h4" gutterBottom>
+        Theme Lab
+      </Typography>
+      <Typography variant="body2" sx={{ mb: 2 }}>
+        Edit fonts, backgrounds, and panel colors per theme. Live preview on; save when you like it.
+      </Typography>
+
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
               <Tooltip title="The UI mode currently applied by the header toggle">
                 <Chip size="small" label={`Active UI Mode: ${document.documentElement.dataset.theme || 'unknown'}`} />
               </Tooltip>
-              <Tooltip title="The theme you are editing in this panel">
+              <Tooltip title="The theme you are editing">
                 <Chip size="small" color="primary" variant="outlined" label={`Editing: ${name}`} />
               </Tooltip>
-              {document.documentElement.dataset.theme !== name && (
-                <Tooltip title="You are editing a different theme than the one currently active — toggle the header to this theme or use Live Preview">
-                  <Chip size="small" color="warning" label="Note: editing ≠ active" />
-                </Tooltip>
-              )}
-            </Stack>
-          )}
-        />
-        <CardContent>
-          <Stack spacing={3}>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Typography sx={{ minWidth: 120 }}>Theme</Typography>
-              <TextField select size="small" value={name} onChange={(e) => { const n = e.target.value; setName(n); setState(loadTokens(n)); }}>
-                {THEME_NAMES.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
+              {document.documentElement.dataset.theme !== name && <Chip size="small" color="warning" label="Note: editing ≠ active" />}
+              <Box sx={{ flexGrow: 1 }} />
+              <Typography sx={{ mr: 1 }}>Theme</Typography>
+              <TextField
+                select
+                size="small"
+                value={name}
+                onChange={(e) => {
+                  const n = e.target.value;
+                  setName(n);
+                  setState(loadTokens(n));
+                }}
+              >
+                {THEME_NAMES.map((n) => (
+                  <MenuItem key={n} value={n}>
+                    {n}
+                  </MenuItem>
+                ))}
               </TextField>
               <FormControlLabel control={<Switch checked={livePreview} onChange={(e) => setLivePreview(e.target.checked)} />} label="Live Preview" />
-              <Button variant="outlined" onClick={resetToDefaults}>Revert to Defaults</Button>
-              <Button variant="contained" onClick={save}>Save & Apply</Button>
-              <Button color="error" onClick={remove}>Remove Override</Button>
+            </Stack>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+              <Button variant="outlined" onClick={resetToDefaults}>
+                Revert To Defaults
+              </Button>
+              <Button variant="contained" onClick={save}>
+                Save & Apply
+              </Button>
+              <Button color="error" onClick={remove}>
+                Remove Override
+              </Button>
               <Button onClick={discard}>Discard Unsaved</Button>
-              <Button onClick={() => { resetAllThemeData(); setState(loadTokens(name)); }} title="Clears all saved theme data for all themes">Reset All</Button>
-            </Stack>
-            <Divider />
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Button variant="contained">Primary Button</Button>
-              <Button variant="outlined">Outlined</Button>
-              <Chip label="Chip" />
-              <Card sx={{ p: 1, minWidth: 160 }}><Typography variant="body2">Card sample</Typography></Card>
-            </Stack>
-            <Divider />
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Stack spacing={2}>
-                  <ColorInput label="Page / Wallpaper Base (--page)" value={state.page ?? state.bg} onChange={(v) => setField('page', v)} />
-                  <ColorInput label="Background (--bg)" value={state.bg} onChange={(v) => setField('bg', v)} />
-                  <ColorInput label="Surface / Paper (--surface)" value={state.surface} onChange={(v) => setField('surface', v)} />
-                  <ColorInput label="Card (--card)" value={state.card} onChange={(v) => setField('card', v)} />
-                  <ColorInput label="Text (--text)" value={state.text} onChange={(v) => setField('text', v)} />
-                  <ColorInput label="Primary (--primary)" value={state.primary} onChange={(v) => setField('primary', v)} />
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Typography sx={{ minWidth: 120 }}>Font</Typography>
-                    <TextField
-                      select
-                      size="small"
-                      value={state.font || 'System UI'}
-                      onChange={(e) => setField('font', e.target.value)}
-                      sx={{ width: 220 }}
-                    >
-                      {FONT_OPTIONS.map((font) => (
-                        <MenuItem key={font} value={font}>
-                          {font}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Stack>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Stack spacing={2}>
-                  <FormControlLabel control={<Switch checked={!!state.useImage} onChange={(e) => setField('useImage', e.target.checked)} />} label="Use Image" />
-                  <Typography>Wallpaper (URL or data URI)</Typography>
-                  <TextField
-                    fullWidth
-                    placeholder="e.g., /images/wally.png or data:image/png;base64,..."
-                    value={state.wallpaper || 'none'}
-                    onChange={(e) => setField('wallpaper', e.target.value)}
-                  />
-                  {wallThumb.loading && <Typography variant="caption">Checking…</Typography>}
-                  {wallThumb.ok === true && (
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <img src={wallThumb.url} alt="wallpaper" style={{ width: 120, height: 60, objectFit: 'cover', borderRadius: 6 }} />
-                      <Chip size="small" color="success" label="Loaded" />
-                    </Stack>
-                  )}
-                  {wallThumb.ok === false && (
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Chip size="small" color="error" label="Not found / blocked" />
-                      <Typography variant="caption">
-                        If this is a local file, place it in <code>frontend/static/images</code> (or <code>frontend/public/images</code>) and reference it as <code>/images/&lt;name&gt;</code>.
-                      </Typography>
-                    </Stack>
-                  )}
-                  <Typography variant="caption">Tip: toggle <b>Use Image</b> off to show only the Page color.</Typography>
-                </Stack>
-              </Grid>
-            </Grid>
-            <Divider />
-            <Card sx={{ mt: 2, p: 2, minHeight: 140, background: 'var(--surface)' }}>
-              <Box
-                sx={{
-                  borderRadius: 2,
-                  minHeight: 120,
-                  backgroundColor: 'var(--page)',
-                  backgroundImage: 'var(--body-bg-image)',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  border: '1px solid rgba(255,255,255,0.08)'
+              <Button
+                onClick={() => {
+                  resetAllThemeData();
+                  setState(loadTokens(name));
                 }}
-              />
-              <Typography variant="h6" sx={{ mt: 1 }}>
-                Font preview
-              </Typography>
-              <Typography variant="body2">
-                The quick brown fox jumps over the lazy dog — 1234567890 (Aa Bb Cc).
-              </Typography>
-            </Card>
-            <Divider />
-            <Stack direction="row" spacing={2}>
-              <Button variant="outlined" onClick={doExport}>Export JSON</Button>
+                title="Clears all saved theme data for all themes"
+              >
+                Reset All
+              </Button>
+              <Box sx={{ flexGrow: 1 }} />
+              <Button variant="outlined" onClick={doExport}>
+                Export JSON
+              </Button>
               <Button component="label" variant="outlined">
                 Import JSON
                 <input hidden type="file" accept="application/json" onChange={doImport} />
@@ -257,6 +198,139 @@ export default function ThemeLab() {
           </Stack>
         </CardContent>
       </Card>
+
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardHeader title="Text" />
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Typography sx={{ minWidth: 80 }}>Font</Typography>
+                  <TextField select size="small" value={state.font || 'System UI'} onChange={(e) => setField('font', e.target.value)} sx={{ width: 220 }}>
+                    {FONT_OPTIONS.map((font) => (
+                      <MenuItem key={font} value={font}>
+                        {font}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Stack>
+                <Stack spacing={1}>
+                  <Typography variant="caption">Font size (px)</Typography>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Slider
+                      value={Number(state.fontSize || 14)}
+                      min={11}
+                      max={20}
+                      step={1}
+                      onChange={(_, value) => setField('fontSize', Array.isArray(value) ? value[0] : value)}
+                      sx={{ width: 180 }}
+                    />
+                    <TextField
+                      size="small"
+                      type="number"
+                      sx={{ width: 90 }}
+                      value={Number(state.fontSize || 14)}
+                      onChange={(e) => {
+                        const parsed = Number(e.target.value || 14);
+                        const clamped = Number.isFinite(parsed) ? Math.max(10, Math.min(24, parsed)) : 14;
+                        setField('fontSize', clamped);
+                      }}
+                    />
+                  </Stack>
+                </Stack>
+                <ColorInput label="Text (--text)" value={state.text} onChange={(v) => setField('text', v)} />
+                <Divider />
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Live text preview
+                </Typography>
+                <Typography variant="h6">Heading 6</Typography>
+                <Typography variant="body2">The quick brown fox jumps over the lazy dog — 1234567890.</Typography>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardHeader title="Background" />
+            <CardContent>
+              <Stack spacing={2}>
+                <ColorInput label="Page / Wallpaper Base (--page)" value={state.page ?? state.bg} onChange={(v) => setField('page', v)} />
+                <FormControlLabel control={<Switch checked={!!state.useImage} onChange={(e) => setField('useImage', e.target.checked)} />} label="Use Image" />
+                <TextField
+                  fullWidth
+                  label="Wallpaper (URL or data URI)"
+                  placeholder="e.g., /images/wally.png"
+                  value={state.wallpaper || 'none'}
+                  onChange={(e) => setField('wallpaper', e.target.value)}
+                />
+                {wallThumb.loading && <Typography variant="caption">Checking…</Typography>}
+                {wallThumb.ok === true && (
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <img src={wallThumb.url} alt="wallpaper" style={{ width: 120, height: 60, objectFit: 'cover', borderRadius: 6 }} />
+                    <Chip size="small" color="success" label="Loaded" />
+                  </Stack>
+                )}
+                {wallThumb.ok === false && (
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Chip size="small" color="error" label="Not found / blocked" />
+                    <Typography variant="caption">
+                      Place it in <code>frontend/static/images</code> (or <code>frontend/public/images</code>) and use <code>/images/&lt;name&gt;</code>.
+                    </Typography>
+                  </Stack>
+                )}
+                <Divider />
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Canvas preview
+                </Typography>
+                <Box
+                  sx={{
+                    borderRadius: 2,
+                    minHeight: 100,
+                    backgroundColor: 'var(--page)',
+                    backgroundImage: 'var(--body-bg-image)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    border: '1px solid rgba(255,255,255,0.08)'
+                  }}
+                />
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardHeader title="Panels" />
+            <CardContent>
+              <Stack spacing={2}>
+                <ColorInput label="Background (--bg)" value={state.bg} onChange={(v) => setField('bg', v)} />
+                <ColorInput label="Surface / Paper (--surface)" value={state.surface} onChange={(v) => setField('surface', v)} />
+                <ColorInput label="Card (--card)" value={state.card} onChange={(v) => setField('card', v)} />
+                <ColorInput label="Primary (--primary)" value={state.primary} onChange={(v) => setField('primary', v)} />
+                <Divider />
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Panel preview
+                </Typography>
+                <Card sx={{ p: 2, background: 'var(--surface)' }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Surface card
+                  </Typography>
+                  <Card sx={{ p: 1, background: 'var(--card)' }}>
+                    <Typography variant="caption">Inner card (var(--card))</Typography>
+                  </Card>
+                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                    <Button variant="contained">Primary</Button>
+                    <Button variant="outlined">Outlined</Button>
+                    <Chip label="Chip" />
+                  </Stack>
+                </Card>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
     </Box>
   );
 }
