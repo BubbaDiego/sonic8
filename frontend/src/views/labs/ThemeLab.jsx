@@ -39,10 +39,53 @@ const FONT_OPTIONS = ['System UI', 'Roboto', 'Inter', 'Poppins', 'Space Grotesk'
 const ColorInput = ({ label, value, onChange }) => (
   <Stack direction="row" alignItems="center" spacing={2}>
     <Typography sx={{ minWidth: 120 }}>{label}</Typography>
-    <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 48, height: 32, border: 'none', background: 'transparent' }} />
+    <input
+      type="color"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ width: 48, height: 32, border: 'none', background: 'transparent' }}
+    />
     <TextField size="small" value={value} onChange={(e) => onChange(e.target.value)} sx={{ width: 160 }} />
   </Stack>
 );
+
+const SIZE_OPTS = ['cover', 'contain', '100% 100%', 'auto'];
+const REPEAT_OPTS = ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'];
+const ATTACH_OPTS = ['fixed', 'scroll'];
+const POS_PRESETS = ['center', 'top', 'bottom', 'left', 'right', 'custom'];
+const SIMPLE_OVERLAY_RE = /linear-gradient\(rgba\((\d+),(\d+),(\d+),([\d.]+)\),\s*rgba\(\1,\2,\3,\4\)\)/i;
+
+function parseXY(pos) {
+  const match = String(pos || '').match(/^(\d{1,3})%\s+(\d{1,3})%$/);
+  if (!match) return [50, 50];
+  const clamp = (value) => Math.max(0, Math.min(100, Number(value)));
+  return [clamp(match[1]), clamp(match[2])];
+}
+
+function hexToRgb(hex) {
+  const normalized = hex.replace('#', '');
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : normalized;
+  const bigint = parseInt(expanded, 16);
+  return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+}
+
+function rgbToHex(r, g, b) {
+  const toHex = (value) => value.toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function parseSimpleOverlay(value) {
+  const match = SIMPLE_OVERLAY_RE.exec(String(value || ''));
+  if (!match) return null;
+  const [, r, g, b, alpha] = match;
+  return { color: rgbToHex(Number(r), Number(g), Number(b)), alpha: Number(alpha) };
+}
 
 export default function ThemeLab() {
   const initialTokensRef = useRef(loadTokens('dark'));
@@ -56,6 +99,13 @@ export default function ThemeLab() {
   const [wallKey, setWallKey] = useState(() => (isAssetPointer(initialTokens.wallpaper) ? toAssetKey(initialTokens.wallpaper) : ''));
   const [useCardAsset, setUseCardAsset] = useState(isAssetPointer(initialTokens.cardImage));
   const [cardKey, setCardKey] = useState(() => (isAssetPointer(initialTokens.cardImage) ? toAssetKey(initialTokens.cardImage) : ''));
+  const initialPosition = initialTokens.wallpaperPosition ?? 'center';
+  const [xy, setXy] = useState(() => parseXY(initialPosition));
+  const [posPreset, setPosPreset] = useState(() => (POS_PRESETS.includes(initialPosition) ? initialPosition : 'custom'));
+  const initialOverlay = parseSimpleOverlay(initialTokens.wallpaperOverlay);
+  const [overlayColor, setOverlayColor] = useState(initialOverlay ? initialOverlay.color : '#000000');
+  const [overlayAlpha, setOverlayAlpha] = useState(initialOverlay ? initialOverlay.alpha : 0);
+  const [simpleOverlayActive, setSimpleOverlayActive] = useState(Boolean(initialOverlay));
   const wallKeys = useMemo(() => listAssetKeys('wallpaper.'), []);
   const cardKeys = useMemo(() => listAssetKeys('cards.'), []);
 
@@ -73,7 +123,8 @@ export default function ThemeLab() {
 
   const setField = (k, v) => {
     setState((s) => {
-      const next = { ...s, [k]: v };
+      const same = s[k] === v;
+      const next = same ? s : { ...s, [k]: v };
       if (k === 'wallpaper') {
         const ptr = isAssetPointer(v);
         if (ptr) {
@@ -169,6 +220,49 @@ export default function ThemeLab() {
   useEffect(() => () => clearPreview(), []);
 
   useEffect(() => {
+    const rawPosition = state.wallpaperPosition ?? 'center';
+    const preset = POS_PRESETS.includes(rawPosition) ? rawPosition : 'custom';
+    setPosPreset(preset);
+    if (preset === 'custom') {
+      setXy(parseXY(rawPosition));
+    }
+  }, [state.wallpaperPosition]);
+
+  useEffect(() => {
+    const parsed = parseSimpleOverlay(state.wallpaperOverlay);
+    if (parsed) {
+      setSimpleOverlayActive(true);
+      setOverlayColor((prev) => (prev.toLowerCase() === parsed.color.toLowerCase() ? prev : parsed.color));
+      setOverlayAlpha((prev) => (Math.abs(prev - parsed.alpha) < 0.0001 ? prev : parsed.alpha));
+    } else {
+      setSimpleOverlayActive(false);
+      setOverlayAlpha((prev) => (prev === 0 ? prev : 0));
+    }
+  }, [state.wallpaperOverlay]);
+
+  useEffect(() => {
+    if (posPreset === 'custom') {
+      const value = `${xy[0]}% ${xy[1]}%`;
+      setField('wallpaperPosition', value);
+    } else {
+      setField('wallpaperPosition', posPreset);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posPreset, xy]);
+
+  useEffect(() => {
+    if (!simpleOverlayActive) return;
+    if (overlayAlpha <= 0) {
+      setField('wallpaperOverlay', 'none');
+      return;
+    }
+    const [r, g, b] = hexToRgb(overlayColor);
+    const css = `linear-gradient(rgba(${r},${g},${b},${overlayAlpha}), rgba(${r},${g},${b},${overlayAlpha}))`;
+    setField('wallpaperOverlay', css);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simpleOverlayActive, overlayAlpha, overlayColor]);
+
+  useEffect(() => {
     let v = state.wallpaper;
     if (useWallAsset) v = wallKey ? `asset:${wallKey}` : 'none';
     if (!state.useImage || !v || v === 'none') {
@@ -180,9 +274,7 @@ export default function ThemeLab() {
       if (value.startsWith('data:') || /^https?:\/\//i.test(value)) return value;
       return `${location.origin}${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`;
     };
-    const url = isAssetPointer(v)
-      ? resolveAsset(toAssetKey(v), { theme: name, absolute: true })
-      : normalize(v);
+    const url = isAssetPointer(v) ? resolveAsset(toAssetKey(v), { theme: name, absolute: true }) : normalize(v);
     setWallThumb({ url, ok: null, loading: true });
     const img = new Image();
     img.onload = () => setWallThumb({ url, ok: true, loading: false });
@@ -203,9 +295,7 @@ export default function ThemeLab() {
       if (value.startsWith('data:') || /^https?:\/\//i.test(value)) return value;
       return `${location.origin}${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`;
     };
-    const url = isAssetPointer(v)
-      ? resolveAsset(toAssetKey(v), { theme: name, absolute: true })
-      : normalize(v);
+    const url = isAssetPointer(v) ? resolveAsset(toAssetKey(v), { theme: name, absolute: true }) : normalize(v);
     setCardThumb({ url, ok: null, loading: true });
     const img = new Image();
     img.onload = () => setCardThumb({ url, ok: true, loading: false });
@@ -213,20 +303,22 @@ export default function ThemeLab() {
     img.src = url;
   }, [state.cardImage, state.cardUseImage, useCardAsset, cardKey, name]);
 
-  const uploadToField = (fieldName, extra = {}, onLoad) => async (evt) => {
-    const file = evt.target?.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof onLoad === 'function') {
-        onLoad();
-      }
-      setField(fieldName, reader.result);
-      Object.entries(extra).forEach(([key, value]) => setField(key, value));
+  const uploadToField =
+    (fieldName, extra = {}, onLoad) =>
+    async (evt) => {
+      const file = evt.target?.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof onLoad === 'function') {
+          onLoad();
+        }
+        setField(fieldName, reader.result);
+        Object.entries(extra).forEach(([key, value]) => setField(key, value));
+      };
+      reader.readAsDataURL(file);
+      evt.target.value = '';
     };
-    reader.readAsDataURL(file);
-    evt.target.value = '';
-  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -468,6 +560,183 @@ export default function ThemeLab() {
                   </Stack>
                 )}
                 <Divider />
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Typography sx={{ minWidth: 80 }}>Size</Typography>
+                  <TextField
+                    select
+                    size="small"
+                    value={state.wallpaperSize || 'cover'}
+                    onChange={(e) => setField('wallpaperSize', e.target.value)}
+                    sx={{ width: 180 }}
+                  >
+                    {SIZE_OPTS.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Stack>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Typography sx={{ minWidth: 80 }}>Repeat</Typography>
+                  <TextField
+                    select
+                    size="small"
+                    value={state.wallpaperRepeat || 'no-repeat'}
+                    onChange={(e) => setField('wallpaperRepeat', e.target.value)}
+                    sx={{ width: 180 }}
+                  >
+                    {REPEAT_OPTS.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Stack>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Typography sx={{ minWidth: 80 }}>Attachment</Typography>
+                  <TextField
+                    select
+                    size="small"
+                    value={state.wallpaperAttachment || 'scroll'}
+                    onChange={(e) => setField('wallpaperAttachment', e.target.value)}
+                    sx={{ width: 180 }}
+                  >
+                    {ATTACH_OPTS.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Stack>
+                <Stack spacing={1}>
+                  <Typography>Position</Typography>
+                  <TextField
+                    select
+                    size="small"
+                    value={posPreset}
+                    onChange={(e) => setPosPreset(e.target.value)}
+                    sx={{ width: 220 }}
+                  >
+                    {POS_PRESETS.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  {posPreset === 'custom' && (
+                    <Stack spacing={1}>
+                      <Typography variant="caption">Focal point (X/Y %)</Typography>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Typography variant="caption">X</Typography>
+                        <Slider
+                          value={xy[0]}
+                          min={0}
+                          max={100}
+                          onChange={(_, value) => {
+                            const raw = Array.isArray(value) ? value[0] : value;
+                            const clamped = Math.max(0, Math.min(100, Number(raw)));
+                            setPosPreset('custom');
+                            setXy((prev) => [clamped, prev[1]]);
+                          }}
+                          sx={{ width: 180 }}
+                        />
+                        <TextField
+                          size="small"
+                          type="number"
+                          sx={{ width: 80 }}
+                          value={xy[0]}
+                          onChange={(e) => {
+                            const parsed = Number(e.target.value || 0);
+                            const clamped = Math.max(0, Math.min(100, parsed));
+                            setPosPreset('custom');
+                            setXy((prev) => [clamped, prev[1]]);
+                          }}
+                        />
+                      </Stack>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Typography variant="caption">Y</Typography>
+                        <Slider
+                          value={xy[1]}
+                          min={0}
+                          max={100}
+                          onChange={(_, value) => {
+                            const raw = Array.isArray(value) ? value[0] : value;
+                            const clamped = Math.max(0, Math.min(100, Number(raw)));
+                            setPosPreset('custom');
+                            setXy((prev) => [prev[0], clamped]);
+                          }}
+                          sx={{ width: 180 }}
+                        />
+                        <TextField
+                          size="small"
+                          type="number"
+                          sx={{ width: 80 }}
+                          value={xy[1]}
+                          onChange={(e) => {
+                            const parsed = Number(e.target.value || 0);
+                            const clamped = Math.max(0, Math.min(100, parsed));
+                            setPosPreset('custom');
+                            setXy((prev) => [prev[0], clamped]);
+                          }}
+                        />
+                      </Stack>
+                    </Stack>
+                  )}
+                </Stack>
+                <Divider />
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Overlay
+                </Typography>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Typography sx={{ minWidth: 80 }}>Color</Typography>
+                  <input
+                    type="color"
+                    value={overlayColor}
+                    onChange={(e) => {
+                      setSimpleOverlayActive(true);
+                      setOverlayColor(e.target.value);
+                    }}
+                    style={{ width: 48, height: 32, border: 'none', background: 'transparent' }}
+                  />
+                  <Typography sx={{ minWidth: 80, ml: 2 }}>Opacity</Typography>
+                  <Slider
+                    value={overlayAlpha}
+                    min={0}
+                    max={0.85}
+                    step={0.05}
+                    onChange={(_, value) => {
+                      const raw = Array.isArray(value) ? value[0] : value;
+                      const clamped = Math.max(0, Math.min(1, Number(raw)));
+                      setSimpleOverlayActive(true);
+                      setOverlayAlpha(clamped);
+                    }}
+                    sx={{ width: 180 }}
+                  />
+                  <TextField
+                    size="small"
+                    sx={{ width: 80 }}
+                    value={overlayAlpha}
+                    onChange={(e) => {
+                      const parsed = Number(e.target.value || 0);
+                      const clamped = Math.max(0, Math.min(1, parsed));
+                      setSimpleOverlayActive(true);
+                      setOverlayAlpha(clamped);
+                    }}
+                  />
+                </Stack>
+                <TextField
+                  fullWidth
+                  label="Advanced overlay CSS (optional)"
+                  placeholder="e.g., linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35))"
+                  value={state.wallpaperOverlay || 'none'}
+                  onChange={(e) => {
+                    setSimpleOverlayActive(false);
+                    setOverlayAlpha(0);
+                    setField('wallpaperOverlay', e.target.value);
+                  }}
+                  helperText="If set, overrides the simple color/opacity above."
+                />
+                <Divider />
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   Canvas preview
                 </Typography>
@@ -476,9 +745,11 @@ export default function ThemeLab() {
                     borderRadius: 2,
                     minHeight: 100,
                     backgroundColor: 'var(--page)',
-                    backgroundImage: 'var(--body-bg-image)',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
+                    backgroundImage: 'var(--wall-overlay, none), var(--body-bg-image)',
+                    backgroundSize: 'auto, var(--wall-size, cover)',
+                    backgroundPosition: 'center, var(--wall-position, center)',
+                    backgroundRepeat: 'no-repeat, var(--wall-repeat, no-repeat)',
+                    backgroundAttachment: 'scroll, var(--wall-attach, fixed)',
                     border: '1px solid rgba(255,255,255,0.08)'
                   }}
                 />

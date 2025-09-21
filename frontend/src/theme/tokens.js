@@ -14,7 +14,13 @@ export const DEFAULT_TOKENS = {
     fontSize: 14,
     // NEW: themed card images
     cardUseImage: false,
-    cardImage: 'none'
+    cardImage: 'none',
+    // Wallpaper controls
+    wallpaperSize: 'cover',
+    wallpaperPosition: 'center',
+    wallpaperRepeat: 'no-repeat',
+    wallpaperAttachment: 'scroll',
+    wallpaperOverlay: 'none'
   },
   dark: {
     bg: '#0f172a',
@@ -29,7 +35,12 @@ export const DEFAULT_TOKENS = {
     font: 'Roboto',
     fontSize: 14,
     cardUseImage: false,
-    cardImage: 'none'
+    cardImage: 'none',
+    wallpaperSize: 'cover',
+    wallpaperPosition: 'center',
+    wallpaperRepeat: 'no-repeat',
+    wallpaperAttachment: 'fixed',
+    wallpaperOverlay: 'none'
   },
   funky: {
     bg: '#0e1731',
@@ -45,7 +56,12 @@ export const DEFAULT_TOKENS = {
     font: 'Roboto',
     fontSize: 14,
     cardUseImage: false,
-    cardImage: 'none'
+    cardImage: 'none',
+    wallpaperSize: 'cover',
+    wallpaperPosition: 'center',
+    wallpaperRepeat: 'no-repeat',
+    wallpaperAttachment: 'fixed',
+    wallpaperOverlay: 'none'
   }
 };
 
