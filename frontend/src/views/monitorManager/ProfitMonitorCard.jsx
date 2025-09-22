@@ -18,6 +18,8 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
         tts: true,
         ...(cfg.notifications || {})
       },
+      position_profit_usd: cfg.position_profit_usd ?? 50,
+      portfolio_profit_usd: cfg.portfolio_profit_usd ?? 200,
       ...cfg
     }),
     [cfg]
@@ -77,9 +79,9 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
             <TextField
               fullWidth
               type="number"
-              label="Single ($)"
-              value={Number(normCfg?.single_high ?? 0)}
-              onChange={handleHighChange('single_high')}
+              label="Position Profit (USD)"
+              value={Number(normCfg?.position_profit_usd ?? 0)}
+              onChange={handleHighChange('position_profit_usd')}
               inputProps={{ min: 0 }}
             />
           </Grid>
@@ -87,9 +89,9 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
             <TextField
               fullWidth
               type="number"
-              label="Portfolio ($)"
-              value={Number(normCfg?.portfolio_high ?? 0)}
-              onChange={handleHighChange('portfolio_high')}
+              label="Portfolio Profit (USD)"
+              value={Number(normCfg?.portfolio_profit_usd ?? 0)}
+              onChange={handleHighChange('portfolio_profit_usd')}
               inputProps={{ min: 0 }}
             />
           </Grid>

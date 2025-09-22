@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import axios from 'utils/axios';
+import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 import {
   Box,
   Stack,
@@ -11,7 +12,8 @@ import {
   FormControl,
   InputLabel,
   Divider,
-  Tooltip
+  Tooltip,
+  Chip
 } from '@mui/material';
 
 /**
@@ -22,6 +24,7 @@ import {
  *   live: optional live readout (unused for now)
  */
 export default function MarketMovementCard({ cfg = {}, setCfg, live = {} }) {
+  const { sonicActive } = useSonicStatusPolling();
   const assets = useMemo(() => {
     const keys = Object.keys(cfg?.thresholds || {});
     return keys.length ? keys : ['SPX', 'BTC', 'ETH', 'SOL'];
@@ -49,7 +52,42 @@ export default function MarketMovementCard({ cfg = {}, setCfg, live = {} }) {
 
   const resetAnchors = async () => {
     const { data } = await axios.post('/api/monitor-settings/market/reset-anchors');
-    setCfg((prev) => ({ ...prev, anchors: data.anchors, armed: data.armed }));
+    setCfg((prev) => {
+      const nextAnchors = { ...(prev.anchors || {}) };
+      Object.entries(data.anchors || {}).forEach(([asset, anchor]) => {
+        if (anchor && typeof anchor === 'object') {
+          nextAnchors[asset] = anchor;
+        } else if (anchor !== undefined && anchor !== null) {
+          nextAnchors[asset] = {
+            value: Number(anchor),
+            time: new Date().toISOString()
+          };
+        }
+      });
+
+      const currentAssets = new Set([
+        ...Object.keys(nextAnchors),
+        ...Object.keys(prev?.armed || {})
+      ]);
+
+      let armedValue = data.armed;
+      if (typeof armedValue === 'boolean') {
+        armedValue = Array.from(currentAssets).reduce(
+          (acc, asset) => ({ ...acc, [asset]: armedValue }),
+          {}
+        );
+      } else if (armedValue && typeof armedValue === 'object') {
+        armedValue = { ...(prev.armed || {}), ...armedValue };
+      } else {
+        armedValue = prev.armed || {};
+      }
+
+      return {
+        ...prev,
+        anchors: nextAnchors,
+        armed: armedValue
+      };
+    });
   };
 
   return (
@@ -59,6 +97,12 @@ export default function MarketMovementCard({ cfg = {}, setCfg, live = {} }) {
           Trigger when price moves by the configured dollar amount from the last anchor.
         </Typography>
         <Stack direction="row" spacing={1}>
+          <Chip
+            size="small"
+            label={sonicActive ? 'Sonic: Active' : 'Sonic: Idle'}
+            color={sonicActive ? 'success' : 'default'}
+            variant={sonicActive ? 'filled' : 'outlined'}
+          />
           <FormControl size="small">
             <InputLabel id="rearm-label">Rearm</InputLabel>
             <Select

@@ -53,7 +53,7 @@ class BaseMonitor:
             
 
             # 🧾 Log to DB-backed ledger
-            locker = DataLocker(MOTHER_DB_PATH)
+            locker = DataLocker.get_instance(str(MOTHER_DB_PATH))
             locker.ledger.insert_ledger_entry(
                 monitor_name=self.name,
                 status=status,
@@ -80,7 +80,7 @@ class BaseMonitor:
             )
 
             # 🧾 Still write failure to DB ledger
-            locker = DataLocker(MOTHER_DB_PATH)
+            locker = DataLocker.get_instance(str(MOTHER_DB_PATH))
             locker.ledger.insert_ledger_entry(
                 monitor_name=self.name,
                 status="Error",
