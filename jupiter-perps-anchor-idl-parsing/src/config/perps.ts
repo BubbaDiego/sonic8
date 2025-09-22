@@ -12,12 +12,12 @@ import {
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
   getAccount,
   createSyncNativeInstruction,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstructionWithDerivation,
 } from "@solana/spl-token";
 import BN from "bn.js";
 import { info, kv, ok, warn, bar } from "../utils/logger.js";
@@ -120,14 +120,15 @@ function createAtaIxDeriving(
   payer: PublicKey,
   owner: PublicKey,
   mint: PublicKey,
+  allowOwnerOffCurve: boolean,
 ) {
   // SPL builds the exact key list & order the ATA program expects on all versions.
-  return createAssociatedTokenAccountInstruction(
-    payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+  return createAssociatedTokenAccountIdempotentInstructionWithDerivation(
+    payer, owner, mint, allowOwnerOffCurve, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
   );
 }
 
-function deriveAta(
+export function deriveAtaAddress(
   mint: PublicKey,
   owner: PublicKey,
   allowOwnerOffCurve: boolean,
@@ -140,26 +141,26 @@ function deriveAta(
 export async function ensureAtaIx(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey
 ) {
-  const ata = deriveAta(mint, owner, /*offCurve*/ false);
+  const ata = deriveAtaAddress(mint, owner, /*offCurve*/ false);
   try {
     await getAccount(connection, ata);
     return { ata, ixs: [] as any[] };
   } catch {
     info("🪙", `Create ATA: ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxDeriving(payer, owner, mint)] };
+    return { ata, ixs: [createAtaIxDeriving(payer, owner, mint, /*allowOwnerOffCurve*/ false)] };
   }
 }
 
 export async function ensureAtaForOwner(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey, allowOwnerOffCurve: boolean
 ) {
-  const ata = deriveAta(mint, owner, allowOwnerOffCurve);
+  const ata = deriveAtaAddress(mint, owner, allowOwnerOffCurve);
   try {
     await getAccount(connection, ata);
     return { ata, ixs: [] as any[] };
   } catch {
     info("🪙", `Create ATA (owner offCurve=${allowOwnerOffCurve}): ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxDeriving(payer, owner, mint)] };
+    return { ata, ixs: [createAtaIxDeriving(payer, owner, mint, allowOwnerOffCurve)] };
   }
 }
 
