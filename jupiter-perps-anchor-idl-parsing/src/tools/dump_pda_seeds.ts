@@ -1,7 +1,10 @@
 // Print PDA seed specs for key accounts from the local IDL.
-// Run: npx ts-node --transpile-only src/tools/dump_pda_seeds.ts
+// Run:
+//   TS_NODE_PROJECT=jupiter-perps-anchor-idl-parsing/tsconfig.json \
+//     node --loader ts-node/esm \
+//     jupiter-perps-anchor-idl-parsing/src/tools/dump_pda_seeds.ts
 
-import { IDL } from "../idl/jupiter-perpetuals-idl";
+import { IDL } from "../idl/jupiter-perpetuals-idl.js";
 
 function find(name: string) {
   const acc = (IDL as any).accounts?.find(
