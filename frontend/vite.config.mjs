@@ -28,12 +28,6 @@ export default defineConfig(({ mode }) => {
           secure: false
         },
 
-        '/positions': {
-          target: API_URL,
-          changeOrigin: true,
-          secure: false
-        },
-
         '/sonic_labs': {
           target: API_URL,
           changeOrigin: true,
@@ -41,6 +35,12 @@ export default defineConfig(({ mode }) => {
         },
 
         '/api': {
+          target: API_URL,
+          changeOrigin: true,
+          secure: false
+        },
+
+        '^/(positions|portfolio|monitors|monitor)': {
           target: API_URL,
           changeOrigin: true,
           secure: false
