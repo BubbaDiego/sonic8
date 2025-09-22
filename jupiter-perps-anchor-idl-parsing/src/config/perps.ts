@@ -8,7 +8,6 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
-  TransactionInstruction,
   SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
 import {
@@ -117,16 +116,14 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-function createAtaIxExplicit(
+function createAtaIxDeriving(
   payer: PublicKey,
-  ata: PublicKey,
   owner: PublicKey,
   mint: PublicKey,
-): TransactionInstruction {
-  // Use spl-token’s explicit-ATA signature. It generates the exact
-  // account metas the Associated Token Program expects on all versions.
+) {
+  // SPL builds the exact key list & order the ATA program expects on all versions.
   return createAssociatedTokenAccountInstruction(
-    payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+    payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
   );
 }
 
@@ -149,7 +146,7 @@ export async function ensureAtaIx(
     return { ata, ixs: [] as any[] };
   } catch {
     info("🪙", `Create ATA: ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxExplicit(payer, ata, owner, mint)] };
+    return { ata, ixs: [createAtaIxDeriving(payer, owner, mint)] };
   }
 }
 
@@ -162,7 +159,7 @@ export async function ensureAtaForOwner(
     return { ata, ixs: [] as any[] };
   } catch {
     info("🪙", `Create ATA (owner offCurve=${allowOwnerOffCurve}): ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxExplicit(payer, ata, owner, mint)] };
+    return { ata, ixs: [createAtaIxDeriving(payer, owner, mint)] };
   }
 }
 
