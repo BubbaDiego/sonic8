@@ -58,17 +58,45 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
   kv("Position", position.toBase58());
   kv("PosRequest", positionRequest.toBase58());
 
-  // 2) Funding (owner ATA) & PositionRequest ATA (escrow)
-  const ataInit = await cfg.ensureAtaIx(provider.connection, collateralMint, wallet.publicKey, wallet.publicKey);
-  const prAtaInit = await cfg.ensureAtaForOwner(provider.connection, collateralMint, positionRequest, wallet.publicKey, true);
-
   const decimals = (collateralCustody.account.decimals as number) ?? 9;
   const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
-  const needsCollateral = (collateralTokenDelta.gt ? collateralTokenDelta.gt(new cfg.BN(0)) : collateralTokenDelta > 0);
-  const topUp = collateralMint.equals(cfg.MINTS.WSOL)
-    ? await cfg.topUpWsolIfNeededIx(provider.connection, ataInit.ata, wallet.publicKey, BigInt(collateralTokenDelta.toString()))
+  const needsCollateral =
+    (collateralTokenDelta as any).gt
+      ? (collateralTokenDelta as any).gt(new cfg.BN(0))
+      : Number(collateralTokenDelta) > 0;
+
+  // 2) Funding (owner ATA) & PositionRequest ATA (escrow)
+  const ataInit = await cfg.ensureAtaIx(
+    provider.connection,
+    collateralMint,
+    wallet.publicKey,
+    wallet.publicKey,
+  );
+
+  const positionRequestAta = cfg.deriveAtaAddress(collateralMint, positionRequest, true);
+
+  const prAtaInit = needsCollateral
+    ? await cfg.ensureAtaForOwner(
+        provider.connection,
+        collateralMint,
+        positionRequest,
+        wallet.publicKey,
+        true,
+      )
+    : { ata: positionRequestAta, ixs: [] as any[] };
+
+  const topUp = needsCollateral && collateralMint.equals(cfg.MINTS.WSOL)
+    ? await cfg.topUpWsolIfNeededIx(
+        provider.connection,
+        ataInit.ata,
+        wallet.publicKey,
+        BigInt(collateralTokenDelta.toString()),
+      )
     : [];
-  const preIxs = needsCollateral ? [...ataInit.ixs, ...prAtaInit.ixs, ...topUp] : [];
+
+  const preIxs = needsCollateral
+    ? [...ataInit.ixs, ...prAtaInit.ixs, ...topUp]
+    : [...ataInit.ixs];
 
   // 3) Amounts & guardrail
   const sizeUsdDelta = toMicroUsd(argv["size-usd"]);
