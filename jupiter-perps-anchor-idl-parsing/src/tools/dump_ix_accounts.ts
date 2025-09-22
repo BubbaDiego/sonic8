@@ -1,9 +1,11 @@
 // Print the account metas for a given instruction so we know
 // whether an account must be a signer, writable, etc.
 // Run:
-//   npx ts-node --transpile-only src/tools/dump_ix_accounts.ts createIncreasePositionMarketRequest
+//   TS_NODE_PROJECT=jupiter-perps-anchor-idl-parsing/tsconfig.json \
+//     node --loader ts-node/esm \
+//     jupiter-perps-anchor-idl-parsing/src/tools/dump_ix_accounts.ts createIncreasePositionMarketRequest
 
-import { IDL } from "../idl/jupiter-perpetuals-idl";
+import { IDL } from "../idl/jupiter-perpetuals-idl.js";
 
 const name = (process.argv[2] || "createIncreasePositionMarketRequest").toString();
 
