@@ -5,7 +5,7 @@ import type { Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Keypair, Transaction } from "@solana/web3.js";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
-import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPda, sideToEnum } from "../utils/resolve.js";
+import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaCanonical, sideToEnum } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 
 (async () => {
@@ -40,7 +40,7 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
   const collateralCustody = await cfg.findCustodyByMint(program, pool.account, collateralMint);
 
   bar("PDAs", "🧩");
-  const [position] = derivePositionPda(
+  const [position] = derivePositionPdaCanonical(
     programId,
     wallet.publicKey,
     pool.publicKey,
