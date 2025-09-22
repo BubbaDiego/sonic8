@@ -1,9 +1,9 @@
 /* Withdraw collateral only (collateralUsdDelta, sizeUsdDelta=0) */
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { PublicKey, SystemProgram } from "@solana/web3.js";
+import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { bar, kv, ok, fail, info } from "../utils/logger.js";
-import { bootstrap, getSingletonPerpetuals, getSingletonPool, findCustodyByMint, ensureAtaIx, MINTS, SYS, } from "../config/perps.js";
+import * as cfg from "../config/perps.js";
 import { toMicroUsd, derivePdaFromIdl, sideToEnum } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 (async () => {
@@ -20,16 +20,16 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
         .option("min-price", { type: "number" })
         .option("dry-run", { type: "boolean", default: false })
         .parse();
-    const { program, programId, provider, wallet } = bootstrap(argv.rpc, argv.kp);
-    const perpetuals = await getSingletonPerpetuals(program);
-    const pool = await getSingletonPool(program);
-    const marketMint = MINTS[argv.market];
+    const { program, programId, provider, wallet } = cfg.bootstrap(argv.rpc, argv.kp);
+    const perpetuals = await cfg.getSingletonPerpetuals(program);
+    const pool = await cfg.getSingletonPool(program);
+    const marketMint = cfg.MINTS[argv.market];
     const sideEnum = sideToEnum(argv.side);
-    const custody = await findCustodyByMint(program, pool.account, marketMint);
+    const custody = await cfg.findCustodyByMint(program, pool.account, marketMint);
     // For withdraw, default receiving mint = collateral mint for that side
-    const defaultCollat = argv.side === "long" ? marketMint : MINTS.USDC;
+    const defaultCollat = argv.side === "long" ? marketMint : cfg.MINTS.USDC;
     const collateralMint = new PublicKey(argv["desired-mint"] ?? defaultCollat);
-    const collateralCustody = await findCustodyByMint(program, pool.account, collateralMint);
+    const collateralCustody = await cfg.findCustodyByMint(program, pool.account, collateralMint);
     bar("PDAs", "🧩");
     const [position] = derivePdaFromIdl(JUP_PERPS_IDL, programId, "position", {
         owner: wallet.publicKey, pool: pool.publicKey, custody: custody.pubkey, collateralCustody: collateralCustody.pubkey,
@@ -41,8 +41,9 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     });
     kv("Position", position.toBase58());
     kv("PosRequest", positionRequest.toBase58());
-    // Receiving ATA for withdrawn tokens
-    const ataInit = await ensureAtaIx(provider.connection, collateralMint, wallet.publicKey, wallet.publicKey);
+    // Receiving ATA for withdrawn tokens & PositionRequest ATA (escrow)
+    const ataInit = await cfg.ensureAtaIx(provider.connection, collateralMint, wallet.publicKey, wallet.publicKey);
+    const prAtaInit = await cfg.ensureAtaForOwner(provider.connection, collateralMint, positionRequest, wallet.publicKey, true);
     // Guardrail (must provide)
     let priceGuard = null;
     if (typeof argv["oracle-price"] === "number" && typeof argv["slip"] === "number") {
@@ -63,19 +64,20 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     const collateralUsdDelta = toMicroUsd(argv["withdraw-usd"]);
     bar("Amounts", "🧮");
     kv("Withdraw USD", `${argv["withdraw-usd"].toFixed(6)} → ${collateralUsdDelta.toString()} μUSD`);
-    // Build Tx: createDecreasePositionMarketRequest (collateral only)
     const accounts = {
         owner: wallet.publicKey,
         receivingAccount: ataInit.ata,
         position,
         positionRequest,
+        positionRequestAta: prAtaInit.ata,
         custody: custody.pubkey,
         collateralCustody: collateralCustody.pubkey,
         desiredMint: collateralMint,
+        referral: wallet.publicKey,
         perpetuals: perpetuals.publicKey,
         pool: pool.publicKey,
-        tokenProgram: SYS.TOKEN_PROGRAM_ID,
-        associatedTokenProgram: SYS.ASSOCIATED_TOKEN_PROGRAM_ID,
+        tokenProgram: cfg.SYS.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: cfg.SYS.ASSOCIATED_TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
     };
     try {
@@ -84,15 +86,20 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
         accounts.program = programId;
     }
     catch { }
+    const preIxs = [...ataInit.ixs, ...prAtaInit.ixs];
     const method = program.methods.createDecreasePositionMarketRequest({
         collateralUsdDelta,
-        sizeUsdDelta: new (await import("../config/perps.js")).BN(0),
+        sizeUsdDelta: new cfg.BN(0),
         side: sideEnum,
         priceSlippage: priceGuard,
     });
-    const tx = await method.accounts(accounts).transaction();
+    // ✅ run ATA prep BEFORE the request
+    const reqIx = await method.accounts(accounts).instruction();
+    const tx = new Transaction();
+    for (const ix of preIxs)
+        tx.add(ix);
+    tx.add(reqIx);
     tx.feePayer = wallet.publicKey;
-    tx.add(...ataInit.ixs);
     tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
     if (argv["dry-run"]) {
         info("🧪", "Simulation only (dry-run)");
