@@ -96,15 +96,11 @@ export function derivePositionPda(
   programId: PublicKey,
   owner: PublicKey,
   pool: PublicKey,
-  custody: PublicKey,
-  collateralCustody: PublicKey,
 ): [PublicKey, number] {
   const seeds = [
     Buffer.from("position"),
     owner.toBuffer(),
     pool.toBuffer(),
-    custody.toBuffer(),
-    collateralCustody.toBuffer(),
   ];
   return PublicKey.findProgramAddressSync(seeds, programId);
 }

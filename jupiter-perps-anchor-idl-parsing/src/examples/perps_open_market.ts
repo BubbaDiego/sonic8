@@ -44,8 +44,6 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     programId,
     wallet.publicKey,
     pool.publicKey,
-    custody.pubkey,
-    collateralCustody.pubkey,
   );
   const unique = Math.floor(Date.now() / 1000);
   const [positionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
