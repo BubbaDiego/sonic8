@@ -1,9 +1,9 @@
 import fs from "fs";
 import path from "path";
 import bs58 from "bs58";
-import { AnchorProvider, Program } from "@coral-xyz/anchor";
-import { Connection, Keypair, PublicKey, SystemProgram, TransactionInstruction, } from "@solana/web3.js";
-import { getAssociatedTokenAddressSync, getAccount, createSyncNativeInstruction, NATIVE_MINT, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, } from "@solana/spl-token";
+import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
+import { Connection, Keypair, PublicKey, SystemProgram, } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync, createAssociatedTokenAccountInstruction, getAccount, createSyncNativeInstruction, NATIVE_MINT, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, } from "@solana/spl-token";
 import BN from "bn.js";
 import { info, kv, ok, warn, bar } from "../utils/logger.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
@@ -41,7 +41,7 @@ export function bootstrap(rpc, keypairPath) {
     bar("Bootstrap", "🔗");
     const connection = new Connection(rpc, { commitment: "confirmed" });
     const kp = loadKeypair(keypairPath);
-    const wallet = { payer: kp, publicKey: kp.publicKey };
+    const wallet = new Wallet(kp);
     const provider = new AnchorProvider(connection, wallet, { commitment: "confirmed" });
     const meta = JUP_PERPS_IDL?.metadata;
     const programId = new PublicKey(meta?.address ?? (() => { throw new Error("IDL.metadata.address missing; update IDL"); })());
@@ -92,23 +92,14 @@ export async function findCustodyByMint(program, poolAccount, mint) {
         warn(`Multiple custodies for mint ${mint.toBase58()}, using first`);
     return found[0];
 }
-// Build the ATA-create instruction explicitly (supports PDA owners; robust across spl-token builds)
-function createAtaIxExplicit(payer, ata, owner, mint) {
-    return new TransactionInstruction({
-        programId: ASSOCIATED_TOKEN_PROGRAM_ID,
-        keys: [
-            { pubkey: payer, isSigner: true, isWritable: true },
-            { pubkey: ata, isSigner: false, isWritable: true },
-            { pubkey: owner, isSigner: false, isWritable: false },
-            { pubkey: mint, isSigner: false, isWritable: false },
-            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-            { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        ],
-        data: Buffer.alloc(0),
-    });
-}
+// Derive the ATA address we will pass as an account to Perps (works for PDAs when allowOwnerOffCurve=true)
 function deriveAta(mint, owner, allowOwnerOffCurve) {
     return getAssociatedTokenAddressSync(mint, owner, allowOwnerOffCurve, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+}
+// Always use SPL’s explicit-ATA signature to build the create instruction.
+// This ensures the exact key order/meta the ATA program expects across versions.
+function createAtaIxExplicit(payer, ata, owner, mint) {
+    return createAssociatedTokenAccountInstruction(payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
 }
 export async function ensureAtaIx(connection, mint, owner, payer) {
     const ata = deriveAta(mint, owner, /*offCurve*/ false);
