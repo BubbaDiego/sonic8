@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useLayoutEffect, useRef } from 'react';
 import { Outlet } from 'react-router-dom';
 
 // material-ui
@@ -47,11 +47,25 @@ export default function MainLayout() {
 
   if (menuMasterLoading) return <Loader />;
 
+  const toolbarRef = useRef(null);
+
+  // Measure the real AppBar height and expose as a CSS variable so content can offset correctly
+  useLayoutEffect(() => {
+    const setHeight = () => {
+      const el = toolbarRef.current?.parentElement; // the AppBar holds the Toolbar
+      const h = el?.offsetHeight || 88;
+      document.documentElement.style.setProperty('--appbar-height', `${h}px`);
+    };
+    setHeight();
+    window.addEventListener('resize', setHeight);
+    return () => window.removeEventListener('resize', setHeight);
+  }, []);
+
   return (
     <Box sx={{ display: 'flex' }}>
       {/* header */}
       <AppBar enableColorOnDark position="fixed" color="inherit" elevation={0} sx={{ bgcolor: 'background.default' }}>
-        <Toolbar sx={{ p: isHorizontal ? 1.25 : 2 }}>
+        <Toolbar ref={toolbarRef} sx={{ p: isHorizontal ? 1.25 : 2 }}>
           <Header />
         </Toolbar>
       </AppBar>
