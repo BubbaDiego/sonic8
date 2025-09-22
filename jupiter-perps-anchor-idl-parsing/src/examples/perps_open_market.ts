@@ -64,9 +64,11 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 
   const decimals = (collateralCustody.account.decimals as number) ?? 9;
   const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
+  const needsCollateral = (collateralTokenDelta.gt ? collateralTokenDelta.gt(new cfg.BN(0)) : collateralTokenDelta > 0);
   const topUp = collateralMint.equals(cfg.MINTS.WSOL)
     ? await cfg.topUpWsolIfNeededIx(provider.connection, ataInit.ata, wallet.publicKey, BigInt(collateralTokenDelta.toString()))
     : [];
+  const preIxs = needsCollateral ? [...ataInit.ixs, ...prAtaInit.ixs, ...topUp] : [];
 
   // 3) Amounts & guardrail
   const sizeUsdDelta = toMicroUsd(argv["size-usd"]);
@@ -129,7 +131,7 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 
   // Force order: create ATAs / wrap WSOL first, then Perps ix
   const tx = new Transaction();
-  for (const ix of [...ataInit.ixs, ...prAtaInit.ixs, ...topUp]) tx.add(ix);
+  if (preIxs.length) tx.add(...preIxs);
   tx.add(reqIx);
   tx.feePayer = wallet.publicKey;
   tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
