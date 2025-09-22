@@ -83,6 +83,19 @@ export function derivePdaFromIdl(idl, programId, accountName, ctx) {
     }
     return PublicKey.findProgramAddressSync(seedList, programId);
 }
+// Hard-coded once discovered via the seed bruteforcer tool.
+export function derivePositionPdaCanonical(programId, owner, pool, maybeCustodyA) {
+    const seeds = [
+        Buffer.from("position"),
+        owner.toBuffer(),
+        pool.toBuffer(),
+        maybeCustodyA?.toBuffer(),
+    ].filter(Boolean);
+    return PublicKey.findProgramAddressSync(seeds, programId);
+}
+export function derivePositionPda(programId, owner, pool) {
+    return derivePositionPdaCanonical(programId, owner, pool);
+}
 export function sideToEnum(side) {
     const s = side.toLowerCase();
     if (s === "long")
