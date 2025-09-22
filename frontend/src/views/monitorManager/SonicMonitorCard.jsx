@@ -12,7 +12,11 @@ import {
   Typography,
   CircularProgress,
   Box,
-  Divider
+  Divider,
+  Chip,
+  Switch,
+  FormControlLabel,
+  Tooltip
 } from '@mui/material';
 
 import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
@@ -22,6 +26,7 @@ import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
 import ShieldTwoToneIcon from '@mui/icons-material/ShieldTwoTone';
 import { resetLiquidSnooze } from 'api/sonicMonitor';
 import { refreshMonitorStatus } from 'api/monitorStatus';
+import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 
 /* ------------------------------------------------------------------------- */
 function CircularCountdown({ remaining, total }) {
@@ -58,6 +63,18 @@ export default function SonicMonitorCard({
 }) {
   const [remaining, setRemaining] = useState(0);
   const [running, setRunning] = useState(false);
+  const [nowTs, setNowTs] = useState(Date.now());
+
+  const { snoozeEndTs } = useSonicStatusPolling();
+  const snoozeEnd = typeof snoozeEndTs === 'number' ? snoozeEndTs : snoozeEndTs ? Date.parse(snoozeEndTs) : 0;
+  const snoozeLeftMs = Math.max(0, (snoozeEnd || 0) - nowTs);
+  const isSnoozed = snoozeLeftMs > 0;
+  const fmtLeft = (ms) => {
+    const s = Math.ceil(ms / 1000);
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return `${m}:${String(r).padStart(2, '0')}`;
+  };
 
   const snooze = cfg.snooze_seconds ?? '';
   const loopSec = loop ?? '';
@@ -90,6 +107,11 @@ export default function SonicMonitorCard({
   };
 
   useEffect(() => {
+    const id = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     if (!running) return;
     const id = setInterval(() => {
       setRemaining((prev) => {
@@ -113,6 +135,13 @@ export default function SonicMonitorCard({
     setCfg((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
+  const toggleSnoozePolicy = (on) => {
+    setCfg((prev) => ({
+      ...prev,
+      snooze_seconds: on ? parseInt(prev?.snooze_seconds, 10) || 600 : 0
+    }));
+  };
+
   const onLoopChange = (e) => setLoop(e.target.value);
 
   return (
@@ -124,6 +153,25 @@ export default function SonicMonitorCard({
               Sonic Monitor
             </Typography>
             <SettingsTwoToneIcon fontSize="small" />
+          </Stack>
+        }
+        action={
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Tooltip title="Master gate. Without Sonic enabled, nothing runs.">
+              <Chip
+                size="small"
+                label={cfg?.enabled_sonic ? 'Enabled' : 'Disabled'}
+                color={cfg?.enabled_sonic ? 'success' : 'default'}
+                variant={cfg?.enabled_sonic ? 'filled' : 'outlined'}
+                onClick={() => toggleMonitor('sonic')}
+              />
+            </Tooltip>
+            <Chip
+              size="small"
+              label={isSnoozed ? `Snoozed ${fmtLeft(snoozeLeftMs)}` : 'Live'}
+              color={isSnoozed ? 'warning' : 'info'}
+              variant={isSnoozed ? 'filled' : 'outlined'}
+            />
           </Stack>
         }
       />
@@ -163,6 +211,7 @@ export default function SonicMonitorCard({
               name="snooze_seconds"
               value={snooze}
               onChange={onChange}
+              helperText="0 disables snooze"
             />
           </Grid>
           <Grid
@@ -171,12 +220,24 @@ export default function SonicMonitorCard({
             sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}
           >
             {running ? (
-              <CircularCountdown remaining={remaining} total={snooze || 1} />
+              <CircularCountdown remaining={remaining} total={Number(snooze) || 1} />
             ) : (
               <>
-                <Button variant="outlined" onClick={start}>
-                  Snooze
-                </Button>
+                <Tooltip title="UI countdown only. Real snooze kicks in after an alert.">
+                  <Button variant="outlined" onClick={start}>
+                    Start Timer
+                  </Button>
+                </Tooltip>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={Number(snooze) > 0}
+                      onChange={(e) => toggleSnoozePolicy(e.target.checked)}
+                    />
+                  }
+                  label={Number(snooze) > 0 ? 'Snooze enabled' : 'Snooze disabled'}
+                  sx={{ mr: 1 }}
+                />
                 <IconButton color="primary" onClick={handleResetSnooze}>
                   <ShieldTwoToneIcon />
                 </IconButton>

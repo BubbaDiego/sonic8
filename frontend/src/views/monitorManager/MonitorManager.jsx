@@ -121,7 +121,7 @@ export default function MonitorManager() {
             setCfg={markDirty(setLiqCfg)}
             blast={marketCfg.blast_radius}
             nearest={nearestLiq}
-            disabled={!liqCfg.enabled_liquid}
+            disabled={!liqCfg.enabled_sonic || !liqCfg.enabled_liquid}
           />
         </Box>
 
@@ -130,7 +130,7 @@ export default function MonitorManager() {
           <ProfitMonitorCard
             cfg={profitCfg}
             setCfg={markDirty(setProfitCfg)}
-            disabled={!liqCfg.enabled_profit}
+            disabled={!liqCfg.enabled_sonic || !liqCfg.enabled_profit}
           />
         </Box>
 
@@ -140,7 +140,7 @@ export default function MonitorManager() {
             cfg={marketCfg}
             setCfg={markDirty(setMarketCfg)}
             live={pctMoves}
-            disabled={!liqCfg.enabled_market}
+            disabled={!liqCfg.enabled_sonic || !liqCfg.enabled_market}
           />
         </Box>
       </Box>
