@@ -92,46 +92,24 @@ function parseSimpleOverlay(value) {
 }
 
 export default function ThemeLab() {
-  // ---- Profiles & active profile (stable order; no conditional hooks)
-  const [profiles, setProfiles] = useState([]);
-  const [name, setName] = useState('dark');
-  const [state, setState] = useState(() => loadTokens('dark'));
-  useEffect(() => {
-    const list = getProfiles();
-    setProfiles(list);
-    const initial = list.includes('dark') ? 'dark' : list[0] || 'dark';
-    setName(initial);
-    setState(loadTokens(initial));
-  }, []);
+  const initialProfiles = useMemo(() => getProfiles(), []);
+  const initialName = initialProfiles.includes('dark') ? 'dark' : initialProfiles[0] || 'dark';
+  const initialTokensRef = useRef(loadTokens(initialName));
+  const initialTokens = initialTokensRef.current;
+  const [profiles, setProfiles] = useState(initialProfiles);
+  const [name, setName] = useState(initialName);
+  const [state, setState] = useState(() => initialTokens);
   const [livePreview, setLivePreview] = useState(true);
   const [wallThumb, setWallThumb] = useState({ url: '', ok: null, loading: false });
   const [cardThumb, setCardThumb] = useState({ url: '', ok: null, loading: false });
-  // ---- Asset pickers (stable; do not put hooks under conditionals)
-  const [useWallAsset, setUseWallAsset] = useState(false);
-  const [wallKey, setWallKey] = useState('');
-  const [useCardAsset, setUseCardAsset] = useState(false);
-  const [cardKey, setCardKey] = useState('');
-  // sync asset toggles from state once at mount & when state changes profile
-  useEffect(() => {
-    setUseWallAsset(isAssetPointer(state.wallpaper));
-    setWallKey(isAssetPointer(state.wallpaper) ? toAssetKey(state.wallpaper) : '');
-    setUseCardAsset(isAssetPointer(state.cardImage));
-    setCardKey(isAssetPointer(state.cardImage) ? toAssetKey(state.cardImage) : '');
-  }, [state.wallpaper, state.cardImage]);
-  const [xy, setXy] = useState([50, 50]);
-  const [posPreset, setPosPreset] = useState('center');
-  // initialize from current state exactly once on profile load
-  useEffect(() => {
-    const pos = state.wallpaperPosition;
-    if (POS_PRESETS.includes(pos)) {
-      setPosPreset(pos);
-    } else {
-      setPosPreset('custom');
-      setXy(parseXY(pos));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name]);
-  const initialOverlay = parseSimpleOverlay(state.wallpaperOverlay);
+  const [useWallAsset, setUseWallAsset] = useState(isAssetPointer(initialTokens.wallpaper));
+  const [wallKey, setWallKey] = useState(() => (isAssetPointer(initialTokens.wallpaper) ? toAssetKey(initialTokens.wallpaper) : ''));
+  const [useCardAsset, setUseCardAsset] = useState(isAssetPointer(initialTokens.cardImage));
+  const [cardKey, setCardKey] = useState(() => (isAssetPointer(initialTokens.cardImage) ? toAssetKey(initialTokens.cardImage) : ''));
+  const initialPosition = initialTokens.wallpaperPosition ?? 'center';
+  const [xy, setXy] = useState(() => parseXY(initialPosition));
+  const [posPreset, setPosPreset] = useState(() => (POS_PRESETS.includes(initialPosition) ? initialPosition : 'custom'));
+  const initialOverlay = parseSimpleOverlay(initialTokens.wallpaperOverlay);
   const [overlayColor, setOverlayColor] = useState(initialOverlay ? initialOverlay.color : '#000000');
   const [overlayAlpha, setOverlayAlpha] = useState(initialOverlay ? initialOverlay.alpha : 0);
   const [simpleOverlayActive, setSimpleOverlayActive] = useState(Boolean(initialOverlay));
@@ -142,6 +120,12 @@ export default function ThemeLab() {
 
   const applyState = (next) => {
     setState(next);
+    const wallPtr = isAssetPointer(next.wallpaper);
+    setUseWallAsset(wallPtr);
+    setWallKey(wallPtr ? toAssetKey(next.wallpaper) || '' : '');
+    const cardPtr = isAssetPointer(next.cardImage);
+    setUseCardAsset(cardPtr);
+    setCardKey(cardPtr ? toAssetKey(next.cardImage) || '' : '');
   };
 
   const setField = (k, v) => {
@@ -282,6 +266,15 @@ export default function ThemeLab() {
   }, [name, state, livePreview]);
 
   useEffect(() => () => clearPreview(), []);
+
+  useEffect(() => {
+    const rawPosition = state.wallpaperPosition ?? 'center';
+    const preset = POS_PRESETS.includes(rawPosition) ? rawPosition : 'custom';
+    setPosPreset(preset);
+    if (preset === 'custom') {
+      setXy(parseXY(rawPosition));
+    }
+  }, [state.wallpaperPosition]);
 
   useEffect(() => {
     const parsed = parseSimpleOverlay(state.wallpaperOverlay);
