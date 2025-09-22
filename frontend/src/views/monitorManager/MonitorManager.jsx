@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 import axios from 'utils/axios';
 import { Box, Typography, Snackbar, Alert, Button } from '@mui/material';
+import { getProfitCfg, saveProfitCfg } from 'api/profitMonitor';
 
 import LiquidationMonitorCard from './LiquidationMonitorCard';
 import ProfitMonitorCard      from './ProfitMonitorCard';
@@ -40,7 +41,7 @@ export default function MonitorManager() {
   /* ------------------------- initial fetch ------------------------------- */
   useEffect(() => {
     axios.get('/api/monitor-settings/liquidation').then((r) => setLiqCfg(r.data));
-    axios.get('/api/monitor-settings/profit').then((r) => setProfitCfg(r.data));
+    getProfitCfg().then((cfg) => setProfitCfg(cfg));
     axios.get('/api/monitor-settings/market').then((r) => setMarketCfg(r.data));
     axios.get('/api/market/latest').then((r) => setPctMoves(r.data));
     axios.get('/api/monitor-settings/sonic').then((r) => {
@@ -57,11 +58,11 @@ export default function MonitorManager() {
   /* ---------------------------- handlers --------------------------------- */
   const saveAll = async () => {
     await axios.post('/api/monitor-settings/liquidation', liqCfg);
-    await axios.post('/api/monitor-settings/profit', {
-      single_high: Number(profitCfg?.single_high ?? 0),
-      portfolio_high: Number(profitCfg?.portfolio_high ?? 0),
-      notifications: profitCfg?.notifications,
-      enabled: profitCfg?.enabled
+    await saveProfitCfg({
+      enabled: profitCfg?.enabled,
+      position_profit_usd: Number(profitCfg?.position_profit_usd ?? 0),
+      portfolio_profit_usd: Number(profitCfg?.portfolio_profit_usd ?? 0),
+      notifications: profitCfg?.notifications
     });
     await axios.post('/api/monitor-settings/market', marketCfg);
     await axios.post('/api/monitor-settings/sonic', {

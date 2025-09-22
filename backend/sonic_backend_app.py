@@ -63,6 +63,7 @@ from backend.routes.xcom_api import router as xcom_router
 from backend.routes.session_api import router as session_router
 from backend.routes.notification_api import router as notification_router
 from backend.routes.monitor_settings_api import router as monitor_settings_router
+from backend.routes.profit_settings_api import router as profit_settings_router
 from backend.routes.market_api import router as market_router
 from backend.routes.prices_api import router as prices_router
 from backend.routes.solana_api import router as solana_router
@@ -126,6 +127,7 @@ app.include_router(xcom_router)
 app.include_router(session_router)
 app.include_router(notification_router)
 app.include_router(monitor_settings_router)
+app.include_router(profit_settings_router)
 app.include_router(liquidation_distance_router)
 app.include_router(market_router)
 app.include_router(prices_router)

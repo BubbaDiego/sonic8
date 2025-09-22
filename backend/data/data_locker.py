@@ -963,6 +963,8 @@ class DataLocker:
                 return
             config = {
                 "enabled": True,
+                "position_profit_usd": 50.0,
+                "portfolio_profit_usd": 200.0,
                 "notifications": {
                     "system": True,
                     "voice": True,

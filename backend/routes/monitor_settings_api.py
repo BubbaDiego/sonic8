@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 from datetime import datetime, timezone
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.core.alert_core.threshold_service import ThresholdService  # type: ignore
+from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.monitor_core.sonic_monitor import DEFAULT_INTERVAL, MONITOR_NAME
 from backend.core.monitor_core import market_monitor
 from backend.deps import get_app_locker
@@ -39,18 +40,33 @@ def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locke
 
 
 @router.post("/market/reset-anchors")
-def reset_market_anchors(dl: DataLocker = Depends(get_app_locker)):
+def reset_market_anchors():
+    dl = DataLocker.get_instance(str(MOTHER_DB_PATH))
+    cfg = (dl.system.get_var("market_monitor") if dl.system else {}) or {}
+
     mon = market_monitor.MarketMonitor(dl)
+    # Ensure defaults such as thresholds/anchors exist
     cfg = mon._cfg()
-    prices = mon._latest_prices()
+
+    thresholds = cfg.get("thresholds") or {}
+    assets = list(thresholds.keys()) or list(getattr(mon, "ASSETS", [])) or ["BTC", "ETH", "SOL"]
+
+    anchors = {}
     now = datetime.now(timezone.utc).isoformat()
+    for asset in assets:
+        price_info = dl.get_latest_price(asset) or {}
+        price = price_info.get("current_price") if isinstance(price_info, dict) else None
+        if price is None:
+            continue
 
-    for asset, price in prices.items():
-        cfg["anchors"][asset] = {"value": float(price), "time": now}
-        cfg["armed"][asset] = True
+        anchors[asset] = {"value": float(price), "time": now}
+        cfg.setdefault("anchors", {})[asset] = anchors[asset]
+        cfg.setdefault("armed", {})[asset] = True
 
-    dl.system.set_var(mon.name, cfg)
-    return cfg
+    if dl.system:
+        dl.system.set_var(mon.name, cfg)
+
+    return {"anchors": anchors, "armed": cfg.get("armed", {})}
 
 
 # ------------------------------------------------------------------ #
