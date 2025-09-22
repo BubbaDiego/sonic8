@@ -13,6 +13,7 @@ import {
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountInstruction,
   getAccount,
   createSyncNativeInstruction,
   NATIVE_MINT,
@@ -116,26 +117,17 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-// Build the ATA-create instruction explicitly (supports PDA owners; robust across spl-token builds)
 function createAtaIxExplicit(
   payer: PublicKey,
   ata: PublicKey,
   owner: PublicKey,
   mint: PublicKey,
 ): TransactionInstruction {
-  return new TransactionInstruction({
-    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
-    keys: [
-      { pubkey: payer,              isSigner: true,  isWritable: true  }, // 0
-      { pubkey: ata,                isSigner: false, isWritable: true  }, // 1
-      { pubkey: owner,              isSigner: false, isWritable: false }, // 2
-      { pubkey: mint,               isSigner: false, isWritable: false }, // 3
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 4
-      { pubkey: TOKEN_PROGRAM_ID,        isSigner: false, isWritable: false }, // 5
-      { pubkey: SYSVAR_RENT_PUBKEY,      isSigner: false, isWritable: false }, // 6
-    ],
-    data: Buffer.alloc(0),
-  });
+  // Use spl-token’s explicit-ATA signature. It generates the exact
+  // account metas the Associated Token Program expects on all versions.
+  return createAssociatedTokenAccountInstruction(
+    payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+  );
 }
 
 function deriveAta(
