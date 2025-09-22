@@ -7,6 +7,8 @@ import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
+  // @ts-ignore (present on some versions; we probe at runtime)
+  createAssociatedTokenAccountIdempotentInstruction as createAtaIdemMaybe,
   getAccount,
   createSyncNativeInstruction,
   NATIVE_MINT,
@@ -14,8 +16,8 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import BN from "bn.js";
-import { info, kv, ok, warn, bar } from "../utils/logger";
-import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl";
+import { info, kv, ok, warn, bar } from "../utils/logger.js";
+import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 
 export type PerpsCtx = {
   connection: Connection;
@@ -28,8 +30,8 @@ export type PerpsCtx = {
 export const SYS = { SystemProgram, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID };
 
 export const MINTS = {
-  WSOL: NATIVE_MINT,
-  SOL: NATIVE_MINT,
+  WSOL: NATIVE_MINT, // So111… native SOL wrapper
+  SOL: NATIVE_MINT,  // alias
   USDC: new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
   USDT: new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
   WETH: new PublicKey("7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs"),
@@ -109,19 +111,49 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-export function getAta(mint: PublicKey, owner: PublicKey, allowOwnerOffCurve = false) {
-  return getAssociatedTokenAddressSync(mint, owner, allowOwnerOffCurve, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+/** Build a create-ATA ix that works across spl-token versions/signatures. */
+function buildCreateAtaIx(
+  payer: PublicKey,
+  owner: PublicKey,
+  mint: PublicKey,
+  allowOwnerOffCurve: boolean
+) {
+  const ata = getAssociatedTokenAddressSync(
+    mint,
+    owner,
+    allowOwnerOffCurve,
+    TOKEN_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+
+  const idem = (createAtaIdemMaybe as any);
+  if (typeof idem === "function") {
+    try {
+      return { ata, ix: idem(payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID) };
+    } catch { /* fall back */ }
+  }
+
+  const classic = (createAssociatedTokenAccountInstruction as any);
+  try {
+    // newer signature includes ATA explicitly
+    if (classic.length >= 6) {
+      return { ata, ix: classic(payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID) };
+    }
+    // older signature infers ATA
+    return { ata, ix: classic(payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID) };
+  } catch (e) {
+    throw new Error(`Failed to build create-ATA ix: ${(e as Error).message}`);
+  }
 }
 
 export async function ensureAtaIx(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey
 ) {
-  const ata = getAta(mint, owner, false);
+  const { ata, ix } = buildCreateAtaIx(payer, owner, mint, /*offCurve*/false);
   try {
     await getAccount(connection, ata);
     return { ata, ixs: [] as any[] };
   } catch {
-    const ix = createAssociatedTokenAccountInstruction(payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
     info("🪙", `Create ATA: ${ata.toBase58()}`);
     return { ata, ixs: [ix] };
   }
@@ -130,12 +162,11 @@ export async function ensureAtaIx(
 export async function ensureAtaForOwner(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey, allowOwnerOffCurve: boolean
 ) {
-  const ata = getAta(mint, owner, allowOwnerOffCurve);
+  const { ata, ix } = buildCreateAtaIx(payer, owner, mint, allowOwnerOffCurve);
   try {
     await getAccount(connection, ata);
     return { ata, ixs: [] as any[] };
   } catch {
-    const ix = createAssociatedTokenAccountInstruction(payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
     info("🪙", `Create ATA (owner offCurve=${allowOwnerOffCurve}): ${ata.toBase58()}`);
     return { ata, ixs: [ix] };
   }
@@ -154,4 +185,5 @@ export async function topUpWsolIfNeededIx(connection: Connection, ata: PublicKey
   return ixs;
 }
 
+// re-export BN so examples can use `new cfg.BN(0)` etc.
 export { BN };
