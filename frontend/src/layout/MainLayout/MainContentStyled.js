@@ -15,11 +15,11 @@ const MainContentStyled = styled('main', {
   background: 'transparent',
   minWidth: '1%',
   width: '100%',
-  /* use the measured header height; add extra for horizontal menu when active */
-  minHeight: `calc(100vh - (var(--appbar-height, 88px) + ${menuOrientation === MenuOrientation.HORIZONTAL ? 47 : 0}px))`,
+  /* header is sticky now; no manual offset needed */
+  minHeight: '100vh',
   flexGrow: 1,
   padding: 20,
-  marginTop: `calc(var(--appbar-height, 88px) + ${menuOrientation === MenuOrientation.HORIZONTAL ? 47 : 0}px)`,
+  marginTop: 0,
   marginRight: 0,
   borderRadius: `${borderRadius}px`,
   borderBottomLeftRadius: 0,
@@ -32,7 +32,7 @@ const MainContentStyled = styled('main', {
     [theme.breakpoints.up('md')]: {
       marginLeft: menuOrientation === MenuOrientation.VERTICAL ? -(drawerWidth - 72) : 20,
       width: `calc(100% - ${drawerWidth}px)`,
-      marginTop: `calc(var(--appbar-height, 88px) + ${menuOrientation === MenuOrientation.HORIZONTAL ? 47 : 0}px)`
+      marginTop: 0
     }
   }),
   ...(open && {
@@ -41,16 +41,16 @@ const MainContentStyled = styled('main', {
       duration: theme.transitions.duration.shorter + 200
     }),
     marginLeft: menuOrientation === MenuOrientation.HORIZONTAL ? 20 : 0,
-    marginTop: `calc(var(--appbar-height, 88px) + ${menuOrientation === MenuOrientation.HORIZONTAL ? 47 : 0}px)`,
+    marginTop: 0,
     width: `calc(100% - ${drawerWidth}px)`,
     [theme.breakpoints.up('md')]: {
-      marginTop: `calc(var(--appbar-height, 88px) + ${menuOrientation === MenuOrientation.HORIZONTAL ? 47 : 0}px)`
+      marginTop: 0
     }
   }),
   [theme.breakpoints.down('md')]: {
     marginLeft: 20,
     padding: 16,
-    marginTop: `calc(var(--appbar-height, 88px) + ${menuOrientation === MenuOrientation.HORIZONTAL ? 47 : 0}px)`,
+    marginTop: 0,
     ...(!open && {
       width: `calc(100% - ${drawerWidth}px)`
     })
