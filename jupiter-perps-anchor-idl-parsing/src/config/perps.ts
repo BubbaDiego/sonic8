@@ -9,6 +9,7 @@ import {
   PublicKey,
   SystemProgram,
   TransactionInstruction,
+  SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
@@ -125,12 +126,13 @@ function createAtaIxExplicit(
   return new TransactionInstruction({
     programId: ASSOCIATED_TOKEN_PROGRAM_ID,
     keys: [
-      { pubkey: payer, isSigner: true,  isWritable: true  },
-      { pubkey: ata,   isSigner: false, isWritable: true  },
-      { pubkey: owner, isSigner: false, isWritable: false },
-      { pubkey: mint,  isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: TOKEN_PROGRAM_ID,        isSigner: false, isWritable: false },
+      { pubkey: payer,              isSigner: true,  isWritable: true  }, // 0
+      { pubkey: ata,                isSigner: false, isWritable: true  }, // 1
+      { pubkey: owner,              isSigner: false, isWritable: false }, // 2
+      { pubkey: mint,               isSigner: false, isWritable: false }, // 3
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 4
+      { pubkey: TOKEN_PROGRAM_ID,        isSigner: false, isWritable: false }, // 5
+      { pubkey: SYSVAR_RENT_PUBKEY,      isSigner: false, isWritable: false }, // 6
     ],
     data: Buffer.alloc(0),
   });
