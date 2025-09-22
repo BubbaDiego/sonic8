@@ -4,8 +4,9 @@ import { hideBin } from "yargs/helpers";
 import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
-import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaCanonical, sideToEnum } from "../utils/resolve.js";
+import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaCanonical, derivePositionPdaPoolFirst, derivePositionPdaOwnerFirst, sideToEnum } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
+import { toPk } from "../utils/pk.js";
 (async () => {
     const argv = await yargs(hideBin(process.argv))
         .option("rpc", { type: "string", demandOption: true })
@@ -30,10 +31,18 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     const sideEnum = sideToEnum(argv.side);
     const custody = await cfg.findCustodyByMint(program, pool.account, marketMint);
     const defaultCollat = argv.side === "long" ? marketMint : cfg.MINTS.USDC;
-    const collateralMint = new PublicKey(argv["collat-mint"] ?? defaultCollat);
+    const collatMintArg = argv["collat-mint"] ?? null;
+    const collateralMint = collatMintArg ? toPk("collat-mint", collatMintArg) : defaultCollat;
+    console.log("🔑  Mints :: marketMint=", marketMint.toBase58?.() ?? String(marketMint), " collateralMint=", collateralMint.toBase58?.() ?? String(collateralMint));
     const collateralCustody = await cfg.findCustodyByMint(program, pool.account, collateralMint);
     bar("PDAs", "🧩");
-    const [position] = derivePositionPdaCanonical(programId, wallet.publicKey, pool.publicKey);
+    const [positionCanonical] = derivePositionPdaCanonical(programId, wallet.publicKey, pool.publicKey, custody.pubkey);
+    const [posPoolFirst] = derivePositionPdaPoolFirst(programId, pool.publicKey, wallet.publicKey);
+    const [posOwnerFirst] = derivePositionPdaOwnerFirst(programId, wallet.publicKey, pool.publicKey);
+    // Loud, one-time debug to compare with Perps' "Right:" if it error-logs again
+    console.log("🧩 position PDAs :: canonical=", positionCanonical.toBase58(), " poolFirst=", posPoolFirst.toBase58(), " ownerFirst=", posOwnerFirst.toBase58());
+    // Use the canonical PDA for the request
+    const position = positionCanonical;
     const unique = Math.floor(Date.now() / 1000);
     const [positionRequest] = derivePdaFromIdl(JUP_PERPS_IDL, programId, "positionRequest", {
         owner: wallet.publicKey,
