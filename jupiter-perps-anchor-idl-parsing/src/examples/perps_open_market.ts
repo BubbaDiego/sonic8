@@ -7,6 +7,7 @@ import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
 import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaCanonical, sideToEnum } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
+import { toPk } from "../utils/pk.js";
 
 (async () => {
   const argv = await yargs(hideBin(process.argv))
@@ -36,7 +37,14 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 
   const custody = await cfg.findCustodyByMint(program, pool.account, marketMint);
   const defaultCollat = argv.side === "long" ? marketMint : cfg.MINTS.USDC;
-  const collateralMint = new PublicKey(argv["collat-mint"] ?? defaultCollat);
+  const collatMintArg = (argv["collat-mint"] as unknown) ?? null;
+  const collateralMint = collatMintArg ? toPk("collat-mint", collatMintArg) : defaultCollat;
+  console.log(
+    "🔑  Mints :: marketMint=",
+    (marketMint as any).toBase58?.() ?? String(marketMint),
+    " collateralMint=",
+    (collateralMint as any).toBase58?.() ?? String(collateralMint),
+  );
   const collateralCustody = await cfg.findCustodyByMint(program, pool.account, collateralMint);
 
   bar("PDAs", "🧩");
