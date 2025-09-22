@@ -91,6 +91,24 @@ export function derivePdaFromIdl(idl: Idl, programId: PublicKey, accountName: st
   return PublicKey.findProgramAddressSync(seedList, programId);
 }
 
+// Hard-coded once discovered via the seed bruteforcer tool.
+export function derivePositionPda(
+  programId: PublicKey,
+  owner: PublicKey,
+  pool: PublicKey,
+  custody: PublicKey,
+  collateralCustody: PublicKey,
+): [PublicKey, number] {
+  const seeds = [
+    Buffer.from("position"),
+    owner.toBuffer(),
+    pool.toBuffer(),
+    custody.toBuffer(),
+    collateralCustody.toBuffer(),
+  ];
+  return PublicKey.findProgramAddressSync(seeds, programId);
+}
+
 export function sideToEnum(side: string) {
   const s = side.toLowerCase();
   if (s === "long") return { long: {} };
