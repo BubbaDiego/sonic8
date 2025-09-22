@@ -49,3 +49,5 @@ frontend/src/tailwind.output.css
 Thumbs.db
 /signer.txt
 /backend/signer.txt
+
+/src/

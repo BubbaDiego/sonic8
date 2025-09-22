@@ -3,10 +3,15 @@ import path from "path";
 import bs58 from "bs58";
 import type { Idl, Wallet } from "@coral-xyz/anchor";
 import { AnchorProvider, Program } from "@coral-xyz/anchor";
-import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+} from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
   getAccount,
   createSyncNativeInstruction,
   NATIVE_MINT,
@@ -28,8 +33,8 @@ export type PerpsCtx = {
 export const SYS = { SystemProgram, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID };
 
 export const MINTS = {
-  WSOL: NATIVE_MINT, // So111… native SOL wrapper
-  SOL: NATIVE_MINT,  // alias
+  WSOL: NATIVE_MINT,
+  SOL: NATIVE_MINT,
   USDC: new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
   USDT: new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
   WETH: new PublicKey("7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs"),
@@ -60,14 +65,15 @@ export function bootstrap(rpc: string, keypairPath: string): PerpsCtx {
   const provider = new AnchorProvider(connection, wallet, { commitment: "confirmed" });
 
   const meta = (JUP_PERPS_IDL as any)?.metadata;
-  const programId = new PublicKey(meta?.address ?? (() => { throw new Error("IDL.metadata.address missing; update IDL"); })());
+  const programId = new PublicKey(
+    meta?.address ?? (() => { throw new Error("IDL.metadata.address missing; update IDL"); })()
+  );
   const program = new Program(JUP_PERPS_IDL as Idl, programId, provider);
 
   info("🧭", `Network: ${rpc}`);
   kv("Owner", wallet.publicKey.toBase58());
   kv("Program", programId.toBase58());
   ok("IDL loaded and program ready");
-
   return { connection, wallet, provider, programId, program };
 }
 
@@ -109,59 +115,60 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-// Build a create-ATA ix using the explicit-ATA signature, compatible across versions.
-function buildCreateAtaIx(
+// Build the ATA-create instruction explicitly (supports PDA owners; robust across spl-token builds)
+function createAtaIxExplicit(
   payer: PublicKey,
+  ata: PublicKey,
   owner: PublicKey,
   mint: PublicKey,
-  allowOwnerOffCurve: boolean
-) {
-  const ata = getAssociatedTokenAddressSync(
-    mint,
-    owner,
-    allowOwnerOffCurve,
-    TOKEN_PROGRAM_ID,
-    ASSOCIATED_TOKEN_PROGRAM_ID
+): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+    keys: [
+      { pubkey: payer, isSigner: true,  isWritable: true  },
+      { pubkey: ata,   isSigner: false, isWritable: true  },
+      { pubkey: owner, isSigner: false, isWritable: false },
+      { pubkey: mint,  isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_PROGRAM_ID,        isSigner: false, isWritable: false },
+    ],
+    data: Buffer.alloc(0),
+  });
+}
+
+function deriveAta(
+  mint: PublicKey,
+  owner: PublicKey,
+  allowOwnerOffCurve: boolean,
+): PublicKey {
+  return getAssociatedTokenAddressSync(
+    mint, owner, allowOwnerOffCurve, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
   );
-
-  // Newer spl-token supports the (payer, ata, owner, mint, tokenProgram, associatedProgram) signature.
-  // If the local build only exposes the older signature, we'll fall back below.
-  const classic: any = createAssociatedTokenAccountInstruction;
-  try {
-    if (classic.length >= 6) {
-      // explicit ATA variant
-      return { ata, ix: classic(payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID) };
-    }
-  } catch { /* fall through */ }
-
-  // Fallback: older signature (no explicit ata). This will still work for on-curve owners;
-  // we only call this when we must and after checking account existence first.
-  return { ata, ix: classic(payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID) };
 }
 
 export async function ensureAtaIx(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey
 ) {
-  const { ata, ix } = buildCreateAtaIx(payer, owner, mint, /*offCurve*/false);
+  const ata = deriveAta(mint, owner, /*offCurve*/ false);
   try {
     await getAccount(connection, ata);
     return { ata, ixs: [] as any[] };
   } catch {
     info("🪙", `Create ATA: ${ata.toBase58()}`);
-    return { ata, ixs: [ix] };
+    return { ata, ixs: [createAtaIxExplicit(payer, ata, owner, mint)] };
   }
 }
 
 export async function ensureAtaForOwner(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey, allowOwnerOffCurve: boolean
 ) {
-  const { ata, ix } = buildCreateAtaIx(payer, owner, mint, allowOwnerOffCurve);
+  const ata = deriveAta(mint, owner, allowOwnerOffCurve);
   try {
     await getAccount(connection, ata);
     return { ata, ixs: [] as any[] };
   } catch {
     info("🪙", `Create ATA (owner offCurve=${allowOwnerOffCurve}): ${ata.toBase58()}`);
-    return { ata, ixs: [ix] };
+    return { ata, ixs: [createAtaIxExplicit(payer, ata, owner, mint)] };
   }
 }
 
@@ -178,5 +185,5 @@ export async function topUpWsolIfNeededIx(connection: Connection, ata: PublicKey
   return ixs;
 }
 
-// re-export BN so examples can use `new cfg.BN(0)` etc.
+// re-export BN so examples can `new cfg.BN(0)`
 export { BN };
