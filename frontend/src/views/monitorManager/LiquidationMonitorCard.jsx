@@ -12,7 +12,9 @@ import {
   TableBody,
   Typography,
   Stack,
-  Box
+  Box,
+  Chip,
+  Tooltip
 } from '@mui/material';
 
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
@@ -114,9 +116,12 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        opacity: disabled ? 0.4 : 1,
+        position: 'relative',
+        opacity: disabled ? 0.35 : 1,
         pointerEvents: disabled ? 'none' : 'auto',
-        transition: 'opacity 0.2s ease'
+        transition: 'opacity 0.2s ease',
+        borderLeft: '4px solid',
+        borderLeftColor: disabled ? 'divider' : 'success.main'
       }}
     >
       <CardHeader
@@ -128,6 +133,16 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
             </Typography>
             <WaterDropIcon fontSize="small" color="primary" />
           </Stack>
+        }
+        action={
+          <Tooltip title="Enable/disable via Sonic Monitor">
+            <Chip
+              size="small"
+              label={disabled ? 'Disabled' : 'Enabled'}
+              color={disabled ? 'default' : 'success'}
+              variant={disabled ? 'outlined' : 'filled'}
+            />
+          </Tooltip>
         }
       />
       <CardContent sx={{ pt: 0.5, pb: 1 }}>
@@ -218,13 +233,18 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
       <MonitorUpdateBar
         cfg={normCfg.notifications}
         toggle={(k) =>
-          setCfg(prev => ({
+          setCfg((prev) => ({
             ...prev,
             notifications: { ...prev.notifications, [k]: !prev.notifications[k] }
           }))
         }
         sx={{ mx: 2, mb: 2 }}
       />
+
+      {/* subtle overlay when disabled */}
+      {disabled && (
+        <Box sx={{ position: 'absolute', inset: 0, borderRadius: 1, pointerEvents: 'none', filter: 'grayscale(0.4)' }} />
+      )}
     </Card>
   );
 }
