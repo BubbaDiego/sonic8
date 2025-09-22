@@ -235,7 +235,10 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
         toggle={(k) =>
           setCfg((prev) => ({
             ...prev,
-            notifications: { ...prev.notifications, [k]: !prev.notifications[k] }
+            notifications: {
+              ...(prev?.notifications || {}),
+              [k]: !Boolean(prev?.notifications?.[k])
+            }
           }))
         }
         sx={{ mx: 2, mb: 2 }}
