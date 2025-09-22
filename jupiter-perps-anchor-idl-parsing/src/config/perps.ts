@@ -8,16 +8,17 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
+  TransactionInstruction,
   SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountInstruction,
   getAccount,
   createSyncNativeInstruction,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountIdempotentInstructionWithDerivation,
 } from "@solana/spl-token";
 import BN from "bn.js";
 import { info, kv, ok, warn, bar } from "../utils/logger.js";
@@ -116,19 +117,8 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-function createAtaIxDeriving(
-  payer: PublicKey,
-  owner: PublicKey,
-  mint: PublicKey,
-  allowOwnerOffCurve: boolean,
-) {
-  // SPL builds the exact key list & order the ATA program expects on all versions.
-  return createAssociatedTokenAccountIdempotentInstructionWithDerivation(
-    payer, owner, mint, allowOwnerOffCurve, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
-  );
-}
-
-export function deriveAtaAddress(
+// Derive the ATA address we will pass as an account to Perps (works for PDAs when allowOwnerOffCurve=true)
+function deriveAta(
   mint: PublicKey,
   owner: PublicKey,
   allowOwnerOffCurve: boolean,
@@ -138,29 +128,42 @@ export function deriveAtaAddress(
   );
 }
 
+// Always use SPL’s explicit-ATA signature to build the create instruction.
+// This ensures the exact key order/meta the ATA program expects across versions.
+function createAtaIxExplicit(
+  payer: PublicKey,
+  ata: PublicKey,
+  owner: PublicKey,
+  mint: PublicKey,
+): TransactionInstruction {
+  return createAssociatedTokenAccountInstruction(
+    payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+}
+
 export async function ensureAtaIx(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey
 ) {
-  const ata = deriveAtaAddress(mint, owner, /*offCurve*/ false);
+  const ata = deriveAta(mint, owner, /*offCurve*/ false);
   try {
     await getAccount(connection, ata);
-    return { ata, ixs: [] as any[] };
+    return { ata, ixs: [] as TransactionInstruction[] };
   } catch {
     info("🪙", `Create ATA: ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxDeriving(payer, owner, mint, /*allowOwnerOffCurve*/ false)] };
+    return { ata, ixs: [createAtaIxExplicit(payer, ata, owner, mint)] };
   }
 }
 
 export async function ensureAtaForOwner(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey, allowOwnerOffCurve: boolean
 ) {
-  const ata = deriveAtaAddress(mint, owner, allowOwnerOffCurve);
+  const ata = deriveAta(mint, owner, allowOwnerOffCurve);
   try {
     await getAccount(connection, ata);
-    return { ata, ixs: [] as any[] };
+    return { ata, ixs: [] as TransactionInstruction[] };
   } catch {
     info("🪙", `Create ATA (owner offCurve=${allowOwnerOffCurve}): ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxDeriving(payer, owner, mint, allowOwnerOffCurve)] };
+    return { ata, ixs: [createAtaIxExplicit(payer, ata, owner, mint)] };
   }
 }
 

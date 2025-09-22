@@ -50,14 +50,22 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     });
     kv("Position", position.toBase58());
     kv("PosRequest", positionRequest.toBase58());
-    // 2) Funding (owner ATA) & PositionRequest ATA (escrow)
-    const ataInit = await cfg.ensureAtaIx(provider.connection, collateralMint, wallet.publicKey, wallet.publicKey);
-    const prAtaInit = await cfg.ensureAtaForOwner(provider.connection, collateralMint, positionRequest, wallet.publicKey, true);
     const decimals = collateralCustody.account.decimals ?? 9;
     const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
-    const topUp = collateralMint.equals(cfg.MINTS.WSOL)
+    const needsCollateral = collateralTokenDelta.gt
+        ? collateralTokenDelta.gt(new cfg.BN(0))
+        : Number(collateralTokenDelta) > 0;
+    // 2) Funding (owner ATA) & PositionRequest ATA (escrow)
+    const ataInit = await cfg.ensureAtaIx(provider.connection, collateralMint, wallet.publicKey, wallet.publicKey);
+    const prAtaInit = needsCollateral
+        ? await cfg.ensureAtaForOwner(provider.connection, collateralMint, positionRequest, wallet.publicKey, true)
+        : { ata: PublicKey.default, ixs: [] };
+    const topUp = needsCollateral && collateralMint.equals(cfg.MINTS.WSOL)
         ? await cfg.topUpWsolIfNeededIx(provider.connection, ataInit.ata, wallet.publicKey, BigInt(collateralTokenDelta.toString()))
         : [];
+    const preIxs = needsCollateral
+        ? [...ataInit.ixs, ...prAtaInit.ixs, ...topUp]
+        : [...ataInit.ixs];
     // 3) Amounts & guardrail
     const sizeUsdDelta = toMicroUsd(argv["size-usd"]);
     let priceGuard = null;
@@ -116,8 +124,8 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
         .instruction();
     // Force order: create ATAs / wrap WSOL first, then Perps ix
     const tx = new Transaction();
-    for (const ix of [...ataInit.ixs, ...prAtaInit.ixs, ...topUp])
-        tx.add(ix);
+    if (preIxs.length)
+        tx.add(...preIxs);
     tx.add(reqIx);
     tx.feePayer = wallet.publicKey;
     tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;

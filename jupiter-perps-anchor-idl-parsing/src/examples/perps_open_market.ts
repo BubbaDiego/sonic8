@@ -73,8 +73,6 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     wallet.publicKey,
   );
 
-  const positionRequestAta = cfg.deriveAtaAddress(collateralMint, positionRequest, true);
-
   const prAtaInit = needsCollateral
     ? await cfg.ensureAtaForOwner(
         provider.connection,
@@ -83,7 +81,7 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
         wallet.publicKey,
         true,
       )
-    : { ata: positionRequestAta, ixs: [] as any[] };
+    : { ata: PublicKey.default, ixs: [] as any[] };
 
   const topUp = needsCollateral && collateralMint.equals(cfg.MINTS.WSOL)
     ? await cfg.topUpWsolIfNeededIx(
