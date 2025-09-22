@@ -13,7 +13,9 @@ export default function ThemeModeSection() {
     setProfiles(getProfiles());
   }, []);
   const options = useMemo(() => ['system', ...profiles], [profiles]);
-  const value = String(mode || 'dark');
+  // Avoid MUI "out-of-range" warning: if current mode isn't available yet, show 'system'
+  const rawValue = String(mode ?? 'system');
+  const value = options.includes(rawValue) ? rawValue : 'system';
   const handleChange = (e) => {
     const v = e.target.value;
     if (v === 'system') {
