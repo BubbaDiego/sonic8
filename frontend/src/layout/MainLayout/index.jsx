@@ -49,14 +49,8 @@ export default function MainLayout() {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      {/* header (sticky keeps it in layout; no manual offsets needed) */}
-      <AppBar
-        enableColorOnDark
-        position="sticky"
-        color="inherit"
-        elevation={0}
-        sx={{ bgcolor: 'background.default', top: 0, zIndex: (t) => t.zIndex.drawer + 1 }}
-      >
+      {/* header */}
+      <AppBar enableColorOnDark position="fixed" color="inherit" elevation={0} sx={{ bgcolor: 'background.default' }}>
         <Toolbar sx={{ p: isHorizontal ? 1.25 : 2 }}>
           <Header />
         </Toolbar>
@@ -69,7 +63,7 @@ export default function MainLayout() {
       <MainContentStyled {...{ borderRadius, menuOrientation, open: drawerOpen }}>
         <Container
           maxWidth={container ? 'lg' : false}
-          sx={{ ...(!container && { px: { xs: 0 } }), minHeight: '100vh', display: 'flex', flexDirection: 'column' }}
+          sx={{ ...(!container && { px: { xs: 0 } }), minHeight: 'calc(100vh - 128px)', display: 'flex', flexDirection: 'column' }}
         >
           {/* breadcrumb */}
           <Breadcrumbs />

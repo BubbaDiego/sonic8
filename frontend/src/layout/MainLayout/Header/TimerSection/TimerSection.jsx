@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Box, Stack, Popover, Typography, Button, Tooltip, IconButton } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import DonutCountdown from './DonutCountdown';
@@ -20,7 +20,6 @@ const FULL_SONIC = 3600; // 60 min
 const DEFAULT_SNOOZE = 600; // 10 min fallback
 
 const SONIC_REFRESH_DELAY_MS = 5000;
-const POLL_MS = Number(import.meta.env.VITE_TIMER_POLL_MS ?? 15000);
 
 export default function TimerSection() {
   const theme = useTheme();
@@ -28,84 +27,8 @@ export default function TimerSection() {
   const [snooze, setSnooze] = useState(0);
   const [fullSnooze, setFullSnooze] = useState(DEFAULT_SNOOZE);
 
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-
-  const lastSonicCompleteRef = useRef(null);
-
-  const [timerState, setTimerState] = useState({
-    sonicNextTs: null,
-    snoozeEndTs: null,
-    sonicActive: false,
-    lastSonicComplete: null
-  });
-
-  const {
-    sonicNextTs: polledSonicNextTs,
-    snoozeEndTs: polledSnoozeEndTs,
-    sonicActive: polledSonicActive,
-    lastSonicComplete: polledLastSonicComplete
-  } = useSonicStatusPolling();
-
-  useEffect(() => {
-    setTimerState((prev) => ({
-      sonicNextTs: polledSonicNextTs ?? prev.sonicNextTs,
-      snoozeEndTs: polledSnoozeEndTs ?? prev.snoozeEndTs,
-      sonicActive: polledSonicActive ?? prev.sonicActive,
-      lastSonicComplete: polledLastSonicComplete ?? prev.lastSonicComplete
-    }));
-  }, [polledSonicNextTs, polledSnoozeEndTs, polledSonicActive, polledLastSonicComplete]);
-
-  useEffect(() => {
-    async function pollOnce() {
-      try {
-        const { data } = await axios.get('/api/monitor-status/');
-        if (!alive.current) return;
-        const now = Date.now();
-        const nextState = {
-          sonicNextTs: now + (data?.sonic_next ?? 0) * 1000,
-          snoozeEndTs: now + (data?.liquid_snooze ?? 0) * 1000,
-          sonicActive: data?.monitors?.['Sonic Monitoring']?.status === 'Healthy',
-          lastSonicComplete: data?.sonic_last_complete ?? null
-        };
-        setTimerState((prev) => ({ ...prev, ...nextState }));
-      } catch (e) {
-        console.error('TimerSection poll error:', e);
-      }
-    }
-
-    pollOnce();
-    const id = setInterval(pollOnce, POLL_MS);
-    return () => clearInterval(id);
-  }, [POLL_MS]);
-
-  useEffect(() => {
-    const lastComplete = timerState.lastSonicComplete;
-    if (lastComplete == null) {
-      lastSonicCompleteRef.current = lastComplete;
-      return;
-    }
-
-    if (lastSonicCompleteRef.current == null) {
-      lastSonicCompleteRef.current = lastComplete;
-      return;
-    }
-
-    if (lastComplete !== lastSonicCompleteRef.current) {
-      lastSonicCompleteRef.current = lastComplete;
-      refreshLatestPortfolio();
-      refreshPortfolioHistory();
-      refreshPositions();
-      refreshMonitorStatus();
-    }
-  }, [timerState.lastSonicComplete]);
-
-  const { sonicNextTs, snoozeEndTs, sonicActive, lastSonicComplete } = timerState;
+  const { sonicNextTs, snoozeEndTs, sonicActive, lastSonicComplete } =
+    useSonicStatusPolling();
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [activeLabel, setActiveLabel] = useState('');
@@ -135,13 +58,47 @@ export default function TimerSection() {
   }, []);
 
   // ---------------- Poll backend for fresh timestamps -----------------
+  useEffect(() => {
+    let id;
+    const poll = async () => {
+      try {
+        const { data } = await axios.get('/api/monitor-status/');
+        const now = Date.now();
+        setSonicNextTs(now + (data?.sonic_next ?? 0) * 1000);
+        setSnoozeEndTs(now + (data?.liquid_snooze ?? 0) * 1000);
+        const sonicStatus = data?.monitors?.['Sonic Monitoring']?.status;
+        setSonicActive(sonicStatus === 'Healthy');
+
+        // Detect Sonic completion and trigger refresh if changed
+        const lastComplete = data?.sonic_last_complete ?? null;
+        setLastSonicComplete(lastComplete);
+        if (lastSonicCompleteRef.current === null) {
+          lastSonicCompleteRef.current = lastComplete;
+        } else if (lastComplete && lastComplete !== lastSonicCompleteRef.current) {
+          lastSonicCompleteRef.current = lastComplete;
+          refreshLatestPortfolio();
+          refreshPortfolioHistory();
+          refreshPositions();
+          refreshMonitorStatus();
+        }
+      } catch (err) {
+        console.error('Failed to fetch monitor status:', err);
+      }
+      id = setTimeout(poll, POLL_MS);
+    };
+    poll();
+    return () => clearTimeout(id);
+  }, []);
+
+  // polling handled by useSonicStatusPolling
+
+
   // ---------------- Local countdown animation ------------------------
   useEffect(() => {
     let frameId;
     const tick = () => {
-      const now = Date.now();
-      setSonic(Math.max(0, ((sonicNextTs ?? now) - now) / 1000));
-      setSnooze(Math.max(0, ((snoozeEndTs ?? now) - now) / 1000));
+      setSonic(Math.max(0, (sonicNextTs - Date.now()) / 1000));
+      setSnooze(Math.max(0, (snoozeEndTs - Date.now()) / 1000));
       frameId = requestAnimationFrame(tick);
     };
     frameId = requestAnimationFrame(tick);
@@ -150,7 +107,6 @@ export default function TimerSection() {
 
   // ---------------- Run full refresh once Sonic loop completes -------
   useEffect(() => {
-    if (!sonicNextTs) return undefined;
     const delay = Math.max(0, sonicNextTs - Date.now()) + SONIC_REFRESH_DELAY_MS;
     const id = setTimeout(() => {
       refreshLatestPortfolio();

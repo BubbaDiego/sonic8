@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Box, TextField, MenuItem, Tooltip, IconButton } from '@mui/material';
 import useConfig from 'hooks/useConfig';
 import { ThemeMode } from 'config';
@@ -7,15 +7,19 @@ import PaletteIcon from '@mui/icons-material/Palette';
 
 export default function ThemeModeSection() {
   const { mode, onChangeMode, setMode } = useConfig();
-  const [profiles, setProfiles] = useState([]);
+  const [profiles, setProfiles] = useState(() => getProfiles());
   useEffect(() => {
     ensureProfilesInitialized();
-    setProfiles(getProfiles());
+    const update = () => setProfiles(getProfiles());
+    window.addEventListener('sonic-theme-updated', update);
+    window.addEventListener('storage', update);
+    return () => {
+      window.removeEventListener('sonic-theme-updated', update);
+      window.removeEventListener('storage', update);
+    };
   }, []);
   const options = useMemo(() => ['system', ...profiles], [profiles]);
-  // Avoid MUI "out-of-range" warning: if current mode isn't available yet, show 'system'
-  const rawValue = String(mode ?? 'system');
-  const value = options.includes(rawValue) ? rawValue : 'system';
+  const value = String(mode || 'dark');
   const handleChange = (e) => {
     const v = e.target.value;
     if (v === 'system') {

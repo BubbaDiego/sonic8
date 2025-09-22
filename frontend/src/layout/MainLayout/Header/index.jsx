@@ -1,5 +1,4 @@
 // Header/index.jsx – patched to include TimerSection left of NotificationSection
-import React from 'react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Avatar from '@mui/material/Avatar';
@@ -72,9 +71,7 @@ export default function Header() {
       <Box sx={{ flexGrow: 1 }} />
 
       {/* timers */}
-      <React.Suspense fallback={null}>
-        <TimerSection />
-      </React.Suspense>
+      <TimerSection />
 
       {/* notification */}
       <NotificationSection />
