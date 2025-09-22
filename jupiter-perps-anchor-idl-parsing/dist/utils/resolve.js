@@ -84,17 +84,35 @@ export function derivePdaFromIdl(idl, programId, accountName, ctx) {
     return PublicKey.findProgramAddressSync(seedList, programId);
 }
 // Hard-coded once discovered via the seed bruteforcer tool.
-export function derivePositionPdaCanonical(programId, owner, pool, maybeCustodyA) {
+export function derivePositionPdaCanonical(programId, owner, pool, marketCustody) {
+    const seeds = [
+        Buffer.from("position"),
+        pool.toBuffer(),
+        marketCustody.toBuffer(),
+        owner.toBuffer(),
+    ];
+    return PublicKey.findProgramAddressSync(seeds, programId);
+}
+export function derivePositionPda(programId, owner, pool, marketCustody) {
+    return derivePositionPdaCanonical(programId, owner, pool, marketCustody);
+}
+/** Pool-first position PDA (common layout in perps programs). */
+export function derivePositionPdaPoolFirst(programId, pool, owner) {
+    const seeds = [
+        Buffer.from("position"),
+        pool.toBuffer(),
+        owner.toBuffer(),
+    ];
+    return PublicKey.findProgramAddressSync(seeds, programId);
+}
+/** Owner-first (the variant we tried earlier). */
+export function derivePositionPdaOwnerFirst(programId, owner, pool) {
     const seeds = [
         Buffer.from("position"),
         owner.toBuffer(),
         pool.toBuffer(),
-        maybeCustodyA?.toBuffer(),
-    ].filter(Boolean);
+    ];
     return PublicKey.findProgramAddressSync(seeds, programId);
-}
-export function derivePositionPda(programId, owner, pool) {
-    return derivePositionPdaCanonical(programId, owner, pool);
 }
 export function sideToEnum(side) {
     const s = side.toLowerCase();

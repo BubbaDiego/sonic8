@@ -96,14 +96,14 @@ export function derivePositionPdaCanonical(
   programId: PublicKey,
   owner: PublicKey,
   pool: PublicKey,
-  maybeCustodyA?: PublicKey,
+  marketCustody: PublicKey,
 ): [PublicKey, number] {
   const seeds = [
     Buffer.from("position"),
-    owner.toBuffer(),
     pool.toBuffer(),
-    maybeCustodyA?.toBuffer(),
-  ].filter(Boolean) as Buffer[];
+    marketCustody.toBuffer(),
+    owner.toBuffer(),
+  ];
 
   return PublicKey.findProgramAddressSync(seeds, programId);
 }
@@ -112,8 +112,9 @@ export function derivePositionPda(
   programId: PublicKey,
   owner: PublicKey,
   pool: PublicKey,
+  marketCustody: PublicKey,
 ): [PublicKey, number] {
-  return derivePositionPdaCanonical(programId, owner, pool);
+  return derivePositionPdaCanonical(programId, owner, pool, marketCustody);
 }
 
 /** Pool-first position PDA (common layout in perps programs). */
