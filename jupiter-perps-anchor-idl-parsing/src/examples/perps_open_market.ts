@@ -73,15 +73,15 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     wallet.publicKey,
   );
 
-  const prAtaInit = needsCollateral
-    ? await cfg.ensureAtaForOwner(
-        provider.connection,
-        collateralMint,
-        positionRequest,
-        wallet.publicKey,
-        true,
-      )
-    : { ata: PublicKey.default, ixs: [] as any[] };
+  const prAtaAddr = (
+    await cfg.ensureAtaForOwner(
+      provider.connection,
+      collateralMint,
+      positionRequest,
+      wallet.publicKey,
+      true,
+    )
+  ).ata;
 
   const topUp = needsCollateral && collateralMint.equals(cfg.MINTS.WSOL)
     ? await cfg.topUpWsolIfNeededIx(
@@ -92,9 +92,7 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
       )
     : [];
 
-  const preIxs = needsCollateral
-    ? [...ataInit.ixs, ...prAtaInit.ixs, ...topUp]
-    : [...ataInit.ixs];
+  const preIxs = [...ataInit.ixs, ...topUp];
 
   // 3) Amounts & guardrail
   const sizeUsdDelta = toMicroUsd(argv["size-usd"]);
@@ -125,7 +123,7 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
     fundingAccount: ataInit.ata,
     position,
     positionRequest,
-    positionRequestAta: prAtaInit.ata,
+    positionRequestAta: prAtaAddr,
     custody: custody.pubkey,
     collateralCustody: collateralCustody.pubkey,
     inputMint: collateralMint,
