@@ -344,6 +344,7 @@ def build_parser() -> argparse.ArgumentParser:
     open_p = sub.add_parser("open", help="Open/increase market position")
     open_p.add_argument("--size-usd", type=float, help="USD notional for size")
     open_p.add_argument("--collat", type=float, help="Collateral deposit (UI units)")
+    open_p.add_argument("--collat-mint", help="Override collateral mint (e.g., EPjF... for USDC)")
 
     add_p = sub.add_parser("add", help="Deposit collateral only")
     add_p.add_argument("--collat", type=float, help="Collateral deposit (UI units)")
