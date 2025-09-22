@@ -116,6 +116,34 @@ export function derivePositionPda(
   return derivePositionPdaCanonical(programId, owner, pool);
 }
 
+/** Pool-first position PDA (common layout in perps programs). */
+export function derivePositionPdaPoolFirst(
+  programId: PublicKey,
+  pool: PublicKey,
+  owner: PublicKey,
+): [PublicKey, number] {
+  const seeds = [
+    Buffer.from("position"),
+    pool.toBuffer(),
+    owner.toBuffer(),
+  ];
+  return PublicKey.findProgramAddressSync(seeds, programId);
+}
+
+/** Owner-first (the variant we tried earlier). */
+export function derivePositionPdaOwnerFirst(
+  programId: PublicKey,
+  owner: PublicKey,
+  pool: PublicKey,
+): [PublicKey, number] {
+  const seeds = [
+    Buffer.from("position"),
+    owner.toBuffer(),
+    pool.toBuffer(),
+  ];
+  return PublicKey.findProgramAddressSync(seeds, programId);
+}
+
 export function sideToEnum(side: string) {
   const s = side.toLowerCase();
   if (s === "long") return { long: {} };

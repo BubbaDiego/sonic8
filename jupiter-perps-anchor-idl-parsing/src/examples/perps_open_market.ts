@@ -5,7 +5,7 @@ import type { Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Keypair, Transaction } from "@solana/web3.js";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
-import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaCanonical, sideToEnum } from "../utils/resolve.js";
+import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaPoolFirst, derivePositionPdaOwnerFirst, sideToEnum } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 import { toPk } from "../utils/pk.js";
 
@@ -48,11 +48,15 @@ import { toPk } from "../utils/pk.js";
   const collateralCustody = await cfg.findCustodyByMint(program, pool.account, collateralMint);
 
   bar("PDAs", "🧩");
-  const [position] = derivePositionPdaCanonical(
-    programId,
-    wallet.publicKey,
-    pool.publicKey,
-  );
+  const [posPoolFirst]  = derivePositionPdaPoolFirst(programId, pool.publicKey, wallet.publicKey);
+  const [posOwnerFirst] = derivePositionPdaOwnerFirst(programId, wallet.publicKey, pool.publicKey);
+
+  // Loud, one-time debug to compare with Perps' "Right:" if it error-logs again
+  console.log("🧩 position PDAs :: poolFirst=", posPoolFirst.toBase58(),
+              " ownerFirst=", posOwnerFirst.toBase58());
+
+  // Use pool-first for the request
+  const position = posPoolFirst;
   const unique = Math.floor(Date.now() / 1000);
   const [positionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
     owner: wallet.publicKey,
