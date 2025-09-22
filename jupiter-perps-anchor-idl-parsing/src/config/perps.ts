@@ -7,8 +7,6 @@ import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
-  // @ts-ignore (present on some versions; we probe at runtime)
-  createAssociatedTokenAccountIdempotentInstruction as createAtaIdemMaybe,
   getAccount,
   createSyncNativeInstruction,
   NATIVE_MINT,
@@ -111,7 +109,7 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-/** Build a create-ATA ix that works across spl-token versions/signatures. */
+// Build a create-ATA ix using the explicit-ATA signature, compatible across versions.
 function buildCreateAtaIx(
   payer: PublicKey,
   owner: PublicKey,
@@ -126,24 +124,19 @@ function buildCreateAtaIx(
     ASSOCIATED_TOKEN_PROGRAM_ID
   );
 
-  const idem = (createAtaIdemMaybe as any);
-  if (typeof idem === "function") {
-    try {
-      return { ata, ix: idem(payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID) };
-    } catch { /* fall back */ }
-  }
-
-  const classic = (createAssociatedTokenAccountInstruction as any);
+  // Newer spl-token supports the (payer, ata, owner, mint, tokenProgram, associatedProgram) signature.
+  // If the local build only exposes the older signature, we'll fall back below.
+  const classic: any = createAssociatedTokenAccountInstruction;
   try {
-    // newer signature includes ATA explicitly
     if (classic.length >= 6) {
+      // explicit ATA variant
       return { ata, ix: classic(payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID) };
     }
-    // older signature infers ATA
-    return { ata, ix: classic(payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID) };
-  } catch (e) {
-    throw new Error(`Failed to build create-ATA ix: ${(e as Error).message}`);
-  }
+  } catch { /* fall through */ }
+
+  // Fallback: older signature (no explicit ata). This will still work for on-curve owners;
+  // we only call this when we must and after checking account existence first.
+  return { ata, ix: classic(payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID) };
 }
 
 export async function ensureAtaIx(
