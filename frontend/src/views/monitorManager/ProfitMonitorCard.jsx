@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { Card, CardHeader, CardContent, Grid, Stack, TextField, Typography } from '@mui/material';
+import { Card, CardHeader, CardContent, Grid, Stack, TextField, Typography, Chip, Tooltip, Box } from '@mui/material';
 
 import TrendingUpTwoToneIcon from '@mui/icons-material/TrendingUpTwoTone';
 
-import { Box, Button } from '@mui/material';
 import MonitorUpdateBar    from './MonitorUpdateBar';
 
 /* ------------------------------------------------------------------------- */
@@ -44,9 +43,12 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        opacity: disabled ? 0.4 : 1,
+        position: 'relative',
+        opacity: disabled ? 0.35 : 1,
         pointerEvents: disabled ? 'none' : 'auto',
-        transition: 'opacity 0.2s ease'
+        transition: 'opacity 0.2s ease',
+        borderLeft: '4px solid',
+        borderLeftColor: disabled ? 'divider' : 'success.main'
       }}
     >
       <CardHeader
@@ -57,6 +59,16 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
             </Typography>
             <TrendingUpTwoToneIcon fontSize="small" />
           </Stack>
+        }
+        action={
+          <Tooltip title="Enable/disable via Sonic Monitor">
+            <Chip
+              size="small"
+              label={disabled ? 'Disabled' : 'Enabled'}
+              color={disabled ? 'default' : 'success'}
+              variant={disabled ? 'outlined' : 'filled'}
+            />
+          </Tooltip>
         }
       />
       <CardContent>
@@ -92,6 +104,10 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
         toggle={toggleNotification}
         sx={{ mx: 2, mb: 2 }}
       />
+
+      {disabled && (
+        <Box sx={{ position: 'absolute', inset: 0, borderRadius: 1, pointerEvents: 'none', filter: 'grayscale(0.4)' }} />
+      )}
     </Card>
   );
 }
