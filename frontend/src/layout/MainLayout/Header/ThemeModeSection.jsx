@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, TextField, MenuItem, Tooltip, IconButton } from '@mui/material';
 import useConfig from 'hooks/useConfig';
 import { ThemeMode } from 'config';
@@ -7,16 +7,10 @@ import PaletteIcon from '@mui/icons-material/Palette';
 
 export default function ThemeModeSection() {
   const { mode, onChangeMode, setMode } = useConfig();
-  const [profiles, setProfiles] = useState(() => getProfiles());
+  const [profiles, setProfiles] = useState([]);
   useEffect(() => {
     ensureProfilesInitialized();
-    const update = () => setProfiles(getProfiles());
-    window.addEventListener('sonic-theme-updated', update);
-    window.addEventListener('storage', update);
-    return () => {
-      window.removeEventListener('sonic-theme-updated', update);
-      window.removeEventListener('storage', update);
-    };
+    setProfiles(getProfiles());
   }, []);
   const options = useMemo(() => ['system', ...profiles], [profiles]);
   const value = String(mode || 'dark');
