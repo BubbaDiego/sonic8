@@ -24,9 +24,9 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
     [cfg]
   );
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setCfg((prev) => ({ ...prev, [name]: value }));
+  const handleHighChange = (key) => (event) => {
+    const value = Number(event.target.value || 0);
+    setCfg((prev) => ({ ...prev, [key]: value }));
   };
 
   const toggleNotification = (key) => {
@@ -61,45 +61,24 @@ export default function ProfitMonitorCard({ cfg, setCfg, disabled = false }) {
       />
       <CardContent>
         <Grid container spacing={2}>
-          <Grid item xs={6}>
+          <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="PORTFOLIO HIGH ($)"
-              name="portfolio_high"
               type="number"
-              value={normCfg.portfolio_high ?? ''}
-              onChange={handleChange}
+              label="Single ($)"
+              value={Number(normCfg?.single_high ?? 0)}
+              onChange={handleHighChange('single_high')}
+              inputProps={{ min: 0 }}
             />
           </Grid>
-          <Grid item xs={6}>
+          <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="SINGLE HIGH ($)"
-              name="single_high"
               type="number"
-              value={normCfg.single_high ?? ''}
-              onChange={handleChange}
-            />
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label="PORTFOLIO LOW ($)"
-              name="portfolio_low"
-              type="number"
-              value={normCfg.portfolio_low ?? ''}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label="SINGLE LOW ($)"
-              name="single_low"
-              type="number"
-              value={normCfg.single_low ?? ''}
-              onChange={handleChange}
+              label="Portfolio ($)"
+              value={Number(normCfg?.portfolio_high ?? 0)}
+              onChange={handleHighChange('portfolio_high')}
+              inputProps={{ min: 0 }}
             />
           </Grid>
         </Grid>

@@ -57,7 +57,12 @@ export default function MonitorManager() {
   /* ---------------------------- handlers --------------------------------- */
   const saveAll = async () => {
     await axios.post('/api/monitor-settings/liquidation', liqCfg);
-    await axios.post('/api/monitor-settings/profit', profitCfg);
+    await axios.post('/api/monitor-settings/profit', {
+      single_high: Number(profitCfg?.single_high ?? 0),
+      portfolio_high: Number(profitCfg?.portfolio_high ?? 0),
+      notifications: profitCfg?.notifications,
+      enabled: profitCfg?.enabled
+    });
     await axios.post('/api/monitor-settings/market', marketCfg);
     await axios.post('/api/monitor-settings/sonic', {
       interval_seconds: parseInt(loopSec || '0', 10),
