@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 import bs58 from "bs58";
-import type { Idl, Wallet } from "@coral-xyz/anchor";
-import { AnchorProvider, Program } from "@coral-xyz/anchor";
+import type { Idl } from "@coral-xyz/anchor";
+import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
 import {
   Connection,
   Keypair,
@@ -61,7 +61,7 @@ export function bootstrap(rpc: string, keypairPath: string): PerpsCtx {
   bar("Bootstrap", "🔗");
   const connection = new Connection(rpc, { commitment: "confirmed" });
   const kp = loadKeypair(keypairPath);
-  const wallet = { payer: kp, publicKey: kp.publicKey } as unknown as Wallet;
+  const wallet = new Wallet(kp);
   const provider = new AnchorProvider(connection, wallet, { commitment: "confirmed" });
 
   const meta = (JUP_PERPS_IDL as any)?.metadata;
