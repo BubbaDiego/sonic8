@@ -6,20 +6,18 @@ import { Box, Typography, Snackbar, Alert, Button } from '@mui/material';
 import { getProfitCfg, saveProfitCfg } from 'api/profitMonitor';
 
 import LiquidationMonitorCard from './LiquidationMonitorCard';
-import ProfitMonitorCard      from './ProfitMonitorCard';
-import SonicMonitorCard       from './SonicMonitorCard';
-import MarketMonitorCard      from './MarketMonitorCard';
+import ProfitMonitorCard from './ProfitMonitorCard';
+import SonicMonitorCard from './SonicMonitorCard';
+import MarketMonitorCard from './MarketMonitorCard';
 
 /* ------------------------------------------------------------------ */
-/*  Layout constants – tweak to taste                                 */
+/* Layout constants – extended heights so bottom bars are always visible */
 /* ------------------------------------------------------------------ */
-// Width of the first (left) column.  Reduced by 25% from the previous
-// 600 px => 450 px to give the right column more breathing room.
 export const COLUMN_A_WIDTH = 450; // px
-export const COLUMN_B_WIDTH = 480; // px – width of second column
-export const ROW_A_HEIGHT   = 380; // px – height of first row
-export const ROW_B_HEIGHT   = 450; // px – height of second row
-export const GRID_GAP       = 24;  // px – gap between cards
+export const COLUMN_B_WIDTH = 480; // px
+export const ROW_A_MIN = 420; // px (was 380)
+export const ROW_B_MIN = 560; // px (was 450)
+export const GRID_GAP = 24; // px
 /* ------------------------------------------------------------------ */
 
 export default function MonitorManager() {
@@ -93,12 +91,12 @@ export default function MonitorManager() {
         </Button>
       </Box>
 
-      {/* 2×2 card grid */}
+      {/* 2×2 card grid with flexible row heights (minmax) */}
       <Box
         sx={{
           display: 'grid',
           gridTemplateColumns: `${COLUMN_A_WIDTH}px ${COLUMN_B_WIDTH}px`,
-          gridTemplateRows: `${ROW_A_HEIGHT}px ${ROW_B_HEIGHT}px`,
+          gridTemplateRows: `minmax(${ROW_A_MIN}px, auto) minmax(${ROW_B_MIN}px, auto)`,
           gap: `${GRID_GAP}px`,
           width: '100%',
           boxSizing: 'border-box'
