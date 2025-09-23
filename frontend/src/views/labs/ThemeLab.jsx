@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -37,6 +38,7 @@ import { resolveAsset, isAssetPointer, toAssetKey, listAssetKeys } from '../../l
 import Autocomplete from '@mui/material/Autocomplete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import UploadIcon from '@mui/icons-material/Upload';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import IconButton from '@mui/material/IconButton';
 
 const FONT_OPTIONS = ['System UI', 'Roboto', 'Inter', 'Poppins', 'Space Grotesk', 'Orbitron', 'Neuropol', 'JetBrains Mono'];
@@ -100,6 +102,7 @@ export default function ThemeLab() {
   const [name, setName] = useState(initialName);
   const [state, setState] = useState(() => initialTokens);
   const [livePreview, setLivePreview] = useState(true);
+  const [isDirty, setIsDirty] = useState(false);
   const [wallThumb, setWallThumb] = useState({ url: '', ok: null, loading: false });
   const [cardThumb, setCardThumb] = useState({ url: '', ok: null, loading: false });
   const [useWallAsset, setUseWallAsset] = useState(isAssetPointer(initialTokens.wallpaper));
@@ -154,7 +157,7 @@ export default function ThemeLab() {
     });
   };
   const resetToDefaults = () => applyState({ ...base });
-  const save = () => {
+  const doSave = () => {
     saveTokens(name, state); // fires 'sonic-theme-updated'
     try {
       if (typeof window !== 'undefined' && typeof window.__sonicPreviewClear === 'function') {
@@ -165,6 +168,7 @@ export default function ThemeLab() {
     } catch {
       clearPreview();
     }
+    setIsDirty(false);
   };
   const remove = () => {
     removeTokens(name);
@@ -172,10 +176,11 @@ export default function ThemeLab() {
     applyState(fresh);
     if (livePreview) previewTokens(name, fresh);
   };
-  const discard = () => {
+  const doDiscardUnsaved = () => {
     const fresh = loadTokens(name);
     applyState(fresh);
     clearPreview();
+    setIsDirty(false);
   };
   const doExport = () => {
     const data = exportAllThemes();
@@ -264,6 +269,44 @@ export default function ThemeLab() {
       if (previewTimer.current) clearTimeout(previewTimer.current);
     };
   }, [name, state, livePreview]);
+
+  useEffect(() => {
+    try {
+      const saved = loadTokens(name);
+      const dirty = JSON.stringify(saved) !== JSON.stringify(state);
+      setIsDirty(dirty);
+    } catch {
+      setIsDirty(true);
+    }
+  }, [name, state]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onBeforeUnload = (event) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    if (isDirty) window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [isDirty]);
+
+  const guardedSelectTheme = (nextName) => {
+    if (nextName === name) return;
+    const shouldSwitch =
+      !isDirty ||
+      (typeof window === 'undefined' || typeof window.confirm !== 'function'
+        ? true
+        : window.confirm('You have unsaved changes. Discard them and switch theme?'));
+    if (!shouldSwitch) return;
+    const fresh = loadTokens(nextName);
+    setName(nextName);
+    applyState(fresh);
+    clearPreview();
+    setIsDirty(false);
+  };
 
   useEffect(() => () => clearPreview(), []);
 
@@ -390,17 +433,7 @@ export default function ThemeLab() {
               {document.documentElement.dataset.theme !== name && <Chip size="small" color="warning" label="Note: editing ≠ active" />}
               <Box sx={{ flexGrow: 1 }} />
               <Typography sx={{ mr: 1 }}>Theme</Typography>
-              <TextField
-                select
-                size="small"
-                value={name}
-                onChange={(e) => {
-                  const n = e.target.value;
-                  const next = loadTokens(n);
-                  setName(n);
-                  applyState(next);
-                }}
-              >
+              <TextField select size="small" value={name} onChange={(e) => guardedSelectTheme(e.target.value)}>
                 {profiles.map((n) => (
                   <MenuItem key={n} value={n}>
                     {n}
@@ -420,13 +453,15 @@ export default function ThemeLab() {
               <Button variant="outlined" onClick={resetToDefaults}>
                 Revert To Defaults
               </Button>
-              <Button variant="contained" onClick={save}>
+              <Button variant="contained" onClick={doSave} disabled={!isDirty}>
                 Save & Apply
               </Button>
               <Button color="error" onClick={remove}>
                 Remove Override
               </Button>
-              <Button onClick={discard}>Discard Unsaved</Button>
+              <Button onClick={doDiscardUnsaved} disabled={!isDirty}>
+                Discard Unsaved
+              </Button>
               <Button
                 onClick={() => {
                   resetAllThemeData();
@@ -445,6 +480,25 @@ export default function ThemeLab() {
                 <input hidden type="file" accept="application/json" onChange={doImport} />
               </Button>
             </Stack>
+            {isDirty && (
+              <Alert
+                icon={<WarningAmberIcon fontSize="inherit" />}
+                severity="warning"
+                sx={{ mt: 1 }}
+                action={
+                  <Stack direction="row" spacing={1}>
+                    <Button size="small" variant="contained" onClick={doSave}>
+                      Save
+                    </Button>
+                    <Button size="small" onClick={doDiscardUnsaved}>
+                      Discard
+                    </Button>
+                  </Stack>
+                }
+              >
+                You have unsaved changes.
+              </Alert>
+            )}
           </Stack>
         </CardContent>
       </Card>
