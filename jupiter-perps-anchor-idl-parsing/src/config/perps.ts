@@ -13,7 +13,6 @@ import {
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
   getAccount,
   createSyncNativeInstruction,
   NATIVE_MINT,
@@ -124,19 +123,34 @@ function deriveAta(mint: PublicKey, owner: PublicKey, allowOwnerOffCurve: boolea
   );
 }
 
-// Build the explicit-ATA instruction (payer, ata, owner, mint, sys, token[, rent])
-function createAtaIxExplicit(
+/** Build the ATA 'Create' CPI with the exact metas the AToken program expects. */
+function createAtaIxManual(
   payer: PublicKey,
   ata: PublicKey,
   owner: PublicKey,
   mint: PublicKey,
 ): TransactionInstruction {
-  // this variant sets the exact metas the AToken program expects
-  // (if your @solana/spl-token signature omits rent, that’s fine)
-  const ix = createAssociatedTokenAccountInstruction(
-    payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-  );
-  return ix;
+  // Accounts (order matters):
+  // 0: payer (signer, writable)
+  // 1: associated token account (writable)
+  // 2: owner (wallet/PDA)
+  // 3: mint
+  // 4: System Program
+  // 5: Token Program
+  // 6: Rent Sysvar
+  return new TransactionInstruction({
+    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+    keys: [
+      { pubkey: payer,                 isSigner: true,  isWritable: true  },
+      { pubkey: ata,                   isSigner: false, isWritable: true  },
+      { pubkey: owner,                 isSigner: false, isWritable: false },
+      { pubkey: mint,                  isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_PROGRAM_ID,         isSigner: false, isWritable: false },
+      { pubkey: SYSVAR_RENT_PUBKEY,       isSigner: false, isWritable: false },
+    ],
+    data: Buffer.alloc(0),
+  });
 }
 
 export async function ensureAtaIx(
@@ -148,7 +162,7 @@ export async function ensureAtaIx(
     return { ata, ixs: [] as TransactionInstruction[] };
   } catch {
     info("🪙", `Create ATA: ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxExplicit(payer, ata, owner, mint)] };
+    return { ata, ixs: [createAtaIxManual(payer, ata, owner, mint)] };
   }
 }
 
@@ -161,7 +175,7 @@ export async function ensureAtaForOwner(
     return { ata, ixs: [] as TransactionInstruction[] };
   } catch {
     info("🪙", `Create ATA (owner offCurve=${allowOwnerOffCurve}): ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxExplicit(payer, ata, owner, mint)] };
+    return { ata, ixs: [createAtaIxManual(payer, ata, owner, mint)] };
   }
 }
 
