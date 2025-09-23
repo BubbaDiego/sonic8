@@ -68,7 +68,8 @@ export default function SonicMonitorCard({
   const { snoozeEndTs } = useSonicStatusPolling();
   const snoozeEnd = typeof snoozeEndTs === 'number' ? snoozeEndTs : snoozeEndTs ? Date.parse(snoozeEndTs) : 0;
   const snoozeLeftMs = Math.max(0, (snoozeEnd || 0) - nowTs);
-  const isSnoozed = snoozeLeftMs > 0;
+  const snoozeSeconds = Number(cfg?.snooze_seconds || 0);
+  const isSnoozed = snoozeSeconds > 0 && snoozeLeftMs > 0;
   const fmtLeft = (ms) => {
     const s = Math.ceil(ms / 1000);
     const m = Math.floor(s / 60);
@@ -135,11 +136,21 @@ export default function SonicMonitorCard({
     setCfg((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const toggleSnoozePolicy = (on) => {
+  const toggleSnoozePolicy = async (on) => {
     setCfg((prev) => ({
       ...prev,
       snooze_seconds: on ? parseInt(prev?.snooze_seconds, 10) || 600 : 0
     }));
+
+    if (!on) {
+      try {
+        await resetLiquidSnooze();
+      } catch (e) {
+        // best effort: if we fail, allow UI to continue toggling
+      }
+      setRunning(false);
+      setRemaining(0);
+    }
   };
 
   const onLoopChange = (e) => setLoop(e.target.value);
