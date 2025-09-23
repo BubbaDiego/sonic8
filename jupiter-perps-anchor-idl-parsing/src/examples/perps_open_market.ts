@@ -101,7 +101,11 @@ import { toPk } from "../utils/pk.js";
   kv("PosRequest", positionRequest.toBase58());
 
   const decimals = (collateralCustody.account.decimals as number) ?? 9;
-  const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
+  // Discovery run = no token transfer → set collat=0 on the wire when !havePR
+  const sizeUsdDeltaDisc = toMicroUsd(argv["size-usd"]);
+  const collatDeltaDisc = havePR
+    ? toTokenAmount(argv.collat, decimals)
+    : new cfg.BN(0);
 
   // 2) Funding (owner ATA) & escrow ATAs (position request + position)
   // Owner ATA (funding) – USDC
@@ -142,7 +146,6 @@ import { toPk } from "../utils/pk.js";
   if (posAtaInit.ixs[0]) console.log("AToken escrow[pos] metas [payer, ata, owner, mint] =", metas4(posAtaInit.ixs[0]));
 
   // 3) Amounts & guardrail
-  const sizeUsdDelta = toMicroUsd(argv["size-usd"]);
   let priceGuard: cfg.BN | null = null;
   if (typeof argv["oracle-price"] === "number" && typeof argv["slip"] === "number") {
     const factor = argv.side === "long" ? (1 + argv.slip) : (1 - argv.slip);
@@ -158,8 +161,12 @@ import { toPk } from "../utils/pk.js";
   }
 
   bar("Amounts", "🧮");
-  kv("Size USD", `${argv["size-usd"].toFixed(6)} → ${sizeUsdDelta.toString()} μUSD`);
-  kv("Collateral", `${argv.collat} → ${collateralTokenDelta.toString()} raw (dec=${decimals})`);
+  kv("Size USD", `${argv["size-usd"].toFixed(6)} → ${sizeUsdDeltaDisc.toString()} μUSD`);
+  if (havePR) {
+    kv("Collateral", `${argv.collat} → ${collatDeltaDisc.toString()} raw (dec=${decimals})`);
+  } else {
+    kv("Collateral", `0 (discovery mode; CLI input ${argv.collat})`);
+  }
   kv("Guardrail", `${priceGuard.toString()} μUSD`);
 
   // 4) Build & send — MANUAL TX to enforce instruction order
@@ -197,8 +204,8 @@ import { toPk } from "../utils/pk.js";
 
   const reqIx = await (program as any).methods
     .createIncreasePositionMarketRequest({
-      sizeUsdDelta,
-      collateralTokenDelta,
+      sizeUsdDelta: sizeUsdDeltaDisc,
+      collateralTokenDelta: collatDeltaDisc,
       side: sideEnum,
       priceSlippage: priceGuard,
       jupiterMinimumOut: null,
