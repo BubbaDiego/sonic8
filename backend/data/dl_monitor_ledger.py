@@ -96,6 +96,48 @@ class DLMonitorLedgerManager:
         }
         return result
 
+    def get_latest_entry(self, monitor_name: str, status: str | None = None):
+        """Return the most recent raw ledger row for the given monitor."""
+
+        cursor = self.db.get_cursor()
+        if not cursor:
+            log.error(
+                "❌ DB unavailable, cannot fetch latest ledger entry",
+                source="DLMonitorLedger",
+            )
+            return None
+
+        where_clauses = ["monitor_name = ?"]
+        params: list[str] = [str(monitor_name)]
+        if status is not None:
+            where_clauses.append("status = ?")
+            params.append(str(status))
+
+        query = (
+            "SELECT metadata FROM monitor_ledger WHERE "
+            + " AND ".join(where_clauses)
+            + " ORDER BY created_at DESC LIMIT 1"
+        )
+
+        try:
+            cursor.execute(query, tuple(params))
+            row = cursor.fetchone()
+        except sqlite3.Error as exc:
+            log.error(
+                f"🧨 Ledger query failed for {monitor_name}: {exc}",
+                source="DLMonitorLedger",
+            )
+            return None
+
+        if not row:
+            return None
+
+        if hasattr(row, "keys"):
+            return row
+
+        # Normal sqlite3 cursors return tuples; normalise into a dict for convenience.
+        return {"metadata": row[0]}
+
     def get_status(self, monitor_name: str) -> dict:
 
         entry = self.get_last_entry(monitor_name)
