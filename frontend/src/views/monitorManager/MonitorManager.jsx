@@ -30,7 +30,8 @@ export default function MonitorManager() {
   const [pctMoves, setPctMoves] = useState({});
   const [loopSec, setLoopSec] = useState('');
   const [nearestLiq, setNearestLiq] = useState({});
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   const markDirty = useCallback((setter) => (value) => {
@@ -56,24 +57,32 @@ export default function MonitorManager() {
   }, []);
 
   /* ---------------------------- handlers --------------------------------- */
-  const saveAll = async () => {
-    await axios.post('/api/monitor-settings/liquidation', liqCfg);
-    await saveProfitCfg({
-      enabled: profitCfg?.enabled,
-      position_profit_usd: Number(profitCfg?.position_profit_usd ?? 0),
-      portfolio_profit_usd: Number(profitCfg?.portfolio_profit_usd ?? 0),
-      notifications: profitCfg?.notifications
-    });
-    await axios.post('/api/monitor-settings/market', marketCfg);
-    await axios.post('/api/monitor-settings/sonic', {
-      interval_seconds: parseInt(loopSec || '0', 10),
-      enabled_sonic: liqCfg.enabled_sonic,
-      enabled_liquid: liqCfg.enabled_liquid,
-      enabled_profit: liqCfg.enabled_profit,
-      enabled_market: liqCfg.enabled_market
-    });
-    setToast('Settings saved');
-  };
+  const saveAll = useCallback(async () => {
+    setSaving(true);
+    try {
+      await axios.post('/api/monitor-settings/liquidation', liqCfg);
+      await saveProfitCfg({
+        enabled: profitCfg?.enabled,
+        position_profit_usd: Number(profitCfg?.position_profit_usd ?? 0),
+        portfolio_profit_usd: Number(profitCfg?.portfolio_profit_usd ?? 0),
+        notifications: profitCfg?.notifications
+      });
+      await axios.post('/api/monitor-settings/market', marketCfg);
+      await axios.post('/api/monitor-settings/sonic', {
+        interval_seconds: parseInt(loopSec || '0', 10),
+        enabled_sonic: liqCfg.enabled_sonic,
+        enabled_liquid: liqCfg.enabled_liquid,
+        enabled_profit: liqCfg.enabled_profit,
+        enabled_market: liqCfg.enabled_market
+      });
+      setToast({ message: 'Settings saved', severity: 'success' });
+      setDirty(false);
+    } catch (err) {
+      setToast({ message: 'Failed to save settings', severity: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [liqCfg, loopSec, marketCfg, profitCfg]);
 
   /* ----------------------------- render ---------------------------------- */
   return (
@@ -86,10 +95,11 @@ export default function MonitorManager() {
         <Button
           variant="contained"
           color={dirty ? 'success' : 'primary'}
-          onClick={() => { saveAll(); setDirty(false); }}
+          onClick={saveAll}
+          disabled={!dirty || saving}
           sx={{ fontWeight: 'bold', textTransform: 'none' }}
         >
-          Save All
+          {saving ? 'Saving…' : 'Save All'}
         </Button>
       </Box>
 
@@ -146,12 +156,12 @@ export default function MonitorManager() {
       </Box>
 
       <Snackbar
-        open={!!toast}
+        open={!!toast?.message}
         autoHideDuration={3000}
-        onClose={() => setToast('')}
+        onClose={() => setToast(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert severity="success">{toast}</Alert>
+        <Alert severity={toast?.severity || 'success'}>{toast?.message}</Alert>
       </Snackbar>
     </Box>
   );
