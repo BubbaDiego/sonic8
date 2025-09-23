@@ -1,7 +1,17 @@
-"""Inspect recent price rows from the ``prices`` table."""
+"""
+Sample the latest rows per asset from 'prices' and show SQLite types.
+Usage:
+python backend/scripts/inspect_prices_rows.py BTC ETH SOL SPX
+"""
 
 import json
 import sys
+from pathlib import Path
+
+# ensure project root (folder that contains 'backend') is on sys.path
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from backend.core.core_constants import MOTHER_DB_PATH
 from backend.data.data_locker import DataLocker
