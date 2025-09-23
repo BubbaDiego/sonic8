@@ -84,12 +84,128 @@ export const DEFAULT_TOKENS = {
     borderSurfaceWidth: 1,
     borderHeader: '#00000033',
     borderHeaderWidth: 0
+  },
+  // =========================
+  // NEW THEMES
+  // =========================
+  midnight: {
+    // Deep, cool navy — crisp cyan accents
+    base: 'dark',
+    bg: '#0b1020',
+    page: '#0b1220',
+    surface: '#111827',
+    card: '#0d1324',
+    text: '#e5f0ff',
+    textTitle: '#ffffff',
+    primary: '#7dd3fc',               // sky-300
+    wallpaper: 'none',
+    useImage: false,
+    font: 'Space Grotesk',
+    fontSize: 14,
+    cardUseImage: false,
+    cardImage: 'none',
+    wallpaperSize: 'cover',
+    wallpaperPosition: '50% 35%',
+    wallpaperRepeat: 'no-repeat',
+    wallpaperAttachment: 'fixed',
+    wallpaperOverlay: 'none',
+    borderCard: '#9acbff33',
+    borderCardWidth: 1,
+    borderSurface: '#9acbff22',
+    borderSurfaceWidth: 1,
+    borderHeader: '#7dd3fc44',
+    borderHeaderWidth: 1
+  },
+  miami_vice: {
+    // Neon night: indigo canvas, hot pink primary, aqua highlights
+    base: 'dark',
+    bg: '#0a0d1a',
+    page: '#0a0f24',
+    surface: '#111730',
+    card: '#0c142a',
+    text: '#eafffb',
+    textTitle: '#ffffff',
+    primary: '#ff6ec7',               // neon pink
+    wallpaper: 'none',
+    useImage: false,
+    font: 'Orbitron',
+    fontSize: 15,
+    cardUseImage: false,
+    cardImage: 'none',
+    wallpaperSize: 'cover',
+    wallpaperPosition: 'center',
+    wallpaperRepeat: 'no-repeat',
+    wallpaperAttachment: 'fixed',
+    wallpaperOverlay: 'linear-gradient(rgba(0,255,255,0.10), rgba(255,110,199,0.10))',
+    borderCard: '#00e6ff3d',          // aqua edge
+    borderCardWidth: 1,
+    borderSurface: '#ff6ec733',
+    borderSurfaceWidth: 1,
+    borderHeader: '#00e6ff4d',
+    borderHeaderWidth: 1
+  },
+  industrial: {
+    // Utilitarian steel: neutral greys, subtle blue steel primary
+    base: 'dark',
+    bg: '#16181d',
+    page: '#111317',
+    surface: '#1f232b',
+    card: '#1a1f27',
+    text: '#e6e6e6',
+    textTitle: '#ffffff',
+    primary: '#9aa4b2',
+    wallpaper: 'none',
+    useImage: false,
+    font: 'Inter',
+    fontSize: 14,
+    cardUseImage: false,
+    cardImage: 'none',
+    wallpaperSize: 'cover',
+    wallpaperPosition: 'center',
+    wallpaperRepeat: 'no-repeat',
+    wallpaperAttachment: 'scroll',
+    wallpaperOverlay: 'none',
+    borderCard: '#9aa4b23b',
+    borderCardWidth: 1,
+    borderSurface: '#ffffff1f',
+    borderSurfaceWidth: 1,
+    borderHeader: '#ffffff24',
+    borderHeaderWidth: 1
+  },
+  sunset: {
+    // Warm dusk: soft creams & coral primary for a light, friendly UI
+    base: 'light',
+    bg: '#fff4e6',
+    page: '#fff1dd',
+    surface: '#ffffff',
+    card: '#ffe8cc',
+    text: '#45322e',
+    textTitle: '#2c1f1b',
+    primary: '#ff7a59',               // coral
+    wallpaper: 'none',
+    useImage: false,
+    font: 'Poppins',
+    fontSize: 14,
+    cardUseImage: false,
+    cardImage: 'none',
+    wallpaperSize: 'cover',
+    wallpaperPosition: 'center',
+    wallpaperRepeat: 'no-repeat',
+    wallpaperAttachment: 'scroll',
+    wallpaperOverlay: 'linear-gradient(rgba(255,122,89,0.08), rgba(255,197,86,0.08))',
+    borderCard: '#ff7a5933',
+    borderCardWidth: 1,
+    borderSurface: '#00000010',
+    borderSurfaceWidth: 1,
+    borderHeader: '#ff7a5940',
+    borderHeaderWidth: 1
   }
 };
 
 const LS_KEY = (name) => `sonic:theme.tokens:${name}`;
 const LS_PROFILES = `sonic:theme.profiles`; // JSON string: ["light","dark","funky",...]
-const DEFAULT_PROFILES = ['light', 'dark', 'funky'];
+// Include the new themes in the defaults so they appear immediately
+const DEFAULT_PROFILES = ['light', 'dark', 'funky', 'midnight', 'miami_vice', 'industrial', 'sunset'];
 
 export function loadTokens(name) {
   try {
