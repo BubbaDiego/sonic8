@@ -104,15 +104,14 @@ import { toPk } from "../utils/pk.js";
     wallet.publicKey,
   );
 
-  const prAtaAddr = (
-    await cfg.ensureAtaForOwner(
-      provider.connection,
-      collateralMint,
-      positionRequest,
-      wallet.publicKey,
-      true,
-    )
-  ).ata;
+  const prAtaInit = await cfg.ensureAtaForOwner(
+    provider.connection,
+    collateralMint,
+    positionRequest,
+    wallet.publicKey,
+    true,
+  );
+  const prAtaAddr = prAtaInit.ata;
 
   const topUp = needsCollateral && collateralMint.equals(cfg.MINTS.WSOL)
     ? await cfg.topUpWsolIfNeededIx(
@@ -123,7 +122,23 @@ import { toPk } from "../utils/pk.js";
       )
     : [];
 
-  const preIxs = [...ataInit.ixs, ...topUp];
+  // Always ensure owner's ATA (ataInit.ixs). If we’re depositing collateral (>0),
+  // also ensure the escrow ATA for positionRequest (prAtaInit.ixs). No WSOL top-up for USDC.
+  const preIxs = [
+    ...ataInit.ixs,          // owner’s ATA (for inputMint)
+    ...prAtaInit.ixs,        // escrow ATA (owner = positionRequest, off-curve)
+    ...topUp,                // only include for WSOL; for USDC leave empty
+  ];
+
+  console.log(
+    "🧾 preIxs = ",
+    preIxs.length,
+    " (owner ATA creates:",
+    ataInit.ixs.length,
+    ", escrow ATA creates:",
+    prAtaInit.ixs.length,
+    ")",
+  );
 
   // 3) Amounts & guardrail
   const sizeUsdDelta = toMicroUsd(argv["size-usd"]);
@@ -174,7 +189,6 @@ import { toPk } from "../utils/pk.js";
     (accounts as any).program = programId;
   } catch {}
 
-  // Build the Perps request instruction
   const reqIx = await (program as any).methods
     .createIncreasePositionMarketRequest({
       sizeUsdDelta,
@@ -186,9 +200,8 @@ import { toPk } from "../utils/pk.js";
     .accounts(accounts)
     .instruction();
 
-  // Force order: create ATAs / wrap WSOL first, then Perps ix
   const tx = new Transaction();
-  if (preIxs.length) tx.add(...preIxs);
+  if (preIxs.length) tx.add(...preIxs);     // ✅ escrow ATA created BEFORE Perps instruction
   tx.add(reqIx);
   tx.feePayer = wallet.publicKey;
   tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
