@@ -151,7 +151,7 @@ import { toPk } from "../utils/pk.js";
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    fundingAccount: wallet.publicKey,
+    fundingAccount: ataInit.ata,
     position,
     positionRequest,
     positionRequestAta: prAtaAddr,
@@ -165,6 +165,8 @@ import { toPk } from "../utils/pk.js";
     associatedTokenProgram: cfg.SYS.ASSOCIATED_TOKEN_PROGRAM_ID,
     systemProgram: SystemProgram.programId,
   } as any;
+
+  console.log("💳 fundingAccount (ATA) =", (accounts as any).fundingAccount.toBase58());
 
   try {
     const [eventAuthority] = PublicKey.findProgramAddressSync([Buffer.from("__event_authority")], programId);
