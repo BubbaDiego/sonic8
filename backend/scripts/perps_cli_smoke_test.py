@@ -236,6 +236,8 @@ def common_args(ns: argparse.Namespace) -> List[str]:
         args += ["--collat-mint", ns.collat_mint]
     if getattr(ns, "desired_mint", None):
         args += ["--desired-mint", ns.desired_mint]
+    if getattr(ns, "position", None):
+        args += ["--position", ns.position]
     if getattr(ns, "dry_run", False):
         args += ["--dry-run"]
     return args
@@ -345,6 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
     open_p.add_argument("--size-usd", type=float, help="USD notional for size")
     open_p.add_argument("--collat", type=float, help="Collateral deposit (UI units)")
     open_p.add_argument("--collat-mint", help="Override collateral mint (e.g., EPjF... for USDC)")
+    open_p.add_argument("--position", help="Override Position PDA (use Perps log Right: value)")
 
     add_p = sub.add_parser("add", help="Deposit collateral only")
     add_p.add_argument("--collat", type=float, help="Collateral deposit (UI units)")

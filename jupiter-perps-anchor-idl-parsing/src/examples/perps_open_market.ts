@@ -18,6 +18,7 @@ import { toPk } from "../utils/pk.js";
     .option("size-usd", { type: "number", demandOption: true, describe: "USD notional for size" })
     .option("collat", { type: "number", default: 0, describe: "Collateral token amount (UI units)" })
     .option("collat-mint", { type: "string", describe: "Override collateral mint (default: WSOL for long, USDC for short)" })
+    .option("position", { type: "string", describe: "Override Position PDA (use the Right: value from logs)" })
     .option("oracle-price", { type: "number", describe: "Oracle/mark price in USD for guardrail calc" })
     .option("slip", { type: "number", describe: "Slippage fraction for guardrail (e.g., 0.02)" })
     .option("max-price", { type: "number", describe: "Explicit max price (LONG)" })
@@ -54,7 +55,14 @@ import { toPk } from "../utils/pk.js";
     custody.pubkey,
     wallet.publicKey,
   );
-  console.log("🧩 position =", positionCanonical.toBase58());
+  let position: PublicKey;
+  if (argv.position) {
+    position = toPk("position", argv.position);
+    console.log("🧩 position (override) =", position.toBase58());
+  } else {
+    position = positionCanonical;
+    console.log("🧩 position =", position.toBase58());
+  }
   const [posPoolFirst]  = derivePositionPdaPoolFirst(programId, pool.publicKey, wallet.publicKey);
   const [posOwnerFirst] = derivePositionPdaOwnerFirst(programId, wallet.publicKey, pool.publicKey);
 
@@ -68,8 +76,7 @@ import { toPk } from "../utils/pk.js";
     posOwnerFirst.toBase58(),
   );
 
-  // Use the canonical PDA for the request
-  const position = positionCanonical;
+  // Use the canonical PDA for the request unless overridden
   const unique = Math.floor(Date.now() / 1000);
   const [positionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
     owner: wallet.publicKey,
