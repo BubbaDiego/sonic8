@@ -1,13 +1,17 @@
-"""End-to-end market pipeline probe (no external deps beyond requests).
+"""End-to-end market probe with HTTP + offline fallback.
 
-1. Dump inputs (thresholds/anchors/prices) via debug endpoint or locker.
-2. Compute 'would_trigger' per asset (pure preview).
-3. Run the market monitor once via /monitors/market_monitor.
-4. Fetch /api/market/latest and print what the UI consumes.
+HTTP path (preferred):
+  1. GET /debug/market/state
+  2. GET /debug/market/eval
+  3. POST /monitors/market_monitor
+  4. GET /api/market/latest
+
+Offline fallback (if HTTP not reachable):
+  * Reads DataLocker to dump cfg/anchors/prices and compute would-trigger preview.
 
 Environment variables
 ---------------------
-SONIC_API_URL (default autodetect; prefers http://localhost:3000)
+SONIC_API_URL (autodetects common ports if unset)
 """
 from __future__ import annotations
 
@@ -15,7 +19,8 @@ import json
 import os
 import sys
 import time
-from typing import Any, Dict
+from importlib import import_module
+from typing import Any, Dict, Iterable
 
 import requests
 
@@ -73,36 +78,118 @@ def main() -> None:
     base = detect_api_base()
     print(f"API_BASE={base}")
 
-    # 1) Inputs (config + anchors + prices)
+    http_ok = True
     try:
         state = get(f"{base}/debug/market/state")
-        jprint(state, "MARKET INPUT STATE")
-    except Exception as exc:  # pragma: no cover - diagnostic script
-        print(f"warn: /debug/market/state failed: {exc}")
-        state = {}
+        jprint(state, "MARKET INPUT STATE (HTTP)")
 
-    try:
         eval_preview = get(f"{base}/debug/market/eval")
-        jprint(eval_preview, "PURE EVAL (WOULD-TRIGGER PREVIEW)")
-    except Exception as exc:  # pragma: no cover - diagnostic script
-        print(f"warn: /debug/market/eval failed: {exc}")
+        jprint(eval_preview, "PURE EVAL (HTTP WOULD-TRIGGER PREVIEW)")
 
-    # 2) Kick monitor once
-    try:
-        run = post(f"{base}/monitors/market_monitor")
-        jprint(run, "RUN MARKET MONITOR ONCE")
-    except Exception as exc:  # pragma: no cover - diagnostic script
-        print(f"error: POST /monitors/market_monitor failed: {exc}")
+        try:
+            run = post(f"{base}/monitors/market_monitor")
+            jprint(run, "RUN MARKET MONITOR ONCE (HTTP)")
+        except Exception as exc:  # pragma: no cover - diagnostic script
+            print(f"error: POST /monitors/market_monitor failed: {exc}")
 
-    # brief pause for ledger write
-    time.sleep(0.5)
+        time.sleep(0.5)
 
-    # 3) What the UI reads
-    try:
-        latest = get(f"{base}/api/market/latest")
-        jprint(latest, "API /api/market/latest (UI payload)")
+        try:
+            latest = get(f"{base}/api/market/latest")
+            jprint(latest, "API /api/market/latest (HTTP UI PAYLOAD)")
+        except Exception as exc:  # pragma: no cover - diagnostic script
+            print(f"error: GET /api/market/latest failed: {exc}")
     except Exception as exc:  # pragma: no cover - diagnostic script
-        print(f"error: GET /api/market/latest failed: {exc}")
+        http_ok = False
+        print(f"HTTP not reachable ({exc}). Falling back to OFFLINE diagnostics.")
+
+    if not http_ok:
+        dl = _get_locker()
+        cfg = _get_cfg(dl)
+        assets = list(cfg["thresholds"].keys()) or ["SPX", "BTC", "ETH", "SOL"]
+        prices = _get_latest_prices(dl, assets)
+        jprint(
+            {"cfg": cfg, "assets": assets, "prices": prices},
+            "MARKET INPUT STATE (OFFLINE)",
+        )
+        eval_off = _eval(cfg, prices, assets)
+        jprint(eval_off, "PURE EVAL (OFFLINE WOULD-TRIGGER PREVIEW)")
+
+
+# ---------- helpers for offline fallback ----------
+def _get_locker():
+    """Lazy import to avoid hard dependency if only HTTP path is used."""
+
+    dl_mod = import_module("backend.data.data_locker")
+    core_mod = import_module("backend.core.core_constants")
+    return dl_mod.DataLocker.get_instance(str(core_mod.MOTHER_DB_PATH))
+
+
+def _get_cfg(dl) -> Dict[str, Any]:
+    cfg = (dl.system.get_var("market_monitor") or {}) if getattr(dl, "system", None) else {}
+    cfg.setdefault("thresholds", {})
+    cfg.setdefault("anchors", {})
+    cfg.setdefault("rearm_mode", "ladder")
+    return cfg
+
+
+def _get_latest_prices(dl, assets: Iterable[str]) -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    for asset in assets:
+        price_entry = dl.get_latest_price(asset) or {}
+        if price_entry and price_entry.get("current_price") is not None:
+            out[asset] = {
+                "price": price_entry.get("current_price"),
+                "ts": price_entry.get("ts") or price_entry.get("timestamp"),
+                "source": price_entry.get("source") or "db",
+            }
+    return out
+
+
+def _eval(cfg: Dict[str, Any], prices: Dict[str, Dict[str, Any]], assets: Iterable[str]) -> Dict[str, Any]:
+    anchors = cfg.get("anchors") or {}
+    thresholds = cfg.get("thresholds") or {}
+    direction = cfg.get("direction") or {}
+
+    detail: Dict[str, Dict[str, Any]] = {}
+    for asset in assets:
+        price = None if asset not in prices else prices[asset].get("price")
+        anchor = anchors.get(asset)
+        threshold = thresholds.get(asset)
+        dirn = (direction.get(asset) or "Both") if isinstance(direction, dict) else "Both"
+
+        if price is None or anchor is None or threshold is None:
+            detail[asset] = {
+                "price": price,
+                "anchor": anchor,
+                "threshold": threshold,
+                "direction": dirn,
+                "would_trigger": False,
+                "reason": "missing price/anchor/threshold",
+            }
+            continue
+
+        delta = price - anchor
+        up = delta > 0
+        dir_ok = (dirn == "Both") or (dirn == "Up" and up) or (dirn == "Down" and not up)
+        would_trigger = bool(dir_ok and (abs(delta) >= float(threshold)))
+        detail[asset] = {
+            "price": price,
+            "anchor": anchor,
+            "delta": delta,
+            "threshold": threshold,
+            "direction": dirn,
+            "dir_ok": dir_ok,
+            "would_trigger": would_trigger,
+        }
+
+    return {
+        "cfg_summary": {
+            "rearm_mode": cfg.get("rearm_mode", "ladder"),
+            "armed": cfg.get("armed", True),
+        },
+        "detail": detail,
+    }
 
 
 if __name__ == "__main__":
