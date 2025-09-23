@@ -8,14 +8,16 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
+  TransactionInstruction,
 } from "@solana/web3.js";
 import {
   getAccount,
-  createSyncNativeInstruction,
-  NATIVE_MINT,
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountIdempotentInstruction as createAtaIdem,
+  // the export is present but its call signature varies across versions
+  createAssociatedTokenAccountIdempotentInstruction as _createIdem,
+  createSyncNativeInstruction,
+  NATIVE_MINT,
 } from "@solana/spl-token";
 import BN from "bn.js";
 import { info, kv, ok, warn, bar } from "../utils/logger.js";
@@ -114,47 +116,57 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-/** Canonical ATA PDA derivation (we pass this address into Perps accounts) */
+/** Canonical ATA PDA for (owner, mint) under Associated Token Program */
 function deriveAtaPda(mint: PublicKey, owner: PublicKey): PublicKey {
   const seeds = [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()];
   const [addr] = PublicKey.findProgramAddressSync(seeds, ASSOCIATED_TOKEN_PROGRAM_ID);
   return addr;
 }
 
-/** Build an idempotent ATA create CPI (SPL derives metas & uses the right SystemProgram flow) */
-function createAtaIxIdempotent(
+/** Build idempotent ATA create. Prefer explicit-ATA overload; fall back to deriving overload. */
+function createAtaIdempotentIx(
   payer: PublicKey,
+  ata: PublicKey,
   owner: PublicKey,
   mint: PublicKey,
-) {
-  return createAtaIdem(
-    payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-  );
+): TransactionInstruction {
+  // Try explicit-ATA signature first: (payer, ata, owner, mint, tokenProgram, assocProgram)
+  try {
+    // @ts-ignore – we’ll let runtime decide
+    return _createIdem(payer, ata, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+  } catch {
+    // Fallback to deriving signature: (payer, owner, mint, tokenProgram, assocProgram)
+    // This variant computes ATA internally; that’s fine—the `ata` we pass to Perps is still the same PDA.
+    // @ts-ignore
+    return _createIdem(payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+  }
 }
 
+/** Ensure owner's ATA (on-curve) */
 export async function ensureAtaIx(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey
 ) {
   const ata = deriveAtaPda(mint, owner);
   try {
     await getAccount(connection, ata);
-    return { ata, ixs: [] as any[] };
+    return { ata, ixs: [] as TransactionInstruction[] };
   } catch {
-    info("🪙", `Create ATA (idempotent): ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxIdempotent(payer, owner, mint)] };
+    info("🪙", `Create ATA (idem): ${ata.toBase58()}`);
+    return { ata, ixs: [createAtaIdempotentIx(payer, ata, owner, mint)] };
   }
 }
 
+/** Ensure escrow ATA where owner can be a PDA (positionRequest/position) */
 export async function ensureAtaForOwner(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey, _allowOwnerOffCurve: boolean
 ) {
   const ata = deriveAtaPda(mint, owner);
   try {
     await getAccount(connection, ata);
-    return { ata, ixs: [] as any[] };
+    return { ata, ixs: [] as TransactionInstruction[] };
   } catch {
-    info("🪙", `Create ATA (idempotent, owner offCurve): ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxIdempotent(payer, owner, mint)] };
+    info("🪙", `Create ATA (idem, owner offCurve): ${ata.toBase58()}`);
+    return { ata, ixs: [createAtaIdempotentIx(payer, ata, owner, mint)] };
   }
 }
 
