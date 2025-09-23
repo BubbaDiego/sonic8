@@ -21,58 +21,24 @@ from typing import List, Tuple
 
 # --- PublicKey compat (solders first, then legacy solana.py) -----------------
 try:
-    # solana-py 0.30+ (solders)
     from solders.pubkey import Pubkey as _Pubkey
-    def _is_base58(s: str) -> bool:
-        B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-        return len(s) >= 32 and all(c in B58 for c in s.strip())
 
     def PublicKey(v: str) -> _Pubkey:
-        v = v.strip()
-        if not _is_base58(v):
-            raise ValueError(f"Invalid base58: {v}")
-        return _Pubkey.from_string(v)
+        return _Pubkey.from_string(v.strip())
 
-    def pubkey_to_bytes(pk: _Pubkey) -> bytes:
-        return bytes(pk)
-
-    def pubkey_to_str(pk: _Pubkey) -> str:
-        return str(pk)
-
-    def find_program_address(seeds: List[bytes], program: _Pubkey) -> Tuple[_Pubkey, int]:
-        return _Pubkey.find_program_address(seeds, program)
-
+    def pubkey_to_bytes(pk: _Pubkey) -> bytes: return bytes(pk)
+    def pubkey_to_str(pk: _Pubkey) -> str:     return str(pk)
+    def find_program_address(seeds, program):   return _Pubkey.find_program_address(seeds, program)
     API = "solders"
+
 except Exception:
-    try:
-        # legacy solana.py
-        from solana.publickey import PublicKey as _Pubkey  # type: ignore
+    from solana.publickey import PublicKey as _Pubkey  # legacy
 
-        def _is_base58(s: str) -> bool:
-            B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-            return len(s) >= 32 and all(c in B58 for c in s.strip())
-
-        def PublicKey(v: str) -> _Pubkey:
-            v = v.strip()
-            if not _is_base58(v):
-                raise ValueError(f"Invalid base58: {v}")
-            return _Pubkey(v)
-
-        def pubkey_to_bytes(pk: _Pubkey) -> bytes:
-            return bytes(pk)
-
-        def pubkey_to_str(pk: _Pubkey) -> str:
-            return str(pk)
-
-        def find_program_address(seeds: List[bytes], program: _Pubkey) -> Tuple[_Pubkey, int]:
-            # legacy solana.py returns (address, bump)
-            return _Pubkey.find_program_address(seeds, program)
-
-        API = "legacy"
-    except Exception:
-        print("✖ Could not import PublicKey from either 'solders' or 'solana'.\n"
-              "   In this venv, run:  pip install solana solders", file=sys.stderr)
-        sys.exit(1)
+    def PublicKey(v: str) -> _Pubkey:          return _Pubkey(v.strip())
+    def pubkey_to_bytes(pk: _Pubkey) -> bytes: return bytes(pk)
+    def pubkey_to_str(pk: _Pubkey) -> str:     return str(pk)
+    def find_program_address(seeds, program):   return _Pubkey.find_program_address(seeds, program)
+    API = "legacy"
 
 PERPS_PROGRAM_DEFAULT = "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu"
 
@@ -80,7 +46,7 @@ def parse_pk(label: str, v: str):
     try:
         return PublicKey(v)
     except Exception as e:
-        raise ValueError(f"Invalid base58 for {label}: {v}") from e
+        raise ValueError(f"Invalid pubkey for {label}: {v}") from e
 
 def pda(program, seeds: List[bytes]):
     addr, bump = find_program_address(seeds, program)
