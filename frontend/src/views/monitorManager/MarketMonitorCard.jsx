@@ -62,7 +62,7 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
         }
       />
       <CardContent sx={{ p: 0 }}>
-        <MarketMovementCard cfg={cfg} setCfg={setCfg} live={live} />
+        <MarketMovementCard cfg={cfg} setCfg={setCfg} live={live} disabled={disabled} />
       </CardContent>
 
       <Box sx={{ flexGrow: 1 }} />

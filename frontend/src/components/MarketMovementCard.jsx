@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import axios from 'utils/axios';
 import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 import {
@@ -23,12 +23,23 @@ import {
  *   setCfg: setter from MonitorManager (markDirty wrapper)
  *   live: optional live readout (unused for now)
  */
-export default function MarketMovementCard({ cfg = {}, setCfg, live = {} }) {
+export default function MarketMovementCard({ cfg = {}, setCfg, live = {}, disabled = false }) {
   const { sonicActive } = useSonicStatusPolling();
   const assets = useMemo(() => {
     const keys = Object.keys(cfg?.thresholds || {});
     return keys.length ? keys : ['SPX', 'BTC', 'ETH', 'SOL'];
   }, [cfg]);
+
+  const toggleNotify = useCallback(
+    (key) => {
+      setCfg((prev) => {
+        const next = { ...(prev?.notifications || {}) };
+        next[key] = !Boolean(next[key]);
+        return { ...prev, notifications: next };
+      });
+    },
+    [setCfg]
+  );
 
   const thresholds = cfg?.thresholds || {};
   const rearmMode = cfg?.rearm_mode || 'ladder';
@@ -91,7 +102,7 @@ export default function MarketMovementCard({ cfg = {}, setCfg, live = {} }) {
   };
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ p: 2, ...(disabled ? { opacity: 0.5, pointerEvents: 'none' } : {}) }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Typography variant="subtitle2">
           Trigger when price moves by the configured dollar amount from the last anchor.
@@ -171,6 +182,50 @@ export default function MarketMovementCard({ cfg = {}, setCfg, live = {} }) {
             </React.Fragment>
           );
         })}
+      </Box>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      <Box
+        sx={{
+          mt: 1,
+          p: 1.25,
+          bgcolor: 'primary.900',
+          borderRadius: 1,
+          border: '1px solid',
+          borderColor: 'primary.800'
+        }}
+      >
+        <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-start">
+          <Button
+            size="small"
+            variant={cfg?.notifications?.system ? 'contained' : 'outlined'}
+            onClick={() => toggleNotify('system')}
+          >
+            System
+          </Button>
+          <Button
+            size="small"
+            variant={cfg?.notifications?.voice ? 'contained' : 'outlined'}
+            onClick={() => toggleNotify('voice')}
+          >
+            Voice
+          </Button>
+          <Button
+            size="small"
+            variant={cfg?.notifications?.sms ? 'contained' : 'outlined'}
+            onClick={() => toggleNotify('sms')}
+          >
+            SMS
+          </Button>
+          <Button
+            size="small"
+            variant={cfg?.notifications?.tts ? 'contained' : 'outlined'}
+            onClick={() => toggleNotify('tts')}
+          >
+            TTS
+          </Button>
+        </Stack>
       </Box>
     </Box>
   );
