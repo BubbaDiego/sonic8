@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -67,6 +67,17 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
       thresholds: { ...(prev.thresholds || {}), [asset]: e.target.value }
     }));
   };
+
+  const toggleNotify = useCallback(
+    (key) => {
+      setCfg((prev) => {
+        const notifications = { ...(prev?.notifications || {}) };
+        notifications[key] = !Boolean(notifications[key]);
+        return { ...prev, notifications };
+      });
+    },
+    [setCfg]
+  );
 
 
   const applyBlast = (asset) => () => {
@@ -230,19 +241,7 @@ export default function LiquidationMonitorCard({ cfg, setCfg, blast = {}, neares
       {/* tiny spacer keeps some visual separation */}
       <Box sx={{ height: 4 }} />
 
-      <MonitorUpdateBar
-        cfg={normCfg.notifications}
-        toggle={(k) =>
-          setCfg((prev) => ({
-            ...prev,
-            notifications: {
-              ...(prev?.notifications || {}),
-              [k]: !Boolean(prev?.notifications?.[k])
-            }
-          }))
-        }
-        sx={{ mx: 2, mb: 2 }}
-      />
+      <MonitorUpdateBar cfg={normCfg.notifications} toggle={toggleNotify} sx={{ mx: 2, mb: 2 }} />
 
       {/* subtle overlay when disabled */}
       {disabled && (
