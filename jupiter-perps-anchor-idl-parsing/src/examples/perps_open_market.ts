@@ -174,7 +174,7 @@ import { toPk } from "../utils/pk.js";
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    // ✅ real run: token account; discovery: wallet (no transfer)
+    // ✅ wallet in discovery, ATA in real run
     fundingAccount: havePR ? ownerAtaInit.ata : wallet.publicKey,
     position,
     positionRequest,
@@ -191,9 +191,9 @@ import { toPk } from "../utils/pk.js";
   } as any;
 
   console.log(
-    "💳 fundingAccount =",
+    "💳 fundingAccount (payer) =",
     (accounts as any).fundingAccount.toBase58(),
-    havePR ? "(owner USDC ATA)" : "(wallet pubkey — discovery)",
+    havePR ? "(USDC ATA)" : "(wallet system account)",
   );
 
   try {
