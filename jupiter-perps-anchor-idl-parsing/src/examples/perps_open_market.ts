@@ -165,9 +165,11 @@ import { toPk } from "../utils/pk.js";
   // 4) Build & send — MANUAL TX to enforce instruction order
   bar("Submit", "📤");
 
+  const fundingAccount = havePR ? ownerAtaInit.ata : wallet.publicKey;
+
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    fundingAccount: ownerAtaInit.ata,              // ✅ Token account (USDC ATA)
+    fundingAccount,
     position,
     positionRequest,
     positionRequestAta: havePR ? reqAtaInit.ata : ownerAtaInit.ata,
@@ -182,7 +184,11 @@ import { toPk } from "../utils/pk.js";
     systemProgram: SystemProgram.programId,
   } as any;
 
-  console.log("💳 fundingAccount (ATA) =", (accounts as any).fundingAccount.toBase58());
+  console.log(
+    "💳 fundingAccount =",
+    (accounts as any).fundingAccount.toBase58(),
+    havePR ? "(owner USDC ATA)" : "(wallet system account)",
+  );
 
   try {
     const [eventAuthority] = PublicKey.findProgramAddressSync([Buffer.from("__event_authority")], programId);
