@@ -9,6 +9,7 @@ import {
   PublicKey,
   SystemProgram,
   TransactionInstruction,
+  SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
 import {
   getAccount,
@@ -31,7 +32,7 @@ export type PerpsCtx = {
   program: Program<Idl>;
 };
 
-export const SYS = { SystemProgram, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID };
+export const SYS = { SystemProgram, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, SYSVAR_RENT_PUBKEY };
 
 export const MINTS = {
   WSOL: NATIVE_MINT,

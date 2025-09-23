@@ -118,7 +118,7 @@ import { toPk } from "../utils/pk.js";
     provider.connection, collateralMint, position, wallet.publicKey, true
   );
 
-  // Pre-ix order
+  // Pre-ix order — ensure owner + request + position escrows exist before Perps ix
   const preIxs = [...ownerAtaInit.ixs, ...reqAtaInit.ixs, ...posAtaInit.ixs];
   console.log("🧾 preIxs =",
     preIxs.length, "  (owner create:", ownerAtaInit.ixs.length,
