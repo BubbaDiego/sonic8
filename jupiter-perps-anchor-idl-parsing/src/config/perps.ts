@@ -8,8 +8,6 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
-  SYSVAR_RENT_PUBKEY,
-  TransactionInstruction,
 } from "@solana/web3.js";
 import {
   getAccount,
@@ -17,6 +15,7 @@ import {
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstruction as createAtaIdem,
 } from "@solana/spl-token";
 import BN from "bn.js";
 import { info, kv, ok, warn, bar } from "../utils/logger.js";
@@ -115,61 +114,47 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-/** Canonical ATA PDA for (owner, mint) under Associated Token Program */
-function deriveAtaManual(mint: PublicKey, owner: PublicKey): PublicKey {
-  // seeds = [owner, tokenProgram, mint] with program = Associated Token Program
+/** Canonical ATA PDA derivation (we pass this address into Perps accounts) */
+function deriveAtaPda(mint: PublicKey, owner: PublicKey): PublicKey {
   const seeds = [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()];
   const [addr] = PublicKey.findProgramAddressSync(seeds, ASSOCIATED_TOKEN_PROGRAM_ID);
   return addr;
 }
 
-/** Canonical 'Create Associated Token Account' ix (exact metas & order) */
-function createAtaIxManual(
+/** Build an idempotent ATA create CPI (SPL derives metas & uses the right SystemProgram flow) */
+function createAtaIxIdempotent(
   payer: PublicKey,
-  ata: PublicKey,
   owner: PublicKey,
   mint: PublicKey,
-): TransactionInstruction {
-  return new TransactionInstruction({
-    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
-    keys: [
-      { pubkey: payer,                  isSigner: true,  isWritable: true  }, // 0: payer (System account)
-      { pubkey: ata,                    isSigner: false, isWritable: true  }, // 1: ATA to create
-      { pubkey: owner,                  isSigner: false, isWritable: false }, // 2: owner (PDA ok)
-      { pubkey: mint,                   isSigner: false, isWritable: false }, // 3: mint
-      { pubkey: SystemProgram.programId,isSigner: false, isWritable: false }, // 4
-      { pubkey: TOKEN_PROGRAM_ID,       isSigner: false, isWritable: false }, // 5
-      { pubkey: SYSVAR_RENT_PUBKEY,     isSigner: false, isWritable: false }, // 6
-    ],
-    data: Buffer.alloc(0),
-  });
+) {
+  return createAtaIdem(
+    payer, owner, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+  );
 }
 
-/** Ensure owner's ATA (on-curve) */
 export async function ensureAtaIx(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey
 ) {
-  const ata = deriveAtaManual(mint, owner);
+  const ata = deriveAtaPda(mint, owner);
   try {
     await getAccount(connection, ata);
-    return { ata, ixs: [] as TransactionInstruction[] };
+    return { ata, ixs: [] as any[] };
   } catch {
-    info("🪙", `Create ATA: ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxManual(payer, ata, owner, mint)] };
+    info("🪙", `Create ATA (idempotent): ${ata.toBase58()}`);
+    return { ata, ixs: [createAtaIxIdempotent(payer, owner, mint)] };
   }
 }
 
-/** Ensure escrow ATA where owner can be a PDA (positionRequest) */
 export async function ensureAtaForOwner(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey, _allowOwnerOffCurve: boolean
 ) {
-  const ata = deriveAtaManual(mint, owner);
+  const ata = deriveAtaPda(mint, owner);
   try {
     await getAccount(connection, ata);
-    return { ata, ixs: [] as TransactionInstruction[] };
+    return { ata, ixs: [] as any[] };
   } catch {
-    info("🪙", `Create ATA (owner offCurve): ${ata.toBase58()}`);
-    return { ata, ixs: [createAtaIxManual(payer, ata, owner, mint)] };
+    info("🪙", `Create ATA (idempotent, owner offCurve): ${ata.toBase58()}`);
+    return { ata, ixs: [createAtaIxIdempotent(payer, owner, mint)] };
   }
 }
 
