@@ -81,7 +81,7 @@ class MarketMovementMonitor(BaseMonitor):
             cur.execute(
                 "SELECT current_price, previous_price "
                 "FROM prices WHERE asset_type = ? "
-                "ORDER BY CAST(last_update_time AS REAL) DESC LIMIT 1",
+                "ORDER BY last_update_time DESC LIMIT 1",
                 (asset,),
             )
             row = cur.fetchone()

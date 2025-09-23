@@ -492,7 +492,60 @@ class DataLocker:
         log.debug("DataLocker shutdown complete.", source="DataLocker")
 
     def get_latest_price(self, asset_type: str) -> dict:
-        return self.prices.get_latest_price(asset_type)
+        """
+        Safe, direct fetch from ``prices`` table to avoid column order bugs.
+
+        Returns:
+            dict: Information about the latest price for ``asset_type`` with a
+            numeric ``current_price`` value. Falls back to ``previous_price``
+            when necessary. Empty dict on failure.
+        """
+
+        try:
+            cur = self.db.get_cursor()
+            if not cur:
+                return {}
+
+            cur.execute(
+                "SELECT current_price, previous_price, last_update_time, "
+                "previous_update_time, source "
+                "FROM prices WHERE asset_type = ? "
+                "ORDER BY last_update_time DESC LIMIT 1",
+                (asset_type,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return {}
+
+            def _to_float(value):
+                try:
+                    return float(value)
+                except Exception:
+                    return None
+
+            cp = _to_float(row["current_price"])
+            pp = _to_float(row["previous_price"])
+            price = cp if cp is not None else pp
+
+            return {
+                "asset_type": asset_type,
+                "current_price": price,
+                "previous_price": pp,
+                "ts": row["last_update_time"],
+                "prev_ts": row["previous_update_time"],
+                "source": row["source"],
+            }
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            from backend.core.logging import log
+
+            log.error(
+                f"get_latest_price fallback failed for {asset_type}: {exc}",
+                source="DataLocker",
+            )
+            try:
+                return self.prices.get_latest_price(asset_type)
+            except Exception:
+                return {}
 
     def set_last_update_times(self, updates: dict):
         if self.system is not None:
