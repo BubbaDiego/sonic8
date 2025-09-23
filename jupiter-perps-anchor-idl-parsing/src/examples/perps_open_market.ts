@@ -165,11 +165,10 @@ import { toPk } from "../utils/pk.js";
   // 4) Build & send — MANUAL TX to enforce instruction order
   bar("Submit", "📤");
 
-  const fundingAccount = havePR ? ownerAtaInit.ata : wallet.publicKey;
-
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    fundingAccount,
+    // ✅ must be a token account (Token Program), not the wallet
+    fundingAccount: ownerAtaInit.ata,
     position,
     positionRequest,
     positionRequestAta: havePR ? reqAtaInit.ata : ownerAtaInit.ata,
@@ -187,7 +186,7 @@ import { toPk } from "../utils/pk.js";
   console.log(
     "💳 fundingAccount =",
     (accounts as any).fundingAccount.toBase58(),
-    havePR ? "(owner USDC ATA)" : "(wallet system account)",
+    "(owner USDC ATA)",
   );
 
   try {
