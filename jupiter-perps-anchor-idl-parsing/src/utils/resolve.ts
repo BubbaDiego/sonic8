@@ -94,9 +94,9 @@ export function derivePdaFromIdl(idl: Idl, programId: PublicKey, accountName: st
 // Hard-coded once discovered via the seed bruteforcer tool.
 export function derivePositionPdaCanonical(
   programId: PublicKey,
-  owner: PublicKey,
   pool: PublicKey,
   marketCustody: PublicKey,
+  owner: PublicKey,
 ): [PublicKey, number] {
   const seeds = [
     Buffer.from("position"),
@@ -114,7 +114,7 @@ export function derivePositionPda(
   pool: PublicKey,
   marketCustody: PublicKey,
 ): [PublicKey, number] {
-  return derivePositionPdaCanonical(programId, owner, pool, marketCustody);
+  return derivePositionPdaCanonical(programId, pool, marketCustody, owner);
 }
 
 /** Pool-first position PDA (common layout in perps programs). */
