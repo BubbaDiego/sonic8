@@ -2,25 +2,27 @@ from fastapi import APIRouter, Depends
 from backend.data.data_locker import DataLocker
 from backend.deps import get_app_locker
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Mapping
 
 router = APIRouter(prefix="/api/market", tags=["market"])
 
 
 @router.get("/latest")
 def market_latest(dl: DataLocker = Depends(get_app_locker)) -> Dict[str, Dict[str, Any]]:
-    cursor = dl.db.get_cursor()
-    cursor.execute(
-        "SELECT metadata FROM monitor_ledger "
-        "WHERE monitor_name = 'market_monitor' "
-        "AND status = 'Success' "
-        "ORDER BY created_at DESC LIMIT 1"
-    )
-    row = cursor.fetchone()
+    row = dl.ledger.get_latest_entry("market_monitor", status="Success")
     if not row:
         return {}
 
-    payload = json.loads(row[0]) if isinstance(row[0], (str, bytes)) else json.loads(row["metadata"])
+    metadata = row
+    if isinstance(row, Mapping):
+        metadata = row.get("metadata")
+    else:
+        metadata = row[0]
+
+    if metadata is None:
+        return {}
+
+    payload = json.loads(metadata)
     details = payload.get("details", []) or []
 
     def _f(value: Any) -> Optional[float]:
