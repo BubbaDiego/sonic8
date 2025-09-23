@@ -71,7 +71,7 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    fundingAccount: ataInit.ata,
+    fundingAccount: wallet.publicKey,
     position,
     positionRequest,
     positionRequestAta: prAtaInit.ata,

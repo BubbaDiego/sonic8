@@ -151,7 +151,7 @@ import { toPk } from "../utils/pk.js";
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    fundingAccount: ataInit.ata,
+    fundingAccount: wallet.publicKey,
     position,
     positionRequest,
     positionRequestAta: prAtaAddr,
