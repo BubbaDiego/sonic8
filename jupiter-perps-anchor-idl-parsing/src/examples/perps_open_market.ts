@@ -50,10 +50,11 @@ import { toPk } from "../utils/pk.js";
   bar("PDAs", "🧩");
   const [positionCanonical] = derivePositionPdaCanonical(
     programId,
-    wallet.publicKey,
     pool.publicKey,
     custody.pubkey,
+    wallet.publicKey,
   );
+  console.log("🧩 position =", positionCanonical.toBase58());
   const [posPoolFirst]  = derivePositionPdaPoolFirst(programId, pool.publicKey, wallet.publicKey);
   const [posOwnerFirst] = derivePositionPdaOwnerFirst(programId, wallet.publicKey, pool.publicKey);
 
