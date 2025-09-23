@@ -79,6 +79,7 @@ from backend.routers import jupiter
 from backend.routes.jupiter_api import router as jupiter_router
 from backend.routes.jupiter_perps_api import router as perps_router
 from backend.api.routes_perps import router as perps_cli_router
+from backend.api.debug_market_api import router as debug_market_router
 from backend.api.liquid_settings_api import router as liquid_settings_router
 from backend.middleware.response_validator import install_response_validator, schema_map_router
 
@@ -129,6 +130,7 @@ app.include_router(session_router)
 app.include_router(notification_router)
 app.include_router(monitor_settings_router)
 app.include_router(liquid_settings_router)
+app.include_router(debug_market_router)
 app.include_router(profit_settings_router)
 app.include_router(liquidation_distance_router)
 app.include_router(market_router)
