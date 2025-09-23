@@ -107,7 +107,7 @@ def main() -> None:
         dl = _get_locker()
         cfg = _get_cfg(dl)
         assets = list(cfg["thresholds"].keys()) or ["SPX", "BTC", "ETH", "SOL"]
-        prices = _get_latest_prices(dl, assets)
+        prices = _get_latest_prices_sql(dl, assets)
         jprint(
             {"cfg": cfg, "assets": assets, "prices": prices},
             "MARKET INPUT STATE (OFFLINE)",
@@ -133,16 +133,37 @@ def _get_cfg(dl) -> Dict[str, Any]:
     return cfg
 
 
-def _get_latest_prices(dl, assets: Iterable[str]) -> Dict[str, Dict[str, Any]]:
+def _get_latest_prices_sql(dl, assets: Iterable[str]) -> Dict[str, Dict[str, Any]]:
+    cur = dl.db.get_cursor()
+    if cur is None:
+        return {}
+
     out: Dict[str, Dict[str, Any]] = {}
     for asset in assets:
-        price_entry = dl.get_latest_price(asset) or {}
-        if price_entry and price_entry.get("current_price") is not None:
-            out[asset] = {
-                "price": price_entry.get("current_price"),
-                "ts": price_entry.get("ts") or price_entry.get("timestamp"),
-                "source": price_entry.get("source") or "db",
-            }
+        cur.execute(
+            "SELECT current_price, previous_price, last_update_time, source "
+            "FROM prices WHERE asset_type = ? ORDER BY last_update_time DESC LIMIT 1",
+            (asset,),
+        )
+        row = cur.fetchone()
+        if not row:
+            continue
+
+        price = None
+        try:
+            price = float(row["current_price"])
+        except Exception:
+            try:
+                price = float(row["previous_price"])
+            except Exception:
+                price = None
+
+        out[asset] = {
+            "price": price,
+            "ts": row["last_update_time"],
+            "source": row["source"],
+        }
+
     return out
 
 
