@@ -103,9 +103,9 @@ import { toPk } from "../utils/pk.js";
   const decimals = (collateralCustody.account.decimals as number) ?? 9;
   // Discovery run = no token transfer → set collat=0 on the wire when !havePR
   const sizeUsdDeltaDisc = toMicroUsd(argv["size-usd"]);
-  const collatDeltaDisc = havePR
+  const collateralTokenDelta = havePR
     ? toTokenAmount(argv.collat, decimals)
-    : new cfg.BN(0);
+    : new cfg.BN(0);                          // discovery → 0 on-chain
 
   // 2) Funding (owner ATA) & escrow ATAs (position request + position)
   // Owner ATA (funding) – USDC
@@ -163,7 +163,7 @@ import { toPk } from "../utils/pk.js";
   bar("Amounts", "🧮");
   kv("Size USD", `${argv["size-usd"].toFixed(6)} → ${sizeUsdDeltaDisc.toString()} μUSD`);
   if (havePR) {
-    kv("Collateral", `${argv.collat} → ${collatDeltaDisc.toString()} raw (dec=${decimals})`);
+    kv("Collateral", `${argv.collat} → ${collateralTokenDelta.toString()} raw (dec=${decimals})`);
   } else {
     kv("Collateral", `0 (discovery mode; CLI input ${argv.collat})`);
   }
@@ -174,8 +174,8 @@ import { toPk } from "../utils/pk.js";
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    // ✅ must be a token account (Token Program), not the wallet
-    fundingAccount: ownerAtaInit.ata,
+    // ✅ real run: token account; discovery: wallet (no transfer)
+    fundingAccount: havePR ? ownerAtaInit.ata : wallet.publicKey,
     position,
     positionRequest,
     positionRequestAta: havePR ? reqAtaInit.ata : ownerAtaInit.ata,
@@ -193,7 +193,7 @@ import { toPk } from "../utils/pk.js";
   console.log(
     "💳 fundingAccount =",
     (accounts as any).fundingAccount.toBase58(),
-    "(owner USDC ATA)",
+    havePR ? "(owner USDC ATA)" : "(wallet pubkey — discovery)",
   );
 
   try {
@@ -205,7 +205,7 @@ import { toPk } from "../utils/pk.js";
   const reqIx = await (program as any).methods
     .createIncreasePositionMarketRequest({
       sizeUsdDelta: sizeUsdDeltaDisc,
-      collateralTokenDelta: collatDeltaDisc,
+      collateralTokenDelta,
       side: sideEnum,
       priceSlippage: priceGuard,
       jupiterMinimumOut: null,
