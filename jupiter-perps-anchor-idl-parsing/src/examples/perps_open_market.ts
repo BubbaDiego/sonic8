@@ -20,7 +20,7 @@ import { toPk } from "../utils/pk.js";
     .option("collat", { type: "number", default: 0, describe: "Collateral token amount (UI units)" })
     .option("collat-mint", { type: "string", describe: "Override collateral mint (default: WSOL for long, USDC for short)" })
     .option("position", { type: "string", describe: "Override Position PDA (use the Right: value from logs)" })
-    .option("position-request", { type: "string", describe: "Override PositionRequest PDA (use Perps Right: value)" })
+    .option("position-request", { type: "string", describe: "Override PositionRequest PDA (use Perps 'Right:' value)" })
     .option("oracle-price", { type: "number", describe: "Oracle/mark price in USD for guardrail calc" })
     .option("slip", { type: "number", describe: "Slippage fraction for guardrail (e.g., 0.02)" })
     .option("max-price", { type: "number", describe: "Explicit max price (LONG)" })
@@ -80,24 +80,24 @@ import { toPk } from "../utils/pk.js";
 
   // Use the canonical PDA for the request unless overridden
   const unique = Math.floor(Date.now() / 1000);
-  const positionRequestOverride = argv["position-request"]
-    ? toPk("position-request", argv["position-request"] as string)
-    : null;
-
-  const [derivedPositionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
-    owner: wallet.publicKey,
-    pool: pool.publicKey,
-    custody: custody.pubkey,
-    collateralCustody: collateralCustody.pubkey,
-    seed: unique,
-    position,
-  });
-  const positionRequest = positionRequestOverride ?? derivedPositionRequest;
+  let positionRequest: PublicKey;
+  const prOverride = argv["position-request"] as string | undefined;
+  if (prOverride) {
+    positionRequest = toPk("position-request", prOverride);
+    console.log("🧩 positionRequest (override) =", positionRequest.toBase58());
+  } else {
+    const [derivedPositionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
+      owner: wallet.publicKey,
+      pool: pool.publicKey,
+      custody: custody.pubkey,
+      collateralCustody: collateralCustody.pubkey,
+      seed: unique,
+      position,
+    });
+    positionRequest = derivedPositionRequest;
+  }
   kv("Position", position.toBase58());
   kv("PosRequest", positionRequest.toBase58());
-  if (positionRequestOverride) {
-    console.log("🧩 positionRequest (override) =", positionRequestOverride.toBase58());
-  }
 
   const decimals = (collateralCustody.account.decimals as number) ?? 9;
   const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
@@ -108,22 +108,31 @@ import { toPk } from "../utils/pk.js";
     provider.connection, collateralMint, wallet.publicKey, wallet.publicKey
   );
 
-  // Escrow A: owner = positionRequest
-  const reqAtaInit = await cfg.ensureAtaForOwner(
-    provider.connection, collateralMint, positionRequest, wallet.publicKey, true
-  );
+  // Escrows – only ensure when PositionRequest override supplied
+  let reqAtaInit = { ata: PublicKey.default, ixs: [] as any[] };
+  let posAtaInit = { ata: PublicKey.default, ixs: [] as any[] };
 
-  // Escrow B: owner = position (Perps sometimes no-ops this idempotently)
-  const posAtaInit = await cfg.ensureAtaForOwner(
-    provider.connection, collateralMint, position, wallet.publicKey, true
-  );
+  if (prOverride) {
+    // Escrow A: owner = positionRequest
+    reqAtaInit = await cfg.ensureAtaForOwner(
+      provider.connection, collateralMint, positionRequest, wallet.publicKey, true
+    );
 
-  // Pre-ix order — ensure owner + request + position escrows exist before Perps ix
-  const preIxs = [...ownerAtaInit.ixs, ...reqAtaInit.ixs, ...posAtaInit.ixs];
-  console.log("🧾 preIxs =",
-    preIxs.length, "  (owner create:", ownerAtaInit.ixs.length,
-    ", req escrow create:", reqAtaInit.ixs.length,
-    ", pos escrow create:", posAtaInit.ixs.length, ")"
+    // Escrow B: owner = position (Perps sometimes no-ops this idempotently)
+    posAtaInit = await cfg.ensureAtaForOwner(
+      provider.connection, collateralMint, position, wallet.publicKey, true
+    );
+  }
+
+
+  // Pre-ix order
+  const preIxs = prOverride
+    ? [...ownerAtaInit.ixs, ...reqAtaInit.ixs, ...posAtaInit.ixs]
+    : [...ownerAtaInit.ixs];
+  console.log(
+    "🧾 preIxs =",
+    preIxs.length,
+    prOverride ? " (owner + req escrow + pos escrow)" : " (owner only)",
   );
 
   // For transparency (first 4 metas):
@@ -160,7 +169,7 @@ import { toPk } from "../utils/pk.js";
     fundingAccount: ownerAtaInit.ata,         // ✅ Token account (Token Program–owned)
     position,
     positionRequest,
-    positionRequestAta: reqAtaInit.ata,       // ✅ Escrow bound to PositionRequest
+    positionRequestAta: prOverride ? reqAtaInit.ata : ownerAtaInit.ata,
     custody: custody.pubkey,
     collateralCustody: collateralCustody.pubkey,
     inputMint: collateralMint,
