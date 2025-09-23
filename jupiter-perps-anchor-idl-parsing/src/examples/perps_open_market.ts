@@ -102,15 +102,17 @@ import { toPk } from "../utils/pk.js";
   const decimals = (collateralCustody.account.decimals as number) ?? 9;
   const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
 
-  // 2) Funding (owner ATA) & PositionRequest ATA (escrow)
-  const ataInit = await cfg.ensureAtaIx(
+  // 2) Funding (owner ATA) & escrow ATAs (position request + position)
+  // 1) Owner's USDC ATA (funding) – usually already exists
+  const ownerAtaInit = await cfg.ensureAtaIx(
     provider.connection,
     collateralMint,
     wallet.publicKey,
     wallet.publicKey,
   );
 
-  const prAtaInit = await cfg.ensureAtaForOwner(
+  // 2) Escrow A: owner = positionRequest PDA
+  const reqAtaInit = await cfg.ensureAtaForOwner(
     provider.connection,
     collateralMint,
     positionRequest,
@@ -118,12 +120,34 @@ import { toPk } from "../utils/pk.js";
     true,
   );
 
-  const preIxs = [...ataInit.ixs, ...prAtaInit.ixs];
-  console.log("🧾 preIxs = ", preIxs.length, "  (owner ATA create + escrow ATA create)");
-  if (prAtaInit.ixs[0]) {
-    const metas = prAtaInit.ixs[0].keys.slice(0, 4).map(k => k.pubkey.toBase58());
-    console.log("AToken escrow ix metas [payer, ata, owner, mint] =", metas);
-  }
+  // 3) Escrow B: owner = position PDA (Perps may idempotently ensure this too)
+  const posAtaInit = await cfg.ensureAtaForOwner(
+    provider.connection,
+    collateralMint,
+    position,
+    wallet.publicKey,
+    true,
+  );
+
+  // Compose pre-ixs: owner first (if missing), then both escrows
+  const preIxs = [...ownerAtaInit.ixs, ...reqAtaInit.ixs, ...posAtaInit.ixs];
+
+  console.log(
+    "🧾 preIxs =",
+    preIxs.length,
+    " (owner create:",
+    ownerAtaInit.ixs.length,
+    ", req escrow create:",
+    reqAtaInit.ixs.length,
+    ", pos escrow create:",
+    posAtaInit.ixs.length,
+    ")",
+  );
+
+  // For transparency (first 4 metas):
+  const meta4 = (ix: any) => ix?.keys?.slice(0, 4)?.map((k: any) => k.pubkey.toBase58());
+  if (reqAtaInit.ixs[0]) console.log("AToken escrow[req] metas [payer, ata, owner, mint] =", meta4(reqAtaInit.ixs[0]));
+  if (posAtaInit.ixs[0]) console.log("AToken escrow[pos] metas [payer, ata, owner, mint] =", meta4(posAtaInit.ixs[0]));
 
   // 3) Amounts & guardrail
   const sizeUsdDelta = toMicroUsd(argv["size-usd"]);
@@ -151,10 +175,10 @@ import { toPk } from "../utils/pk.js";
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    fundingAccount: ataInit.ata,              // ✅ token account
+    fundingAccount: ownerAtaInit.ata,         // ✅ Token account (Token Program–owned)
     position,
     positionRequest,
-    positionRequestAta: prAtaInit.ata,        // escrow ATA (we created it above)
+    positionRequestAta: reqAtaInit.ata,       // ✅ Escrow bound to PositionRequest
     custody: custody.pubkey,
     collateralCustody: collateralCustody.pubkey,
     inputMint: collateralMint,
