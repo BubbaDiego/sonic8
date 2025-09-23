@@ -12,7 +12,6 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import {
-  getAssociatedTokenAddressSync,
   getAccount,
   createSyncNativeInstruction,
   NATIVE_MINT,
@@ -116,47 +115,40 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-// Derive the ATA we pass into Perps accounts (works for PDA owners when allowOwnerOffCurve = true)
-function deriveAta(mint: PublicKey, owner: PublicKey, allowOwnerOffCurve: boolean) {
-  return getAssociatedTokenAddressSync(
-    mint, owner, allowOwnerOffCurve, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-  );
+/** Canonical ATA PDA derivation (no library): seed = [owner, tokenProgram, mint] @ associated program */
+function deriveAtaManual(mint: PublicKey, owner: PublicKey): PublicKey {
+  const seeds = [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()];
+  const [addr] = PublicKey.findProgramAddressSync(seeds, ASSOCIATED_TOKEN_PROGRAM_ID);
+  return addr;
 }
 
-/** Build the ATA 'Create' CPI with the exact metas the AToken program expects. */
+/** Canonical Associated Token Account 'Create' instruction (exact metas & order) */
 function createAtaIxManual(
   payer: PublicKey,
   ata: PublicKey,
   owner: PublicKey,
   mint: PublicKey,
 ): TransactionInstruction {
-  // Accounts (order matters):
-  // 0: payer (signer, writable)
-  // 1: associated token account (writable)
-  // 2: owner (wallet/PDA)
-  // 3: mint
-  // 4: System Program
-  // 5: Token Program
-  // 6: Rent Sysvar
   return new TransactionInstruction({
     programId: ASSOCIATED_TOKEN_PROGRAM_ID,
     keys: [
-      { pubkey: payer,                 isSigner: true,  isWritable: true  },
-      { pubkey: ata,                   isSigner: false, isWritable: true  },
-      { pubkey: owner,                 isSigner: false, isWritable: false },
-      { pubkey: mint,                  isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: TOKEN_PROGRAM_ID,         isSigner: false, isWritable: false },
-      { pubkey: SYSVAR_RENT_PUBKEY,       isSigner: false, isWritable: false },
+      { pubkey: payer,                  isSigner: true,  isWritable: true  }, // 0: payer (System account)
+      { pubkey: ata,                    isSigner: false, isWritable: true  }, // 1: associated token account to create
+      { pubkey: owner,                  isSigner: false, isWritable: false }, // 2: owner (can be PDA)
+      { pubkey: mint,                   isSigner: false, isWritable: false }, // 3: mint
+      { pubkey: SystemProgram.programId,isSigner: false, isWritable: false }, // 4
+      { pubkey: TOKEN_PROGRAM_ID,       isSigner: false, isWritable: false }, // 5
+      { pubkey: SYSVAR_RENT_PUBKEY,     isSigner: false, isWritable: false }, // 6 (safe to include)
     ],
     data: Buffer.alloc(0),
   });
 }
 
+/** Ensure owner's ATA (on-curve) */
 export async function ensureAtaIx(
   connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey
 ) {
-  const ata = deriveAta(mint, owner, /*offCurve*/ false);
+  const ata = deriveAtaManual(mint, owner);
   try {
     await getAccount(connection, ata);
     return { ata, ixs: [] as TransactionInstruction[] };
@@ -166,15 +158,16 @@ export async function ensureAtaIx(
   }
 }
 
+/** Ensure escrow ATA where owner can be a PDA (positionRequest) */
 export async function ensureAtaForOwner(
-  connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey, allowOwnerOffCurve: boolean
+  connection: Connection, mint: PublicKey, owner: PublicKey, payer: PublicKey, _allowOwnerOffCurve: boolean
 ) {
-  const ata = deriveAta(mint, owner, allowOwnerOffCurve);
+  const ata = deriveAtaManual(mint, owner);
   try {
     await getAccount(connection, ata);
     return { ata, ixs: [] as TransactionInstruction[] };
   } catch {
-    info("🪙", `Create ATA (owner offCurve=${allowOwnerOffCurve}): ${ata.toBase58()}`);
+    info("🪙", `Create ATA (owner offCurve) : ${ata.toBase58()}`);
     return { ata, ixs: [createAtaIxManual(payer, ata, owner, mint)] };
   }
 }
