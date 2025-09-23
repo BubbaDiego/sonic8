@@ -115,14 +115,15 @@ export async function findCustodyByMint(program: Program, poolAccount: any, mint
   return found[0];
 }
 
-/** Canonical ATA PDA derivation (no library): seed = [owner, tokenProgram, mint] @ associated program */
+/** Canonical ATA PDA for (owner, mint) under Associated Token Program */
 function deriveAtaManual(mint: PublicKey, owner: PublicKey): PublicKey {
+  // seeds = [owner, tokenProgram, mint] with program = Associated Token Program
   const seeds = [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()];
   const [addr] = PublicKey.findProgramAddressSync(seeds, ASSOCIATED_TOKEN_PROGRAM_ID);
   return addr;
 }
 
-/** Canonical Associated Token Account 'Create' instruction (exact metas & order) */
+/** Canonical 'Create Associated Token Account' ix (exact metas & order) */
 function createAtaIxManual(
   payer: PublicKey,
   ata: PublicKey,
@@ -133,12 +134,12 @@ function createAtaIxManual(
     programId: ASSOCIATED_TOKEN_PROGRAM_ID,
     keys: [
       { pubkey: payer,                  isSigner: true,  isWritable: true  }, // 0: payer (System account)
-      { pubkey: ata,                    isSigner: false, isWritable: true  }, // 1: associated token account to create
-      { pubkey: owner,                  isSigner: false, isWritable: false }, // 2: owner (can be PDA)
+      { pubkey: ata,                    isSigner: false, isWritable: true  }, // 1: ATA to create
+      { pubkey: owner,                  isSigner: false, isWritable: false }, // 2: owner (PDA ok)
       { pubkey: mint,                   isSigner: false, isWritable: false }, // 3: mint
       { pubkey: SystemProgram.programId,isSigner: false, isWritable: false }, // 4
       { pubkey: TOKEN_PROGRAM_ID,       isSigner: false, isWritable: false }, // 5
-      { pubkey: SYSVAR_RENT_PUBKEY,     isSigner: false, isWritable: false }, // 6 (safe to include)
+      { pubkey: SYSVAR_RENT_PUBKEY,     isSigner: false, isWritable: false }, // 6
     ],
     data: Buffer.alloc(0),
   });
@@ -167,7 +168,7 @@ export async function ensureAtaForOwner(
     await getAccount(connection, ata);
     return { ata, ixs: [] as TransactionInstruction[] };
   } catch {
-    info("🪙", `Create ATA (owner offCurve) : ${ata.toBase58()}`);
+    info("🪙", `Create ATA (owner offCurve): ${ata.toBase58()}`);
     return { ata, ixs: [createAtaIxManual(payer, ata, owner, mint)] };
   }
 }

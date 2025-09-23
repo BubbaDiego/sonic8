@@ -3,13 +3,12 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import type { Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Keypair, Transaction } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, NATIVE_MINT } from "@solana/spl-token";
+import { NATIVE_MINT } from "@solana/spl-token";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
 import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaCanonical, derivePositionPdaPoolFirst, derivePositionPdaOwnerFirst, sideToEnum } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 import { toPk } from "../utils/pk.js";
-import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from "../utils/ata.js";
 
 (async () => {
   const argv = await yargs(hideBin(process.argv))
@@ -21,6 +20,7 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
     .option("collat", { type: "number", default: 0, describe: "Collateral token amount (UI units)" })
     .option("collat-mint", { type: "string", describe: "Override collateral mint (default: WSOL for long, USDC for short)" })
     .option("position", { type: "string", describe: "Override Position PDA (use the Right: value from logs)" })
+    .option("position-request", { type: "string", describe: "Override PositionRequest PDA (use Perps Right: value)" })
     .option("oracle-price", { type: "number", describe: "Oracle/mark price in USD for guardrail calc" })
     .option("slip", { type: "number", describe: "Slippage fraction for guardrail (e.g., 0.02)" })
     .option("max-price", { type: "number", describe: "Explicit max price (LONG)" })
@@ -80,7 +80,11 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
 
   // Use the canonical PDA for the request unless overridden
   const unique = Math.floor(Date.now() / 1000);
-  const [positionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
+  const positionRequestOverride = argv["position-request"]
+    ? toPk("position-request", argv["position-request"] as string)
+    : null;
+
+  const [derivedPositionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
     owner: wallet.publicKey,
     pool: pool.publicKey,
     custody: custody.pubkey,
@@ -88,69 +92,38 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
     seed: unique,
     position,
   });
+  const positionRequest = positionRequestOverride ?? derivedPositionRequest;
   kv("Position", position.toBase58());
   kv("PosRequest", positionRequest.toBase58());
+  if (positionRequestOverride) {
+    console.log("🧩 positionRequest (override) =", positionRequestOverride.toBase58());
+  }
 
   const decimals = (collateralCustody.account.decimals as number) ?? 9;
   const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
 
   // 2) Funding (owner ATA) & PositionRequest ATA (escrow)
-  const usdcMint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-  const wsolMint = NATIVE_MINT;
-  const [usdcProgramId, wsolProgramId] = await Promise.all([
-    detectTokenProgramForMint(provider.connection, usdcMint),
-    detectTokenProgramForMint(provider.connection, wsolMint),
-  ]);
-
-  let collateralTokenProgramId = TOKEN_PROGRAM_ID;
-  if (collateralMint.equals(usdcMint)) {
-    collateralTokenProgramId = usdcProgramId;
-  } else if (collateralMint.equals(wsolMint)) {
-    collateralTokenProgramId = wsolProgramId;
-  } else {
-    collateralTokenProgramId = await detectTokenProgramForMint(provider.connection, collateralMint);
-  }
-
-  const { ata: userCollateralAta, ix: ensureUserCollateralAta } = createAtaIxStrict(
-    wallet.publicKey,
+  const ataInit = await cfg.ensureAtaIx(
+    provider.connection,
     collateralMint,
     wallet.publicKey,
-    /* allowOwnerOffCurve= */ false,
-    collateralTokenProgramId,
-  );
-  console.log(`🧪 ATA debug (${collateralMint.equals(usdcMint) ? "USDC" : collateralMint.equals(wsolMint) ? "WSOL" : "custom"}, wallet):`, {
-    mint: collateralMint.toBase58(),
-    owner: wallet.publicKey.toBase58(),
-    allowOwnerOffCurve: false,
-    tokenProgramId: collateralTokenProgramId.toBase58(),
-    ata: userCollateralAta.toBase58(),
-  });
-  const expectedUserCollateralAta = deriveAtaStrict(collateralMint, wallet.publicKey, false, collateralTokenProgramId);
-  if (!userCollateralAta.equals(expectedUserCollateralAta)) {
-    throw new Error("ATA mismatch (wallet) vs seed derivation");
-  }
-
-  const { ata: positionRequestAta, ix: ensurePositionRequestAta } = createAtaIxStrict(
     wallet.publicKey,
+  );
+
+  const prAtaInit = await cfg.ensureAtaForOwner(
+    provider.connection,
     collateralMint,
     positionRequest,
-    /* allowOwnerOffCurve= */ true,
-    collateralTokenProgramId,
+    wallet.publicKey,
+    true,
   );
-  console.log(`🧪 ATA debug (${collateralMint.equals(usdcMint) ? "USDC" : collateralMint.equals(wsolMint) ? "WSOL" : "custom"}, PDA):`, {
-    mint: collateralMint.toBase58(),
-    owner: positionRequest.toBase58(),
-    allowOwnerOffCurve: true,
-    tokenProgramId: collateralTokenProgramId.toBase58(),
-    ata: positionRequestAta.toBase58(),
-  });
-  const expectedPositionRequestAta = deriveAtaStrict(collateralMint, positionRequest, true, collateralTokenProgramId);
-  if (!positionRequestAta.equals(expectedPositionRequestAta)) {
-    throw new Error("ATA mismatch (positionRequest/PDA) vs seed derivation");
-  }
 
-  const preIxs = [ensureUserCollateralAta, ensurePositionRequestAta];
-  console.log("🧾 preIxs = ", preIxs.length, " (owner ATA create + escrow ATA create)");
+  const preIxs = [...ataInit.ixs, ...prAtaInit.ixs];
+  console.log("🧾 preIxs = ", preIxs.length, "  (owner ATA create + escrow ATA create)");
+  if (prAtaInit.ixs[0]) {
+    const metas = prAtaInit.ixs[0].keys.slice(0, 4).map(k => k.pubkey.toBase58());
+    console.log("AToken escrow ix metas [payer, ata, owner, mint] =", metas);
+  }
 
   // 3) Amounts & guardrail
   const sizeUsdDelta = toMicroUsd(argv["size-usd"]);
@@ -178,17 +151,17 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    fundingAccount: userCollateralAta,          // ✅ token account (Token Program–owned)
+    fundingAccount: ataInit.ata,              // ✅ token account
     position,
     positionRequest,
-    positionRequestAta: positionRequestAta,     // pass the escrow ATA address
+    positionRequestAta: prAtaInit.ata,        // escrow ATA (we created it above)
     custody: custody.pubkey,
     collateralCustody: collateralCustody.pubkey,
     inputMint: collateralMint,
     referral: wallet.publicKey,
     perpetuals: perpetuals.publicKey,
     pool: pool.publicKey,
-    tokenProgram: collateralTokenProgramId,
+    tokenProgram: cfg.SYS.TOKEN_PROGRAM_ID,
     associatedTokenProgram: cfg.SYS.ASSOCIATED_TOKEN_PROGRAM_ID,
     systemProgram: SystemProgram.programId,
   } as any;
