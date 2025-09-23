@@ -79,13 +79,26 @@ class MarketMovementMonitor(BaseMonitor):
         prices: Dict[str, float] = {}
         for asset in self.ASSETS:
             cur.execute(
-                "SELECT current_price FROM prices "
-                "WHERE asset_type = ? "
+                "SELECT current_price, previous_price "
+                "FROM prices WHERE asset_type = ? "
                 "ORDER BY CAST(last_update_time AS REAL) DESC LIMIT 1",
                 (asset,),
             )
             row = cur.fetchone()
-            prices[asset] = float(row["current_price"]) if row else 0.0
+            val = 0.0
+            if row:
+                # Be robust to bad historical rows (timestamp accidentally stored
+                # in current_price)
+                cp = row["current_price"]
+                pp = row["previous_price"]
+                try:
+                    val = float(cp)
+                except Exception:
+                    try:
+                        val = float(pp) if pp is not None else 0.0
+                    except Exception:
+                        val = 0.0
+            prices[asset] = val
         return prices
 
     # ------------------------------------------------------------------
