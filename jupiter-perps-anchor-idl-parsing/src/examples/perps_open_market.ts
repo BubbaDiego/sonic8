@@ -103,51 +103,33 @@ import { toPk } from "../utils/pk.js";
   const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
 
   // 2) Funding (owner ATA) & escrow ATAs (position request + position)
-  // 1) Owner's USDC ATA (funding) – usually already exists
+  // Owner ATA (funding) – USDC
   const ownerAtaInit = await cfg.ensureAtaIx(
-    provider.connection,
-    collateralMint,
-    wallet.publicKey,
-    wallet.publicKey,
+    provider.connection, collateralMint, wallet.publicKey, wallet.publicKey
   );
 
-  // 2) Escrow A: owner = positionRequest PDA
+  // Escrow A: owner = positionRequest
   const reqAtaInit = await cfg.ensureAtaForOwner(
-    provider.connection,
-    collateralMint,
-    positionRequest,
-    wallet.publicKey,
-    true,
+    provider.connection, collateralMint, positionRequest, wallet.publicKey, true
   );
 
-  // 3) Escrow B: owner = position PDA (Perps may idempotently ensure this too)
+  // Escrow B: owner = position (Perps sometimes no-ops this idempotently)
   const posAtaInit = await cfg.ensureAtaForOwner(
-    provider.connection,
-    collateralMint,
-    position,
-    wallet.publicKey,
-    true,
+    provider.connection, collateralMint, position, wallet.publicKey, true
   );
 
-  // Compose pre-ixs: owner first (if missing), then both escrows
+  // Pre-ix order
   const preIxs = [...ownerAtaInit.ixs, ...reqAtaInit.ixs, ...posAtaInit.ixs];
-
-  console.log(
-    "🧾 preIxs =",
-    preIxs.length,
-    " (owner create:",
-    ownerAtaInit.ixs.length,
-    ", req escrow create:",
-    reqAtaInit.ixs.length,
-    ", pos escrow create:",
-    posAtaInit.ixs.length,
-    ")",
+  console.log("🧾 preIxs =",
+    preIxs.length, "  (owner create:", ownerAtaInit.ixs.length,
+    ", req escrow create:", reqAtaInit.ixs.length,
+    ", pos escrow create:", posAtaInit.ixs.length, ")"
   );
 
   // For transparency (first 4 metas):
-  const meta4 = (ix: any) => ix?.keys?.slice(0, 4)?.map((k: any) => k.pubkey.toBase58());
-  if (reqAtaInit.ixs[0]) console.log("AToken escrow[req] metas [payer, ata, owner, mint] =", meta4(reqAtaInit.ixs[0]));
-  if (posAtaInit.ixs[0]) console.log("AToken escrow[pos] metas [payer, ata, owner, mint] =", meta4(posAtaInit.ixs[0]));
+  const metas4 = (ix: any) => ix?.keys?.slice(0,4)?.map((k: any) => k.pubkey.toBase58());
+  if (reqAtaInit.ixs[0]) console.log("AToken escrow[req] metas [payer, ata, owner, mint] =", metas4(reqAtaInit.ixs[0]));
+  if (posAtaInit.ixs[0]) console.log("AToken escrow[pos] metas [payer, ata, owner, mint] =", metas4(posAtaInit.ixs[0]));
 
   // 3) Amounts & guardrail
   const sizeUsdDelta = toMicroUsd(argv["size-usd"]);
