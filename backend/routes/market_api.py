@@ -20,11 +20,33 @@ def market_latest(dl: DataLocker = Depends(get_app_locker)):
         return {}
 
     payload = json.loads(row[0]) if isinstance(row[0], (str, bytes)) else json.loads(row["metadata"])
-    details = payload.get("details", [])
-    return {
-        d["asset"]: d["windows"]
-        for d in details
-        if "asset" in d and "windows" in d
-    }
+    details = payload.get("details", []) or []
+
+    # Support both legacy "windows" shape and the new market-movement detail shape.
+    latest = {}
+    for detail in details:
+        asset = detail.get("asset")
+        if not asset:
+            continue
+
+        if "windows" in detail:  # Legacy shape: {"asset": "...", "windows": {...}}
+            latest[asset] = detail["windows"]
+            continue
+
+        anchor = detail.get("anchor")
+        if isinstance(anchor, dict):
+            anchor = anchor.get("value")
+
+        latest[asset] = {
+            "anchor": anchor,
+            "current": detail.get("current") or detail.get("price"),
+            "delta": detail.get("delta"),
+            "threshold": detail.get("threshold"),
+            "direction": detail.get("direction"),
+            "dir_ok": detail.get("dir_ok"),
+            "triggered": detail.get("triggered") or detail.get("trigger"),
+        }
+
+    return latest
 
 __all__ = ["router"]
