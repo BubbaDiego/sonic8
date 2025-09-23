@@ -2,9 +2,10 @@ import React, { useMemo } from 'react';
 import { Card, CardHeader, CardContent, Typography, Stack, Box, Chip, Tooltip } from '@mui/material';
 import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
 import MarketMovementCard from '../../components/MarketMovementCard';
-import MonitorUpdateBar    from './MonitorUpdateBar';
+import MonitorUpdateBar from './MonitorUpdateBar';
 
 export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false }) {
+  // Normalize notifications so the bar always renders with sane defaults
   const normCfg = useMemo(
     () => ({
       notifications: {
@@ -12,17 +13,21 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
         voice: true,
         sms: false,
         tts: true,
-        ...(cfg.notifications || {})
+        ...(cfg?.notifications || {})
       },
       ...cfg
     }),
     [cfg]
   );
 
+  // SAFE toggle (handles undefined notifications object)
   const toggleNotification = (key) => {
     setCfg((prev) => ({
       ...prev,
-      notifications: { ...prev.notifications, [key]: !prev.notifications[key] }
+      notifications: {
+        ...(prev?.notifications || {}),
+        [key]: !Boolean(prev?.notifications?.[key])
+      }
     }));
   };
 
@@ -61,20 +66,27 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
           </Tooltip>
         }
       />
+
       <CardContent sx={{ p: 0 }}>
         <MarketMovementCard cfg={cfg} setCfg={setCfg} live={live} disabled={disabled} />
       </CardContent>
 
+      {/* pushes the bottom bar to the card edge */}
       <Box sx={{ flexGrow: 1 }} />
 
-      <MonitorUpdateBar
-        cfg={normCfg.notifications}
-        toggle={toggleNotification}
-        sx={{ mx: 2, mb: 2 }}
-      />
+      {/* Bottom enable/disable (System/Voice/SMS/TTS) bar */}
+      <MonitorUpdateBar cfg={normCfg.notifications} toggle={toggleNotification} sx={{ mx: 2, mb: 2 }} />
 
       {disabled && (
-        <Box sx={{ position: 'absolute', inset: 0, borderRadius: 1, pointerEvents: 'none', filter: 'grayscale(0.4)' }} />
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 1,
+            pointerEvents: 'none',
+            filter: 'grayscale(0.4)'
+          }}
+        />
       )}
     </Card>
   );
