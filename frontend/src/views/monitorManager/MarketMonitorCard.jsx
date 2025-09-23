@@ -1,5 +1,14 @@
 import React, { useMemo } from 'react';
-import { Card, CardHeader, CardContent, Typography, Stack, Box, Chip, Tooltip } from '@mui/material';
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  Typography,
+  Stack,
+  Box,
+  Chip,
+  Tooltip
+} from '@mui/material';
 import ShowChartTwoToneIcon from '@mui/icons-material/ShowChartTwoTone';
 import MarketMovementCard from '../../components/MarketMovementCard';
 import MonitorUpdateBar from './MonitorUpdateBar';
@@ -38,6 +47,7 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        minHeight: 560, // ← extend height so bottom bar is never clipped
         position: 'relative',
         opacity: disabled ? 0.35 : 1,
         pointerEvents: disabled ? 'none' : 'auto',
@@ -67,14 +77,14 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
         }
       />
 
-      <CardContent sx={{ p: 0 }}>
+      <CardContent sx={{ p: 0, flex: '1 1 auto' }}>
         <MarketMovementCard cfg={cfg} setCfg={setCfg} live={live} disabled={disabled} />
       </CardContent>
 
       {/* pushes the bottom bar to the card edge */}
       <Box sx={{ flexGrow: 1 }} />
 
-      {/* Bottom enable/disable (System/Voice/SMS/TTS) bar */}
+      {/* Single notifications bar (System / Voice / SMS / TTS) */}
       <MonitorUpdateBar cfg={normCfg.notifications} toggle={toggleNotification} sx={{ mx: 2, mb: 2 }} />
 
       {disabled && (

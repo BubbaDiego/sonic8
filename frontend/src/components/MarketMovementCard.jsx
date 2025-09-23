@@ -1,233 +1,136 @@
-import React, { useMemo, useCallback } from 'react';
-import axios from 'utils/axios';
-import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
+import React, { useMemo } from 'react';
 import {
   Box,
   Stack,
   Typography,
   TextField,
-  Select,
   MenuItem,
-  Button,
-  FormControl,
-  InputLabel,
   Divider,
-  Tooltip,
-  Chip
+  Chip,
+  Button
 } from '@mui/material';
+import axios from 'utils/axios';
+import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 
-/**
- * Inputs for the Market Movement Monitor.
- * Props:
- *   cfg:  monitor settings object
- *   setCfg: setter from MonitorManager (markDirty wrapper)
- *   live: optional live readout (unused for now)
- */
 export default function MarketMovementCard({ cfg = {}, setCfg, live = {}, disabled = false }) {
   const { sonicActive } = useSonicStatusPolling();
+
   const assets = useMemo(() => {
     const keys = Object.keys(cfg?.thresholds || {});
     return keys.length ? keys : ['SPX', 'BTC', 'ETH', 'SOL'];
   }, [cfg]);
 
-  const toggleNotify = useCallback(
-    (key) => {
-      setCfg((prev) => {
-        const next = { ...(prev?.notifications || {}) };
-        next[key] = !Boolean(next[key]);
-        return { ...prev, notifications: next };
-      });
-    },
-    [setCfg]
-  );
+  const rearm = String(cfg?.rearm_mode || 'ladder');
 
-  const thresholds = cfg?.thresholds || {};
-  const rearmMode = cfg?.rearm_mode || 'ladder';
-
-  const updateThreshold = (asset, patch) => {
-    setCfg((prev) => ({
-      ...prev,
-      thresholds: {
-        ...(prev.thresholds || {}),
-        [asset]: {
-          ...(prev.thresholds?.[asset] || { delta: 5, direction: 'both' }),
-          ...patch
-        }
-      }
-    }));
+  const setRearm = (mode) => {
+    setCfg((prev) => ({ ...prev, rearm_mode: mode }));
   };
 
-  const updateRearm = (value) => {
-    setCfg((prev) => ({ ...prev, rearm_mode: value }));
-  };
-
-  const resetAnchors = async () => {
-    const { data } = await axios.post('/api/monitor-settings/market/reset-anchors');
-    setCfg((prev) => {
-      const nextAnchors = { ...(prev.anchors || {}) };
-      Object.entries(data.anchors || {}).forEach(([asset, anchor]) => {
-        if (anchor && typeof anchor === 'object') {
-          nextAnchors[asset] = anchor;
-        } else if (anchor !== undefined && anchor !== null) {
-          nextAnchors[asset] = {
-            value: Number(anchor),
-            time: new Date().toISOString()
-          };
-        }
-      });
-
-      const currentAssets = new Set([
-        ...Object.keys(nextAnchors),
-        ...Object.keys(prev?.armed || {})
-      ]);
-
-      let armedValue = data.armed;
-      if (typeof armedValue === 'boolean') {
-        armedValue = Array.from(currentAssets).reduce(
-          (acc, asset) => ({ ...acc, [asset]: armedValue }),
-          {}
-        );
-      } else if (armedValue && typeof armedValue === 'object') {
-        armedValue = { ...(prev.armed || {}), ...armedValue };
-      } else {
-        armedValue = prev.armed || {};
-      }
-
+  const getThr = (asset) => {
+    const t = cfg?.thresholds?.[asset];
+    if (t && typeof t === 'object') {
       return {
-        ...prev,
-        anchors: nextAnchors,
-        armed: armedValue
+        delta: String(t.delta ?? ''),
+        direction: String((t.direction || 'both')[0].toUpperCase() + (t.direction || 'both').slice(1))
       };
+    }
+    // legacy numeric shape
+    return { delta: String(t ?? ''), direction: 'Both' };
+  };
+
+  const setThr = (asset, patch) => {
+    setCfg((prev) => {
+      const prevT = prev?.thresholds?.[asset];
+      const asObj = prevT && typeof prevT === 'object' ? prevT : { delta: prevT ?? '' };
+      const next = {
+        ...(prev?.thresholds || {}),
+        [asset]: {
+          delta: Number(patch.delta ?? asObj.delta ?? 0),
+          direction: String((patch.direction ?? asObj.direction ?? 'both')).toLowerCase()
+        }
+      };
+      return { ...prev, thresholds: next };
     });
   };
 
+  const resetAnchors = async () => {
+    try {
+      await axios.post('/api/monitor-settings/market/reset-anchors');
+    } catch {}
+  };
+
   return (
-    <Box sx={{ p: 2, ...(disabled ? { opacity: 0.5, pointerEvents: 'none' } : {}) }}>
+    <Box sx={{ p: 16 / 8, ...(disabled ? { opacity: 0.5, pointerEvents: 'none' } : {}) }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Typography variant="subtitle2">
+        <Typography variant="subtitle2" sx={{ opacity: 0.9 }}>
           Trigger when price moves by the configured dollar amount from the last anchor.
         </Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} alignItems="center">
           <Chip
             size="small"
             label={sonicActive ? 'Sonic: Active' : 'Sonic: Idle'}
             color={sonicActive ? 'success' : 'default'}
             variant={sonicActive ? 'filled' : 'outlined'}
           />
-          <FormControl size="small">
-            <InputLabel id="rearm-label">Rearm</InputLabel>
-            <Select
-              labelId="rearm-label"
-              label="Rearm"
-              value={rearmMode}
-              onChange={(e) => updateRearm(e.target.value)}
-              sx={{ minWidth: 140 }}
-            >
-              <MenuItem value="ladder">Ladder</MenuItem>
-              <MenuItem value="reset">Reset to Current</MenuItem>
-              <MenuItem value="single">Single (disarm)</MenuItem>
-            </Select>
-          </FormControl>
-          <Tooltip title="Set all anchors to current prices and re-arm">
-            <Button variant="outlined" size="small" onClick={resetAnchors}>
-              Reset Anchors
-            </Button>
-          </Tooltip>
+          <TextField
+            select
+            size="small"
+            label="Rearm"
+            value={rearm[0].toUpperCase() + rearm.slice(1)}
+            onChange={(e) => setRearm(String(e.target.value).toLowerCase())}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="Ladder">Ladder</MenuItem>
+            <MenuItem value="Reset">Reset</MenuItem>
+            <MenuItem value="Single">Single</MenuItem>
+          </TextField>
+          <Button size="small" variant="outlined" onClick={resetAnchors}>
+            Reset Anchors
+          </Button>
         </Stack>
       </Stack>
 
-      <Divider sx={{ mb: 1 }} />
+      <Divider sx={{ my: 1.25 }} />
 
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '110px 1fr 160px',
-          columnGap: 1.5,
-          rowGap: 1.2,
-          alignItems: 'center'
-        }}
-      >
-        <Typography variant="overline">Asset</Typography>
-        <Typography variant="overline">Δ (USD)</Typography>
-        <Typography variant="overline">Direction</Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        <Typography variant="overline" sx={{ opacity: 0.7 }}>
+          Asset
+        </Typography>
+        <Typography variant="overline" sx={{ opacity: 0.7 }}>
+          Δ (USD)
+        </Typography>
+        <Typography variant="overline" sx={{ opacity: 0.7 }}>
+          Direction
+        </Typography>
 
-        {assets.map((asset) => {
-          const t = thresholds[asset] || { delta: 5, direction: 'both' };
+        {assets.map((a) => {
+          const t = getThr(a);
           return (
-            <React.Fragment key={asset}>
-              <Typography sx={{ fontWeight: 600 }}>{asset}</Typography>
-
+            <React.Fragment key={a}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography sx={{ fontWeight: 600 }}>{a}</Typography>
+              </Box>
               <TextField
                 size="small"
-                type="number"
-                inputProps={{ step: '0.01', min: 0 }}
-                value={t.delta ?? ''}
-                onChange={(e) =>
-                  updateThreshold(asset, {
-                    delta: e.target.value === '' ? '' : Number(e.target.value)
-                  })
-                }
+                value={t.delta}
+                onChange={(e) => setThr(a, { delta: e.target.value })}
+                inputProps={{ inputMode: 'decimal' }}
               />
-
-              <FormControl size="small">
-                <Select
-                  value={t.direction || 'both'}
-                  onChange={(e) => updateThreshold(asset, { direction: e.target.value })}
-                >
-                  <MenuItem value="both">Both</MenuItem>
-                  <MenuItem value="up">Up only</MenuItem>
-                  <MenuItem value="down">Down only</MenuItem>
-                </Select>
-              </FormControl>
+              <TextField
+                select
+                size="small"
+                value={t.direction}
+                onChange={(e) => setThr(a, { direction: e.target.value })}
+              >
+                <MenuItem value="Both">Both</MenuItem>
+                <MenuItem value="Up">Up</MenuItem>
+                <MenuItem value="Down">Down</MenuItem>
+              </TextField>
             </React.Fragment>
           );
         })}
       </Box>
-
-      <Divider sx={{ my: 1.5 }} />
-
-      <Box
-        sx={{
-          mt: 1,
-          p: 1.25,
-          bgcolor: 'primary.900',
-          borderRadius: 1,
-          border: '1px solid',
-          borderColor: 'primary.800'
-        }}
-      >
-        <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-start">
-          <Button
-            size="small"
-            variant={cfg?.notifications?.system ? 'contained' : 'outlined'}
-            onClick={() => toggleNotify('system')}
-          >
-            System
-          </Button>
-          <Button
-            size="small"
-            variant={cfg?.notifications?.voice ? 'contained' : 'outlined'}
-            onClick={() => toggleNotify('voice')}
-          >
-            Voice
-          </Button>
-          <Button
-            size="small"
-            variant={cfg?.notifications?.sms ? 'contained' : 'outlined'}
-            onClick={() => toggleNotify('sms')}
-          >
-            SMS
-          </Button>
-          <Button
-            size="small"
-            variant={cfg?.notifications?.tts ? 'contained' : 'outlined'}
-            onClick={() => toggleNotify('tts')}
-          >
-            TTS
-          </Button>
-        </Stack>
-      </Box>
+      {/* NOTE: No notifications bar here. It lives in the wrapper card only. */}
     </Box>
   );
 }
-
