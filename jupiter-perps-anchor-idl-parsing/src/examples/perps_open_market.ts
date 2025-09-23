@@ -82,7 +82,8 @@ import { toPk } from "../utils/pk.js";
   const unique = Math.floor(Date.now() / 1000);
   let positionRequest: PublicKey;
   const prOverride = argv["position-request"] as string | undefined;
-  if (prOverride) {
+  const havePR = !!prOverride;
+  if (havePR) {
     positionRequest = toPk("position-request", prOverride);
     console.log("🧩 positionRequest (override) =", positionRequest.toBase58());
   } else {
@@ -112,7 +113,7 @@ import { toPk } from "../utils/pk.js";
   let reqAtaInit = { ata: PublicKey.default, ixs: [] as any[] };
   let posAtaInit = { ata: PublicKey.default, ixs: [] as any[] };
 
-  if (prOverride) {
+  if (havePR) {
     // Escrow A: owner = positionRequest
     reqAtaInit = await cfg.ensureAtaForOwner(
       provider.connection, collateralMint, positionRequest, wallet.publicKey, true
@@ -126,13 +127,13 @@ import { toPk } from "../utils/pk.js";
 
 
   // Pre-ix order
-  const preIxs = prOverride
+  const preIxs = havePR
     ? [...ownerAtaInit.ixs, ...reqAtaInit.ixs, ...posAtaInit.ixs]
     : [...ownerAtaInit.ixs];
   console.log(
     "🧾 preIxs =",
     preIxs.length,
-    prOverride ? " (owner + req escrow + pos escrow)" : " (owner only)",
+    havePR ? " (owner + req escrow + pos escrow)" : " (owner only)",
   );
 
   // For transparency (first 4 metas):
@@ -166,10 +167,10 @@ import { toPk } from "../utils/pk.js";
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    fundingAccount: ownerAtaInit.ata,         // ✅ Token account (Token Program–owned)
+    fundingAccount: ownerAtaInit.ata,              // ✅ Token account (USDC ATA)
     position,
     positionRequest,
-    positionRequestAta: prOverride ? reqAtaInit.ata : ownerAtaInit.ata,
+    positionRequestAta: havePR ? reqAtaInit.ata : ownerAtaInit.ata,
     custody: custody.pubkey,
     collateralCustody: collateralCustody.pubkey,
     inputMint: collateralMint,
