@@ -91,12 +91,9 @@ import { toPk } from "../utils/pk.js";
 
   const decimals = (collateralCustody.account.decimals as number) ?? 9;
   const collateralTokenDelta = toTokenAmount(argv.collat, decimals);
-  const needsCollateral =
-    (collateralTokenDelta as any).gt
-      ? (collateralTokenDelta as any).gt(new cfg.BN(0))
-      : Number(collateralTokenDelta) > 0;
 
   // 2) Funding (owner ATA) & PositionRequest ATA (escrow)
+  // ALWAYS ensure owner ATA for inputMint
   const ataInit = await cfg.ensureAtaIx(
     provider.connection,
     collateralMint,
@@ -104,6 +101,7 @@ import { toPk } from "../utils/pk.js";
     wallet.publicKey,
   );
 
+  // Escrow ATA for positionRequest (owner = positionRequest, off-curve)
   const prAtaInit = await cfg.ensureAtaForOwner(
     provider.connection,
     collateralMint,
@@ -111,25 +109,9 @@ import { toPk } from "../utils/pk.js";
     wallet.publicKey,
     true,
   );
-  const prAtaAddr = prAtaInit.ata;
 
-  const topUp = needsCollateral && collateralMint.equals(cfg.MINTS.WSOL)
-    ? await cfg.topUpWsolIfNeededIx(
-        provider.connection,
-        ataInit.ata,
-        wallet.publicKey,
-        BigInt(collateralTokenDelta.toString()),
-      )
-    : [];
-
-  // Always ensure owner's ATA (ataInit.ixs). If we’re depositing collateral (>0),
-  // also ensure the escrow ATA for positionRequest (prAtaInit.ixs). No WSOL top-up for USDC.
-  const preIxs = [
-    ...ataInit.ixs,          // owner’s ATA (for inputMint)
-    ...prAtaInit.ixs,        // escrow ATA (owner = positionRequest, off-curve)
-    ...topUp,                // only include for WSOL; for USDC leave empty
-  ];
-
+  // For USDC, no wrap/top-up
+  const preIxs = [...ataInit.ixs, ...prAtaInit.ixs]; // ✅ both creates run before Perps
   console.log(
     "🧾 preIxs = ",
     preIxs.length,
@@ -166,10 +148,10 @@ import { toPk } from "../utils/pk.js";
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    fundingAccount: ataInit.ata,
+    fundingAccount: ataInit.ata,          // ✅ token account (Token Program–owned)
     position,
     positionRequest,
-    positionRequestAta: prAtaAddr,
+    positionRequestAta: prAtaInit.ata,     // pass the escrow ATA address
     custody: custody.pubkey,
     collateralCustody: collateralCustody.pubkey,
     inputMint: collateralMint,
@@ -201,7 +183,7 @@ import { toPk } from "../utils/pk.js";
     .instruction();
 
   const tx = new Transaction();
-  if (preIxs.length) tx.add(...preIxs);     // ✅ escrow ATA created BEFORE Perps instruction
+  if (preIxs.length) tx.add(...preIxs);   // ✅ AToken creates first
   tx.add(reqIx);
   tx.feePayer = wallet.publicKey;
   tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
