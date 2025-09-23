@@ -170,36 +170,63 @@ def _get_latest_prices_sql(dl, assets: Iterable[str]) -> Dict[str, Dict[str, Any
 def _eval(cfg: Dict[str, Any], prices: Dict[str, Dict[str, Any]], assets: Iterable[str]) -> Dict[str, Any]:
     anchors = cfg.get("anchors") or {}
     thresholds = cfg.get("thresholds") or {}
-    direction = cfg.get("direction") or {}
+
+    def _to_float(value: Any) -> float | None:
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+    def _anchor_val(asset: str) -> float | None:
+        anchor = anchors.get(asset)
+        if isinstance(anchor, dict):
+            anchor = anchor.get("value")
+        return _to_float(anchor)
+
+    def _threshold_val(asset: str) -> float | None:
+        threshold = thresholds.get(asset)
+        if isinstance(threshold, dict):
+            threshold = threshold.get("delta")
+        return _to_float(threshold)
+
+    def _direction_val(asset: str) -> str:
+        threshold = thresholds.get(asset)
+        direction = None
+        if isinstance(threshold, dict):
+            direction = threshold.get("direction")
+        return (direction or "both").lower()
 
     detail: Dict[str, Dict[str, Any]] = {}
     for asset in assets:
         price = None if asset not in prices else prices[asset].get("price")
-        anchor = anchors.get(asset)
-        threshold = thresholds.get(asset)
-        dirn = (direction.get(asset) or "Both") if isinstance(direction, dict) else "Both"
+        anchor = _anchor_val(asset)
+        threshold = _threshold_val(asset)
+        direction = _direction_val(asset)
 
         if price is None or anchor is None or threshold is None:
             detail[asset] = {
                 "price": price,
                 "anchor": anchor,
+                "delta_abs": None,
                 "threshold": threshold,
-                "direction": dirn,
+                "direction": direction,
                 "would_trigger": False,
                 "reason": "missing price/anchor/threshold",
             }
             continue
 
         delta = price - anchor
+        delta_abs = abs(delta)
         up = delta > 0
-        dir_ok = (dirn == "Both") or (dirn == "Up" and up) or (dirn == "Down" and not up)
-        would_trigger = bool(dir_ok and (abs(delta) >= float(threshold)))
+        dir_ok = (direction == "both") or (direction == "up" and up) or (direction == "down" and not up)
+        would_trigger = bool(dir_ok and (delta_abs >= threshold))
         detail[asset] = {
             "price": price,
             "anchor": anchor,
             "delta": delta,
+            "delta_abs": delta_abs,
             "threshold": threshold,
-            "direction": dirn,
+            "direction": direction,
             "dir_ok": dir_ok,
             "would_trigger": would_trigger,
         }
