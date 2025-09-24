@@ -1,7 +1,7 @@
 // Print PDA seed specs for key accounts from the local IDL.
 // Run:
 //   TS_NODE_PROJECT=jupiter-perps-anchor-idl-parsing/tsconfig.json \
-//     node --loader ts-node/esm \
+//     node --import "data:text/javascript,import { register } from 'node:module'; import { pathToFileURL } from 'node:url'; register('ts-node/esm', pathToFileURL('./'));" --experimental-specifier-resolution=node \
 //     jupiter-perps-anchor-idl-parsing/src/tools/dump_pda_seeds.ts
 
 import { IDL } from "../idl/jupiter-perpetuals-idl.js";

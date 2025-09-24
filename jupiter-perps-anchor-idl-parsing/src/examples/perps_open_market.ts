@@ -3,12 +3,13 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import type { Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Keypair, Transaction } from "@solana/web3.js";
-import { NATIVE_MINT } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, NATIVE_MINT } from "@solana/spl-token";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
 import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaCanonical, derivePositionPdaPoolFirst, derivePositionPdaOwnerFirst, sideToEnum } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 import { toPk } from "../utils/pk.js";
+import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from "../utils/ata.js";
 
 (async () => {
   const argv = await yargs(hideBin(process.argv))
@@ -108,32 +109,99 @@ import { toPk } from "../utils/pk.js";
     : new cfg.BN(0);                          // discovery → 0 on-chain
 
   // 2) Funding (owner ATA) & escrow ATAs (position request + position)
-  // Owner ATA (funding) – USDC
-  const ownerAtaInit = await cfg.ensureAtaIx(
-    provider.connection, collateralMint, wallet.publicKey, wallet.publicKey
+  const usdcMint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+  const wsolMint = NATIVE_MINT;
+
+  const usdcProgramId = await detectTokenProgramForMint(provider.connection, usdcMint);
+  const wsolProgramId = await detectTokenProgramForMint(provider.connection, wsolMint);
+
+  const tokenProgramCache = new Map<string, PublicKey>();
+  tokenProgramCache.set(usdcMint.toBase58(), usdcProgramId);
+  tokenProgramCache.set(wsolMint.toBase58(), wsolProgramId);
+
+  const mintLabel = (mint: PublicKey) => {
+    if (mint.equals(usdcMint)) return "USDC";
+    if (mint.equals(wsolMint)) return "WSOL";
+    return mint.toBase58();
+  };
+
+  const getTokenProgramIdForMint = async (mint: PublicKey) => {
+    const key = mint.toBase58();
+    const cached = tokenProgramCache.get(key);
+    if (cached) return cached;
+    const detected = await detectTokenProgramForMint(provider.connection, mint);
+    const resolved = detected ?? TOKEN_PROGRAM_ID;
+    tokenProgramCache.set(key, resolved);
+    return resolved;
+  };
+
+  const ownerTokenProgramId = await getTokenProgramIdForMint(collateralMint);
+  const ownerAtaInit = createAtaIxStrict(
+    wallet.publicKey,
+    collateralMint,
+    wallet.publicKey,
+    /*allowOwnerOffCurve=*/ false,
+    ownerTokenProgramId,
   );
-
-  // Escrows – only ensure when PositionRequest override supplied
-  let reqAtaInit = { ata: PublicKey.default, ixs: [] as any[] };
-  let posAtaInit = { ata: PublicKey.default, ixs: [] as any[] };
-
-  if (havePR) {
-    // Escrow A: owner = positionRequest
-    reqAtaInit = await cfg.ensureAtaForOwner(
-      provider.connection, collateralMint, positionRequest, wallet.publicKey, true
-    );
-
-    // Escrow B: owner = position (Perps sometimes no-ops this idempotently)
-    posAtaInit = await cfg.ensureAtaForOwner(
-      provider.connection, collateralMint, position, wallet.publicKey, true
-    );
+  console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, wallet):`, {
+    mint: collateralMint.toBase58(),
+    owner: wallet.publicKey.toBase58(),
+    allowOwnerOffCurve: false,
+    tokenProgramId: ownerTokenProgramId.toBase58(),
+    ata: ownerAtaInit.ata.toBase58(),
+  });
+  const expectedOwnerAta = deriveAtaStrict(collateralMint, wallet.publicKey, false, ownerTokenProgramId);
+  if (!ownerAtaInit.ata.equals(expectedOwnerAta)) {
+    throw new Error("ATA mismatch (wallet) vs seed derivation");
   }
 
+  let reqAtaInit: { ata: PublicKey; ix: any } | null = null;
+  let posAtaInit: { ata: PublicKey; ix: any } | null = null;
 
-  // Pre-ix order
-  const preIxs = havePR
-    ? [...ownerAtaInit.ixs, ...reqAtaInit.ixs, ...posAtaInit.ixs]
-    : [...ownerAtaInit.ixs];
+  if (havePR) {
+    const escrowTokenProgramId = await getTokenProgramIdForMint(collateralMint);
+    reqAtaInit = createAtaIxStrict(
+      wallet.publicKey,
+      collateralMint,
+      positionRequest,
+      /*allowOwnerOffCurve=*/ true,
+      escrowTokenProgramId,
+    );
+    console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, positionRequest):`, {
+      mint: collateralMint.toBase58(),
+      owner: positionRequest.toBase58(),
+      allowOwnerOffCurve: true,
+      tokenProgramId: escrowTokenProgramId.toBase58(),
+      ata: reqAtaInit.ata.toBase58(),
+    });
+    const expectedReqAta = deriveAtaStrict(collateralMint, positionRequest, true, escrowTokenProgramId);
+    if (!reqAtaInit.ata.equals(expectedReqAta)) {
+      throw new Error("ATA mismatch (positionRequest) vs seed derivation");
+    }
+
+    posAtaInit = createAtaIxStrict(
+      wallet.publicKey,
+      collateralMint,
+      position,
+      /*allowOwnerOffCurve=*/ true,
+      escrowTokenProgramId,
+    );
+    console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, position):`, {
+      mint: collateralMint.toBase58(),
+      owner: position.toBase58(),
+      allowOwnerOffCurve: true,
+      tokenProgramId: escrowTokenProgramId.toBase58(),
+      ata: posAtaInit.ata.toBase58(),
+    });
+    const expectedPosAta = deriveAtaStrict(collateralMint, position, true, escrowTokenProgramId);
+    if (!posAtaInit.ata.equals(expectedPosAta)) {
+      throw new Error("ATA mismatch (position) vs seed derivation");
+    }
+  }
+
+  const preIxs = [ownerAtaInit.ix];
+  if (reqAtaInit) preIxs.push(reqAtaInit.ix);
+  if (posAtaInit) preIxs.push(posAtaInit.ix);
   console.log(
     "🧾 preIxs =",
     preIxs.length,
@@ -141,9 +209,9 @@ import { toPk } from "../utils/pk.js";
   );
 
   // For transparency (first 4 metas):
-  const metas4 = (ix: any) => ix?.keys?.slice(0,4)?.map((k: any) => k.pubkey.toBase58());
-  if (reqAtaInit.ixs[0]) console.log("AToken escrow[req] metas [payer, ata, owner, mint] =", metas4(reqAtaInit.ixs[0]));
-  if (posAtaInit.ixs[0]) console.log("AToken escrow[pos] metas [payer, ata, owner, mint] =", metas4(posAtaInit.ixs[0]));
+  const metas4 = (ix: any) => ix?.keys?.slice(0, 4)?.map((k: any) => k.pubkey.toBase58());
+  if (reqAtaInit) console.log("AToken escrow[req] metas [payer, ata, owner, mint] =", metas4(reqAtaInit.ix));
+  if (posAtaInit) console.log("AToken escrow[pos] metas [payer, ata, owner, mint] =", metas4(posAtaInit.ix));
 
   // 3) Amounts & guardrail
   let priceGuard: cfg.BN | null = null;

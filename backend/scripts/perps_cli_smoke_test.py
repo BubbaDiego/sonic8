@@ -253,15 +253,21 @@ def try_runners(ns: argparse.Namespace, ts_path: str, extra: List[str]) -> Tuple
     env = os.environ.copy()
     env["TS_NODE_TRANSPILE_ONLY"] = "1"
 
-    # 1) node --loader ts-node/esm  (+ CJS-like extension resolution shim for .ts pathless imports)
+    # 1) node --import "data:text/javascript,..." (+ CJS-like extension resolution shim for .ts pathless imports)
     ensure_ts_node(repo)
+    loader_shim = (
+        "data:text/javascript,"
+        "import { register } from 'node:module'; "
+        "import { pathToFileURL } from 'node:url'; "
+        "register('ts-node/esm', pathToFileURL('./'));"
+    )
     cmd1 = [
         "node",
-        "--loader", "ts-node/esm",
+        "--import", loader_shim,
         "--experimental-specifier-resolution=node",
         ts_path
     ] + common_args(ns) + extra
-    bar("Runner: node --loader ts-node/esm", "🧪")
+    bar("Runner: node --import ts-node/esm shim", "🧪")
     code, out, err = run_cmd(cmd1, cwd=repo, timeout=ns.timeout, env=env)
     out = out or ""; err = err or ""
     if code == 0:

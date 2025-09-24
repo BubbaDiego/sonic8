@@ -2,7 +2,7 @@
 // whether an account must be a signer, writable, etc.
 // Run:
 //   TS_NODE_PROJECT=jupiter-perps-anchor-idl-parsing/tsconfig.json \
-//     node --loader ts-node/esm \
+//     node --import "data:text/javascript,import { register } from 'node:module'; import { pathToFileURL } from 'node:url'; register('ts-node/esm', pathToFileURL('./'));" --experimental-specifier-resolution=node \
 //     jupiter-perps-anchor-idl-parsing/src/tools/dump_ix_accounts.ts createIncreasePositionMarketRequest
 
 import { IDL } from "../idl/jupiter-perpetuals-idl.js";
