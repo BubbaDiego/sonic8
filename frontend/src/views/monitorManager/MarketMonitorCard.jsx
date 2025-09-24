@@ -14,36 +14,28 @@ import MarketMovementCard from '../../components/MarketMovementCard';
 import MonitorUpdateBar from './MonitorUpdateBar';
 
 export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false }) {
-  const normCfg = useMemo(() => {
-    const notifications = {
-      system: true,
-      voice: true,
-      sms: false,
-      tts: true,
-      ...(cfg?.notifications || {})
-    };
-
-    return { ...cfg, notifications };
-  }, [cfg]);
-
-  const toggleNotification = (key) => {
-    setCfg((prev) => {
-      const prevNotifications = {
+  const normCfg = useMemo(
+    () => ({
+      notifications: {
         system: true,
         voice: true,
         sms: false,
         tts: true,
-        ...(prev?.notifications || {})
-      };
+        ...(cfg?.notifications || {})
+      },
+      ...cfg
+    }),
+    [cfg]
+  );
 
-      return {
-        ...prev,
-        notifications: {
-          ...prevNotifications,
-          [key]: !Boolean(prevNotifications?.[key])
-        }
-      };
-    });
+  const toggleNotification = (key) => {
+    setCfg((prev) => ({
+      ...prev,
+      notifications: {
+        ...(prev?.notifications || {}),
+        [key]: !Boolean(prev?.notifications?.[key])
+      }
+    }));
   };
 
   return (
@@ -86,11 +78,13 @@ export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = f
         <MarketMovementCard cfg={cfg} setCfg={setCfg} live={live} disabled={disabled} />
       </CardContent>
 
-      {/* pushes the bottom bar to the card edge */}
       <Box sx={{ flexGrow: 1 }} />
 
-      {/* Single notifications bar (System / Voice / SMS / TTS) */}
-      <MonitorUpdateBar cfg={normCfg.notifications} toggle={toggleNotification} sx={{ mx: 2, mb: 2 }} />
+      <MonitorUpdateBar
+        cfg={normCfg.notifications}
+        toggle={toggleNotification}
+        sx={{ mx: 2, mb: 2 }}
+      />
 
       {disabled && (
         <Box

@@ -17,7 +17,6 @@ export const COLUMN_A_WIDTH = 450; // px
 export const COLUMN_B_WIDTH = 480; // px
 export const ROW_A_MIN = 420; // px
 export const ROW_B_MIN = 430; // px (reduced; prevents overstretch)
-export const GRID_GAP = 24; // px
 /* ------------------------------------------------------------------ */
 
 export default function MonitorManager() {
@@ -28,8 +27,7 @@ export default function MonitorManager() {
   const [pctMoves, setPctMoves] = useState({});
   const [loopSec, setLoopSec] = useState('');
   const [nearestLiq, setNearestLiq] = useState({});
-  const [toast, setToast] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState('');
   const [dirty, setDirty] = useState(false);
 
   const markDirty = useCallback((setter) => (value) => {
@@ -55,32 +53,24 @@ export default function MonitorManager() {
   }, []);
 
   /* ---------------------------- handlers --------------------------------- */
-  const saveAll = useCallback(async () => {
-    setSaving(true);
-    try {
-      await axios.post('/api/monitor-settings/liquidation', liqCfg);
-      await saveProfitCfg({
-        enabled: profitCfg?.enabled,
-        position_profit_usd: Number(profitCfg?.position_profit_usd ?? 0),
-        portfolio_profit_usd: Number(profitCfg?.portfolio_profit_usd ?? 0),
-        notifications: profitCfg?.notifications
-      });
-      await axios.post('/api/monitor-settings/market', marketCfg);
-      await axios.post('/api/monitor-settings/sonic', {
-        interval_seconds: parseInt(loopSec || '0', 10),
-        enabled_sonic: liqCfg.enabled_sonic,
-        enabled_liquid: liqCfg.enabled_liquid,
-        enabled_profit: liqCfg.enabled_profit,
-        enabled_market: liqCfg.enabled_market
-      });
-      setToast({ message: 'Settings saved', severity: 'success' });
-      setDirty(false);
-    } catch (err) {
-      setToast({ message: 'Failed to save settings', severity: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  }, [liqCfg, loopSec, marketCfg, profitCfg]);
+  const saveAll = async () => {
+    await axios.post('/api/monitor-settings/liquidation', liqCfg);
+    await saveProfitCfg({
+      enabled: profitCfg?.enabled,
+      position_profit_usd: Number(profitCfg?.position_profit_usd ?? 0),
+      portfolio_profit_usd: Number(profitCfg?.portfolio_profit_usd ?? 0),
+      notifications: profitCfg?.notifications
+    });
+    await axios.post('/api/monitor-settings/market', marketCfg);
+    await axios.post('/api/monitor-settings/sonic', {
+      interval_seconds: parseInt(loopSec || '0', 10),
+      enabled_sonic: liqCfg.enabled_sonic,
+      enabled_liquid: liqCfg.enabled_liquid,
+      enabled_profit: liqCfg.enabled_profit,
+      enabled_market: liqCfg.enabled_market
+    });
+    setToast('Settings saved');
+  };
 
   /* ----------------------------- render ---------------------------------- */
   return (
@@ -93,21 +83,23 @@ export default function MonitorManager() {
         <Button
           variant="contained"
           color={dirty ? 'success' : 'primary'}
-          onClick={saveAll}
-          disabled={!dirty || saving}
+          onClick={() => {
+            saveAll();
+            setDirty(false);
+          }}
           sx={{ fontWeight: 'bold', textTransform: 'none' }}
         >
-          {saving ? 'Saving…' : 'Save All'}
+          Save All
         </Button>
       </Box>
 
-      {/* 2×2 card grid with flexible row heights (minmax) */}
+      {/* 2×2 card grid with compact rows */}
       <Box
         sx={{
           display: 'grid',
           gridTemplateColumns: `${COLUMN_A_WIDTH}px ${COLUMN_B_WIDTH}px`,
           gridTemplateRows: `minmax(${ROW_A_MIN}px, auto) minmax(${ROW_B_MIN}px, auto)`,
-          gap: `${GRID_GAP}px`,
+          gap: `24px`,
           width: '100%',
           boxSizing: 'border-box'
         }}
@@ -154,12 +146,12 @@ export default function MonitorManager() {
       </Box>
 
       <Snackbar
-        open={!!toast?.message}
+        open={!!toast}
         autoHideDuration={3000}
-        onClose={() => setToast(null)}
+        onClose={() => setToast('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert severity={toast?.severity || 'success'}>{toast?.message}</Alert>
+        <Alert severity="success">{toast}</Alert>
       </Snackbar>
     </Box>
   );
