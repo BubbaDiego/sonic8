@@ -11,12 +11,12 @@ import SonicMonitorCard from './SonicMonitorCard';
 import MarketMonitorCard from './MarketMonitorCard';
 
 /* ------------------------------------------------------------------ */
-/* Layout constants – extended heights so bottom bars are always visible */
+/* Layout constants — keep cards compact but tall enough for bars */
 /* ------------------------------------------------------------------ */
 export const COLUMN_A_WIDTH = 450; // px
 export const COLUMN_B_WIDTH = 480; // px
-export const ROW_A_MIN = 420; // px (was 380)
-export const ROW_B_MIN = 560; // px (was 450)
+export const ROW_A_MIN = 420; // px
+export const ROW_B_MIN = 430; // px (reduced; prevents overstretch)
 export const GRID_GAP = 24; // px
 /* ------------------------------------------------------------------ */
 
