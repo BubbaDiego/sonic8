@@ -222,7 +222,7 @@ npm install --save-dev ts-node typescript
 ### Test the CLI directly
 
 ```bash
-node --loader ts-node/esm perps_accounts.ts \
+node --import "data:text/javascript,import { register } from 'node:module'; import { pathToFileURL } from 'node:url'; register('ts-node/esm', pathToFileURL('./'));" --experimental-specifier-resolution=node perps_accounts.ts \
   --market SOL-PERP \
   --side long \
   --size-usd 11 \
