@@ -14,30 +14,36 @@ import MarketMovementCard from '../../components/MarketMovementCard';
 import MonitorUpdateBar from './MonitorUpdateBar';
 
 export default function MarketMonitorCard({ cfg, setCfg, live = {}, disabled = false }) {
-  // Normalize notifications so the bar always renders with sane defaults
-  const normCfg = useMemo(
-    () => ({
-      notifications: {
+  const normCfg = useMemo(() => {
+    const notifications = {
+      system: true,
+      voice: true,
+      sms: false,
+      tts: true,
+      ...(cfg?.notifications || {})
+    };
+
+    return { ...cfg, notifications };
+  }, [cfg]);
+
+  const toggleNotification = (key) => {
+    setCfg((prev) => {
+      const prevNotifications = {
         system: true,
         voice: true,
         sms: false,
         tts: true,
-        ...(cfg?.notifications || {})
-      },
-      ...cfg
-    }),
-    [cfg]
-  );
+        ...(prev?.notifications || {})
+      };
 
-  // SAFE toggle (handles undefined notifications object)
-  const toggleNotification = (key) => {
-    setCfg((prev) => ({
-      ...prev,
-      notifications: {
-        ...(prev?.notifications || {}),
-        [key]: !Boolean(prev?.notifications?.[key])
-      }
-    }));
+      return {
+        ...prev,
+        notifications: {
+          ...prevNotifications,
+          [key]: !Boolean(prevNotifications?.[key])
+        }
+      };
+    });
   };
 
   return (
