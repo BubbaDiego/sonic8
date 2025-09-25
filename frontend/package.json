@@ -2,6 +2,7 @@
   "name": "sonic-react-app",
   "version": "4.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@auth0/auth0-react": "2.3.0",
     "@emotion/cache": "11.14.0",
@@ -62,7 +63,7 @@
     "yup": "1.6.1"
   },
   "scripts": {
-    "start": "vite",
+    "start": "vite --port 3000 --strictPort --host",
     "dev": "vite --port 3000 --strictPort --host",
     "build:css": "tailwindcss -c tailwind.config.js -i ./src/tailwind.css -o ./src/tailwind.output.css -m",
     "build": "yarn build:css && vite build",

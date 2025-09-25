@@ -96,6 +96,13 @@ def wait_and_open(url, secs=3):
 # Actions
 def launch_frontend():
     console.log("🚀 Launching Sonic/Vite frontend...")
+    node_modules = FRONTEND_DIR / "node_modules"
+    if not node_modules.exists():
+        console.log("📦 Installing frontend dependencies (npm install)...")
+        try:
+            subprocess.run(["npm", "install"], cwd=FRONTEND_DIR, check=False)
+        except Exception as exc:
+            console.log(f"[yellow]npm install encountered an issue: {exc}[/]")
     fe_cmd = [
         "npm",
         "run",
