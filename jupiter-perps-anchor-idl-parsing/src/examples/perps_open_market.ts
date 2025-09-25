@@ -298,8 +298,8 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
 
   const accounts: Record<string, PublicKey> = {
     owner: wallet.publicKey,
-    // ✅ wallet in discovery, ATA in real run
-    fundingAccount: havePR ? ownerAtaInit.ata : wallet.publicKey,
+    // ✅ always use the collateral ATA for funding
+    fundingAccount: ownerAtaInit.ata,
     position,
     positionRequest,
     positionRequestAta: havePR ? reqAtaInit.ata : ownerAtaInit.ata,
@@ -317,7 +317,7 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
   console.log(
     "💳 fundingAccount (payer) =",
     (accounts as any).fundingAccount.toBase58(),
-    havePR ? "(USDC ATA)" : "(wallet system account)",
+    "(collateral ATA)",
   );
 
   try {
