@@ -9,7 +9,13 @@ import {
   VersionedTransaction,
   TransactionMessage,
 } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, NATIVE_MINT } from "@solana/spl-token";
+import {
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountIdempotentInstruction,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  NATIVE_MINT,
+} from "@solana/spl-token";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
 import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaCanonical, derivePositionPdaPoolFirst, derivePositionPdaOwnerFirst, sideToEnum } from "../utils/resolve.js";
@@ -205,7 +211,32 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
     }
   }
 
-  const preIxs = [ownerAtaInit.ix];
+  const preIxs: any[] = [];
+  if (collateralMint.equals(wsolMint)) {
+    // --- WSOL ATA for the wallet owner ---
+    const ownerPubkey = wallet.publicKey; // your Keypair / payer’s public key
+    const wsolAta = getAssociatedTokenAddressSync(
+      wsolMint,
+      ownerPubkey,
+      /* allowOwnerOffCurve */ false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    );
+
+    // Correct: payer MUST be the *owner system account*, not the ATA.
+    preIxs.push(
+      createAssociatedTokenAccountIdempotentInstruction(
+        ownerPubkey, // payer (system account with no data)
+        wsolAta, // ata to create (if missing)
+        ownerPubkey, // token owner
+        wsolMint, // mint
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      ),
+    );
+  } else {
+    preIxs.push(ownerAtaInit.ix);
+  }
   if (reqAtaInit) preIxs.push(reqAtaInit.ix);
   if (posAtaInit) preIxs.push(posAtaInit.ix);
   console.log(
