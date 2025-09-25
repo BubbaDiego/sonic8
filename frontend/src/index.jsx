@@ -13,7 +13,7 @@ import * as ConfigCtx from './contexts/ConfigContext';
 import './assets/scss/index.scss';
 import './assets/scss/style.scss';
 import './assets/scss/_liquidation-bars.scss';
-import './tailwind.output.css';
+import './index.css';
 
 // map styles
 import 'mapbox-gl/dist/mapbox-gl.css';
