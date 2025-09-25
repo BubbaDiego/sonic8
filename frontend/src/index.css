@@ -1,0 +1,6 @@
+/* Tailwind entry */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional global fixes can go below; keep minimal if SCSS handles most styles */
