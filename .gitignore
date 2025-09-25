@@ -50,5 +50,7 @@ Thumbs.db
 /signer.txt
 /backend/signer.txt
 
-/src/
+/src/*
+!/src/examples/
+!/src/examples/**
 /keys/kp_from_signer_base58.txt
