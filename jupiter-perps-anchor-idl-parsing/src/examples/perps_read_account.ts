@@ -4,7 +4,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import BN from "bn.js";
 
-const argv = yargs(hideBin(process.argv))
+const argv = await yargs(hideBin(process.argv))
   .option("rpc", { type: "string", demandOption: true, desc: "RPC URL" })
   .option("id", { type: "string", demandOption: true, desc: "Account pubkey to read" })
   .option("program", {
@@ -20,15 +20,15 @@ const argv = yargs(hideBin(process.argv))
   })
   .help()
   .strict()
-  .parseSync();
+  .argv;
 
-function normalize(x: any): any {
+function norm(x: any): any {
   if (x instanceof BN) return x.toString();
-  if (Array.isArray(x)) return x.map(normalize);
+  if (Array.isArray(x)) return x.map(norm);
   if (x && typeof x === "object") {
-    const out: any = {};
-    for (const [k, v] of Object.entries(x)) out[k] = normalize(v);
-    return out;
+    const o: any = {};
+    for (const [k, v] of Object.entries(x)) o[k] = norm(v);
+    return o;
   }
   return x;
 }
@@ -42,21 +42,18 @@ async function main() {
   if (!info) throw new Error("Account not found");
 
   console.log("🔎 Account:", acctPk.toBase58());
-  console.log("• Owner  :", info.owner.toBase58());
+  console.log("• Owner   :", info.owner.toBase58());
   console.log("• Lamports:", info.lamports);
-  console.log("• Data len:", info.data.length);
+  console.log("• DataLen :", info.data.length);
 
-  // Try to fetch IDL and decode nicely. Fall back to raw if not available.
   let idl: Idl | null = null;
   try {
     const provider = new AnchorProvider(connection, {} as any, AnchorProvider.defaultOptions());
     idl = await Program.fetchIdl(programId, provider);
-  } catch (e) {
-    // ignore; we’ll print raw below
-  }
+  } catch {}
 
   if (!idl) {
-    console.log("⚠️  No IDL fetched; dumping base64 data:");
+    console.log("⚠️  No IDL; dumping base64:");
     console.log(Buffer.from(info.data).toString("base64"));
     return;
   }
@@ -73,14 +70,12 @@ async function main() {
     try {
       const decoded = coder.accounts.decode(name as any, info.data);
       console.log("✅ Decoded as:", name);
-      console.dir(normalize(decoded), { depth: 8 });
+      console.dir(norm(decoded), { depth: 8 });
       return;
-    } catch {
-      // try next
-    }
+    } catch {}
   }
 
-  console.log("⚠️  Could not decode with IDL. Dumping base64:");
+  console.log("⚠️  Could not decode with IDL. Base64 dump:");
   console.log(Buffer.from(info.data).toString("base64"));
 }
 
