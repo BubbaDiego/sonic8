@@ -1,72 +1,69 @@
+// vite.config.mjs
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import jsconfigPaths from 'vite-jsconfig-paths';
+import path from 'path';
 
-// ==============================|| Vite Config (patched) ||============================== //
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
-  // Sub‑folder where the built site will live, or '/' for root.
+  // Optional envs if you use them
   const BASE_NAME = env.VITE_APP_BASE_NAME || '/';
-  // FastAPI host that the dev server should proxy to.
-  const API_URL = env.VITE_APP_API_URL || 'http://127.0.0.1:8000';
-  const PORT = 3000;
+  const API_URL   = env.VITE_APP_API_URL   || 'http://127.0.0.1:8000';
+  const PORT      = Number(env.VITE_PORT || 3000);
 
   return {
+    base: BASE_NAME,
+
     server: {
       open: true,
-      port: PORT,
       host: true,
-      hmr: {
-        overlay: true
-      },
+      port: PORT,
+      hmr: { overlay: true },
       proxy: {
-        // Forward every request that starts with /cyclone to the backend
-        '/cyclone': {
-          target: API_URL,
-          changeOrigin: true,
-          secure: false
-        },
-
-        '/sonic_labs': {
-          target: API_URL,
-          changeOrigin: true,
-          secure: false
-        },
-
-        '/api': {
-          target: API_URL,
-          changeOrigin: true,
-          secure: false
-        },
-
-        '^/(positions|portfolio|monitors|monitor)': {
-          target: API_URL,
-          changeOrigin: true,
-          secure: false
-        }
+        // keep or delete if you don't need these
+        '/api':        { target: API_URL, changeOrigin: true, secure: false },
+        '/cyclone':    { target: API_URL, changeOrigin: true, secure: false },
+        '/sonic_labs': { target: API_URL, changeOrigin: true, secure: false }
       }
     },
-    // Serve static assets from "frontend/static" at the site root.
-    // Example: file at frontend/static/images/wally.png -> reachable at /images/wally.png
-    publicDir: 'static',
-    build: {
-      chunkSizeWarningLimit: 1600
-    },
-    preview: {
-      open: true,
-      host: true
-    },
-    define: {
-      global: 'window'
-    },
+
+    preview: { open: true, host: true },
+
+    build: { chunkSizeWarningLimit: 1600 },
+
     resolve: {
       alias: {
+        // QoL
+        '@': path.resolve(__dirname, 'src'),
+
+        // Aliases used in your imports (map each to src/<folder>)
+        'routes':       path.resolve(__dirname, 'src/routes'),
+        'config':       path.resolve(__dirname, 'src/config'),
+        'themes':       path.resolve(__dirname, 'src/themes'),
+        'contexts':     path.resolve(__dirname, 'src/contexts'),
+        'utils':        path.resolve(__dirname, 'src/utils'),
+        'api':          path.resolve(__dirname, 'src/api'),
+        'views':        path.resolve(__dirname, 'src/views'),
+        'store':        path.resolve(__dirname, 'src/store'),
+        'hooks':        path.resolve(__dirname, 'src/hooks'),
+        'layout':       path.resolve(__dirname, 'src/layout'),
+        'ui-component': path.resolve(__dirname, 'src/ui-component'),
+
+        // keep your icon ESM alias if you use Tabler
         '@tabler/icons-react': '@tabler/icons-react/dist/esm/icons/index.mjs'
       },
-      extensions: ['.js', '.jsx', '.ts', '.tsx']
+      extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json']
     },
-    base: BASE_NAME,
-    plugins: [react(), jsconfigPaths()]
+
+    plugins: [
+      react(),
+      // also honors jsconfig/tsconfig "paths" if present
+      jsconfigPaths()
+    ],
+
+    define: {
+      global: 'window'
+    }
   };
 });
