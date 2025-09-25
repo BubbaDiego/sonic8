@@ -2,7 +2,13 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import type { Idl } from "@coral-xyz/anchor";
-import { PublicKey, SystemProgram, Keypair, Transaction, Connection } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  Keypair,
+  VersionedTransaction,
+  TransactionMessage,
+} from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, NATIVE_MINT } from "@solana/spl-token";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
@@ -281,58 +287,56 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
     .accounts(accounts)
     .instruction();
 
-  const tx = new Transaction();
-  if (preIxs.length) tx.add(...preIxs);   // ✅ AToken creates first
-  tx.add(reqIx);
-
   const signer = (provider.wallet as any).payer as Keypair;
-  const { sim, signature, lastValidBlockHeight } = await simulateOrSend(
-    provider.connection,
-    tx,
-    signer,
-    argv["dry-run"],
-  );
+  const allIxs = preIxs.length ? [...preIxs, reqIx] : [reqIx];
+  const { blockhash, lastValidBlockHeight } = await provider.connection.getLatestBlockhash();
+  const message = new TransactionMessage({
+    payerKey: signer.publicKey,
+    recentBlockhash: blockhash,
+    instructions: allIxs,
+  }).compileToV0Message();
+  const tx = new VersionedTransaction(message);
+  tx.sign([signer]);
+
+  await simulateOrSend(provider.connection, tx, argv["dry-run"] === true);
 
   if (argv["dry-run"]) {
     info("🧪", "Simulation only (dry-run)");
-    if (sim) console.log(sim);
     console.log({ lastValidBlockHeight });
     process.exit(0);
   }
 
-  if (!signature) {
-    throw new Error("Transaction signature missing after send");
-  }
-
-  ok(`Tx sent: ${signature}`);
+  ok("Tx sent (see signature above)");
   info("📝", `PositionRequest = ${positionRequest.toBase58()}  (keeper will execute)\n`);
 })();
 
+// --- drop-in replacement for simulateOrSend ---
 async function simulateOrSend(
-  connection: Connection,
-  tx: Transaction,
-  signer: Keypair,
-  simulateOnly: boolean,
+  connection: import("@solana/web3.js").Connection,
+  tx: import("@solana/web3.js").VersionedTransaction,
+  dryRun: boolean
 ) {
-  tx.feePayer = signer.publicKey;
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  tx.recentBlockhash = blockhash;
-  tx.sign(signer);
-
-  if (simulateOnly) {
-    // web3.js 3.x: keep it simple; some RPC combos reject the old overload
+  if (dryRun) {
+    // Correct modern signature: options object, not a signers array.
     const sim = await connection.simulateTransaction(tx, {
-      commitment: "processed",
       sigVerify: false,
-      // no replaceRecentBlockhash here
+      replaceRecentBlockhash: true
     });
-    return { sim, signature: undefined, lastValidBlockHeight };
-  } else {
-    const sig = await connection.sendRawTransaction(tx.serialize(), {
-      skipPreflight: false,
-      preflightCommitment: "finalized",
-      maxRetries: 3,
-    });
-    return { sim: undefined, signature: sig, lastValidBlockHeight };
+    if (sim.value.err) {
+      console.error("❌ simulate err:", sim.value.err);
+    }
+    if (sim.value.logs?.length) {
+      console.log("🧾 simulate logs:");
+      for (const l of sim.value.logs) console.log("   ", l);
+    }
+    console.log("🧪 dry-run complete (no tx sent).");
+    return;
   }
+
+  // Live path (unchanged, but shown for clarity)
+  const sig = await connection.sendTransaction(tx, {
+    skipPreflight: false,
+    maxRetries: 3
+  });
+  console.log("✅ sent:", sig);
 }
