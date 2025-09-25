@@ -3,20 +3,28 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "routes/*": ["src/routes/*"],
-      "config": ["src/config/index.js"],
-      "hooks/*": ["src/hooks/*"],
+      "routes": ["src/routes/index.jsx", "src/routes/index.js", "src/routes"],
+      "layout/*": ["src/layout/*"],
+      "themes": ["src/themes/index.js", "src/themes/index.jsx", "src/themes"],
       "ui-component/*": ["src/ui-component/*"],
       "components/*": ["src/components/*"],
+      "views/*": ["src/views/*"],
       "store/*": ["src/store/*"],
-      "contexts/*": ["src/contexts/*"],
       "utils/*": ["src/utils/*"],
       "assets/*": ["src/assets/*"],
-      "views/*": ["src/views/*"],
-      "api/*": ["src/api/*"],
-      "menu-items": ["src/menu-items/index.js"],
-      "menu-items/*": ["src/menu-items/*"]
-    }
+      "menu-items": ["src/menu-items/index.js", "src/menu-items/index.jsx", "src/menu-items"],
+      "menu-items/*": ["src/menu-items/*"],
+      "contexts/*": ["src/contexts/*"],
+      "hooks/*": ["src/hooks/*"],
+      "config": ["src/config/index.js", "src/config/index.jsx", "src/config"],
+      "config/*": ["src/config/*"],
+      "api/*": ["src/api/*"]
+    },
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2020",
+    "checkJs": false
   },
   "include": ["src"]
 }
