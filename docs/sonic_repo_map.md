@@ -491,7 +491,7 @@ This file lists every folder and file in the repository (excluding directories l
 │   ├── jsconfig.node.json
 │   ├── package-lock.json
 │   ├── package.json
-│   ├── postcss.config.js
+│   ├── postcss.config.cjs
 │   ├── public
 │   │   └── abstract_mural.png
 │   ├── src

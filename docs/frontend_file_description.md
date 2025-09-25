@@ -19,7 +19,7 @@ files.
 - **jest.config.js** – Jest test runner configuration.
 - **jsconfig.json** / **jsconfig.node.json** – Editor settings for path resolution.
 - **package.json** / **package-lock.json** – NPM dependencies and lock file.
-- **postcss.config.js** – Tailwind/PostCSS processing rules.
+- **postcss.config.cjs** – Tailwind/PostCSS processing rules.
 - **public/** – Static assets copied to the Vite build output.
 - **tailwind.config.js** – Tailwind CSS theme configuration.
 - **tsconfig.json** – TypeScript configuration.

@@ -27,7 +27,7 @@ frontend
 ├── jsconfig.node.json
 ├── package-lock.json
 ├── package.json
-├── postcss.config.js
+├── postcss.config.cjs
 ├── public
 │   └── abstract_mural.png
 ├── src
