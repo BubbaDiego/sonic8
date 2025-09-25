@@ -96,10 +96,18 @@ def wait_and_open(url, secs=3):
 # Actions
 def launch_frontend():
     console.log("🚀 Launching Sonic/Vite frontend...")
-    run_background(["npm", "run", "start"], FRONTEND_DIR, title="Frontend")
-    # Vite's `server.open` option opens the browser automatically
-    # wait_and_open("http://localhost:3000")
-    console.log("[green]Frontend running at http://localhost:3000[/]")
+    fe_cmd = [
+        "npm",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3000",
+        "--strictPort",
+        "--host",
+    ]
+    run_background(fe_cmd, FRONTEND_DIR, title="Frontend")
+    console.log("[green]Frontend starting on http://localhost:3000 (strict)[/]")
 
 def launch_backend():
     console.log("🚀 Launching FastAPI backend...")

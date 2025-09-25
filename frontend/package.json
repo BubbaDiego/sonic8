@@ -63,10 +63,11 @@
   },
   "scripts": {
     "start": "vite",
+    "dev": "vite --port 3000 --strictPort --host",
     "build:css": "tailwindcss -c tailwind.config.js -i ./src/tailwind.css -o ./src/tailwind.output.css -m",
     "build": "yarn build:css && vite build",
     "build-stage": "env-cmd -f .env.qa vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --port 3000 --strictPort --host",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
     "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
