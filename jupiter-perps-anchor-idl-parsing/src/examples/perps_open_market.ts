@@ -14,7 +14,6 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  NATIVE_MINT,
 } from "@solana/spl-token";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
@@ -43,6 +42,8 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
     .parse();
 
   const { program, programId, provider, wallet } = cfg.bootstrap(argv.rpc, argv.kp);
+  const connection = provider.connection;
+  const owner = (provider.wallet as any).payer as Keypair;
 
   // 1) Discover accounts
   const perpetuals = await cfg.getSingletonPerpetuals(program);
@@ -122,7 +123,7 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
 
   // 2) Funding (owner ATA) & escrow ATAs (position request + position)
   const usdcMint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-  const wsolMint = NATIVE_MINT;
+  const wsolMint = new PublicKey("So11111111111111111111111111111111111111112");
 
   const usdcProgramId = await detectTokenProgramForMint(provider.connection, usdcMint);
   const wsolProgramId = await detectTokenProgramForMint(provider.connection, wsolMint);
@@ -214,26 +215,44 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
   const preIxs: any[] = [];
   if (collateralMint.equals(wsolMint)) {
     // --- WSOL ATA for the wallet owner ---
-    const ownerPubkey = wallet.publicKey; // your Keypair / payer’s public key
+    // owner should be your Keypair loaded from --kp
+    const ownerPubkey = owner.publicKey;
+    const wsolMint = new PublicKey("So11111111111111111111111111111111111111112");
+
+    // Derive ATA deterministically (no off-curve owner)
     const wsolAta = getAssociatedTokenAddressSync(
       wsolMint,
       ownerPubkey,
       /* allowOwnerOffCurve */ false,
       TOKEN_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
-    // Correct: payer MUST be the *owner system account*, not the ATA.
+    // Safety guard: payer must be a system account and must NOT equal the ATA
+    if (ownerPubkey.equals(wsolAta)) {
+      throw new Error("BUG: payer equals ATA (would cause 'from must not carry data').");
+    }
+
+    // Optional runtime sanity: ensure payer is system-owned
+    const payerInfo = await connection.getAccountInfo(ownerPubkey);
+    if (!payerInfo || !payerInfo.owner.equals(SystemProgram.programId)) {
+      throw new Error("BUG: payer is not a SystemProgram-owned account.");
+    }
+
+    // Create the ATA idempotently with the *owner system account* as payer
     preIxs.push(
       createAssociatedTokenAccountIdempotentInstruction(
-        ownerPubkey, // payer (system account with no data)
-        wsolAta, // ata to create (if missing)
-        ownerPubkey, // token owner
-        wsolMint, // mint
+        ownerPubkey,          // payer (system account with no data)
+        wsolAta,              // ata to create (if missing)
+        ownerPubkey,          // token owner
+        wsolMint,             // mint
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID,
-      ),
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      )
     );
+
+    // (Keep your logs if you like)
+    console.log("🧾 preIxs = %d  (owner only)", preIxs.length);
   } else {
     preIxs.push(ownerAtaInit.ix);
   }
