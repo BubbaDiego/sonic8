@@ -2,7 +2,7 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import type { Idl } from "@coral-xyz/anchor";
-import { PublicKey, SystemProgram, Keypair, Transaction } from "@solana/web3.js";
+import { PublicKey, SystemProgram, Keypair, Transaction, Connection } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, NATIVE_MINT } from "@solana/spl-token";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
@@ -284,17 +284,55 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
   const tx = new Transaction();
   if (preIxs.length) tx.add(...preIxs);   // ✅ AToken creates first
   tx.add(reqIx);
-  tx.feePayer = wallet.publicKey;
-  tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
+
+  const signer = (provider.wallet as any).payer as Keypair;
+  const { sim, signature, lastValidBlockHeight } = await simulateOrSend(
+    provider.connection,
+    tx,
+    signer,
+    argv["dry-run"],
+  );
 
   if (argv["dry-run"]) {
     info("🧪", "Simulation only (dry-run)");
-    const sim = await provider.connection.simulateTransaction(tx, [(provider.wallet as any).payer as Keypair]);
-    console.log(sim);
+    if (sim) console.log(sim);
+    console.log({ lastValidBlockHeight });
     process.exit(0);
   }
 
-  const sig = await provider.sendAndConfirm(tx, [(provider.wallet as any).payer as Keypair]);
-  ok(`Tx sent: ${sig}`);
+  if (!signature) {
+    throw new Error("Transaction signature missing after send");
+  }
+
+  ok(`Tx sent: ${signature}`);
   info("📝", `PositionRequest = ${positionRequest.toBase58()}  (keeper will execute)\n`);
 })();
+
+async function simulateOrSend(
+  connection: Connection,
+  tx: Transaction,
+  signer: Keypair,
+  simulateOnly: boolean,
+) {
+  tx.feePayer = signer.publicKey;
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+  tx.sign(signer);
+
+  if (simulateOnly) {
+    // web3.js 3.x: keep it simple; some RPC combos reject the old overload
+    const sim = await connection.simulateTransaction(tx, {
+      commitment: "processed",
+      sigVerify: false,
+      // no replaceRecentBlockhash here
+    });
+    return { sim, signature: undefined, lastValidBlockHeight };
+  } else {
+    const sig = await connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: "finalized",
+      maxRetries: 3,
+    });
+    return { sim: undefined, signature: sig, lastValidBlockHeight };
+  }
+}
