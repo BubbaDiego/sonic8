@@ -45,6 +45,7 @@ export default defineConfig(({ mode }) => {
         routes: r('routes'),
         layout: r('layout'),
         themes: r('themes'),
+        theme: r('theme'),
         'ui-component': r('ui-component'),
         components: r('components'),
         views: r('views'),

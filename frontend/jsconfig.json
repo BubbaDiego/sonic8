@@ -3,9 +3,11 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "routes": ["src/routes/index.jsx", "src/routes/index.js", "src/routes"],
+      "routes": ["src/routes", "src/routes/index.jsx", "src/routes/index.js"],
       "layout/*": ["src/layout/*"],
-      "themes": ["src/themes/index.js", "src/themes/index.jsx", "src/themes"],
+      "themes": ["src/themes", "src/themes/index.js"],
+      "theme/*": ["src/theme/*"],
+      "theme": ["src/theme"],
       "ui-component/*": ["src/ui-component/*"],
       "components/*": ["src/components/*"],
       "views/*": ["src/views/*"],
