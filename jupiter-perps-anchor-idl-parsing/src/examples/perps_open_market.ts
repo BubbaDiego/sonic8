@@ -119,7 +119,7 @@ function formatLogs(raw: string[]): string[] {
     mint: new PublicKey(c.account.mint as PublicKey),
   }));
 
-  const custody = pickCustodyByMint(allCustodies, marketMint);
+  const marketCustody = pickCustodyByMint(allCustodies, marketMint);
   const defaultCollat = argv.side === "long" ? marketMint : cfg.MINTS.USDC;
   const collatMintArg = (argv["collat-mint"] as unknown) ?? null;
   const collateralMint = collatMintArg ? toPk("collat-mint", collatMintArg) : defaultCollat;
@@ -130,7 +130,7 @@ function formatLogs(raw: string[]): string[] {
     " collateralMint=",
     (collateralMint as any).toBase58?.() ?? String(collateralMint),
   );
-  console.log("🧪 custody (market):     ", custody.pubkey.toBase58());
+  console.log("🧪 custody (market):     ", marketCustody.pubkey.toBase58());
   console.log("🧪 collateral_custody:  ", collateralCustody.pubkey.toBase58());
   console.log("🧪 input_mint:          ", collateralMint.toBase58());
 
@@ -138,7 +138,7 @@ function formatLogs(raw: string[]): string[] {
   const [positionCanonical] = derivePositionPdaCanonical(
     programId,
     pool.publicKey,
-    custody.pubkey,
+    marketCustody.pubkey,
     wallet.publicKey,
   );
   let position: PublicKey;
@@ -174,7 +174,7 @@ function formatLogs(raw: string[]): string[] {
     const [derivedPositionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
       owner: wallet.publicKey,
       pool: pool.publicKey,
-      custody: custody.pubkey,
+      custody: marketCustody.pubkey,
       collateralCustody: collateralCustody.pubkey,
       seed: unique,
       position,
@@ -286,7 +286,7 @@ function formatLogs(raw: string[]): string[] {
         const [derivedPositionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
           owner: wallet.publicKey,
           pool: pool.publicKey,
-          custody: custody.pubkey,
+          custody: marketCustody.pubkey,
           collateralCustody: activeCollateralCustody.pubkey,
           seed: unique,
           position,
@@ -391,32 +391,41 @@ function formatLogs(raw: string[]): string[] {
     if (reqAtaInit) console.log("AToken escrow[req] metas [payer, ata, owner, mint] =", metas4(reqAtaInit.ix));
     if (posAtaInit) console.log("AToken escrow[pos] metas [payer, ata, owner, mint] =", metas4(posAtaInit.ix));
 
-    const accounts: Record<string, PublicKey> = {
+    const accounts: { [key: string]: PublicKey } = {
       owner: wallet.publicKey,
-      fundingAccount: ownerAtaInit.ata,
-      position,
-      positionRequest: activePositionRequest,
-      positionRequestAta: havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata,
-      custody: custody.pubkey,
-      collateralCustody: activeCollateralCustody.pubkey,
-      inputMint: collateralMint,
-      referral: wallet.publicKey,
+      funding_account: ownerAtaInit.ata,
       perpetuals: perpetuals.publicKey,
       pool: pool.publicKey,
-      tokenProgram: cfg.SYS.TOKEN_PROGRAM_ID,
-      associatedTokenProgram: cfg.SYS.ASSOCIATED_TOKEN_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-    } as any;
+      position,
+      position_request: activePositionRequest,
+      position_request_ata: havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata,
+      custody: marketCustody.pubkey,
+      collateral_custody: activeCollateralCustody.pubkey,
+      input_mint: collateralMint,
+      referral: wallet.publicKey,
+      token_program: cfg.SYS.TOKEN_PROGRAM_ID,
+      associated_token_program: cfg.SYS.ASSOCIATED_TOKEN_PROGRAM_ID,
+      system_program: SystemProgram.programId,
+    };
 
     console.log(
-      "💳 fundingAccount (payer) =",
-      (accounts as any).fundingAccount.toBase58(),
+      "💳 funding_account (payer) =",
+      accounts["funding_account"].toBase58(),
       "(collateral ATA)",
     );
 
     if (eventAuthority) {
-      (accounts as any).eventAuthority = eventAuthority;
-      (accounts as any).program = programId;
+      accounts["event_authority"] = eventAuthority;
+      accounts["program"] = programId;
+    }
+
+    const custodyPk = accounts["custody"];
+    const collateralPk = accounts["collateral_custody"];
+    if (!custodyPk.equals(marketCustody.pubkey)) {
+      throw new Error("custody mismatch: not market custody");
+    }
+    if (!collateralPk.equals(activeCollateralCustody.pubkey)) {
+      throw new Error("collateral_custody mismatch: not USDC custody");
     }
 
     const reqIx = await (program as any).methods
@@ -427,7 +436,7 @@ function formatLogs(raw: string[]): string[] {
         priceSlippage: priceGuard,
         jupiterMinimumOut: null,
       })
-      .accounts(accounts)
+      .accountsStrict(accounts)
       .instruction();
 
     const allIxs = preIxs.length ? [...preIxs, reqIx] : [reqIx];
@@ -457,9 +466,7 @@ function formatLogs(raw: string[]): string[] {
       if (!nextCollateral) throw err;
       if (nextCollateral.pubkey.equals(activeCollateralCustody.pubkey)) throw err;
       didAutoAlignCollateral = true;
-      console.log(
-        `\n🔧 auto-align: collateral_custody ${shortId(activeCollateralCustody.pubkey.toBase58())} → ${shortId(nextCollateral.pubkey.toBase58())}`,
-      );
+      console.log("\n🔧 auto-align: collateral_custody →", nextCollateral.pubkey.toBase58());
       pendingCollateralOverride = nextCollateral;
       continue;
     }
@@ -536,12 +543,32 @@ async function extractTransactionLogs(err: any): Promise<string[] | null> {
   return null;
 }
 
-function tryAutoAlignCollateralFromLogs(logs: string[], allCustodies: CustodyInfo[]): PublicKey | null {
+function parseInvalidCollateralFromLogs(logs: string[]): { left: string; right: string } | null {
+  const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
   const i = logs.findIndex((l) => l.includes("Invalid collateral account"));
-  if (i === -1) return null;
-  const right = logs[i + 4]?.split(" ").pop()?.trim();
-  if (!left || !right) return null;
+  if (i < 0) return null;
+
+  const window = logs.slice(i, i + 10);
+  const leftLine = window.find((l) => l.includes("Left"));
+  const rightLine = window.find((l) => l.includes("Right"));
+  if (!leftLine || !rightLine) return null;
+
+  const leftMatch = leftLine.match(base58);
+  const rightMatch = rightLine.match(base58);
+  if (!leftMatch || !rightMatch) return null;
+
+  const left = leftMatch[0];
+  const right = rightMatch[0];
+  return { left, right };
+}
+
+function tryAutoAlignCollateralFromLogs(logs: string[], allCustodies: CustodyInfo[]): PublicKey | null {
+  const parsed = parseInvalidCollateralFromLogs(logs);
+  if (!parsed) return null;
+  const { left, right } = parsed;
+
+  console.warn("⚠️ InvalidCollateralAccount: provided =", left, " expected =", right);
+
   const expected = allCustodies.find((c) => c.pubkey.toBase58() === right);
-  if (!expected) return null;
-  return expected.pubkey;
+  return expected ? expected.pubkey : null;
 }
