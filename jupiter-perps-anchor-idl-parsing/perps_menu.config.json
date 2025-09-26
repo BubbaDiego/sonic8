@@ -1,5 +1,9 @@
 {
   "rpc": "https://api.mainnet-beta.solana.com",
+  "rpcList": [
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "rpcIndex": 0,
   "kp": "C:\\sonic5\\keys\\signer.txt",
   "market": "SOL",
   "side": "long",
