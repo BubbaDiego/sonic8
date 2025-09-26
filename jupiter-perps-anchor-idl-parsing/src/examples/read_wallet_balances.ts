@@ -48,8 +48,6 @@ async function safeTokenBalance(
   }
 }
 
-function padRight(s: string, n: number) { return (s + " ".repeat(n)).slice(0, n); }
-
 (async () => {
   const connection = new Connection(argv.rpc, "confirmed");
   const kp = loadKeypair(argv.kp);
@@ -74,22 +72,41 @@ function padRight(s: string, n: number) { return (s + " ".repeat(n)).slice(0, n)
     safeTokenBalance(connection, owner, new PublicKey(mints.WETH))
   ]);
 
+  function short(s: string) {
+    if (!s) return s;
+    return s.length <= 10 ? s : `${s.slice(0, 4)}…${s.slice(-4)}`;
+  }
+  function padRight(s: string, n: number) { return (s + " ".repeat(n)).slice(0, n); }
+
   console.log("Owner:", owner.toBase58());
   console.log("");
-  console.log(padRight("Asset", 8), padRight("Mint", 45), padRight("ATA", 44), padRight("UI Balance", 14), "State");
-  console.log("-".repeat(8), "-".repeat(45), "-".repeat(44), "-".repeat(14), "-----");
+  console.log(
+    padRight("Asset", 8),
+    padRight("Mint", 14),
+    padRight("ATA", 14),
+    padRight("UI Balance", 14),
+    "State"
+  );
+  console.log("-".repeat(8), "-".repeat(14), "-".repeat(14), "-".repeat(14), "-----");
+
+  // SOL row
   console.log(
     padRight("SOL", 8),
-    padRight("-", 45),
-    padRight("-", 44),
+    padRight("-", 14),
+    padRight("-", 14),
     padRight(sol.toFixed(9), 14),
     "wallet"
   );
-  function printRow(name: string, mint: string, r: ReturnType<typeof safeTokenBalance> extends Promise<infer T> ? T : never) {
+
+  function printRow(
+    name: string,
+    mint: string,
+    r: ReturnType<typeof safeTokenBalance> extends Promise<infer T> ? T : never
+  ) {
     console.log(
       padRight(name, 8),
-      padRight(mint, 45),
-      padRight(r.ata.toBase58(), 44),
+      padRight(short(mint), 14),
+      padRight(short(r.ata.toBase58()), 14),
       padRight(r.ui.toFixed(r.decimals > 6 ? 6 : r.decimals || 0), 14),
       r.exists ? "initialized" : "missing"
     );
@@ -100,6 +117,6 @@ function padRight(s: string, n: number) { return (s + " ".repeat(n)).slice(0, n)
   printRow("WETH", mints.WETH, weth);
 
   console.log("\nNotes:");
-  console.log("• If a row says 'missing', that ATA hasn’t been created yet (balance = 0).");
+  console.log("• IDs shortened as AAAA…ZZZZ. Use script source if you need full values.");
   console.log("• Override mints with --usdc-mint / --wbtc-mint / --weth-mint if you use different tokens.");
 })();
