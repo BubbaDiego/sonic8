@@ -1,0 +1,23 @@
+{
+  "rpc": "https://api.mainnet-beta.solana.com",
+  "kp": "C:\\sonic5\\keys\\signer.txt",
+  "market": "SOL",
+  "side": "long",
+  "sizeUsd": 12,
+  "collat": 5,
+  "collatMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "oraclePrice": 100,
+  "slip": 0.02,
+  "maxPrice": null,
+  "minPrice": null,
+  "position": "DQ9C3CR4npoYknxpq4UXsSZauwv1iJFZJ6bFdSfVXyjW",
+  "positionRequest": "6PdRkkqqFpedw8CNAQp3fyC9KX8s8qZVvmMPxhTGvWfp",
+  "walletAta": "CBq3eyJTtvu8tutaVupS92xMEypCKaAzUsZdTAHyVaBh",
+  "cuLimit": 800000,
+  "priorityMicrolamports": 2000,
+  "pollMs": 6000,
+  "timeoutS": 240,
+  "wethMint": "7vfCXTUXx5WJV5zvR6N1Wq3GzT2wP9Gd8Wmcj7iQg9s",
+  "wbtcMint": "9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E",
+  "usdcMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+}
