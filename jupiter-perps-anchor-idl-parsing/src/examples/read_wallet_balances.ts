@@ -72,58 +72,39 @@ async function safeTokenBalance(
     safeTokenBalance(connection, owner, new PublicKey(mints.WETH))
   ]);
 
-  function short(s: string) {
-    if (!s) return s;
-    return s.length <= 10 ? s : `${s.slice(0, 4)}…${s.slice(-4)}`;
-  }
-  const RESET = "\x1b[0m";
-  const GREEN = "\x1b[32m";
-  const DIM = "\x1b[2m";
-
+  const RESET = "\x1b[0m", GREEN = "\x1b[32m", DIM = "\x1b[2m";
+  function short(s: string) { return s && s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s; }
   function padRight(s: string, n: number) { return (s + " ".repeat(n)).slice(0, n); }
-  function colorIf(amount: number, text: string) {
-    // color green when > 0, keep zeros dimmed slightly for readability
-    if (amount > 0) return `${GREEN}${text}${RESET}`;
-    return `${DIM}${text}${RESET}`;
+  function tint(amount: number, text: string) {
+    return amount > 0 ? `${GREEN}${text}${RESET}` : `${DIM}${text}${RESET}`;
   }
 
-  console.log("Owner:", owner.toBase58());
-  console.log("");
-  console.log(
-    padRight("Asset", 8),
-    padRight("Mint", 14),
-    padRight("ATA", 14),
-    padRight("UI Balance", 14),
-    "State"
-  );
+  console.log("Owner:", owner.toBase58(), "\n");
+  console.log(padRight("Asset", 8), padRight("Mint", 14), padRight("ATA", 14), padRight("UI Balance", 14), "State");
   console.log("-".repeat(8), "-".repeat(14), "-".repeat(14), "-".repeat(14), "-----");
 
   console.log(
     padRight("SOL", 8),
     padRight("-", 14),
     padRight("-", 14),
-    colorIf(sol, padRight(sol.toFixed(9), 14)),
+    tint(sol, padRight(sol.toFixed(9), 14)),
     "wallet"
   );
 
-  function printRow(
-    name: string,
-    mint: string,
-    r: ReturnType<typeof safeTokenBalance> extends Promise<infer T> ? T : never
-  ) {
+  function row(name: string, mint: string, r: any) {
     const uiStr = r.ui.toFixed(r.decimals > 6 ? 6 : r.decimals || 0);
     console.log(
       padRight(name, 8),
       padRight(short(mint), 14),
       padRight(short(r.ata.toBase58()), 14),
-      colorIf(r.ui, padRight(uiStr, 14)),
+      tint(r.ui, padRight(uiStr, 14)),
       r.exists ? "initialized" : "missing"
     );
   }
-  printRow("WSOL", mints.WSOL, wsol);
-  printRow("USDC", mints.USDC, usdc);
-  printRow("WBTC", mints.WBTC, wbtc);
-  printRow("WETH", mints.WETH, weth);
+  row("WSOL", mints.WSOL, wsol);
+  row("USDC", mints.USDC, usdc);
+  row("WBTC", mints.WBTC, wbtc);
+  row("WETH", mints.WETH, weth);
 
   console.log("\nNotes:");
   console.log("• IDs shortened as AAAA…ZZZZ. Use script source if you need full values.");

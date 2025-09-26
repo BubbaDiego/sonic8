@@ -4,6 +4,17 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import BN from "bn.js";
 
+function shortPk58(s: string) {
+  return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+}
+function toPk58(x: any) {
+  try {
+    return new PublicKey(x).toBase58();
+  } catch {
+    return String(x);
+  }
+}
+
 const argv = await yargs(hideBin(process.argv))
   .option("rpc", { type: "string", demandOption: true, desc: "RPC URL" })
   .option("id", { type: "string", demandOption: true, desc: "Account pubkey to read" })
@@ -70,6 +81,24 @@ async function main() {
     try {
       const decoded = coder.accounts.decode(name as any, info.data);
       console.log("✅ Decoded as:", name);
+      if (name.toLowerCase().includes("position")) {
+        const pos: any = decoded;
+        const owner58 = toPk58(pos.owner),
+          pool58 = toPk58(pos.pool);
+        const cust58 = toPk58(pos.custody),
+          col58 = toPk58(pos.collateralCustody);
+        console.log(
+          "🔎 Compact:",
+          "owner:",
+          shortPk58(owner58),
+          "pool:",
+          shortPk58(pool58),
+          "cust:",
+          shortPk58(cust58),
+          "colCust:",
+          shortPk58(col58)
+        );
+      }
       console.dir(norm(decoded), { depth: 8 });
       return;
     } catch {}

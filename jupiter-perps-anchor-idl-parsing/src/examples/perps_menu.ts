@@ -30,6 +30,10 @@ const SCRIPTS = {
 // Defaults that can be edited through "Edit Config"
 const DEFAULT_CFG = {
   rpc: "https://api.mainnet-beta.solana.com",
+  rpcList: [
+    "https://api.mainnet-beta.solana.com"
+  ],
+  rpcIndex: 0,
   kp: "C:\\sonic5\\keys\\signer.txt",
   market: "SOL",
   side: "long",
@@ -94,6 +98,14 @@ async function runTee(label: string, scriptAbsPath: string, args: string[]) {
 
 // ——— PDA auto-align helpers ———
 function shortId(s: string) { return s && s.length > 10 ? `${s.slice(0,4)}…${s.slice(-4)}` : s; }
+function is429(s: string) { return /Too Many Requests| code\":\s*429/i.test(s); }
+function nextRpc(cfg: any) {
+  if (!Array.isArray(cfg.rpcList) || cfg.rpcList.length === 0) return cfg.rpc;
+  cfg.rpcIndex = ((cfg.rpcIndex || 0) + 1) % cfg.rpcList.length;
+  cfg.rpc = cfg.rpcList[cfg.rpcIndex];
+  return cfg.rpc;
+}
+function sleep(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 function runCapture(label: string, scriptAbsPath: string, args: string[]) {
   const res = spawnSync("npx", ["--yes", "tsx", scriptAbsPath, ...args], { shell: true, encoding: "utf8" });
@@ -220,41 +232,34 @@ async function actionOpenAndWatch(cfg: any) {
 
     const hit = findRightFromLogs(res.combined);
     if (hit?.right) {
-      const overrides: { position?: string; positionRequest?: string } = {};
-      if (hit.which === "position") {
-        overrides.position = hit.right;
+      if (hit.which === "position" || hit.left === cfg.position) {
         console.log(`\n🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(hit.right)}`);
-      } else if (hit.which === "position_request") {
-        overrides.positionRequest = hit.right;
+        cfg.position = hit.right;
+      } else if (hit.which === "position_request" || hit.left === cfg.positionRequest) {
         console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
+        cfg.positionRequest = hit.right;
       } else {
-        // Fallback: if the logged Left matches our cfg, use that to decide; else assume 'position'
-        if (hit.left === cfg.position) {
-          overrides.position = hit.right;
-          console.log(`\n🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(hit.right)}`);
-        } else if (hit.left === cfg.positionRequest) {
-          overrides.positionRequest = hit.right;
-          console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
-        } else {
-          overrides.position = hit.right;
-          console.log(`\n🔧 auto-align: assumed position → ${shortId(hit.right)}`);
-        }
+        console.log(`\n🔧 auto-align: assumed position → ${shortId(hit.right)}`);
+        cfg.position = hit.right;
       }
+      try { fs.writeFileSync(`${ROOT}\\perps_menu.config.json`, JSON.stringify(cfg, null, 2), "utf8"); } catch {}
+    }
 
-      // Retry once with corrected PDA(s)
-      console.log(`\n────────────── Open Perp (retry with Right PDAs) ──────────────`);
-      const args2 = buildOpenArgs(cfg, overrides);
-      res = await runTee("Open Perp (attempt 2)", SCRIPTS.open, args2);
+    console.log("⏳ backoff before retry…");
+    await sleep(800 + Math.random() * 1200);
+    if (is429(res.combined) && Array.isArray(cfg.rpcList) && cfg.rpcList.length > 1) {
+      const prev = cfg.rpc;
+      const newRpc = nextRpc(cfg);
+      console.log(`🌐 RPC 429 → switching RPC: ${prev} → ${newRpc}`);
+      try { fs.writeFileSync(`${ROOT}\\perps_menu.config.json`, JSON.stringify(cfg, null, 2), "utf8"); } catch {}
+    }
 
-      if (res.status === 0) {
-        // Persist corrected PDAs for future runs
-        if (overrides.position) cfg.position = overrides.position;
-        if (overrides.positionRequest) cfg.positionRequest = overrides.positionRequest;
-        try { fs.writeFileSync(`${ROOT}\\perps_menu.config.json`, JSON.stringify(cfg, null, 2), "utf8"); } catch {}
-        console.log("💾 Saved updated PDAs to perps_menu.config.json");
-      } else {
-        printFailureTail(res.combined, 60);
-      }
+    console.log(`\n────────────── Open Perp (retry) ──────────────`);
+    const args2 = buildOpenArgs(cfg);
+    res = await runTee("Open Perp (attempt 2)", SCRIPTS.open, args2);
+
+    if (res.status !== 0) {
+      printFailureTail(res.combined, 60);
     }
   }
 
