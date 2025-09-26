@@ -14,6 +14,7 @@
       "store/*": ["src/store/*"],
       "utils/*": ["src/utils/*"],
       "assets/*": ["src/assets/*"],
+      "images/*": ["src/assets/images/*"],
       "menu-items": ["src/menu-items/index.js", "src/menu-items/index.jsx", "src/menu-items"],
       "menu-items/*": ["src/menu-items/*"],
       "contexts/*": ["src/contexts/*"],

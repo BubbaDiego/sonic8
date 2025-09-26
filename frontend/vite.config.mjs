@@ -52,6 +52,7 @@ export default defineConfig(({ mode }) => {
         store: r('store'),
         utils: r('utils'),
         assets: r('assets'),
+        images: r('assets/images'),
         'menu-items': r('menu-items'),
         contexts: r('contexts'),
         hooks: r('hooks'),
