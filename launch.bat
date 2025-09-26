@@ -1,96 +1,102 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
-title Sonic5 — Launch Pad
+setlocal enabledelayedexpansion
 
-REM --- Always run from this file’s folder (so shortcuts work) ---
-set "BASE_DIR=%~dp0"
-cd /d "%BASE_DIR%"
+REM ===========================================
+REM Sonic5 Launcher (Windows)
+REM - Activates venv
+REM - Finds Launch Pad entrypoint
+REM - Runs backend
+REM ===========================================
 
-echo.
+REM --- Paths ---
+set "ROOT=%~dp0"
+set "PY=%ROOT%.venv\Scripts\python.exe"
+set "BACKEND=%ROOT%backend"
+set "LOGS=%ROOT%logs"
+
+if not exist "%LOGS%" mkdir "%LOGS%"
+
 echo [Sonic5] Preparing Python...
-
-REM --- Prefer project venv if present; otherwise fall back to system Python ---
-set "PYEXE=%BASE_DIR%.venv\Scripts\python.exe"
-if exist "%PYEXE%" (
-  echo [Sonic5] Using venv: "%PYEXE%"
-) else (
-  where python >nul 2>nul
-  if errorlevel 1 (
-    echo [ERROR] Python not found and no venv present at .venv\Scripts\python.exe
-    echo        Install Python 3.x or create the venv:  python -m venv .venv
-    pause
-    exit /b 1
-  )
-  for /f "usebackq delims=" %%P in (`where python`) do (
-    set "PYEXE=%%P"
-    goto :found_python
-  )
-  :found_python
-  echo [Sonic5] Using system Python: "%PYEXE%"
+if not exist "%PY%" (
+  echo [ERROR] venv python not found at "%PY%"
+  echo         Create it:  python -m venv .venv ^& .venv\Scripts\pip install -U pip
+  exit /b 1
 )
+echo [Sonic5] Using venv: "%PY%"
 
-REM --- Pick the first entrypoint that exists (adjust list if yours differs) ---
+REM --- Allow manual override via env var or .env file ---
+REM 1) Environment variable LAUNCHPAD_ENTRY takes highest precedence
+REM 2) If .env has LAUNCHPAD_ENTRY=..., we will read it
 set "ENTRY="
-call :pick_entry ENTRY ^
-  "backend\apps\launch_pad\main.py" ^
-  "backend\launch_pad\main.py" ^
-  "backend\launch_pad.py" ^
-  "backend\core\launch_pad\main.py" ^
-  "backend\apps\launchpad\main.py"
+if defined LAUNCHPAD_ENTRY set "ENTRY=%LAUNCHPAD_ENTRY%"
 
 if not defined ENTRY (
-  echo.
-  echo [ERROR] Could not find a Launch Pad entrypoint.
-  echo         Looked for:
-  echo           backend\apps\launch_pad\main.py
-  echo           backend\launch_pad\main.py
-  echo           backend\launch_pad.py
-  echo           backend\core\launch_pad\main.py
-  echo           backend\apps\launchpad\main.py
-  echo.
-  echo Tip: Edit launch.bat and replace the candidate list with your actual path.
-  pause
-  exit /b 2
-)
-
-echo.
-echo [Sonic5] Starting Launch Pad: "%ENTRY%"
-echo.
-
-REM --- If your Launch Pad is an ASGI app (FastAPI), you can instead run uvicorn:
-REM set "APP_MODULE=backend.apps.launch_pad.app:app"
-REM "%PYEXE%" -m uvicorn "%APP_MODULE%" --host 127.0.0.1 --port 8000
-REM goto :done
-
-"%PYEXE%" "%ENTRY%"
-set "RC=%ERRORLEVEL%"
-
-:done
-echo.
-if "%RC%"=="0" (
-  echo [Sonic5] Launch Pad exited normally.
-) else (
-  echo [Sonic5] Launch Pad exited with code %RC%.
-)
-echo.
-pause
-exit /b %RC%
-
-REM ------------ helpers -------------
-:pick_entry
-REM %1=outVar, rest=candidates relative to BASE_DIR
-setlocal EnableDelayedExpansion
-set "OUTVAR=%~1"
-set "%OUTVAR%="
-shift
-:pe_loop
-if "%~1"=="" goto :pe_end
-if exist "%BASE_DIR%%~1" (
-  for %%Z in ("%~1") do (
-    endlocal & set "%OUTVAR%=%%~fZ" & goto :eof
+  if exist "%ROOT%.env" (
+    for /f "usebackq tokens=1,* delims==" %%A in ("%ROOT%.env") do (
+      if /I "%%~A"=="LAUNCHPAD_ENTRY" set "ENTRY=%%~B"
+    )
   )
 )
-shift
-goto :pe_loop
-:pe_end
-endlocal & goto :eof
+
+REM --- Candidate list (relative to repo root) ---
+set "CANDIDATES=launch_pad.py;
+backend\sonic_backend_app.py;
+backend\apps\launch_pad\main.py;
+backend\apps\launchpad\main.py;
+backend\launch_pad\main.py;
+backend\core\launch_pad\main.py;
+backend\launch_pad.py;
+backend\apps\launch_pad\app.py;
+backend\apps\launchpad\app.py"
+
+REM If no override, probe candidates
+if not defined ENTRY (
+  for %%P in (%CANDIDATES%) do (
+    if exist "%ROOT%%%P" (
+      set "ENTRY=%ROOT%%%P"
+      goto :ENTRY_FOUND
+    )
+  )
+)
+
+REM Fallback: dynamic search for "*launch*pad*\main.py" anywhere under backend
+if not defined ENTRY (
+  for /f "delims=" %%F in ('dir /b /s "%BACKEND%\*launch*pad*\main.py" 2^>nul') do (
+    set "ENTRY=%%F"
+    goto :ENTRY_FOUND
+  )
+)
+
+REM Last-ditch: accept a single main.py that imports/defines Launch Pad
+if not defined ENTRY (
+  for /f "delims=" %%F in ('dir /b /s "%BACKEND%\main.py" 2^>nul') do (
+    set "ENTRY=%%F"
+    goto :ENTRY_FOUND
+  )
+)
+
+echo.
+echo [ERROR] Could not find a Launch Pad entrypoint.
+echo         Looked for:
+for %%P in (%CANDIDATES%) do echo           %%P
+echo.
+echo Tip A: Set LAUNCHPAD_ENTRY to an absolute or relative path, e.g.:
+echo        set LAUNCHPAD_ENTRY=backend\apps\launch_pad\main.py
+echo Tip B: Put the same line in .env at repo root.
+echo.
+pause
+exit /b 1
+
+:ENTRY_FOUND
+echo [Sonic5] Launch Pad entrypoint:
+echo         %ENTRY%
+
+REM --- Ensure Python can import backend packages ---
+set "PYTHONPATH=%BACKEND%;%ROOT%"
+
+REM --- Run it ---
+echo [Sonic5] Starting backend...
+"%PY%" "%ENTRY%"
+set "RC=%ERRORLEVEL%"
+echo [Sonic5] Backend exited with code %RC%
+exit /b %RC%
