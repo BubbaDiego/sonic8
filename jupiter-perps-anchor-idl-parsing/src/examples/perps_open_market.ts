@@ -1,7 +1,7 @@
 /* Open/Increase position at market, with optional collateral deposit */
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import type { Idl } from "@coral-xyz/anchor";
+import type { Idl, Program } from "@coral-xyz/anchor";
 import * as web3 from "@solana/web3.js";
 import {
   PublicKey,
@@ -24,12 +24,56 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 import { toPk } from "../utils/pk.js";
 import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from "../utils/ata.js";
 
-type CustodyInfo = { pubkey: PublicKey; account: any; mint: PublicKey };
+type CustodyInfo = { pubkey: web3.PublicKey; account: any; mint: web3.PublicKey };
 
-function pickCustodyByMint(custodies: CustodyInfo[], mint: PublicKey) {
+function pickCustodyByMint(custodies: CustodyInfo[], mint: web3.PublicKey) {
   const c = custodies.find((x) => x.mint.equals(mint));
   if (!c) throw new Error(`No custody found for mint ${mint.toBase58()}`);
-  return c;
+  return c.pubkey;
+}
+
+function buildIncreaseAccounts(args: {
+  owner: web3.PublicKey;
+  perpetualsPk: web3.PublicKey;
+  poolPk: web3.PublicKey;
+  positionPk: web3.PublicKey;
+  positionRequestPk: web3.PublicKey;
+  positionRequestUsdcAta: web3.PublicKey;
+  ownerUsdcAta: web3.PublicKey;
+  marketCustodyPk: web3.PublicKey;
+  collateralCustodyPk: web3.PublicKey;
+  collateralMintPk: web3.PublicKey;
+  referralOrSystemProgram: web3.PublicKey;
+  eventAuthorityPk: web3.PublicKey;
+  perpsProgramId: web3.PublicKey;
+}) {
+  const accounts = {
+    owner: args.owner,
+    fundingAccount: args.ownerUsdcAta,
+    perpetuals: args.perpetualsPk,
+    pool: args.poolPk,
+    position: args.positionPk,
+    positionRequest: args.positionRequestPk,
+    positionRequestAta: args.positionRequestUsdcAta,
+
+    custody: args.marketCustodyPk,
+    collateralCustody: args.collateralCustodyPk,
+
+    inputMint: args.collateralMintPk,
+    referral: args.referralOrSystemProgram,
+
+    tokenProgram: TOKEN_PROGRAM_ID,
+    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+    systemProgram: web3.SystemProgram.programId,
+
+    eventAuthority: args.eventAuthorityPk,
+    program: args.perpsProgramId,
+  };
+
+  if (accounts.custody.equals(accounts.collateralCustody)) {
+    throw new Error("custody == collateralCustody (should never happen)");
+  }
+  return accounts;
 }
 
 function shortId(s: string) {
@@ -122,26 +166,28 @@ function formatLogs(raw: string[]): string[] {
     mint: new PublicKey(c.account.mint as PublicKey),
   }));
 
-  const marketCustody = pickCustodyByMint(allCustodies, marketMint);
+  const marketCustodyPk = pickCustodyByMint(allCustodies, marketMint);
   const defaultCollat = argv.side === "long" ? marketMint : cfg.MINTS.USDC;
   const collatMintArg = (argv["collat-mint"] as unknown) ?? null;
   const collateralMint = collatMintArg ? toPk("collat-mint", collatMintArg) : defaultCollat;
-  let collateralCustody = pickCustodyByMint(allCustodies, collateralMint);
+  let collateralCustodyPk = pickCustodyByMint(allCustodies, collateralMint);
+  let collateralCustodyInfo = allCustodies.find((c) => c.pubkey.equals(collateralCustodyPk));
+  if (!collateralCustodyInfo) throw new Error("Unable to resolve collateral custody info");
   console.log(
     "🔑  Mints :: marketMint=",
     (marketMint as any).toBase58?.() ?? String(marketMint),
     " collateralMint=",
     (collateralMint as any).toBase58?.() ?? String(collateralMint),
   );
-  console.log("🧪 custody (market):     ", marketCustody.pubkey.toBase58());
-  console.log("🧪 collateralCustody:  ", collateralCustody.pubkey.toBase58());
+  console.log("🧪 custody (market):     ", marketCustodyPk.toBase58());
+  console.log("🧪 collateralCustody:  ", collateralCustodyPk.toBase58());
   console.log("🧪 inputMint:          ", collateralMint.toBase58());
 
   bar("PDAs", "🧩");
   const [positionCanonical] = derivePositionPdaCanonical(
     programId,
     pool.publicKey,
-    marketCustody.pubkey,
+    marketCustodyPk,
     wallet.publicKey,
   );
   let position: PublicKey;
@@ -177,8 +223,8 @@ function formatLogs(raw: string[]): string[] {
     const [derivedPositionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
       owner: wallet.publicKey,
       pool: pool.publicKey,
-      custody: marketCustody.pubkey,
-      collateralCustody: collateralCustody.pubkey,
+      custody: marketCustodyPk,
+      collateralCustody: collateralCustodyPk,
       seed: unique,
       position,
     });
@@ -187,7 +233,7 @@ function formatLogs(raw: string[]): string[] {
   kv("Position", position.toBase58());
   kv("PosRequest", positionRequest.toBase58());
 
-  const decimals = (collateralCustody.account.decimals as number) ?? 9;
+  const decimals = (collateralCustodyInfo.account.decimals as number) ?? 9;
   // Discovery run = no token transfer → set collat=0 on the wire when !havePR
   const sizeUsdDeltaDisc = toMicroUsd(argv["size-usd"]);
   const collateralTokenDelta = havePR
@@ -278,19 +324,21 @@ function formatLogs(raw: string[]): string[] {
   let pendingCollateralOverride: CustodyInfo | null = null;
   let didAutoAlignCollateral = false;
   let activePositionRequest = positionRequest;
-  let activeCollateralCustody = collateralCustody;
+  let activeCollateralCustodyInfo = collateralCustodyInfo;
+  let activeCollateralCustodyPk = collateralCustodyPk;
   let sendErr: any = null;
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     if (pendingCollateralOverride) {
-      activeCollateralCustody = pendingCollateralOverride;
+      activeCollateralCustodyInfo = pendingCollateralOverride;
+      activeCollateralCustodyPk = pendingCollateralOverride.pubkey;
       pendingCollateralOverride = null;
       if (!havePR) {
         const [derivedPositionRequest] = derivePdaFromIdl(JUP_PERPS_IDL as Idl, programId, "positionRequest", {
           owner: wallet.publicKey,
           pool: pool.publicKey,
-          custody: marketCustody.pubkey,
-          collateralCustody: activeCollateralCustody.pubkey,
+          custody: marketCustodyPk,
+          collateralCustody: activeCollateralCustodyPk,
           seed: unique,
           position,
         });
@@ -394,23 +442,27 @@ function formatLogs(raw: string[]): string[] {
     if (reqAtaInit) console.log("AToken escrow[req] metas [payer, ata, owner, mint] =", metas4(reqAtaInit.ix));
     if (posAtaInit) console.log("AToken escrow[pos] metas [payer, ata, owner, mint] =", metas4(posAtaInit.ix));
 
-    const accounts = {
+    if (!eventAuthorityPk) {
+      throw new Error("Missing event authority PDA");
+    }
+
+    const positionRequestUsdcAta = havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata;
+
+    const accounts = buildIncreaseAccounts({
       owner: wallet.publicKey,
-      fundingAccount: ownerAtaInit.ata,
-      perpetuals: perpetuals.publicKey,
-      pool: pool.publicKey,
-      position,
-      positionRequest: activePositionRequest,
-      positionRequestAta: havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata,
-      custody: marketCustody.pubkey,
-      collateralCustody: activeCollateralCustody.pubkey,
-      inputMint: collateralMint,
-      referral: wallet.publicKey,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-      systemProgram: web3.SystemProgram.programId,
-      ...(eventAuthorityPk ? { eventAuthority: eventAuthorityPk, program: programId } : {}),
-    };
+      perpetualsPk: perpetuals.publicKey,
+      poolPk: pool.publicKey,
+      positionPk: position,
+      positionRequestPk: activePositionRequest,
+      positionRequestUsdcAta,
+      ownerUsdcAta: ownerAtaInit.ata,
+      marketCustodyPk,
+      collateralCustodyPk: activeCollateralCustodyPk,
+      collateralMintPk: collateralMint,
+      referralOrSystemProgram: wallet.publicKey,
+      eventAuthorityPk,
+      perpsProgramId: programId,
+    });
 
     console.log(
       "💳 fundingAccount (payer) =",
@@ -420,14 +472,14 @@ function formatLogs(raw: string[]): string[] {
 
     const custodyPk = accounts.custody;
     const collateralPk = accounts.collateralCustody;
-    if (!custodyPk.equals(marketCustody.pubkey)) {
+    if (!custodyPk.equals(marketCustodyPk)) {
       throw new Error("custody mismatch: not market custody");
     }
-    if (!collateralPk.equals(activeCollateralCustody.pubkey)) {
-      throw new Error("collateralCustody mismatch: not USDC custody");
+    if (!collateralPk.equals(activeCollateralCustodyPk)) {
+      throw new Error("collateralCustody mismatch: not expected collateral custody");
     }
 
-    const reqIx = await (program as any).methods
+    const method = (program as any).methods
       .createIncreasePositionMarketRequest({
         sizeUsdDelta: sizeUsdDeltaDisc,
         collateralTokenDelta,
@@ -435,8 +487,9 @@ function formatLogs(raw: string[]): string[] {
         priceSlippage: priceGuard,
         jupiterMinimumOut: null,
       })
-      .accountsStrict(accounts)
-      .instruction();
+      .accountsStrict(accounts);
+
+    const reqIx = await debugPrintIx(program as Program<any>, method);
 
     const allIxs = preIxs.length ? [...preIxs, reqIx] : [reqIx];
     const { blockhash, lastValidBlockHeight: lvbh } = await provider.connection.getLatestBlockhash();
@@ -452,7 +505,8 @@ function formatLogs(raw: string[]): string[] {
     try {
       await simulateOrSend(provider.connection, tx, argv["dry-run"] === true);
       positionRequest = activePositionRequest;
-      collateralCustody = activeCollateralCustody;
+      collateralCustodyPk = activeCollateralCustodyPk;
+      collateralCustodyInfo = activeCollateralCustodyInfo;
       sendErr = null;
       break;
     } catch (err: any) {
@@ -463,7 +517,7 @@ function formatLogs(raw: string[]): string[] {
       if (!nextCollateralPk || didAutoAlignCollateral) throw err;
       const nextCollateral = allCustodies.find((c) => c.pubkey.equals(nextCollateralPk));
       if (!nextCollateral) throw err;
-      if (nextCollateral.pubkey.equals(activeCollateralCustody.pubkey)) throw err;
+      if (nextCollateral.pubkey.equals(activeCollateralCustodyPk)) throw err;
       didAutoAlignCollateral = true;
       console.log("\n🔧 auto-align: collateralCustody →", nextCollateral.pubkey.toBase58());
       pendingCollateralOverride = nextCollateral;
@@ -526,6 +580,17 @@ async function simulateOrSend(
     }
     throw err;
   }
+}
+
+async function debugPrintIx(program: Program<any>, m: any) {
+  const ix = await m.instruction();
+  const idlIx = program.idl.instructions.find((i) => i.name === "createIncreasePositionMarketRequest");
+  console.log("🔎 Final ix accounts (IDL name → pubkey):");
+  ix.keys.forEach((k, i) => {
+    const name = idlIx?.accounts[i]?.name ?? `idx_${i}`;
+    console.log(`${String(i).padStart(2)} ${name} → ${k.pubkey.toBase58()}`);
+  });
+  return ix;
 }
 
 async function extractTransactionLogs(err: any): Promise<string[] | null> {
