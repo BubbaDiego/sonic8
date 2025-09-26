@@ -26,9 +26,9 @@ import BlurCircularTwoToneIcon from '@mui/icons-material/BlurCircularTwoTone';
 
 import MonitorUpdateBar from './MonitorUpdateBar';
 
-import btcLogo from '/images/btc_logo.png';
-import ethLogo from '/images/eth_logo.png';
-import solLogo from '/images/sol_logo.png';
+import btcLogo from 'images/btc_logo.png';
+import ethLogo from 'images/eth_logo.png';
+import solLogo from 'images/sol_logo.png';
 
 /* ------------------------------------------------------------------------- */
 /*  Constants                                                                 */

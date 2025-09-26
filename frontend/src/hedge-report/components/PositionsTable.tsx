@@ -1,8 +1,8 @@
 import { PositionDB } from '../types/position';
 import { useMemo, useState } from 'react';
-import btc from '/images/btc_logo.png';
-import eth from '/images/eth_logo.png';
-import sol from '/images/sol_logo.png';
+import btc from 'images/btc_logo.png';
+import eth from 'images/eth_logo.png';
+import sol from 'images/sol_logo.png';
 
 const icons: Record<string, string> = { BTC: btc, ETH: eth, SOL: sol };
 
