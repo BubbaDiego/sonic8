@@ -35,6 +35,7 @@ const DEFAULT_CFG = {
   side: "long",
   sizeUsd: 12,
   collat: 0.005,
+  collatMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   oraclePrice: 100,
   slip: 0.02,
   maxPrice: null as number | null,
@@ -115,6 +116,7 @@ async function actionOpenAndWatch(cfg: any) {
     "--cu-limit", String(cfg.cuLimit),
     "--priority-microlamports", String(cfg.priorityMicrolamports),
   ];
+  if (cfg.collatMint) openArgs.push("--collat-mint", String(cfg.collatMint));
   if (cfg.oraclePrice != null && cfg.slip != null) {
     openArgs.push("--oracle-price", String(cfg.oraclePrice), "--slip", String(cfg.slip));
   } else if (cfg.maxPrice != null) {
@@ -163,6 +165,7 @@ async function actionDryRunSim(cfg: any) {
     "--priority-microlamports", String(cfg.priorityMicrolamports),
     "--dry-run",
   ];
+  if (cfg.collatMint) openArgs.push("--collat-mint", String(cfg.collatMint));
   if (cfg.oraclePrice != null && cfg.slip != null) {
     openArgs.push("--oracle-price", String(cfg.oraclePrice), "--slip", String(cfg.slip));
   } else if (cfg.maxPrice != null) {
@@ -211,6 +214,7 @@ async function actionEditConfig(cfg: any) {
   await edit("side", "long|short");
   await edit("sizeUsd");
   await edit("collat");
+  await edit("collatMint");
   await edit("oraclePrice");
   await edit("slip");
   await edit("maxPrice");
