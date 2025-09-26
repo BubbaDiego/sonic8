@@ -8,7 +8,7 @@
  *   npx --yes tsx C:\\sonic5\\jupiter-perps-anchor-idl-parsing\\src\\examples\\perps_menu.ts
  */
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "fs";
 import readline from "readline";
 
@@ -79,6 +79,17 @@ function run(label: string, scriptAbsPath: string, args: string[]) {
     console.log("✅ done");
   }
   return res.status ?? 1;
+}
+
+// Stream child stdout/stderr to console AND capture into a string buffer.
+async function runTee(label: string, scriptAbsPath: string, args: string[]) {
+  return await new Promise<{ status: number; combined: string }>((resolve) => {
+    const child = spawn("npx", ["--yes", "tsx", scriptAbsPath, ...args], { shell: true });
+    let combined = "";
+    child.stdout.on("data", (d) => { const s = d.toString(); combined += s; process.stdout.write(s); });
+    child.stderr.on("data", (d) => { const s = d.toString(); combined += s; process.stderr.write(s); });
+    child.on("close", (code) => resolve({ status: code ?? 1, combined }));
+  });
 }
 
 // ——— PDA auto-align helpers ———
@@ -201,7 +212,7 @@ async function actionOpenAndWatch(cfg: any) {
   // Attempt #1
   console.log(`\n──────────────────── Open Perp ────────────────────`);
   let args1 = buildOpenArgs(cfg);
-  let res = runCapture("Open Perp (attempt 1)", SCRIPTS.open, args1);
+  let res = await runTee("Open Perp (attempt 1)", SCRIPTS.open, args1);
 
   // If failed, try to auto-align PDAs and retry once
   if (res.status !== 0) {
@@ -233,7 +244,7 @@ async function actionOpenAndWatch(cfg: any) {
       // Retry once with corrected PDA(s)
       console.log(`\n────────────── Open Perp (retry with Right PDAs) ──────────────`);
       const args2 = buildOpenArgs(cfg, overrides);
-      res = runCapture("Open Perp (attempt 2)", SCRIPTS.open, args2);
+      res = await runTee("Open Perp (attempt 2)", SCRIPTS.open, args2);
 
       if (res.status === 0) {
         // Persist corrected PDAs for future runs
