@@ -8,6 +8,7 @@ import {
   Keypair,
   VersionedTransaction,
   TransactionMessage,
+  ComputeBudgetProgram,
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
@@ -38,6 +39,16 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
     .option("max-price", { type: "number", describe: "Explicit max price (LONG)" })
     .option("min-price", { type: "number", describe: "Explicit min price (SHORT)" })
     .option("dry-run", { type: "boolean", default: false })
+    .option("cu-limit", {
+      type: "number",
+      default: 800_000,
+      describe: "Compute unit limit to request for the transaction",
+    })
+    .option("priority-microlamports", {
+      type: "number",
+      default: 100_000,
+      describe: "Micro-lamports to pay per compute unit for priority fees",
+    })
     .strict()
     .parse();
 
@@ -213,6 +224,10 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
   }
 
   const preIxs: any[] = [];
+  preIxs.unshift(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: argv.cuLimit }),
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: argv.priorityMicrolamports }),
+  );
   if (collateralMint.equals(wsolMint)) {
     // --- WSOL ATA for the wallet owner ---
     // owner should be your Keypair loaded from --kp
