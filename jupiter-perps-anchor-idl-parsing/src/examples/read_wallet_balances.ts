@@ -76,7 +76,16 @@ async function safeTokenBalance(
     if (!s) return s;
     return s.length <= 10 ? s : `${s.slice(0, 4)}…${s.slice(-4)}`;
   }
+  const RESET = "\x1b[0m";
+  const GREEN = "\x1b[32m";
+  const DIM = "\x1b[2m";
+
   function padRight(s: string, n: number) { return (s + " ".repeat(n)).slice(0, n); }
+  function colorIf(amount: number, text: string) {
+    // color green when > 0, keep zeros dimmed slightly for readability
+    if (amount > 0) return `${GREEN}${text}${RESET}`;
+    return `${DIM}${text}${RESET}`;
+  }
 
   console.log("Owner:", owner.toBase58());
   console.log("");
@@ -89,12 +98,11 @@ async function safeTokenBalance(
   );
   console.log("-".repeat(8), "-".repeat(14), "-".repeat(14), "-".repeat(14), "-----");
 
-  // SOL row
   console.log(
     padRight("SOL", 8),
     padRight("-", 14),
     padRight("-", 14),
-    padRight(sol.toFixed(9), 14),
+    colorIf(sol, padRight(sol.toFixed(9), 14)),
     "wallet"
   );
 
@@ -103,11 +111,12 @@ async function safeTokenBalance(
     mint: string,
     r: ReturnType<typeof safeTokenBalance> extends Promise<infer T> ? T : never
   ) {
+    const uiStr = r.ui.toFixed(r.decimals > 6 ? 6 : r.decimals || 0);
     console.log(
       padRight(name, 8),
       padRight(short(mint), 14),
       padRight(short(r.ata.toBase58()), 14),
-      padRight(r.ui.toFixed(r.decimals > 6 ? 6 : r.decimals || 0), 14),
+      colorIf(r.ui, padRight(uiStr, 14)),
       r.exists ? "initialized" : "missing"
     );
   }

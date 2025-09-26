@@ -210,11 +210,11 @@ function formatLogs(raw: string[]): string[] {
     ownerTokenProgramId,
   );
   console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, wallet):`, {
-    mint: collateralMint.toBase58(),
-    owner: wallet.publicKey.toBase58(),
+    mint: shortId(collateralMint.toBase58()),
+    owner: shortId(wallet.publicKey.toBase58()),
     allowOwnerOffCurve: false,
-    tokenProgramId: ownerTokenProgramId.toBase58(),
-    ata: ownerAtaInit.ata.toBase58(),
+    tokenProgramId: shortId(ownerTokenProgramId.toBase58()),
+    ata: shortId(ownerAtaInit.ata.toBase58()),
   });
   const expectedOwnerAta = deriveAtaStrict(collateralMint, wallet.publicKey, false, ownerTokenProgramId);
   if (!ownerAtaInit.ata.equals(expectedOwnerAta)) {
@@ -234,11 +234,11 @@ function formatLogs(raw: string[]): string[] {
       escrowTokenProgramId,
     );
     console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, positionRequest):`, {
-      mint: collateralMint.toBase58(),
-      owner: positionRequest.toBase58(),
+      mint: shortId(collateralMint.toBase58()),
+      owner: shortId(positionRequest.toBase58()),
       allowOwnerOffCurve: true,
-      tokenProgramId: escrowTokenProgramId.toBase58(),
-      ata: reqAtaInit.ata.toBase58(),
+      tokenProgramId: shortId(escrowTokenProgramId.toBase58()),
+      ata: shortId(reqAtaInit.ata.toBase58()),
     });
     const expectedReqAta = deriveAtaStrict(collateralMint, positionRequest, true, escrowTokenProgramId);
     if (!reqAtaInit.ata.equals(expectedReqAta)) {
@@ -253,11 +253,11 @@ function formatLogs(raw: string[]): string[] {
       escrowTokenProgramId,
     );
     console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, position):`, {
-      mint: collateralMint.toBase58(),
-      owner: position.toBase58(),
+      mint: shortId(collateralMint.toBase58()),
+      owner: shortId(position.toBase58()),
       allowOwnerOffCurve: true,
-      tokenProgramId: escrowTokenProgramId.toBase58(),
-      ata: posAtaInit.ata.toBase58(),
+      tokenProgramId: shortId(escrowTokenProgramId.toBase58()),
+      ata: shortId(posAtaInit.ata.toBase58()),
     });
     const expectedPosAta = deriveAtaStrict(collateralMint, position, true, escrowTokenProgramId);
     if (!posAtaInit.ata.equals(expectedPosAta)) {
