@@ -317,7 +317,7 @@ import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from ".
     fundingAccount: ownerAtaInit.ata,
     position,
     positionRequest,
-    positionRequestAta: havePR ? reqAtaInit.ata : ownerAtaInit.ata,
+    positionRequestAta: havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata,
     custody: custody.pubkey,
     collateralCustody: collateralCustody.pubkey,
     inputMint: collateralMint,
