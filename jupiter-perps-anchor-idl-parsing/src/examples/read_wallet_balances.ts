@@ -8,6 +8,7 @@ import {
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import fs from "fs";
+import bs58 from "bs58";
 
 // Defaults (override via CLI if you use different mints)
 const DEFAULT_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // USDC
@@ -25,8 +26,41 @@ const argv = await yargs(hideBin(process.argv))
 
 function loadKeypair(p: string): Keypair {
   const raw = fs.readFileSync(p, "utf8").trim();
-  const arr: number[] = JSON.parse(raw);
-  return Keypair.fromSecretKey(Uint8Array.from(arr));
+
+  // JSON array (Solana CLI format)
+  if (raw.startsWith("[")) {
+    const arr: number[] = JSON.parse(raw);
+    return Keypair.fromSecretKey(Uint8Array.from(arr));
+  }
+
+  // Looks like a mnemonic? (spaces + words) — refuse with a helpful message
+  if (/\s/.test(raw) && !/^[\[{]/.test(raw)) {
+    throw new Error(
+      "Key file looks like a mnemonic. Run derive_keypair_prompt.ts to produce signer.txt (JSON array) first."
+    );
+  }
+
+  // Base58 secret (common export)
+  if (/^[1-9A-HJ-NP-Za-km-z]+$/.test(raw)) {
+    const bytes = bs58.decode(raw);
+    if (bytes.length === 64) return Keypair.fromSecretKey(bytes);
+    if (bytes.length === 32) {
+      throw new Error(
+        "Base58 decodes to 32 bytes (seed), not a 64-byte secretKey. Convert to a JSON keypair first."
+      );
+    }
+    throw new Error(`Base58 decoded to ${bytes.length} bytes; expected 64.`);
+  }
+
+  // Base64 fallback
+  try {
+    const b = Buffer.from(raw, "base64");
+    if (b.length === 64) return Keypair.fromSecretKey(Uint8Array.from(b));
+  } catch {}
+
+  throw new Error(
+    "Unrecognized key format. Provide JSON array, base58 64-byte secret, or base64 64-byte secret."
+  );
 }
 
 async function safeTokenBalance(
