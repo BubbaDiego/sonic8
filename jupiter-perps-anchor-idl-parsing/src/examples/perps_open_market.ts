@@ -382,26 +382,40 @@ async function simulateOrSend(
   dryRun: boolean
 ) {
   if (dryRun) {
-    // Correct modern signature: options object, not a signers array.
+    console.log("🧪 dry-run: simulating transaction (no send)");
     const sim = await connection.simulateTransaction(tx, {
       sigVerify: false,
-      replaceRecentBlockhash: true
+      replaceRecentBlockhash: true,
     });
-    if (sim.value.err) {
-      console.error("❌ simulate err:", sim.value.err);
-    }
     if (sim.value.logs?.length) {
       console.log("🧾 simulate logs:");
-      for (const l of sim.value.logs) console.log("   ", l);
+      for (const log of sim.value.logs) {
+        console.log("   ", log);
+      }
     }
-    console.log("🧪 dry-run complete (no tx sent).");
+    if (sim.value.err) {
+      console.error("❌ simulate err:", sim.value.err);
+    } else {
+      console.log("✅ simulation success");
+    }
     return;
   }
 
-  // Live path (unchanged, but shown for clarity)
-  const sig = await connection.sendTransaction(tx, {
-    skipPreflight: false,
-    maxRetries: 3
-  });
-  console.log("✅ sent:", sig);
+  try {
+    const sig = await connection.sendTransaction(tx, {
+      skipPreflight: false,
+      maxRetries: 3,
+    });
+    console.log("✅ sent:", sig);
+  } catch (err: any) {
+    console.error("❌ sendTransaction error:", err);
+    const logs = err?.logs as string[] | undefined;
+    if (logs?.length) {
+      console.log("🧾 send logs:");
+      for (const log of logs) {
+        console.log("   ", log);
+      }
+    }
+    throw err;
+  }
 }
