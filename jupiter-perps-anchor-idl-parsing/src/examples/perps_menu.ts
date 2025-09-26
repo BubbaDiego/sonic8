@@ -100,21 +100,51 @@ function printFailureTail(combined: string, tail = 60) {
   for (const l of last) console.log("   ", l);
 }
 
-// Parse ConstraintSeeds block AND which account failed.
-function findRightFromLogs(combined: string): { which?: "position"|"position_request", left?: string, right?: string } | null {
-  const lines = combined.split(/\r?\n/).map(l => l.trim());
-  for (let i = 0; i < lines.length - 5; i++) {
-    if (!/ConstraintSeeds/.test(lines[i])) continue;
-    // The perps program prints: "AnchorError caused by account: <name>."
-    const which =
-      /account:\s*position_request/i.test(lines[i]) ? "position_request" :
-      /account:\s*position\b/i.test(lines[i]) ? "position" : undefined;
+/**
+ * Robustly parse Anchor ConstraintSeeds from noisy logs.
+ * Handles:
+ *  - lines wrapped in quotes and ending with commas
+ *  - "Program log:" prefixes
+ *  - Left/Right on same line OR next line
+ */
+function findRightFromLogs(
+  combined: string
+): { which?: "position" | "position_request"; left?: string; right?: string } | null {
+  const lines = combined
+    .split(/\r?\n/)
+    .map((l) => l.trim().replace(/^['"]|['"],?$/g, "")); // strip quotes/commas
 
-    // Expect the 4 lines: Left:, <pubkey>, Right:, <pubkey>
-    if (/Left:/.test(lines[i+1]) && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(lines[i+2]) &&
-        /Right:/.test(lines[i+3]) && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(lines[i+4])) {
-      return { which, left: lines[i+2], right: lines[i+4] };
+  const b58 = /([1-9A-HJ-NP-Za-km-z]{32,44})/;
+  for (let i = 0; i < lines.length; i++) {
+    const L = lines[i];
+
+    // Look for the anchor error line with which account failed
+    if (!/ConstraintSeeds/i.test(L)) continue;
+
+    let which: "position" | "position_request" | undefined;
+    const mWhich = L.match(/account:\s*([A-Za-z_]+)/i);
+    if (mWhich) {
+      const name = mWhich[1].toLowerCase();
+      if (name.includes("position_request")) which = "position_request";
+      else if (name === "position") which = "position";
     }
+
+    // Scan the next ~10 lines to find Left/Right + pubkeys
+    let left: string | undefined, right: string | undefined;
+    for (let j = i + 1; j < Math.min(lines.length, i + 12); j++) {
+      const s = lines[j];
+
+      if (/Left:/i.test(s)) {
+        // pubkey could be on this line or the next
+        left = (s.match(b58)?.[1]) || (lines[j + 1]?.match(b58)?.[1]);
+      }
+      if (/Right:/i.test(s)) {
+        right = (s.match(b58)?.[1]) || (lines[j + 1]?.match(b58)?.[1]);
+      }
+      if (left && right) break;
+    }
+
+    if (right) return { which, left, right };
   }
   return null;
 }
@@ -176,8 +206,8 @@ async function actionOpenAndWatch(cfg: any) {
   // If failed, try to auto-align PDAs and retry once
   if (res.status !== 0) {
     printFailureTail(res.combined, 60);
-    const hit = findRightFromLogs(res.combined);
 
+    const hit = findRightFromLogs(res.combined);
     if (hit?.right) {
       const overrides: { position?: string; positionRequest?: string } = {};
       if (hit.which === "position") {
@@ -187,22 +217,30 @@ async function actionOpenAndWatch(cfg: any) {
         overrides.positionRequest = hit.right;
         console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
       } else {
-        // Heuristic fallback: if Left matches our position, treat as position; else assume position.
-        if (hit.left === cfg.position) overrides.position = hit.right;
-        else overrides.position = hit.right;
-        console.log(`\n🔧 auto-align: assumed position → ${shortId(hit.right)}`);
+        // Fallback: if the logged Left matches our cfg, use that to decide; else assume 'position'
+        if (hit.left === cfg.position) {
+          overrides.position = hit.right;
+          console.log(`\n🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(hit.right)}`);
+        } else if (hit.left === cfg.positionRequest) {
+          overrides.positionRequest = hit.right;
+          console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
+        } else {
+          overrides.position = hit.right;
+          console.log(`\n🔧 auto-align: assumed position → ${shortId(hit.right)}`);
+        }
       }
 
       // Retry once with corrected PDA(s)
-      console.log(`\n──────────────── Open Perp (retry with Right PDAs) ────────────────`);
+      console.log(`\n────────────── Open Perp (retry with Right PDAs) ──────────────`);
       const args2 = buildOpenArgs(cfg, overrides);
       res = runCapture("Open Perp (attempt 2)", SCRIPTS.open, args2);
 
       if (res.status === 0) {
-        // Persist corrected PDAs
+        // Persist corrected PDAs for future runs
         if (overrides.position) cfg.position = overrides.position;
         if (overrides.positionRequest) cfg.positionRequest = overrides.positionRequest;
-        try { saveCfg(cfg); console.log("💾 Saved updated PDAs to perps_menu.config.json"); } catch {}
+        try { fs.writeFileSync(`${ROOT}\\perps_menu.config.json`, JSON.stringify(cfg, null, 2), "utf8"); } catch {}
+        console.log("💾 Saved updated PDAs to perps_menu.config.json");
       } else {
         printFailureTail(res.combined, 60);
       }
@@ -221,7 +259,8 @@ async function actionOpenAndWatch(cfg: any) {
   const deadline = Date.now() + (Number(cfg.timeoutS || 240) * 1000);
 
   while (true) {
-    const r = spawnSync("npx",
+    const r = spawnSync(
+      "npx",
       ["--yes", "tsx", SCRIPTS.readAcct, "--rpc", cfg.rpc, "--id", cfg.position, "--kind", "position"],
       { shell: true, encoding: "utf8" }
     );
@@ -356,6 +395,7 @@ async function main() {
     console.log("║      rpc: ", cfg.rpc.padEnd(47, " "), "║");
     console.log("║      kp : ", cfg.kp.padEnd(47, " "), "║");
     console.log("║      pos: ", cfg.position.padEnd(47, " "), "║");
+    console.log("║      col: ", (cfg.collatMint ? shortId(cfg.collatMint) : "WSOL(default)").padEnd(47, " "), "║");
     console.log("╠══════════════════════════════════════════════════════════════╣");
     console.log("║  1) 📊  Status (Position + Wallet Balances)                  ║");
     console.log("║  2) 💧  Wrap WSOL                                            ║");
