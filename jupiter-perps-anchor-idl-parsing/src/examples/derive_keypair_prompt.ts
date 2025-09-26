@@ -17,8 +17,10 @@ async function prompt(question: string, mask = false): Promise<string> {
   const r = rl();
   const orig = (r as any)._writeToOutput;
   if (mask) {
+    const iface = r as readline.Interface & { output?: NodeJS.WritableStream };
+    const output = iface.output;
     (r as any)._writeToOutput = function (_str: string) {
-      (r.output as any).write("*");
+      if (output) output.write("*");
     };
   }
   const ans: string = await new Promise((resolve) => r.question(question, resolve));
