@@ -10,12 +10,23 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import fs from "fs";
+import { Connection, PublicKey, Keypair } from "@solana/web3.js";
+import {
+  getAssociatedTokenAddressSync,
+  getAccount,
+  getMint,
+  NATIVE_MINT,
+} from "@solana/spl-token";
 import readline from "readline";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────────
 const ROOT = "C:\\sonic5\\jupiter-perps-anchor-idl-parsing";
 const EX = (p: string) => `${ROOT}\\src\\examples\\${p}`;
 const CFG_PATH = `${ROOT}\\perps_menu.config.json`;
+
+const RESET = "\x1b[0m",
+  GREEN = "\x1b[32m",
+  DIM = "\x1b[2m";
 
 // Existing helper scripts you already created
 const SCRIPTS = {
@@ -97,7 +108,73 @@ async function runTee(label: string, scriptAbsPath: string, args: string[]) {
 }
 
 // ——— PDA auto-align helpers ———
-function shortId(s: string) { return s && s.length > 10 ? `${s.slice(0,4)}…${s.slice(-4)}` : s; }
+function shortId(s: string) {
+  return s && s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+}
+function color(amount: number, s: string) {
+  return amount > 0 ? `${GREEN}${s}${RESET}` : `${DIM}${s}${RESET}`;
+}
+
+async function getBalancesInline(
+  cfg: any
+): Promise<{ sol: number; wsol: number; collat: number; collatSym: string }> {
+  const conn = new Connection(cfg.rpc, "confirmed");
+  const arr: number[] = JSON.parse(fs.readFileSync(cfg.kp, "utf8"));
+  const secret = Uint8Array.from(arr);
+  let ownerPk: PublicKey;
+  try {
+    const maybeFromSeed = (PublicKey as any).fromSeed as ((seed: Uint8Array) => PublicKey) | undefined;
+    ownerPk = maybeFromSeed ? maybeFromSeed(secret.slice(0, 32)) : Keypair.fromSecretKey(secret).publicKey;
+  } catch {
+    ownerPk = Keypair.fromSecretKey(secret).publicKey;
+  }
+
+  const lamports = await conn.getBalance(ownerPk).catch(() => 0);
+  const sol = lamports / 1e9;
+
+  const wsolAta = getAssociatedTokenAddressSync(NATIVE_MINT, ownerPk, false);
+  const wsolAcc = await getAccount(conn, wsolAta).catch(() => null);
+  const wsolDec = (await getMint(conn, NATIVE_MINT).catch(() => ({ decimals: 9 } as any))).decimals ?? 9;
+  const wsol = wsolAcc ? Number(wsolAcc.amount) / 10 ** wsolDec : 0;
+
+  const collatMint = cfg.collatMint ? new PublicKey(cfg.collatMint) : NATIVE_MINT;
+  const collatSym = cfg.collatMint ? "coll" : "wsol";
+  const collAta = getAssociatedTokenAddressSync(collatMint, ownerPk, false);
+  const collAcc = await getAccount(conn, collAta).catch(() => null);
+  const collDec = (await getMint(conn, collatMint).catch(() => ({ decimals: 6 } as any))).decimals ?? 6;
+  const coll = collAcc ? Number(collAcc.amount) / 10 ** collDec : 0;
+
+  return { sol, wsol, collat: coll, collatSym: collatSym.toUpperCase() };
+}
+
+async function renderHeader(cfg: any) {
+  const b = await getBalancesInline(cfg).catch(() => ({ sol: NaN, wsol: NaN, collat: NaN, collatSym: "" }));
+  const solTxt = isNaN(b.sol) ? "?" : b.sol.toFixed(4);
+  const wsolTxt = isNaN(b.wsol) ? "?" : b.wsol.toFixed(4);
+  const collTxt = isNaN(b.collat) ? "?" : b.collat.toFixed(4);
+
+  console.log("╔══════════════════════════════════════════════════════════════╗");
+  console.log("║  🧭  Jupiter Perps Console                                   ║");
+  console.log("║      rpc: ", String(cfg.rpc ?? "").padEnd(47, " "), "║");
+  console.log("║      kp : ", String(cfg.kp ?? "").padEnd(47, " "), "║");
+  console.log("║      pos: ", shortId(String(cfg.position ?? "")).padEnd(47, " "), "║");
+  console.log(
+    "║      col: ",
+    (cfg.collatMint ? shortId(String(cfg.collatMint)) : "WSOL(default)").padEnd(47, " "),
+    "║"
+  );
+  const balLine = `sol:${solTxt} | wsol:${wsolTxt} | ${b.collatSym}:${collTxt}`;
+  console.log(
+    "║      bal: ",
+    balLine
+      .replace(`sol:${solTxt}`, `sol:${color(b.sol, solTxt)}`)
+      .replace(`wsol:${wsolTxt}`, `wsol:${color(b.wsol, wsolTxt)}`)
+      .replace(`${b.collatSym}:${collTxt}`, `${b.collatSym}:${color(b.collat, collTxt)}`)
+      .padEnd(47, " "),
+    "║"
+  );
+  console.log("╠══════════════════════════════════════════════════════════════╣");
+}
 function is429(s: string) { return /Too Many Requests| code\":\s*429/i.test(s); }
 function nextRpc(cfg: any) {
   if (!Array.isArray(cfg.rpcList) || cfg.rpcList.length === 0) return cfg.rpc;
@@ -221,77 +298,59 @@ async function actionWrap(cfg: any) {
 async function actionOpenAndWatch(cfg: any) {
   console.log("📈 Open & Watch");
 
-  // Attempt #1
-  console.log(`\n──────────────────── Open Perp ────────────────────`);
-  let args1 = buildOpenArgs(cfg);
-  let res = await runTee("Open Perp (attempt 1)", SCRIPTS.open, args1);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    if (attempt > 1) {
+      console.log("\n⏳ backoff…");
+      await new Promise((r) => setTimeout(r, 800 + Math.random() * 1200));
+    }
 
-  // If failed, try to auto-align PDAs and retry once
-  if (res.status !== 0) {
-    printFailureTail(res.combined, 60);
+    console.log(`\n──────────────────── Open Perp (attempt ${attempt}) ────────────────────`);
+    const res = await runTee("Open", SCRIPTS.open, buildOpenArgs(cfg));
+
+    if (res.status === 0) {
+      console.log("\n⏱️  Watching position for fill… (Ctrl+C to stop)");
+      const t0 = Date.now();
+      const poll = Number(cfg.pollMs) || 6000;
+      const deadline = Date.now() + Number(cfg.timeoutS || 240) * 1000;
+      while (true) {
+        const r = spawnSync(
+          "npx",
+          ["--yes", "tsx", SCRIPTS.readAcct, "--rpc", cfg.rpc, "--id", cfg.position, "--kind", "position"],
+          { shell: true, encoding: "utf8" }
+        );
+        const m = (r.stdout || "").toString().match(/sizeUsd:\s*'(\d+)'/);
+        if (m) {
+          const sz = Number(m[1]);
+          console.log(`🔎 sizeUsd=${sz}  elapsed=${Math.floor((Date.now() - t0) / 1000)}s`);
+          if (sz > 0) {
+            console.log("✅ filled");
+          }
+        }
+        if (Date.now() > deadline || (m && Number(m[1]) > 0)) break;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, poll);
+      }
+      return;
+    }
 
     const hit = findRightFromLogs(res.combined);
-    if (hit?.right) {
-      if (hit.which === "position" || hit.left === cfg.position) {
-        console.log(`\n🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(hit.right)}`);
-        cfg.position = hit.right;
-      } else if (hit.which === "position_request" || hit.left === cfg.positionRequest) {
-        console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
-        cfg.positionRequest = hit.right;
-      } else {
-        console.log(`\n🔧 auto-align: assumed position → ${shortId(hit.right)}`);
-        cfg.position = hit.right;
-      }
-      try { fs.writeFileSync(`${ROOT}\\perps_menu.config.json`, JSON.stringify(cfg, null, 2), "utf8"); } catch {}
+    if (!hit?.right) {
+      console.log("\n❌ Open failed without seeds info (see logs).");
+      return;
     }
 
-    console.log("⏳ backoff before retry…");
-    await sleep(800 + Math.random() * 1200);
-    if (is429(res.combined) && Array.isArray(cfg.rpcList) && cfg.rpcList.length > 1) {
-      const prev = cfg.rpc;
-      const newRpc = nextRpc(cfg);
-      console.log(`🌐 RPC 429 → switching RPC: ${prev} → ${newRpc}`);
-      try { fs.writeFileSync(`${ROOT}\\perps_menu.config.json`, JSON.stringify(cfg, null, 2), "utf8"); } catch {}
-    }
-
-    console.log(`\n────────────── Open Perp (retry) ──────────────`);
-    const args2 = buildOpenArgs(cfg);
-    res = await runTee("Open Perp (attempt 2)", SCRIPTS.open, args2);
-
-    if (res.status !== 0) {
-      printFailureTail(res.combined, 60);
-    }
-  }
-
-  if (res.status !== 0) {
-    console.log("\n❌ Open failed. See logs above.");
-    return;
-  }
-
-  // WATCH loop
-  console.log("\n⏱️  Watching position for fill… (Ctrl+C to stop)");
-  const t0 = Date.now();
-  const poll = Number(cfg.pollMs) || 6000;
-  const deadline = Date.now() + (Number(cfg.timeoutS || 240) * 1000);
-
-  while (true) {
-    const r = spawnSync(
-      "npx",
-      ["--yes", "tsx", SCRIPTS.readAcct, "--rpc", cfg.rpc, "--id", cfg.position, "--kind", "position"],
-      { shell: true, encoding: "utf8" }
-    );
-    const out = (r.stdout || "").toString();
-    const m = out.match(/sizeUsd:\s*'(\d+)'/);
-    if (m) {
-      const sz = Number(m[1]);
-      console.log(`🔎 sizeUsd=${sz}  elapsed=${Math.floor((Date.now()-t0)/1000)}s`);
-      if (sz > 0) { console.log("✅ filled"); break; }
+    if (hit.which === "position" || hit.left === cfg.position) {
+      console.log(`\n🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(hit.right)}`);
+      cfg.position = hit.right;
     } else {
-      process.stdout.write(out);
+      console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
+      cfg.positionRequest = hit.right;
     }
-    if (Date.now() > deadline) { console.log("⏳ timeout (no fill yet)"); break; }
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, poll);
+    try {
+      fs.writeFileSync(`${ROOT}\\perps_menu.config.json`, JSON.stringify(cfg, null, 2), "utf8");
+    } catch {}
   }
+
+  console.log("\n❌ Open failed after corrections. See logs above.");
 }
 
 
@@ -406,13 +465,7 @@ async function main() {
   // Simple loop menu
   while (true) {
     cls();
-    console.log("╔══════════════════════════════════════════════════════════════╗");
-    console.log("║  🧭  Jupiter Perps Console                                   ║");
-    console.log("║      rpc: ", cfg.rpc.padEnd(47, " "), "║");
-    console.log("║      kp : ", cfg.kp.padEnd(47, " "), "║");
-    console.log("║      pos: ", cfg.position.padEnd(47, " "), "║");
-    console.log("║      col: ", (cfg.collatMint ? shortId(cfg.collatMint) : "WSOL(default)").padEnd(47, " "), "║");
-    console.log("╠══════════════════════════════════════════════════════════════╣");
+    await renderHeader(cfg);
     console.log("║  1) 📊  Status (Position + Wallet Balances)                  ║");
     console.log("║  2) 💧  Wrap WSOL                                            ║");
     console.log("║  3) 🚀  Open & Watch (uses current config)                   ║");
