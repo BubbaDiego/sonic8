@@ -23,6 +23,48 @@ import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 import { toPk } from "../utils/pk.js";
 import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from "../utils/ata.js";
 
+function shortId(s: string) {
+  return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+}
+function labelFor(programId: string) {
+  return programId === "ComputeBudget111111111111111111111111111111"
+    ? "ComputeBudget"
+    : programId === "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+    ? "AssociatedToken"
+    : programId === "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    ? "Token"
+    : programId === "11111111111111111111111111111111"
+    ? "System"
+    : programId === "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu"
+    ? "Perps"
+    : shortId(programId);
+}
+function formatLogs(raw: string[]): string[] {
+  // squash repetitive AToken “CreateIdempotent” chatter and Token size/init chatter
+  const skip = [
+    "Instruction: GetAccountDataSize",
+    "return: TokenkegQfe",
+    "Please upgrade to SPL Token 2022 for immutable owner support",
+    "Instruction: InitializeAccount3",
+  ];
+  const out: string[] = [];
+  for (const l of raw || []) {
+    if (skip.some((k) => l.includes(k))) continue;
+    // Prefix with a label if the line starts with “Program <pid>” or “Program log: …”
+    const m = l.match(/^Program\s+([A-Za-z0-9]+)\s.*|^Program log:\s(.*)$/);
+    if (m) {
+      // keep as-is but compact the pid into a label when present
+      const pid = l.match(/^Program\s+([A-Za-z0-9]+)/)?.[1] ?? "";
+      if (pid) out.push(`• ${labelFor(pid)} → ${l.replace(/^Program\s+[A-Za-z0-9]+\s/, "")}`);
+      else out.push(`• ${l.replace(/^Program log:\s/, "")}`);
+    } else {
+      out.push(l);
+    }
+  }
+  // collapse duplicate consecutive lines
+  return out.filter((v, i, a) => i === 0 || v !== a[i - 1]);
+}
+
 (async () => {
   const argv = await yargs(hideBin(process.argv))
     .option("rpc", { type: "string", demandOption: true })
@@ -387,15 +429,12 @@ async function simulateOrSend(
       sigVerify: false,
       replaceRecentBlockhash: true,
     });
+    if (sim.value.err) console.error("❌ simulate err:", sim.value.err);
     if (sim.value.logs?.length) {
-      console.log("🧾 simulate logs:");
-      for (const log of sim.value.logs) {
-        console.log("   ", log);
-      }
+      console.log("🧾 simulate logs (compact):");
+      for (const l of formatLogs(sim.value.logs)) console.log("   ", l);
     }
-    if (sim.value.err) {
-      console.error("❌ simulate err:", sim.value.err);
-    } else {
+    if (!sim.value.err) {
       console.log("✅ simulation success");
     }
     return;
@@ -409,12 +448,15 @@ async function simulateOrSend(
     console.log("✅ sent:", sig);
   } catch (err: any) {
     console.error("❌ sendTransaction error:", err);
-    const logs = err?.logs as string[] | undefined;
-    if (logs?.length) {
-      console.log("🧾 send logs:");
-      for (const log of logs) {
-        console.log("   ", log);
+    if (typeof err.getLogs === "function") {
+      const logs = await err.getLogs().catch(() => null);
+      if (logs?.length) {
+        console.error("🧾 send logs (compact):");
+        for (const l of formatLogs(logs)) console.error("   ", l);
       }
+    } else if (err?.transactionLogs?.length) {
+      console.error("🧾 send logs (compact):");
+      for (const l of formatLogs(err.transactionLogs)) console.error("   ", l);
     }
     throw err;
   }
