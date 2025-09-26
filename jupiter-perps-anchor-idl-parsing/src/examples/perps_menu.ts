@@ -84,13 +84,8 @@ function run(label: string, scriptAbsPath: string, args: string[]) {
 // ——— PDA auto-align helpers ———
 function shortId(s: string) { return s && s.length > 10 ? `${s.slice(0,4)}…${s.slice(-4)}` : s; }
 
-// Capture stdout+stderr from a child process (we need logs to parse)
 function runCapture(label: string, scriptAbsPath: string, args: string[]) {
-  const res = spawnSync(
-    "npx",
-    ["--yes", "tsx", scriptAbsPath, ...args],
-    { shell: true, encoding: "utf8" }
-  );
+  const res = spawnSync("npx", ["--yes", "tsx", scriptAbsPath, ...args], { shell: true, encoding: "utf8" });
   const stdout = (res.stdout || "").toString();
   const stderr = (res.stderr || "").toString();
   const combined = stdout + "\n" + stderr;
@@ -98,30 +93,34 @@ function runCapture(label: string, scriptAbsPath: string, args: string[]) {
   return { status, stdout, stderr, combined };
 }
 
-// Parse “ConstraintSeeds” block; return Right PDAs if present
-function extractRightPDAs(allLogs: string, cfgHint?: { position: string; positionRequest: string }) {
-  const lines = allLogs.split(/\r?\n/).map(l => l.trim());
-  const results: Array<{left: string; right: string}> = [];
-
-  for (let i = 0; i < lines.length - 4; i++) {
-    if (!/ConstraintSeeds/.test(lines[i])) continue;
-    if (/Left:/.test(lines[i+1]) && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(lines[i+2])
-     && /Right:/.test(lines[i+3]) && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(lines[i+4])) {
-      results.push({ left: lines[i+2], right: lines[i+4] });
-    }
-  }
-
-  const out: { position?: string; positionRequest?: string } = {};
-  for (const {left, right} of results) {
-    if (cfgHint?.position && left === cfgHint.position) out.position = right;
-    else if (cfgHint?.positionRequest && left === cfgHint.positionRequest) out.positionRequest = right;
-    else if (!out.position) out.position = right; // best-effort default
-  }
-  return out;
+function printFailureTail(combined: string, tail = 60) {
+  const lines = combined.split(/\r?\n/).filter(Boolean);
+  const last = lines.slice(-tail);
+  console.log("\n❌ Open failed. Tail of logs:");
+  for (const l of last) console.log("   ", l);
 }
 
-// Small helper to rebuild open args with optional PDA overrides
-function buildOpenArgs(cfg: any, overrides?: { position?: string; positionRequest?: string }) {
+// Parse ConstraintSeeds block AND which account failed.
+function findRightFromLogs(combined: string): { which?: "position"|"position_request", left?: string, right?: string } | null {
+  const lines = combined.split(/\r?\n/).map(l => l.trim());
+  for (let i = 0; i < lines.length - 5; i++) {
+    if (!/ConstraintSeeds/.test(lines[i])) continue;
+    // The perps program prints: "AnchorError caused by account: <name>."
+    const which =
+      /account:\s*position_request/i.test(lines[i]) ? "position_request" :
+      /account:\s*position\b/i.test(lines[i]) ? "position" : undefined;
+
+    // Expect the 4 lines: Left:, <pubkey>, Right:, <pubkey>
+    if (/Left:/.test(lines[i+1]) && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(lines[i+2]) &&
+        /Right:/.test(lines[i+3]) && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(lines[i+4])) {
+      return { which, left: lines[i+2], right: lines[i+4] };
+    }
+  }
+  return null;
+}
+
+// Build args for perps_open_market.ts with optional PDA overrides.
+function buildOpenArgs(cfg: any, overrides?: { position?: string; positionRequest?: string }, dryRun = false) {
   const args = [
     "--rpc", cfg.rpc,
     "--kp", cfg.kp,
@@ -142,6 +141,7 @@ function buildOpenArgs(cfg: any, overrides?: { position?: string; positionReques
   } else if (cfg.minPrice != null) {
     args.push("--min-price", String(cfg.minPrice));
   }
+  if (dryRun) args.push("--dry-run");
   return args;
 }
 
@@ -168,50 +168,60 @@ async function actionWrap(cfg: any) {
 async function actionOpenAndWatch(cfg: any) {
   console.log("📈 Open & Watch");
 
-  // 1) FIRST ATTEMPT — run open and capture logs
-  let openArgs = buildOpenArgs(cfg);
+  // Attempt #1
   console.log(`\n──────────────────── Open Perp ────────────────────`);
-  let res = runCapture("Open Perp (attempt 1)", SCRIPTS.open, openArgs);
+  let args1 = buildOpenArgs(cfg);
+  let res = runCapture("Open Perp (attempt 1)", SCRIPTS.open, args1);
 
-  // 2) If failed due to ConstraintSeeds, auto-align PDAs and retry ONCE
+  // If failed, try to auto-align PDAs and retry once
   if (res.status !== 0) {
-    const pdas = extractRightPDAs(res.combined, { position: cfg.position, positionRequest: cfg.positionRequest });
-    const overrides: { position?: string; positionRequest?: string } = {};
-    if (pdas.position) {
-      console.log(`🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(pdas.position)}`);
-      overrides.position = pdas.position;
-    }
-    if (pdas.positionRequest) {
-      console.log(`🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(pdas.positionRequest)}`);
-      overrides.positionRequest = pdas.positionRequest;
-    }
-    if (overrides.position || overrides.positionRequest) {
-      const retryArgs = buildOpenArgs(cfg, overrides);
-      console.log(`\n──────────────────── Open Perp (retry with Right PDAs) ────────────────────`);
-      res = runCapture("Open Perp (attempt 2)", SCRIPTS.open, retryArgs);
+    printFailureTail(res.combined, 60);
+    const hit = findRightFromLogs(res.combined);
+
+    if (hit?.right) {
+      const overrides: { position?: string; positionRequest?: string } = {};
+      if (hit.which === "position") {
+        overrides.position = hit.right;
+        console.log(`\n🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(hit.right)}`);
+      } else if (hit.which === "position_request") {
+        overrides.positionRequest = hit.right;
+        console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
+      } else {
+        // Heuristic fallback: if Left matches our position, treat as position; else assume position.
+        if (hit.left === cfg.position) overrides.position = hit.right;
+        else overrides.position = hit.right;
+        console.log(`\n🔧 auto-align: assumed position → ${shortId(hit.right)}`);
+      }
+
+      // Retry once with corrected PDA(s)
+      console.log(`\n──────────────── Open Perp (retry with Right PDAs) ────────────────`);
+      const args2 = buildOpenArgs(cfg, overrides);
+      res = runCapture("Open Perp (attempt 2)", SCRIPTS.open, args2);
+
       if (res.status === 0) {
+        // Persist corrected PDAs
         if (overrides.position) cfg.position = overrides.position;
         if (overrides.positionRequest) cfg.positionRequest = overrides.positionRequest;
-        saveCfg(cfg);
-        console.log("💾 Saved updated PDAs to perps_menu.config.json");
+        try { saveCfg(cfg); console.log("💾 Saved updated PDAs to perps_menu.config.json"); } catch {}
+      } else {
+        printFailureTail(res.combined, 60);
       }
     }
   }
 
   if (res.status !== 0) {
-    console.log(`\n❌ Open failed. See logs above.`);
+    console.log("\n❌ Open failed. See logs above.");
     return;
   }
 
-  // 3) WATCH — poll Position until filled
-  console.log(`\n⏱️  Watching position for fill… (Ctrl+C to stop)`);
+  // WATCH loop
+  console.log("\n⏱️  Watching position for fill… (Ctrl+C to stop)");
   const t0 = Date.now();
-  const loopMs = Number(cfg.pollMs) || 6000;
-  const timeoutMs = Number(cfg.timeoutS || 240) * 1000;
+  const poll = Number(cfg.pollMs) || 6000;
+  const deadline = Date.now() + (Number(cfg.timeoutS || 240) * 1000);
 
   while (true) {
-    const r = spawnSync(
-      "npx",
+    const r = spawnSync("npx",
       ["--yes", "tsx", SCRIPTS.readAcct, "--rpc", cfg.rpc, "--id", cfg.position, "--kind", "position"],
       { shell: true, encoding: "utf8" }
     );
@@ -219,14 +229,13 @@ async function actionOpenAndWatch(cfg: any) {
     const m = out.match(/sizeUsd:\s*'(\d+)'/);
     if (m) {
       const sz = Number(m[1]);
-      const elapsed = Math.floor((Date.now() - t0) / 1000);
-      console.log(`🔎 sizeUsd=${sz}  elapsed=${elapsed}s`);
+      console.log(`🔎 sizeUsd=${sz}  elapsed=${Math.floor((Date.now()-t0)/1000)}s`);
       if (sz > 0) { console.log("✅ filled"); break; }
     } else {
       process.stdout.write(out);
     }
-    if (Date.now() - t0 > timeoutMs) { console.log("⏳ timeout (no fill yet)"); break; }
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, loopMs);
+    if (Date.now() > deadline) { console.log("⏳ timeout (no fill yet)"); break; }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, poll);
   }
 }
 
@@ -234,32 +243,37 @@ async function actionOpenAndWatch(cfg: any) {
 async function actionDryRunSim(cfg: any) {
   console.log("🧪 Dry-run Simulate");
 
-  let openArgs = [...buildOpenArgs(cfg), "--dry-run"];
+  let openArgs = buildOpenArgs(cfg, undefined, true);
   console.log(`\n──────────────────── Simulate Open ────────────────────`);
   let res = runCapture("Simulate Open (attempt 1)", SCRIPTS.open, openArgs);
 
   if (res.status !== 0) {
-    const pdas = extractRightPDAs(res.combined, { position: cfg.position, positionRequest: cfg.positionRequest });
-    const overrides: { position?: string; positionRequest?: string } = {};
-    if (pdas.position) {
-      console.log(`🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(pdas.position)}`);
-      overrides.position = pdas.position;
-    }
-    if (pdas.positionRequest) {
-      console.log(`🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(pdas.positionRequest)}`);
-      overrides.positionRequest = pdas.positionRequest;
-    }
+    printFailureTail(res.combined, 60);
+    const hit = findRightFromLogs(res.combined);
+    if (hit?.right) {
+      const overrides: { position?: string; positionRequest?: string } = {};
+      if (hit.which === "position") {
+        overrides.position = hit.right;
+        console.log(`\n🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(hit.right)}`);
+      } else if (hit.which === "position_request") {
+        overrides.positionRequest = hit.right;
+        console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
+      } else {
+        if (hit.left === cfg.position) overrides.position = hit.right;
+        else overrides.position = hit.right;
+        console.log(`\n🔧 auto-align: assumed position → ${shortId(hit.right)}`);
+      }
 
-    if (overrides.position || overrides.positionRequest) {
-      openArgs = [...buildOpenArgs(cfg, overrides), "--dry-run"];
+      openArgs = buildOpenArgs(cfg, overrides, true);
       console.log(`\n──────────────────── Simulate Open (retry with Right PDAs) ────────────────────`);
       res = runCapture("Simulate Open (attempt 2)", SCRIPTS.open, openArgs);
 
       if (res.status === 0) {
         if (overrides.position) cfg.position = overrides.position;
         if (overrides.positionRequest) cfg.positionRequest = overrides.positionRequest;
-        saveCfg(cfg);
-        console.log("💾 Saved updated PDAs to perps_menu.config.json");
+        try { saveCfg(cfg); console.log("💾 Saved updated PDAs to perps_menu.config.json"); } catch {}
+      } else {
+        printFailureTail(res.combined, 60);
       }
     }
   }
