@@ -92,7 +92,6 @@ function buildIncreaseAccounts(
 }
 
 function collectAllLogLines(err: any): string[] {
-  // AnchorError has .logs and .errorLogs; web3 SendTransactionError has .transactionLogs
   const a: string[] = Array.isArray(err?.transactionLogs) ? err.transactionLogs : [];
   const b: string[] = Array.isArray(err?.logs) ? err.logs : [];
   const c: string[] = Array.isArray(err?.errorLogs) ? err.errorLogs : [];
@@ -104,10 +103,8 @@ function parseInvalidCollateralFromLogs(logs: string[]): { left: string; right: 
   const i = logs.findIndex((l) => l.includes("Invalid collateral account"));
   if (i < 0) return null;
   const window = logs.slice(i, i + 10);
-  const leftLine = window.find((l) => l.includes("Left"));
-  const rightLine = window.find((l) => l.includes("Right"));
-  const left = leftLine?.match(base58)?.[0];
-  const right = rightLine?.match(base58)?.[0];
+  const left = window.find((l) => l.includes("Left"))?.match(base58)?.[0];
+  const right = window.find((l) => l.includes("Right"))?.match(base58)?.[0];
   return left && right ? { left, right } : null;
 }
 
@@ -117,12 +114,8 @@ function shouldSwapCustodiesForIdlMismatch(
   collateralCustodyPk: web3.PublicKey,
 ): boolean {
   if (!logs?.length) return false;
-  const parsed = parseInvalidCollateralFromLogs(logs);
-  if (!parsed) return false;
-  return (
-    parsed.left === marketCustodyPk.toBase58() &&
-    parsed.right === collateralCustodyPk.toBase58()
-  );
+  const p = parseInvalidCollateralFromLogs(logs);
+  return !!p && p.left === marketCustodyPk.toBase58() && p.right === collateralCustodyPk.toBase58();
 }
 
 function shortId(s: string) {
@@ -632,20 +625,21 @@ function printAttemptLogs(logs: string[] | undefined, attemptLabel: string) {
           await simulateOrSend(provider.connection, tx, true);
         } else {
           if (flipCustodyOrder) {
-            let accounts = buildIncreaseAccounts(baseArgs, "swapped");
-            let method = (program as any).methods
+            const accounts = buildIncreaseAccounts(baseArgs, forcedMode);
+            const method = (program as any).methods
               .createIncreasePositionMarketRequest(ixArgs)
               .accountsStrict(accounts)
               .preInstructions(preIxs)
               .postInstructions(postIxs);
 
-            await debugPrintIx(program as Program, method, "attempt (forced swapped)");
+            const forcedLabel = forcedMode === "swapped" ? "attempt (forced swapped)" : "attempt (forced idl)";
+            await debugPrintIx(program as Program, method, forcedLabel);
 
             try {
-              await method.rpc(/* opts */);
+              await method.rpc(/* opts if any */);
             } catch (err: any) {
               const forcedLogs = collectAllLogLines(err);
-              printAttemptLogs(forcedLogs, "attempt (forced swapped)");
+              printAttemptLogs(forcedLogs, forcedLabel);
               throw err;
             }
           } else {
@@ -662,7 +656,7 @@ function printAttemptLogs(logs: string[] | undefined, attemptLabel: string) {
             await debugPrintIx(program as Program, method, "attempt 1");
 
             try {
-              await method.rpc(/* opts */);
+              await method.rpc(/* opts if any */);
             } catch (e: any) {
               const allLogs = collectAllLogLines(e);
               printAttemptLogs(allLogs, "attempt 1");
@@ -678,7 +672,7 @@ function printAttemptLogs(logs: string[] | undefined, attemptLabel: string) {
               }
 
               console.warn(
-                "⚠️ 6006 with Left==market and Right==collateral detected. Swapping custody slots and retrying once.",
+                "⚠️ Detected 6006 with Left==market and Right==collateral. Swapping custody slots and retrying once.",
               );
 
               // ATTEMPT 2 — swapped order
@@ -692,7 +686,7 @@ function printAttemptLogs(logs: string[] | undefined, attemptLabel: string) {
               await debugPrintIx(program as Program, method, "attempt 2 (swapped)");
 
               try {
-                await method.rpc(/* opts */);
+                await method.rpc(/* opts if any */);
               } catch (e2: any) {
                 const swapLogs = collectAllLogLines(e2);
                 printAttemptLogs(swapLogs, "attempt 2 (swapped)");
