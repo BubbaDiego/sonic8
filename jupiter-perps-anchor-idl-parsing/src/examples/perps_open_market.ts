@@ -45,21 +45,27 @@ function pickCustodyByMint(custodies: CustodyInfo[], mint: web3.PublicKey) {
   return c.pubkey;
 }
 
-function buildIncreaseAccounts(args: {
-  owner: web3.PublicKey;
-  perpetualsPk: web3.PublicKey;
-  poolPk: web3.PublicKey;
-  positionPk: web3.PublicKey;
-  positionRequestPk: web3.PublicKey;
-  positionRequestUsdcAta: web3.PublicKey;
-  ownerUsdcAta: web3.PublicKey;
-  marketCustodyPk: web3.PublicKey;
-  collateralCustodyPk: web3.PublicKey;
-  collateralMintPk: web3.PublicKey;
-  referralOrSystemProgram: web3.PublicKey;
-  eventAuthorityPk: web3.PublicKey;
-  perpsProgramId: web3.PublicKey;
-}) {
+function buildIncreaseAccounts(
+  args: {
+    owner: web3.PublicKey;
+    perpetualsPk: web3.PublicKey;
+    poolPk: web3.PublicKey;
+    positionPk: web3.PublicKey;
+    positionRequestPk: web3.PublicKey;
+    positionRequestUsdcAta: web3.PublicKey;
+    ownerUsdcAta: web3.PublicKey;
+    marketCustodyPk: web3.PublicKey;
+    collateralCustodyPk: web3.PublicKey;
+    collateralMintPk: web3.PublicKey;
+    referralOrSystemProgram: web3.PublicKey;
+    eventAuthorityPk: web3.PublicKey;
+    perpsProgramId: web3.PublicKey;
+  },
+  mode: "idl" | "swapped" = "idl",
+) {
+  const custody = mode === "idl" ? args.marketCustodyPk : args.collateralCustodyPk;
+  const collateralCustody = mode === "idl" ? args.collateralCustodyPk : args.marketCustodyPk;
+
   const accounts = {
     owner: args.owner,
     fundingAccount: args.ownerUsdcAta,
@@ -68,17 +74,13 @@ function buildIncreaseAccounts(args: {
     position: args.positionPk,
     positionRequest: args.positionRequestPk,
     positionRequestAta: args.positionRequestUsdcAta,
-
-    custody: args.marketCustodyPk,
-    collateralCustody: args.collateralCustodyPk,
-
+    custody,
+    collateralCustody,
     inputMint: args.collateralMintPk,
     referral: args.referralOrSystemProgram,
-
     tokenProgram: TOKEN_PROGRAM_ID,
     associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
     systemProgram: web3.SystemProgram.programId,
-
     eventAuthority: args.eventAuthorityPk,
     program: args.perpsProgramId,
   };
@@ -101,7 +103,6 @@ function parseInvalidCollateralFromLogs(logs: string[]): { left: string; right: 
   return left && right ? { left, right } : null;
 }
 
-/** If program logs show Left==marketCustody and Right==collateralCustody, we have an IDL-order mismatch. */
 function shouldSwapCustodiesForIdlMismatch(
   logs: string[] | undefined,
   marketCustodyPk: web3.PublicKey,
@@ -111,9 +112,10 @@ function shouldSwapCustodiesForIdlMismatch(
   const parsed = parseInvalidCollateralFromLogs(logs);
   if (!parsed) return false;
   const { left, right } = parsed;
-  const isLeftMarket = left === marketCustodyPk.toBase58();
-  const isRightUSDC = right === collateralCustodyPk.toBase58();
-  return isLeftMarket && isRightUSDC;
+  return (
+    left === marketCustodyPk.toBase58() &&
+    right === collateralCustodyPk.toBase58()
+  );
 }
 
 function shortId(s: string) {
@@ -175,6 +177,11 @@ function formatLogs(raw: string[]): string[] {
     .option("max-price", { type: "number", describe: "Explicit max price (LONG)" })
     .option("min-price", { type: "number", describe: "Explicit min price (SHORT)" })
     .option("dry-run", { type: "boolean", default: false })
+    .option("flip-custody-order", {
+      type: "boolean",
+      default: false,
+      describe: "Force custody↔collateralCustody order swap (diagnostics)",
+    })
     .option("cu-limit", {
       type: "number",
       default: 800_000,
@@ -261,6 +268,7 @@ function formatLogs(raw: string[]): string[] {
 
   const marketMint = (cfg.MINTS as any)[argv.market] as PublicKey;
   const sideEnum = sideToEnum(argv.side);
+  const flipCustodyOrder = argv["flip-custody-order"] === true;
 
   const marketCustodyPk = pickCustodyByMint(allCustodies, marketMint);
   const defaultCollat = argv.side === "long" ? marketMint : cfg.MINTS.USDC;
@@ -423,6 +431,7 @@ function formatLogs(raw: string[]): string[] {
   let activeCollateralCustodyInfo = collateralCustodyInfo;
   let activeCollateralCustodyPk = collateralCustodyPk;
   let sendErr: any = null;
+  let accountMode: "idl" | "swapped" = flipCustodyOrder ? "swapped" : "idl";
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     if (pendingCollateralOverride) {
@@ -442,6 +451,8 @@ function formatLogs(raw: string[]): string[] {
         console.log("🔧 auto-align: positionRequest →", activePositionRequest.toBase58());
       }
     }
+
+    accountMode = flipCustodyOrder ? "swapped" : "idl";
 
     let reqAtaInit: { ata: PublicKey; ix: any } | null = null;
     let posAtaInit: { ata: PublicKey; ix: any } | null = null;
@@ -558,7 +569,7 @@ function formatLogs(raw: string[]): string[] {
       referralOrSystemProgram: wallet.publicKey,
       eventAuthorityPk,
       perpsProgramId: programId,
-    });
+    }, accountMode);
 
     console.log(
       "💳 fundingAccount (payer) =",
@@ -568,11 +579,13 @@ function formatLogs(raw: string[]): string[] {
 
     const custodyPk = baseAccounts.custody;
     const collateralPk = baseAccounts.collateralCustody;
-    if (!custodyPk.equals(marketCustodyPk)) {
-      throw new Error("custody mismatch: not market custody");
+    const expectedCustody = accountMode === "idl" ? marketCustodyPk : activeCollateralCustodyPk;
+    const expectedCollateralCustody = accountMode === "idl" ? activeCollateralCustodyPk : marketCustodyPk;
+    if (!custodyPk.equals(expectedCustody)) {
+      throw new Error("custody mismatch vs selected account mode");
     }
-    if (!collateralPk.equals(activeCollateralCustodyPk)) {
-      throw new Error("collateralCustody mismatch: not expected collateral custody");
+    if (!collateralPk.equals(expectedCollateralCustody)) {
+      throw new Error("collateralCustody mismatch vs selected account mode");
     }
 
     const postIxs: web3.TransactionInstruction[] = [];
@@ -585,7 +598,7 @@ function formatLogs(raw: string[]): string[] {
     };
 
     let currentAccounts = baseAccounts;
-    let swapAttempted = false;
+    let swapAttempted = accountMode === "swapped";
     let localErr: any = null;
     let localLogs: string[] | null = null;
     const maxWireAttempts = argv["dry-run"] ? 1 : 2;
@@ -629,19 +642,37 @@ function formatLogs(raw: string[]): string[] {
           localErr = err;
           localLogs = await extractTransactionLogs(err);
           if (argv["dry-run"]) break;
-          const needSwap = shouldSwapCustodiesForIdlMismatch(
-            localLogs ?? undefined,
-            marketCustodyPk,
-            activeCollateralCustodyPk,
-          );
+          const needSwap =
+            accountMode === "idl" &&
+            shouldSwapCustodiesForIdlMismatch(
+              localLogs ?? undefined,
+              marketCustodyPk,
+              activeCollateralCustodyPk,
+            );
           if (needSwap && !swapAttempted) {
-            console.warn("⚠️ Detected IDL/order mismatch for custodies. Swapping custody slots and retrying once.");
+            console.warn(
+              "⚠️ Detected custody order mismatch on-chain. Swapping custody↔collateralCustody and retrying once.",
+            );
             swapAttempted = true;
-            currentAccounts = {
-              ...currentAccounts,
-              custody: currentAccounts.collateralCustody,
-              collateralCustody: currentAccounts.custody,
-            };
+            accountMode = "swapped";
+            currentAccounts = buildIncreaseAccounts(
+              {
+                owner: wallet.publicKey,
+                perpetualsPk: perpetuals.publicKey,
+                poolPk: pool.publicKey,
+                positionPk: position,
+                positionRequestPk: activePositionRequest,
+                positionRequestUsdcAta,
+                ownerUsdcAta: ownerAtaInit.ata,
+                marketCustodyPk,
+                collateralCustodyPk: activeCollateralCustodyPk,
+                collateralMintPk: collateralMint,
+                referralOrSystemProgram: wallet.publicKey,
+                eventAuthorityPk,
+                perpsProgramId: programId,
+              },
+              "swapped",
+            );
             continue;
           }
           break;
