@@ -21,7 +21,10 @@ export const useSaveProviders = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: api.saveProviders,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['xcom', 'providers'] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['xcom', 'providers'] });
+      queryClient.invalidateQueries({ queryKey: ['xcom', 'providers_resolved'] });
+    }
   });
 };
 

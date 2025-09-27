@@ -217,17 +217,31 @@ export default function XComSettings() {
 
   const [draft, setDraft] = useState({});
 
-  useEffect(() => {
-    if (providers) {
-      setDraft(cloneProviders(providers));
+  const providerData = useMemo(() => {
+    if (providers && typeof providers === 'object' && '__root__' in providers) {
+      return providers.__root__ || {};
     }
+    return providers || {};
   }, [providers]);
+
+  const resolvedProviders = useMemo(() => {
+    if (resolved && typeof resolved === 'object' && '__root__' in resolved) {
+      return resolved.__root__ || {};
+    }
+    return resolved || {};
+  }, [resolved]);
+
+  useEffect(() => {
+    if (providerData) {
+      setDraft(cloneProviders(providerData));
+    }
+  }, [providerData]);
 
   useEffect(() => {
     refetchStatus?.();
   }, [refetchStatus]);
 
-  const serializedProviders = useMemo(() => JSON.stringify(providers || {}), [providers]);
+  const serializedProviders = useMemo(() => JSON.stringify(providerData || {}), [providerData]);
   const serializedDraft = useMemo(() => JSON.stringify(draft || {}), [draft]);
   const isDirty = serializedProviders !== serializedDraft;
 
@@ -277,7 +291,7 @@ export default function XComSettings() {
   };
 
   const handleReset = () => {
-    setDraft(cloneProviders(providers || {}));
+    setDraft(cloneProviders(providerData || {}));
   };
 
   const handleSave = () => {
@@ -352,13 +366,18 @@ export default function XComSettings() {
         icon: TWILIO_ICON_SRC,
         externalLink: TWILIO_CONSOLE_URL,
         defaultExpanded: true,
-        source: providers?.twilio ?? providers?.api,
+        source: providerData?.twilio ?? providerData?.api,
         env: {
-          TWILIO_ACCOUNT_SID: resolved?.twilio?.account_sid ?? resolved?.api?.account_sid ?? '',
-          TWILIO_AUTH_TOKEN: resolved?.twilio?.auth_token ?? resolved?.api?.auth_token ?? '',
-          TWILIO_FLOW_SID: resolved?.twilio?.flow_sid ?? resolved?.api?.flow_sid ?? '',
-          TWILIO_FROM_PHONE: resolved?.twilio?.default_from_phone ?? resolved?.api?.default_from_phone ?? '',
-          TWILIO_TO_PHONE: resolved?.twilio?.default_to_phone ?? resolved?.api?.default_to_phone ?? ''
+          TWILIO_ACCOUNT_SID:
+            resolvedProviders?.twilio?.account_sid ?? resolvedProviders?.api?.account_sid ?? '',
+          TWILIO_AUTH_TOKEN:
+            resolvedProviders?.twilio?.auth_token ?? resolvedProviders?.api?.auth_token ?? '',
+          TWILIO_FLOW_SID:
+            resolvedProviders?.twilio?.flow_sid ?? resolvedProviders?.api?.flow_sid ?? '',
+          TWILIO_FROM_PHONE:
+            resolvedProviders?.twilio?.default_from_phone ?? resolvedProviders?.api?.default_from_phone ?? '',
+          TWILIO_TO_PHONE:
+            resolvedProviders?.twilio?.default_to_phone ?? resolvedProviders?.api?.default_to_phone ?? ''
         }
       },
       {
@@ -370,13 +389,13 @@ export default function XComSettings() {
         fields: emailFields,
         values: createEmailValues(draft),
         onChange: handleEmailChange,
-        source: providers?.email ?? providers?.smtp,
+        source: providerData?.email ?? providerData?.smtp,
         env: {
-          SMTP_SERVER: resolved?.email?.smtp?.server ?? '',
-          SMTP_PORT: resolved?.email?.smtp?.port ?? '',
-          SMTP_USERNAME: resolved?.email?.smtp?.username ?? '',
-          SMTP_PASSWORD: resolved?.email?.smtp?.password ?? '',
-          SMTP_DEFAULT_RECIPIENT: resolved?.email?.smtp?.default_recipient ?? ''
+          SMTP_SERVER: resolvedProviders?.email?.smtp?.server ?? '',
+          SMTP_PORT: resolvedProviders?.email?.smtp?.port ?? '',
+          SMTP_USERNAME: resolvedProviders?.email?.smtp?.username ?? '',
+          SMTP_PASSWORD: resolvedProviders?.email?.smtp?.password ?? '',
+          SMTP_DEFAULT_RECIPIENT: resolvedProviders?.email?.smtp?.default_recipient ?? ''
         }
       },
       {
@@ -388,7 +407,7 @@ export default function XComSettings() {
         fields: ttsFields,
         values: createTTSValues(draft),
         onChange: handleTTSChange,
-        source: providers?.tts ?? providers?.sound
+        source: providerData?.tts ?? providerData?.sound
       }
     ];
 
