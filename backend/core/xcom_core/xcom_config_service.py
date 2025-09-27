@@ -37,6 +37,7 @@ ENV_MAP = {
             "TWILIO_FROM_PHONE",
             "TWILIO_DEFAULT_FROM_PHONE",
         ],
+        "use_studio": None,
     },
     "alexa": {
         "enabled": "ALEXA_ENABLED",
@@ -95,6 +96,7 @@ class XComConfigService:
                     "default_from_phone": _env_first(
                         ["TWILIO_PHONE_NUMBER", "TWILIO_FROM_PHONE", "TWILIO_DEFAULT_FROM_PHONE"]
                     ),
+                    "use_studio": False,
                 }
 
             def apply_env(data: dict, mapping: dict) -> dict:
