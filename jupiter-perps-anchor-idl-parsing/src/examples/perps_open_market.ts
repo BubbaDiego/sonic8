@@ -107,36 +107,27 @@ function shouldSwapCustodiesForIdlMismatch(
 }
 
 // Parse the expected 'Right:' pubkey for ConstraintSeeds on a specific account
-function parseConstraintSeedsRight(
-  logs: string[],
-  accountName: string,
-): string | null {
+function parseConstraintSeedsRight(logs: string[], accountName: string): string | null {
   const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
   const idx = logs.findIndex(
     (l) => l.includes("ConstraintSeeds") && l.includes(`account: ${accountName}`),
   );
   if (idx < 0) return null;
   const window = logs.slice(idx, idx + 12);
-  const rightLine = window.find((l) => l.includes("Right:"));
-  const right = rightLine?.match(base58)?.[0] ?? null;
-  return right ?? null;
+  return window.find((l) => l.includes("Right"))?.match(base58)?.[0] ?? null;
 }
 
-function buildPositionAtaIxs(params: {
-  payer: web3.PublicKey;
-  positionPk: web3.PublicKey;
-  collateralMintPk: web3.PublicKey;
-}): { ata: web3.PublicKey; ix: web3.TransactionInstruction } {
-  const ata = getAssociatedTokenAddressSync(
-    params.collateralMintPk,
-    params.positionPk,
-    true /* allowOwnerOffCurve */,
-  );
+function makePositionUsdcAtaIx(
+  payer: web3.PublicKey,
+  positionPk: web3.PublicKey,
+  usdcMint: web3.PublicKey,
+) {
+  const ata = getAssociatedTokenAddressSync(usdcMint, positionPk, true);
   const ix = createAssociatedTokenAccountIdempotentInstruction(
-    params.payer,
+    payer,
     ata,
-    params.positionPk,
-    params.collateralMintPk,
+    positionPk,
+    usdcMint,
   );
   return { ata, ix };
 }
@@ -209,6 +200,7 @@ async function sendIncreasePositionWithSwapRetry(params: {
   preIxs: web3.TransactionInstruction[];
   postIxs: web3.TransactionInstruction[];
   ixArgs: any;
+  payer: web3.PublicKey;
   owner: web3.PublicKey;
   perpetualsPk: web3.PublicKey;
   poolPk: web3.PublicKey;
@@ -222,14 +214,12 @@ async function sendIncreasePositionWithSwapRetry(params: {
   referralOrSystemProgram: web3.PublicKey;
   eventAuthorityPk: web3.PublicKey;
   perpsProgramId: web3.PublicKey;
-  payer: web3.PublicKey;
-  initialMode?: "idl" | "swapped";
 }) {
   const {
     program,
     ixArgs,
-    collateralMintPk,
     payer,
+    collateralMintPk,
     owner,
     perpetualsPk,
     poolPk,
@@ -239,21 +229,12 @@ async function sendIncreasePositionWithSwapRetry(params: {
     referralOrSystemProgram,
     eventAuthorityPk,
     perpsProgramId,
-    initialMode,
   } = params;
 
-  let mode: "idl" | "swapped" = initialMode ?? "idl";
+  let mode: "idl" | "swapped" = "idl";
   let positionPk = params.positionPk;
-  const basePreIxs = [...params.preIxs];
-  let preIxs = [...basePreIxs];
+  let preIxs = [...params.preIxs];
   let postIxs = [...params.postIxs];
-
-  const initialPosAta = buildPositionAtaIxs({
-    payer,
-    positionPk,
-    collateralMintPk,
-  });
-  preIxs = [...preIxs, initialPosAta.ix];
 
   const buildAccounts = () => ({
     owner,
@@ -283,13 +264,11 @@ async function sendIncreasePositionWithSwapRetry(params: {
       .postInstructions(postIxs);
 
     await debugPrintIx(program as Program, method, label);
-    await method.rpc(/*opts*/);
+    await method.rpc();
   }
 
   try {
-    await sendOnce(
-      mode === "idl" ? "attempt 1/3 (idl)" : "attempt 1/3 (swapped)",
-    );
+    await sendOnce("attempt 1/3 (idl)");
     return;
   } catch (e: any) {
     const logs = collectAllLogLines(e);
@@ -305,7 +284,7 @@ async function sendIncreasePositionWithSwapRetry(params: {
     ) {
       console.warn("🔁 6006 detected → switching to swapped custody order");
       mode = "swapped";
-      preIxs = [...basePreIxs, initialPosAta.ix];
+      preIxs = [...params.preIxs];
     } else {
       throw e;
     }
@@ -318,24 +297,19 @@ async function sendIncreasePositionWithSwapRetry(params: {
     const logs = collectAllLogLines(e);
     const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
 
-    if (code === 2006) {
-      const right = parseConstraintSeedsRight(logs, "position");
-      if (!right) throw e;
+    if (code !== 2006) throw e;
 
-      const rightPk = new web3.PublicKey(right);
-      console.warn("🔧 Aligning position PDA from logs →", right);
-      positionPk = rightPk;
+    const right = parseConstraintSeedsRight(logs, "position");
+    if (!right) throw e;
+    positionPk = new web3.PublicKey(right);
+    console.warn("🔧 Aligning position PDA from logs →", right);
 
-      const { ix: posAtaIx } = buildPositionAtaIxs({
-        payer,
-        positionPk,
-        collateralMintPk,
-      });
-
-      preIxs = [...basePreIxs, posAtaIx];
-    } else {
-      throw e;
-    }
+    const { ix: posAtaIx } = makePositionUsdcAtaIx(
+      payer,
+      positionPk,
+      collateralMintPk,
+    );
+    preIxs = [...params.preIxs, posAtaIx];
   }
 
   await sendOnce("attempt 3/3 (swapped + position fix)");
@@ -945,6 +919,7 @@ function formatLogs(raw: string[]): string[] {
         preIxs,
         postIxs,
         ixArgs,
+        payer: wallet.publicKey,
         owner: wallet.publicKey,
         perpetualsPk: perpetuals.publicKey,
         poolPk: pool.publicKey,
@@ -958,8 +933,6 @@ function formatLogs(raw: string[]): string[] {
         referralOrSystemProgram: wallet.publicKey,
         eventAuthorityPk: eventAuthorityPk!,
         perpsProgramId: programId,
-        payer: wallet.publicKey,
-        initialMode: previewMode,
       });
       return true;
     },
