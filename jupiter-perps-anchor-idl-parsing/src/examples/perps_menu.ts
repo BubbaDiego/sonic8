@@ -332,67 +332,22 @@ async function actionOpenAndWatch(cfg: any) {
       return;
     }
 
-    const hit = findRightFromLogs(res.combined);
-    if (!hit?.right) {
-      console.log("\n❌ Open failed without seeds info (see logs).");
-      return;
-    }
-
-    if (hit.which === "position" || hit.left === cfg.position) {
-      console.log(`\n🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(hit.right)}`);
-      cfg.position = hit.right;
-    } else {
-      console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
-      cfg.positionRequest = hit.right;
-    }
-    try {
-      fs.writeFileSync(`${ROOT}\\perps_menu.config.json`, JSON.stringify(cfg, null, 2), "utf8");
-    } catch {}
+    printFailureTail(res.combined, 60);
   }
 
-  console.log("\n❌ Open failed after corrections. See logs above.");
+  console.log("\n❌ Open failed after attempts. See logs above.");
 }
 
 
 async function actionDryRunSim(cfg: any) {
   console.log("🧪 Dry-run Simulate");
 
-  let openArgs = buildOpenArgs(cfg, undefined, true);
+  const openArgs = buildOpenArgs(cfg, undefined, true);
   console.log(`\n──────────────────── Simulate Open ────────────────────`);
-  let res = runCapture("Simulate Open (attempt 1)", SCRIPTS.open, openArgs);
+  const res = runCapture("Simulate Open", SCRIPTS.open, openArgs);
 
   if (res.status !== 0) {
     printFailureTail(res.combined, 60);
-    const hit = findRightFromLogs(res.combined);
-    if (hit?.right) {
-      const overrides: { position?: string; positionRequest?: string } = {};
-      if (hit.which === "position") {
-        overrides.position = hit.right;
-        console.log(`\n🔧 auto-align: position ${shortId(cfg.position)} → ${shortId(hit.right)}`);
-      } else if (hit.which === "position_request") {
-        overrides.positionRequest = hit.right;
-        console.log(`\n🔧 auto-align: position_request ${shortId(cfg.positionRequest)} → ${shortId(hit.right)}`);
-      } else {
-        if (hit.left === cfg.position) overrides.position = hit.right;
-        else overrides.position = hit.right;
-        console.log(`\n🔧 auto-align: assumed position → ${shortId(hit.right)}`);
-      }
-
-      openArgs = buildOpenArgs(cfg, overrides, true);
-      console.log(`\n──────────────────── Simulate Open (retry with Right PDAs) ────────────────────`);
-      res = runCapture("Simulate Open (attempt 2)", SCRIPTS.open, openArgs);
-
-      if (res.status === 0) {
-        if (overrides.position) cfg.position = overrides.position;
-        if (overrides.positionRequest) cfg.positionRequest = overrides.positionRequest;
-        try { saveCfg(cfg); console.log("💾 Saved updated PDAs to perps_menu.config.json"); } catch {}
-      } else {
-        printFailureTail(res.combined, 60);
-      }
-    }
-  }
-
-  if (res.status !== 0) {
     console.log(`\n❌ Dry-run failed. See logs above.`);
     return;
   }
