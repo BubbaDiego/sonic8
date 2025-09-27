@@ -599,6 +599,16 @@ function printAttemptLogs(logs: string[] | undefined, attemptLabel: string) {
     await rpcPool.runWithFailover(async (conn) => {
       await ensureProviderOnConnection(conn);
 
+      const finalizeSuccess = () => {
+        positionRequest = activePositionRequest;
+        collateralCustodyPk = activeCollateralCustodyPk;
+        collateralCustodyInfo = activeCollateralCustodyInfo;
+        sendErr = null;
+        localErr = null;
+        localLogs = null;
+        return true;
+      };
+
       try {
         if (argv["dry-run"]) {
           const accounts = buildIncreaseAccounts(baseArgs, forcedMode);
@@ -623,86 +633,82 @@ function printAttemptLogs(logs: string[] | undefined, attemptLabel: string) {
           tx.sign([signer]);
 
           await simulateOrSend(provider.connection, tx, true);
-        } else {
-          if (flipCustodyOrder) {
-            const accounts = buildIncreaseAccounts(baseArgs, forcedMode);
-            const method = (program as any).methods
-              .createIncreasePositionMarketRequest(ixArgs)
-              .accountsStrict(accounts)
-              .preInstructions(preIxs)
-              .postInstructions(postIxs);
-
-            const forcedLabel = forcedMode === "swapped" ? "attempt (forced swapped)" : "attempt (forced idl)";
-            await debugPrintIx(program as Program, method, forcedLabel);
-
-            try {
-              await method.rpc(/* opts if any */);
-            } catch (err: any) {
-              const forcedLogs = collectAllLogLines(err);
-              printAttemptLogs(forcedLogs, forcedLabel);
-              throw err;
-            }
-          } else {
-            const baseArgsLive = baseArgs;
-
-            // ATTEMPT 1 — IDL order
-            let accounts = buildIncreaseAccounts(baseArgsLive, "idl");
-            let method = (program as any).methods
-              .createIncreasePositionMarketRequest(ixArgs)
-              .accountsStrict(accounts)
-              .preInstructions(preIxs)
-              .postInstructions(postIxs);
-
-            await debugPrintIx(program as Program, method, "attempt 1");
-
-            try {
-              await method.rpc(/* opts if any */);
-            } catch (e: any) {
-              const allLogs = collectAllLogLines(e);
-              printAttemptLogs(allLogs, "attempt 1");
-              const needSwap = shouldSwapCustodiesForIdlMismatch(
-                allLogs,
-                marketCustodyPk,
-                activeCollateralCustodyPk,
-              );
-
-              if (!needSwap) {
-                // Re-throw original error if it’s not the specific mismatch
-                throw e;
-              }
-
-              console.warn(
-                "⚠️ Detected 6006 with Left==market and Right==collateral. Swapping custody slots and retrying once.",
-              );
-
-              // ATTEMPT 2 — swapped order
-              accounts = buildIncreaseAccounts(baseArgsLive, "swapped");
-              method = (program as any).methods
-                .createIncreasePositionMarketRequest(ixArgs)
-                .accountsStrict(accounts)
-                .preInstructions(preIxs)
-                .postInstructions(postIxs);
-
-              await debugPrintIx(program as Program, method, "attempt 2 (swapped)");
-
-              try {
-                await method.rpc(/* opts if any */);
-              } catch (e2: any) {
-                const swapLogs = collectAllLogLines(e2);
-                printAttemptLogs(swapLogs, "attempt 2 (swapped)");
-                throw e2;
-              }
-            }
-          }
+          return finalizeSuccess();
         }
 
-        positionRequest = activePositionRequest;
-        collateralCustodyPk = activeCollateralCustodyPk;
-        collateralCustodyInfo = activeCollateralCustodyInfo;
-        sendErr = null;
-        localErr = null;
-        localLogs = null;
-        return true;
+        if (flipCustodyOrder) {
+          const accounts = buildIncreaseAccounts(baseArgs, forcedMode);
+          const method = (program as any).methods
+            .createIncreasePositionMarketRequest(ixArgs)
+            .accountsStrict(accounts)
+            .preInstructions(preIxs)
+            .postInstructions(postIxs);
+
+          const forcedLabel = forcedMode === "swapped" ? "attempt (forced swapped)" : "attempt (forced idl)";
+          await debugPrintIx(program as Program, method, forcedLabel);
+
+          try {
+            await method.rpc(/* opts if any */);
+          } catch (err: any) {
+            const forcedLogs = collectAllLogLines(err);
+            printAttemptLogs(forcedLogs, forcedLabel);
+            throw err;
+          }
+
+          return finalizeSuccess();
+        }
+
+        const baseArgsLive = baseArgs;
+
+        // ATTEMPT 1 — IDL order
+        let accounts = buildIncreaseAccounts(baseArgsLive, "idl");
+        let method = (program as any).methods
+          .createIncreasePositionMarketRequest(ixArgs)
+          .accountsStrict(accounts)
+          .preInstructions(preIxs)
+          .postInstructions(postIxs);
+
+        await debugPrintIx(program as Program, method, "attempt 1");
+
+        try {
+          await method.rpc(/* opts if any */);
+          return finalizeSuccess();
+        } catch (e: any) {
+          const allLogs = collectAllLogLines(e);
+          printAttemptLogs(allLogs, "attempt 1");
+          const needSwap = shouldSwapCustodiesForIdlMismatch(
+            allLogs,
+            marketCustodyPk,
+            activeCollateralCustodyPk,
+          );
+
+          if (!needSwap) {
+            // Re-throw original error if it’s not the specific mismatch
+            throw e;
+          }
+
+          console.warn(
+            "⚠️ 6006 Left==market / Right==collateral detected. Swapping custody slots and retrying once.",
+          );
+
+          // ATTEMPT 2 — swapped order
+          accounts = buildIncreaseAccounts(baseArgsLive, "swapped");
+          method = (program as any).methods
+            .createIncreasePositionMarketRequest(ixArgs)
+            .accountsStrict(accounts)
+            .preInstructions(preIxs)
+            .postInstructions(postIxs);
+
+          await debugPrintIx(program as Program, method, "attempt 2 (swapped)");
+          try {
+            await method.rpc(/* opts if any */);
+          } catch (swapErr: any) {
+            const swapLogs = collectAllLogLines(swapErr);
+            printAttemptLogs(swapLogs, "attempt 2 (swapped)");
+            throw swapErr;
+          }
+          return finalizeSuccess();
+        }
       } catch (err: any) {
         if (RpcPool.isRateLimitish(err)) {
           throw err;
