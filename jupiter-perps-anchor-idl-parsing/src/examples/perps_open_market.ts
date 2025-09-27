@@ -33,7 +33,6 @@ import {
   derivePositionPdaPoolFirst,
   derivePositionPdaOwnerFirst,
   derivePositionForIdlOrder,
-  derivePositionForSwappedOrder,
   sideToEnum,
 } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
@@ -110,11 +109,11 @@ function shouldSwapCustodiesForIdlMismatch(
 // Parse the expected 'Right:' pubkey for ConstraintSeeds on a specific account
 function parseConstraintSeedsRight(logs: string[], accountName: string): string | null {
   const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
-  const idx = logs.findIndex(
+  const i = logs.findIndex(
     (l) => l.includes("ConstraintSeeds") && l.includes(`account: ${accountName}`),
   );
-  if (idx < 0) return null;
-  const window = logs.slice(idx, idx + 12);
+  if (i < 0) return null;
+  const window = logs.slice(i, i + 12);
   return window.find((l) => l.includes("Right"))?.match(base58)?.[0] ?? null;
 }
 
@@ -196,19 +195,22 @@ function buildIncreaseAccounts(
   return accounts;
 }
 
-async function sendIncreasePositionWithSwapRetry(params: {
+async function sendIncreasePositionRobust(params: {
   program: Program;
   preIxs: web3.TransactionInstruction[];
   postIxs: web3.TransactionInstruction[];
   ixArgs: any;
+
   payer: web3.PublicKey;
   owner: web3.PublicKey;
   perpetualsPk: web3.PublicKey;
   poolPk: web3.PublicKey;
+
   positionPk: web3.PublicKey;
   positionRequestPk: web3.PublicKey;
   positionRequestUsdcAta: web3.PublicKey;
   ownerUsdcAta: web3.PublicKey;
+
   marketCustodyPk: web3.PublicKey;
   collateralCustodyPk: web3.PublicKey;
   collateralMintPk: web3.PublicKey;
@@ -232,10 +234,10 @@ async function sendIncreasePositionWithSwapRetry(params: {
     perpsProgramId,
   } = params;
 
-  let mode: "idl" | "swapped" = "idl";
   let positionPk = params.positionPk;
+  let useSwappedOrder = false;
   let preIxs = [...params.preIxs];
-  let postIxs = [...params.postIxs];
+  const postIxs = [...params.postIxs];
 
   const buildAccounts = () => ({
     owner,
@@ -245,9 +247,12 @@ async function sendIncreasePositionWithSwapRetry(params: {
     position: positionPk,
     positionRequest: positionRequestPk,
     positionRequestAta: positionRequestUsdcAta,
-    custody: mode === "idl" ? params.marketCustodyPk : params.collateralCustodyPk,
-    collateralCustody:
-      mode === "idl" ? params.collateralCustodyPk : params.marketCustodyPk,
+    custody: useSwappedOrder
+      ? params.collateralCustodyPk
+      : params.marketCustodyPk,
+    collateralCustody: useSwappedOrder
+      ? params.marketCustodyPk
+      : params.collateralCustodyPk,
     inputMint: params.collateralMintPk,
     referral: referralOrSystemProgram,
     tokenProgram: TOKEN_PROGRAM_ID,
@@ -257,70 +262,61 @@ async function sendIncreasePositionWithSwapRetry(params: {
     program: perpsProgramId,
   });
 
-  async function sendOnce(label: string) {
-    const method = (program as any).methods
+  async function trySend(label: string) {
+    const method = program.methods
       .createIncreasePositionMarketRequest(ixArgs)
       .accountsStrict(buildAccounts())
       .preInstructions(preIxs)
       .postInstructions(postIxs);
 
-    await debugPrintIx(program as Program, method, label);
+    await debugPrintIx(program, method, label);
     await method.rpc();
   }
 
-  try {
-    await sendOnce("attempt 1/3 (idl)");
-    return;
-  } catch (e: any) {
-    const logs = collectAllLogLines(e);
-    const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await trySend(`attempt ${attempt}/3 (${useSwappedOrder ? "swapped" : "idl"})`);
+      return;
+    } catch (e: any) {
+      const logs = collectAllLogLines(e);
+      const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
 
-    if (
-      code === 6006 ||
-      shouldSwapCustodiesForIdlMismatch(
-        logs,
-        params.marketCustodyPk,
-        params.collateralCustodyPk,
-      )
-    ) {
-      console.warn("🔁 6006 detected → switching to swapped custody order");
-      mode = "swapped";
-      positionPk = derivePositionForSwappedOrder(
-        owner,
-        poolPk,
-        params.marketCustodyPk,
-        params.collateralCustodyPk,
-        perpsProgramId,
-      );
-      preIxs = [...params.preIxs];
-    } else {
+      if (code === 2006) {
+        const rightPkStr = parseConstraintSeedsRight(logs, "position");
+        if (rightPkStr) {
+          positionPk = new web3.PublicKey(rightPkStr);
+          console.warn("🔧 position ←", rightPkStr, " (from logs)");
+          const { ix: posAtaIx } = makePositionUsdcAtaIx(
+            payer,
+            positionPk,
+            collateralMintPk,
+          );
+          preIxs = [...params.preIxs, posAtaIx];
+          continue;
+        }
+      }
+
+      if (
+        code === 6006 ||
+        shouldSwapCustodiesForIdlMismatch(
+          logs,
+          params.marketCustodyPk,
+          params.collateralCustodyPk,
+        )
+      ) {
+        useSwappedOrder = !useSwappedOrder;
+        console.warn(
+          "🔁 flipping custody order →",
+          useSwappedOrder ? "swapped" : "idl",
+        );
+        continue;
+      }
+
       throw e;
     }
   }
 
-  try {
-    await sendOnce("attempt 2/3 (swapped)");
-    return;
-  } catch (e: any) {
-    const logs = collectAllLogLines(e);
-    const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
-
-    if (code !== 2006) throw e;
-
-    const right = parseConstraintSeedsRight(logs, "position");
-    if (!right) throw e;
-    positionPk = new web3.PublicKey(right);
-    console.warn("🔧 Aligning position PDA from logs →", right);
-
-    const { ix: posAtaIx } = makePositionUsdcAtaIx(
-      payer,
-      positionPk,
-      collateralMintPk,
-    );
-    preIxs = [...params.preIxs, posAtaIx];
-  }
-
-  await sendOnce("attempt 3/3 (swapped + position fix)");
+  throw new Error("sendIncreasePositionRobust: exhausted retries");
 }
 
 function shortId(s: string) {
@@ -923,7 +919,7 @@ function formatLogs(raw: string[]): string[] {
         return true;
       }
 
-      await sendIncreasePositionWithSwapRetry({
+      await sendIncreasePositionRobust({
         program: program as Program,
         preIxs,
         postIxs,
