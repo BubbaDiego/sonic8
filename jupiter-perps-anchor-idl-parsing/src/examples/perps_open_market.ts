@@ -42,6 +42,89 @@ import {
   detectTokenProgramForMint,
 } from "../utils/ata.js";
 
+type StepKey =
+  | "cli"
+  | "rpc"
+  | "idl"
+  | "perps"
+  | "pool"
+  | "custodies"
+  | "pdas"
+  | "positionSelect"
+  | "ataOwner"
+  | "ataRequest"
+  | "ataPosition"
+  | "accountsBuilt"
+  | "simulate"
+  | "submit"
+  | "programPass"
+  | "watch";
+
+class StepTracker {
+  private order: StepKey[] = [
+    "cli",
+    "rpc",
+    "idl",
+    "perps",
+    "pool",
+    "custodies",
+    "pdas",
+    "positionSelect",
+    "ataOwner",
+    "ataRequest",
+    "ataPosition",
+    "accountsBuilt",
+    "simulate",
+    "submit",
+    "programPass",
+    "watch",
+  ];
+  private status = new Map<StepKey, { ok: boolean; note?: string }>();
+
+  ok(key: StepKey, note?: string) {
+    this.status.set(key, { ok: true, note });
+  }
+
+  fail(key: StepKey, note?: string) {
+    this.status.set(key, { ok: false, note });
+  }
+
+  get(key: StepKey) {
+    return this.status.get(key);
+  }
+
+  print(title = "Run Checklist") {
+    console.log(`\n──────── ${title} ────────`);
+    for (const k of this.order) {
+      const s = this.status.get(k);
+      const icon = s?.ok ? "✅" : s ? "💀" : "•";
+      const name = (
+        {
+          cli: "Parse CLI + config",
+          rpc: "RPC connect & provider",
+          idl: "IDL loaded & program",
+          perps: "Fetch Perpetuals (singleton)",
+          pool: "Fetch Pool (singleton)",
+          custodies: "Load custodies & map mints",
+          pdas: "Resolve PDAs",
+          positionSelect: "Select position PDA for order",
+          ataOwner: "ATA: Owner USDC",
+          ataRequest: "ATA: PositionRequest USDC",
+          ataPosition: "ATA: Position USDC",
+          accountsBuilt: "Build accountsStrict",
+          simulate: "Simulate / Dry-run",
+          submit: "Submit transaction",
+          programPass: "Program validations pass",
+          watch: "Watch/stream position",
+        } as Record<StepKey, string>
+      )[k];
+      const note = s?.note ? ` — ${s.note}` : "";
+      console.log(`${icon}  ${name}${note}`);
+    }
+    console.log("────────────────────────────────────────\n");
+  }
+}
+
 async function makeProviderAndProgram(
   conn: web3.Connection,
   wallet: Wallet,
@@ -197,7 +280,8 @@ function buildIncreaseAccounts(
   return accounts;
 }
 
-async function sendIncreasePositionRobust(params: {
+async function sendIncreasePositionRobust(
+  params: {
   program: Program;
   preIxs: web3.TransactionInstruction[];
   postIxs: web3.TransactionInstruction[];
@@ -221,7 +305,9 @@ async function sendIncreasePositionRobust(params: {
   eventAuthorityPk: web3.PublicKey;
   perpsProgramId: web3.PublicKey;
   startSwappedOrder?: boolean;
-}) {
+},
+  steps: StepTracker,
+) {
   const {
     program,
     ixArgs,
@@ -245,9 +331,12 @@ async function sendIncreasePositionRobust(params: {
   const preIxsBase = [...params.preIxs];
   const postIxs = [...params.postIxs];
 
-  function rebuildPreIxsForCurrentPosition() {
+  function rebuildPreIxsForCurrentPosition(note?: string) {
     const { ix: posAtaIx } = makePositionUsdcAtaIx(payer, positionPk, collateralMintPk);
-    return [...preIxsBase, posAtaIx];
+    const rebuilt = [...preIxsBase, posAtaIx];
+    const short = shortId(positionPk.toBase58());
+    steps.ok("ataPosition", note ?? `Ensured for ${short}`);
+    return rebuilt;
   }
 
   let preIxs = rebuildPreIxsForCurrentPosition();
@@ -278,31 +367,44 @@ async function sendIncreasePositionRobust(params: {
       "| order:",
       useSwappedOrder ? "swapped" : "idl",
     );
+    const accounts = buildAccounts();
+    steps.ok(
+      "accountsBuilt",
+      `Using ${useSwappedOrder ? "swapped" : "idl"} order for ${shortId(positionPk.toBase58())}`,
+    );
     const m = program.methods
       .createIncreasePositionMarketRequest(ixArgs)
-      .accountsStrict(buildAccounts())
+      .accountsStrict(accounts)
       .preInstructions(preIxs)
       .postInstructions(postIxs);
     await debugPrintIx(program, m, label);
+    steps.ok("submit");
     await m.rpc();
   }
 
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
       await trySend(`attempt ${attempt}/4`);
-      return;
+      steps.ok("programPass");
+      steps.ok("watch");
+      return positionPk;
     } catch (e: any) {
       const logs = collectAllLogLines(e);
       const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
 
       if (code === 2006) {
         const rightPkStr = parseConstraintSeedsRight(logs, "position");
+        const reason = rightPkStr
+          ? `Program expects ${rightPkStr}`
+          : "Seeds mismatch for 'position'";
+        steps.fail("positionSelect", reason);
         if (rightPkStr) {
           const rightPk = new web3.PublicKey(rightPkStr);
           if (!positionPk.equals(rightPk)) {
             console.warn("🔧 position ← Right: from logs →", rightPkStr);
             positionPk = rightPk;
-            preIxs = rebuildPreIxsForCurrentPosition();
+            preIxs = rebuildPreIxsForCurrentPosition("Updated from logs");
+            steps.ok("positionSelect", `Updated to ${rightPkStr}`);
             continue;
           }
         }
@@ -313,8 +415,16 @@ async function sendIncreasePositionRobust(params: {
         code === 6006 ||
         shouldSwapCustodiesForIdlMismatch(logs, marketCustodyPk, collateralCustodyPk)
       ) {
+        steps.fail(
+          "positionSelect",
+          "Collat mismatch implies wrong order → will flip order",
+        );
         useSwappedOrder = !useSwappedOrder;
         console.warn("🔁 flipping custody order →", useSwappedOrder ? "swapped" : "idl");
+        steps.ok(
+          "positionSelect",
+          `Retry with ${useSwappedOrder ? "swapped" : "idl"} custody order`,
+        );
         continue;
       }
 
@@ -322,6 +432,7 @@ async function sendIncreasePositionRobust(params: {
     }
   }
 
+  steps.fail("programPass", "Retries exhausted");
   throw new Error("sendIncreasePositionRobust: retries exhausted");
 }
 
@@ -371,12 +482,14 @@ function formatLogs(raw: string[]): string[] {
 }
 
 (async () => {
-  const argv = await yargs(hideBin(process.argv))
-    .option("rpc", { type: "string", demandOption: true })
-    .option("kp", {
-      type: "string",
-      demandOption: true,
-      describe: "Path to keypair JSON/base58",
+  const steps = new StepTracker();
+  try {
+    const argv = await yargs(hideBin(process.argv))
+      .option("rpc", { type: "string", demandOption: true })
+      .option("kp", {
+        type: "string",
+        demandOption: true,
+        describe: "Path to keypair JSON/base58",
     })
     .option("rpc-fallbacks", {
       type: "string",
@@ -449,6 +562,7 @@ function formatLogs(raw: string[]): string[] {
     })
     .strict()
     .parse();
+    steps.ok("cli");
 
   const rpc = argv.rpc as string;
   const rpcFallbacksCsv =
@@ -491,6 +605,8 @@ function formatLogs(raw: string[]): string[] {
       provider = built.provider;
       program = built.program as Program<any>;
       currentEndpoint = endpoint;
+      steps.ok("rpc", endpoint);
+      steps.ok("idl", `Program ${program.programId.toBase58()}`);
     }
   }
 
@@ -513,12 +629,15 @@ function formatLogs(raw: string[]): string[] {
     }
 
     perpetuals = await cfg.getSingletonPerpetuals(program);
+    steps.ok("perps", perpetuals.publicKey.toBase58());
     pool = await cfg.getSingletonPool(program);
+    steps.ok("pool", pool.publicKey.toBase58());
     const allCustodiesRaw = await cfg.getCustodies(program, pool.account);
     allCustodies = allCustodiesRaw.map((c) => ({
       ...c,
       mint: new PublicKey(c.account.mint as PublicKey),
     }));
+    steps.ok("custodies", `${allCustodies.length} loaded`);
     return true;
   }, "bootstrap/perps+pool+custodies");
 
@@ -577,6 +696,7 @@ function formatLogs(raw: string[]): string[] {
     " swapped:",
     positionSwappedExpected.toBase58(),
   );
+  steps.ok("pdas", `IDL ${shortId(positionIdlExpected.toBase58())}`);
   const positionOverride = argv.position
     ? toPk("position", argv.position)
     : null;
@@ -702,6 +822,7 @@ function formatLogs(raw: string[]): string[] {
   if (!ownerAtaInit.ata.equals(expectedOwnerAta)) {
     throw new Error("ATA mismatch (wallet) vs seed derivation");
   }
+  steps.ok("ataOwner", shortId(ownerAtaInit.ata.toBase58()));
 
   // Step 3 — Amounts & guardrail
   let priceGuard: cfg.BN | null = null;
@@ -720,7 +841,8 @@ function formatLogs(raw: string[]): string[] {
     fail(
       "No price guardrail provided. Use --oracle-price + --slip or --max-price/--min-price.",
     );
-    process.exit(1);
+    steps.fail("programPass", "Missing guardrail configuration");
+    throw new Error("Guardrail configuration required");
   }
 
   bar("Amounts", "🧮");
@@ -779,6 +901,12 @@ function formatLogs(raw: string[]): string[] {
       throw new Error("ATA mismatch (positionRequest) vs seed derivation");
     }
 
+    steps.ok("ataRequest", shortId(reqAtaInit.ata.toBase58()));
+
+  }
+
+  if (!havePR) {
+    steps.ok("ataRequest", "Skipped (discovery mode)");
   }
 
   const preIxs: any[] = [
@@ -862,6 +990,10 @@ function formatLogs(raw: string[]): string[] {
 
   const previewMode: "idl" | "swapped" = flipCustodyOrder ? "swapped" : "idl";
   const previewPosition = previewMode === "swapped" ? positionSwapped : positionIdl;
+  steps.ok(
+    "positionSelect",
+    `${previewMode === "swapped" ? "Swapped" : "IDL"} → ${shortId(previewPosition.toBase58())}`,
+  );
   const previewAccounts = buildIncreaseAccounts(
     { ...accountArgsBase, positionPk: previewPosition },
     previewMode,
@@ -895,11 +1027,20 @@ function formatLogs(raw: string[]): string[] {
             dryRunPosition,
             collateralMint,
           );
-          return [...preIxs, posAtaIx];
+          const rebuilt = [...preIxs, posAtaIx];
+          steps.ok(
+            "ataPosition",
+            `Dry-run for ${shortId(dryRunPosition.toBase58())}`,
+          );
+          return rebuilt;
         })();
         const accounts = buildIncreaseAccounts(
           { ...accountArgsBase, positionPk: dryRunPosition },
           dryRunMode,
+        );
+        steps.ok(
+          "accountsBuilt",
+          `Dry-run ${dryRunMode === "swapped" ? "swapped" : "idl"}`,
         );
         const method = (program as any).methods
           .createIncreasePositionMarketRequest(ixArgs)
@@ -924,10 +1065,11 @@ function formatLogs(raw: string[]): string[] {
         tx.sign([signer]);
 
         await simulateOrSend(provider.connection, tx, true);
+        steps.ok("simulate", "Dry-run executed");
         return true;
       }
 
-      await sendIncreasePositionRobust({
+      const finalPositionPk = await sendIncreasePositionRobust({
         program: program as Program,
         preIxs,
         postIxs,
@@ -947,7 +1089,8 @@ function formatLogs(raw: string[]): string[] {
         eventAuthorityPk: eventAuthorityPk!,
         perpsProgramId: programId,
         startSwappedOrder: previewMode === "swapped",
-      });
+      }, steps);
+      steps.ok("positionSelect", `Final ${shortId(finalPositionPk.toBase58())}`);
       return true;
     },
     "send/createIncreasePositionMarketRequest",
@@ -956,7 +1099,8 @@ function formatLogs(raw: string[]): string[] {
   if (argv["dry-run"]) {
     info("🧪", "Simulation only (dry-run)");
     console.log({ lastValidBlockHeight });
-    process.exit(0);
+    steps.ok("watch", "Skipped (dry-run)");
+    return;
   }
 
   ok("Tx sent (see signature above)");
@@ -964,6 +1108,15 @@ function formatLogs(raw: string[]): string[] {
     "📝",
     `PositionRequest = ${positionRequest.toBase58()}  (keeper will execute)\n`,
   );
+  steps.ok("watch", "Keeper will execute request");
+  } catch (err) {
+    if (!steps.get("programPass")) {
+      steps.fail("programPass", "Program rejected (see logs)");
+    }
+    throw err;
+  } finally {
+    steps.print("Order Placement Checklist");
+  }
 })();
 
 // --- drop-in replacement for simulateOrSend ---
