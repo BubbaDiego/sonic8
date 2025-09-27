@@ -76,6 +76,33 @@ function buildIncreaseAccounts(args: {
   return accounts;
 }
 
+function parseInvalidCollateralFromLogs(logs: string[]): { left: string; right: string } | null {
+  const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
+  const i = logs.findIndex((l) => l.includes("Invalid collateral account"));
+  if (i < 0) return null;
+  const window = logs.slice(i, i + 10);
+  const leftLine = window.find((l) => l.includes("Left"));
+  const rightLine = window.find((l) => l.includes("Right"));
+  const left = leftLine?.match(base58)?.[0];
+  const right = rightLine?.match(base58)?.[0];
+  return left && right ? { left, right } : null;
+}
+
+/** If program logs show Left==marketCustody and Right==collateralCustody, we have an IDL-order mismatch. */
+function shouldSwapCustodiesForIdlMismatch(
+  logs: string[] | undefined,
+  marketCustodyPk: web3.PublicKey,
+  collateralCustodyPk: web3.PublicKey,
+): boolean {
+  if (!logs?.length) return false;
+  const parsed = parseInvalidCollateralFromLogs(logs);
+  if (!parsed) return false;
+  const { left, right } = parsed;
+  const isLeftMarket = left === marketCustodyPk.toBase58();
+  const isRightUSDC = right === collateralCustodyPk.toBase58();
+  return isLeftMarket && isRightUSDC;
+}
+
 function shortId(s: string) {
   return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
 }
@@ -448,7 +475,7 @@ function formatLogs(raw: string[]): string[] {
 
     const positionRequestUsdcAta = havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata;
 
-    const accounts = buildIncreaseAccounts({
+    const baseAccounts = buildIncreaseAccounts({
       owner: wallet.publicKey,
       perpetualsPk: perpetuals.publicKey,
       poolPk: pool.publicKey,
@@ -466,12 +493,12 @@ function formatLogs(raw: string[]): string[] {
 
     console.log(
       "💳 fundingAccount (payer) =",
-      accounts.fundingAccount.toBase58(),
+      baseAccounts.fundingAccount.toBase58(),
       "(collateral ATA)",
     );
 
-    const custodyPk = accounts.custody;
-    const collateralPk = accounts.collateralCustody;
+    const custodyPk = baseAccounts.custody;
+    const collateralPk = baseAccounts.collateralCustody;
     if (!custodyPk.equals(marketCustodyPk)) {
       throw new Error("custody mismatch: not market custody");
     }
@@ -479,49 +506,89 @@ function formatLogs(raw: string[]): string[] {
       throw new Error("collateralCustody mismatch: not expected collateral custody");
     }
 
-    const method = (program as any).methods
-      .createIncreasePositionMarketRequest({
-        sizeUsdDelta: sizeUsdDeltaDisc,
-        collateralTokenDelta,
-        side: sideEnum,
-        priceSlippage: priceGuard,
-        jupiterMinimumOut: null,
-      })
-      .accountsStrict(accounts);
+    const postIxs: web3.TransactionInstruction[] = [];
+    const ixArgs = {
+      sizeUsdDelta: sizeUsdDeltaDisc,
+      collateralTokenDelta,
+      side: sideEnum,
+      priceSlippage: priceGuard,
+      jupiterMinimumOut: null,
+    };
 
-    const reqIx = await debugPrintIx(program as Program<any>, method);
+    let currentAccounts = baseAccounts;
+    let swapAttempted = false;
+    let localErr: any = null;
+    let localLogs: string[] | null = null;
+    const maxWireAttempts = argv["dry-run"] ? 1 : 2;
 
-    const allIxs = preIxs.length ? [...preIxs, reqIx] : [reqIx];
-    const { blockhash, lastValidBlockHeight: lvbh } = await provider.connection.getLatestBlockhash();
-    lastValidBlockHeight = lvbh;
-    const message = new TransactionMessage({
-      payerKey: signer.publicKey,
-      recentBlockhash: blockhash,
-      instructions: allIxs,
-    }).compileToV0Message();
-    const tx = new VersionedTransaction(message);
-    tx.sign([signer]);
+    for (let wireAttempt = 1; wireAttempt <= maxWireAttempts; wireAttempt++) {
+      const method = (program as any).methods
+        .createIncreasePositionMarketRequest(ixArgs)
+        .accountsStrict(currentAccounts)
+        .preInstructions(preIxs)
+        .postInstructions(postIxs);
 
-    try {
-      await simulateOrSend(provider.connection, tx, argv["dry-run"] === true);
-      positionRequest = activePositionRequest;
-      collateralCustodyPk = activeCollateralCustodyPk;
-      collateralCustodyInfo = activeCollateralCustodyInfo;
-      sendErr = null;
-      break;
-    } catch (err: any) {
-      sendErr = err;
-      if (argv["dry-run"]) throw err;
-      const rawLogs = await extractTransactionLogs(err);
+      const reqIx = await debugPrintIx(program as Program<any>, method);
+
+      const allIxs = [...preIxs, reqIx, ...postIxs];
+      const { blockhash, lastValidBlockHeight: lvbh } = await provider.connection.getLatestBlockhash();
+      lastValidBlockHeight = lvbh;
+      const message = new TransactionMessage({
+        payerKey: signer.publicKey,
+        recentBlockhash: blockhash,
+        instructions: allIxs,
+      }).compileToV0Message();
+      const tx = new VersionedTransaction(message);
+      tx.sign([signer]);
+
+      try {
+        await simulateOrSend(provider.connection, tx, argv["dry-run"] === true);
+        positionRequest = activePositionRequest;
+        collateralCustodyPk = activeCollateralCustodyPk;
+        collateralCustodyInfo = activeCollateralCustodyInfo;
+        sendErr = null;
+        localErr = null;
+        break;
+      } catch (err: any) {
+        localErr = err;
+        localLogs = await extractTransactionLogs(err);
+        if (argv["dry-run"]) break;
+        const needSwap = shouldSwapCustodiesForIdlMismatch(
+          localLogs ?? undefined,
+          marketCustodyPk,
+          activeCollateralCustodyPk,
+        );
+        if (needSwap && !swapAttempted) {
+          console.warn("⚠️ Detected IDL/order mismatch for custodies. Swapping custody slots and retrying once.");
+          swapAttempted = true;
+          currentAccounts = {
+            ...currentAccounts,
+            custody: currentAccounts.collateralCustody,
+            collateralCustody: currentAccounts.custody,
+          };
+          continue;
+        }
+        break;
+      }
+    }
+
+    if (localErr) {
+      sendErr = localErr;
+      if (argv["dry-run"]) throw localErr;
+      const rawLogs = localLogs ?? (await extractTransactionLogs(localErr));
       const nextCollateralPk = rawLogs ? tryAutoAlignCollateralFromLogs(rawLogs, allCustodies) : null;
-      if (!nextCollateralPk || didAutoAlignCollateral) throw err;
+      if (!nextCollateralPk || didAutoAlignCollateral) throw localErr;
       const nextCollateral = allCustodies.find((c) => c.pubkey.equals(nextCollateralPk));
-      if (!nextCollateral) throw err;
-      if (nextCollateral.pubkey.equals(activeCollateralCustodyPk)) throw err;
+      if (!nextCollateral) throw localErr;
+      if (nextCollateral.pubkey.equals(activeCollateralCustodyPk)) throw localErr;
       didAutoAlignCollateral = true;
       console.log("\n🔧 auto-align: collateralCustody →", nextCollateral.pubkey.toBase58());
       pendingCollateralOverride = nextCollateral;
       continue;
+    }
+
+    if (!sendErr) {
+      break;
     }
   }
 
@@ -605,18 +672,6 @@ async function extractTransactionLogs(err: any): Promise<string[] | null> {
     } catch {}
   }
   return null;
-}
-
-function parseInvalidCollateralFromLogs(logs: string[]): { left: string; right: string } | null {
-  const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
-  const i = logs.findIndex((l) => l.includes("Invalid collateral account"));
-  if (i < 0) return null;
-  const window = logs.slice(i, i + 10);
-  const leftLine = window.find((l) => l.includes("Left"));
-  const rightLine = window.find((l) => l.includes("Right"));
-  const left = leftLine?.match(base58)?.[0];
-  const right = rightLine?.match(base58)?.[0];
-  return left && right ? { left, right } : null;
 }
 
 function tryAutoAlignCollateralFromLogs(
