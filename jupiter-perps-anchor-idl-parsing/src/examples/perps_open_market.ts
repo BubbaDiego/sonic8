@@ -160,6 +160,12 @@ function formatLogs(raw: string[]): string[] {
   return out.filter((v, i, a) => i === 0 || v !== a[i - 1]);
 }
 
+function printAttemptLogs(logs: string[] | undefined, attemptLabel: string) {
+  if (!logs?.length) return;
+  console.error(`🧾 send logs (${attemptLabel}):`);
+  for (const l of formatLogs(logs)) console.error("   ", l);
+}
+
 (async () => {
   const argv = await yargs(hideBin(process.argv))
     .option("rpc", { type: "string", demandOption: true })
@@ -431,7 +437,6 @@ function formatLogs(raw: string[]): string[] {
   let activeCollateralCustodyInfo = collateralCustodyInfo;
   let activeCollateralCustodyPk = collateralCustodyPk;
   let sendErr: any = null;
-  let accountMode: "idl" | "swapped" = flipCustodyOrder ? "swapped" : "idl";
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     if (pendingCollateralOverride) {
@@ -451,8 +456,6 @@ function formatLogs(raw: string[]): string[] {
         console.log("🔧 auto-align: positionRequest →", activePositionRequest.toBase58());
       }
     }
-
-    accountMode = flipCustodyOrder ? "swapped" : "idl";
 
     let reqAtaInit: { ata: PublicKey; ix: any } | null = null;
     let posAtaInit: { ata: PublicKey; ix: any } | null = null;
@@ -555,7 +558,7 @@ function formatLogs(raw: string[]): string[] {
 
     const positionRequestUsdcAta = havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata;
 
-    const baseAccounts = buildIncreaseAccounts({
+    const baseArgs = {
       owner: wallet.publicKey,
       perpetualsPk: perpetuals.publicKey,
       poolPk: pool.publicKey,
@@ -569,24 +572,17 @@ function formatLogs(raw: string[]): string[] {
       referralOrSystemProgram: wallet.publicKey,
       eventAuthorityPk,
       perpsProgramId: programId,
-    }, accountMode);
+    };
 
+    const forcedMode: "idl" | "swapped" = flipCustodyOrder ? "swapped" : "idl";
+    const allowAutoSwap = !flipCustodyOrder;
+
+    const previewAccounts = buildIncreaseAccounts(baseArgs, allowAutoSwap ? "idl" : forcedMode);
     console.log(
       "💳 fundingAccount (payer) =",
-      baseAccounts.fundingAccount.toBase58(),
+      previewAccounts.fundingAccount.toBase58(),
       "(collateral ATA)",
     );
-
-    const custodyPk = baseAccounts.custody;
-    const collateralPk = baseAccounts.collateralCustody;
-    const expectedCustody = accountMode === "idl" ? marketCustodyPk : activeCollateralCustodyPk;
-    const expectedCollateralCustody = accountMode === "idl" ? activeCollateralCustodyPk : marketCustodyPk;
-    if (!custodyPk.equals(expectedCustody)) {
-      throw new Error("custody mismatch vs selected account mode");
-    }
-    if (!collateralPk.equals(expectedCollateralCustody)) {
-      throw new Error("collateralCustody mismatch vs selected account mode");
-    }
 
     const postIxs: web3.TransactionInstruction[] = [];
     const ixArgs = {
@@ -597,89 +593,106 @@ function formatLogs(raw: string[]): string[] {
       jupiterMinimumOut: null,
     };
 
-    let currentAccounts = baseAccounts;
-    let swapAttempted = accountMode === "swapped";
     let localErr: any = null;
     let localLogs: string[] | null = null;
-    const maxWireAttempts = argv["dry-run"] ? 1 : 2;
 
     await rpcPool.runWithFailover(async (conn) => {
       await ensureProviderOnConnection(conn);
 
-      for (let wireAttempt = 1; wireAttempt <= maxWireAttempts; wireAttempt++) {
-        const method = (program as any).methods
-          .createIncreasePositionMarketRequest(ixArgs)
-          .accountsStrict(currentAccounts)
-          .preInstructions(preIxs)
-          .postInstructions(postIxs);
+      try {
+        if (argv["dry-run"]) {
+          const accounts = buildIncreaseAccounts(baseArgs, forcedMode);
+          const method = (program as any).methods
+            .createIncreasePositionMarketRequest(ixArgs)
+            .accountsStrict(accounts)
+            .preInstructions(preIxs)
+            .postInstructions(postIxs);
 
-        const reqIx = await debugPrintIx(program as Program<any>, method);
+          const label = forcedMode === "swapped" ? "dry-run (swapped)" : "dry-run";
+          const reqIx = await debugPrintIx(program as Program<any>, method, label);
 
-        const allIxs = [...preIxs, reqIx, ...postIxs];
-        const { blockhash, lastValidBlockHeight: lvbh } = await provider.connection.getLatestBlockhash();
-        lastValidBlockHeight = lvbh;
-        const message = new TransactionMessage({
-          payerKey: signer.publicKey,
-          recentBlockhash: blockhash,
-          instructions: allIxs,
-        }).compileToV0Message();
-        const tx = new VersionedTransaction(message);
-        tx.sign([signer]);
+          const allIxs = [...preIxs, reqIx, ...postIxs];
+          const { blockhash, lastValidBlockHeight: lvbh } = await provider.connection.getLatestBlockhash();
+          lastValidBlockHeight = lvbh;
+          const message = new TransactionMessage({
+            payerKey: signer.publicKey,
+            recentBlockhash: blockhash,
+            instructions: allIxs,
+          }).compileToV0Message();
+          const tx = new VersionedTransaction(message);
+          tx.sign([signer]);
 
-        try {
-          await simulateOrSend(provider.connection, tx, argv["dry-run"] === true);
-          positionRequest = activePositionRequest;
-          collateralCustodyPk = activeCollateralCustodyPk;
-          collateralCustodyInfo = activeCollateralCustodyInfo;
-          sendErr = null;
-          localErr = null;
-          localLogs = null;
-          return true;
-        } catch (err: any) {
-          if (RpcPool.isRateLimitish(err)) {
-            throw err;
-          }
-          localErr = err;
-          localLogs = await extractTransactionLogs(err);
-          if (argv["dry-run"]) break;
-          const needSwap =
-            accountMode === "idl" &&
-            shouldSwapCustodiesForIdlMismatch(
-              localLogs ?? undefined,
+          await simulateOrSend(provider.connection, tx, true);
+        } else {
+          // Build standard (IDL order) accounts
+          const baseAccounts = previewAccounts;
+          let accounts = baseAccounts;
+          let method = (program as any).methods
+            .createIncreasePositionMarketRequest(ixArgs)
+            .accountsStrict(accounts)
+            .preInstructions(preIxs)
+            .postInstructions(postIxs);
+
+          const attempt1Label = allowAutoSwap
+            ? "attempt 1"
+            : forcedMode === "swapped"
+            ? "attempt (forced swapped)"
+            : "attempt";
+
+          await debugPrintIx(program as Program<any>, method, attempt1Label);
+
+          try {
+            await method.rpc();
+          } catch (err: any) {
+            const logs: string[] = err?.transactionLogs ?? [];
+            printAttemptLogs(logs, attempt1Label);
+            if (!allowAutoSwap) throw err;
+
+            const needSwap = shouldSwapCustodiesForIdlMismatch(
+              logs,
               marketCustodyPk,
               activeCollateralCustodyPk,
             );
-          if (needSwap && !swapAttempted) {
-            console.warn(
-              "⚠️ Detected custody order mismatch on-chain. Swapping custody↔collateralCustody and retrying once.",
-            );
-            swapAttempted = true;
-            accountMode = "swapped";
-            currentAccounts = buildIncreaseAccounts(
-              {
-                owner: wallet.publicKey,
-                perpetualsPk: perpetuals.publicKey,
-                poolPk: pool.publicKey,
-                positionPk: position,
-                positionRequestPk: activePositionRequest,
-                positionRequestUsdcAta,
-                ownerUsdcAta: ownerAtaInit.ata,
-                marketCustodyPk,
-                collateralCustodyPk: activeCollateralCustodyPk,
-                collateralMintPk: collateralMint,
-                referralOrSystemProgram: wallet.publicKey,
-                eventAuthorityPk,
-                perpsProgramId: programId,
-              },
-              "swapped",
-            );
-            continue;
-          }
-          break;
-        }
-      }
+            if (!needSwap) throw err;
 
-      return true;
+            console.warn(
+              "⚠️ Detected custody order mismatch on-chain (6006 Left==market, Right==collateral). Swapping and retrying once.",
+            );
+
+            accounts = buildIncreaseAccounts(baseArgs, "swapped");
+            method = (program as any).methods
+              .createIncreasePositionMarketRequest(ixArgs)
+              .accountsStrict(accounts)
+              .preInstructions(preIxs)
+              .postInstructions(postIxs);
+
+            await debugPrintIx(program as Program<any>, method, "attempt 2 (swapped)");
+
+            try {
+              await method.rpc();
+            } catch (err2: any) {
+              const logs2: string[] = err2?.transactionLogs ?? [];
+              printAttemptLogs(logs2, "attempt 2 (swapped)");
+              throw err2;
+            }
+          }
+        }
+
+        positionRequest = activePositionRequest;
+        collateralCustodyPk = activeCollateralCustodyPk;
+        collateralCustodyInfo = activeCollateralCustodyInfo;
+        sendErr = null;
+        localErr = null;
+        localLogs = null;
+        return true;
+      } catch (err: any) {
+        if (RpcPool.isRateLimitish(err)) {
+          throw err;
+        }
+        localErr = err;
+        localLogs = Array.isArray(err?.transactionLogs) ? err.transactionLogs : null;
+        return true;
+      }
     }, "send/createIncreasePositionMarketRequest");
 
     if (localErr) {
@@ -759,10 +772,10 @@ async function simulateOrSend(
   }
 }
 
-async function debugPrintIx(program: Program<any>, m: any) {
+async function debugPrintIx(program: Program<any>, m: any, attemptLabel: string) {
   const ix = await m.instruction();
   const idlIx = program.idl.instructions.find((i: any) => i.name === "createIncreasePositionMarketRequest");
-  console.log("🔎 Final ix accounts (IDL name → pubkey):");
+  console.log(`🔎 Final ix accounts (${attemptLabel}) (IDL name → pubkey):`);
   ix.keys.forEach((k: any, i: number) => {
     const name = idlIx?.accounts[i]?.name ?? `idx_${i}`;
     console.log(`${String(i).padStart(2)} ${name} → ${k.pubkey.toBase58()}`);
