@@ -1,7 +1,7 @@
 /* Open/Increase position at market, with optional collateral deposit */
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import type { Idl, Program } from "@coral-xyz/anchor";
+import { AnchorProvider, Program, Wallet, setProvider, type Idl } from "@coral-xyz/anchor";
 import * as web3 from "@solana/web3.js";
 import {
   PublicKey,
@@ -17,12 +17,25 @@ import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import { RpcPool } from "../lib/rpc_failover.js";
 import { bar, info, kv, ok, fail } from "../utils/logger.js";
 import * as cfg from "../config/perps.js";
 import { toMicroUsd, toTokenAmount, derivePdaFromIdl, derivePositionPdaCanonical, derivePositionPdaPoolFirst, derivePositionPdaOwnerFirst, sideToEnum } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
 import { toPk } from "../utils/pk.js";
 import { createAtaIxStrict, deriveAtaStrict, detectTokenProgramForMint } from "../utils/ata.js";
+
+async function makeProviderAndProgram(
+  conn: web3.Connection,
+  wallet: Wallet,
+  idl: Idl,
+  programId: web3.PublicKey,
+) {
+  const provider = new AnchorProvider(conn, wallet, { commitment: "confirmed" });
+  setProvider(provider);
+  const program = new Program(idl, programId, provider);
+  return { provider, program };
+}
 
 type CustodyInfo = { pubkey: web3.PublicKey; account: any; mint: web3.PublicKey };
 
@@ -149,6 +162,7 @@ function formatLogs(raw: string[]): string[] {
   const argv = await yargs(hideBin(process.argv))
     .option("rpc", { type: "string", demandOption: true })
     .option("kp", { type: "string", demandOption: true, describe: "Path to keypair JSON/base58" })
+    .option("rpc-fallbacks", { type: "string", describe: "Comma-separated fallback RPC endpoints" })
     .option("market", { type: "string", choices: ["SOL", "ETH", "BTC"] as const, demandOption: true })
     .option("side", { type: "string", choices: ["long", "short"] as const, demandOption: true })
     .option("size-usd", { type: "number", demandOption: true, describe: "USD notional for size" })
@@ -174,24 +188,79 @@ function formatLogs(raw: string[]): string[] {
     .strict()
     .parse();
 
-  const { program, programId, provider, wallet } = cfg.bootstrap(argv.rpc, argv.kp);
+  const rpc = argv.rpc as string;
+  const rpcFallbacksCsv =
+    (argv["rpc-fallbacks"] as string | undefined) ??
+    process.env.SONIC_SOLANA_RPC_FALLBACKS ?? "";
+
+  const rpcPool = new RpcPool(rpc, rpcFallbacksCsv, {
+    perEndpointMaxRetries: 5,
+    baseDelayMs: 500,
+    maxDelayMs: 15000,
+  });
+
+  const idl = JUP_PERPS_IDL as Idl;
+  const meta = (idl as any)?.metadata;
+  const programId = new PublicKey(
+    meta?.address ?? (() => {
+      throw new Error("IDL.metadata.address missing; update IDL");
+    })(),
+  );
+
+  const kp = cfg.loadKeypair(argv.kp);
+  const wallet = new Wallet(kp);
+
+  const endpointFor = (conn: web3.Connection) =>
+    (conn as any).rpcEndpoint ?? (conn as any)._rpcEndpoint ?? rpcPool.currentEndpoint();
+
+  let provider!: AnchorProvider;
+  let program!: Program<any>;
+  let currentEndpoint = "";
+  const owner = wallet.payer as Keypair;
+
+  async function ensureProviderOnConnection(conn: web3.Connection) {
+    const endpoint = endpointFor(conn);
+    if (!provider || currentEndpoint !== endpoint) {
+      const built = await makeProviderAndProgram(conn, wallet, idl, programId);
+      provider = built.provider;
+      program = built.program as Program<any>;
+      currentEndpoint = endpoint;
+    }
+  }
+
+  bar("Bootstrap", "🔗");
+
+  let perpetuals!: { publicKey: PublicKey; account: any };
+  let pool!: { publicKey: PublicKey; account: any };
+  let allCustodies: CustodyInfo[] = [];
+  let bootstrapLogged = false;
+
+  await rpcPool.runWithFailover(async (conn) => {
+    await ensureProviderOnConnection(conn);
+    const endpoint = endpointFor(conn);
+    if (!bootstrapLogged) {
+      info("🧭", `Network: ${endpoint}`);
+      kv("Owner", wallet.publicKey.toBase58());
+      kv("Program", programId.toBase58());
+      ok("IDL loaded and program ready");
+      bootstrapLogged = true;
+    }
+
+    perpetuals = await cfg.getSingletonPerpetuals(program);
+    pool = await cfg.getSingletonPool(program);
+    const allCustodiesRaw = await cfg.getCustodies(program, pool.account);
+    allCustodies = allCustodiesRaw.map((c) => ({
+      ...c,
+      mint: new PublicKey(c.account.mint as PublicKey),
+    }));
+    return true;
+  }, "bootstrap/perps+pool+custodies");
+
   const ix = program.idl?.instructions?.find((i: any) => i.name === "createIncreasePositionMarketRequest");
   console.log("IDL accounts:", ix?.accounts.map((a: any) => a.name));
-  const connection = provider.connection;
-  const owner = (provider.wallet as any).payer as Keypair;
-
-  // 1) Discover accounts
-  const perpetuals = await cfg.getSingletonPerpetuals(program);
-  const pool = await cfg.getSingletonPool(program);
 
   const marketMint = (cfg.MINTS as any)[argv.market] as PublicKey;
   const sideEnum = sideToEnum(argv.side);
-
-  const allCustodiesRaw = await cfg.getCustodies(program, pool.account);
-  const allCustodies: CustodyInfo[] = allCustodiesRaw.map((c) => ({
-    ...c,
-    mint: new PublicKey(c.account.mint as PublicKey),
-  }));
 
   const marketCustodyPk = pickCustodyByMint(allCustodies, marketMint);
   const defaultCollat = argv.side === "long" ? marketMint : cfg.MINTS.USDC;
@@ -437,7 +506,7 @@ function formatLogs(raw: string[]): string[] {
         throw new Error("BUG: payer equals ATA (would cause 'from must not carry data').");
       }
 
-      const payerInfo = await connection.getAccountInfo(ownerPubkey);
+      const payerInfo = await provider.connection.getAccountInfo(ownerPubkey);
       if (!payerInfo || !payerInfo.owner.equals(SystemProgram.programId)) {
         throw new Error("BUG: payer is not a SystemProgram-owned account.");
       }
@@ -521,56 +590,66 @@ function formatLogs(raw: string[]): string[] {
     let localLogs: string[] | null = null;
     const maxWireAttempts = argv["dry-run"] ? 1 : 2;
 
-    for (let wireAttempt = 1; wireAttempt <= maxWireAttempts; wireAttempt++) {
-      const method = (program as any).methods
-        .createIncreasePositionMarketRequest(ixArgs)
-        .accountsStrict(currentAccounts)
-        .preInstructions(preIxs)
-        .postInstructions(postIxs);
+    await rpcPool.runWithFailover(async (conn) => {
+      await ensureProviderOnConnection(conn);
 
-      const reqIx = await debugPrintIx(program as Program<any>, method);
+      for (let wireAttempt = 1; wireAttempt <= maxWireAttempts; wireAttempt++) {
+        const method = (program as any).methods
+          .createIncreasePositionMarketRequest(ixArgs)
+          .accountsStrict(currentAccounts)
+          .preInstructions(preIxs)
+          .postInstructions(postIxs);
 
-      const allIxs = [...preIxs, reqIx, ...postIxs];
-      const { blockhash, lastValidBlockHeight: lvbh } = await provider.connection.getLatestBlockhash();
-      lastValidBlockHeight = lvbh;
-      const message = new TransactionMessage({
-        payerKey: signer.publicKey,
-        recentBlockhash: blockhash,
-        instructions: allIxs,
-      }).compileToV0Message();
-      const tx = new VersionedTransaction(message);
-      tx.sign([signer]);
+        const reqIx = await debugPrintIx(program as Program<any>, method);
 
-      try {
-        await simulateOrSend(provider.connection, tx, argv["dry-run"] === true);
-        positionRequest = activePositionRequest;
-        collateralCustodyPk = activeCollateralCustodyPk;
-        collateralCustodyInfo = activeCollateralCustodyInfo;
-        sendErr = null;
-        localErr = null;
-        break;
-      } catch (err: any) {
-        localErr = err;
-        localLogs = await extractTransactionLogs(err);
-        if (argv["dry-run"]) break;
-        const needSwap = shouldSwapCustodiesForIdlMismatch(
-          localLogs ?? undefined,
-          marketCustodyPk,
-          activeCollateralCustodyPk,
-        );
-        if (needSwap && !swapAttempted) {
-          console.warn("⚠️ Detected IDL/order mismatch for custodies. Swapping custody slots and retrying once.");
-          swapAttempted = true;
-          currentAccounts = {
-            ...currentAccounts,
-            custody: currentAccounts.collateralCustody,
-            collateralCustody: currentAccounts.custody,
-          };
-          continue;
+        const allIxs = [...preIxs, reqIx, ...postIxs];
+        const { blockhash, lastValidBlockHeight: lvbh } = await provider.connection.getLatestBlockhash();
+        lastValidBlockHeight = lvbh;
+        const message = new TransactionMessage({
+          payerKey: signer.publicKey,
+          recentBlockhash: blockhash,
+          instructions: allIxs,
+        }).compileToV0Message();
+        const tx = new VersionedTransaction(message);
+        tx.sign([signer]);
+
+        try {
+          await simulateOrSend(provider.connection, tx, argv["dry-run"] === true);
+          positionRequest = activePositionRequest;
+          collateralCustodyPk = activeCollateralCustodyPk;
+          collateralCustodyInfo = activeCollateralCustodyInfo;
+          sendErr = null;
+          localErr = null;
+          localLogs = null;
+          return true;
+        } catch (err: any) {
+          if (RpcPool.isRateLimitish(err)) {
+            throw err;
+          }
+          localErr = err;
+          localLogs = await extractTransactionLogs(err);
+          if (argv["dry-run"]) break;
+          const needSwap = shouldSwapCustodiesForIdlMismatch(
+            localLogs ?? undefined,
+            marketCustodyPk,
+            activeCollateralCustodyPk,
+          );
+          if (needSwap && !swapAttempted) {
+            console.warn("⚠️ Detected IDL/order mismatch for custodies. Swapping custody slots and retrying once.");
+            swapAttempted = true;
+            currentAccounts = {
+              ...currentAccounts,
+              custody: currentAccounts.collateralCustody,
+              collateralCustody: currentAccounts.custody,
+            };
+            continue;
+          }
+          break;
         }
-        break;
       }
-    }
+
+      return true;
+    }, "send/createIncreasePositionMarketRequest");
 
     if (localErr) {
       sendErr = localErr;
@@ -651,9 +730,9 @@ async function simulateOrSend(
 
 async function debugPrintIx(program: Program<any>, m: any) {
   const ix = await m.instruction();
-  const idlIx = program.idl.instructions.find((i) => i.name === "createIncreasePositionMarketRequest");
+  const idlIx = program.idl.instructions.find((i: any) => i.name === "createIncreasePositionMarketRequest");
   console.log("🔎 Final ix accounts (IDL name → pubkey):");
-  ix.keys.forEach((k, i) => {
+  ix.keys.forEach((k: any, i: number) => {
     const name = idlIx?.accounts[i]?.name ?? `idx_${i}`;
     console.log(`${String(i).padStart(2)} ${name} → ${k.pubkey.toBase58()}`);
   });
