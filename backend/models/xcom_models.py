@@ -38,6 +38,7 @@ class TestMessageRequest(BaseModel):
     subject: Optional[str] = None
     body: Optional[str] = None
     level: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
+    ignore_cooldown: Optional[bool] = False
 
 class TestMessageResult(BaseModel):
     """Slim wrapper around XComCore result."""
