@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -13,6 +13,10 @@ import MenuItem from '@mui/material/MenuItem';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { IconExternalLink } from '@tabler/icons-react';
 
 const fieldValue = (values, key) => {
@@ -29,11 +33,31 @@ const ProviderAccordion = ({
   defaultExpanded = false,
   actions,
   icon,
-  externalLink
+  externalLink,
+  status,
+  env = {}
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const [showEnv, setShowEnv] = useState(true);
 
   const normalizedValues = useMemo(() => values || {}, [values]);
+  const envEntries = useMemo(() => Object.entries(env || {}), [env]);
+  const hasEnv = envEntries.length > 0;
+
+  const mask = (val) => {
+    if (val === null || typeof val === 'undefined') {
+      return '—';
+    }
+    const str = String(val);
+    if (str.length === 0) {
+      return '—';
+    }
+    if (str.length <= 6) {
+      return '•'.repeat(Math.max(2, str.length || 2));
+    }
+    const maskedLength = Math.max(2, str.length - 6);
+    return `${str.slice(0, 2)}${'•'.repeat(maskedLength)}${str.slice(-4)}`;
+  };
 
   const handleFieldChange = (key, rawValue, field) => {
     const next = { ...normalizedValues };
@@ -51,42 +75,90 @@ const ProviderAccordion = ({
   };
 
   return (
-    <Accordion expanded={expanded} onChange={(_, isExpanded) => setExpanded(isExpanded)} sx={{ mb: 2 }}>
+    <Accordion
+      expanded={expanded}
+      onChange={(_, isExpanded) => setExpanded(isExpanded)}
+      disableGutters
+      sx={{
+        mb: 2,
+        borderLeft: '4px solid',
+        borderColor: status === 'ok' ? 'success.main' : status === 'issue' ? 'error.main' : 'divider'
+      }}
+    >
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {icon ? (
-              <Box
-                component="img"
-                src={icon}
-                alt="provider-icon"
-                sx={{ height: 20, width: 20, borderRadius: '4px' }}
-              />
-            ) : null}
-            <Typography variant="h5">{title}</Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+              {icon ? (
+                <Box component="img" src={icon} alt="provider-icon" sx={{ height: 20, width: 20, borderRadius: '4px' }} />
+              ) : null}
+              <Typography variant="h5" noWrap>
+                {title}
+              </Typography>
+              {typeof status === 'string' ? (
+                <Chip
+                  size="small"
+                  label={status === 'ok' ? 'OK' : 'ISSUE'}
+                  color={status === 'ok' ? 'success' : 'error'}
+                  variant="filled"
+                  sx={{ ml: 0.5 }}
+                />
+              ) : null}
+            </Box>
+
             {externalLink ? (
               <Tooltip title="Open Console">
-                <IconButton
-                  size="small"
-                  component="a"
-                  href={externalLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{ ml: 0.5 }}
-                >
+                <IconButton size="small" component="a" href={externalLink} target="_blank" rel="noopener noreferrer">
                   <IconExternalLink size={18} />
                 </IconButton>
               </Tooltip>
             ) : null}
           </Box>
-          {description && (
+          {description ? (
             <Typography variant="body2" color="text.secondary">
               {description}
             </Typography>
-          )}
+          ) : null}
         </Box>
       </AccordionSummary>
       <AccordionDetails>
+        {hasEnv ? (
+          <Box sx={{ mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
+                Environment
+              </Typography>
+              <Tooltip title={showEnv ? 'Hide values' : 'Show values'}>
+                <IconButton size="small" onClick={() => setShowEnv((prev) => !prev)}>
+                  {showEnv ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+            </Box>
+            <Grid container spacing={1}>
+              {envEntries.map(([envKey, envValue]) => (
+                <Grid item xs={12} md={6} key={envKey}>
+                  <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                    {envKey}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
+                    {showEnv ? mask(envValue) : '••••••••••'}
+                  </Typography>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        ) : null}
+
+        {hasEnv ? <Divider sx={{ mb: 2 }} /> : null}
+
         <Grid container spacing={2}>
           {fields.map((field) => {
             const {
@@ -113,11 +185,11 @@ const ProviderAccordion = ({
                     }
                     label={label}
                   />
-                  {helperText && (
+                  {helperText ? (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
                       {helperText}
                     </Typography>
-                  )}
+                  ) : null}
                 </Grid>
               );
             }
@@ -177,7 +249,9 @@ ProviderAccordion.propTypes = {
   defaultExpanded: PropTypes.bool,
   actions: PropTypes.node,
   icon: PropTypes.string,
-  externalLink: PropTypes.string
+  externalLink: PropTypes.string,
+  status: PropTypes.oneOf(['ok', 'issue']),
+  env: PropTypes.object
 };
 
 export default ProviderAccordion;
