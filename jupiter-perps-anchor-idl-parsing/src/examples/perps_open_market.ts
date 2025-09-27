@@ -68,20 +68,14 @@ function pickCustodyByMint(custodies: CustodyInfo[], mint: web3.PublicKey) {
   return c.pubkey;
 }
 
-// Collect logs from both web3 and Anchor error shapes
 function collectAllLogLines(err: any): string[] {
-  const a: string[] = Array.isArray(err?.transactionLogs)
-    ? err.transactionLogs
-    : [];
+  const a: string[] = Array.isArray(err?.transactionLogs) ? err.transactionLogs : [];
   const b: string[] = Array.isArray(err?.logs) ? err.logs : [];
   const c: string[] = Array.isArray(err?.errorLogs) ? err.errorLogs : [];
   return [...a, ...b, ...c].filter((x) => typeof x === "string");
 }
 
-// Parse "Invalid collateral account" Left/Right pubkeys
-function parseInvalidCollateralFromLogs(
-  logs: string[],
-): { left: string; right: string } | null {
+function parseInvalidCollateralFromLogs(logs: string[]): { left: string; right: string } | null {
   const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
   const i = logs.findIndex((l) => l.includes("Invalid collateral account"));
   if (i < 0) return null;
@@ -91,6 +85,16 @@ function parseInvalidCollateralFromLogs(
   return left && right ? { left, right } : null;
 }
 
+function parseConstraintSeedsRight(logs: string[], accountName: string): string | null {
+  const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
+  const idx = logs.findIndex(
+    (l) => l.includes("ConstraintSeeds") && l.includes(`account: ${accountName}`),
+  );
+  if (idx < 0) return null;
+  const window = logs.slice(idx, idx + 12);
+  return window.find((l) => l.includes("Right"))?.match(base58)?.[0] ?? null;
+}
+
 function shouldSwapCustodiesForIdlMismatch(
   logs: string[] | undefined,
   marketCustodyPk: web3.PublicKey,
@@ -98,22 +102,20 @@ function shouldSwapCustodiesForIdlMismatch(
 ): boolean {
   if (!logs?.length) return false;
   const p = parseInvalidCollateralFromLogs(logs);
-  return (
-    !!p &&
-    p.left === marketCustodyPk.toBase58() &&
-    p.right === collateralCustodyPk.toBase58()
-  );
+  return !!p && p.left === marketCustodyPk.toBase58() && p.right === collateralCustodyPk.toBase58();
 }
 
-// Parse the expected 'Right:' pubkey for ConstraintSeeds on a specific account
-function parseConstraintSeedsRight(logs: string[], accountName: string): string | null {
-  const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
-  const i = logs.findIndex(
-    (l) => l.includes("ConstraintSeeds") && l.includes(`account: ${accountName}`),
+async function debugPrintIx(program: Program, m: any, label: string) {
+  const ix = await m.instruction();
+  const idlIx = program.idl.instructions.find(
+    (i: any) => i.name === "createIncreasePositionMarketRequest",
   );
-  if (i < 0) return null;
-  const window = logs.slice(i, i + 12);
-  return window.find((l) => l.includes("Right"))?.match(base58)?.[0] ?? null;
+  console.log(`🔎 Final ix accounts (${label}) (IDL name → pubkey):`);
+  ix.keys.forEach((k: web3.AccountMeta, i: number) => {
+    const name = idlIx?.accounts?.[i]?.name ?? `idx_${i}`;
+    console.log(`${String(i).padStart(2)} ${name} → ${k.pubkey.toBase58()}`);
+  });
+  return ix;
 }
 
 function makePositionUsdcAtaIx(
@@ -122,12 +124,7 @@ function makePositionUsdcAtaIx(
   usdcMint: web3.PublicKey,
 ) {
   const ata = getAssociatedTokenAddressSync(usdcMint, positionPk, true);
-  const ix = createAssociatedTokenAccountIdempotentInstruction(
-    payer,
-    ata,
-    positionPk,
-    usdcMint,
-  );
+  const ix = createAssociatedTokenAccountIdempotentInstruction(payer, ata, positionPk, usdcMint);
   return { ata, ix };
 }
 
@@ -149,20 +146,6 @@ function derivePositionPda(
     programId,
   );
   return pk;
-}
-
-// Pretty-printer for the final compiled instruction → accounts
-async function debugPrintIx(program: Program, m: any, label: string) {
-  const ix = await m.instruction();
-  const idlIx = program.idl.instructions.find(
-    (i: any) => i.name === "createIncreasePositionMarketRequest",
-  );
-  console.log(`🔎 Final ix accounts (${label}) (IDL name → pubkey):`);
-  ix.keys.forEach((k: web3.AccountMeta, i: number) => {
-    const name = idlIx?.accounts?.[i]?.name ?? `idx_${i}`;
-    console.log(`${String(i).padStart(2)} ${name} → ${k.pubkey.toBase58()}`);
-  });
-  return ix;
 }
 
 // Build accounts with selectable mapping mode
@@ -225,8 +208,7 @@ async function sendIncreasePositionRobust(params: {
   perpetualsPk: web3.PublicKey;
   poolPk: web3.PublicKey;
 
-  positionIdl: web3.PublicKey;
-  positionSwapped: web3.PublicKey;
+  positionPk: web3.PublicKey;
 
   positionRequestPk: web3.PublicKey;
   positionRequestUsdcAta: web3.PublicKey;
@@ -238,6 +220,7 @@ async function sendIncreasePositionRobust(params: {
   referralOrSystemProgram: web3.PublicKey;
   eventAuthorityPk: web3.PublicKey;
   perpsProgramId: web3.PublicKey;
+  startSwappedOrder?: boolean;
 }) {
   const {
     program,
@@ -247,8 +230,6 @@ async function sendIncreasePositionRobust(params: {
     owner,
     perpetualsPk,
     poolPk,
-    positionIdl,
-    positionSwapped,
     positionRequestPk,
     positionRequestUsdcAta,
     ownerUsdcAta,
@@ -259,17 +240,17 @@ async function sendIncreasePositionRobust(params: {
     perpsProgramId,
   } = params;
 
-  let useSwappedOrder = false;
-  let positionPk = positionIdl;
-  let preIxsBase = [...params.preIxs];
+  let positionPk = new web3.PublicKey(params.positionPk);
+  let useSwappedOrder = params.startSwappedOrder === true;
+  const preIxsBase = [...params.preIxs];
   const postIxs = [...params.postIxs];
 
-  function rebuildPreIxsForPosition(pos: web3.PublicKey) {
-    const { ix: posAtaIx } = makePositionUsdcAtaIx(payer, pos, collateralMintPk);
+  function rebuildPreIxsForCurrentPosition() {
+    const { ix: posAtaIx } = makePositionUsdcAtaIx(payer, positionPk, collateralMintPk);
     return [...preIxsBase, posAtaIx];
   }
 
-  let preIxs = rebuildPreIxsForPosition(positionPk);
+  let preIxs = rebuildPreIxsForCurrentPosition();
 
   const buildAccounts = () => ({
     owner,
@@ -291,6 +272,12 @@ async function sendIncreasePositionRobust(params: {
   });
 
   async function trySend(label: string) {
+    console.log(
+      "➡️ using position for send:",
+      positionPk.toBase58(),
+      "| order:",
+      useSwappedOrder ? "swapped" : "idl",
+    );
     const m = program.methods
       .createIncreasePositionMarketRequest(ixArgs)
       .accountsStrict(buildAccounts())
@@ -302,26 +289,22 @@ async function sendIncreasePositionRobust(params: {
 
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
-      await trySend(`attempt ${attempt}/${4} (${useSwappedOrder ? "swapped" : "idl"})`);
+      await trySend(`attempt ${attempt}/4`);
       return;
     } catch (e: any) {
       const logs = collectAllLogLines(e);
       const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
 
       if (code === 2006) {
-        const desired = useSwappedOrder ? positionSwapped : positionIdl;
-        if (!positionPk.equals(desired)) {
-          console.warn("🔧 position → deterministic for order:", desired.toBase58());
-          positionPk = desired;
-          preIxs = rebuildPreIxsForPosition(positionPk);
-          continue;
-        }
-        const right = parseConstraintSeedsRight(logs, "position");
-        if (right && right !== positionPk.toBase58()) {
-          console.warn("🔧 position → from logs Right:", right);
-          positionPk = new web3.PublicKey(right);
-          preIxs = rebuildPreIxsForPosition(positionPk);
-          continue;
+        const rightPkStr = parseConstraintSeedsRight(logs, "position");
+        if (rightPkStr) {
+          const rightPk = new web3.PublicKey(rightPkStr);
+          if (!positionPk.equals(rightPk)) {
+            console.warn("🔧 position ← Right: from logs →", rightPkStr);
+            positionPk = rightPk;
+            preIxs = rebuildPreIxsForCurrentPosition();
+            continue;
+          }
         }
         throw e;
       }
@@ -331,14 +314,7 @@ async function sendIncreasePositionRobust(params: {
         shouldSwapCustodiesForIdlMismatch(logs, marketCustodyPk, collateralCustodyPk)
       ) {
         useSwappedOrder = !useSwappedOrder;
-        positionPk = useSwappedOrder ? positionSwapped : positionIdl;
-        preIxs = rebuildPreIxsForPosition(positionPk);
-        console.warn(
-          "🔁 flipped custody order →",
-          useSwappedOrder ? "swapped" : "idl",
-          " | position →",
-          positionPk.toBase58(),
-        );
+        console.warn("🔁 flipping custody order →", useSwappedOrder ? "swapped" : "idl");
         continue;
       }
 
@@ -960,8 +936,7 @@ function formatLogs(raw: string[]): string[] {
         owner: wallet.publicKey,
         perpetualsPk: perpetuals.publicKey,
         poolPk: pool.publicKey,
-        positionIdl,
-        positionSwapped,
+        positionPk: previewPosition,
         positionRequestPk: positionRequest,
         positionRequestUsdcAta,
         ownerUsdcAta: ownerAtaInit.ata,
@@ -971,6 +946,7 @@ function formatLogs(raw: string[]): string[] {
         referralOrSystemProgram: wallet.publicKey,
         eventAuthorityPk: eventAuthorityPk!,
         perpsProgramId: programId,
+        startSwappedOrder: previewMode === "swapped",
       });
       return true;
     },
