@@ -32,7 +32,6 @@ import {
   derivePdaFromIdl,
   derivePositionPdaPoolFirst,
   derivePositionPdaOwnerFirst,
-  derivePositionForIdlOrder,
   sideToEnum,
 } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
@@ -132,6 +131,26 @@ function makePositionUsdcAtaIx(
   return { ata, ix };
 }
 
+function derivePositionPda(
+  programId: web3.PublicKey,
+  owner: web3.PublicKey,
+  pool: web3.PublicKey,
+  custodyA: web3.PublicKey,
+  custodyB: web3.PublicKey,
+): web3.PublicKey {
+  const [pk] = web3.PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("position"),
+      owner.toBuffer(),
+      pool.toBuffer(),
+      custodyA.toBuffer(),
+      custodyB.toBuffer(),
+    ],
+    programId,
+  );
+  return pk;
+}
+
 // Pretty-printer for the final compiled instruction → accounts
 async function debugPrintIx(program: Program, m: any, label: string) {
   const ix = await m.instruction();
@@ -206,7 +225,9 @@ async function sendIncreasePositionRobust(params: {
   perpetualsPk: web3.PublicKey;
   poolPk: web3.PublicKey;
 
-  positionPk: web3.PublicKey;
+  positionIdl: web3.PublicKey;
+  positionSwapped: web3.PublicKey;
+
   positionRequestPk: web3.PublicKey;
   positionRequestUsdcAta: web3.PublicKey;
   ownerUsdcAta: web3.PublicKey;
@@ -226,18 +247,29 @@ async function sendIncreasePositionRobust(params: {
     owner,
     perpetualsPk,
     poolPk,
+    positionIdl,
+    positionSwapped,
     positionRequestPk,
     positionRequestUsdcAta,
     ownerUsdcAta,
+    marketCustodyPk,
+    collateralCustodyPk,
     referralOrSystemProgram,
     eventAuthorityPk,
     perpsProgramId,
   } = params;
 
-  let positionPk = params.positionPk;
   let useSwappedOrder = false;
-  let preIxs = [...params.preIxs];
+  let positionPk = positionIdl;
+  let preIxsBase = [...params.preIxs];
   const postIxs = [...params.postIxs];
+
+  function rebuildPreIxsForPosition(pos: web3.PublicKey) {
+    const { ix: posAtaIx } = makePositionUsdcAtaIx(payer, pos, collateralMintPk);
+    return [...preIxsBase, posAtaIx];
+  }
+
+  let preIxs = rebuildPreIxsForPosition(positionPk);
 
   const buildAccounts = () => ({
     owner,
@@ -247,13 +279,9 @@ async function sendIncreasePositionRobust(params: {
     position: positionPk,
     positionRequest: positionRequestPk,
     positionRequestAta: positionRequestUsdcAta,
-    custody: useSwappedOrder
-      ? params.collateralCustodyPk
-      : params.marketCustodyPk,
-    collateralCustody: useSwappedOrder
-      ? params.marketCustodyPk
-      : params.collateralCustodyPk,
-    inputMint: params.collateralMintPk,
+    custody: useSwappedOrder ? collateralCustodyPk : marketCustodyPk,
+    collateralCustody: useSwappedOrder ? marketCustodyPk : collateralCustodyPk,
+    inputMint: collateralMintPk,
     referral: referralOrSystemProgram,
     tokenProgram: TOKEN_PROGRAM_ID,
     associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -263,51 +291,53 @@ async function sendIncreasePositionRobust(params: {
   });
 
   async function trySend(label: string) {
-    const method = program.methods
+    const m = program.methods
       .createIncreasePositionMarketRequest(ixArgs)
       .accountsStrict(buildAccounts())
       .preInstructions(preIxs)
       .postInstructions(postIxs);
-
-    await debugPrintIx(program, method, label);
-    await method.rpc();
+    await debugPrintIx(program, m, label);
+    await m.rpc();
   }
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
     try {
-      await trySend(`attempt ${attempt}/3 (${useSwappedOrder ? "swapped" : "idl"})`);
+      await trySend(`attempt ${attempt}/${4} (${useSwappedOrder ? "swapped" : "idl"})`);
       return;
     } catch (e: any) {
       const logs = collectAllLogLines(e);
       const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
 
       if (code === 2006) {
-        const rightPkStr = parseConstraintSeedsRight(logs, "position");
-        if (rightPkStr) {
-          positionPk = new web3.PublicKey(rightPkStr);
-          console.warn("🔧 position ←", rightPkStr, " (from logs)");
-          const { ix: posAtaIx } = makePositionUsdcAtaIx(
-            payer,
-            positionPk,
-            collateralMintPk,
-          );
-          preIxs = [...params.preIxs, posAtaIx];
+        const desired = useSwappedOrder ? positionSwapped : positionIdl;
+        if (!positionPk.equals(desired)) {
+          console.warn("🔧 position → deterministic for order:", desired.toBase58());
+          positionPk = desired;
+          preIxs = rebuildPreIxsForPosition(positionPk);
           continue;
         }
+        const right = parseConstraintSeedsRight(logs, "position");
+        if (right && right !== positionPk.toBase58()) {
+          console.warn("🔧 position → from logs Right:", right);
+          positionPk = new web3.PublicKey(right);
+          preIxs = rebuildPreIxsForPosition(positionPk);
+          continue;
+        }
+        throw e;
       }
 
       if (
         code === 6006 ||
-        shouldSwapCustodiesForIdlMismatch(
-          logs,
-          params.marketCustodyPk,
-          params.collateralCustodyPk,
-        )
+        shouldSwapCustodiesForIdlMismatch(logs, marketCustodyPk, collateralCustodyPk)
       ) {
         useSwappedOrder = !useSwappedOrder;
+        positionPk = useSwappedOrder ? positionSwapped : positionIdl;
+        preIxs = rebuildPreIxsForPosition(positionPk);
         console.warn(
-          "🔁 flipping custody order →",
+          "🔁 flipped custody order →",
           useSwappedOrder ? "swapped" : "idl",
+          " | position →",
+          positionPk.toBase58(),
         );
         continue;
       }
@@ -316,7 +346,7 @@ async function sendIncreasePositionRobust(params: {
     }
   }
 
-  throw new Error("sendIncreasePositionRobust: exhausted retries");
+  throw new Error("sendIncreasePositionRobust: retries exhausted");
 }
 
 function shortId(s: string) {
@@ -551,21 +581,34 @@ function formatLogs(raw: string[]): string[] {
   console.log("🧪 inputMint:          ", collateralMint.toBase58());
 
   bar("PDAs", "🧩");
-  const positionCanonical = derivePositionForIdlOrder(
+  const positionIdlExpected = derivePositionPda(
+    programId,
     wallet.publicKey,
     pool.publicKey,
     marketCustodyPk,
     collateralCustodyPk,
-    programId,
   );
-  let position: PublicKey;
-  if (argv.position) {
-    position = toPk("position", argv.position);
-    console.log("🧩 position (override) =", position.toBase58());
-  } else {
-    position = positionCanonical;
-    console.log("🧩 position =", position.toBase58());
+  const positionSwappedExpected = derivePositionPda(
+    programId,
+    wallet.publicKey,
+    pool.publicKey,
+    collateralCustodyPk,
+    marketCustodyPk,
+  );
+  console.log(
+    "🧮 expected positions → idl:",
+    positionIdlExpected.toBase58(),
+    " swapped:",
+    positionSwappedExpected.toBase58(),
+  );
+  const positionOverride = argv.position
+    ? toPk("position", argv.position)
+    : null;
+  if (positionOverride) {
+    console.log("🧩 position (override) =", positionOverride.toBase58());
   }
+  const positionIdl = positionOverride ?? positionIdlExpected;
+  const positionSwapped = positionSwappedExpected;
   const [posPoolFirst] = derivePositionPdaPoolFirst(
     programId,
     pool.publicKey,
@@ -579,8 +622,10 @@ function formatLogs(raw: string[]): string[] {
 
   // Loud, one-time debug to compare with Perps' "Right:" if it error-logs again
   console.log(
-    "🧩 position PDAs :: canonical=",
-    positionCanonical.toBase58(),
+    "🧩 position PDAs :: idl=",
+    positionIdlExpected.toBase58(),
+    " swapped=",
+    positionSwappedExpected.toBase58(),
     " poolFirst=",
     posPoolFirst.toBase58(),
     " ownerFirst=",
@@ -592,6 +637,7 @@ function formatLogs(raw: string[]): string[] {
   let positionRequest: PublicKey;
   const prOverride = argv["position-request"] as string | undefined;
   const havePR = !!prOverride;
+  const positionForRequestSeed = positionIdl;
   if (havePR) {
     positionRequest = toPk("position-request", prOverride);
     console.log("🧩 positionRequest (override) =", positionRequest.toBase58());
@@ -606,12 +652,12 @@ function formatLogs(raw: string[]): string[] {
         custody: marketCustodyPk,
         collateralCustody: collateralCustodyPk,
         seed: unique,
-        position,
+        position: positionForRequestSeed,
       },
     );
     positionRequest = derivedPositionRequest;
   }
-  kv("Position", position.toBase58());
+  kv("Position", positionForRequestSeed.toBase58());
   kv("PosRequest", positionRequest.toBase58());
 
   const decimals = (collateralCustodyInfo.account.decimals as number) ?? 9;
@@ -730,7 +776,6 @@ function formatLogs(raw: string[]): string[] {
   const signer = (provider.wallet as any).payer as Keypair;
   let lastValidBlockHeight: number | undefined;
   let reqAtaInit: { ata: PublicKey; ix: any } | null = null;
-  let posAtaInit: { ata: PublicKey; ix: any } | null = null;
 
   if (havePR) {
     const escrowTokenProgramId = await getTokenProgramIdForMint(collateralMint);
@@ -758,29 +803,6 @@ function formatLogs(raw: string[]): string[] {
       throw new Error("ATA mismatch (positionRequest) vs seed derivation");
     }
 
-    posAtaInit = createAtaIxStrict(
-      wallet.publicKey,
-      collateralMint,
-      position,
-      /*allowOwnerOffCurve=*/ true,
-      escrowTokenProgramId,
-    );
-    console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, position):`, {
-      mint: shortId(collateralMint.toBase58()),
-      owner: shortId(position.toBase58()),
-      allowOwnerOffCurve: true,
-      tokenProgramId: shortId(escrowTokenProgramId.toBase58()),
-      ata: shortId(posAtaInit.ata.toBase58()),
-    });
-    const expectedPosAta = deriveAtaStrict(
-      collateralMint,
-      position,
-      true,
-      escrowTokenProgramId,
-    );
-    if (!posAtaInit.ata.equals(expectedPosAta)) {
-      throw new Error("ATA mismatch (position) vs seed derivation");
-    }
   }
 
   const preIxs: any[] = [
@@ -839,11 +861,6 @@ function formatLogs(raw: string[]): string[] {
       "AToken escrow[req] metas [payer, ata, owner, mint] =",
       metas4(reqAtaInit.ix),
     );
-  if (posAtaInit)
-    console.log(
-      "AToken escrow[pos] metas [payer, ata, owner, mint] =",
-      metas4(posAtaInit.ix),
-    );
 
   if (!eventAuthorityPk) {
     throw new Error("Missing event authority PDA");
@@ -852,11 +869,10 @@ function formatLogs(raw: string[]): string[] {
   const positionRequestUsdcAta =
     havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata;
 
-  const baseArgs = {
+  const accountArgsBase = {
     owner: wallet.publicKey,
     perpetualsPk: perpetuals.publicKey,
     poolPk: pool.publicKey,
-    positionPk: position,
     positionRequestPk: positionRequest,
     positionRequestUsdcAta,
     ownerUsdcAta: ownerAtaInit.ata,
@@ -869,8 +885,11 @@ function formatLogs(raw: string[]): string[] {
   };
 
   const previewMode: "idl" | "swapped" = flipCustodyOrder ? "swapped" : "idl";
-
-  const previewAccounts = buildIncreaseAccounts(baseArgs, previewMode);
+  const previewPosition = previewMode === "swapped" ? positionSwapped : positionIdl;
+  const previewAccounts = buildIncreaseAccounts(
+    { ...accountArgsBase, positionPk: previewPosition },
+    previewMode,
+  );
   console.log(
     "💳 fundingAccount (payer) =",
     previewAccounts.fundingAccount.toBase58(),
@@ -892,18 +911,31 @@ function formatLogs(raw: string[]): string[] {
 
       const dryRunMode: "idl" | "swapped" = previewMode;
       if (argv["dry-run"]) {
-        const accounts = buildIncreaseAccounts(baseArgs, dryRunMode);
+        const dryRunPosition =
+          dryRunMode === "swapped" ? positionSwapped : positionIdl;
+        const dryRunPreIxs = (() => {
+          const { ix: posAtaIx } = makePositionUsdcAtaIx(
+            wallet.publicKey,
+            dryRunPosition,
+            collateralMint,
+          );
+          return [...preIxs, posAtaIx];
+        })();
+        const accounts = buildIncreaseAccounts(
+          { ...accountArgsBase, positionPk: dryRunPosition },
+          dryRunMode,
+        );
         const method = (program as any).methods
           .createIncreasePositionMarketRequest(ixArgs)
           .accountsStrict(accounts)
-          .preInstructions(preIxs)
+          .preInstructions(dryRunPreIxs)
           .postInstructions(postIxs);
 
         const label =
           dryRunMode === "swapped" ? "dry-run (swapped)" : "dry-run";
         const reqIx = await debugPrintIx(program as Program, method, label);
 
-        const allIxs = [...preIxs, reqIx, ...postIxs];
+        const allIxs = [...dryRunPreIxs, reqIx, ...postIxs];
         const { blockhash, lastValidBlockHeight: lvbh } =
           await provider.connection.getLatestBlockhash();
         lastValidBlockHeight = lvbh;
@@ -928,7 +960,8 @@ function formatLogs(raw: string[]): string[] {
         owner: wallet.publicKey,
         perpetualsPk: perpetuals.publicKey,
         poolPk: pool.publicKey,
-        positionPk: position,
+        positionIdl,
+        positionSwapped,
         positionRequestPk: positionRequest,
         positionRequestUsdcAta,
         ownerUsdcAta: ownerAtaInit.ata,
