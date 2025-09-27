@@ -8,6 +8,7 @@ import kanban from './kanban';
 import sonic from './sonic';
 import themeLab from './theme-lab';
 import jupiter from './jupiter';
+import xcom from './xcom';
 
 const menuItems = {
   items: [
@@ -18,6 +19,7 @@ const menuItems = {
       children: [
         sonic,
         monitorManager,
+        xcom,
         positions,
         walletManager,
         kanban,
