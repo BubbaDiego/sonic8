@@ -1,20 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Grid from '@mui/material/Grid';
-import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Skeleton from '@mui/material/Skeleton';
 import Divider from '@mui/material/Divider';
-import Tooltip from '@mui/material/Tooltip';
 import TextField from '@mui/material/TextField';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import CampaignIcon from '@mui/icons-material/Campaign';
+import { Card, CardContent, CardHeader, Button, Stack, Tooltip } from '@mui/material';
+import { IconExternalLink, IconActivity, IconPhone, IconMail, IconVolume2 } from '@tabler/icons-react';
 
 import MainCard from 'ui-component/cards/MainCard';
 import ProviderAccordion from './components/ProviderAccordion';
@@ -228,7 +226,7 @@ export default function XComSettings() {
     refetch: refetchStatus,
     dataUpdatedAt: statusUpdatedAt
   } = useStatus();
-  const runHeartbeat = useRunHeartbeat();
+  const { mutate: runHeartbeat, isLoading: heartbeatRunning } = useRunHeartbeat();
   const testMsg = useTestMessage();
 
   const [draft, setDraft] = useState({});
@@ -390,7 +388,7 @@ export default function XComSettings() {
     });
   };
 
-  const runTest = (mode) => {
+  const testFromUI = (mode) => {
     const normalized = (mode || '').toString().toLowerCase();
     const level = normalized === 'voice' ? 'HIGH' : normalized === 'sms' ? 'MEDIUM' : 'LOW';
     const payload = {
@@ -404,29 +402,15 @@ export default function XComSettings() {
       onSuccess: (res) => {
         const sid = res?.results?.twilio_sid;
         const ok = !!res?.success && (normalized !== 'voice' || res?.results?.voice === true);
-        if (sid) {
-          setLastTwilioSid(sid);
-        } else if (normalized === 'voice') {
-          setLastTwilioSid(null);
+        if (normalized === 'voice') {
+          setLastTwilioSid(sid || null);
         }
-        enqueueSnackbar(
-          `Test ${normalized}: ${ok ? 'ok' : 'error'}${sid ? ' · SID ' + sid : ''}`,
-          { variant: ok ? 'success' : 'error' }
-        );
+        enqueueSnackbar(`Test ${normalized}: ${ok ? 'ok' : 'error'}${sid ? ` · ${sid}` : ''}`, {
+          variant: ok ? 'success' : 'error'
+        });
       },
       onError: (err) => {
         enqueueSnackbar('Test failed: ' + (err?.message || 'unknown'), { variant: 'error' });
-      }
-    });
-  };
-
-  const handleRunHeartbeat = () => {
-    runHeartbeat.mutate(undefined, {
-      onSuccess: () => {
-        enqueueSnackbar('Heartbeat triggered', { variant: 'info' });
-      },
-      onError: (err) => {
-        enqueueSnackbar(`Heartbeat failed: ${err.message || err}`, { variant: 'error' });
       }
     });
   };
@@ -617,6 +601,71 @@ export default function XComSettings() {
 
   return (
     <Grid container spacing={3}>
+      <Grid item xs={12}>
+        <Card>
+          <CardHeader
+            title="Operations"
+            action={
+              <Tooltip title="Open Twilio Console">
+                <Button
+                  component="a"
+                  href={TWILIO_CONSOLE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="small"
+                  startIcon={<IconExternalLink size={16} />}
+                >
+                  Twilio Console
+                </Button>
+              </Tooltip>
+            }
+          />
+          <CardContent>
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              <Button
+                variant="contained"
+                startIcon={<IconPhone size={18} />}
+                onClick={() => testFromUI('voice')}
+                disabled={testMsg.isLoading}
+              >
+                Test Voice
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<IconMail size={18} />}
+                onClick={() => testFromUI('email')}
+                disabled={testMsg.isLoading}
+              >
+                Test Email
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<IconVolume2 size={18} />}
+                onClick={() => testFromUI('sound')}
+                disabled={testMsg.isLoading}
+              >
+                Test Sound
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<IconActivity size={18} />}
+                onClick={() =>
+                  runHeartbeat(undefined, {
+                    onSuccess: () => enqueueSnackbar('XCom heartbeat completed', { variant: 'success' }),
+                    onError: (e) => enqueueSnackbar('Heartbeat failed: ' + (e?.message || 'unknown'), {
+                      variant: 'error'
+                    })
+                  })
+                }
+                disabled={heartbeatRunning}
+              >
+                {heartbeatRunning ? <CircularProgress size={20} color="inherit" /> : 'Run Heartbeat Now'}
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Grid>
       <Grid item xs={12} lg={7}>
         <MainCard title="Provider settings">{providersCardBody()}</MainCard>
       </Grid>
@@ -694,38 +743,6 @@ export default function XComSettings() {
                   )}
                 </Typography>
               ) : null}
-            </Stack>
-          </MainCard>
-
-          <MainCard title="Send test notification">
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-start">
-              {['voice', 'email', 'sound'].map((mode) => (
-                <Button
-                  key={mode}
-                  variant="outlined"
-                  startIcon={<CampaignIcon />}
-                  onClick={() => runTest(mode)}
-                  disabled={testMsg.isLoading}
-                >
-                  Test {mode}
-                </Button>
-              ))}
-            </Stack>
-          </MainCard>
-
-          <MainCard title="Heartbeat">
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="center">
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={handleRunHeartbeat}
-                disabled={runHeartbeat.isLoading}
-              >
-                {runHeartbeat.isLoading ? <CircularProgress size={22} color="inherit" /> : 'Run heartbeat now'}
-              </Button>
-              <Typography variant="body2" color="text.secondary">
-                Executes the XCom monitor immediately and refreshes status once complete.
-              </Typography>
             </Stack>
           </MainCard>
         </Stack>
