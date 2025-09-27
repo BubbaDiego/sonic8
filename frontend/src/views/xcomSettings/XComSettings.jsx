@@ -40,10 +40,11 @@ const TwilioIcon = (props) => (
       e.currentTarget.onerror = null;
       e.currentTarget.src = '/static/images/twilio.png';
     }}
-    sx={{ width: 24, height: 24, borderRadius: '4px' }}
+    sx={{ width: 28, height: 28, borderRadius: '4px' }}
     {...props}
   />
 );
+const isE164 = (value) => /^\+[1-9]\d{6,14}$/.test(String(value ?? ''));
 const pick = (...vals) => vals.find((v) => v !== undefined && v !== null && String(v).trim() !== '') || '';
 const isTwilio = (provider) => {
   const key = (provider?.id || provider?.key || provider?.name || provider?.title || '')
@@ -461,6 +462,10 @@ export default function XComSettings() {
       );
     }
 
+    const toNumber = resolvedProviders?.twilio?.default_to_phone ?? resolvedProviders?.api?.default_to_phone ?? '';
+    const fromNumber =
+      resolvedProviders?.twilio?.default_from_phone ?? resolvedProviders?.api?.default_from_phone ?? '';
+
     const providerDefinitions = [
       {
         id: 'twilio',
@@ -500,7 +505,11 @@ export default function XComSettings() {
             resolvedProviders?.api?.default_to_phone,
             resolvedProviders?.api?.to_phone
           )
-        }
+        },
+        warnings: [
+          !isE164(toNumber) && 'Default recipient must be E.164 (e.g. +16199804758).',
+          !isE164(fromNumber) && 'From phone must be E.164 (e.g. +18336913467).'
+        ].filter(Boolean)
       },
       {
         id: 'email',
@@ -603,6 +612,7 @@ export default function XComSettings() {
                 defaultExpanded={Boolean(provider.defaultExpanded)}
                 status={resolveStatus(status, provider)}
                 env={envMap}
+                warnings={provider.warnings}
               />
             );
           })}
@@ -634,7 +644,7 @@ export default function XComSettings() {
                 variant="contained"
                 color="inherit"
                 size="large"
-                sx={{ fontWeight: 800, px: 2, py: 1 }}
+                sx={{ fontWeight: 900, px: 2.25, py: 1.1 }}
                 startIcon={<TwilioIcon />}
                 endIcon={<IconExternalLink size={18} />}
               >
