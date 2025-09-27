@@ -1,0 +1,2 @@
+Pattern: C:\sonic5\test_core\tests\test_*.py
+Passed: 0 | Failed: 0 | Skipped: 0
