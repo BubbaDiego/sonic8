@@ -95,8 +95,15 @@ async def check_status(dl: DataLocker = Depends(get_locker)):
 @router.post("/test", response_model=TestMessageResult)
 def run_test(req: TestMessageRequest, dl: DataLocker = Depends(get_locker)):
     xcom = XComCore(dl.system)
+    level = req.level or (
+        "HIGH"
+        if (getattr(req, "mode", "").lower() == "voice")
+        else "MEDIUM"
+        if getattr(req, "mode", "").lower() == "sms"
+        else "LOW"
+    )
     result = xcom.send_notification(
-        level=req.level,
+        level=level,
         subject=req.subject or f"Test {req.mode.upper()} Message",
         body=req.body or "XCom test payload",
         recipient=req.recipient or "",

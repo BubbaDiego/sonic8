@@ -315,8 +315,9 @@ export default function XComSettings() {
   };
 
   const handleTest = (mode) => {
+    const level = mode === 'voice' ? 'HIGH' : mode === 'sms' ? 'MEDIUM' : 'LOW';
     testMessage.mutate(
-      { mode },
+      { mode, level, subject: `Test ${mode}`, body: 'XCom test payload' },
       {
         onSuccess: (result) => {
           if (result?.success) {
