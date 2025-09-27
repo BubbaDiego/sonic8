@@ -29,6 +29,7 @@ class XComCore:
         recipient: str = "",
         initiator: str = "system",
         mode: str | list[str] | None = None,
+        ignore_cooldown: bool = False,
         **kwargs,
     ):
         email_cfg = self.config_service.get_provider("email") or {}
@@ -85,6 +86,14 @@ class XComCore:
                         allow_call = False
                 except Exception:
                     allow_call = True
+
+            if (
+                level == "HIGH"
+                and not allow_call
+                and initiator == "api_test"
+                and ignore_cooldown
+            ):
+                allow_call = True
 
             # ---------------- EMAIL ---------------------------------------------------
             if "email" in requested:

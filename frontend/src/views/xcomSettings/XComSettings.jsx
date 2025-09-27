@@ -31,6 +31,8 @@ import { resetCooldown, setCooldown as setCooldownApi, saveProviders as apiSaveP
 
 const TWILIO_ICON_SRC = '/images/twilio.png';
 const TWILIO_CONSOLE_URL = 'https://console.twilio.com/';
+const TWILIO_CALL_LOG_URL = 'https://console.twilio.com/us1/monitor/logs/calls';
+const TWILIO_STUDIO_FLOWS_URL = 'https://console.twilio.com/us1/develop/studio/flows';
 const pick = (...vals) => vals.find((v) => v !== undefined && v !== null && String(v).trim() !== '') || '';
 const isTwilio = (provider) => {
   const key = (provider?.id || provider?.key || provider?.name || provider?.title || '')
@@ -227,7 +229,7 @@ export default function XComSettings() {
     dataUpdatedAt: statusUpdatedAt
   } = useStatus();
   const runHeartbeat = useRunHeartbeat();
-  const testMessage = useTestMessage();
+  const testMsg = useTestMessage();
 
   const [draft, setDraft] = useState({});
   const [cooldown, setCooldownLocal] = useState(0);
@@ -235,6 +237,7 @@ export default function XComSettings() {
   const [cooldownSaving, setCooldownSaving] = useState(false);
   const [cooldownResetting, setCooldownResetting] = useState(false);
   const [studioSaving, setStudioSaving] = useState(false);
+  const [lastTwilioSid, setLastTwilioSid] = useState(null);
 
   const providerData = useMemo(() => {
     if (providers && typeof providers === 'object' && '__root__' in providers) {
@@ -387,23 +390,34 @@ export default function XComSettings() {
     });
   };
 
-  const handleTest = (mode) => {
-    const level = mode === 'voice' ? 'HIGH' : mode === 'sms' ? 'MEDIUM' : 'LOW';
-    testMessage.mutate(
-      { mode, level, subject: `Test ${mode}`, body: 'XCom test payload' },
-      {
-        onSuccess: (result) => {
-          if (result?.success) {
-            enqueueSnackbar(`Test ${mode} notification sent`, { variant: 'success' });
-          } else {
-            enqueueSnackbar(`Test ${mode} reported an error`, { variant: 'warning' });
-          }
-        },
-        onError: (err) => {
-          enqueueSnackbar(`Test ${mode} failed: ${err.message || err}`, { variant: 'error' });
+  const runTest = (mode) => {
+    const normalized = (mode || '').toString().toLowerCase();
+    const level = normalized === 'voice' ? 'HIGH' : normalized === 'sms' ? 'MEDIUM' : 'LOW';
+    const payload = {
+      mode: normalized,
+      level,
+      subject: `Test ${normalized}`,
+      body: normalized === 'voice' ? 'Sonic test voice' : 'Sonic test',
+      ignore_cooldown: normalized === 'voice'
+    };
+    testMsg.mutate(payload, {
+      onSuccess: (res) => {
+        const sid = res?.results?.twilio_sid;
+        const ok = !!res?.success && (normalized !== 'voice' || res?.results?.voice === true);
+        if (sid) {
+          setLastTwilioSid(sid);
+        } else if (normalized === 'voice') {
+          setLastTwilioSid(null);
         }
+        enqueueSnackbar(
+          `Test ${normalized}: ${ok ? 'ok' : 'error'}${sid ? ' · SID ' + sid : ''}`,
+          { variant: ok ? 'success' : 'error' }
+        );
+      },
+      onError: (err) => {
+        enqueueSnackbar('Test failed: ' + (err?.message || 'unknown'), { variant: 'error' });
       }
-    );
+    });
   };
 
   const handleRunHeartbeat = () => {
@@ -419,6 +433,14 @@ export default function XComSettings() {
 
   const statusEntries = useMemo(() => Object.entries(status || {}), [status]);
   const lastChecked = statusUpdatedAt ? new Date(statusUpdatedAt).toLocaleString() : null;
+  const flowSid = draft?.twilio?.flow_sid ?? draft?.api?.flow_sid ?? '';
+  const twilioSidHref = lastTwilioSid
+    ? useStudio
+      ? flowSid
+        ? `${TWILIO_STUDIO_FLOWS_URL}/${encodeURIComponent(flowSid)}/executions/${lastTwilioSid}`
+        : TWILIO_STUDIO_FLOWS_URL
+      : `${TWILIO_CALL_LOG_URL}/${lastTwilioSid}`
+    : null;
 
   const providersCardBody = () => {
     if (providersError) {
@@ -659,6 +681,19 @@ export default function XComSettings() {
                   Last checked {lastChecked}
                 </Typography>
               ) : null}
+
+              {lastTwilioSid ? (
+                <Typography variant="caption" color="text.secondary">
+                  Last Twilio SID:{' '}
+                  {twilioSidHref ? (
+                    <a href={twilioSidHref} target="_blank" rel="noopener noreferrer">
+                      {lastTwilioSid}
+                    </a>
+                  ) : (
+                    lastTwilioSid
+                  )}
+                </Typography>
+              ) : null}
             </Stack>
           </MainCard>
 
@@ -669,8 +704,8 @@ export default function XComSettings() {
                   key={mode}
                   variant="outlined"
                   startIcon={<CampaignIcon />}
-                  onClick={() => handleTest(mode)}
-                  disabled={testMessage.isLoading}
+                  onClick={() => runTest(mode)}
+                  disabled={testMsg.isLoading}
                 >
                   Test {mode}
                 </Button>
