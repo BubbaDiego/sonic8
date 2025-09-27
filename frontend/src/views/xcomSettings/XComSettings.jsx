@@ -11,7 +11,7 @@ import TextField from '@mui/material/TextField';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { Card, CardContent, CardHeader, Button, Stack, Tooltip } from '@mui/material';
+import { Card, CardContent, CardHeader, Button, Stack, Tooltip, Box } from '@mui/material';
 import { IconExternalLink, IconActivity, IconPhone, IconMail, IconVolume2 } from '@tabler/icons-react';
 
 import MainCard from 'ui-component/cards/MainCard';
@@ -27,10 +27,23 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { resetCooldown, setCooldown as setCooldownApi, saveProviders as apiSaveProviders } from 'api/xcom';
 
-const TWILIO_ICON_SRC = '/images/twilio.png';
 const TWILIO_CONSOLE_URL = 'https://console.twilio.com/';
 const TWILIO_CALL_LOG_URL = 'https://console.twilio.com/us1/monitor/logs/calls';
 const TWILIO_STUDIO_FLOWS_URL = 'https://console.twilio.com/us1/develop/studio/flows';
+
+const TwilioIcon = (props) => (
+  <Box
+    component="img"
+    src="/images/twilio.png"
+    alt="Twilio"
+    onError={(e) => {
+      e.currentTarget.onerror = null;
+      e.currentTarget.src = '/static/images/twilio.png';
+    }}
+    sx={{ width: 20, height: 20, borderRadius: '4px' }}
+    {...props}
+  />
+);
 const pick = (...vals) => vals.find((v) => v !== undefined && v !== null && String(v).trim() !== '') || '';
 const isTwilio = (provider) => {
   const key = (provider?.id || provider?.key || provider?.name || provider?.title || '')
@@ -401,13 +414,20 @@ export default function XComSettings() {
     testMsg.mutate(payload, {
       onSuccess: (res) => {
         const sid = res?.results?.twilio_sid;
+        const toNumber = res?.results?.to_number;
+        const fromNumber = res?.results?.from_number;
         const ok = !!res?.success && (normalized !== 'voice' || res?.results?.voice === true);
         if (normalized === 'voice') {
           setLastTwilioSid(sid || null);
         }
-        enqueueSnackbar(`Test ${normalized}: ${ok ? 'ok' : 'error'}${sid ? ` · ${sid}` : ''}`, {
-          variant: ok ? 'success' : 'error'
-        });
+        enqueueSnackbar(
+          `Test ${normalized}: ${ok ? 'ok' : 'error'}${sid ? ' · SID ' + sid : ''}${
+            toNumber ? ' · to ' + toNumber : ''
+          }${fromNumber ? ' · from ' + fromNumber : ''}`,
+          {
+            variant: ok ? 'success' : 'error'
+          }
+        );
       },
       onError: (err) => {
         enqueueSnackbar('Test failed: ' + (err?.message || 'unknown'), { variant: 'error' });
@@ -451,7 +471,7 @@ export default function XComSettings() {
         fields: twilioFields,
         values: createTwilioValues(draft),
         onChange: handleTwilioChange,
-        icon: TWILIO_ICON_SRC,
+        icon: '/images/twilio.png',
         externalLink: TWILIO_CONSOLE_URL,
         defaultExpanded: true,
         source: providerData?.twilio ?? providerData?.api,
@@ -603,25 +623,22 @@ export default function XComSettings() {
     <Grid container spacing={3}>
       <Grid item xs={12}>
         <Card>
-          <CardHeader
-            title="Operations"
-            action={
-              <Tooltip title="Open Twilio Console">
-                <Button
-                  component="a"
-                  href={TWILIO_CONSOLE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  size="small"
-                  startIcon={<IconExternalLink size={16} />}
-                >
-                  Twilio Console
-                </Button>
-              </Tooltip>
-            }
-          />
+          <CardHeader title="Operations" />
           <CardContent>
-            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" sx={{ mb: 1 }}>
+              <Button
+                component="a"
+                href={TWILIO_CONSOLE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outlined"
+                size="medium"
+                sx={{ fontWeight: 700, px: 1.5 }}
+                startIcon={<TwilioIcon />}
+                endIcon={<IconExternalLink size={16} />}
+              >
+                Twilio Console
+              </Button>
               <Button
                 variant="contained"
                 startIcon={<IconPhone size={18} />}
