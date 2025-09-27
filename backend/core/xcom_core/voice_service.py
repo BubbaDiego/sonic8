@@ -1,85 +1,103 @@
-# xcom/voice_service.py
+"""Twilio voice calling utilities for XCom notifications."""
+
+from __future__ import annotations
+
+import logging
 import os
-import sys
+import re
+from typing import Optional, Tuple
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-import requests  # noqa: F401  # retained for backward compatibility
 from twilio.rest import Client
-from twilio.twiml.voice_response import VoiceResponse
 
-from backend.core.logging import log
-try:
-    from flask import current_app, has_app_context
-except Exception:  # pragma: no cover - optional dependency
-    current_app = type("obj", (), {})()
-
-    def has_app_context():  # pragma: no cover - simple stub
-        return False
-
+E164 = re.compile(r"^\+[1-9]\d{6,14}$")
 
 
 class VoiceService:
-    def __init__(self, config: dict):
-        self.config = config
+    """Thin wrapper around the Twilio SDK with Studio Flow support."""
 
-    def call(self, recipient: str, message: str) -> bool:
-        """Initiate a Twilio voice call using ``message`` as spoken text.
+    def __init__(self, config: dict | None):
+        self.config = config or {}
+        self.logger = logging.getLogger("xcom.voice")
 
-        Errors are logged and the method returns ``False``. A death nail will
-        only be triggered if ``suppress_death_on_error`` in the provider
-        configuration is explicitly set to ``False``."""
+        account_sid = self.config.get("account_sid") or os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = self.config.get("auth_token") or os.getenv("TWILIO_AUTH_TOKEN")
+        if not account_sid or not auth_token:
+            raise RuntimeError("Twilio creds missing (ACCOUNT_SID / AUTH_TOKEN).")
 
-        if not self.config.get("enabled"):
-            log.warning("Voice provider disabled", source="VoiceService")
-            return False
+        self.client = Client(account_sid, auth_token)
+
+    @staticmethod
+    def _pick(*values: Optional[str]) -> str:
+        for value in values:
+            if value is not None and str(value).strip():
+                return str(value).strip()
+        return ""
+
+    def _validate_e164(self, label: str, number: str) -> str:
+        if not number or not E164.match(number):
+            raise ValueError(f"{label} must be E.164 like +14155552671 (got {number!r})")
+        return number
+
+    def call(self, to_number: Optional[str], subject: str, body: str) -> Tuple[bool, str]:
+        """Initiate a voice notification via Twilio.
+
+        Returns a tuple of ``(success, sid_or_error)``. When a Studio Flow SID is
+        configured we prefer that, otherwise a simple TwiML call is used.
+        """
+
+        if not self.config.get("enabled", False):
+            self.logger.warning("VoiceService: provider disabled → skipping call")
+            return False, "provider-disabled"
+
+        from_number = self._pick(
+            self.config.get("default_from_phone"),
+            os.getenv("TWILIO_FROM_PHONE"),
+            os.getenv("TWILIO_PHONE_NUMBER"),
+        )
+        to_resolved = self._pick(
+            to_number,
+            self.config.get("default_to_phone"),
+            os.getenv("TWILIO_TO_PHONE"),
+            os.getenv("MY_PHONE_NUMBER"),
+        )
+        flow_sid = self._pick(self.config.get("flow_sid"), os.getenv("TWILIO_FLOW_SID"))
+
+        from_number = self._validate_e164("TWILIO_FROM_PHONE", from_number)
+        to_resolved = self._validate_e164("Recipient", to_resolved)
+
         try:
-            account_sid = self.config.get("account_sid") or os.getenv("TWILIO_ACCOUNT_SID")
-            auth_token = self.config.get("auth_token") or os.getenv("TWILIO_AUTH_TOKEN")
-            from_phone = self.config.get("default_from_phone") or os.getenv("TWILIO_PHONE_NUMBER")
-            to_phone = recipient or self.config.get("default_to_phone") or os.getenv("MY_PHONE_NUMBER")
-
-            if not all([account_sid, auth_token, from_phone, to_phone]):
-                log.error("Missing Twilio voice configuration", source="VoiceService")
-                return False
-
-            client = Client(account_sid, auth_token)
-            vr = VoiceResponse()
-            vr.say(message or "Hello from XCom.", voice="alice")
-
-            call = client.calls.create(twiml=str(vr), to=to_phone, from_=from_phone)
-
-            log.info(
-                "🔍 Twilio Voice request debug",
-                payload={"sid": call.sid, "to": to_phone, "from": from_phone},
-                source="VoiceService",
-            )
-
-            return True
-
-        except Exception as e:
-            log.error(f"Voice call failed: {e}", source="VoiceService")
-            if (
-                not self.config.get("suppress_death_on_error", True)
-                and os.getenv("DISABLE_DEATHNAIL_SERVICE", "0").lower()
-                not in ("1", "true", "yes")
-                and has_app_context()
-                and hasattr(current_app, "system_core")
-            ):
-                # current_app.system_core.death(
-                #     {
-                #         "message": f"Twilio Voice Call failed: {e}",
-                #         "payload": {
-                #             "provider": "twilio",
-                #             "to": to_phone,
-                #             "from": from_phone,
-                #         },
-                #         "level": "HIGH",
-                #     }
-                # )
-                log.info(
-                    "🔈 Death nail suppressed for voice call failure",
-                    source="VoiceService",
+            if flow_sid and not re.search(r"your_flow_sid_here", flow_sid, re.IGNORECASE):
+                execution = self.client.studio.v2.flows(flow_sid).executions.create(
+                    to=to_resolved,
+                    from_=from_number,
+                    parameters={
+                        "subject": subject or "Sonic Alert",
+                        "body": body or "",
+                    },
                 )
-            return False
+                sid = getattr(execution, "sid", "")
+                self.logger.info(
+                    "Twilio Studio execution created: sid=%s to=%s from=%s flow=%s",
+                    sid,
+                    to_resolved,
+                    from_number,
+                    flow_sid,
+                )
+                return True, sid
 
+            twiml = (
+                "<Response><Say voice='Polly.Matthew'>Sonic says: "
+                f"{body or subject or 'Alert'}</Say></Response>"
+            )
+            call = self.client.calls.create(to=to_resolved, from_=from_number, twiml=twiml)
+            sid = getattr(call, "sid", "")
+            self.logger.info(
+                "Twilio call created: sid=%s to=%s from=%s",
+                sid,
+                to_resolved,
+                from_number,
+            )
+            return True, sid
+        except Exception as exc:  # pragma: no cover - Twilio network errors
+            self.logger.exception("Twilio voice call failed: %s", exc)
+            return False, str(exc)

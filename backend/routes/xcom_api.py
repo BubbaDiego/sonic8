@@ -110,7 +110,7 @@ def run_test(req: TestMessageRequest, dl: DataLocker = Depends(get_locker)):
         initiator="api_test"
     )
     # Only keep minimal fields
-    return TestMessageResult(success=result.get("success"), results=result)
+    return TestMessageResult(success=bool(result.get("success", False)), results=result)
 
 @router.get("/last_ping")
 def last_ping(dl: DataLocker = Depends(get_locker)):
