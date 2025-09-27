@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.models.xcom_models import (
     ProviderMap,
-    StatusResponse,
     TestMessageRequest,
     TestMessageResult,
 )
@@ -63,11 +63,10 @@ def write_providers(cfg: ProviderMap, dl: DataLocker = Depends(get_locker)):
     dl.system.set_var("xcom_providers", cfg.root)
     return {"status": "saved"}
 
-@router.get("/status", response_model=StatusResponse)
+@router.get("/status", response_model=Dict[str, str])
 async def check_status(dl: DataLocker = Depends(get_locker)):
     service = XComStatusService(dl.system.get_var("xcom_providers") or {})
-    data = await service.probe_all()
-    return StatusResponse(__root__=data)
+    return await service.probe_all()
 
 @router.post("/test", response_model=TestMessageResult)
 def run_test(req: TestMessageRequest, dl: DataLocker = Depends(get_locker)):

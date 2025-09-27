@@ -3,7 +3,34 @@ import os
 from pathlib import Path
 import asyncio
 
+try:
+    from dotenv import load_dotenv, find_dotenv
+except Exception:  # pragma: no cover - optional dependency
+    def load_dotenv(*_args, **_kwargs):
+        return False
 
+    def find_dotenv(*_args, **_kwargs):
+        return ""
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+BACKEND_DIR = Path(__file__).resolve().parent
+
+try:
+    _found_env = find_dotenv(usecwd=True)
+except Exception:  # pragma: no cover - fallback if find_dotenv misbehaves
+    _found_env = ""
+
+if _found_env:
+    load_dotenv(_found_env, override=False)
+else:
+    for candidate in (ROOT_DIR / ".env", BACKEND_DIR / ".env"):
+        if candidate.exists():
+            load_dotenv(candidate, override=False)
+            break
+
+_example_env = ROOT_DIR / ".env.example"
+if _example_env.exists():
+    load_dotenv(_example_env, override=False)
 
 from utils.console_title import set_console_title
 set_console_title("Sonic - FastAPI Backend")
@@ -11,17 +38,6 @@ set_console_title("Sonic - FastAPI Backend")
 # --- WINDOWS EVENT-LOOP PATCH --------------------------------------------- #
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-# dotenv (optional)
-try:
-    from dotenv import load_dotenv
-except Exception:  # no dotenv available
-    def load_dotenv(*_a, **_k):
-        return False
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if not load_dotenv(ROOT_DIR / ".env"):
-    load_dotenv(ROOT_DIR / ".env.example")
 
 from fastapi import FastAPI
 
