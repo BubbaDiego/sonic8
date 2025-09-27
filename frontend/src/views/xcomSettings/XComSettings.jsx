@@ -19,6 +19,48 @@ import { enqueueSnackbar } from 'notistack';
 
 const TWILIO_ICON_SRC = '/images/twilio.png';
 const TWILIO_CONSOLE_URL = 'https://console.twilio.com/';
+const isTwilio = (provider) => {
+  const key = (provider?.id || provider?.key || provider?.name || provider?.title || '')
+    .toString()
+    .toLowerCase();
+  return key.includes('twilio') || key.includes('sms');
+};
+const sortTwilioFirst = (a, b) => {
+  const aIsTwilio = isTwilio(a);
+  const bIsTwilio = isTwilio(b);
+  if (aIsTwilio && !bIsTwilio) return -1;
+  if (!aIsTwilio && bIsTwilio) return 1;
+  return 0;
+};
+const resolveStatus = (statusObj, provider) => {
+  const candidates = [provider?.id, provider?.name, provider?.key, provider?.title]
+    .filter(Boolean)
+    .map((value) => value.toString().toLowerCase());
+  for (const candidate of candidates) {
+    const val = statusObj?.[candidate];
+    if (typeof val === 'string') {
+      return val.toLowerCase() === 'ok' ? 'ok' : 'issue';
+    }
+  }
+  if (isTwilio(provider) && typeof statusObj?.twilio === 'string') {
+    return statusObj.twilio.toLowerCase() === 'ok' ? 'ok' : 'issue';
+  }
+  return 'ok';
+};
+const deriveEnvFromFields = (provider, providerValues = {}) => {
+  const out = {};
+  const base = (provider?.id || provider?.name || provider?.title || 'PROVIDER')
+    .toString()
+    .toUpperCase()
+    .replace(/\W+/g, '_');
+  (provider?.fields || []).forEach((field) => {
+    const envKey = (field?.env || field?.envKey || `${base}_${String(field?.key || field?.name || '')}`)
+      .toUpperCase()
+      .replace(/\W+/g, '_');
+    out[envKey] = providerValues?.[field?.key] ?? '';
+  });
+  return out;
+};
 
 const cloneProviders = (data) => JSON.parse(JSON.stringify(data || {}));
 
@@ -27,34 +69,40 @@ const emailFields = [
     key: 'enabled',
     label: 'Enable email notifications',
     type: 'switch',
-    helperText: 'Toggle SMTP email delivery for alerts.'
+    helperText: 'Toggle SMTP email delivery for alerts.',
+    env: 'SMTP_ENABLED'
   },
   {
     key: 'server',
     label: 'SMTP server',
-    placeholder: 'smtp.gmail.com'
+    placeholder: 'smtp.gmail.com',
+    env: 'SMTP_SERVER'
   },
   {
     key: 'port',
     label: 'Port',
     type: 'number',
-    placeholder: '587'
+    placeholder: '587',
+    env: 'SMTP_PORT'
   },
   {
     key: 'username',
     label: 'Username',
-    placeholder: 'alerts@example.com'
+    placeholder: 'alerts@example.com',
+    env: 'SMTP_USERNAME'
   },
   {
     key: 'password',
     label: 'Password',
-    placeholder: '••••••••'
+    placeholder: '••••••••',
+    env: 'SMTP_PASSWORD'
   },
   {
     key: 'default_recipient',
     label: 'Default recipient',
     placeholder: 'team@example.com',
-    fullWidth: true
+    fullWidth: true,
+    env: 'SMTP_DEFAULT_RECIPIENT'
   }
 ];
 
@@ -63,32 +111,38 @@ const twilioFields = [
     key: 'enabled',
     label: 'Enable Twilio voice/SMS',
     type: 'switch',
-    helperText: 'Uses the Twilio Studio flow for automated calls and texts.'
+    helperText: 'Uses the Twilio Studio flow for automated calls and texts.',
+    env: 'TWILIO_ENABLED'
   },
   {
     key: 'account_sid',
     label: 'Account SID',
-    placeholder: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+    placeholder: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    env: 'TWILIO_ACCOUNT_SID'
   },
   {
     key: 'auth_token',
     label: 'Auth token',
-    placeholder: '••••••••'
+    placeholder: '••••••••',
+    env: 'TWILIO_AUTH_TOKEN'
   },
   {
     key: 'flow_sid',
     label: 'Studio flow SID',
-    placeholder: 'FWxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+    placeholder: 'FWxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    env: 'TWILIO_FLOW_SID'
   },
   {
     key: 'default_from_phone',
     label: 'From phone number',
-    placeholder: '+15555551234'
+    placeholder: '+15555551234',
+    env: 'TWILIO_DEFAULT_FROM_PHONE'
   },
   {
     key: 'default_to_phone',
     label: 'Default recipient phone',
-    placeholder: '+15555559876'
+    placeholder: '+15555559876',
+    env: 'TWILIO_DEFAULT_TO_PHONE'
   }
 ];
 
@@ -97,18 +151,21 @@ const ttsFields = [
     key: 'enabled',
     label: 'Enable text-to-speech',
     type: 'switch',
-    helperText: 'Requires the optional pyttsx3 dependency.'
+    helperText: 'Requires the optional pyttsx3 dependency.',
+    env: 'TTS_ENABLED'
   },
   {
     key: 'voice',
     label: 'Voice',
-    placeholder: 'Hazel'
+    placeholder: 'Hazel',
+    env: 'TTS_VOICE'
   },
   {
     key: 'speed',
     label: 'Speech rate (wpm)',
     type: 'number',
-    placeholder: '140'
+    placeholder: '140',
+    env: 'TTS_SPEED'
   }
 ];
 
@@ -164,6 +221,10 @@ export default function XComSettings() {
       setDraft(cloneProviders(providers));
     }
   }, [providers]);
+
+  useEffect(() => {
+    refetchStatus?.();
+  }, [refetchStatus]);
 
   const serializedProviders = useMemo(() => JSON.stringify(providers || {}), [providers]);
   const serializedDraft = useMemo(() => JSON.stringify(draft || {}), [draft]);
@@ -277,32 +338,71 @@ export default function XComSettings() {
       );
     }
 
+    const providerDefinitions = [
+      {
+        id: 'twilio',
+        name: 'twilio',
+        key: 'twilio',
+        title: 'Twilio',
+        description: 'Configure Twilio credentials used for automated calls and SMS.',
+        fields: twilioFields,
+        values: createTwilioValues(draft),
+        onChange: handleTwilioChange,
+        icon: TWILIO_ICON_SRC,
+        externalLink: TWILIO_CONSOLE_URL,
+        defaultExpanded: true,
+        source: providers?.twilio ?? providers?.api
+      },
+      {
+        id: 'email',
+        name: 'smtp',
+        key: 'smtp',
+        title: 'Email (SMTP)',
+        description: 'XCom uses SMTP to deliver email alerts.',
+        fields: emailFields,
+        values: createEmailValues(draft),
+        onChange: handleEmailChange,
+        source: providers?.email ?? providers?.smtp
+      },
+      {
+        id: 'sound',
+        name: 'tts',
+        key: 'sound',
+        title: 'Text-to-Speech',
+        description: 'Optional local speech synthesis for audible alerts.',
+        fields: ttsFields,
+        values: createTTSValues(draft),
+        onChange: handleTTSChange,
+        source: providers?.tts ?? providers?.sound
+      }
+    ];
+
     return (
       <Stack spacing={1.5}>
-        <ProviderAccordion
-          title="Twilio"
-          description="Configure Twilio credentials used for automated calls and SMS."
-          fields={twilioFields}
-          values={createTwilioValues(draft)}
-          onChange={handleTwilioChange}
-          icon={TWILIO_ICON_SRC}
-          externalLink={TWILIO_CONSOLE_URL}
-          defaultExpanded
-        />
-        <ProviderAccordion
-          title="Email (SMTP)"
-          description="XCom uses SMTP to deliver email alerts."
-          fields={emailFields}
-          values={createEmailValues(draft)}
-          onChange={handleEmailChange}
-        />
-        <ProviderAccordion
-          title="Text-to-Speech"
-          description="Optional local speech synthesis for audible alerts."
-          fields={ttsFields}
-          values={createTTSValues(draft)}
-          onChange={handleTTSChange}
-        />
+        {providerDefinitions
+          .slice()
+          .sort(sortTwilioFirst)
+          .map((provider) => {
+            const envMap =
+              provider?.source && typeof provider.source.env === 'object' && provider.source.env !== null
+                ? provider.source.env
+                : deriveEnvFromFields(provider, provider.values);
+            return (
+              <ProviderAccordion
+                key={provider.id || provider.title}
+                title={provider.title}
+                description={provider.description}
+                fields={provider.fields}
+                values={provider.values}
+                onChange={provider.onChange}
+                icon={provider.icon}
+                externalLink={provider.externalLink}
+                defaultExpanded={Boolean(provider.defaultExpanded)}
+                status={resolveStatus(status, provider)}
+                env={envMap}
+              />
+            );
+          })}
         <Divider />
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="flex-end">
           <Button variant="outlined" onClick={handleReset} disabled={!isDirty || saveProviders.isLoading}>
