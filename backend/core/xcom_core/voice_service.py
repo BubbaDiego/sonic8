@@ -33,6 +33,23 @@ class VoiceService:
                 return str(value).strip()
         return ""
 
+    def _normalize_e164(self, raw: str, default_country: str = "+1") -> str:
+        """Best-effort cleanup of common North American number formats."""
+
+        number = str(raw or "").strip()
+        if E164.match(number):
+            return number
+
+        digits = re.sub(r"\D", "", number)
+        if len(digits) == 10:
+            return f"{default_country}{digits}"
+        if len(digits) == 11 and digits.startswith("1"):
+            return f"+{digits}"
+        if number.startswith("+6") and digits.startswith("619") and len(digits) == 10:
+            return f"{default_country}{digits}"
+
+        return number
+
     def _validate_e164(self, label: str, number: str) -> str:
         if not number or not E164.match(number):
             raise ValueError(f"{label} must be E.164 like +14155552671 (got {number!r})")
@@ -65,6 +82,17 @@ class VoiceService:
         )
         flow_sid = self._pick(self.config.get("flow_sid"), os.getenv("TWILIO_FLOW_SID"))
         use_studio = bool(self.config.get("use_studio", False))
+
+        raw_from, raw_to = from_number, to_resolved
+        from_number = self._normalize_e164(from_number)
+        to_resolved = self._normalize_e164(to_resolved)
+        self.logger.info(
+            "VoiceService: dialing (to=%s → %s, from=%s → %s)",
+            raw_to,
+            to_resolved,
+            raw_from,
+            from_number,
+        )
 
         from_number = self._validate_e164("TWILIO_FROM_PHONE", from_number)
         to_resolved = self._validate_e164("Recipient", to_resolved)

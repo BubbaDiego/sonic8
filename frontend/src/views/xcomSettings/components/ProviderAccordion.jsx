@@ -15,6 +15,7 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
+import Alert from '@mui/material/Alert';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { IconExternalLink } from '@tabler/icons-react';
@@ -35,7 +36,8 @@ const ProviderAccordion = ({
   icon,
   externalLink,
   status,
-  env = {}
+  env = {},
+  warnings = []
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [showEnv, setShowEnv] = useState(true);
@@ -43,6 +45,10 @@ const ProviderAccordion = ({
   const normalizedValues = useMemo(() => values || {}, [values]);
   const envEntries = useMemo(() => Object.entries(env || {}), [env]);
   const hasEnv = envEntries.length > 0;
+  const normalizedWarnings = useMemo(
+    () => (Array.isArray(warnings) ? warnings.filter(Boolean) : []),
+    [warnings]
+  );
 
   const mask = (val) => {
     if (val === null || typeof val === 'undefined') {
@@ -131,6 +137,16 @@ const ProviderAccordion = ({
         </Box>
       </AccordionSummary>
       <AccordionDetails>
+        {normalizedWarnings.length > 0 ? (
+          <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {normalizedWarnings.map((warning, index) => (
+              <Alert severity="warning" key={index} sx={{ py: 0.75 }}>
+                {warning}
+              </Alert>
+            ))}
+          </Box>
+        ) : null}
+
         {hasEnv ? (
           <Box sx={{ mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -260,7 +276,8 @@ ProviderAccordion.propTypes = {
   icon: PropTypes.string,
   externalLink: PropTypes.string,
   status: PropTypes.oneOf(['ok', 'issue']),
-  env: PropTypes.object
+  env: PropTypes.object,
+  warnings: PropTypes.arrayOf(PropTypes.node)
 };
 
 export default ProviderAccordion;
