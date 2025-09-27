@@ -40,7 +40,7 @@ const TwilioIcon = (props) => (
       e.currentTarget.onerror = null;
       e.currentTarget.src = '/static/images/twilio.png';
     }}
-    sx={{ width: 20, height: 20, borderRadius: '4px' }}
+    sx={{ width: 24, height: 24, borderRadius: '4px' }}
     {...props}
   />
 );
@@ -622,7 +622,7 @@ export default function XComSettings() {
   return (
     <Grid container spacing={3}>
       <Grid item xs={12}>
-        <Card>
+        <Card sx={{ mb: 3 }}>
           <CardHeader title="Operations" />
           <CardContent>
             <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" sx={{ mb: 1 }}>
@@ -631,11 +631,12 @@ export default function XComSettings() {
                 href={TWILIO_CONSOLE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                variant="outlined"
-                size="medium"
-                sx={{ fontWeight: 700, px: 1.5 }}
+                variant="contained"
+                color="inherit"
+                size="large"
+                sx={{ fontWeight: 800, px: 2, py: 1 }}
                 startIcon={<TwilioIcon />}
-                endIcon={<IconExternalLink size={16} />}
+                endIcon={<IconExternalLink size={18} />}
               >
                 Twilio Console
               </Button>
