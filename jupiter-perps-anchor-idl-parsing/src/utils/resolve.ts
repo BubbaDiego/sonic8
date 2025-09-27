@@ -145,6 +145,30 @@ export function derivePositionPdaOwnerFirst(
   return PublicKey.findProgramAddressSync(seeds, programId);
 }
 
+export function derivePositionForIdlOrder(
+  owner: PublicKey,
+  pool: PublicKey,
+  marketCustodyPk: PublicKey,
+  collateralCustodyPk: PublicKey,
+  programId: PublicKey,
+): PublicKey {
+  void collateralCustodyPk; // currently unused but kept for signature compatibility
+  const [pk] = derivePositionPdaCanonical(programId, pool, marketCustodyPk, owner);
+  return pk;
+}
+
+export function derivePositionForSwappedOrder(
+  owner: PublicKey,
+  pool: PublicKey,
+  marketCustodyPk: PublicKey,
+  collateralCustodyPk: PublicKey,
+  programId: PublicKey,
+): PublicKey {
+  void marketCustodyPk; // currently unused but kept for signature compatibility
+  const [pk] = derivePositionPdaCanonical(programId, pool, collateralCustodyPk, owner);
+  return pk;
+}
+
 export function sideToEnum(side: string) {
   const s = side.toLowerCase();
   if (s === "long") return { long: {} };

@@ -30,9 +30,10 @@ import {
   toMicroUsd,
   toTokenAmount,
   derivePdaFromIdl,
-  derivePositionPdaCanonical,
   derivePositionPdaPoolFirst,
   derivePositionPdaOwnerFirst,
+  derivePositionForIdlOrder,
+  derivePositionForSwappedOrder,
   sideToEnum,
 } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
@@ -284,6 +285,13 @@ async function sendIncreasePositionWithSwapRetry(params: {
     ) {
       console.warn("🔁 6006 detected → switching to swapped custody order");
       mode = "swapped";
+      positionPk = derivePositionForSwappedOrder(
+        owner,
+        poolPk,
+        params.marketCustodyPk,
+        params.collateralCustodyPk,
+        perpsProgramId,
+      );
       preIxs = [...params.preIxs];
     } else {
       throw e;
@@ -547,11 +555,12 @@ function formatLogs(raw: string[]): string[] {
   console.log("🧪 inputMint:          ", collateralMint.toBase58());
 
   bar("PDAs", "🧩");
-  const [positionCanonical] = derivePositionPdaCanonical(
-    programId,
+  const positionCanonical = derivePositionForIdlOrder(
+    wallet.publicKey,
     pool.publicKey,
     marketCustodyPk,
-    wallet.publicKey,
+    collateralCustodyPk,
+    programId,
   );
   let position: PublicKey;
   if (argv.position) {
