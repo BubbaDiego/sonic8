@@ -1,7 +1,11 @@
 """FastAPI router exposing XCom CRUD + utility endpoints."""
 
 from __future__ import annotations
+
+from copy import deepcopy
+
 from fastapi import APIRouter, Depends, HTTPException, status
+
 from backend.models.xcom_models import (
     ProviderMap,
     StatusResponse,
@@ -18,7 +22,7 @@ router = APIRouter(prefix="/xcom", tags=["XCom"])
 
 @router.get("/providers", response_model=ProviderMap)
 def read_providers(dl: DataLocker = Depends(get_locker)):
-    cfg = dl.system.get_var("xcom_providers") or {}
+    cfg = deepcopy(dl.system.get_var("xcom_providers") or {})
     # Mask secrets before returning
     for provider in cfg.values():
         if isinstance(provider, dict):
@@ -34,27 +38,24 @@ def read_providers(dl: DataLocker = Depends(get_locker)):
 @router.get("/providers/resolved", response_model=ProviderMap)
 def read_providers_resolved(dl: DataLocker = Depends(get_locker)):
     """Return env-resolved provider configs with secrets masked."""
-    svc = XComConfigService(dl)
-    base = dl.system.get_var("xcom_providers") or {}
-    names = list(base.keys())
-    if "api" in names and "twilio" not in names:
+
+    svc = XComConfigService(dl.system)
+    names = list((dl.system.get_var("xcom_providers") or {}).keys())
+    if "twilio" not in names:
         names.append("twilio")
 
     out: dict[str, dict] = {}
     for name in names:
-        try:
-            provider_name = "twilio" if name == "api" else name
-            provider = svc.get_provider(provider_name) or {}
-            if isinstance(provider, dict):
-                if "password" in provider:
-                    provider["password"] = "********"
-                if "auth_token" in provider:
-                    provider["auth_token"] = "********"
-                if (smtp := provider.get("smtp")) and isinstance(smtp, dict) and "password" in smtp:
-                    smtp["password"] = "********"
-            out[name] = provider
-        except Exception:
-            out[name] = base.get(name, {})
+        provider = svc.get_provider(name)
+        if isinstance(provider, dict):
+            provider = deepcopy(provider)
+            if "password" in provider:
+                provider["password"] = "********"
+            if "auth_token" in provider:
+                provider["auth_token"] = "********"
+            if isinstance(provider.get("smtp"), dict) and "password" in provider["smtp"]:
+                provider["smtp"]["password"] = "********"
+        out[name] = provider
     return ProviderMap(__root__=out)
 
 @router.put("/providers")

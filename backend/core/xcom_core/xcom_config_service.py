@@ -1,5 +1,6 @@
 import sys
 import os
+from copy import deepcopy
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 try:
@@ -25,9 +26,17 @@ ENV_MAP = {
     "twilio": {
         "account_sid": "TWILIO_ACCOUNT_SID",
         "auth_token": "TWILIO_AUTH_TOKEN",
-        "flow_sid": "TWILIO_FLOW_SID",
-        "default_to_phone": "MY_PHONE_NUMBER",
-        "default_from_phone": "TWILIO_PHONE_NUMBER",
+        "flow_sid": ["TWILIO_FLOW_SID", "TWILIO_STUDIO_FLOW_SID"],
+        "default_to_phone": [
+            "MY_PHONE_NUMBER",
+            "TWILIO_TO_PHONE",
+            "TWILIO_DEFAULT_TO_PHONE",
+        ],
+        "default_from_phone": [
+            "TWILIO_PHONE_NUMBER",
+            "TWILIO_FROM_PHONE",
+            "TWILIO_DEFAULT_FROM_PHONE",
+        ],
     },
     "alexa": {
         "enabled": "ALEXA_ENABLED",
@@ -64,13 +73,28 @@ class XComConfigService:
 
             # Explicitly fallback to environment vars for Twilio ("api")
             if provider_name == "twilio" and (not provider or not provider.get("account_sid")):
+                def _env_first(keys):
+                    if isinstance(keys, str):
+                        return os.getenv(keys)
+                    for key in keys or []:
+                        if not key:
+                            continue
+                        value = os.getenv(key)
+                        if value:
+                            return value
+                    return None
+
                 provider = {
                     "enabled": True,
                     "account_sid": os.getenv("TWILIO_ACCOUNT_SID"),
                     "auth_token": os.getenv("TWILIO_AUTH_TOKEN"),
-                    "flow_sid": os.getenv("TWILIO_FLOW_SID"),
-                    "default_to_phone": os.getenv("MY_PHONE_NUMBER"),
-                    "default_from_phone": os.getenv("TWILIO_PHONE_NUMBER"),
+                    "flow_sid": _env_first(["TWILIO_FLOW_SID", "TWILIO_STUDIO_FLOW_SID"]),
+                    "default_to_phone": _env_first(
+                        ["MY_PHONE_NUMBER", "TWILIO_TO_PHONE", "TWILIO_DEFAULT_TO_PHONE"]
+                    ),
+                    "default_from_phone": _env_first(
+                        ["TWILIO_PHONE_NUMBER", "TWILIO_FROM_PHONE", "TWILIO_DEFAULT_FROM_PHONE"]
+                    ),
                 }
 
             def apply_env(data: dict, mapping: dict) -> dict:
@@ -79,13 +103,21 @@ class XComConfigService:
                     if isinstance(v, dict):
                         data[k] = apply_env(v, sub_map if isinstance(sub_map, dict) else {})
                     else:
-                        env_key = sub_map if isinstance(sub_map, str) else None
+                        env_key = None
+                        if isinstance(sub_map, str):
+                            env_key = sub_map
+                        elif isinstance(sub_map, (list, tuple)):
+                            for cand in sub_map:
+                                cand = str(cand or "")
+                                if cand and os.getenv(cand):
+                                    env_key = cand
+                                    break
                         data[k] = _resolve_env(v, env_key)
                 return data
 
             env_map = ENV_MAP.get(provider_name, {})
             if isinstance(provider, dict):
-                provider = apply_env(provider, env_map)
+                provider = apply_env(deepcopy(provider), env_map)
 
             return provider
         except Exception as e:
