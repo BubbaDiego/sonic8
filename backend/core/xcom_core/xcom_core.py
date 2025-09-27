@@ -103,7 +103,12 @@ class XComCore:
                         f"Subject: {subject}. "
                         f"Details: {body}."
                     )
-                    results["voice"] = VoiceService(voice_cfg).call(recipient, voice_message)
+                    ok, sid = VoiceService(voice_cfg).call(recipient, subject, voice_message)
+                    results["voice"] = bool(ok)
+                    if ok and sid:
+                        results["twilio_sid"] = sid
+                    elif sid:
+                        results["twilio_error"] = sid
                     if results["voice"] and hasattr(system_mgr, "set_var"):
                         try:
                             system_mgr.set_var(
@@ -155,7 +160,15 @@ class XComCore:
         # ------------------------------------------------------------------ #
         # Persist a row even if no provider succeeds
         # ------------------------------------------------------------------ #
-        success = error_msg is None  # only fail when an exception occurs
+        success_channels = [
+            bool(results.get("email")),
+            bool(results.get("sms")),
+            bool(results.get("voice")),
+            bool(results.get("sound")),
+            bool(results.get("tts")),
+            bool(results.get("alexa")),
+        ]
+        success = error_msg is None and any(success_channels)
 
         comm_type = ",".join(
             [k for k in ("email", "sms", "voice", "sound", "tts", "alexa") if results.get(k)]
