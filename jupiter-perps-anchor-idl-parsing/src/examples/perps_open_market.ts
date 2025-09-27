@@ -1,6 +1,7 @@
 /* Open/Increase position at market, with optional collateral deposit */
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import { performance } from "perf_hooks";
 import {
   AnchorProvider,
   Program,
@@ -60,68 +61,113 @@ type StepKey =
   | "programPass"
   | "watch";
 
+const STEP_LABEL: Record<StepKey, string> = {
+  cli: "Parse CLI + config",
+  rpc: "RPC connect & provider",
+  idl: "IDL loaded & program",
+  perps: "Fetch Perpetuals (singleton)",
+  pool: "Fetch Pool (singleton)",
+  custodies: "Load custodies & map mints",
+  pdas: "Resolve PDAs",
+  positionSelect: "Select position PDA for order",
+  ataOwner: "ATA: Owner USDC",
+  ataRequest: "ATA: PositionRequest USDC",
+  ataPosition: "ATA: Position USDC",
+  accountsBuilt: "Build accountsStrict",
+  simulate: "Simulate / Dry-run",
+  submit: "Submit transaction",
+  programPass: "Program validations pass",
+  watch: "Watch/stream position",
+};
+
+const STEP_ORDER: StepKey[] = [
+  "cli",
+  "rpc",
+  "idl",
+  "perps",
+  "pool",
+  "custodies",
+  "pdas",
+  "positionSelect",
+  "ataOwner",
+  "ataRequest",
+  "ataPosition",
+  "accountsBuilt",
+  "simulate",
+  "submit",
+  "programPass",
+  "watch",
+];
+
 class StepTracker {
-  private order: StepKey[] = [
-    "cli",
-    "rpc",
-    "idl",
-    "perps",
-    "pool",
-    "custodies",
-    "pdas",
-    "positionSelect",
-    "ataOwner",
-    "ataRequest",
-    "ataPosition",
-    "accountsBuilt",
-    "simulate",
-    "submit",
-    "programPass",
-    "watch",
-  ];
-  private status = new Map<StepKey, { ok: boolean; note?: string }>();
+  private runStart = performance.now();
+  private data = new Map<
+    StepKey,
+    { ok?: boolean; note?: string; t0?: number; t1?: number }
+  >();
+  private printed = false;
+
+  start(key: StepKey, note?: string) {
+    const now = performance.now();
+    const prev = this.data.get(key) || {};
+    this.data.set(key, { ...prev, t0: prev.t0 ?? now, note: note ?? prev.note });
+  }
 
   ok(key: StepKey, note?: string) {
-    this.status.set(key, { ok: true, note });
+    this.end(key, true, note);
   }
 
   fail(key: StepKey, note?: string) {
-    this.status.set(key, { ok: false, note });
+    this.end(key, false, note);
+  }
+
+  async time<T>(key: StepKey, fn: () => Promise<T>, note?: string): Promise<T> {
+    this.start(key, note);
+    try {
+      const out = await fn();
+      this.ok(key, note);
+      return out;
+    } catch (e) {
+      this.fail(key, note);
+      throw e;
+    }
   }
 
   get(key: StepKey) {
-    return this.status.get(key);
+    return this.data.get(key);
   }
 
-  print(title = "Run Checklist") {
+  private end(key: StepKey, ok: boolean, note?: string) {
+    const now = performance.now();
+    const prev = this.data.get(key) || {};
+    const t0 = prev.t0 ?? this.runStart;
+    const t1 = prev.t1 ?? now;
+    this.data.set(key, { ok, note: note ?? prev.note, t0, t1 });
+  }
+
+  print(title = "Order Placement Checklist") {
+    const fmt = (ms?: number) => {
+      if (ms == null) return "";
+      if (ms < 1) return ` — ${ms.toFixed(2)}ms`;
+      if (ms < 1000) return ` — ${ms.toFixed(0)}ms`;
+      return ` — ${(ms / 1000).toFixed(2)}s`;
+    };
     console.log(`\n──────── ${title} ────────`);
-    for (const k of this.order) {
-      const s = this.status.get(k);
-      const icon = s?.ok ? "✅" : s ? "💀" : "•";
-      const name = (
-        {
-          cli: "Parse CLI + config",
-          rpc: "RPC connect & provider",
-          idl: "IDL loaded & program",
-          perps: "Fetch Perpetuals (singleton)",
-          pool: "Fetch Pool (singleton)",
-          custodies: "Load custodies & map mints",
-          pdas: "Resolve PDAs",
-          positionSelect: "Select position PDA for order",
-          ataOwner: "ATA: Owner USDC",
-          ataRequest: "ATA: PositionRequest USDC",
-          ataPosition: "ATA: Position USDC",
-          accountsBuilt: "Build accountsStrict",
-          simulate: "Simulate / Dry-run",
-          submit: "Submit transaction",
-          programPass: "Program validations pass",
-          watch: "Watch/stream position",
-        } as Record<StepKey, string>
-      )[k];
-      const note = s?.note ? ` — ${s.note}` : "";
-      console.log(`${icon}  ${name}${note}`);
+    for (const k of STEP_ORDER) {
+      const row = this.data.get(k);
+      const icon = row?.ok === true ? "✅" : row?.ok === false ? "💀" : "•";
+      const name = STEP_LABEL[k];
+      const note = row?.note ? ` — ${row.note}` : "";
+      const dur =
+        row?.t0 != null && row?.t1 != null ? fmt(row.t1 - row.t0) : "";
+      console.log(`${icon}  ${name}${note}${dur}`);
     }
     console.log("────────────────────────────────────────\n");
+    this.printed = true;
+  }
+
+  hasPrinted() {
+    return this.printed;
   }
 }
 
@@ -332,7 +378,12 @@ async function sendIncreasePositionRobust(
   const postIxs = [...params.postIxs];
 
   function rebuildPreIxsForCurrentPosition(note?: string) {
-    const { ix: posAtaIx } = makePositionUsdcAtaIx(payer, positionPk, collateralMintPk);
+    steps.start("ataPosition");
+    const { ix: posAtaIx } = makePositionUsdcAtaIx(
+      payer,
+      positionPk,
+      collateralMintPk,
+    );
     const rebuilt = [...preIxsBase, posAtaIx];
     const short = shortId(positionPk.toBase58());
     steps.ok("ataPosition", note ?? `Ensured for ${short}`);
@@ -367,6 +418,7 @@ async function sendIncreasePositionRobust(
       "| order:",
       useSwappedOrder ? "swapped" : "idl",
     );
+    steps.start("accountsBuilt");
     const accounts = buildAccounts();
     steps.ok(
       "accountsBuilt",
@@ -378,8 +430,9 @@ async function sendIncreasePositionRobust(
       .preInstructions(preIxs)
       .postInstructions(postIxs);
     await debugPrintIx(program, m, label);
-    steps.ok("submit");
+    steps.start("submit");
     await m.rpc();
+    steps.ok("submit");
   }
 
   for (let attempt = 1; attempt <= 4; attempt++) {
@@ -389,6 +442,9 @@ async function sendIncreasePositionRobust(
       steps.ok("watch");
       return positionPk;
     } catch (e: any) {
+      if (!steps.get("submit")?.ok) {
+        steps.ok("submit");
+      }
       const logs = collectAllLogLines(e);
       const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
 
@@ -483,6 +539,7 @@ function formatLogs(raw: string[]): string[] {
 
 (async () => {
   const steps = new StepTracker();
+  steps.start("cli");
   try {
     const argv = await yargs(hideBin(process.argv))
       .option("rpc", { type: "string", demandOption: true })
@@ -601,11 +658,19 @@ function formatLogs(raw: string[]): string[] {
   async function ensureProviderOnConnection(conn: web3.Connection) {
     const endpoint = endpointFor(conn);
     if (!provider || currentEndpoint !== endpoint) {
-      const built = await makeProviderAndProgram(conn, wallet, idl, programId);
+      const built = await steps.time(
+        "rpc",
+        async () =>
+          steps.time(
+            "idl",
+            async () => makeProviderAndProgram(conn, wallet, idl, programId),
+            programId.toBase58(),
+          ),
+        endpoint,
+      );
       provider = built.provider;
       program = built.program as Program<any>;
       currentEndpoint = endpoint;
-      steps.ok("rpc", endpoint);
       steps.ok("idl", `Program ${program.programId.toBase58()}`);
     }
   }
@@ -628,11 +693,17 @@ function formatLogs(raw: string[]): string[] {
       bootstrapLogged = true;
     }
 
-    perpetuals = await cfg.getSingletonPerpetuals(program);
+    perpetuals = await steps.time(
+      "perps",
+      async () => cfg.getSingletonPerpetuals(program),
+    );
     steps.ok("perps", perpetuals.publicKey.toBase58());
-    pool = await cfg.getSingletonPool(program);
+    pool = await steps.time("pool", async () => cfg.getSingletonPool(program));
     steps.ok("pool", pool.publicKey.toBase58());
-    const allCustodiesRaw = await cfg.getCustodies(program, pool.account);
+    const allCustodiesRaw = await steps.time(
+      "custodies",
+      async () => cfg.getCustodies(program, pool.account),
+    );
     allCustodies = allCustodiesRaw.map((c) => ({
       ...c,
       mint: new PublicKey(c.account.mint as PublicKey),
@@ -676,19 +747,46 @@ function formatLogs(raw: string[]): string[] {
   console.log("🧪 inputMint:          ", collateralMint.toBase58());
 
   bar("PDAs", "🧩");
-  const positionIdlExpected = derivePositionPda(
-    programId,
-    wallet.publicKey,
-    pool.publicKey,
-    marketCustodyPk,
-    collateralCustodyPk,
-  );
-  const positionSwappedExpected = derivePositionPda(
-    programId,
-    wallet.publicKey,
-    pool.publicKey,
-    collateralCustodyPk,
-    marketCustodyPk,
+  const {
+    positionIdlExpected,
+    positionSwappedExpected,
+    posPoolFirst,
+    posOwnerFirst,
+  } = await steps.time(
+    "pdas",
+    async () => {
+      const positionIdlExpectedInner = derivePositionPda(
+        programId,
+        wallet.publicKey,
+        pool.publicKey,
+        marketCustodyPk,
+        collateralCustodyPk,
+      );
+      const positionSwappedExpectedInner = derivePositionPda(
+        programId,
+        wallet.publicKey,
+        pool.publicKey,
+        collateralCustodyPk,
+        marketCustodyPk,
+      );
+      const [posPoolFirstInner] = derivePositionPdaPoolFirst(
+        programId,
+        pool.publicKey,
+        wallet.publicKey,
+      );
+      const [posOwnerFirstInner] = derivePositionPdaOwnerFirst(
+        programId,
+        wallet.publicKey,
+        pool.publicKey,
+      );
+      return {
+        positionIdlExpected: positionIdlExpectedInner,
+        positionSwappedExpected: positionSwappedExpectedInner,
+        posPoolFirst: posPoolFirstInner,
+        posOwnerFirst: posOwnerFirstInner,
+      };
+    },
+    "Deriving position PDAs",
   );
   console.log(
     "🧮 expected positions → idl:",
@@ -705,17 +803,6 @@ function formatLogs(raw: string[]): string[] {
   }
   const positionIdl = positionOverride ?? positionIdlExpected;
   const positionSwapped = positionSwappedExpected;
-  const [posPoolFirst] = derivePositionPdaPoolFirst(
-    programId,
-    pool.publicKey,
-    wallet.publicKey,
-  );
-  const [posOwnerFirst] = derivePositionPdaOwnerFirst(
-    programId,
-    wallet.publicKey,
-    pool.publicKey,
-  );
-
   // Loud, one-time debug to compare with Perps' "Right:" if it error-logs again
   console.log(
     "🧩 position PDAs :: idl=",
@@ -798,30 +885,34 @@ function formatLogs(raw: string[]): string[] {
     return resolved;
   };
 
-  const ownerTokenProgramId = await getTokenProgramIdForMint(collateralMint);
-  const ownerAtaInit = createAtaIxStrict(
-    wallet.publicKey,
-    collateralMint,
-    wallet.publicKey,
-    /*allowOwnerOffCurve=*/ false,
-    ownerTokenProgramId,
-  );
-  console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, wallet):`, {
-    mint: shortId(collateralMint.toBase58()),
-    owner: shortId(wallet.publicKey.toBase58()),
-    allowOwnerOffCurve: false,
-    tokenProgramId: shortId(ownerTokenProgramId.toBase58()),
-    ata: shortId(ownerAtaInit.ata.toBase58()),
+  let ownerTokenProgramId!: PublicKey;
+  let ownerAtaInit!: ReturnType<typeof createAtaIxStrict>;
+  await steps.time("ataOwner", async () => {
+    ownerTokenProgramId = await getTokenProgramIdForMint(collateralMint);
+    ownerAtaInit = createAtaIxStrict(
+      wallet.publicKey,
+      collateralMint,
+      wallet.publicKey,
+      /*allowOwnerOffCurve=*/ false,
+      ownerTokenProgramId,
+    );
+    console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, wallet):`, {
+      mint: shortId(collateralMint.toBase58()),
+      owner: shortId(wallet.publicKey.toBase58()),
+      allowOwnerOffCurve: false,
+      tokenProgramId: shortId(ownerTokenProgramId.toBase58()),
+      ata: shortId(ownerAtaInit.ata.toBase58()),
+    });
+    const expectedOwnerAta = deriveAtaStrict(
+      collateralMint,
+      wallet.publicKey,
+      false,
+      ownerTokenProgramId,
+    );
+    if (!ownerAtaInit.ata.equals(expectedOwnerAta)) {
+      throw new Error("ATA mismatch (wallet) vs seed derivation");
+    }
   });
-  const expectedOwnerAta = deriveAtaStrict(
-    collateralMint,
-    wallet.publicKey,
-    false,
-    ownerTokenProgramId,
-  );
-  if (!ownerAtaInit.ata.equals(expectedOwnerAta)) {
-    throw new Error("ATA mismatch (wallet) vs seed derivation");
-  }
   steps.ok("ataOwner", shortId(ownerAtaInit.ata.toBase58()));
 
   // Step 3 — Amounts & guardrail
@@ -876,36 +967,37 @@ function formatLogs(raw: string[]): string[] {
   let reqAtaInit: { ata: PublicKey; ix: any } | null = null;
 
   if (havePR) {
-    const escrowTokenProgramId = await getTokenProgramIdForMint(collateralMint);
-    reqAtaInit = createAtaIxStrict(
-      wallet.publicKey,
-      collateralMint,
-      positionRequest,
-      /*allowOwnerOffCurve=*/ true,
-      escrowTokenProgramId,
-    );
-    console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, positionRequest):`, {
-      mint: shortId(collateralMint.toBase58()),
-      owner: shortId(positionRequest.toBase58()),
-      allowOwnerOffCurve: true,
-      tokenProgramId: shortId(escrowTokenProgramId.toBase58()),
-      ata: shortId(reqAtaInit.ata.toBase58()),
+    await steps.time("ataRequest", async () => {
+      const escrowTokenProgramId = await getTokenProgramIdForMint(collateralMint);
+      reqAtaInit = createAtaIxStrict(
+        wallet.publicKey,
+        collateralMint,
+        positionRequest,
+        /*allowOwnerOffCurve=*/ true,
+        escrowTokenProgramId,
+      );
+      console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, positionRequest):`, {
+        mint: shortId(collateralMint.toBase58()),
+        owner: shortId(positionRequest.toBase58()),
+        allowOwnerOffCurve: true,
+        tokenProgramId: shortId(escrowTokenProgramId.toBase58()),
+        ata: shortId(reqAtaInit.ata.toBase58()),
+      });
+      const expectedReqAta = deriveAtaStrict(
+        collateralMint,
+        positionRequest,
+        true,
+        escrowTokenProgramId,
+      );
+      if (!reqAtaInit.ata.equals(expectedReqAta)) {
+        throw new Error("ATA mismatch (positionRequest) vs seed derivation");
+      }
     });
-    const expectedReqAta = deriveAtaStrict(
-      collateralMint,
-      positionRequest,
-      true,
-      escrowTokenProgramId,
-    );
-    if (!reqAtaInit.ata.equals(expectedReqAta)) {
-      throw new Error("ATA mismatch (positionRequest) vs seed derivation");
+    if (reqAtaInit) {
+      steps.ok("ataRequest", shortId(reqAtaInit.ata.toBase58()));
     }
-
-    steps.ok("ataRequest", shortId(reqAtaInit.ata.toBase58()));
-
-  }
-
-  if (!havePR) {
+  } else {
+    steps.start("ataRequest");
     steps.ok("ataRequest", "Skipped (discovery mode)");
   }
 
@@ -988,6 +1080,7 @@ function formatLogs(raw: string[]): string[] {
     perpsProgramId: programId,
   };
 
+  steps.start("positionSelect");
   const previewMode: "idl" | "swapped" = flipCustodyOrder ? "swapped" : "idl";
   const previewPosition = previewMode === "swapped" ? positionSwapped : positionIdl;
   steps.ok(
@@ -1022,6 +1115,7 @@ function formatLogs(raw: string[]): string[] {
         const dryRunPosition =
           dryRunMode === "swapped" ? positionSwapped : positionIdl;
         const dryRunPreIxs = (() => {
+          steps.start("ataPosition");
           const { ix: posAtaIx } = makePositionUsdcAtaIx(
             wallet.publicKey,
             dryRunPosition,
@@ -1064,8 +1158,11 @@ function formatLogs(raw: string[]): string[] {
         const tx = new VersionedTransaction(message);
         tx.sign([signer]);
 
-        await simulateOrSend(provider.connection, tx, true);
-        steps.ok("simulate", "Dry-run executed");
+        await steps.time(
+          "simulate",
+          async () => simulateOrSend(provider.connection, tx, true),
+          "Dry-run executed",
+        );
         return true;
       }
 
@@ -1110,7 +1207,8 @@ function formatLogs(raw: string[]): string[] {
   );
   steps.ok("watch", "Keeper will execute request");
   } catch (err) {
-    if (!steps.get("programPass")) {
+    const programPassRow = steps.get("programPass");
+    if (!programPassRow) {
       steps.fail("programPass", "Program rejected (see logs)");
     }
     throw err;
