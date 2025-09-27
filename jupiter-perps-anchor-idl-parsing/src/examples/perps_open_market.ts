@@ -30,9 +30,6 @@ import * as cfg from "../config/perps.js";
 import {
   toMicroUsd,
   toTokenAmount,
-  derivePdaFromIdl,
-  derivePositionPdaPoolFirst,
-  derivePositionPdaOwnerFirst,
   sideToEnum,
 } from "../utils/resolve.js";
 import { IDL as JUP_PERPS_IDL } from "../idl/jupiter-perpetuals-idl.js";
@@ -60,6 +57,19 @@ type StepKey =
   | "submit"
   | "programPass"
   | "watch";
+
+type ValidationSubStepKey =
+  | "vSeeds"
+  | "vRequestSeeds"
+  | "vCustodyOrder"
+  | "vCollateralAccount";
+
+const SUBSTEP_LABEL: Record<ValidationSubStepKey, string> = {
+  vSeeds: "Position PDA (seeds)",
+  vRequestSeeds: "PositionRequest PDA (seeds)",
+  vCustodyOrder: "Custody order", // market vs collateral
+  vCollateralAccount: "Collateral token account",
+};
 
 const STEP_LABEL: Record<StepKey, string> = {
   cli: "Parse CLI + config",
@@ -105,6 +115,13 @@ class StepTracker {
     StepKey,
     { ok?: boolean; note?: string; t0?: number; t1?: number }
   >();
+  private subData = new Map<
+    StepKey,
+    Map<
+      ValidationSubStepKey,
+      { ok?: boolean; note?: string; t0?: number; t1?: number }
+    >
+  >();
   private printed = false;
 
   start(key: StepKey, note?: string) {
@@ -137,6 +154,45 @@ class StepTracker {
     return this.data.get(key);
   }
 
+  subStart(key: ValidationSubStepKey, note?: string) {
+    this.subSet("programPass", key, { note, ok: undefined }, false);
+  }
+
+  subOk(key: ValidationSubStepKey, note?: string) {
+    this.subSet("programPass", key, { ok: true, note }, true);
+  }
+
+  subFail(key: ValidationSubStepKey, note?: string) {
+    this.subSet("programPass", key, { ok: false, note }, true);
+  }
+
+  hasSub(key: ValidationSubStepKey) {
+    return this.subData.get("programPass")?.has(key) ?? false;
+  }
+
+  getSub(key: ValidationSubStepKey) {
+    return this.subData.get("programPass")?.get(key);
+  }
+
+  private subSet(
+    parent: StepKey,
+    key: ValidationSubStepKey,
+    val: { ok?: boolean; note?: string },
+    end: boolean,
+  ) {
+    const now = performance.now();
+    const forParent = this.subData.get(parent) ?? new Map();
+    const prev = forParent.get(key) ?? { t0: now };
+    const next = {
+      ...prev,
+      ...val,
+      t0: prev.t0 ?? now,
+      t1: end ? now : prev.t1,
+    };
+    forParent.set(key, next);
+    this.subData.set(parent, forParent);
+  }
+
   private end(key: StepKey, ok: boolean, note?: string) {
     const now = performance.now();
     const prev = this.data.get(key) || {};
@@ -161,6 +217,22 @@ class StepTracker {
         row?.t0 != null && row?.t1 != null ? fmt(row.t1 - row.t0) : "";
       const idx = String(i + 1).padStart(2, "0");
       console.log(`${idx}) ${icon}  ${name}${note}${dur}`);
+
+      const substeps = this.subData.get(k);
+      if (substeps && substeps.size) {
+        const entries = Array.from(substeps.entries()).sort(([a], [b]) =>
+          a.localeCompare(b),
+        );
+        entries.forEach(([subKey, subRow], subIdx) => {
+          const subIcon = subRow.ok === true ? "✅" : subRow.ok === false ? "💀" : "•";
+          const label = SUBSTEP_LABEL[subKey];
+          const subNote = subRow.note ? ` — ${subRow.note}` : "";
+          const subDur =
+            subRow.t0 != null && subRow.t1 != null ? fmt(subRow.t1 - subRow.t0) : "";
+          const letter = String.fromCharCode("a".charCodeAt(0) + subIdx);
+          console.log(`    ${idx}.${letter}) ${subIcon}  ${label}${subNote}${subDur}`);
+        });
+      }
     });
     console.log("────────────────────────────────────────\n");
     this.printed = true;
@@ -230,34 +302,39 @@ function collectAllLogLines(err: any): string[] {
   return [...a, ...b, ...c].filter((x) => typeof x === "string");
 }
 
-function parseInvalidCollateralFromLogs(logs: string[]): { left: string; right: string } | null {
+function extractRightAddress(logs: string[]): string | null {
   const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
-  const i = logs.findIndex((l) => l.includes("Invalid collateral account"));
-  if (i < 0) return null;
-  const window = logs.slice(i, i + 10);
-  const left = window.find((l) => l.includes("Left"))?.match(base58)?.[0];
-  const right = window.find((l) => l.includes("Right"))?.match(base58)?.[0];
-  return left && right ? { left, right } : null;
+  const window = logs.filter((l) => l.includes("Right"));
+  for (const line of window) {
+    const match = line.match(base58);
+    if (match?.[0]) return match[0];
+  }
+  return null;
 }
 
-function parseConstraintSeedsRight(logs: string[], accountName: string): string | null {
-  const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
-  const idx = logs.findIndex(
-    (l) => l.includes("ConstraintSeeds") && l.includes(`account: ${accountName}`),
+function markValidationsFromLogs(steps: StepTracker, logs: string[]) {
+  if (!logs.length) return;
+  const hasPositionSeeds = logs.some(
+    (l) => l.includes("ConstraintSeeds") && l.includes("account: position"),
   );
-  if (idx < 0) return null;
-  const window = logs.slice(idx, idx + 12);
-  return window.find((l) => l.includes("Right"))?.match(base58)?.[0] ?? null;
-}
+  const hasRequestSeeds = logs.some(
+    (l) => l.includes("ConstraintSeeds") && l.includes("account: positionRequest"),
+  );
+  const hasInvalidCollateral = logs.some((l) => l.includes("Invalid collateral account"));
+  const hasInvalidToken = logs.some((l) => l.includes("Invalid token account"));
 
-function shouldSwapCustodiesForIdlMismatch(
-  logs: string[] | undefined,
-  marketCustodyPk: web3.PublicKey,
-  collateralCustodyPk: web3.PublicKey,
-): boolean {
-  if (!logs?.length) return false;
-  const p = parseInvalidCollateralFromLogs(logs);
-  return !!p && p.left === marketCustodyPk.toBase58() && p.right === collateralCustodyPk.toBase58();
+  if (hasPositionSeeds) {
+    steps.subFail("vSeeds", "position PDA mismatch");
+  }
+  if (hasRequestSeeds) {
+    steps.subFail("vRequestSeeds", "positionRequest PDA mismatch");
+  }
+  if (hasInvalidCollateral) {
+    steps.subFail("vCustodyOrder", "custody order mismatch");
+  }
+  if (hasInvalidToken) {
+    steps.subFail("vCollateralAccount", "collateral account invalid");
+  }
 }
 
 async function debugPrintIx(program: Program, m: any, label: string) {
@@ -283,75 +360,164 @@ function makePositionUsdcAtaIx(
   return { ata, ix };
 }
 
-function derivePositionPda(
-  programId: web3.PublicKey,
-  owner: web3.PublicKey,
-  pool: web3.PublicKey,
-  custodyA: web3.PublicKey,
-  custodyB: web3.PublicKey,
-): web3.PublicKey {
-  const [pk] = web3.PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("position"),
-      owner.toBuffer(),
-      pool.toBuffer(),
-      custodyA.toBuffer(),
-      custodyB.toBuffer(),
-    ],
-    programId,
+// Helpers to derive PDAs from the Anchor IDL seeds
+function seedToBytes(
+  seed: any,
+  ctx: Record<string, PublicKey | string | Buffer>,
+  programId: PublicKey,
+): Buffer {
+  const kind = seed?.kind ?? seed?.type;
+  if (!kind) throw new Error("IDL seed missing kind/type");
+
+  const asPkBuf = (v: any) =>
+    v instanceof PublicKey ? v.toBuffer() : new PublicKey(v).toBuffer();
+
+  switch (kind) {
+    case "const":
+      if (typeof seed.value === "string") return Buffer.from(seed.value);
+      if (typeof seed.value === "number") {
+        const b = Buffer.alloc(8);
+        b.writeUInt32LE(seed.value, 0);
+        return b;
+      }
+      throw new Error(`Unhandled const seed value: ${JSON.stringify(seed)}`);
+
+    case "program":
+      return programId.toBuffer();
+
+    case "account": {
+      const path = seed.path || seed.account || seed.name;
+      if (!path || !ctx[path]) throw new Error(`Missing account seed path '${path}'`);
+      return asPkBuf(ctx[path]);
+    }
+
+    case "arg": {
+      const name = seed.path || seed.name;
+      throw new Error(`IDL seed uses arg '${name}', not supported in this callsite`);
+    }
+
+    default:
+      throw new Error(`Unknown seed kind: ${kind}`);
+  }
+}
+
+function getIdlAccountPdaSeeds(program: any, accountName: string): any[] | null {
+  const idl = program?.idl;
+  if (!idl) return null;
+  const acc = (idl.accounts || []).find(
+    (a: any) => (a.name || "").toLowerCase() === accountName.toLowerCase(),
   );
-  return pk;
+  const seeds = acc?.pda?.seeds || acc?.seeds;
+  return Array.isArray(seeds) ? seeds : null;
+}
+
+function derivePdaByIdl(
+  program: any,
+  accountName: string,
+  ctx: Record<string, PublicKey | string | Buffer>,
+): PublicKey | null {
+  const seeds = getIdlAccountPdaSeeds(program, accountName);
+  if (!seeds) return null;
+  const seedBytes = seeds.map((s: any) => seedToBytes(s, ctx, program.programId));
+  const [pda] = PublicKey.findProgramAddressSync(seedBytes, program.programId);
+  return pda;
+}
+
+function derivePositionFallback(
+  programId: PublicKey,
+  pool: PublicKey,
+  owner: PublicKey,
+  marketCustody: PublicKey,
+  collateralCustody: PublicKey,
+): PublicKey {
+  const seeds = [
+    Buffer.from("position"),
+    pool.toBuffer(),
+    owner.toBuffer(),
+    marketCustody.toBuffer(),
+    collateralCustody.toBuffer(),
+  ];
+  return PublicKey.findProgramAddressSync(seeds, programId)[0];
+}
+
+function derivePositionRequestFallback(
+  programId: PublicKey,
+  pool: PublicKey,
+  owner: PublicKey,
+  marketCustody: PublicKey,
+  collateralCustody: PublicKey,
+): PublicKey {
+  const seeds = [
+    Buffer.from("position_request"),
+    pool.toBuffer(),
+    owner.toBuffer(),
+    marketCustody.toBuffer(),
+    collateralCustody.toBuffer(),
+  ];
+  return PublicKey.findProgramAddressSync(seeds, programId)[0];
+}
+
+type PdaInputs = {
+  pool: PublicKey;
+  owner: PublicKey;
+  marketCustody: PublicKey;
+  collateralCustody: PublicKey;
+};
+
+function derivePdaByl(program: any, acc: string, ctx: any) {
+  return derivePdaByIdl(program, acc, ctx);
+}
+
+function derivePositionDeterministic(program: any, inp: PdaInputs): PublicKey {
+  const ctx = {
+    pool: inp.pool,
+    owner: inp.owner,
+    custody: inp.marketCustody,
+    marketCustody: inp.marketCustody,
+    collateralCustody: inp.collateralCustody,
+  };
+  const byIdl = derivePdaByl(program, "position", ctx);
+  return (
+    byIdl ??
+    derivePositionFallback(
+      program.programId,
+      inp.pool,
+      inp.owner,
+      inp.marketCustody,
+      inp.collateralCustody,
+    )
+  );
+}
+
+function derivePositionRequestDeterministic(
+  program: any,
+  inp: PdaInputs,
+  position: PublicKey,
+): PublicKey {
+  const ctx = {
+    pool: inp.pool,
+    owner: inp.owner,
+    position,
+    custody: inp.marketCustody,
+    marketCustody: inp.marketCustody,
+    collateralCustody: inp.collateralCustody,
+  };
+  const byIdl =
+    derivePdaByl(program, "positionRequest", ctx) ||
+    derivePdaByl(program, "position_request", ctx);
+  return (
+    byIdl ??
+    derivePositionRequestFallback(
+      program.programId,
+      inp.pool,
+      inp.owner,
+      inp.marketCustody,
+      inp.collateralCustody,
+    )
+  );
 }
 
 // Build accounts with selectable mapping mode
-function buildIncreaseAccounts(
-  args: {
-    owner: web3.PublicKey;
-    perpetualsPk: web3.PublicKey;
-    poolPk: web3.PublicKey;
-    positionPk: web3.PublicKey;
-    positionRequestPk: web3.PublicKey;
-    positionRequestUsdcAta: web3.PublicKey;
-    ownerUsdcAta: web3.PublicKey;
-    marketCustodyPk: web3.PublicKey;
-    collateralCustodyPk: web3.PublicKey;
-    collateralMintPk: web3.PublicKey;
-    referralOrSystemProgram: web3.PublicKey;
-    eventAuthorityPk: web3.PublicKey;
-    perpsProgramId: web3.PublicKey;
-  },
-  mode: "idl" | "swapped" = "idl",
-) {
-  const custody =
-    mode === "idl" ? args.marketCustodyPk : args.collateralCustodyPk;
-  const collateralCustody =
-    mode === "idl" ? args.collateralCustodyPk : args.marketCustodyPk;
-
-  const accounts = {
-    owner: args.owner,
-    fundingAccount: args.ownerUsdcAta,
-    perpetuals: args.perpetualsPk,
-    pool: args.poolPk,
-    position: args.positionPk,
-    positionRequest: args.positionRequestPk,
-    positionRequestAta: args.positionRequestUsdcAta,
-    custody,
-    collateralCustody,
-    inputMint: args.collateralMintPk,
-    referral: args.referralOrSystemProgram,
-    tokenProgram: TOKEN_PROGRAM_ID,
-    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-    systemProgram: web3.SystemProgram.programId,
-    eventAuthority: args.eventAuthorityPk,
-    program: args.perpsProgramId,
-  };
-
-  if (accounts.custody.equals(accounts.collateralCustody)) {
-    throw new Error("custody == collateralCustody (should never happen)");
-  }
-  return accounts;
-}
-
 async function sendIncreasePositionRobust(
   params: {
   program: Program;
@@ -360,23 +526,12 @@ async function sendIncreasePositionRobust(
   ixArgs: any;
 
   payer: web3.PublicKey;
-  owner: web3.PublicKey;
-  perpetualsPk: web3.PublicKey;
-  poolPk: web3.PublicKey;
-
-  positionPk: web3.PublicKey;
-
-  positionRequestPk: web3.PublicKey;
-  positionRequestUsdcAta: web3.PublicKey;
-  ownerUsdcAta: web3.PublicKey;
-
   marketCustodyPk: web3.PublicKey;
   collateralCustodyPk: web3.PublicKey;
   collateralMintPk: web3.PublicKey;
-  referralOrSystemProgram: web3.PublicKey;
-  eventAuthorityPk: web3.PublicKey;
-  perpsProgramId: web3.PublicKey;
-  startSwappedOrder?: boolean;
+  derived: { position: web3.PublicKey; positionRequest: web3.PublicKey };
+  orderMode: "idl" | "swapped";
+  buildAccountsStrictBase: () => any;
 },
   steps: StepTracker,
 ) {
@@ -385,71 +540,52 @@ async function sendIncreasePositionRobust(
     ixArgs,
     payer,
     collateralMintPk,
-    owner,
-    perpetualsPk,
-    poolPk,
-    positionRequestPk,
-    positionRequestUsdcAta,
-    ownerUsdcAta,
     marketCustodyPk,
     collateralCustodyPk,
-    referralOrSystemProgram,
-    eventAuthorityPk,
-    perpsProgramId,
+    derived,
+    orderMode,
+    buildAccountsStrictBase,
   } = params;
 
-  let positionPk = new web3.PublicKey(params.positionPk);
-  let useSwappedOrder = params.startSwappedOrder === true;
   const preIxsBase = [...params.preIxs];
   const postIxs = [...params.postIxs];
 
-  function rebuildPreIxsForCurrentPosition(note?: string) {
+  function rebuildPreIxs(note?: string) {
     steps.start("ataPosition");
     const { ix: posAtaIx } = makePositionUsdcAtaIx(
       payer,
-      positionPk,
+      derived.position,
       collateralMintPk,
     );
     const rebuilt = [...preIxsBase, posAtaIx];
-    const short = shortId(positionPk.toBase58());
-    steps.ok("ataPosition", note ?? `Ensured for ${short}`);
+    steps.ok("ataPosition", note ?? `ensured for ${derived.position.toBase58()}`);
     return rebuilt;
   }
 
-  let preIxs = rebuildPreIxsForCurrentPosition();
+  const preIxs = rebuildPreIxs();
 
-  const buildAccounts = () => ({
-    owner,
-    fundingAccount: ownerUsdcAta,
-    perpetuals: perpetualsPk,
-    pool: poolPk,
-    position: positionPk,
-    positionRequest: positionRequestPk,
-    positionRequestAta: positionRequestUsdcAta,
-    custody: useSwappedOrder ? collateralCustodyPk : marketCustodyPk,
-    collateralCustody: useSwappedOrder ? marketCustodyPk : collateralCustodyPk,
-    inputMint: collateralMintPk,
-    referral: referralOrSystemProgram,
-    tokenProgram: TOKEN_PROGRAM_ID,
-    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-    systemProgram: web3.SystemProgram.programId,
-    eventAuthority: eventAuthorityPk,
-    program: perpsProgramId,
-  });
+  const buildAccounts = () => {
+    const base = buildAccountsStrictBase();
+    if (orderMode === "swapped") {
+      return {
+        ...base,
+        custody: collateralCustodyPk,
+        collateralCustody: marketCustodyPk,
+      };
+    }
+    return base;
+  };
 
   async function trySend(label: string) {
     console.log(
       "➡️ using position for send:",
-      positionPk.toBase58(),
+      derived.position.toBase58(),
       "| order:",
-      useSwappedOrder ? "swapped" : "idl",
+      orderMode,
     );
     steps.start("accountsBuilt");
     const accounts = buildAccounts();
-    steps.ok(
-      "accountsBuilt",
-      `Using ${useSwappedOrder ? "swapped" : "idl"} order for ${shortId(positionPk.toBase58())}`,
-    );
+    steps.ok("accountsBuilt", `Using ${orderMode} order for ${shortId(derived.position.toBase58())}`);
     const m = program.methods
       .createIncreasePositionMarketRequest(ixArgs)
       .accountsStrict(accounts)
@@ -465,8 +601,14 @@ async function sendIncreasePositionRobust(
     try {
       await trySend(`attempt ${attempt}/4`);
       steps.ok("programPass");
+      (Object.keys(SUBSTEP_LABEL) as ValidationSubStepKey[]).forEach((key) => {
+        const status = steps.getSub(key);
+        if (!status || status.ok == null) {
+          steps.subOk(key, "passed");
+        }
+      });
       steps.ok("watch");
-      return positionPk;
+      return derived.position;
     } catch (e: any) {
       if (!steps.get("submit")?.ok) {
         steps.ok("submit");
@@ -475,39 +617,21 @@ async function sendIncreasePositionRobust(
       const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
 
       if (code === 2006) {
-        const rightPkStr = parseConstraintSeedsRight(logs, "position");
-        const reason = rightPkStr
-          ? `Program expects ${rightPkStr}`
-          : "Seeds mismatch for 'position'";
-        steps.fail("positionSelect", reason);
-        if (rightPkStr) {
-          const rightPk = new web3.PublicKey(rightPkStr);
-          if (!positionPk.equals(rightPk)) {
-            console.warn("🔧 position ← Right: from logs →", rightPkStr);
-            positionPk = rightPk;
-            preIxs = rebuildPreIxsForCurrentPosition("Updated from logs");
-            steps.ok("positionSelect", `Updated to ${rightPkStr}`);
-            continue;
-          }
-        }
+        const right = extractRightAddress(logs);
+        const note = right
+          ? `Program expects position=${right} (derived=${derived.position.toBase58()})`
+          : "Seeds mismatch";
+        markValidationsFromLogs(steps, logs);
+        steps.fail("programPass", note);
         throw e;
       }
 
-      if (
-        code === 6006 ||
-        shouldSwapCustodiesForIdlMismatch(logs, marketCustodyPk, collateralCustodyPk)
-      ) {
-        steps.fail(
-          "positionSelect",
-          "Collat mismatch implies wrong order → will flip order",
-        );
-        useSwappedOrder = !useSwappedOrder;
-        console.warn("🔁 flipping custody order →", useSwappedOrder ? "swapped" : "idl");
-        steps.ok(
-          "positionSelect",
-          `Retry with ${useSwappedOrder ? "swapped" : "idl"} custody order`,
-        );
-        continue;
+      markValidationsFromLogs(steps, logs);
+
+      if (logs.some((l) => l.includes("Invalid collateral account"))) {
+        steps.subFail("vCustodyOrder", "swap custody order not allowed under deterministic mode");
+        steps.fail("programPass", "custody order mismatch");
+        throw e;
       }
 
       throw e;
@@ -603,14 +727,6 @@ function formatLogs(raw: string[]): string[] {
       type: "string",
       describe:
         "Override collateral mint (default: WSOL for long, USDC for short)",
-    })
-    .option("position", {
-      type: "string",
-      describe: "Override Position PDA (use the Right: value from logs)",
-    })
-    .option("position-request", {
-      type: "string",
-      describe: "Override PositionRequest PDA (use Perps 'Right:' value)",
     })
     .option("oracle-price", {
       type: "number",
@@ -774,101 +890,36 @@ function formatLogs(raw: string[]): string[] {
   console.log("🧪 inputMint:          ", collateralMint.toBase58());
 
   bar("PDAs", "🧩");
-  const {
-    positionIdlExpected,
-    positionSwappedExpected,
-    posPoolFirst,
-    posOwnerFirst,
-  } = await steps.time(
+  const pdaInputs: PdaInputs = {
+    pool: pool.publicKey,
+    owner: wallet.publicKey,
+    marketCustody: marketCustodyPk,
+    collateralCustody: collateralCustodyPk,
+  };
+  const DERIVED = await steps.time(
     "pdas",
     async () => {
-      const positionIdlExpectedInner = derivePositionPda(
-        programId,
-        wallet.publicKey,
-        pool.publicKey,
-        marketCustodyPk,
-        collateralCustodyPk,
+      const position = derivePositionDeterministic(program, pdaInputs);
+      const positionRequest = derivePositionRequestDeterministic(
+        program,
+        pdaInputs,
+        position,
       );
-      const positionSwappedExpectedInner = derivePositionPda(
-        programId,
-        wallet.publicKey,
-        pool.publicKey,
-        collateralCustodyPk,
-        marketCustodyPk,
-      );
-      const [posPoolFirstInner] = derivePositionPdaPoolFirst(
-        programId,
-        pool.publicKey,
-        wallet.publicKey,
-      );
-      const [posOwnerFirstInner] = derivePositionPdaOwnerFirst(
-        programId,
-        wallet.publicKey,
-        pool.publicKey,
-      );
-      return {
-        positionIdlExpected: positionIdlExpectedInner,
-        positionSwappedExpected: positionSwappedExpectedInner,
-        posPoolFirst: posPoolFirstInner,
-        posOwnerFirst: posOwnerFirstInner,
-      };
+      return { position, positionRequest };
     },
-    "Deriving position PDAs",
+    "Deriving deterministic PDAs",
   );
-  console.log(
-    "🧮 expected positions → idl:",
-    positionIdlExpected.toBase58(),
-    " swapped:",
-    positionSwappedExpected.toBase58(),
-  );
-  steps.ok("pdas", `IDL ${shortId(positionIdlExpected.toBase58())}`);
-  const positionOverride = argv.position
-    ? toPk("position", argv.position)
-    : null;
-  if (positionOverride) {
-    console.log("🧩 position (override) =", positionOverride.toBase58());
-  }
-  const positionIdl = positionOverride ?? positionIdlExpected;
-  const positionSwapped = positionSwappedExpected;
-  // Loud, one-time debug to compare with Perps' "Right:" if it error-logs again
-  console.log(
-    "🧩 position PDAs :: idl=",
-    positionIdlExpected.toBase58(),
-    " swapped=",
-    positionSwappedExpected.toBase58(),
-    " poolFirst=",
-    posPoolFirst.toBase58(),
-    " ownerFirst=",
-    posOwnerFirst.toBase58(),
-  );
-
-  // Use the canonical PDA for the request unless overridden
-  const unique = Math.floor(Date.now() / 1000);
-  let positionRequest: PublicKey;
-  const prOverride = argv["position-request"] as string | undefined;
-  const havePR = !!prOverride;
-  const positionForRequestSeed = positionIdl;
-  if (havePR) {
-    positionRequest = toPk("position-request", prOverride);
-    console.log("🧩 positionRequest (override) =", positionRequest.toBase58());
-  } else {
-    const [derivedPositionRequest] = derivePdaFromIdl(
-      JUP_PERPS_IDL as Idl,
-      programId,
-      "positionRequest",
-      {
-        owner: wallet.publicKey,
-        pool: pool.publicKey,
-        custody: marketCustodyPk,
-        collateralCustody: collateralCustodyPk,
-        seed: unique,
-        position: positionForRequestSeed,
-      },
-    );
-    positionRequest = derivedPositionRequest;
-  }
-  kv("Position", positionForRequestSeed.toBase58());
-  kv("PosRequest", positionRequest.toBase58());
+  (Object.keys(SUBSTEP_LABEL) as ValidationSubStepKey[]).forEach((key) => {
+    if (!steps.hasSub(key)) {
+      steps.subStart(key);
+    }
+  });
+  steps.ok("pdas", shortId(DERIVED.position.toBase58()));
+  kv("Position", DERIVED.position.toBase58());
+  kv("PosRequest", DERIVED.positionRequest.toBase58());
+  const positionPk = DERIVED.position;
+  const positionRequest = DERIVED.positionRequest;
+  const havePR = false;
 
   const decimals = (collateralCustodyInfo.account.decimals as number) ?? 9;
   // Discovery run = no token transfer → set collat=0 on the wire when !havePR
@@ -1092,31 +1143,39 @@ function formatLogs(raw: string[]): string[] {
   const positionRequestUsdcAta =
     havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata;
 
-  const accountArgsBase = {
+  const buildAccountsStrictBase = () => ({
     owner: wallet.publicKey,
-    perpetualsPk: perpetuals.publicKey,
-    poolPk: pool.publicKey,
-    positionRequestPk: positionRequest,
-    positionRequestUsdcAta,
-    ownerUsdcAta: ownerAtaInit.ata,
-    marketCustodyPk,
-    collateralCustodyPk,
-    collateralMintPk: collateralMint,
-    referralOrSystemProgram: wallet.publicKey,
-    eventAuthorityPk,
-    perpsProgramId: programId,
-  };
+    fundingAccount: ownerAtaInit.ata,
+    perpetuals: perpetuals.publicKey,
+    pool: pool.publicKey,
+    position: positionPk,
+    positionRequest,
+    positionRequestAta: positionRequestUsdcAta,
+    custody: marketCustodyPk,
+    collateralCustody: collateralCustodyPk,
+    inputMint: collateralMint,
+    referral: wallet.publicKey,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+    systemProgram: SystemProgram.programId,
+    eventAuthority: eventAuthorityPk!,
+    program: program.programId,
+  });
 
   steps.start("positionSelect");
   const previewMode: "idl" | "swapped" = flipCustodyOrder ? "swapped" : "idl";
-  const previewPosition = previewMode === "swapped" ? positionSwapped : positionIdl;
+  const previewAccountsBase = buildAccountsStrictBase();
+  const previewAccounts =
+    previewMode === "swapped"
+      ? {
+          ...previewAccountsBase,
+          custody: collateralCustodyPk,
+          collateralCustody: marketCustodyPk,
+        }
+      : previewAccountsBase;
   steps.ok(
     "positionSelect",
-    `${previewMode === "swapped" ? "Swapped" : "IDL"} → ${shortId(previewPosition.toBase58())}`,
-  );
-  const previewAccounts = buildIncreaseAccounts(
-    { ...accountArgsBase, positionPk: previewPosition },
-    previewMode,
+    `${previewMode === "swapped" ? "Swapped" : "IDL"} custody → ${shortId(positionPk.toBase58())}`,
   );
   console.log(
     "💳 fundingAccount (payer) =",
@@ -1139,8 +1198,7 @@ function formatLogs(raw: string[]): string[] {
 
       const dryRunMode: "idl" | "swapped" = previewMode;
       if (argv["dry-run"]) {
-        const dryRunPosition =
-          dryRunMode === "swapped" ? positionSwapped : positionIdl;
+        const dryRunPosition = positionPk;
         const dryRunPreIxs = (() => {
           steps.start("ataPosition");
           const { ix: posAtaIx } = makePositionUsdcAtaIx(
@@ -1155,10 +1213,15 @@ function formatLogs(raw: string[]): string[] {
           );
           return rebuilt;
         })();
-        const accounts = buildIncreaseAccounts(
-          { ...accountArgsBase, positionPk: dryRunPosition },
-          dryRunMode,
-        );
+        const accountsBase = buildAccountsStrictBase();
+        const accounts =
+          dryRunMode === "swapped"
+            ? {
+                ...accountsBase,
+                custody: collateralCustodyPk,
+                collateralCustody: marketCustodyPk,
+              }
+            : accountsBase;
         steps.ok(
           "accountsBuilt",
           `Dry-run ${dryRunMode === "swapped" ? "swapped" : "idl"}`,
@@ -1199,20 +1262,12 @@ function formatLogs(raw: string[]): string[] {
         postIxs,
         ixArgs,
         payer: wallet.publicKey,
-        owner: wallet.publicKey,
-        perpetualsPk: perpetuals.publicKey,
-        poolPk: pool.publicKey,
-        positionPk: previewPosition,
-        positionRequestPk: positionRequest,
-        positionRequestUsdcAta,
-        ownerUsdcAta: ownerAtaInit.ata,
         marketCustodyPk,
         collateralCustodyPk,
         collateralMintPk: collateralMint,
-        referralOrSystemProgram: wallet.publicKey,
-        eventAuthorityPk: eventAuthorityPk!,
-        perpsProgramId: programId,
-        startSwappedOrder: previewMode === "swapped",
+        derived: DERIVED,
+        orderMode: previewMode,
+        buildAccountsStrictBase,
       }, steps);
       steps.ok("positionSelect", `Final ${shortId(finalPositionPk.toBase58())}`);
       return true;
