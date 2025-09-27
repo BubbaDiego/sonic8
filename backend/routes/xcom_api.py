@@ -1,4 +1,3 @@
-
 """FastAPI router exposing XCom CRUD + utility endpoints."""
 
 from __future__ import annotations
@@ -11,6 +10,7 @@ from backend.models.xcom_models import (
 )
 from backend.core.xcom_core.xcom_status_service import XComStatusService
 from backend.core.xcom_core.xcom_core import XComCore, get_latest_xcom_monitor_entry
+from backend.core.xcom_core.xcom_config_service import XComConfigService
 from backend.data.data_locker import DataLocker
 from backend.deps import get_locker
 
@@ -29,6 +29,33 @@ def read_providers(dl: DataLocker = Depends(get_locker)):
             if (smtp := provider.get("smtp")) and isinstance(smtp, dict) and "password" in smtp:
                 smtp["password"] = "********"
     return ProviderMap(__root__=cfg)
+
+
+@router.get("/providers/resolved", response_model=ProviderMap)
+def read_providers_resolved(dl: DataLocker = Depends(get_locker)):
+    """Return env-resolved provider configs with secrets masked."""
+    svc = XComConfigService(dl)
+    base = dl.system.get_var("xcom_providers") or {}
+    names = list(base.keys())
+    if "api" in names and "twilio" not in names:
+        names.append("twilio")
+
+    out: dict[str, dict] = {}
+    for name in names:
+        try:
+            provider_name = "twilio" if name == "api" else name
+            provider = svc.get_provider(provider_name) or {}
+            if isinstance(provider, dict):
+                if "password" in provider:
+                    provider["password"] = "********"
+                if "auth_token" in provider:
+                    provider["auth_token"] = "********"
+                if (smtp := provider.get("smtp")) and isinstance(smtp, dict) and "password" in smtp:
+                    smtp["password"] = "********"
+            out[name] = provider
+        except Exception:
+            out[name] = base.get(name, {})
+    return ProviderMap(__root__=out)
 
 @router.put("/providers")
 def write_providers(cfg: ProviderMap, dl: DataLocker = Depends(get_locker)):

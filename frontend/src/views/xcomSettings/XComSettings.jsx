@@ -14,7 +14,7 @@ import CampaignIcon from '@mui/icons-material/Campaign';
 
 import MainCard from 'ui-component/cards/MainCard';
 import ProviderAccordion from './components/ProviderAccordion';
-import { useProviders, useSaveProviders, useStatus, useTestMessage, useRunHeartbeat } from 'hooks/useXCom';
+import { useProviders, useProvidersResolved, useSaveProviders, useStatus, useTestMessage, useRunHeartbeat } from 'hooks/useXCom';
 import { enqueueSnackbar } from 'notistack';
 
 const TWILIO_ICON_SRC = '/images/twilio.png';
@@ -203,6 +203,7 @@ const createTTSValues = (draft) => ({
 
 export default function XComSettings() {
   const { data: providers, isLoading: providersLoading, error: providersError } = useProviders();
+  const { data: resolved } = useProvidersResolved();
   const saveProviders = useSaveProviders();
   const {
     data: status,
@@ -351,7 +352,14 @@ export default function XComSettings() {
         icon: TWILIO_ICON_SRC,
         externalLink: TWILIO_CONSOLE_URL,
         defaultExpanded: true,
-        source: providers?.twilio ?? providers?.api
+        source: providers?.twilio ?? providers?.api,
+        env: {
+          TWILIO_ACCOUNT_SID: resolved?.twilio?.account_sid ?? resolved?.api?.account_sid ?? '',
+          TWILIO_AUTH_TOKEN: resolved?.twilio?.auth_token ?? resolved?.api?.auth_token ?? '',
+          TWILIO_FLOW_SID: resolved?.twilio?.flow_sid ?? resolved?.api?.flow_sid ?? '',
+          TWILIO_DEFAULT_FROM_PHONE: resolved?.twilio?.default_from_phone ?? resolved?.api?.default_from_phone ?? '',
+          TWILIO_DEFAULT_TO_PHONE: resolved?.twilio?.default_to_phone ?? resolved?.api?.default_to_phone ?? ''
+        }
       },
       {
         id: 'email',
@@ -362,7 +370,14 @@ export default function XComSettings() {
         fields: emailFields,
         values: createEmailValues(draft),
         onChange: handleEmailChange,
-        source: providers?.email ?? providers?.smtp
+        source: providers?.email ?? providers?.smtp,
+        env: {
+          SMTP_SERVER: resolved?.email?.smtp?.server ?? '',
+          SMTP_PORT: resolved?.email?.smtp?.port ?? '',
+          SMTP_USERNAME: resolved?.email?.smtp?.username ?? '',
+          SMTP_PASSWORD: resolved?.email?.smtp?.password ?? '',
+          SMTP_DEFAULT_RECIPIENT: resolved?.email?.smtp?.default_recipient ?? ''
+        }
       },
       {
         id: 'sound',
@@ -384,9 +399,11 @@ export default function XComSettings() {
           .sort(sortTwilioFirst)
           .map((provider) => {
             const envMap =
-              provider?.source && typeof provider.source.env === 'object' && provider.source.env !== null
-                ? provider.source.env
-                : deriveEnvFromFields(provider, provider.values);
+              provider?.env && typeof provider.env === 'object' && provider.env !== null
+                ? provider.env
+                : provider?.source && typeof provider.source.env === 'object' && provider.source.env !== null
+                  ? provider.source.env
+                  : deriveEnvFromFields(provider, provider.values);
             return (
               <ProviderAccordion
                 key={provider.id || provider.title}

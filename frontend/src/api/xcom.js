@@ -4,6 +4,7 @@ import axios from 'utils/axios';
 // ---- CRUD for provider config ----
 export const getProviders = () => axios.get('/xcom/providers').then(r => r.data);
 export const saveProviders = (payload) => axios.put('/xcom/providers', payload).then(r => r.data);
+export const getProvidersResolved = () => axios.get('/xcom/providers/resolved').then(r => r.data);
 
 // ---- Status & heartbeat ----
 export const getStatus = () => axios.get('/xcom/status').then(r => r.data);
