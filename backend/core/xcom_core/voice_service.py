@@ -38,16 +38,19 @@ class VoiceService:
             raise ValueError(f"{label} must be E.164 like +14155552671 (got {number!r})")
         return number
 
-    def call(self, to_number: Optional[str], subject: str, body: str) -> Tuple[bool, str]:
+    def call(
+        self, to_number: Optional[str], subject: str, body: str
+    ) -> Tuple[bool, str, str, str]:
         """Initiate a voice notification via Twilio.
 
-        Returns a tuple of ``(success, sid_or_error)``. When a Studio Flow SID is
-        configured we prefer that, otherwise a simple TwiML call is used.
+        Returns a tuple of ``(success, sid_or_error, to_number, from_number)``. When
+        a Studio Flow SID is configured we prefer that, otherwise a simple TwiML
+        call is used.
         """
 
         if not self.config.get("enabled", False):
             self.logger.warning("VoiceService: provider disabled → skipping call")
-            return False, "provider-disabled"
+            return False, "provider-disabled", "", ""
 
         from_number = self._pick(
             self.config.get("default_from_phone"),
@@ -84,7 +87,7 @@ class VoiceService:
                     from_number,
                     flow_sid,
                 )
-                return True, sid
+                return True, sid, to_resolved, from_number
 
             twiml = (
                 "<Response><Say voice='Polly.Matthew'>Sonic says: "
@@ -98,7 +101,7 @@ class VoiceService:
                 to_resolved,
                 from_number,
             )
-            return True, sid
+            return True, sid, to_resolved, from_number
         except Exception as exc:  # pragma: no cover - Twilio network errors
             self.logger.exception("Twilio voice call failed: %s", exc)
-            return False, str(exc)
+            return False, str(exc), to_resolved, from_number

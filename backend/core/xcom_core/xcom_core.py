@@ -112,12 +112,20 @@ class XComCore:
                         f"Subject: {subject}. "
                         f"Details: {body}."
                     )
-                    ok, sid = VoiceService(voice_cfg).call(recipient, subject, voice_message)
+                    ok, sid, to_num, from_num = VoiceService(voice_cfg).call(
+                        recipient,
+                        subject,
+                        voice_message,
+                    )
                     results["voice"] = bool(ok)
                     if ok and sid:
                         results["twilio_sid"] = sid
                     elif sid:
                         results["twilio_error"] = sid
+                    if to_num:
+                        results["to_number"] = to_num
+                    if from_num:
+                        results["from_number"] = from_num
                     if results["voice"] and hasattr(system_mgr, "set_var"):
                         try:
                             system_mgr.set_var(
