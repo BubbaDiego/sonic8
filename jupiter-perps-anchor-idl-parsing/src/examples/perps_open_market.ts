@@ -141,8 +141,7 @@ class StepTracker {
     const now = performance.now();
     const prev = this.data.get(key) || {};
     const t0 = prev.t0 ?? this.runStart;
-    const t1 = prev.t1 ?? now;
-    this.data.set(key, { ok, note: note ?? prev.note, t0, t1 });
+    this.data.set(key, { ok, note: note ?? prev.note, t0, t1: now });
   }
 
   print(title = "Order Placement Checklist") {
@@ -153,15 +152,16 @@ class StepTracker {
       return ` — ${(ms / 1000).toFixed(2)}s`;
     };
     console.log(`\n──────── ${title} ────────`);
-    for (const k of STEP_ORDER) {
+    STEP_ORDER.forEach((k, i) => {
       const row = this.data.get(k);
       const icon = row?.ok === true ? "✅" : row?.ok === false ? "💀" : "•";
       const name = STEP_LABEL[k];
       const note = row?.note ? ` — ${row.note}` : "";
       const dur =
         row?.t0 != null && row?.t1 != null ? fmt(row.t1 - row.t0) : "";
-      console.log(`${icon}  ${name}${note}${dur}`);
-    }
+      const idx = String(i + 1).padStart(2, "0");
+      console.log(`${idx}) ${icon}  ${name}${note}${dur}`);
+    });
     console.log("────────────────────────────────────────\n");
     this.printed = true;
   }
@@ -169,6 +169,32 @@ class StepTracker {
   hasPrinted() {
     return this.printed;
   }
+}
+
+let __finalChecklistHookInstalled = false;
+function installFinalChecklistPrint(
+  steps: StepTracker,
+  finalTitle = "Order Placement Checklist (Final)",
+) {
+  if (__finalChecklistHookInstalled) return;
+  __finalChecklistHookInstalled = true;
+  const finalPrint = () => {
+    try {
+      steps.print(finalTitle);
+    } catch {}
+  };
+  process.once("exit", finalPrint);
+  process.once("beforeExit", finalPrint);
+  process.once("uncaughtException", (err) => {
+    finalPrint();
+    console.error(err);
+    process.exit(1);
+  });
+  process.once("unhandledRejection", (r: any) => {
+    finalPrint();
+    console.error(r);
+    process.exit(1);
+  });
 }
 
 async function makeProviderAndProgram(
@@ -539,6 +565,7 @@ function formatLogs(raw: string[]): string[] {
 
 (async () => {
   const steps = new StepTracker();
+  installFinalChecklistPrint(steps);
   steps.start("cli");
   try {
     const argv = await yargs(hideBin(process.argv))
