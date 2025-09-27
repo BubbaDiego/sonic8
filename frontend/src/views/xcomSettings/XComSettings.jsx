@@ -17,6 +17,9 @@ import ProviderAccordion from './components/ProviderAccordion';
 import { useProviders, useSaveProviders, useStatus, useTestMessage, useRunHeartbeat } from 'hooks/useXCom';
 import { enqueueSnackbar } from 'notistack';
 
+const TWILIO_ICON_SRC = '/images/twilio.png';
+const TWILIO_CONSOLE_URL = 'https://console.twilio.com/';
+
 const cloneProviders = (data) => JSON.parse(JSON.stringify(data || {}));
 
 const emailFields = [
@@ -277,19 +280,21 @@ export default function XComSettings() {
     return (
       <Stack spacing={1.5}>
         <ProviderAccordion
-          title="Email (SMTP)"
-          description="XCom uses SMTP to deliver email alerts."
-          fields={emailFields}
-          values={createEmailValues(draft)}
-          onChange={handleEmailChange}
-          defaultExpanded
-        />
-        <ProviderAccordion
           title="Twilio"
           description="Configure Twilio credentials used for automated calls and SMS."
           fields={twilioFields}
           values={createTwilioValues(draft)}
           onChange={handleTwilioChange}
+          icon={TWILIO_ICON_SRC}
+          externalLink={TWILIO_CONSOLE_URL}
+          defaultExpanded
+        />
+        <ProviderAccordion
+          title="Email (SMTP)"
+          description="XCom uses SMTP to deliver email alerts."
+          fields={emailFields}
+          values={createEmailValues(draft)}
+          onChange={handleEmailChange}
         />
         <ProviderAccordion
           title="Text-to-Speech"

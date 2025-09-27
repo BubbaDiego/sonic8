@@ -11,6 +11,9 @@ import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import { IconExternalLink } from '@tabler/icons-react';
 
 const fieldValue = (values, key) => {
   if (!values) return '';
@@ -24,7 +27,9 @@ const ProviderAccordion = ({
   values,
   onChange,
   defaultExpanded = false,
-  actions
+  actions,
+  icon,
+  externalLink
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -49,7 +54,31 @@ const ProviderAccordion = ({
     <Accordion expanded={expanded} onChange={(_, isExpanded) => setExpanded(isExpanded)} sx={{ mb: 2 }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="h5">{title}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {icon ? (
+              <Box
+                component="img"
+                src={icon}
+                alt="provider-icon"
+                sx={{ height: 20, width: 20, borderRadius: '4px' }}
+              />
+            ) : null}
+            <Typography variant="h5">{title}</Typography>
+            {externalLink ? (
+              <Tooltip title="Open Console">
+                <IconButton
+                  size="small"
+                  component="a"
+                  href={externalLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ ml: 0.5 }}
+                >
+                  <IconExternalLink size={18} />
+                </IconButton>
+              </Tooltip>
+            ) : null}
+          </Box>
           {description && (
             <Typography variant="body2" color="text.secondary">
               {description}
@@ -146,7 +175,9 @@ ProviderAccordion.propTypes = {
   values: PropTypes.object,
   onChange: PropTypes.func,
   defaultExpanded: PropTypes.bool,
-  actions: PropTypes.node
+  actions: PropTypes.node,
+  icon: PropTypes.string,
+  externalLink: PropTypes.string
 };
 
 export default ProviderAccordion;
