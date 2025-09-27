@@ -106,6 +106,41 @@ function shouldSwapCustodiesForIdlMismatch(
   );
 }
 
+// Parse the expected 'Right:' pubkey for ConstraintSeeds on a specific account
+function parseConstraintSeedsRight(
+  logs: string[],
+  accountName: string,
+): string | null {
+  const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
+  const idx = logs.findIndex(
+    (l) => l.includes("ConstraintSeeds") && l.includes(`account: ${accountName}`),
+  );
+  if (idx < 0) return null;
+  const window = logs.slice(idx, idx + 12);
+  const rightLine = window.find((l) => l.includes("Right:"));
+  const right = rightLine?.match(base58)?.[0] ?? null;
+  return right ?? null;
+}
+
+function buildPositionAtaIxs(params: {
+  payer: web3.PublicKey;
+  positionPk: web3.PublicKey;
+  collateralMintPk: web3.PublicKey;
+}): { ata: web3.PublicKey; ix: web3.TransactionInstruction } {
+  const ata = getAssociatedTokenAddressSync(
+    params.collateralMintPk,
+    params.positionPk,
+    true /* allowOwnerOffCurve */,
+  );
+  const ix = createAssociatedTokenAccountIdempotentInstruction(
+    params.payer,
+    ata,
+    params.positionPk,
+    params.collateralMintPk,
+  );
+  return { ata, ix };
+}
+
 // Pretty-printer for the final compiled instruction → accounts
 async function debugPrintIx(program: Program, m: any, label: string) {
   const ix = await m.instruction();
@@ -187,102 +222,123 @@ async function sendIncreasePositionWithSwapRetry(params: {
   referralOrSystemProgram: web3.PublicKey;
   eventAuthorityPk: web3.PublicKey;
   perpsProgramId: web3.PublicKey;
-  forcedMode?: "idl" | "swapped";
+  payer: web3.PublicKey;
+  initialMode?: "idl" | "swapped";
 }) {
   const {
     program,
-    preIxs,
-    postIxs,
     ixArgs,
+    collateralMintPk,
+    payer,
     owner,
     perpetualsPk,
     poolPk,
-    positionPk,
     positionRequestPk,
     positionRequestUsdcAta,
     ownerUsdcAta,
-    marketCustodyPk,
-    collateralCustodyPk,
-    collateralMintPk,
     referralOrSystemProgram,
     eventAuthorityPk,
     perpsProgramId,
-    forcedMode = "idl",
+    initialMode,
   } = params;
 
-  const baseArgs = {
-    owner,
-    perpetualsPk,
-    poolPk,
-    positionPk,
-    positionRequestPk,
-    positionRequestUsdcAta,
-    ownerUsdcAta,
-    marketCustodyPk,
-    collateralCustodyPk,
-    collateralMintPk,
-    referralOrSystemProgram,
-    eventAuthorityPk,
-    perpsProgramId,
-  };
+  let mode: "idl" | "swapped" = initialMode ?? "idl";
+  let positionPk = params.positionPk;
+  const basePreIxs = [...params.preIxs];
+  let preIxs = [...basePreIxs];
+  let postIxs = [...params.postIxs];
 
-  if (forcedMode === "swapped") {
-    const accounts = buildIncreaseAccounts(baseArgs, "swapped");
+  const initialPosAta = buildPositionAtaIxs({
+    payer,
+    positionPk,
+    collateralMintPk,
+  });
+  preIxs = [...preIxs, initialPosAta.ix];
+
+  const buildAccounts = () => ({
+    owner,
+    fundingAccount: ownerUsdcAta,
+    perpetuals: perpetualsPk,
+    pool: poolPk,
+    position: positionPk,
+    positionRequest: positionRequestPk,
+    positionRequestAta: positionRequestUsdcAta,
+    custody: mode === "idl" ? params.marketCustodyPk : params.collateralCustodyPk,
+    collateralCustody:
+      mode === "idl" ? params.collateralCustodyPk : params.marketCustodyPk,
+    inputMint: params.collateralMintPk,
+    referral: referralOrSystemProgram,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+    systemProgram: web3.SystemProgram.programId,
+    eventAuthority: eventAuthorityPk,
+    program: perpsProgramId,
+  });
+
+  async function sendOnce(label: string) {
     const method = (program as any).methods
       .createIncreasePositionMarketRequest(ixArgs)
-      .accountsStrict(accounts)
+      .accountsStrict(buildAccounts())
       .preInstructions(preIxs)
       .postInstructions(postIxs);
 
-    await debugPrintIx(program as Program, method, "forced swapped");
-    await method.rpc(/* opts */);
-    return;
+    await debugPrintIx(program as Program, method, label);
+    await method.rpc(/*opts*/);
   }
 
-  // Attempt 1 — IDL order
-  let accounts = buildIncreaseAccounts(baseArgs, "idl");
-  let method = (program as any).methods
-    .createIncreasePositionMarketRequest(ixArgs)
-    .accountsStrict(accounts)
-    .preInstructions(preIxs)
-    .postInstructions(postIxs);
-
-  await debugPrintIx(program as Program, method, "attempt 1/2");
   try {
-    await method.rpc(/* opts */);
+    await sendOnce(
+      mode === "idl" ? "attempt 1/3 (idl)" : "attempt 1/3 (swapped)",
+    );
     return;
   } catch (e: any) {
-    const allLogs = collectAllLogLines(e);
-    const parsed = parseInvalidCollateralFromLogs(allLogs);
-    const codeNum =
-      e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
+    const logs = collectAllLogLines(e);
+    const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
 
-    console.warn("⚠️ AnchorError caught at .rpc(). code=", codeNum, " parsed=", parsed);
-
-    const needSwap =
-      codeNum === 6006 ||
+    if (
+      code === 6006 ||
       shouldSwapCustodiesForIdlMismatch(
-        allLogs,
-        marketCustodyPk,
-        collateralCustodyPk,
-      );
-
-    if (!needSwap) throw e;
-
-    console.warn("🔁 Retrying with custody↔collateralCustody swapped.");
-
-    // Attempt 2 — swapped order
-    accounts = buildIncreaseAccounts(baseArgs, "swapped");
-    method = (program as any).methods
-      .createIncreasePositionMarketRequest(ixArgs)
-      .accountsStrict(accounts)
-      .preInstructions(preIxs)
-      .postInstructions(postIxs);
-
-    await debugPrintIx(program as Program, method, "attempt 2/2 (swapped)");
-    await method.rpc(/* opts */);
-    return;
+        logs,
+        params.marketCustodyPk,
+        params.collateralCustodyPk,
+      )
+    ) {
+      console.warn("🔁 6006 detected → switching to swapped custody order");
+      mode = "swapped";
+      preIxs = [...basePreIxs, initialPosAta.ix];
+    } else {
+      throw e;
+    }
   }
+
+  try {
+    await sendOnce("attempt 2/3 (swapped)");
+    return;
+  } catch (e: any) {
+    const logs = collectAllLogLines(e);
+    const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
+
+    if (code === 2006) {
+      const right = parseConstraintSeedsRight(logs, "position");
+      if (!right) throw e;
+
+      const rightPk = new web3.PublicKey(right);
+      console.warn("🔧 Aligning position PDA from logs →", right);
+      positionPk = rightPk;
+
+      const { ix: posAtaIx } = buildPositionAtaIxs({
+        payer,
+        positionPk,
+        collateralMintPk,
+      });
+
+      preIxs = [...basePreIxs, posAtaIx];
+    } else {
+      throw e;
+    }
+  }
+
+  await sendOnce("attempt 3/3 (swapped + position fix)");
 }
 
 function shortId(s: string) {
@@ -694,312 +750,221 @@ function formatLogs(raw: string[]): string[] {
 
   const signer = (provider.wallet as any).payer as Keypair;
   let lastValidBlockHeight: number | undefined;
-  let pendingCollateralOverride: CustodyInfo | null = null;
-  let didAutoAlignCollateral = false;
-  let activePositionRequest = positionRequest;
-  let activeCollateralCustodyInfo = collateralCustodyInfo;
-  let activeCollateralCustodyPk = collateralCustodyPk;
-  let sendErr: any = null;
+  let reqAtaInit: { ata: PublicKey; ix: any } | null = null;
+  let posAtaInit: { ata: PublicKey; ix: any } | null = null;
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    if (pendingCollateralOverride) {
-      activeCollateralCustodyInfo = pendingCollateralOverride;
-      activeCollateralCustodyPk = pendingCollateralOverride.pubkey;
-      pendingCollateralOverride = null;
-      if (!havePR) {
-        const [derivedPositionRequest] = derivePdaFromIdl(
-          JUP_PERPS_IDL as Idl,
-          programId,
-          "positionRequest",
-          {
-            owner: wallet.publicKey,
-            pool: pool.publicKey,
-            custody: marketCustodyPk,
-            collateralCustody: activeCollateralCustodyPk,
-            seed: unique,
-            position,
-          },
-        );
-        activePositionRequest = derivedPositionRequest;
-        console.log(
-          "🔧 auto-align: positionRequest →",
-          activePositionRequest.toBase58(),
-        );
-      }
-    }
-
-    let reqAtaInit: { ata: PublicKey; ix: any } | null = null;
-    let posAtaInit: { ata: PublicKey; ix: any } | null = null;
-
-    if (havePR) {
-      const escrowTokenProgramId =
-        await getTokenProgramIdForMint(collateralMint);
-      reqAtaInit = createAtaIxStrict(
-        wallet.publicKey,
-        collateralMint,
-        activePositionRequest,
-        /*allowOwnerOffCurve=*/ true,
-        escrowTokenProgramId,
-      );
-      console.log(
-        `🧪 ATA debug (${mintLabel(collateralMint)}, positionRequest):`,
-        {
-          mint: shortId(collateralMint.toBase58()),
-          owner: shortId(activePositionRequest.toBase58()),
-          allowOwnerOffCurve: true,
-          tokenProgramId: shortId(escrowTokenProgramId.toBase58()),
-          ata: shortId(reqAtaInit.ata.toBase58()),
-        },
-      );
-      const expectedReqAta = deriveAtaStrict(
-        collateralMint,
-        activePositionRequest,
-        true,
-        escrowTokenProgramId,
-      );
-      if (!reqAtaInit.ata.equals(expectedReqAta)) {
-        throw new Error("ATA mismatch (positionRequest) vs seed derivation");
-      }
-
-      posAtaInit = createAtaIxStrict(
-        wallet.publicKey,
-        collateralMint,
-        position,
-        /*allowOwnerOffCurve=*/ true,
-        escrowTokenProgramId,
-      );
-      console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, position):`, {
-        mint: shortId(collateralMint.toBase58()),
-        owner: shortId(position.toBase58()),
-        allowOwnerOffCurve: true,
-        tokenProgramId: shortId(escrowTokenProgramId.toBase58()),
-        ata: shortId(posAtaInit.ata.toBase58()),
-      });
-      const expectedPosAta = deriveAtaStrict(
-        collateralMint,
-        position,
-        true,
-        escrowTokenProgramId,
-      );
-      if (!posAtaInit.ata.equals(expectedPosAta)) {
-        throw new Error("ATA mismatch (position) vs seed derivation");
-      }
-    }
-
-    const preIxs: any[] = [
-      ComputeBudgetProgram.setComputeUnitLimit({ units: argv.cuLimit }),
-      ComputeBudgetProgram.setComputeUnitPrice({
-        microLamports: argv.priorityMicrolamports,
-      }),
-    ];
-
-    if (collateralMint.equals(wsolMint)) {
-      const ownerPubkey = owner.publicKey;
-      const wsolAta = getAssociatedTokenAddressSync(
-        wsolMint,
-        ownerPubkey,
-        /* allowOwnerOffCurve */ false,
-        TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID,
-      );
-
-      if (ownerPubkey.equals(wsolAta)) {
-        throw new Error(
-          "BUG: payer equals ATA (would cause 'from must not carry data').",
-        );
-      }
-
-      const payerInfo = await provider.connection.getAccountInfo(ownerPubkey);
-      if (!payerInfo || !payerInfo.owner.equals(SystemProgram.programId)) {
-        throw new Error("BUG: payer is not a SystemProgram-owned account.");
-      }
-
-      preIxs.push(
-        createAssociatedTokenAccountIdempotentInstruction(
-          ownerPubkey,
-          wsolAta,
-          ownerPubkey,
-          wsolMint,
-          TOKEN_PROGRAM_ID,
-          ASSOCIATED_TOKEN_PROGRAM_ID,
-        ),
-      );
-    } else {
-      preIxs.push(ownerAtaInit.ix);
-    }
-    if (reqAtaInit) preIxs.push(reqAtaInit.ix);
-    if (posAtaInit) preIxs.push(posAtaInit.ix);
-
-    console.log(
-      "🧾 preIxs =",
-      preIxs.length,
-      havePR ? " (owner + req escrow + pos escrow)" : " (owner only)",
-      attempt > 1 ? " [retry]" : "",
+  if (havePR) {
+    const escrowTokenProgramId = await getTokenProgramIdForMint(collateralMint);
+    reqAtaInit = createAtaIxStrict(
+      wallet.publicKey,
+      collateralMint,
+      positionRequest,
+      /*allowOwnerOffCurve=*/ true,
+      escrowTokenProgramId,
     );
-
-    const metas4 = (ix: any) =>
-      ix?.keys?.slice(0, 4)?.map((k: any) => k.pubkey.toBase58());
-    if (reqAtaInit)
-      console.log(
-        "AToken escrow[req] metas [payer, ata, owner, mint] =",
-        metas4(reqAtaInit.ix),
-      );
-    if (posAtaInit)
-      console.log(
-        "AToken escrow[pos] metas [payer, ata, owner, mint] =",
-        metas4(posAtaInit.ix),
-      );
-
-    if (!eventAuthorityPk) {
-      throw new Error("Missing event authority PDA");
-    }
-
-    const positionRequestUsdcAta =
-      havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata;
-
-    const baseArgs = {
-      owner: wallet.publicKey,
-      perpetualsPk: perpetuals.publicKey,
-      poolPk: pool.publicKey,
-      positionPk: position,
-      positionRequestPk: activePositionRequest,
-      positionRequestUsdcAta,
-      ownerUsdcAta: ownerAtaInit.ata,
-      marketCustodyPk,
-      collateralCustodyPk: activeCollateralCustodyPk,
-      collateralMintPk: collateralMint,
-      referralOrSystemProgram: wallet.publicKey,
-      eventAuthorityPk,
-      perpsProgramId: programId,
-    };
-
-    const forcedMode: "idl" | "swapped" = flipCustodyOrder
-      ? "swapped"
-      : "idl";
-
-    const previewAccounts = buildIncreaseAccounts(baseArgs, forcedMode);
-    console.log(
-      "💳 fundingAccount (payer) =",
-      previewAccounts.fundingAccount.toBase58(),
-      "(collateral ATA)",
+    console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, positionRequest):`, {
+      mint: shortId(collateralMint.toBase58()),
+      owner: shortId(positionRequest.toBase58()),
+      allowOwnerOffCurve: true,
+      tokenProgramId: shortId(escrowTokenProgramId.toBase58()),
+      ata: shortId(reqAtaInit.ata.toBase58()),
+    });
+    const expectedReqAta = deriveAtaStrict(
+      collateralMint,
+      positionRequest,
+      true,
+      escrowTokenProgramId,
     );
-
-    const postIxs: web3.TransactionInstruction[] = [];
-    const ixArgs = {
-      sizeUsdDelta: sizeUsdDeltaDisc,
-      collateralTokenDelta,
-      side: sideEnum,
-      priceSlippage: priceGuard,
-      jupiterMinimumOut: null,
-    };
-
-    let localErr: any = null;
-    let localLogs: string[] | null = null;
-
-    await rpcPool.runWithFailover(async (conn) => {
-      await ensureProviderOnConnection(conn);
-
-      const finalizeSuccess = () => {
-        positionRequest = activePositionRequest;
-        collateralCustodyPk = activeCollateralCustodyPk;
-        collateralCustodyInfo = activeCollateralCustodyInfo;
-        sendErr = null;
-        localErr = null;
-        localLogs = null;
-        return true;
-      };
-
-      try {
-        const dryRunMode: "idl" | "swapped" = forcedMode ?? "idl";
-        if (argv["dry-run"]) {
-          const accounts = buildIncreaseAccounts(baseArgs, dryRunMode);
-          const method = (program as any).methods
-            .createIncreasePositionMarketRequest(ixArgs)
-            .accountsStrict(accounts)
-            .preInstructions(preIxs)
-            .postInstructions(postIxs);
-
-          const label =
-            dryRunMode === "swapped" ? "dry-run (swapped)" : "dry-run";
-          const reqIx = await debugPrintIx(program as Program, method, label);
-
-          const allIxs = [...preIxs, reqIx, ...postIxs];
-          const { blockhash, lastValidBlockHeight: lvbh } =
-            await provider.connection.getLatestBlockhash();
-          lastValidBlockHeight = lvbh;
-          const message = new TransactionMessage({
-            payerKey: signer.publicKey,
-            recentBlockhash: blockhash,
-            instructions: allIxs,
-          }).compileToV0Message();
-          const tx = new VersionedTransaction(message);
-          tx.sign([signer]);
-
-          await simulateOrSend(provider.connection, tx, true);
-          return finalizeSuccess();
-        }
-
-        await sendIncreasePositionWithSwapRetry({
-          program: program as Program,
-          preIxs,
-          postIxs,
-          ixArgs,
-          owner: wallet.publicKey,
-          perpetualsPk: perpetuals.publicKey,
-          poolPk: pool.publicKey,
-          positionPk: position,
-          positionRequestPk: activePositionRequest,
-          positionRequestUsdcAta,
-          ownerUsdcAta: ownerAtaInit.ata,
-          marketCustodyPk,
-          collateralCustodyPk: activeCollateralCustodyPk,
-          collateralMintPk: collateralMint,
-          referralOrSystemProgram: wallet.publicKey,
-          eventAuthorityPk: eventAuthorityPk!,
-          perpsProgramId: programId,
-          forcedMode,
-        });
-        return finalizeSuccess();
-      } catch (err: any) {
-        if (RpcPool.isRateLimitish(err)) {
-          throw err;
-        }
-        localErr = err;
-        const lines = collectAllLogLines(err);
-        localLogs = lines.length ? lines : null;
-        return true;
-      }
-    }, "send/createIncreasePositionMarketRequest");
-
-    if (localErr) {
-      sendErr = localErr;
-      if (argv["dry-run"]) throw localErr;
-      const rawLogs = localLogs ?? (await extractTransactionLogs(localErr));
-      const nextCollateralPk = rawLogs
-        ? tryAutoAlignCollateralFromLogs(rawLogs, allCustodies)
-        : null;
-      if (!nextCollateralPk || didAutoAlignCollateral) throw localErr;
-      const nextCollateral = allCustodies.find((c) =>
-        c.pubkey.equals(nextCollateralPk),
-      );
-      if (!nextCollateral) throw localErr;
-      if (nextCollateral.pubkey.equals(activeCollateralCustodyPk))
-        throw localErr;
-      didAutoAlignCollateral = true;
-      console.log(
-        "\n🔧 auto-align: collateralCustody →",
-        nextCollateral.pubkey.toBase58(),
-      );
-      pendingCollateralOverride = nextCollateral;
-      continue;
+    if (!reqAtaInit.ata.equals(expectedReqAta)) {
+      throw new Error("ATA mismatch (positionRequest) vs seed derivation");
     }
 
-    if (!sendErr) {
-      break;
+    posAtaInit = createAtaIxStrict(
+      wallet.publicKey,
+      collateralMint,
+      position,
+      /*allowOwnerOffCurve=*/ true,
+      escrowTokenProgramId,
+    );
+    console.log(`🧪 ATA debug (${mintLabel(collateralMint)}, position):`, {
+      mint: shortId(collateralMint.toBase58()),
+      owner: shortId(position.toBase58()),
+      allowOwnerOffCurve: true,
+      tokenProgramId: shortId(escrowTokenProgramId.toBase58()),
+      ata: shortId(posAtaInit.ata.toBase58()),
+    });
+    const expectedPosAta = deriveAtaStrict(
+      collateralMint,
+      position,
+      true,
+      escrowTokenProgramId,
+    );
+    if (!posAtaInit.ata.equals(expectedPosAta)) {
+      throw new Error("ATA mismatch (position) vs seed derivation");
     }
   }
 
-  if (sendErr) throw sendErr;
+  const preIxs: any[] = [
+    ComputeBudgetProgram.setComputeUnitLimit({ units: argv.cuLimit }),
+    ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: argv.priorityMicrolamports,
+    }),
+  ];
+
+  if (collateralMint.equals(wsolMint)) {
+    const ownerPubkey = owner.publicKey;
+    const wsolAta = getAssociatedTokenAddressSync(
+      wsolMint,
+      ownerPubkey,
+      /* allowOwnerOffCurve */ false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    );
+
+    if (ownerPubkey.equals(wsolAta)) {
+      throw new Error(
+        "BUG: payer equals ATA (would cause 'from must not carry data').",
+      );
+    }
+
+    const payerInfo = await provider.connection.getAccountInfo(ownerPubkey);
+    if (!payerInfo || !payerInfo.owner.equals(SystemProgram.programId)) {
+      throw new Error("BUG: payer is not a SystemProgram-owned account.");
+    }
+
+    preIxs.push(
+      createAssociatedTokenAccountIdempotentInstruction(
+        ownerPubkey,
+        wsolAta,
+        ownerPubkey,
+        wsolMint,
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      ),
+    );
+  } else {
+    preIxs.push(ownerAtaInit.ix);
+  }
+  if (reqAtaInit) preIxs.push(reqAtaInit.ix);
+
+  console.log(
+    "🧾 preIxs =",
+    preIxs.length,
+    havePR ? " (owner + req escrow)" : " (owner only)",
+  );
+
+  const metas4 = (ix: any) =>
+    ix?.keys?.slice(0, 4)?.map((k: any) => k.pubkey.toBase58());
+  if (reqAtaInit)
+    console.log(
+      "AToken escrow[req] metas [payer, ata, owner, mint] =",
+      metas4(reqAtaInit.ix),
+    );
+  if (posAtaInit)
+    console.log(
+      "AToken escrow[pos] metas [payer, ata, owner, mint] =",
+      metas4(posAtaInit.ix),
+    );
+
+  if (!eventAuthorityPk) {
+    throw new Error("Missing event authority PDA");
+  }
+
+  const positionRequestUsdcAta =
+    havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata;
+
+  const baseArgs = {
+    owner: wallet.publicKey,
+    perpetualsPk: perpetuals.publicKey,
+    poolPk: pool.publicKey,
+    positionPk: position,
+    positionRequestPk: positionRequest,
+    positionRequestUsdcAta,
+    ownerUsdcAta: ownerAtaInit.ata,
+    marketCustodyPk,
+    collateralCustodyPk,
+    collateralMintPk: collateralMint,
+    referralOrSystemProgram: wallet.publicKey,
+    eventAuthorityPk,
+    perpsProgramId: programId,
+  };
+
+  const previewMode: "idl" | "swapped" = flipCustodyOrder ? "swapped" : "idl";
+
+  const previewAccounts = buildIncreaseAccounts(baseArgs, previewMode);
+  console.log(
+    "💳 fundingAccount (payer) =",
+    previewAccounts.fundingAccount.toBase58(),
+    "(collateral ATA)",
+  );
+
+  const postIxs: web3.TransactionInstruction[] = [];
+  const ixArgs = {
+    sizeUsdDelta: sizeUsdDeltaDisc,
+    collateralTokenDelta,
+    side: sideEnum,
+    priceSlippage: priceGuard,
+    jupiterMinimumOut: null,
+  };
+
+  await rpcPool.runWithFailover(
+    async (conn) => {
+      await ensureProviderOnConnection(conn);
+
+      const dryRunMode: "idl" | "swapped" = previewMode;
+      if (argv["dry-run"]) {
+        const accounts = buildIncreaseAccounts(baseArgs, dryRunMode);
+        const method = (program as any).methods
+          .createIncreasePositionMarketRequest(ixArgs)
+          .accountsStrict(accounts)
+          .preInstructions(preIxs)
+          .postInstructions(postIxs);
+
+        const label =
+          dryRunMode === "swapped" ? "dry-run (swapped)" : "dry-run";
+        const reqIx = await debugPrintIx(program as Program, method, label);
+
+        const allIxs = [...preIxs, reqIx, ...postIxs];
+        const { blockhash, lastValidBlockHeight: lvbh } =
+          await provider.connection.getLatestBlockhash();
+        lastValidBlockHeight = lvbh;
+        const message = new TransactionMessage({
+          payerKey: signer.publicKey,
+          recentBlockhash: blockhash,
+          instructions: allIxs,
+        }).compileToV0Message();
+        const tx = new VersionedTransaction(message);
+        tx.sign([signer]);
+
+        await simulateOrSend(provider.connection, tx, true);
+        return true;
+      }
+
+      await sendIncreasePositionWithSwapRetry({
+        program: program as Program,
+        preIxs,
+        postIxs,
+        ixArgs,
+        owner: wallet.publicKey,
+        perpetualsPk: perpetuals.publicKey,
+        poolPk: pool.publicKey,
+        positionPk: position,
+        positionRequestPk: positionRequest,
+        positionRequestUsdcAta,
+        ownerUsdcAta: ownerAtaInit.ata,
+        marketCustodyPk,
+        collateralCustodyPk,
+        collateralMintPk: collateralMint,
+        referralOrSystemProgram: wallet.publicKey,
+        eventAuthorityPk: eventAuthorityPk!,
+        perpsProgramId: programId,
+        payer: wallet.publicKey,
+        initialMode: previewMode,
+      });
+      return true;
+    },
+    "send/createIncreasePositionMarketRequest",
+  );
 
   if (argv["dry-run"]) {
     info("🧪", "Simulation only (dry-run)");
@@ -1059,28 +1024,3 @@ async function simulateOrSend(
   }
 }
 
-async function extractTransactionLogs(err: any): Promise<string[] | null> {
-  if (!err) return null;
-  if (Array.isArray(err.transactionLogs)) return err.transactionLogs;
-  if (Array.isArray(err.logs)) return err.logs;
-  if (typeof err.getLogs === "function") {
-    try {
-      const logs = await err.getLogs();
-      if (Array.isArray(logs)) return logs;
-      if (Array.isArray((logs as any)?.logs)) return (logs as any).logs;
-    } catch {}
-  }
-  return null;
-}
-
-function tryAutoAlignCollateralFromLogs(
-  logs: string[],
-  allCustodies: { pubkey: web3.PublicKey }[],
-): web3.PublicKey | null {
-  const parsed = parseInvalidCollateralFromLogs(logs);
-  if (!parsed) return null;
-  const expected = allCustodies.find(
-    (c) => c.pubkey.toBase58() === parsed.right,
-  );
-  return expected ? expected.pubkey : null;
-}
