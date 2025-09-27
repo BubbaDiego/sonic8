@@ -40,6 +40,55 @@ import {
   detectTokenProgramForMint,
 } from "../utils/ata.js";
 
+// --- CLI guard: strip any stray flags someone might have pushed into argv
+function scrubInjectedCliArgv(argv: string[]): string[] {
+  const drop = new Set(["--position", "--position-request", "--positionRequest"]);
+  const out: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (drop.has(a)) {
+      i++;
+      continue;
+    }
+    out.push(a);
+  }
+  return out;
+}
+
+const utf8 = (s: string) => Buffer.from(s);
+
+type PdaInputs = {
+  pool: PublicKey;
+  owner: PublicKey;
+  marketCustody: PublicKey;
+  collateralCustody: PublicKey;
+};
+
+function derivePositionDeterministic(programId: PublicKey, inp: PdaInputs): PublicKey {
+  const seeds = [
+    utf8("position"),
+    inp.pool.toBuffer(),
+    inp.owner.toBuffer(),
+    inp.marketCustody.toBuffer(),
+    inp.collateralCustody.toBuffer(),
+  ];
+  return PublicKey.findProgramAddressSync(seeds, programId)[0];
+}
+
+function derivePositionRequestDeterministic(
+  programId: PublicKey,
+  inp: PdaInputs,
+): PublicKey {
+  const seeds = [
+    utf8("position_request"),
+    inp.pool.toBuffer(),
+    inp.owner.toBuffer(),
+    inp.marketCustody.toBuffer(),
+    inp.collateralCustody.toBuffer(),
+  ];
+  return PublicKey.findProgramAddressSync(seeds, programId)[0];
+}
+
 type StepKey =
   | "cli"
   | "rpc"
@@ -57,19 +106,6 @@ type StepKey =
   | "submit"
   | "programPass"
   | "watch";
-
-type ValidationSubStepKey =
-  | "vSeeds"
-  | "vRequestSeeds"
-  | "vCustodyOrder"
-  | "vCollateralAccount";
-
-const SUBSTEP_LABEL: Record<ValidationSubStepKey, string> = {
-  vSeeds: "Position PDA (seeds)",
-  vRequestSeeds: "PositionRequest PDA (seeds)",
-  vCustodyOrder: "Custody order", // market vs collateral
-  vCollateralAccount: "Collateral token account",
-};
 
 const STEP_LABEL: Record<StepKey, string> = {
   cli: "Parse CLI + config",
@@ -109,36 +145,40 @@ const STEP_ORDER: StepKey[] = [
   "watch",
 ];
 
+const VALIDATION_SUBSTEPS = [
+  { key: "vSeeds", label: "15a) seeds/position" },
+  { key: "vCustodyOrder", label: "15b) custody order" },
+  { key: "vPosAta", label: "15c) position USDC ATA" },
+  { key: "vGuardrail", label: "15d) guardrail bounds" },
+] as const;
+
 class StepTracker {
   private runStart = performance.now();
   private data = new Map<
-    StepKey,
+    string,
     { ok?: boolean; note?: string; t0?: number; t1?: number }
   >();
   private subData = new Map<
-    StepKey,
-    Map<
-      ValidationSubStepKey,
-      { ok?: boolean; note?: string; t0?: number; t1?: number }
-    >
+    string,
+    Map<string, { ok?: boolean; note?: string; label?: string; t0?: number; t1?: number }>
   >();
   private printed = false;
 
-  start(key: StepKey, note?: string) {
+  start(key: StepKey | string, note?: string) {
     const now = performance.now();
     const prev = this.data.get(key) || {};
     this.data.set(key, { ...prev, t0: prev.t0 ?? now, note: note ?? prev.note });
   }
 
-  ok(key: StepKey, note?: string) {
+  ok(key: StepKey | string, note?: string) {
     this.end(key, true, note);
   }
 
-  fail(key: StepKey, note?: string) {
+  fail(key: StepKey | string, note?: string) {
     this.end(key, false, note);
   }
 
-  async time<T>(key: StepKey, fn: () => Promise<T>, note?: string): Promise<T> {
+  async time<T>(key: StepKey | string, fn: () => Promise<T>, note?: string): Promise<T> {
     this.start(key, note);
     try {
       const out = await fn();
@@ -150,34 +190,34 @@ class StepTracker {
     }
   }
 
-  get(key: StepKey) {
+  get(key: StepKey | string) {
     return this.data.get(key);
   }
 
-  subStart(key: ValidationSubStepKey, note?: string) {
-    this.subSet("programPass", key, { note, ok: undefined }, false);
+  subStart(key: string, label: string) {
+    this.subSet("programPass", key, { label, ok: undefined, note: undefined }, false);
   }
 
-  subOk(key: ValidationSubStepKey, note?: string) {
+  subOk(key: string, note?: string) {
     this.subSet("programPass", key, { ok: true, note }, true);
   }
 
-  subFail(key: ValidationSubStepKey, note?: string) {
+  subFail(key: string, note?: string) {
     this.subSet("programPass", key, { ok: false, note }, true);
   }
 
-  hasSub(key: ValidationSubStepKey) {
+  hasSub(key: string) {
     return this.subData.get("programPass")?.has(key) ?? false;
   }
 
-  getSub(key: ValidationSubStepKey) {
+  getSub(key: string) {
     return this.subData.get("programPass")?.get(key);
   }
 
   private subSet(
-    parent: StepKey,
-    key: ValidationSubStepKey,
-    val: { ok?: boolean; note?: string },
+    parent: StepKey | string,
+    key: string,
+    val: { ok?: boolean; note?: string; label?: string },
     end: boolean,
   ) {
     const now = performance.now();
@@ -193,7 +233,7 @@ class StepTracker {
     this.subData.set(parent, forParent);
   }
 
-  private end(key: StepKey, ok: boolean, note?: string) {
+  private end(key: StepKey | string, ok: boolean, note?: string) {
     const now = performance.now();
     const prev = this.data.get(key) || {};
     const t0 = prev.t0 ?? this.runStart;
@@ -225,7 +265,7 @@ class StepTracker {
         );
         entries.forEach(([subKey, subRow], subIdx) => {
           const subIcon = subRow.ok === true ? "✅" : subRow.ok === false ? "💀" : "•";
-          const label = SUBSTEP_LABEL[subKey];
+          const label = subRow.label ?? subKey;
           const subNote = subRow.note ? ` — ${subRow.note}` : "";
           const subDur =
             subRow.t0 != null && subRow.t1 != null ? fmt(subRow.t1 - subRow.t0) : "";
@@ -241,6 +281,67 @@ class StepTracker {
   hasPrinted() {
     return this.printed;
   }
+}
+
+type StepAPI = {
+  start: (k: string, label?: string) => void;
+  ok: (k: string, detail?: string) => void;
+  fail: (k: string, detail?: string) => void;
+  subStart: (k: string, label: string) => void;
+  subOk: (k: string, label?: string) => void;
+  subFail: (k: string, label?: string) => void;
+};
+
+function markProgramValidations(steps: StepAPI, logs: string[], expectedPos: PublicKey) {
+  steps.start("programPass", "Program validations pass");
+
+  // 15a: Seeds/position PDA
+  steps.subStart("vSeeds", "15a) seeds/position");
+  const seedErr = logs.some(
+    (l) => l.includes("ConstraintSeeds") && l.includes("account: position"),
+  );
+  if (seedErr) {
+    const right = extractRightFromLogs(logs);
+    steps.subFail(
+      "vSeeds",
+      right ? `expected position=${right}` : `seeds mismatch (expected ${expectedPos.toBase58()})`,
+    );
+  } else {
+    steps.subOk("vSeeds", "ok");
+  }
+
+  // 15b: custody ordering (common 6006)
+  steps.subStart("vCustodyOrder", "15b) custody order");
+  const badCustody = logs.some((l) => /Invalid collateral account/i.test(l));
+  badCustody
+    ? steps.subFail("vCustodyOrder", "market↔collateral swapped")
+    : steps.subOk("vCustodyOrder", "ok");
+
+  // 15c: collateral ATA present (defensive)
+  steps.subStart("vPosAta", "15c) position USDC ATA");
+  const ataInit = logs.some((l) => /Initialize the associated token account/i.test(l));
+  steps.subOk("vPosAta", ataInit ? "created/exists" : "exists");
+
+  // 15d: guardrail/slippage bounds
+  steps.subStart("vGuardrail", "15d) guardrail bounds");
+  const guardrail = logs.some((l) => /guardrail|price.*out.*bounds/i.test(l));
+  guardrail
+    ? steps.subFail("vGuardrail", "breached")
+    : steps.subOk("vGuardrail", "ok");
+
+  // Collapse 15
+  const rejected = seedErr || badCustody || guardrail;
+  rejected ? steps.fail("programPass", "program rejected") : steps.ok("programPass", "ok");
+}
+
+function extractRightFromLogs(logs: string[]): string | null {
+  // looks for: Program log: Right: <pubkey>
+  const i = logs.findIndex((l) => /Program log: Right:/.test(l));
+  if (i >= 0 && logs[i + 1]) {
+    const m = logs[i + 1].match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
+    return m ? m[0] : null;
+  }
+  return null;
 }
 
 let __finalChecklistHookInstalled = false;
@@ -295,48 +396,6 @@ function pickCustodyByMint(custodies: CustodyInfo[], mint: web3.PublicKey) {
   return c.pubkey;
 }
 
-function collectAllLogLines(err: any): string[] {
-  const a: string[] = Array.isArray(err?.transactionLogs) ? err.transactionLogs : [];
-  const b: string[] = Array.isArray(err?.logs) ? err.logs : [];
-  const c: string[] = Array.isArray(err?.errorLogs) ? err.errorLogs : [];
-  return [...a, ...b, ...c].filter((x) => typeof x === "string");
-}
-
-function extractRightAddress(logs: string[]): string | null {
-  const base58 = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
-  const window = logs.filter((l) => l.includes("Right"));
-  for (const line of window) {
-    const match = line.match(base58);
-    if (match?.[0]) return match[0];
-  }
-  return null;
-}
-
-function markValidationsFromLogs(steps: StepTracker, logs: string[]) {
-  if (!logs.length) return;
-  const hasPositionSeeds = logs.some(
-    (l) => l.includes("ConstraintSeeds") && l.includes("account: position"),
-  );
-  const hasRequestSeeds = logs.some(
-    (l) => l.includes("ConstraintSeeds") && l.includes("account: positionRequest"),
-  );
-  const hasInvalidCollateral = logs.some((l) => l.includes("Invalid collateral account"));
-  const hasInvalidToken = logs.some((l) => l.includes("Invalid token account"));
-
-  if (hasPositionSeeds) {
-    steps.subFail("vSeeds", "position PDA mismatch");
-  }
-  if (hasRequestSeeds) {
-    steps.subFail("vRequestSeeds", "positionRequest PDA mismatch");
-  }
-  if (hasInvalidCollateral) {
-    steps.subFail("vCustodyOrder", "custody order mismatch");
-  }
-  if (hasInvalidToken) {
-    steps.subFail("vCollateralAccount", "collateral account invalid");
-  }
-}
-
 async function debugPrintIx(program: Program, m: any, label: string) {
   const ix = await m.instruction();
   const idlIx = program.idl.instructions.find(
@@ -350,196 +409,28 @@ async function debugPrintIx(program: Program, m: any, label: string) {
   return ix;
 }
 
-function makePositionUsdcAtaIx(
-  payer: web3.PublicKey,
-  positionPk: web3.PublicKey,
-  usdcMint: web3.PublicKey,
-) {
-  const ata = getAssociatedTokenAddressSync(usdcMint, positionPk, true);
-  const ix = createAssociatedTokenAccountIdempotentInstruction(payer, ata, positionPk, usdcMint);
-  return { ata, ix };
-}
-
 // Helpers to derive PDAs from the Anchor IDL seeds
-function seedToBytes(
-  seed: any,
-  ctx: Record<string, PublicKey | string | Buffer>,
-  programId: PublicKey,
-): Buffer {
-  const kind = seed?.kind ?? seed?.type;
-  if (!kind) throw new Error("IDL seed missing kind/type");
-
-  const asPkBuf = (v: any) =>
-    v instanceof PublicKey ? v.toBuffer() : new PublicKey(v).toBuffer();
-
-  switch (kind) {
-    case "const":
-      if (typeof seed.value === "string") return Buffer.from(seed.value);
-      if (typeof seed.value === "number") {
-        const b = Buffer.alloc(8);
-        b.writeUInt32LE(seed.value, 0);
-        return b;
-      }
-      throw new Error(`Unhandled const seed value: ${JSON.stringify(seed)}`);
-
-    case "program":
-      return programId.toBuffer();
-
-    case "account": {
-      const path = seed.path || seed.account || seed.name;
-      if (!path || !ctx[path]) throw new Error(`Missing account seed path '${path}'`);
-      return asPkBuf(ctx[path]);
-    }
-
-    case "arg": {
-      const name = seed.path || seed.name;
-      throw new Error(`IDL seed uses arg '${name}', not supported in this callsite`);
-    }
-
-    default:
-      throw new Error(`Unknown seed kind: ${kind}`);
-  }
-}
-
-function getIdlAccountPdaSeeds(program: any, accountName: string): any[] | null {
-  const idl = program?.idl;
-  if (!idl) return null;
-  const acc = (idl.accounts || []).find(
-    (a: any) => (a.name || "").toLowerCase() === accountName.toLowerCase(),
-  );
-  const seeds = acc?.pda?.seeds || acc?.seeds;
-  return Array.isArray(seeds) ? seeds : null;
-}
-
-function derivePdaByIdl(
-  program: any,
-  accountName: string,
-  ctx: Record<string, PublicKey | string | Buffer>,
-): PublicKey | null {
-  const seeds = getIdlAccountPdaSeeds(program, accountName);
-  if (!seeds) return null;
-  const seedBytes = seeds.map((s: any) => seedToBytes(s, ctx, program.programId));
-  const [pda] = PublicKey.findProgramAddressSync(seedBytes, program.programId);
-  return pda;
-}
-
-function derivePositionFallback(
-  programId: PublicKey,
-  pool: PublicKey,
-  owner: PublicKey,
-  marketCustody: PublicKey,
-  collateralCustody: PublicKey,
-): PublicKey {
-  const seeds = [
-    Buffer.from("position"),
-    pool.toBuffer(),
-    owner.toBuffer(),
-    marketCustody.toBuffer(),
-    collateralCustody.toBuffer(),
-  ];
-  return PublicKey.findProgramAddressSync(seeds, programId)[0];
-}
-
-function derivePositionRequestFallback(
-  programId: PublicKey,
-  pool: PublicKey,
-  owner: PublicKey,
-  marketCustody: PublicKey,
-  collateralCustody: PublicKey,
-): PublicKey {
-  const seeds = [
-    Buffer.from("position_request"),
-    pool.toBuffer(),
-    owner.toBuffer(),
-    marketCustody.toBuffer(),
-    collateralCustody.toBuffer(),
-  ];
-  return PublicKey.findProgramAddressSync(seeds, programId)[0];
-}
-
-type PdaInputs = {
-  pool: PublicKey;
-  owner: PublicKey;
-  marketCustody: PublicKey;
-  collateralCustody: PublicKey;
-};
-
-function derivePdaByl(program: any, acc: string, ctx: any) {
-  return derivePdaByIdl(program, acc, ctx);
-}
-
-function derivePositionDeterministic(program: any, inp: PdaInputs): PublicKey {
-  const ctx = {
-    pool: inp.pool,
-    owner: inp.owner,
-    custody: inp.marketCustody,
-    marketCustody: inp.marketCustody,
-    collateralCustody: inp.collateralCustody,
-  };
-  const byIdl = derivePdaByl(program, "position", ctx);
-  return (
-    byIdl ??
-    derivePositionFallback(
-      program.programId,
-      inp.pool,
-      inp.owner,
-      inp.marketCustody,
-      inp.collateralCustody,
-    )
-  );
-}
-
-function derivePositionRequestDeterministic(
-  program: any,
-  inp: PdaInputs,
-  position: PublicKey,
-): PublicKey {
-  const ctx = {
-    pool: inp.pool,
-    owner: inp.owner,
-    position,
-    custody: inp.marketCustody,
-    marketCustody: inp.marketCustody,
-    collateralCustody: inp.collateralCustody,
-  };
-  const byIdl =
-    derivePdaByl(program, "positionRequest", ctx) ||
-    derivePdaByl(program, "position_request", ctx);
-  return (
-    byIdl ??
-    derivePositionRequestFallback(
-      program.programId,
-      inp.pool,
-      inp.owner,
-      inp.marketCustody,
-      inp.collateralCustody,
-    )
-  );
-}
-
 // Build accounts with selectable mapping mode
 async function sendIncreasePositionRobust(
   params: {
-  program: Program;
-  preIxs: web3.TransactionInstruction[];
-  postIxs: web3.TransactionInstruction[];
-  ixArgs: any;
+    program: Program;
+    preIxs: web3.TransactionInstruction[];
+    postIxs: web3.TransactionInstruction[];
+    ixArgs: any;
 
-  payer: web3.PublicKey;
-  marketCustodyPk: web3.PublicKey;
-  collateralCustodyPk: web3.PublicKey;
-  collateralMintPk: web3.PublicKey;
-  derived: { position: web3.PublicKey; positionRequest: web3.PublicKey };
-  orderMode: "idl" | "swapped";
-  buildAccountsStrictBase: () => any;
-},
+    payer: web3.PublicKey;
+    marketCustodyPk: web3.PublicKey;
+    collateralCustodyPk: web3.PublicKey;
+    collateralMintPk: web3.PublicKey;
+    derived: { position: web3.PublicKey; positionRequest: web3.PublicKey };
+    orderMode: "idl" | "swapped";
+    buildAccountsStrictBase: () => any;
+  },
   steps: StepTracker,
 ) {
   const {
     program,
     ixArgs,
-    payer,
-    collateralMintPk,
     marketCustodyPk,
     collateralCustodyPk,
     derived,
@@ -547,22 +438,8 @@ async function sendIncreasePositionRobust(
     buildAccountsStrictBase,
   } = params;
 
-  const preIxsBase = [...params.preIxs];
+  const preIxs = [...params.preIxs];
   const postIxs = [...params.postIxs];
-
-  function rebuildPreIxs(note?: string) {
-    steps.start("ataPosition");
-    const { ix: posAtaIx } = makePositionUsdcAtaIx(
-      payer,
-      derived.position,
-      collateralMintPk,
-    );
-    const rebuilt = [...preIxsBase, posAtaIx];
-    steps.ok("ataPosition", note ?? `ensured for ${derived.position.toBase58()}`);
-    return rebuilt;
-  }
-
-  const preIxs = rebuildPreIxs();
 
   const buildAccounts = () => {
     const base = buildAccountsStrictBase();
@@ -576,7 +453,7 @@ async function sendIncreasePositionRobust(
     return base;
   };
 
-  async function trySend(label: string) {
+  try {
     console.log(
       "➡️ using position for send:",
       derived.position.toBase58(),
@@ -585,61 +462,32 @@ async function sendIncreasePositionRobust(
     );
     steps.start("accountsBuilt");
     const accounts = buildAccounts();
-    steps.ok("accountsBuilt", `Using ${orderMode} order for ${shortId(derived.position.toBase58())}`);
+    steps.ok(
+      "accountsBuilt",
+      `Using ${orderMode} order for ${shortId(derived.position.toBase58())}`,
+    );
     const m = program.methods
       .createIncreasePositionMarketRequest(ixArgs)
       .accountsStrict(accounts)
       .preInstructions(preIxs)
       .postInstructions(postIxs);
+    const label = orderMode === "swapped" ? "final (swapped)" : "final";
     await debugPrintIx(program, m, label);
     steps.start("submit");
     await m.rpc();
     steps.ok("submit");
+    markProgramValidations(steps, [], derived.position);
+    steps.ok("watch");
+    return derived.position;
+  } catch (err: any) {
+    steps.ok("submit");
+    const logs: string[] =
+      (err?.logs as string[]) ??
+      (err?.transactionLogs as string[]) ??
+      (Array.isArray(err?.errorLogs) ? err.errorLogs : []);
+    markProgramValidations(steps, logs, derived.position);
+    throw err;
   }
-
-  for (let attempt = 1; attempt <= 4; attempt++) {
-    try {
-      await trySend(`attempt ${attempt}/4`);
-      steps.ok("programPass");
-      (Object.keys(SUBSTEP_LABEL) as ValidationSubStepKey[]).forEach((key) => {
-        const status = steps.getSub(key);
-        if (!status || status.ok == null) {
-          steps.subOk(key, "passed");
-        }
-      });
-      steps.ok("watch");
-      return derived.position;
-    } catch (e: any) {
-      if (!steps.get("submit")?.ok) {
-        steps.ok("submit");
-      }
-      const logs = collectAllLogLines(e);
-      const code = e?.error?.errorCode?.number ?? e?.errorCode?.number ?? null;
-
-      if (code === 2006) {
-        const right = extractRightAddress(logs);
-        const note = right
-          ? `Program expects position=${right} (derived=${derived.position.toBase58()})`
-          : "Seeds mismatch";
-        markValidationsFromLogs(steps, logs);
-        steps.fail("programPass", note);
-        throw e;
-      }
-
-      markValidationsFromLogs(steps, logs);
-
-      if (logs.some((l) => l.includes("Invalid collateral account"))) {
-        steps.subFail("vCustodyOrder", "swap custody order not allowed under deterministic mode");
-        steps.fail("programPass", "custody order mismatch");
-        throw e;
-      }
-
-      throw e;
-    }
-  }
-
-  steps.fail("programPass", "Retries exhausted");
-  throw new Error("sendIncreasePositionRobust: retries exhausted");
 }
 
 function shortId(s: string) {
@@ -692,7 +540,7 @@ function formatLogs(raw: string[]): string[] {
   installFinalChecklistPrint(steps);
   steps.start("cli");
   try {
-    const argv = await yargs(hideBin(process.argv))
+    const argv = await yargs(hideBin(scrubInjectedCliArgv(process.argv)))
       .option("rpc", { type: "string", demandOption: true })
       .option("kp", {
         type: "string",
@@ -797,6 +645,7 @@ function formatLogs(raw: string[]): string[] {
   let program!: Program<any>;
   let currentEndpoint = "";
   const owner = wallet.payer as Keypair;
+  const ownerPk = owner.publicKey;
 
   async function ensureProviderOnConnection(conn: web3.Connection) {
     const endpoint = endpointFor(conn);
@@ -892,26 +741,21 @@ function formatLogs(raw: string[]): string[] {
   bar("PDAs", "🧩");
   const pdaInputs: PdaInputs = {
     pool: pool.publicKey,
-    owner: wallet.publicKey,
+    owner: ownerPk,
     marketCustody: marketCustodyPk,
     collateralCustody: collateralCustodyPk,
   };
   const DERIVED = await steps.time(
     "pdas",
-    async () => {
-      const position = derivePositionDeterministic(program, pdaInputs);
-      const positionRequest = derivePositionRequestDeterministic(
-        program,
-        pdaInputs,
-        position,
-      );
-      return { position, positionRequest };
-    },
+    async () => ({
+      position: derivePositionDeterministic(program.programId, pdaInputs),
+      positionRequest: derivePositionRequestDeterministic(program.programId, pdaInputs),
+    }),
     "Deriving deterministic PDAs",
   );
-  (Object.keys(SUBSTEP_LABEL) as ValidationSubStepKey[]).forEach((key) => {
+  VALIDATION_SUBSTEPS.forEach(({ key, label }) => {
     if (!steps.hasSub(key)) {
-      steps.subStart(key);
+      steps.subStart(key, label);
     }
   });
   steps.ok("pdas", shortId(DERIVED.position.toBase58()));
@@ -961,6 +805,28 @@ function formatLogs(raw: string[]): string[] {
     const resolved = detected ?? TOKEN_PROGRAM_ID;
     tokenProgramCache.set(key, resolved);
     return resolved;
+  };
+
+  const getOrCreateAtaIx = async ({
+    payer,
+    owner,
+    mint,
+    allowOwnerOffCurve = false,
+  }: {
+    payer: PublicKey;
+    owner: PublicKey;
+    mint: PublicKey;
+    allowOwnerOffCurve?: boolean;
+  }) => {
+    const tokenProgramId = await getTokenProgramIdForMint(mint);
+    const { ata, ix } = createAtaIxStrict(
+      payer,
+      mint,
+      owner,
+      allowOwnerOffCurve,
+      tokenProgramId,
+    );
+    return [{ ata, ixs: [ix] }];
   };
 
   let ownerTokenProgramId!: PublicKey;
@@ -1086,8 +952,18 @@ function formatLogs(raw: string[]): string[] {
     }),
   ];
 
+  steps.start("ataPosition");
+  const [posUsdcAta] = await getOrCreateAtaIx({
+    payer: ownerPk,
+    owner: DERIVED.position,
+    mint: collateralMint,
+    allowOwnerOffCurve: true,
+  });
+  steps.ok("ataPosition", shortId(posUsdcAta.ata.toBase58()));
+  preIxs.push(...posUsdcAta.ixs);
+
   if (collateralMint.equals(wsolMint)) {
-    const ownerPubkey = owner.publicKey;
+    const ownerPubkey = ownerPk;
     const wsolAta = getAssociatedTokenAddressSync(
       wsolMint,
       ownerPubkey,
@@ -1140,16 +1016,15 @@ function formatLogs(raw: string[]): string[] {
     throw new Error("Missing event authority PDA");
   }
 
-  const positionRequestUsdcAta =
-    havePR && reqAtaInit ? reqAtaInit.ata : ownerAtaInit.ata;
+  const positionRequestUsdcAta = posUsdcAta.ata;
 
   const buildAccountsStrictBase = () => ({
     owner: wallet.publicKey,
     fundingAccount: ownerAtaInit.ata,
     perpetuals: perpetuals.publicKey,
     pool: pool.publicKey,
-    position: positionPk,
-    positionRequest,
+    position: DERIVED.position,
+    positionRequest: DERIVED.positionRequest,
     positionRequestAta: positionRequestUsdcAta,
     custody: marketCustodyPk,
     collateralCustody: collateralCustodyPk,
@@ -1199,20 +1074,7 @@ function formatLogs(raw: string[]): string[] {
       const dryRunMode: "idl" | "swapped" = previewMode;
       if (argv["dry-run"]) {
         const dryRunPosition = positionPk;
-        const dryRunPreIxs = (() => {
-          steps.start("ataPosition");
-          const { ix: posAtaIx } = makePositionUsdcAtaIx(
-            wallet.publicKey,
-            dryRunPosition,
-            collateralMint,
-          );
-          const rebuilt = [...preIxs, posAtaIx];
-          steps.ok(
-            "ataPosition",
-            `Dry-run for ${shortId(dryRunPosition.toBase58())}`,
-          );
-          return rebuilt;
-        })();
+        const dryRunPreIxs = [...preIxs];
         const accountsBase = buildAccountsStrictBase();
         const accounts =
           dryRunMode === "swapped"
@@ -1278,6 +1140,7 @@ function formatLogs(raw: string[]): string[] {
   if (argv["dry-run"]) {
     info("🧪", "Simulation only (dry-run)");
     console.log({ lastValidBlockHeight });
+    markProgramValidations(steps, [], DERIVED.position);
     steps.ok("watch", "Skipped (dry-run)");
     return;
   }
@@ -1291,7 +1154,7 @@ function formatLogs(raw: string[]): string[] {
   } catch (err) {
     const programPassRow = steps.get("programPass");
     if (!programPassRow) {
-      steps.fail("programPass", "Program rejected (see logs)");
+      steps.fail("programPass", "Program rejected (no logs)");
     }
     throw err;
   } finally {
