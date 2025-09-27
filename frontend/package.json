@@ -61,6 +61,7 @@
   },
   "scripts": {
     "dev": "vite --port 3000 --strictPort --host",
+    "dev:free": "npx kill-port 3000 && vite --port 3000 --strictPort --host",
     "build": "vite build",
     "build-stage": "env-cmd -f .env.qa vite build",
     "preview": "vite preview",

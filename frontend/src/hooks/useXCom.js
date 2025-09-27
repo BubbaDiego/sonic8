@@ -9,6 +9,13 @@ export const useProviders = () => {
   });
 };
 
+export const useProvidersResolved = () => {
+  return useQuery({
+    queryKey: ['xcom', 'providers_resolved'],
+    queryFn: api.getProvidersResolved
+  });
+};
+
 // Mutation hook to save providers
 export const useSaveProviders = () => {
   const queryClient = useQueryClient();
