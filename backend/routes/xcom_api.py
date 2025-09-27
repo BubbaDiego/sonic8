@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from copy import deepcopy
 from typing import Dict
 
@@ -46,9 +48,31 @@ def read_providers_resolved(dl: DataLocker = Depends(get_locker)):
 
     out: dict[str, dict] = {}
     for name in names:
-        provider = svc.get_provider(name)
+        source_name = "twilio" if name == "api" else name
+        raw_provider = svc.get_provider(source_name)
+        if isinstance(raw_provider, dict):
+            provider = deepcopy(raw_provider)
+        elif name in ("twilio", "api"):
+            provider = {}
+        else:
+            provider = raw_provider
+
         if isinstance(provider, dict):
-            provider = deepcopy(provider)
+            if name in ("twilio", "api"):
+                from_candidates = [
+                    provider.get("default_from_phone"),
+                    provider.get("from_phone"),
+                    os.getenv("TWILIO_FROM_PHONE"),
+                    os.getenv("TWILIO_PHONE_NUMBER"),
+                ]
+                to_candidates = [
+                    provider.get("default_to_phone"),
+                    provider.get("to_phone"),
+                    os.getenv("TWILIO_TO_PHONE"),
+                    os.getenv("MY_PHONE_NUMBER"),
+                ]
+                provider["default_from_phone"] = next((v for v in from_candidates if v), "")
+                provider["default_to_phone"] = next((v for v in to_candidates if v), "")
             if "password" in provider:
                 provider["password"] = "********"
             if "auth_token" in provider:

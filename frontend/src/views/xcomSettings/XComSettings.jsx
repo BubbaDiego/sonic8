@@ -14,11 +14,19 @@ import CampaignIcon from '@mui/icons-material/Campaign';
 
 import MainCard from 'ui-component/cards/MainCard';
 import ProviderAccordion from './components/ProviderAccordion';
-import { useProviders, useProvidersResolved, useSaveProviders, useStatus, useTestMessage, useRunHeartbeat } from 'hooks/useXCom';
+import {
+  useProviders,
+  useProvidersResolved,
+  useSaveProviders,
+  useStatus,
+  useTestMessage,
+  useRunHeartbeat
+} from 'hooks/useXCom';
 import { enqueueSnackbar } from 'notistack';
 
 const TWILIO_ICON_SRC = '/images/twilio.png';
 const TWILIO_CONSOLE_URL = 'https://console.twilio.com/';
+const pick = (...vals) => vals.find((v) => v !== undefined && v !== null && String(v).trim() !== '') || '';
 const isTwilio = (provider) => {
   const key = (provider?.id || provider?.key || provider?.name || provider?.title || '')
     .toString()
@@ -368,16 +376,30 @@ export default function XComSettings() {
         defaultExpanded: true,
         source: providerData?.twilio ?? providerData?.api,
         env: {
-          TWILIO_ACCOUNT_SID:
-            resolvedProviders?.twilio?.account_sid ?? resolvedProviders?.api?.account_sid ?? '',
-          TWILIO_AUTH_TOKEN:
-            resolvedProviders?.twilio?.auth_token ?? resolvedProviders?.api?.auth_token ?? '',
-          TWILIO_FLOW_SID:
-            resolvedProviders?.twilio?.flow_sid ?? resolvedProviders?.api?.flow_sid ?? '',
-          TWILIO_FROM_PHONE:
-            resolvedProviders?.twilio?.default_from_phone ?? resolvedProviders?.api?.default_from_phone ?? '',
-          TWILIO_TO_PHONE:
-            resolvedProviders?.twilio?.default_to_phone ?? resolvedProviders?.api?.default_to_phone ?? ''
+          TWILIO_ACCOUNT_SID: pick(
+            resolvedProviders?.twilio?.account_sid,
+            resolvedProviders?.api?.account_sid
+          ),
+          TWILIO_AUTH_TOKEN: pick(
+            resolvedProviders?.twilio?.auth_token,
+            resolvedProviders?.api?.auth_token
+          ),
+          TWILIO_FLOW_SID: pick(
+            resolvedProviders?.twilio?.flow_sid,
+            resolvedProviders?.api?.flow_sid
+          ),
+          TWILIO_FROM_PHONE: pick(
+            resolvedProviders?.twilio?.default_from_phone,
+            resolvedProviders?.twilio?.from_phone,
+            resolvedProviders?.api?.default_from_phone,
+            resolvedProviders?.api?.from_phone
+          ),
+          TWILIO_TO_PHONE: pick(
+            resolvedProviders?.twilio?.default_to_phone,
+            resolvedProviders?.twilio?.to_phone,
+            resolvedProviders?.api?.default_to_phone,
+            resolvedProviders?.api?.to_phone
+          )
         }
       },
       {

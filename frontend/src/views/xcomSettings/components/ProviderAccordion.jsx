@@ -90,7 +90,16 @@ const ProviderAccordion = ({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
               {icon ? (
-                <Box component="img" src={icon} alt="provider-icon" sx={{ height: 20, width: 20, borderRadius: '4px' }} />
+                <Box
+                  component="img"
+                  src={icon}
+                  alt={`${title} icon`}
+                  onError={(event) => {
+                    event.currentTarget.onerror = null;
+                    event.currentTarget.src = '/static/images/twilio.png';
+                  }}
+                  sx={{ height: 20, width: 20, borderRadius: '4px' }}
+                />
               ) : null}
               <Typography variant="h5" noWrap>
                 {title}
