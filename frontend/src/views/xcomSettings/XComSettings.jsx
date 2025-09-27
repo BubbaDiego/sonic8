@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -9,6 +10,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Skeleton from '@mui/material/Skeleton';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
+import TextField from '@mui/material/TextField';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CampaignIcon from '@mui/icons-material/Campaign';
 
@@ -23,6 +27,7 @@ import {
   useRunHeartbeat
 } from 'hooks/useXCom';
 import { enqueueSnackbar } from 'notistack';
+import { resetCooldown, setCooldown as setCooldownApi, saveProviders as apiSaveProviders } from 'api/xcom';
 
 const TWILIO_ICON_SRC = '/images/twilio.png';
 const TWILIO_CONSOLE_URL = 'https://console.twilio.com/';
@@ -213,6 +218,7 @@ export default function XComSettings() {
   const { data: providers, isLoading: providersLoading, error: providersError } = useProviders();
   const { data: resolved } = useProvidersResolved();
   const saveProviders = useSaveProviders();
+  const queryClient = useQueryClient();
   const {
     data: status,
     isLoading: statusLoading,
@@ -224,6 +230,11 @@ export default function XComSettings() {
   const testMessage = useTestMessage();
 
   const [draft, setDraft] = useState({});
+  const [cooldown, setCooldownLocal] = useState(0);
+  const [useStudio, setUseStudio] = useState(false);
+  const [cooldownSaving, setCooldownSaving] = useState(false);
+  const [cooldownResetting, setCooldownResetting] = useState(false);
+  const [studioSaving, setStudioSaving] = useState(false);
 
   const providerData = useMemo(() => {
     if (providers && typeof providers === 'object' && '__root__' in providers) {
@@ -242,6 +253,8 @@ export default function XComSettings() {
   useEffect(() => {
     if (providerData) {
       setDraft(cloneProviders(providerData));
+      setCooldownLocal(providerData?.system?.phone_relax_period ?? 0);
+      setUseStudio(Boolean(providerData?.twilio?.use_studio ?? providerData?.api?.use_studio));
     }
   }, [providerData]);
 
@@ -252,6 +265,66 @@ export default function XComSettings() {
   const serializedProviders = useMemo(() => JSON.stringify(providerData || {}), [providerData]);
   const serializedDraft = useMemo(() => JSON.stringify(draft || {}), [draft]);
   const isDirty = serializedProviders !== serializedDraft;
+
+  const invalidateProviderQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['xcom', 'providers'] });
+    queryClient.invalidateQueries({ queryKey: ['xcom', 'providers_resolved'] });
+  };
+
+  const onToggleStudio = async (checked) => {
+    setStudioSaving(true);
+    try {
+      const payload = cloneProviders(draft || {});
+      const keysToUpdate = ['twilio', 'api'].filter((key) => payload[key] !== undefined);
+      if (keysToUpdate.length === 0) {
+        keysToUpdate.push('twilio');
+      }
+      keysToUpdate.forEach((key) => {
+        payload[key] = { ...(payload[key] || {}), use_studio: checked };
+      });
+
+      await apiSaveProviders(payload);
+      setDraft(payload);
+      setUseStudio(checked);
+      invalidateProviderQueries();
+      enqueueSnackbar(`Studio Flow ${checked ? 'enabled' : 'disabled'}`, { variant: 'success' });
+    } catch (error) {
+      enqueueSnackbar(`Unable to update Studio Flow: ${error?.message || error}`, { variant: 'error' });
+    } finally {
+      setStudioSaving(false);
+    }
+  };
+
+  const onSaveCooldown = async () => {
+    setCooldownSaving(true);
+    try {
+      const seconds = Number(cooldown || 0);
+      const result = await setCooldownApi(seconds);
+      if (typeof result?.seconds === 'number') {
+        setCooldownLocal(result.seconds);
+      }
+      invalidateProviderQueries();
+      enqueueSnackbar('Call cool-down updated', { variant: 'success' });
+    } catch (error) {
+      enqueueSnackbar(`Unable to update cool-down: ${error?.message || error}`, { variant: 'error' });
+    } finally {
+      setCooldownSaving(false);
+    }
+  };
+
+  const onResetCooldown = async () => {
+    setCooldownResetting(true);
+    try {
+      await resetCooldown();
+      setCooldownLocal(0);
+      invalidateProviderQueries();
+      enqueueSnackbar('Call cool-down reset', { variant: 'success' });
+    } catch (error) {
+      enqueueSnackbar(`Unable to reset cool-down: ${error?.message || error}`, { variant: 'error' });
+    } finally {
+      setCooldownResetting(false);
+    }
+  };
 
   const handleEmailChange = (values) => {
     setDraft((prev) => ({
@@ -436,6 +509,51 @@ export default function XComSettings() {
 
     return (
       <Stack spacing={1.5}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1.5}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                checked={useStudio}
+                onChange={(event) => onToggleStudio(event.target.checked)}
+                disabled={studioSaving}
+              />
+            }
+            label="Use Studio Flow"
+          />
+
+          <TextField
+            label="Call cool-down (sec)"
+            type="number"
+            size="small"
+            value={cooldown}
+            onChange={(event) => setCooldownLocal(event.target.value)}
+            sx={{ width: { xs: '100%', sm: 200 } }}
+            inputProps={{ min: 0 }}
+          />
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} width={{ xs: '100%', sm: 'auto' }}>
+            <Button
+              variant="outlined"
+              onClick={onSaveCooldown}
+              disabled={cooldownSaving}
+            >
+              {cooldownSaving ? <CircularProgress size={20} /> : 'Save'}
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={onResetCooldown}
+              disabled={cooldownResetting}
+            >
+              {cooldownResetting ? <CircularProgress size={20} /> : 'Reset Cool-down'}
+            </Button>
+          </Stack>
+        </Stack>
+
         {providerDefinitions
           .slice()
           .sort(sortTwilioFirst)

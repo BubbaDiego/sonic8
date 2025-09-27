@@ -115,3 +115,15 @@ def run_test(req: TestMessageRequest, dl: DataLocker = Depends(get_locker)):
 @router.get("/last_ping")
 def last_ping(dl: DataLocker = Depends(get_locker)):
     return get_latest_xcom_monitor_entry(dl)
+
+
+@router.post("/cooldown/reset")
+def reset_call_cooldown(dl: DataLocker = Depends(get_locker)):
+    dl.system.set_var("phone_last_call", 0)
+    return {"ok": True}
+
+
+@router.put("/cooldown")
+def set_call_cooldown(seconds: int, dl: DataLocker = Depends(get_locker)):
+    dl.system.set_var("phone_relax_period", max(0, int(seconds)))
+    return {"ok": True, "seconds": dl.system.get_var("phone_relax_period")}

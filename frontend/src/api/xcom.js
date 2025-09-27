@@ -9,6 +9,9 @@ export const getProvidersResolved = () => axios.get('/xcom/providers/resolved').
 // ---- Status & heartbeat ----
 export const getStatus = () => axios.get('/xcom/status').then(r => r.data);
 export const runHeartbeat = () => axios.post('/monitors/xcom_monitor').then(r => r.data);
+export const resetCooldown = () => axios.post('/xcom/cooldown/reset').then(r => r.data);
+export const setCooldown = (seconds) =>
+  axios.put('/xcom/cooldown', null, { params: { seconds } }).then(r => r.data);
 
 // ---- Test message ----
 export const testMessage = (mode, recipient, subject, body, level='LOW') =>

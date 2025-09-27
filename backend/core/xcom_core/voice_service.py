@@ -61,12 +61,13 @@ class VoiceService:
             os.getenv("MY_PHONE_NUMBER"),
         )
         flow_sid = self._pick(self.config.get("flow_sid"), os.getenv("TWILIO_FLOW_SID"))
+        use_studio = bool(self.config.get("use_studio", False))
 
         from_number = self._validate_e164("TWILIO_FROM_PHONE", from_number)
         to_resolved = self._validate_e164("Recipient", to_resolved)
 
         try:
-            if flow_sid and not re.search(r"your_flow_sid_here", flow_sid, re.IGNORECASE):
+            if use_studio and flow_sid and not re.search(r"your_flow_sid_here", flow_sid, re.IGNORECASE):
                 execution = self.client.studio.v2.flows(flow_sid).executions.create(
                     to=to_resolved,
                     from_=from_number,
