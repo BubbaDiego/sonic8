@@ -357,8 +357,8 @@ export default function XComSettings() {
           TWILIO_ACCOUNT_SID: resolved?.twilio?.account_sid ?? resolved?.api?.account_sid ?? '',
           TWILIO_AUTH_TOKEN: resolved?.twilio?.auth_token ?? resolved?.api?.auth_token ?? '',
           TWILIO_FLOW_SID: resolved?.twilio?.flow_sid ?? resolved?.api?.flow_sid ?? '',
-          TWILIO_DEFAULT_FROM_PHONE: resolved?.twilio?.default_from_phone ?? resolved?.api?.default_from_phone ?? '',
-          TWILIO_DEFAULT_TO_PHONE: resolved?.twilio?.default_to_phone ?? resolved?.api?.default_to_phone ?? ''
+          TWILIO_FROM_PHONE: resolved?.twilio?.default_from_phone ?? resolved?.api?.default_from_phone ?? '',
+          TWILIO_TO_PHONE: resolved?.twilio?.default_to_phone ?? resolved?.api?.default_to_phone ?? ''
         }
       },
       {
