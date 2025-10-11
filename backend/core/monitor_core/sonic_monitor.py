@@ -1,24 +1,111 @@
 import sys
-import os
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 import asyncio
 import logging
-from utils.console_title import set_console_title
-set_console_title("🦔 Sonic Monitor 🦔")
 import time
 from datetime import datetime, timezone
-from backend.core.cyclone_core.cyclone_engine import Cyclone
 
-from data.data_locker import DataLocker
-from core.core_constants import MOTHER_DB_PATH
+from utils.console_title import set_console_title
+from backend.core.cyclone_core.cyclone_engine import Cyclone
+from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
+from backend.core.reporting_core.console_lines import emit_compact_cycle
+from backend.core.reporting_core.console_reporter import (
+    emit_boot_status,
+    install_strict_console_filter,
+    silence_legacy_console_loggers,
+)
+from data.data_locker import DataLocker
+from backend.models.monitor_status import MonitorStatus, MonitorType
+from core.core_constants import MOTHER_DB_PATH
 
 MONITOR_NAME = "sonic_monitor"
 DEFAULT_INTERVAL = 60  # fallback if nothing set in DB
+
+CYCLONE_GROUP_LABEL = "cyclone_core"
+CYCLONE_GROUPS = [
+    "cyclone_engine",
+    "Cyclone",
+    "CycloneHedgeService",
+    "CyclonePortfolioService",
+    "CycloneAlertService",
+    "CyclonePositionService",
+    "PositionSyncService",
+    "PositionCoreService",
+    "PositionEnrichmentService",
+    "AlertEvaluator",
+    "AlertController",
+    "AlertServiceManager",
+    "DataLocker",
+    "PriceSyncService",
+    "DBCore",
+    "Logger",
+    "AlertUtils",
+    "CalcServices",
+    "LockerFactory",
+    "HedgeManager",
+    "CycleRunner",
+    "ConsoleHelper",
+]
+
+_MONITOR_LABELS: Dict[MonitorType, str] = {
+    MonitorType.SONIC: "Sonic",
+    MonitorType.PRICE: "Price",
+    MonitorType.POSITIONS: "Positions",
+    MonitorType.XCOM: "XCom",
+}
+
+
+def _format_monitor_lines(status: Optional[MonitorStatus]) -> tuple[str, str]:
+    if status is None:
+        return "↑0/0/0", "–"
+
+    pos_tokens = []
+    brief_tokens = []
+    for monitor_type, detail in status.monitors.items():
+        label = _MONITOR_LABELS.get(monitor_type, monitor_type.value)
+        state = getattr(detail.status, "value", str(detail.status))
+        pos_tokens.append(f"{label}:{state}")
+        last = detail.last_updated.isoformat() if getattr(detail, "last_updated", None) else "Never"
+        brief_tokens.append(f"{label} → {state} ({last})")
+
+    pos_line = " • ".join(pos_tokens) if pos_tokens else "↑0/0/0"
+    brief = " | ".join(brief_tokens) if brief_tokens else "–"
+    return pos_line, brief
+
+
+def _build_cycle_summary(
+    cycle_num: int,
+    elapsed: float,
+    status: Optional[MonitorStatus],
+    *,
+    alerts_line: str,
+    notifications: Optional[str] = None,
+) -> Dict[str, Any]:
+    pos_line, brief = _format_monitor_lines(status)
+    notif = notifications or (status.sonic_last_complete if status else None)
+    if notif:
+        notif_line = f"Last sonic completion @ {notif}"
+    else:
+        notif_line = "NONE (no_breach)"
+
+    return {
+        "cycle_num": cycle_num,
+        "elapsed_s": elapsed,
+        "positions_line": pos_line,
+        "positions_brief": brief,
+        "alerts_inline": alerts_line,
+        "notifications_brief": notif_line,
+        "hedge_groups": 0,
+    }
+
+
+set_console_title("🦔 Sonic Monitor 🦔")
 
 def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
     dl = DataLocker(str(db_path))
@@ -110,16 +197,31 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     await notify_listeners()
 
 
-def main():
-    loop_counter = 00000000000000000
+def run_monitor(
+    dl: Optional[DataLocker] = None,
+    poll_interval_s: Optional[int] = None,
+    cycles: Optional[int] = None,
+) -> None:
+    """Run the Sonic monitor console loop."""
+
+    install_strict_console_filter()
+    muted = silence_legacy_console_loggers()
+    emit_boot_status(muted, group_label=CYCLONE_GROUP_LABEL, groups=CYCLONE_GROUPS)
 
     from backend.core.monitor_core.monitor_core import MonitorCore
+
+    if dl is None:
+        dl = DataLocker.get_instance(str(MOTHER_DB_PATH))
+    else:
+        # Ensure the provided locker is reused by singleton consumers
+        setattr(DataLocker, "_instance", dl)
+
+    display_interval = poll_interval_s or DEFAULT_INTERVAL
+    emit_config_banner(dl, display_interval)
 
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
 
-    # --- Ensure the heartbeat table exists ---
-    dl = DataLocker(str(MOTHER_DB_PATH))
     cursor = dl.db.get_cursor()
     if not cursor:
         logging.error("No DB cursor available; cannot initialize heartbeat table")
@@ -137,33 +239,61 @@ def main():
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    try:
-        while True:
-            # Always use the latest interval from the DB for max flexibility
-            interval = get_monitor_interval()
-            loop_counter += 1
 
+    loop_counter = 0
+    cycle_limit = cycles if cycles is not None and cycles > 0 else None
+    enable_color = sys.stdout.isatty()
+
+    try:
+        while cycle_limit is None or loop_counter < cycle_limit:
+            interval = get_monitor_interval()
+            if interval <= 0:
+                interval = display_interval
+
+            loop_counter += 1
             start_time = time.time()
+            cycle_failed = False
+
             try:
                 loop.run_until_complete(sonic_cycle(loop_counter, cyclone))
                 update_heartbeat(MONITOR_NAME, interval)
                 write_ledger("Success")
-            except Exception as exc:
+            except Exception as exc:  # pragma: no cover - runtime safety
+                cycle_failed = True
                 logging.exception("SonicMonitor cycle failure")
                 write_ledger("Error", {"error": str(exc)})
-            finally:
-                try:
-                    status = dl.ledger.get_monitor_status_summary()
-                    logging.debug("Monitor status summary: %s", status.json())
-                except Exception:
-                    logging.exception("Failed to update monitor status summary")
+
+            status_snapshot: Optional[MonitorStatus] = None
+            try:
+                status_snapshot = dl.ledger.get_monitor_status_summary()
+                logging.debug(
+                    "Monitor status summary: %s",
+                    status_snapshot.dict() if hasattr(status_snapshot, "dict") else status_snapshot,
+                )
+            except Exception:  # pragma: no cover - defensive logging
+                logging.exception("Failed to update monitor status summary")
 
             elapsed = time.time() - start_time
+            alerts_line = "fail 1/1 error" if cycle_failed else "pass 0/0 –"
+            summary = _build_cycle_summary(
+                loop_counter,
+                elapsed,
+                status_snapshot,
+                alerts_line=alerts_line,
+            )
+            emit_compact_cycle(summary, {}, interval, enable_color=enable_color)
+
             sleep_time = max(interval - elapsed, 0)
-            time.sleep(sleep_time)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
     except KeyboardInterrupt:
         logging.info("SonicMonitor terminated by user.")
+    finally:
+        try:
+            loop.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
-    main()
+    run_monitor()
