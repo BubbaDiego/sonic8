@@ -47,6 +47,15 @@ from contextlib import contextmanager
 from enum import IntEnum
 from typing import Any, Callable, Dict, List, Optional
 
+# ---- Global kill switch -------------------------------------------------
+# When SONIC_CONSOLE_LOGGER=0 (or False/Off), the logger is fully muted.
+_GLOBAL_DISABLED = os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() in {
+    "0",
+    "false",
+    "off",
+    "no",
+}
+
 # ------------- Optional Rich import & capability test ----------------------
 try:
     from rich.console import Console  # type: ignore
@@ -82,9 +91,14 @@ class ConsoleLogger:
     """Human‑friendly yet production‑grade console logger."""
 
     # Runtime toggles ------------------------------------------------------
-    logging_enabled: bool = True
+    logging_enabled: bool = not _GLOBAL_DISABLED
     debug_trace_enabled: bool = False
     trace_modules: set[str] = set()
+
+    @classmethod
+    def _active(cls) -> bool:
+        # single source of truth for "should we emit anything?"
+        return cls.logging_enabled and not _GLOBAL_DISABLED
 
     # Verbosity maps -------------------------------------------------------
     _default_level: Level = Level.coerce(os.getenv("LOG_LEVEL", Level.INFO))
@@ -230,6 +244,8 @@ class ConsoleLogger:
         source: Optional[str] = None,
         payload: Optional[Dict[str, Any]] = None,
     ) -> None:
+        if not cls._active():
+            return
         caller_module = cls._get_caller_module()
         eff_source = source or caller_module
 
@@ -304,6 +320,8 @@ class ConsoleLogger:
     @classmethod
     def banner(cls, text: str) -> None:
         """Pretty divider for console sessions."""
+        if not cls._active():
+            return
         if _RICH_SUPPORTED:
             _RICH_CONSOLE.rule(f"[bold magenta]{text}")
         else:
@@ -319,6 +337,8 @@ class ConsoleLogger:
 
     @classmethod
     def end_timer(cls, label: str, source: str | None = None) -> None:
+        if not cls._active():
+            return
         if label not in cls._timers:
             cls.warning(f"No timer started for label '{label}'", source)
             return
@@ -371,6 +391,8 @@ class ConsoleLogger:
 
     @classmethod
     def init_status(cls) -> None:
+        if not cls._active():
+            return
         muted = [m for m, enabled in cls.module_log_control.items() if not enabled]
         enabled = [m for m, e in cls.module_log_control.items() if e]
 
@@ -385,11 +407,15 @@ class ConsoleLogger:
                 msg += f"        {g:<10} ➜ {', '.join(mods)}\n"
 
         cls.info("🧩 ConsoleLogger initialized.", source="Logger")
-        print(msg.strip())
+        stripped = msg.strip()
+        if stripped:
+            cls.info(stripped, source="Logger")
 
     @classmethod
     def hijack_logger(cls, target_logger_name: str) -> None:
         """Hijack a standard ``logging`` logger and redirect to :class:`ConsoleLogger`."""
+        if not cls._active():
+            return
         import logging
 
         def handler(record: logging.LogRecord):
