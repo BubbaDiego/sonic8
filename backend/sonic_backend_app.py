@@ -1,3 +1,17 @@
+
+# --- logging hygiene guard (keep at the very top) ---
+import sys, importlib
+import logging as _stdlib_logging
+# If some code replaced the logging module, restore the stdlib one
+if not hasattr(_stdlib_logging, "getLogger"):
+    # remove bad injected module and import the real stdlib logging
+    sys.modules.pop("logging", None)
+    _stdlib_logging = importlib.import_module("logging")
+# make sure the name 'logging' in THIS module refers to stdlib logging
+logging = _stdlib_logging
+# ----------------------------------------------------
+
+
 import sys
 import os
 from pathlib import Path
