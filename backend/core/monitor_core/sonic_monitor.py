@@ -10,7 +10,7 @@ import logging
 import time
 from datetime import datetime, timezone
 
-from .utils.console_title import set_console_title
+from backend.core.monitor_core.utils.console_title import set_console_title
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
