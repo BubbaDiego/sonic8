@@ -759,7 +759,7 @@ apis:
   type: http
   method: POST
   path: /api/perps/dry-run/increase
-  response_schema: null
+  response_schema: SCHEMA-API_PERPS_DRY-RUN_INCREASE
 events:
 - id: EVT-SONIC_EVENTS
   topic: monitors.sonic_events
@@ -941,6 +941,8 @@ schemas:
   path: docs/spec/schemas/api_perps_positions_db.json
 - id: SCHEMA-API_PERPS_POSITIONS_HEALTH
   path: docs/spec/schemas/api_perps_positions_health.json
+- id: SCHEMA-API_PERPS_DRY-RUN_INCREASE
+  path: docs/spec/schemas/api_perps_dry-run_increase.json
 - id: SCHEMA-API_JUPITER_OPEN
   path: docs/spec/schemas/api_jupiter_open.json
 - id: SCHEMA-API_JUPITER_CLOSE

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PerpsDryRunIncreaseResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": { "type": "boolean" },
+    "run_id": { "type": "string" },
+    "market": { "type": "string" },
+    "requested_size": { "type": "number" },
+    "new_position_size": { "type": "number" },
+    "est_entry_price": { "type": "number" },
+    "est_liq_price": { "type": "number" },
+    "est_fees": { "type": "number" },
+    "slippage_bps": { "type": "number" },
+    "route": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "step": { "type": "integer" },
+          "venue": { "type": "string" },
+          "qty": { "type": "number" },
+          "price": { "type": "number" }
+        },
+        "required": ["venue", "qty"]
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "timestamp": { "type": "string" }
+  },
+  "required": ["ok"]
+}
