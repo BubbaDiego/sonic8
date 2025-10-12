@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import importlib
+import ast
 import os
+import runpy
 import sys
 import traceback
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 _DEF_FUNCS: Tuple[str, ...] = ("main", "run", "run_console", "run_cyclone_console", "start")
 
@@ -15,67 +16,81 @@ def _repo_root() -> Path:
     for p in [here, *here.parents]:
         if (p / "backend").exists():
             return p
-    # fallback: <repo>/backend/console/.. -> repo
     return here.parents[2]
 
 
-def _call_entry(mod_name: str, func: str) -> Optional[int]:
-    mod = importlib.import_module(mod_name)
-    fn: Optional[Callable[..., object]] = getattr(mod, func, None)
-    if not callable(fn):
-        raise AttributeError(f"{mod_name}:{func} (no callable)")
-    rv = fn()
-    return int(rv) if isinstance(rv, int) else 0
+def _is_console_dir(path: Path) -> bool:
+    parts = [part.lower() for part in path.parts]
+    return "backend" in parts and "console" in parts
 
 
-def _try_candidates(candidates: List[Tuple[str, str]]) -> Tuple[Optional[int], List[str]]:
-    errors: List[str] = []
-    for mod_name, func in candidates:
-        try:
-            return _call_entry(mod_name, func), errors
-        except Exception as e:  # pragma: no cover - diagnostic output
-            errors.append(f"{mod_name}:{func} -> {e.__class__.__name__}: {e}")
-    return None, errors
-
-
-def _discover_modules(root: Path) -> List[str]:
-    """Find python modules under backend/ whose filename contains 'cyclone'."""
+def _candidate_files(root: Path) -> List[Path]:
+    """Prefer obvious console-like files; fallback to any cyclone file (excluding our console dir)."""
 
     backend = root / "backend"
-    mods: List[str] = []
+    if not backend.exists():
+        return []
+
+    picks: List[Path] = []
+
+    def add_path(path: Path) -> None:
+        if _is_console_dir(path.parent):
+            return
+        if path in picks:
+            return
+        picks.append(path)
+
+    priority = (
+        "cyclone_console.py",
+        "cyclone_app.py",
+        "cyclone_cli.py",
+        "console_cyclone.py",
+    )
+
+    for path in backend.rglob("*.py"):
+        if path.name.lower() in priority:
+            add_path(path)
+
     for path in backend.rglob("*.py"):
         name = path.name.lower()
-        if "__init__" in name or "test" in name:
-            continue
-        if "cyclone" not in name:
-            continue
-        try:
-            rel = path.relative_to(root).with_suffix("")
-            mod_name = ".".join(rel.parts)
-        except Exception:
-            continue
-        mods.append(mod_name)
+        if "cyclone" in name and ("console" in name or "cli" in name):
+            add_path(path)
 
-    # De-dup while preserving order
+    for path in backend.rglob("*.py"):
+        if "cyclone" in path.name.lower():
+            add_path(path)
+
+    return picks
+
+
+def _functions_in_file(py_file: Path) -> List[str]:
+    try:
+        src = py_file.read_text(encoding="utf-8", errors="ignore")
+        tree = ast.parse(src, filename=str(py_file))
+    except Exception:
+        return []
+
+    names: List[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name in _DEF_FUNCS:
+            names.append(node.name)
+
     seen: set[str] = set()
-    out: List[str] = []
-    for mod_name in mods:
-        if mod_name in seen:
-            continue
-        seen.add(mod_name)
-        out.append(mod_name)
-    return out
+    ordered: List[str] = []
+    for fn in _DEF_FUNCS:
+        if fn in names and fn not in seen:
+            ordered.append(fn)
+            seen.add(fn)
+    return ordered
 
 
-def _try_discovery(root: Path) -> Tuple[Optional[int], List[str]]:
-    errs: List[str] = []
-    for mod_name in _discover_modules(root):
-        for func in _DEF_FUNCS:
-            try:
-                return _call_entry(mod_name, func), errs
-            except Exception as e:  # pragma: no cover - diagnostic output
-                errs.append(f"{mod_name}:{func} -> {e.__class__.__name__}: {e}")
-    return None, errs
+def _run_file_func(py_file: Path, func_name: str) -> Optional[int]:
+    namespace = runpy.run_path(str(py_file), run_name="__main__")
+    fn = namespace.get(func_name)
+    if not callable(fn):
+        raise AttributeError(f"{py_file}:{func_name} (no callable)")
+    rv = fn()
+    return int(rv) if isinstance(rv, int) else 0
 
 
 def main() -> int:
@@ -84,43 +99,68 @@ def main() -> int:
         sys.path.insert(0, str(root))
     os.environ["PYTHONPATH"] = str(root) + os.pathsep + os.environ.get("PYTHONPATH", "")
 
-    # 0) Explicit override
     override = os.environ.get("CYCLONE_ENTRY", "").strip()
     if override:
-        mod_name, _, func = override.partition(":")
+        mod, _, func = override.partition(":")
         func = func or "main"
-        print(f"[cyclone] override: {mod_name}:{func}")
+        print(f"[cyclone] override (module): {mod}:{func}")
         try:
-            return _call_entry(mod_name, func) or 0
-        except Exception:  # pragma: no cover - diagnostic output
+            module = __import__(mod, fromlist=["*"])
+            target = getattr(module, func, None)
+            if not callable(target):
+                raise AttributeError(f"{mod}:{func} not callable")
+            rv = target()
+            return int(rv) if isinstance(rv, int) else 0
+        except Exception:
             traceback.print_exc()
             return 2
 
-    # 1) Static candidates (fast)
-    candidates: List[Tuple[str, str]] = [
-        ("backend.core.cyclone_core.cyclone_console", "main"),
-        ("backend.core.cyclone_core.cyclone_console", "run"),
-        ("backend.core.cyclone_core.cyclone_app", "main"),
-        ("backend.core.cyclone_core.console", "main"),
-        ("backend.core.cyclone_core.app", "main"),
-        # legacy/alt fallbacks:
-        ("backend.core.monitor_core.cyclone_console_service", "main"),
-        ("backend.core.monitor_core.cyclone_console", "main"),
-    ]
-    rv, tried = _try_candidates(candidates)
-    if rv is not None:
-        print(f"[cyclone] using candidates: exit={rv}")
-        return rv
+    override_file = os.environ.get("CYCLONE_ENTRY_FILE", "").strip()
+    if override_file:
+        path_str, _, func = override_file.partition(":")
+        func = func or "main"
+        path = Path(path_str)
+        py_file = path if path.is_absolute() else (root / path).resolve()
+        print(f"[cyclone] override (file): {py_file}:{func}")
+        try:
+            return _run_file_func(py_file, func) or 0
+        except Exception:
+            traceback.print_exc()
+            return 2
 
-    # 2) Dynamic discovery across backend/
-    drv, derrs = _try_discovery(root)
-    if drv is not None:
-        print(f"[cyclone] discovery hit: exit={drv}")
-        return drv
+    errors: List[str] = []
+    files = _candidate_files(root)
+    tried_count = 0
 
-    print("[cyclone] No usable entry found. Tried:")
-    for line in [*tried, *derrs]:
-        print(f"  - {line}")
+    for py_file in files:
+        funcs = _functions_in_file(py_file)
+        if not funcs:
+            continue
+        for func in funcs:
+            tried_count += 1
+            try:
+                print(f"[cyclone] trying {py_file.relative_to(root)}:{func}")
+                rv = _run_file_func(py_file, func)
+                print(f"[cyclone] launch ok: exit={rv}")
+                return rv
+            except Exception as exc:  # pragma: no cover - diagnostic output
+                errors.append(
+                    f"{py_file.relative_to(root)}:{func} -> {exc.__class__.__name__}: {exc}"
+                )
+
+    print("[cyclone] No usable entry found.")
+    if tried_count:
+        print("Tried (file:function):")
+        for line in errors[:200]:
+            print(f"  - {line}")
+        if len(errors) > 200:
+            print(f"  … and {len(errors) - 200} more")
+    else:
+        print("No files with suitable functions were found under backend/.")
+        print(
+            "Hint: set CYCLONE_ENTRY='module.path:main' or "
+            "CYCLONE_ENTRY_FILE='backend/…/file.py:main'"
+        )
     return 2
 
 
@@ -129,6 +169,5 @@ if __name__ == "__main__":
         sys.exit(main())
     except Exception:
         traceback.print_exc()
-        input("\n⏸  Press ENTER to exit…")
+        input("\n⏸ Press ENTER to exit…")
         sys.exit(1)
-
