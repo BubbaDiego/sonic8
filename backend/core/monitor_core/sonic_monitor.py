@@ -468,23 +468,9 @@ def run_monitor(
 ) -> None:
     """Run the Sonic monitor console loop."""
 
-    link_flag = os.getenv("SONIC_MONITOR_DASHBOARD_LINK", "1").strip().lower()
-    if link_flag not in {"0", "false", "off", "no"}:
-        host = os.getenv("SONIC_DASHBOARD_HOST", "127.0.0.1")
-        route = os.getenv("SONIC_DASHBOARD_ROUTE", "/dashboard")
-        port_env = os.getenv("SONIC_DASHBOARD_PORT", "5001")
-        try:
-            port = int(port_env)
-        except ValueError:
-            port = 5001
-        emit_dashboard_link(host=host, port=port, route=route)
-
+    # 0) lock console down…
     install_strict_console_filter()
     muted = silence_legacy_console_loggers()
-    try:
-        emit_boot_status(muted, group_label="", groups=None)
-    except Exception:
-        logging.debug("emit_boot_status failed", exc_info=True)
 
     from backend.core.monitor_core.monitor_core import MonitorCore
 
@@ -495,7 +481,30 @@ def run_monitor(
         setattr(DataLocker, "_instance", dl)
 
     display_interval = poll_interval_s or DEFAULT_INTERVAL
+
+    # 1) standard config banner (single unified "Sonic Monitor Configuration" block)
     emit_config_banner(dl, display_interval)
+
+    link_flag = os.getenv("SONIC_MONITOR_DASHBOARD_LINK", "1").strip().lower()
+    if link_flag not in {"0", "false", "off", "no"}:
+        host = os.getenv("SONIC_DASHBOARD_HOST", "127.0.0.1")
+        route = os.getenv("SONIC_DASHBOARD_ROUTE", "/dashboard")
+        port_env = os.getenv("SONIC_DASHBOARD_PORT", "5001")
+        try:
+            port = int(port_env)
+        except ValueError:
+            port = 5001
+        # Immediately under the header: Dashboard link (if enabled)
+        try:
+            emit_dashboard_link(host=host, port=port, route=route)
+        except Exception:
+            logging.debug("emit_dashboard_link failed", exc_info=True)
+
+    # Immediately under the header: muted modules summary
+    try:
+        emit_boot_status(muted, group_label="", groups=None)
+    except Exception:
+        logging.debug("emit_boot_status failed", exc_info=True)
 
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
@@ -655,6 +664,9 @@ def run_monitor(
                             tokens.append(f"{label}:{_MON_STATE[key]}")
                     if tokens:
                         summary["monitors_inline"] = " ".join(tokens)
+                        summary["alerts_inline"] = summary.get("alerts_inline") or summary[
+                            "monitors_inline"
+                        ]
             except Exception:
                 pass
             try:
@@ -674,6 +686,8 @@ def run_monitor(
             except Exception:
                 logging.debug("Failed to load sonic_monitor config", exc_info=True)
 
+            # extra breathing room between last monitor tick and the endcap
+            print()
             summary = snapshot_into(summary)
             emit_compact_cycle(
                 summary,
