@@ -47,11 +47,12 @@ def emit_compact_cycle(summary: Dict[str, Any], cfg: Dict[str, Any], poll_interv
     # Cyclone headline
     cyc_ms = int(max((summary.get("elapsed_s") or 0.0) * 1000.0, 1))
     pos_line = summary.get("positions_line", "↑0/0/0")
+    monitor_line = summary.get("monitor_states_line") or pos_line
     hedges = int(summary.get("hedge_groups", 0) or 0)
     alerts = summary.get("alerts_inline", "pass 0/0 –")
     line = (
         "   🌀 Cyclone  : "
-        f"{summary.get('assets_line','–')} • {pos_line} • {alerts} • groups {hedges} • {cyc_ms}ms"
+        f"{summary.get('assets_line','–')} • {monitor_line} • {alerts} • groups {hedges} • {cyc_ms}ms"
     )
     print(line, flush=True)
 
