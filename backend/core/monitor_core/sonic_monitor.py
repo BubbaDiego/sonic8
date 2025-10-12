@@ -86,7 +86,13 @@ from backend.core.reporting_core.console_reporter import (
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
 )
-from backend.core.reporting_core.prelaunch import print_prelaunch_checklist
+from backend.core.reporting_core.summary_cache import (
+    snapshot_into,
+    set_hedges,
+    set_positions_icon_line,
+    set_prices,
+    set_prices_reason,
+)
 from data.data_locker import DataLocker
 from backend.models.monitor_status import MonitorStatus, MonitorType
 from core.core_constants import MOTHER_DB_PATH
@@ -341,14 +347,26 @@ async def _run_monitor_tick(name: str, runner: Callable[..., Any], *args: Any, *
     except Exception as exc:
         task_end(key, "fail", note=str(exc))
         _MON_STATE[name] = "FAIL"
+        if name == "price_monitor":
+            set_prices_reason("error")
+        if name == "position_monitor":
+            set_positions_icon_line(line=None, updated_iso=None, reason="error")
         raise
     else:
         if isinstance(result, dict) and result.get("skipped"):
             task_end(key, "skip", note="fresh")
             _MON_STATE[name] = "⏭"
+            if name == "price_monitor":
+                set_prices_reason("skipped")
+            if name == "position_monitor":
+                set_positions_icon_line(line=None, updated_iso=None, reason="skipped")
         else:
             task_end(key, "ok")
             _MON_STATE[name] = "OK"
+            if name == "price_monitor":
+                set_prices_reason("fresh")
+            if name == "position_monitor":
+                set_positions_icon_line(line=None, updated_iso=None, reason="fresh")
         return result
 
 def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
@@ -461,33 +479,6 @@ def run_monitor(
             port = 5001
         emit_dashboard_link(host=host, port=port, route=route)
 
-    # ── Top-of-screen env readout (path + Twilio) ─────────────────────────────
-    try:
-        env_path = os.getenv("SONIC_ENV_PATH_RESOLVED") or _env_used or "–"
-
-        # Canonical first, then fall back to legacy/aliases
-        sid = (
-            os.getenv("TWILIO_SID")
-            or os.getenv("TWILIO_ACCOUNT_SID")
-            or "–"
-        )
-        from_ = (
-            os.getenv("TWILIO_FROM")
-            or os.getenv("TWILIO_FROM_PHONE")
-            or "–"
-        )
-        to_ = (
-            os.getenv("TWILIO_TO")
-            or os.getenv("TWILIO_TO_PHONE")
-            or os.getenv("TWILIO_DEFAULT_TO")
-            or "–"
-        )
-
-        print(f"📦 .env (used): {env_path}")
-        print(f"📞 Twilio (env): sid={sid[:3]}… • from={from_} • to={to_}")
-    except Exception:
-        pass
-
     install_strict_console_filter()
     muted = silence_legacy_console_loggers()
     try:
@@ -505,12 +496,6 @@ def run_monitor(
 
     display_interval = poll_interval_s or DEFAULT_INTERVAL
     emit_config_banner(dl, display_interval)
-
-    # 1.5) one-time Pre-Launch Checklist (provenance + Twilio + monitor values)
-    try:
-        print_prelaunch_checklist(dl, display_interval)
-    except Exception:
-        pass
 
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
@@ -591,8 +576,10 @@ def run_monitor(
                 if price_mgr:
                     price_rows = price_mgr.get_all_prices() or []
                     top3: list[tuple[str, float]] = []
+                    price_ages: dict[str, int] = {}
                     seen_assets: set[str] = set()
                     latest_iso: Optional[str] = None
+                    now_ts = datetime.now(timezone.utc).timestamp()
                     for row in price_rows:
                         asset = str(row.get("asset_type") or "").upper() or "UNKNOWN"
                         if asset in seen_assets:
@@ -603,17 +590,28 @@ def run_monitor(
                         except Exception:
                             price_val = 0.0
                         top3.append((asset, price_val))
-                        iso = _to_iso(row.get("last_update_time"))
+                        last_ts = row.get("last_update_time")
+                        iso = _to_iso(last_ts)
                         if iso and (latest_iso is None or iso > latest_iso):
                             latest_iso = iso
+                        try:
+                            last_float = float(last_ts)
+                            price_ages[asset] = max(int((now_ts - last_float) // 60), 0)
+                        except Exception:
+                            pass
                         if len(top3) >= 3:
                             break
                     if top3:
                         summary["prices_top3"] = top3
+                    if price_ages:
+                        summary["price_ages"] = price_ages
                     if latest_iso and not summary.get("prices_updated_at"):
                         summary["prices_updated_at"] = latest_iso
+                    set_prices(top3, latest_iso)
             except Exception:
                 logging.debug("Failed to populate price summary", exc_info=True)
+                set_prices([], None)
+                set_prices_reason("error")
             try:
                 positions_mgr = getattr(dl, "positions", None)
                 if positions_mgr:
@@ -625,13 +623,20 @@ def run_monitor(
                             latest_iso = iso
                     if latest_iso and not summary.get("positions_updated_at"):
                         summary["positions_updated_at"] = latest_iso
+                set_positions_icon_line(
+                    line=icon_line if icon_line else None,
+                    updated_iso=summary.get("positions_updated_at") or latest_iso,
+                    reason=None,
+                )
             except Exception:
                 logging.debug("Failed to populate position summary", exc_info=True)
+                set_positions_icon_line(line=None, updated_iso=None, reason="error")
             try:
                 hedge_mgr = getattr(dl, "hedges", None)
                 if hedge_mgr:
                     hedges = hedge_mgr.get_hedges() or []
                     summary["hedge_groups"] = len(hedges)
+                    set_hedges(len(hedges))
             except Exception:
                 logging.debug("Failed to populate hedge summary", exc_info=True)
             try:
@@ -658,12 +663,18 @@ def run_monitor(
                 logging.exception("Failed to enrich sonic summary")
             if icon_line:
                 summary.setdefault("positions_icon_line", icon_line)
+                set_positions_icon_line(
+                    line=icon_line,
+                    updated_iso=summary.get("positions_updated_at"),
+                    reason=None,
+                )
             cfg = {}
             try:
                 cfg = dl.system.get_var("sonic_monitor") or {}
             except Exception:
                 logging.debug("Failed to load sonic_monitor config", exc_info=True)
 
+            summary = snapshot_into(summary)
             emit_compact_cycle(
                 summary,
                 cfg,
