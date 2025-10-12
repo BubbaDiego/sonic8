@@ -108,6 +108,7 @@ export default function MonitorManager() {
         interval_seconds: Number.isFinite(Number(loopSec)) ? Number(loopSec) : undefined,
         enabled_sonic: liqCfg?.enabled_sonic
       };
+      // Market endpoint is retired in refreshed core; ignore 410 Gone if present.
       const postMarket = axios
         .post('/api/monitor-settings/market', marketCfg)
         .catch((err) => {
