@@ -49,3 +49,25 @@ def compute_positions_icon_line(conn: Any) -> str | None:
         return None
     items = sorted(set(items))
     return ", ".join(items)
+
+
+def compute_from_list(items: List[dict] | None) -> str | None:
+    if not items:
+        return None
+    tokens: list[str] = []
+    for it in items:
+        try:
+            asset = str(it.get("asset") or it.get("asset_symbol") or "").upper()
+            side = str(it.get("side") or it.get("position_type") or "").lower()
+        except Exception:
+            asset = ""
+            side = ""
+        if not asset:
+            continue
+        suffix = "L" if side in {"l", "long", "buy", "bull", "1", "true"} else "S"
+        icon = _ICON.get(asset, "•")
+        tokens.append(f"{icon} {asset}-{suffix}")
+    if not tokens:
+        return None
+    tokens = sorted(set(tokens))
+    return ", ".join(tokens)

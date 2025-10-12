@@ -6,6 +6,8 @@ import requests
 from rich.console import Console
 
 from backend.core.reporting_core.task_events import phase_end, phase_start
+from backend.core.reporting_core.positions_icons import compute_from_list
+from backend.core.reporting_core.summary_cache import set_positions_icon_line, set_hedges
 
 # Core / services
 from backend.core.logging import log
@@ -182,6 +184,14 @@ class PositionSyncService:
             else:
                 phase_end("hedges", "ok")
             log.success(f"🌐 HedgeManager produced {len(hedges)} hedges", source="PositionSyncService")
+            try:
+                set_hedges(len(hedges))
+            except Exception:
+                pass
+            try:
+                setattr(self.dl, "last_hedge_groups", int(len(hedges)))
+            except Exception:
+                pass
 
             # snapshot
             if _VERBOSE:
@@ -260,6 +270,7 @@ class PositionSyncService:
 
         imported = updated = skipped = errors = 0
         jup_ids: set[str] = set()
+        fetched_positions: list[dict] = []
 
         # probe DB schema to pass only valid columns on upsert
         cur = self.dl.db.get_cursor()
@@ -362,6 +373,14 @@ class PositionSyncService:
                     "current_price": f(it.get("markPrice")),
                 }
 
+                fetched_positions.append(
+                    {
+                        "asset": raw.get("asset_type"),
+                        "side": raw.get("position_type"),
+                        "is_open": True,
+                    }
+                )
+
                 try:
                     enriched = self.enricher.enrich(raw)
                     is_insert = self._upsert_position(enriched, db_cols)
@@ -384,9 +403,34 @@ class PositionSyncService:
             f"📦 Perps Sync Result → Imported:{imported} Updated:{updated} Skipped:{skipped} Errors:{errors}",
             source="SyncSummary",
         )
+        self._stash_last_positions(fetched_positions)
         return summary
 
     # ------------------------------ DB helpers ------------------------------- #
+
+    def _stash_last_positions(self, positions: list[dict]) -> None:
+        line: str | None = None
+        try:
+            setattr(self.dl, "last_positions_fetch", list(positions))
+        except Exception:
+            pass
+        try:
+            line = compute_from_list(positions)
+        except Exception:
+            line = None
+        if line:
+            try:
+                set_positions_icon_line(
+                    line=line,
+                    updated_iso=datetime.utcnow().isoformat(),
+                    reason="fetched",
+                )
+            except Exception:
+                pass
+        try:
+            setattr(self.dl, "last_positions_icon_line", line)
+        except Exception:
+            pass
 
     def _upsert_position(self, position_data: dict, db_columns: set) -> bool:
         """

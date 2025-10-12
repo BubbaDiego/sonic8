@@ -78,10 +78,8 @@ from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.console_lines import emit_compact_cycle
-from backend.core.reporting_core.positions_icons import compute_positions_icon_line
+from backend.core.reporting_core.positions_icons import compute_positions_icon_line, compute_from_list
 from backend.core.reporting_core.console_reporter import (
-    emit_boot_status,
-    emit_dashboard_link,
     install_strict_console_filter,
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
@@ -135,6 +133,10 @@ _MONITOR_LABELS: Dict[MonitorType, str] = {
 
 
 _MON_STATE: Dict[str, str] = {}
+
+
+def _xcom_live() -> bool:
+    return os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def _format_monitor_lines(status: Optional[MonitorStatus]) -> tuple[str, str]:
@@ -483,28 +485,7 @@ def run_monitor(
     display_interval = poll_interval_s or DEFAULT_INTERVAL
 
     # 1) standard config banner (single unified "Sonic Monitor Configuration" block)
-    emit_config_banner(dl, display_interval)
-
-    link_flag = os.getenv("SONIC_MONITOR_DASHBOARD_LINK", "1").strip().lower()
-    if link_flag not in {"0", "false", "off", "no"}:
-        host = os.getenv("SONIC_DASHBOARD_HOST", "127.0.0.1")
-        route = os.getenv("SONIC_DASHBOARD_ROUTE", "/dashboard")
-        port_env = os.getenv("SONIC_DASHBOARD_PORT", "5001")
-        try:
-            port = int(port_env)
-        except ValueError:
-            port = 5001
-        # Immediately under the header: Dashboard link (if enabled)
-        try:
-            emit_dashboard_link(host=host, port=port, route=route)
-        except Exception:
-            logging.debug("emit_dashboard_link failed", exc_info=True)
-
-    # Immediately under the header: muted modules summary
-    try:
-        emit_boot_status(muted, group_label="", groups=None)
-    except Exception:
-        logging.debug("emit_boot_status failed", exc_info=True)
+    emit_config_banner(dl, display_interval, muted_modules=muted)
 
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
@@ -539,6 +520,9 @@ def run_monitor(
             start_time = time.time()
             cycle_failed = False
 
+            if not _xcom_live():
+                print("🔕 XCom live alerts disabled (dry-run) — events will be logged, not sent.")
+
             try:
                 loop.run_until_complete(sonic_cycle(loop_counter, cyclone))
                 update_heartbeat(MONITOR_NAME, interval)
@@ -572,6 +556,12 @@ def run_monitor(
                 icon_line = compute_positions_icon_line(conn)
             except Exception:
                 logging.debug("positions icon line computation failed", exc_info=True)
+            if not icon_line:
+                try:
+                    fallback_positions = getattr(dl, "last_positions_fetch", None)
+                    icon_line = compute_from_list(fallback_positions)
+                except Exception:
+                    icon_line = None
             summary = _build_cycle_summary(
                 loop_counter,
                 elapsed,
@@ -646,8 +636,21 @@ def run_monitor(
                     hedges = hedge_mgr.get_hedges() or []
                     summary["hedge_groups"] = len(hedges)
                     set_hedges(len(hedges))
+                    try:
+                        setattr(dl, "last_hedge_groups", int(len(hedges)))
+                    except Exception:
+                        pass
             except Exception:
                 logging.debug("Failed to populate hedge summary", exc_info=True)
+                fallback_hedges = getattr(dl, "last_hedge_groups", None)
+                if fallback_hedges is not None and "hedge_groups" not in summary:
+                    summary["hedge_groups"] = int(fallback_hedges)
+                    set_hedges(int(fallback_hedges))
+            if "hedge_groups" not in summary:
+                fallback_hedges = getattr(dl, "last_hedge_groups", None)
+                if fallback_hedges is not None:
+                    summary["hedge_groups"] = int(fallback_hedges)
+                    set_hedges(int(fallback_hedges))
             try:
                 if _MON_STATE:
                     ordered_keys = (

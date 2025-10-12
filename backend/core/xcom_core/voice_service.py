@@ -11,11 +11,16 @@ from twilio.rest import Client
 
 from backend.core.reporting_core.xcom_reporter import (
     twilio_fail,
+    twilio_skip,
     twilio_start,
     twilio_success,
 )
 
 E164 = re.compile(r"^\+[1-9]\d{6,14}$")
+
+
+def _xcom_live() -> bool:
+    return os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 class VoiceService:
@@ -116,6 +121,9 @@ class VoiceService:
         twilio_start("voice", to_mask, from_mask)
 
         try:
+            if not _xcom_live():
+                twilio_skip("voice", "disabled")
+                return False, "xcom-disabled", to_resolved, from_number
             if use_studio and flow_sid and not re.search(r"your_flow_sid_here", flow_sid, re.IGNORECASE):
                 execution = self.client.studio.v2.flows(flow_sid).executions.create(
                     to=to_resolved,
