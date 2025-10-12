@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import axios from 'utils/axios';
 import {
   Card,
   CardHeader,
@@ -64,6 +65,7 @@ export default function SonicMonitorCard({
   const [remaining, setRemaining] = useState(0);
   const [running, setRunning] = useState(false);
   const [nowTs, setNowTs] = useState(Date.now());
+  const [prov, setProv] = useState(null);
 
   const { snoozeEndTs } = useSonicStatusPolling();
   const snoozeEnd = typeof snoozeEndTs === 'number' ? snoozeEndTs : snoozeEndTs ? Date.parse(snoozeEndTs) : 0;
@@ -154,6 +156,21 @@ export default function SonicMonitorCard({
   };
 
   const onLoopChange = (e) => setLoop(e.target.value);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const { data } = await axios.get('/api/monitor-settings/provenance');
+        if (live) setProv(data);
+      } catch (err) {
+        // optional footer; ignore failures
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
 
   return (
     <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -304,6 +321,17 @@ export default function SonicMonitorCard({
           </Stack>
         ))}
       </Box>
+
+      {prov && (
+        <Box sx={{ px: 2, pb: 1.25, opacity: 0.7 }}>
+          <Typography variant="caption" sx={{ display: 'block' }}>
+            Loop: db <b>{prov?.interval?.table || 'monitor_heartbeat'}</b> • {Number(prov?.interval?.seconds) || '–'}s
+          </Typography>
+          <Typography variant="caption" sx={{ display: 'block' }}>
+            Limits: {prov?.thresholds_label || '—'}
+          </Typography>
+        </Box>
+      )}
     </Card>
   );
 }

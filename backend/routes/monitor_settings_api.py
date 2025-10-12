@@ -6,6 +6,8 @@ Back‑compat: still accepts flat ``threshold_btc`` etc. and old ``windows_alert
 
 from fastapi import APIRouter, Depends
 from datetime import datetime, timezone
+from typing import Any, Dict
+from pydantic import BaseModel
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.core.alert_core.threshold_service import ThresholdService  # type: ignore
 from backend.core.core_constants import MOTHER_DB_PATH
@@ -14,6 +16,21 @@ from backend.core.monitor_core import market_monitor
 from backend.deps import get_app_locker
 
 router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
+
+
+def _read_interval(dl: DataLocker) -> int:
+    """Return Sonic loop interval from the heartbeat table, defaulting when absent."""
+
+    cursor = dl.db.get_cursor()
+    if cursor is None:
+        return int(DEFAULT_INTERVAL)
+
+    cursor.execute(
+        "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name = ?",
+        (MONITOR_NAME,),
+    )
+    row = cursor.fetchone()
+    return int(row[0]) if row and row[0] is not None else int(DEFAULT_INTERVAL)
 
 # ------------------------------------------------------------------ #
 # Market Movement Monitor settings
@@ -78,16 +95,7 @@ def reset_market_anchors():
 def get_sonic_settings(dl: DataLocker = Depends(get_app_locker)):
     """Return current Sonic monitor settings."""
 
-    cursor = dl.db.get_cursor()
-    if cursor is None:
-        interval = DEFAULT_INTERVAL
-    else:
-        cursor.execute(
-            "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name = ?",
-            (MONITOR_NAME,),
-        )
-        row = cursor.fetchone()
-        interval = int(row[0]) if row and row[0] is not None else DEFAULT_INTERVAL
+    interval = _read_interval(dl)
 
     cfg = dl.system.get_var("sonic_monitor") or {}
     return {
@@ -140,6 +148,41 @@ def update_sonic_settings(payload: dict, dl: DataLocker = Depends(get_app_locker
     dl.system.set_var("sonic_monitor", cfg)
 
     return {"success": True, "config": {"interval_seconds": interval, **cfg}}
+
+
+class ProvenanceResponse(BaseModel):
+    interval: Dict[str, Any]
+    thresholds: Dict[str, Any]
+    thresholds_label: str
+
+
+@router.get("/provenance", response_model=ProvenanceResponse)
+def get_provenance(dl: DataLocker = Depends(get_app_locker)):
+    """Return Sonic loop interval + threshold provenance for diagnostics."""
+
+    try:
+        seconds = _read_interval(dl)
+    except Exception:
+        seconds = int(DEFAULT_INTERVAL)
+
+    try:
+        from backend.core.monitor_core.sonic_monitor import (  # type: ignore
+            _read_monitor_threshold_sources,
+        )
+
+        thresholds, label = _read_monitor_threshold_sources(dl)
+    except Exception:
+        thresholds, label = {}, ""
+
+    return {
+        "interval": {
+            "seconds": int(seconds),
+            "source": "db",
+            "table": "monitor_heartbeat",
+        },
+        "thresholds": thresholds or {},
+        "thresholds_label": label or "",
+    }
 
 
 # ------------------------------------------------------------------ #
