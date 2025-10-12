@@ -154,7 +154,7 @@ _MON = _load_monitor_json()
 
 
 def _expand_env(node):
-    """Recursively expand ${VARS} in the loaded JSON using environment values."""
+    """Recursively replace ${VAR} with os.environ['VAR'] if present."""
 
     if isinstance(node, str):
         m = re.fullmatch(r"\$\{([^}]+)\}", node.strip())
@@ -169,6 +169,47 @@ def _expand_env(node):
 
 
 _MON = _expand_env(_MON)
+
+
+def _hydrate_db_from_json():
+    """Write JSON thresholds into system_vars so legacy monitors use the same values."""
+
+    sys = getattr(dal, "system", None)
+    if sys is None or not isinstance(_MON, dict):
+        return
+
+    # --- Profit thresholds ---
+    p = _MON.get("profit") or {}
+    pos = p.get("position_usd")
+    pf = p.get("portfolio_usd")
+    try:
+        if pos is not None:
+            sys.set_var("profit_pos", float(pos))
+        if pf is not None:
+            sys.set_var("profit_pf", float(pf))
+    except Exception:
+        pass
+
+    # --- Liquid thresholds (per asset) ---
+    l = _MON.get("liquid") or {}
+    thr_map = l.get("thresholds") or {}
+    blast = l.get("blast") or {}
+    if isinstance(thr_map, dict):
+        try:
+            payload = {
+                "thresholds": {
+                    k.upper(): float(v)
+                    for k, v in thr_map.items()
+                    if v is not None
+                },
+                "blast": {
+                    k.upper(): int(blast.get(k, 0))
+                    for k in thr_map.keys()
+                },
+            }
+            sys.set_var("alert_thresholds", json.dumps(payload))
+        except Exception:
+            pass
 
 
 def _cfg(*keys, default=None):
@@ -972,6 +1013,7 @@ def run_monitor(
 
     # 1) standard config banner (single unified "Sonic Monitor Configuration" block)
     src, note = _config_source()
+    _hydrate_db_from_json()
     emit_config_banner(
         dl,
         display_interval,
