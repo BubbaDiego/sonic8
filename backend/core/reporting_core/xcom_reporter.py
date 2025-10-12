@@ -92,3 +92,8 @@ def twilio_fail(channel: str, exc: Exception) -> None:
     if hint:
         note += f"  ({hint})"
     phase_end(f"xcom_{channel}", "fail", note=note)
+
+
+def twilio_skip(channel: str, reason: str = "disabled") -> None:
+    """Mark Twilio channel as skipped (e.g., dry-run)."""
+    phase_end(f"xcom_{channel}", "skip", note=reason)

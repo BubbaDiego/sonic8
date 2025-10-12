@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from backend.core.logging import log
 from backend.core.reporting_core.xcom_reporter import (
     twilio_fail,
+    twilio_skip,
     twilio_start,
     twilio_success,
 )
@@ -22,6 +23,10 @@ except ModuleNotFoundError:  # pragma: no cover
 
 # Legacy email fallback --------------------------------------------------
 from backend.core.xcom_core.email_service import EmailService
+
+
+def _xcom_live() -> bool:
+    return os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 class SMSService:
@@ -62,8 +67,12 @@ class SMSService:
                     f"\U0001f4ac [DRY-RUN] SMS to {to}: {body}",
                     source="SMSService",
                 )
-                twilio_success("sms", note="dry run")
+                twilio_skip("sms", "dry-run")
                 return True
+            if not _xcom_live():
+                log.info("SONIC_XCOM_LIVE disabled – skipping Twilio SMS", source="SMSService")
+                twilio_skip("sms", "disabled")
+                return False
             try:
                 client = Client(self.cfg["sid"], self.cfg["token"])
                 msg = client.messages.create(

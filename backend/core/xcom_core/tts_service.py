@@ -1,15 +1,23 @@
 
+import os
+import sys
+
 try:
     import pyttsx3
 except Exception:  # pragma: no cover - optional dependency
     pyttsx3 = None
-import sys
+
 from backend.core.logging import log
 from backend.core.reporting_core.xcom_reporter import (
     twilio_fail,
+    twilio_skip,
     twilio_start,
     twilio_success,
 )
+
+
+def _xcom_live() -> bool:
+    return os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 class TTSService:
     def __init__(self, voice_name: str | None = None, speed: int | None = None):
@@ -44,6 +52,10 @@ class TTSService:
 
     def send(self, recipient: str, body: str) -> bool:
         twilio_start("tts", recipient, "-")
+        if not _xcom_live():
+            log.info("SONIC_XCOM_LIVE disabled – skipping TTS", source="TTSService")
+            twilio_skip("tts", "disabled")
+            return False
         if not self.engine:
             log.warning("pyttsx3 not available", source="TTSService")
             twilio_fail("tts", RuntimeError("pyttsx3 engine unavailable"))
