@@ -85,10 +85,14 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
 from backend.config.config_loader import load_config, load_monitor_config
 from backend.data.data_locker import DataLocker
 
+# ── Config + DB bootstrap (order matters) ─────────────────────
 _CFG_PATH = os.getenv("SONIC_CONFIG_JSON_PATH") or str(
     Path(__file__).resolve().parents[2] / "config" / "sonic_config.json"
 )
-_cfg = load_config(_CFG_PATH) or {}
+try:
+    _cfg = load_config(_CFG_PATH) or {}
+except Exception:
+    _cfg = {}
 
 _DB_PATH = (
     (_cfg.get("system_config") or {}).get("db_path")
@@ -96,7 +100,10 @@ _DB_PATH = (
     or str(Path(__file__).resolve().parents[2] / "mother.db")
 )
 
-dal = DataLocker.get_instance(_DB_PATH)
+MOTHER_DB_PATH = _DB_PATH           # ← compatibility alias
+MONITOR_NAME = "sonic_monitor"
+
+dal = DataLocker.get_instance(MOTHER_DB_PATH)
 
 _mon_cfg = load_monitor_config() or {}
 
@@ -275,11 +282,10 @@ from backend.core.reporting_core.summary_cache import (
     set_prices,
     set_prices_reason,
 )
+from backend.core.reporting_core.alerts_formatter import compose_alerts_inline
 from backend.data.dl_hedges import DLHedgeManager
 from backend.core.config.json_config import load_config as load_json_config
 from backend.models.monitor_status import MonitorStatus, MonitorType
-
-MONITOR_NAME = "sonic_monitor"
 DEFAULT_INTERVAL = 60  # fallback if nothing set in DB
 
 CYCLONE_GROUP_LABEL = "cyclone_core"
@@ -317,6 +323,100 @@ _MONITOR_LABELS: Dict[MonitorType, str] = {
 
 
 _MON_STATE: Dict[str, str] = {}
+_ALERTS_STATE: Dict[str, Any] = {}
+_ALERT_LIMITS: Dict[str, Any] = {}
+
+
+def _safe_float(value: Any) -> Optional[float]:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _profit_thresholds() -> tuple[Optional[float], Optional[float]]:
+    cfg = _ALERT_LIMITS.get("profit_monitor") or {}
+    pos = cfg.get("position_profit_usd") or cfg.get("position_usd")
+    pf = cfg.get("portfolio_profit_usd") or cfg.get("portfolio_usd")
+    return _safe_float(pos), _safe_float(pf)
+
+
+def _liquid_threshold_for(asset: str) -> Optional[float]:
+    section = _ALERT_LIMITS.get("liquid_monitor") or {}
+    thresholds = section.get("thresholds") or {}
+    if isinstance(thresholds, Mapping):
+        raw = thresholds.get(asset.upper())
+        return _safe_float(raw)
+    return None
+
+
+def _ingest_alert_result(name: str, result: Mapping[str, Any]) -> None:
+    if not result or result.get("skipped"):
+        return
+
+    if name == "profit_monitor":
+        profit_state: Dict[str, Any] = {}
+
+        max_profit = result.get("max_profit") or result.get("highest_single_profit")
+        if max_profit is None:
+            badge_val = None
+            try:
+                if getattr(dal, "system", None):
+                    badge_val = dal.system.get_var("profit_badge_value")
+            except Exception:
+                badge_val = None
+            max_profit = badge_val
+
+        max_profit_val = _safe_float(max_profit)
+        pos_thr, pf_thr = _profit_thresholds()
+        if max_profit_val is not None:
+            entry: Dict[str, Any] = {"value": max_profit_val, "breach": bool(pos_thr is not None and max_profit_val >= pos_thr)}
+            if pos_thr is not None:
+                entry["threshold"] = pos_thr
+            profit_state["position"] = entry
+
+        total_profit = _safe_float(result.get("total_profit"))
+        if total_profit is not None:
+            breach_pf = bool(pf_thr is not None and total_profit >= pf_thr)
+            entry_pf: Dict[str, Any] = {"value": total_profit, "breach": breach_pf}
+            if pf_thr is not None:
+                entry_pf["threshold"] = pf_thr
+            profit_state["portfolio"] = entry_pf
+
+        if profit_state:
+            _ALERTS_STATE["profit"] = profit_state
+        else:
+            _ALERTS_STATE.pop("profit", None)
+        return
+
+    if name == "liquid_monitor":
+        details = result.get("details")
+        rows: list[Dict[str, Any]] = []
+        if isinstance(details, list):
+            for item in details:
+                if not isinstance(item, Mapping):
+                    continue
+                asset = str(item.get("asset") or item.get("symbol") or "").strip().upper()
+                if not asset:
+                    continue
+                dist = _safe_float(item.get("dist_pct") or item.get("distance"))
+                threshold = _safe_float(item.get("threshold"))
+                if threshold is None:
+                    threshold = _liquid_threshold_for(asset)
+                breach = bool(item.get("breach"))
+                entry_liq: Dict[str, Any] = {"asset": asset, "breach": breach}
+                if threshold is not None:
+                    entry_liq["threshold"] = threshold
+                if dist is not None:
+                    entry_liq["dist_pct"] = dist
+                rows.append(entry_liq)
+
+        if rows:
+            _ALERTS_STATE["liquid"] = rows
+        else:
+            _ALERTS_STATE.pop("liquid", None)
 
 
 def _coerce_mapping(value: Any) -> Dict[str, Any]:
@@ -659,9 +759,14 @@ async def _run_monitor_tick(name: str, runner: Callable[..., Any], *args: Any, *
                 set_prices_reason("fresh")
             if name == "position_monitor":
                 set_positions_icon_line(line=None, updated_iso=None, reason="fresh")
+        if isinstance(result, Mapping):
+            _ingest_alert_result(name, result)
         return result
 
-def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
+def get_monitor_interval(db_path: str | None = None, monitor_name: str | None = None):
+    db_path = db_path or MOTHER_DB_PATH
+    monitor_name = monitor_name or MONITOR_NAME
+
     if _LOOP_SECONDS_OVERRIDE is not None and _LOOP_SECONDS_OVERRIDE > 0:
         return int(_LOOP_SECONDS_OVERRIDE)
 
@@ -695,7 +800,12 @@ def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
     return DEFAULT_INTERVAL
 
 
-def update_heartbeat(monitor_name, interval_seconds, db_path=MOTHER_DB_PATH):
+def update_heartbeat(
+    monitor_name: str,
+    interval_seconds: float,
+    db_path: str | None = None,
+) -> None:
+    db_path = db_path or MOTHER_DB_PATH
     dl = DataLocker(str(db_path))
     cursor = dl.db.get_cursor()
     if not cursor:
@@ -716,7 +826,8 @@ def update_heartbeat(monitor_name, interval_seconds, db_path=MOTHER_DB_PATH):
     dl.db.commit()
 
 
-def write_ledger(status: str, metadata: dict | None = None, db_path=MOTHER_DB_PATH):
+def write_ledger(status: str, metadata: dict | None = None, db_path: str | None = None) -> None:
+    db_path = db_path or MOTHER_DB_PATH
     dl = DataLocker(str(db_path))
     try:
         dl.ledger.insert_ledger_entry(MONITOR_NAME, status=status, metadata=metadata)
@@ -743,6 +854,7 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     liquid_enabled = _monitor_enabled(cfg, "liquid")
 
     _MON_STATE.clear()
+    _ALERTS_STATE.clear()
 
     if not sonic_enabled:
         logging.info("Sonic loop disabled via config")
@@ -799,6 +911,12 @@ def run_monitor(
     else:
         # Ensure the provided locker is reused by singleton consumers
         setattr(DataLocker, "_instance", dl)
+
+    global _ALERT_LIMITS
+    try:
+        _ALERT_LIMITS, _ = _read_monitor_threshold_sources(dl)
+    except Exception:
+        _ALERT_LIMITS = {}
 
     if _LOOP_SECONDS_OVERRIDE is not None and _LOOP_SECONDS_OVERRIDE > 0:
         poll_interval_s = _LOOP_SECONDS_OVERRIDE
@@ -1001,12 +1119,21 @@ def run_monitor(
                             label = key.replace("_monitor", "")
                             tokens.append(f"{label}:{_MON_STATE[key]}")
                     if tokens:
-                        summary["monitors_inline"] = " ".join(tokens)
-                        summary["alerts_inline"] = summary.get("alerts_inline") or summary[
-                            "monitors_inline"
-                        ]
+                            summary["monitors_inline"] = " ".join(tokens)
+                            summary["alerts_inline"] = summary.get("alerts_inline") or summary[
+                                "monitors_inline"
+                            ]
             except Exception:
                 pass
+
+            if not cycle_failed:
+                details = compose_alerts_inline(_ALERTS_STATE)
+                if details and details != "none":
+                    summary["alerts_inline"] = details
+                else:
+                    summary["alerts_inline"] = summary.get("monitors_inline", "none")
+            else:
+                summary["alerts_inline"] = "fail 1/1 error"
             try:
                 errors = sum(1 for state in _MON_STATE.values() if str(state).upper() == "FAIL")
                 if cycle_failed:
