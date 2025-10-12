@@ -5,6 +5,44 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+
+# === Monitor config (JSON) ==============================================
+def _mon_cfg_default_path() -> str:
+    """Return the default on-disk location for the monitor JSON file."""
+
+    here = Path(__file__).resolve()
+    return str(here.parent / "sonic_monitor_config.json")
+
+
+def load_monitor_config(path: str | None = None) -> dict:
+    """Load ``sonic_monitor_config.json`` (or an override from the environment)."""
+
+    cfg_path = path or os.getenv("SONIC_MONITOR_CONFIG_PATH") or _mon_cfg_default_path()
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_monitor_config(data: dict, path: str | None = None) -> bool:
+    """Persist the monitor configuration JSON atomically."""
+
+    if not isinstance(data, dict):
+        return False
+
+    cfg_path = path or os.getenv("SONIC_MONITOR_CONFIG_PATH") or _mon_cfg_default_path()
+    try:
+        os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
+        tmp_path = f"{cfg_path}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, indent=2, sort_keys=True)
+        os.replace(tmp_path, cfg_path)
+        return True
+    except Exception:
+        return False
+
 # Default JSON at repo_root/backend/data/sonic_config.json
 _DEFAULT = Path(__file__).resolve().parents[1] / "data" / "sonic_config.json"
 _ENV_VAR = "SONIC_CONFIG_JSON_PATH"  # optional override

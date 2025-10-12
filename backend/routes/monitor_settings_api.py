@@ -5,6 +5,7 @@ Back‑compat: still accepts flat ``threshold_btc`` etc. and old ``windows_alert
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -12,6 +13,7 @@ from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 
 from backend.data.data_locker import DataLocker  # type: ignore
+from backend.config.config_loader import load_monitor_config, save_monitor_config
 from backend.core.alert_core.threshold_service import ThresholdService  # type: ignore
 from backend.core.config.json_config import (
     get_path_str,
@@ -59,6 +61,93 @@ def _read_interval(dl: DataLocker) -> tuple[int, str]:
         except Exception:
             pass
     return int(DEFAULT_INTERVAL), "default"
+
+
+def _monitor_json_state() -> Dict[str, Any]:
+    data = load_monitor_config()
+    return dict(data) if isinstance(data, dict) else {}
+
+
+def _persist_monitor_json(
+    *,
+    loop_seconds: Optional[int] = None,
+    enabled: Optional[Dict[str, Any]] = None,
+    xcom_live: Optional[bool] = None,
+    price_assets: Optional[Any] = None,
+    liquid: Optional[Dict[str, Any]] = None,
+    profit: Optional[Dict[str, Any]] = None,
+    twilio: Optional[Dict[str, Any]] = None,
+) -> None:
+    cfg = _monitor_json_state()
+
+    monitor_section = cfg.setdefault("monitor", {})
+    if loop_seconds is not None:
+        try:
+            monitor_section["loop_seconds"] = int(loop_seconds)
+        except Exception:
+            pass
+    if enabled:
+        enabled_section = monitor_section.setdefault("enabled", {})
+        for key, value in enabled.items():
+            enabled_section[key] = bool(value)
+    if xcom_live is not None:
+        monitor_section["xcom_live"] = bool(xcom_live)
+
+    if price_assets is not None:
+        assets: list[str] = []
+        for asset in price_assets:
+            if asset is None:
+                continue
+            text = str(asset).strip()
+            if text:
+                assets.append(text.upper())
+        if assets:
+            cfg.setdefault("price", {})["assets"] = assets
+
+    if liquid:
+        liq_section = cfg.setdefault("liquid", {})
+        thresholds = liquid.get("thresholds") if isinstance(liquid, dict) else None
+        blast = liquid.get("blast") if isinstance(liquid, dict) else None
+        if isinstance(thresholds, dict):
+            shaped = {}
+            for key, value in thresholds.items():
+                try:
+                    shaped[str(key).upper()] = float(value)
+                except Exception:
+                    continue
+            if shaped:
+                liq_section["thresholds"] = shaped
+        if isinstance(blast, dict):
+            shaped_blast = {}
+            for key, value in blast.items():
+                try:
+                    shaped_blast[str(key).upper()] = float(value)
+                except Exception:
+                    continue
+            if shaped_blast:
+                liq_section["blast"] = shaped_blast
+
+    if profit:
+        prof_section = cfg.setdefault("profit", {})
+        if "position_usd" in profit and profit["position_usd"] is not None:
+            try:
+                prof_section["position_usd"] = int(float(profit["position_usd"]))
+            except Exception:
+                pass
+        if "portfolio_usd" in profit and profit["portfolio_usd"] is not None:
+            try:
+                prof_section["portfolio_usd"] = int(float(profit["portfolio_usd"]))
+            except Exception:
+                pass
+
+    if twilio:
+        twilio_section = cfg.setdefault("twilio", {})
+        for key in ("sid", "auth", "from", "to", "flow"):
+            value = twilio.get(key) if isinstance(twilio, dict) else None
+            if value is not None:
+                twilio_section[key] = value
+
+    save_monitor_config(cfg)
 
 # ------------------------------------------------------------------ #
 # Market Movement Monitor settings
@@ -156,12 +245,34 @@ def update_sonic_settings(payload: dict, dl: DataLocker = Depends(get_app_locker
 
     dl.system.set_var("sonic_monitor", cfg)
 
+    xcom_live_val = payload.get("xcom_live")
+    if xcom_live_val is not None:
+        xcom_live = to_bool(xcom_live_val)
+        os.environ["SONIC_XCOM_LIVE"] = "1" if xcom_live else "0"
+    else:
+        xcom_env = os.getenv("SONIC_XCOM_LIVE", "1")
+        xcom_live = xcom_env.strip().lower() not in {"0", "false", "no", "off"}
+
     try:
         save_config_patch(
             {"system_config": {"sonic_monitor_loop_time": int(interval)}}
         )
     except Exception:
         log.debug("Failed to persist sonic loop interval to JSON", exc_info=True)
+
+    enabled_snapshot = {
+        "sonic": cfg.get("enabled_sonic", True),
+        "liquid": cfg.get("enabled_liquid", True),
+        "profit": cfg.get("enabled_profit", True),
+        "market": cfg.get("enabled_market", True),
+        "price": cfg.get("enabled_market", True),
+    }
+
+    _persist_monitor_json(
+        loop_seconds=interval,
+        enabled=enabled_snapshot,
+        xcom_live=xcom_live,
+    )
 
     return {"success": True, "config": {"interval_seconds": interval, **cfg}}
 
@@ -361,6 +472,18 @@ def post_liquidation_settings(
         log.debug("Failed to persist liquidation config to JSON", exc_info=True)
     _dl_set_system_var(dl, "liquid_monitor", shaped)
 
+    enabled_payload = {}
+    if "enabled_liquid" in shaped:
+        enabled_payload["liquid"] = shaped["enabled_liquid"]
+
+    _persist_monitor_json(
+        liquid={
+            "thresholds": shaped.get("thresholds", {}),
+            "blast": shaped.get("blast_radius", {}),
+        },
+        enabled=enabled_payload or None,
+    )
+
 
 class MarketSettings(BaseModel):
     thresholds: Dict[str, Any] = Field(default_factory=dict)
@@ -421,6 +544,13 @@ def post_market_settings(payload: MarketSettings, dl: DataLocker = Depends(get_a
     except Exception:
         log.debug("Failed to persist market config to JSON", exc_info=True)
     _dl_set_system_var(dl, "market_monitor", shaped)
+
+    enabled_payload = {}
+    if "enabled_market" in shaped:
+        enabled_payload["market"] = shaped["enabled_market"]
+        enabled_payload["price"] = shaped["enabled_market"]
+
+    _persist_monitor_json(enabled=enabled_payload or None)
 
 
 # ------------------------------------------------------------------ #
@@ -524,6 +654,18 @@ def post_profit_settings(payload: ProfitSettings, dl: DataLocker = Depends(get_a
         ts.set_threshold("Profit", "Position", 0.0, shaped.get("position_profit_usd"))
     except Exception:
         log.debug("Failed to update profit thresholds", exc_info=True)
+
+    enabled_payload = {}
+    if "enabled_profit" in shaped:
+        enabled_payload["profit"] = shaped["enabled_profit"]
+
+    _persist_monitor_json(
+        profit={
+            "position_usd": shaped.get("position_profit_usd"),
+            "portfolio_usd": shaped.get("portfolio_profit_usd"),
+        },
+        enabled=enabled_payload or None,
+    )
 
 
 __all__ = ["router"]
