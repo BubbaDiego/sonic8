@@ -163,7 +163,9 @@ def _liquid_row(conn: Optional[sqlite3.Connection], asset: str) -> Tuple[str, st
     return thr, bl, src
 
 
-def print_prelaunch_body(dl: Any, poll_interval_s: int) -> None:
+def print_prelaunch_body(
+    dl: Any, poll_interval_s: int, *, xcom_live: bool = True
+) -> None:
     """Body only; banner prints the header. One-time at startup."""
     env_path = os.getenv("SONIC_ENV_PATH_RESOLVED") or "–"
     db_path = getattr(getattr(dl, "db", None), "db_path", None) or "–"
@@ -187,6 +189,9 @@ def print_prelaunch_body(dl: Any, poll_interval_s: int) -> None:
     print(f"📦 .env (used)    : {env_path}")
     print(f"🔌 Database       : {db_path}")
     print()
+    # Show dry-run state for XCom right before Twilio
+    if not xcom_live:
+        print("🔕 XCom live alerts disabled (dry-run) — events will be logged, not sent.")
     print(
         "☎️ Twilio (env)   : "
         f"SID={sid}\n"
