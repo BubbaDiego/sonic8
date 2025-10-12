@@ -158,6 +158,7 @@ class Cyclone:
             result = await asyncio.to_thread(self.price_sync.run_full_price_sync, source="Cyclone")
             if result.get("success"):
                 log.success("📈 Prices updated successfully ✅", source="Cyclone")
+                self._mark_price_monitor_synced()
             else:
                 log.warning(f"⚠️ Price update failed: {result.get('error')}", source="Cyclone")
         except Exception as e:
@@ -314,6 +315,17 @@ class Cyclone:
 
         log.success(f"🗑 Pruned {pruned} stale positions", source="Cyclone")
         return pruned
+
+    def _mark_price_monitor_synced(self) -> None:
+        try:
+            registry = getattr(self.monitor_core, "registry", None)
+            if registry is None:
+                return
+            monitor = registry.get("price_monitor")
+            if monitor and hasattr(monitor, "mark_cycle_synced"):
+                monitor.mark_cycle_synced()
+        except Exception as exc:  # pragma: no cover - defensive logging
+            log.debug(f"Unable to flag price monitor as synced: {exc}", source="Cyclone")
 
     async def run_enrich_positions(self):
         await self.position_core.enrich_positions()
