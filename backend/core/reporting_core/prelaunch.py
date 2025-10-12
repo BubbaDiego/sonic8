@@ -48,15 +48,40 @@ def _sysvar(conn: sqlite3.Connection, key: str) -> Optional[str]:
 
 
 def _profit_thresholds(conn: Optional[sqlite3.Connection]) -> Tuple[str, str, str]:
+    """
+    Pulls Position/Portfolio profit thresholds with broad key support.
+    Known keys seen in your logs: profit_pos, profit_pf, profit_badge_value.
+    """
+
     pos = pf = "–"
     src = "DB"
-    if conn:
-        v1 = _sysvar(conn, "profit_pos")
-        v2 = _sysvar(conn, "profit_pf")
-        if v1:
-            pos = v1
-        if v2:
-            pf = v2
+    if not conn:
+        return pos, pf, src
+
+    # Position threshold keys (try in order)
+    for key in (
+        "profit_pos",
+        "profit_position_usd",
+        "profit_position",
+        "profit_position_threshold",
+    ):
+        value = _sysvar(conn, key)
+        if value:
+            pos = value
+            break
+
+    # Portfolio threshold keys (try in order)
+    for key in (
+        "profit_pf",
+        "profit_portfolio_usd",
+        "profit_portfolio",
+        "profit_badge_value",
+    ):
+        value = _sysvar(conn, key)
+        if value:
+            pf = value
+            break
+
     return pos, pf, src
 
 
