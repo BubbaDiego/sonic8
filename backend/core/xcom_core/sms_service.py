@@ -8,6 +8,11 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from backend.core.logging import log
+from backend.core.reporting_core.xcom_reporter import (
+    twilio_fail,
+    twilio_start,
+    twilio_success,
+)
 
 # Optional Twilio import -------------------------------------------------
 try:  # pragma: no cover
@@ -50,11 +55,14 @@ class SMSService:
 
         # Twilio path -------------------------------------------------
         if self._twilio_ok:
+            from_number = self.cfg.get("from_number", "")
+            twilio_start("sms", to, from_number)
             if self.cfg.get("dry_run"):
                 log.debug(
                     f"\U0001f4ac [DRY-RUN] SMS to {to}: {body}",
                     source="SMSService",
                 )
+                twilio_success("sms", note="dry run")
                 return True
             try:
                 client = Client(self.cfg["sid"], self.cfg["token"])
@@ -64,9 +72,12 @@ class SMSService:
                     to=to,
                 )
                 log.success(f"\u2705 SMS sent (sid={msg.sid})", source="SMSService")
+                sid = getattr(msg, "sid", "")
+                twilio_success("sms", note=f"sid={sid}" if sid else "sent")
                 return True
             except Exception as e:  # pragma: no cover
                 log.error(f"\u274c Twilio SMS failed: {e}", source="SMSService")
+                twilio_fail("sms", e)
                 # fall through to email fallback if configured
 
         # Email-gateway fallback --------------------------------------

@@ -26,6 +26,10 @@ PHASE_ICON = {
     "snapshot": "📸",
     "report": "📝",
     "sync_summary": "📦",
+    "xcom_voice": "☎️",
+    "xcom_sms": "📨",
+    "xcom_tts": "🔊",
+    "xcom_sound": "🔔",
 }
 
 # Allow forcing monochrome via env if needed

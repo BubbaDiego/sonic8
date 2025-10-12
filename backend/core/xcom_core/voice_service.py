@@ -9,6 +9,12 @@ from typing import Optional, Tuple
 
 from twilio.rest import Client
 
+from backend.core.reporting_core.xcom_reporter import (
+    twilio_fail,
+    twilio_start,
+    twilio_success,
+)
+
 E164 = re.compile(r"^\+[1-9]\d{6,14}$")
 
 
@@ -97,6 +103,18 @@ class VoiceService:
         from_number = self._validate_e164("TWILIO_FROM_PHONE", from_number)
         to_resolved = self._validate_e164("Recipient", to_resolved)
 
+        to_mask = (
+            to_resolved
+            if isinstance(to_resolved, str)
+            else (str(to_resolved) if to_resolved is not None else "")
+        )
+        from_mask = (
+            from_number
+            if isinstance(from_number, str)
+            else (str(from_number) if from_number is not None else "")
+        )
+        twilio_start("voice", to_mask, from_mask)
+
         try:
             if use_studio and flow_sid and not re.search(r"your_flow_sid_here", flow_sid, re.IGNORECASE):
                 execution = self.client.studio.v2.flows(flow_sid).executions.create(
@@ -115,6 +133,7 @@ class VoiceService:
                     from_number,
                     flow_sid,
                 )
+                twilio_success("voice", note="studio execution")
                 return True, sid, to_resolved, from_number
 
             twiml = (
@@ -129,7 +148,9 @@ class VoiceService:
                 to_resolved,
                 from_number,
             )
+            twilio_success("voice", note="call created")
             return True, sid, to_resolved, from_number
         except Exception as exc:  # pragma: no cover - Twilio network errors
+            twilio_fail("voice", exc)
             self.logger.exception("Twilio voice call failed: %s", exc)
             return False, str(exc), to_resolved, from_number
