@@ -108,17 +108,7 @@ class VoiceService:
         from_number = self._validate_e164("TWILIO_FROM_PHONE", from_number)
         to_resolved = self._validate_e164("Recipient", to_resolved)
 
-        to_mask = (
-            to_resolved
-            if isinstance(to_resolved, str)
-            else (str(to_resolved) if to_resolved is not None else "")
-        )
-        from_mask = (
-            from_number
-            if isinstance(from_number, str)
-            else (str(from_number) if from_number is not None else "")
-        )
-        twilio_start("voice", to_mask, from_mask)
+        twilio_start("voice")
 
         try:
             if not _xcom_live():

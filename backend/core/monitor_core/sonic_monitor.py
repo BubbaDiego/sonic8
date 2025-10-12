@@ -106,6 +106,31 @@ MONITOR_NAME = "sonic_monitor"
 dal = DataLocker.get_instance(MOTHER_DB_PATH)
 
 
+# ── Config source (JSON → DB → ENV) one-liner for the banner ────────────────
+def _config_source() -> tuple[str, str]:
+    """Return (SOURCE, NOTE). SOURCE ∈ {JSON, DB, ENV}. NOTE is JSON path or reason."""
+
+    json_path = os.getenv("SONIC_MONITOR_CONFIG_PATH") or str(
+        Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
+    )
+    try:
+        if os.path.exists(json_path):
+            with open(json_path, "r", encoding="utf-8") as f:
+                _ = json.load(f)  # parse ok
+            return ("JSON", json_path)
+    except Exception as e:
+        # fall through, we’ll say DB/ENV and show a tiny reason
+        return ("DB", f"JSON unusable ({e.__class__.__name__})")
+
+    # no JSON file -> DB if we can read any known key, else ENV
+    try:
+        if dal and dal.system.get_var("alert_thresholds") is not None:
+            return ("DB", "system_vars")
+    except Exception:
+        pass
+    return ("ENV", "")
+
+
 # ---- Load monitor JSON once (no bridge) ------------------------------------
 def _monitor_json_path() -> str:
     # default = backend/config/sonic_monitor_config.json
@@ -927,11 +952,13 @@ def run_monitor(
     display_interval = poll_interval_s or DEFAULT_INTERVAL
 
     # 1) standard config banner (single unified "Sonic Monitor Configuration" block)
+    src, note = _config_source()
     emit_config_banner(
         dl,
         display_interval,
         muted_modules=muted,
         xcom_live=_xcom_live(),
+        config_source=(src, note),
     )
 
     monitor_core = MonitorCore()
@@ -963,6 +990,7 @@ def run_monitor(
             if interval <= 0:
                 interval = display_interval
 
+            print(f"▶ cycle #{loop_counter + 1} start")
             loop_counter += 1
             start_time = time.time()
             cycle_failed = False
