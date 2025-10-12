@@ -105,6 +105,8 @@ from backend.core.reporting_core.summary_cache import (
     set_prices,
     set_prices_reason,
 )
+from backend.core.monitor_core.shared_store import dal
+from backend.core.monitor_core.dl_hedges import DLHedgeManager
 from data.data_locker import DataLocker
 from backend.core.config.json_config import load_config as load_json_config
 from backend.models.monitor_status import MonitorStatus, MonitorType
@@ -744,6 +746,15 @@ def run_monitor(
                 if fallback_hedges is not None and "hedge_groups" not in summary:
                     summary["hedge_groups"] = int(fallback_hedges)
                     set_hedges(int(fallback_hedges))
+            try:
+                if int(summary.get("hedge_groups") or 0) <= 0 and getattr(dal, "db", None):
+                    _dlh = DLHedgeManager(dal.db)
+                    _db_hedges = _dlh.get_hedges() or []
+                    if _db_hedges:
+                        summary["hedge_groups"] = len(_db_hedges)
+                        set_hedges(len(_db_hedges))
+            except Exception:
+                pass
             if "hedge_groups" not in summary:
                 fallback_hedges = getattr(dl, "last_hedge_groups", None)
                 if fallback_hedges is not None:
