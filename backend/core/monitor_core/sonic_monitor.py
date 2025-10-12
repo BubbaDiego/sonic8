@@ -566,7 +566,12 @@ def run_monitor(
     display_interval = poll_interval_s or DEFAULT_INTERVAL
 
     # 1) standard config banner (single unified "Sonic Monitor Configuration" block)
-    emit_config_banner(dl, display_interval, muted_modules=muted)
+    emit_config_banner(
+        dl,
+        display_interval,
+        muted_modules=muted,
+        xcom_live=_xcom_live(),
+    )
 
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
@@ -600,9 +605,6 @@ def run_monitor(
             loop_counter += 1
             start_time = time.time()
             cycle_failed = False
-
-            if not _xcom_live():
-                print("🔕 XCom live alerts disabled (dry-run) — events will be logged, not sent.")
 
             try:
                 loop.run_until_complete(sonic_cycle(loop_counter, cyclone))
@@ -787,6 +789,9 @@ def run_monitor(
                 interval,
                 enable_color=True,
             )
+
+            # Visual separation between cycles
+            print()
 
             sleep_time = max(interval - elapsed, 0)
             if sleep_time > 0:
