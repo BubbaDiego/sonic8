@@ -409,6 +409,13 @@ def launch_cyclone_app(new_window: bool = False) -> int:
                 fn()
                 return 0
             print("[Cyclone] In-process entry not found (run_cyclone_console / run_console missing).")
+            # Last in-process attempt: try the shim directly if the package is importable
+            try:
+                from backend.console.cyclone_console import main as _cyclone_main  # type: ignore
+                print("[Cyclone] Using backend.console.cyclone_console:main in-process…")
+                return _cyclone_main()
+            except Exception:
+                pass
         except Exception as e:
             print(f"[Cyclone] In-process import failed: {e!r} — falling back to script.")
 
@@ -420,8 +427,8 @@ def launch_cyclone_app(new_window: bool = False) -> int:
     service = root / "backend" / "console" / "cyclone_console_service.py"
     legacy  = root / "backend" / "console" / "cyclone_console.py"
     if service.exists():
-        print("\n[Cyclone] Launching via script: backend\\console\\cyclone_console_service.py\n")
-        return run_in_console([py, str(service)], cwd=root, title="Cyclone App", new_window=new_window, env=env)
+        print("\n[Cyclone] Launching via module: backend.console.cyclone_console_service\n")
+        return run_in_console([py, "-m", "backend.console.cyclone_console_service"], cwd=root, title="Cyclone App", new_window=new_window, env=env)
     if legacy.exists():
         print("\n[Cyclone] Launching via script: backend\\console\\cyclone_console.py\n")
         return run_in_console([py, str(legacy)], cwd=root, title="Cyclone App", new_window=new_window, env=env)
