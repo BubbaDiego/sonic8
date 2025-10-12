@@ -483,15 +483,249 @@ def run_fun_console():
 
 
 def wallet_menu():
-    """Simple wallet CRUD interface (optional)."""
+    """Interactive, capability-aware Wallet Manager (works with whatever wallet_core provides)."""
+    # Lazy imports; we don't assume all modules exist in sonic7
+    svc = None
+    core = None
     try:
-        from backend.core.wallet_core import WalletService  # type: ignore
-        svc = WalletService()
-        # If sonic7 UI not ready, just show count as a placeholder
-        wallets = getattr(svc, "list_wallets", lambda: [])()
-        console.print(f"[cyan]Wallets: {len(wallets)}[/] (full UI coming)")
+        from backend.core.wallet_core import WalletService as _WalletService  # type: ignore
+        svc = _WalletService()
     except Exception:
+        pass
+    try:
+        # Optional orchestrator for balance refresh and chain ops
+        from backend.core.wallet_core import WalletCore as _WalletCore  # type: ignore
+        core = _WalletCore()  # may accept rpc args in your impl; we use defaults if any
+    except Exception:
+        core = None
+
+    if not svc and not core:
         console.print("[yellow]Wallet service not available.[/]")
+        return
+
+    def _has(obj, name):
+        return hasattr(obj, name) and callable(getattr(obj, name))
+
+    def _call(obj, name, *a, **k):
+        fn = getattr(obj, name, None)
+        if not callable(fn):
+            return None, f"[not-supported] {name}"
+        try:
+            return fn(*a, **k), None
+        except Exception as e:
+            return None, str(e)
+
+    def _list_wallets():
+        # Try common names in order
+        for name in ("list_wallets", "get_all", "list", "read_wallets"):
+            if svc and _has(svc, name):
+                out, err = _call(svc, name)
+                return (out or []), err
+        # fallback via DataLocker if WalletCore exposes it (defensive)
+        if core and _has(core, "service") and hasattr(core, "service"):
+            s = getattr(core, "service", None)
+            if s and _has(s, "list_wallets"):
+                out, err = _call(s, "list_wallets")
+                return (out or []), err
+        return [], None  # nothing available
+
+    def _as_dict(w):
+        # Normalize a wallet object into a dict for display
+        if w is None:
+            return {}
+        if isinstance(w, dict):
+            return w
+        # Pydantic / dataclass style
+        for m in ("dict", "model_dump", "__dict__"):
+            if hasattr(w, m):
+                try:
+                    d = getattr(w, m)()
+                    return dict(d)
+                except Exception:
+                    pass
+        # Last resort
+        try:
+            return {k: getattr(w, k) for k in dir(w) if not k.startswith("_")}
+        except Exception:
+            return {"repr": repr(w)}
+
+    def _short(addr):
+        s = str(addr or "")
+        return s if len(s) <= 12 else f"{s[:6]}…{s[-4:]}"
+
+    def _render_table(wallets):
+        try:
+            from rich.table import Table  # type: ignore
+        except Exception:
+            # plain fallback
+            for w in wallets:
+                d = _as_dict(w)
+                console.print(f"- {d.get('name') or d.get('label') or '?'} @ {_short(d.get('public_address') or d.get('address'))}  "
+                              f"{'(default)' if d.get('is_default') else ''}  bal={d.get('balance')}")
+            return
+        table = Table(title="Wallets", expand=True)
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Name", style="cyan")
+        table.add_column("Default", width=8)
+        table.add_column("Address", style="magenta")
+        table.add_column("Balance", justify="right")
+        for i, w in enumerate(wallets, 1):
+            d = _as_dict(w)
+            name = str(d.get("name") or d.get("label") or "?")
+            is_def = "✅" if d.get("is_default") else ""
+            addr = _short(d.get("public_address") or d.get("address"))
+            bal = d.get("balance")
+            bal_s = "" if bal is None else str(bal)
+            table.add_row(str(i), name, is_def, addr, bal_s)
+        console.print(table)
+
+    def _input(prompt):
+        try:
+            return input(prompt).strip()
+        except KeyboardInterrupt:
+            return ""
+
+    while True:
+        wallets, err = _list_wallets()
+        if err:
+            console.print(f"[yellow]Note:[/] {err}")
+        console.print(f"[cyan]Wallets: {len(wallets)}[/]")
+        _render_table(wallets)
+
+        console.print("\n[bold]Actions[/]: "
+                      "[1] View details  "
+                      "[2] Set default  "
+                      "[3] Refresh balances  "
+                      "[4] Import from file  "
+                      "[5] Create wallet  "
+                      "[6] Delete wallet  "
+                      "[7] Delete ALL  "
+                      "[0] Back")
+        choice = _input("→ ").lower()
+
+        if choice in ("0", "q", "back", ""):
+            return
+
+        elif choice == "1":
+            idx = _input("Index or name: ")
+            target = None
+            if idx.isdigit() and 1 <= int(idx) <= len(wallets):
+                target = wallets[int(idx) - 1]
+            else:
+                for w in wallets:
+                    d = _as_dict(w)
+                    if str(d.get("name") or d.get("label")) == idx:
+                        target = w
+                        break
+            if not target:
+                console.print("[yellow]Not found.[/]")
+                continue
+            d = _as_dict(target)
+            # pretty print dict
+            try:
+                from rich import box
+                from rich.panel import Panel  # type: ignore
+                from rich.pretty import Pretty  # type: ignore
+                console.print(Panel(Pretty(d), title=f"Wallet: {d.get('name') or '?'}", box=box.ROUNDED))
+            except Exception:
+                console.print(d)
+
+        elif choice == "2":
+            name = _input("Set default wallet (name): ")
+            if not name:
+                continue
+            # Try common setters in order
+            attempted = ("set_default_wallet", "set_default", "make_default")
+            ok = False
+            for meth in attempted:
+                if svc and _has(svc, meth):
+                    _, e = _call(svc, meth, name)
+                    if not e:
+                        console.print(f"[green]Default set: {name}[/]")
+                        ok = True
+                        break
+            if not ok:
+                console.print("[yellow]Not supported by WalletService.[/]")
+                continue
+
+        elif choice == "3":
+            # Prefer WalletCore refreshers
+            if core and _has(core, "refresh_wallet_balances"):
+                out, e = _call(core, "refresh_wallet_balances")
+                if e:
+                    console.print(f"[red]Refresh failed:[/] {e}")
+                else:
+                    console.print(f"[green]Refreshed {out} wallet(s).[/]")
+            elif svc and _has(svc, "refresh_wallet_balances"):
+                out, e = _call(svc, "refresh_wallet_balances")
+                if e:
+                    console.print(f"[red]Refresh failed:[/] {e}")
+                else:
+                    console.print(f"[green]Refreshed {out} wallet(s).[/]")
+            else:
+                console.print("[yellow]No balance refresh method available.[/]")
+            # loop continues to re-render table
+
+        elif choice == "4":
+            path = _input("File path (private key / export): ")
+            if not path:
+                continue
+            for meth in ("import_from_file", "import_wallet_from_file", "import_wallet"):
+                if svc and _has(svc, meth):
+                    _, e = _call(svc, meth, path)
+                    if not e:
+                        console.print("[green]Imported.[/]")
+                        break
+            else:
+                console.print("[yellow]Import not supported by WalletService.[/]")
+                continue
+
+        elif choice == "5":
+            # Create wallet; prefer a ‘name’ prompt
+            name = _input("New wallet name: ")
+            if not name:
+                continue
+            for meth in ("create_wallet", "create", "new_wallet"):
+                if svc and _has(svc, meth):
+                    _, e = _call(svc, meth, name)
+                    if not e:
+                        console.print(f"[green]Created: {name}[/]")
+                        break
+            else:
+                console.print("[yellow]Create not supported by WalletService.[/]")
+                continue
+
+        elif choice == "6":
+            name = _input("Delete wallet (name): ")
+            if not name:
+                continue
+            for meth in ("delete_wallet", "delete", "remove_wallet"):
+                if svc and _has(svc, meth):
+                    _, e = _call(svc, meth, name)
+                    if not e:
+                        console.print(f"[green]Deleted: {name}[/]")
+                        break
+            else:
+                console.print("[yellow]Delete not supported by WalletService.[/]")
+                continue
+
+        elif choice == "7":
+            sure = _input("Type YES to delete all wallets: ")
+            if sure != "YES":
+                continue
+            for meth in ("delete_all_wallets", "delete_all"):
+                if svc and _has(svc, meth):
+                    _, e = _call(svc, meth)
+                    if not e:
+                        console.print("[green]All wallets deleted.[/]")
+                        break
+            else:
+                console.print("[yellow]Bulk delete not supported by WalletService.[/]")
+                continue
+
+        else:
+            console.print("[yellow]Unknown choice.[/]")
+            continue
 
 
 def goals_menu():
