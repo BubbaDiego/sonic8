@@ -172,7 +172,11 @@ def _liquid_row(conn: Optional[sqlite3.Connection], asset: str) -> Tuple[str, st
 
 
 def print_prelaunch_body(
-    dl: Any, poll_interval_s: int, *, xcom_live: bool = True
+    dl: Any,
+    poll_interval_s: int,
+    *,
+    xcom_live: bool = True,
+    resolved: dict | None = None,
 ) -> None:
     """Body only; banner prints the header. One-time at startup."""
     env_path = os.getenv("SONIC_ENV_PATH_RESOLVED") or "–"

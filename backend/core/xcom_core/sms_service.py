@@ -60,8 +60,7 @@ class SMSService:
 
         # Twilio path -------------------------------------------------
         if self._twilio_ok:
-            from_number = self.cfg.get("from_number", "")
-            twilio_start("sms", to, from_number)
+            twilio_start("sms")
             if self.cfg.get("dry_run"):
                 log.debug(
                     f"\U0001f4ac [DRY-RUN] SMS to {to}: {body}",

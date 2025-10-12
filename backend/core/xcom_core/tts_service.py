@@ -51,7 +51,7 @@ class TTSService:
                 )
 
     def send(self, recipient: str, body: str) -> bool:
-        twilio_start("tts", recipient, "-")
+        twilio_start("tts")
         if not _xcom_live():
             log.info("SONIC_XCOM_LIVE disabled – skipping TTS", source="TTSService")
             twilio_skip("tts", "disabled")

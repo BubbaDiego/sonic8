@@ -46,12 +46,6 @@ def _compact_msg(s: str) -> str:
     return compact.strip(" .")
 
 
-def _mask(v: Optional[str]) -> str:
-    if not v or v == "-":
-        return "–"
-    return f"{v[:3]}…"
-
-
 def _parse_twilio_error(exc: Exception) -> Tuple[Optional[str], str]:
     """Returns ``(code, compact_message)`` from a Twilio exception."""
 
@@ -73,10 +67,9 @@ def _parse_twilio_error(exc: Exception) -> Tuple[Optional[str], str]:
     return code, msg
 
 
-def twilio_start(channel: str, to: str, from_: str) -> None:
-    to_mask = _mask(str(to) if to is not None else "")
-    from_mask = _mask(str(from_) if from_ is not None else "")
-    label = f"Twilio {channel} → to={to_mask} • from={from_mask}"
+def twilio_start(channel: str) -> None:
+    # nested under monitor: add two spaces before the label
+    label = f"  Twilio {channel}"
     phase_start(f"xcom_{channel}", label)
 
 
@@ -87,8 +80,9 @@ def twilio_success(channel: str, note: str = "") -> None:
 def twilio_fail(channel: str, exc: Exception) -> None:
     code, message = _parse_twilio_error(exc)
     hint = _ERR_HINTS.get(code or "", "")
-    note_core = f"{code} {message}".strip() if code else message
-    note = note_core or "(unknown Twilio error)"
+    note = f"{(code + ' — ') if code else ''}{message}"
+    if not note:
+        note = "(unknown Twilio error)"
     if hint:
         note += f"  ({hint})"
     phase_end(f"xcom_{channel}", "fail", note=note)
