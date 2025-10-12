@@ -47,14 +47,10 @@ from contextlib import contextmanager
 from enum import IntEnum
 from typing import Any, Callable, Dict, List, Optional
 
-# ---- Global kill switch -------------------------------------------------
-# When SONIC_CONSOLE_LOGGER=0 (or False/Off), the logger is fully muted.
-_GLOBAL_DISABLED = os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() in {
-    "0",
-    "false",
-    "off",
-    "no",
-}
+# ---- Global kill switch (dynamic) -----------------------------------------
+def _env_disabled() -> bool:
+    val = os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower()
+    return val in {"0", "false", "off", "no"}
 
 # ------------- Optional Rich import & capability test ----------------------
 try:
@@ -91,14 +87,14 @@ class ConsoleLogger:
     """Human‑friendly yet production‑grade console logger."""
 
     # Runtime toggles ------------------------------------------------------
-    logging_enabled: bool = not _GLOBAL_DISABLED
+    logging_enabled: bool = not _env_disabled()
     debug_trace_enabled: bool = False
     trace_modules: set[str] = set()
 
     @classmethod
     def _active(cls) -> bool:
-        # single source of truth for "should we emit anything?"
-        return cls.logging_enabled and not _GLOBAL_DISABLED
+        # Single source of truth: both the runtime flag and the current env
+        return cls.logging_enabled and not _env_disabled()
 
     # Verbosity maps -------------------------------------------------------
     _default_level: Level = Level.coerce(os.getenv("LOG_LEVEL", Level.INFO))

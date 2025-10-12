@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -17,7 +18,9 @@ from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.console_lines import emit_compact_cycle
 from backend.core.reporting_core.console_reporter import (
     emit_boot_status,
+    emit_dashboard_link,
     install_strict_console_filter,
+    neuter_legacy_console_logger,
     silence_legacy_console_loggers,
 )
 from data.data_locker import DataLocker
@@ -203,6 +206,19 @@ def run_monitor(
     cycles: Optional[int] = None,
 ) -> None:
     """Run the Sonic monitor console loop."""
+
+    neuter_legacy_console_logger()
+
+    link_flag = os.getenv("SONIC_MONITOR_DASHBOARD_LINK", "1").strip().lower()
+    if link_flag not in {"0", "false", "off", "no"}:
+        host = os.getenv("SONIC_DASHBOARD_HOST", "127.0.0.1")
+        route = os.getenv("SONIC_DASHBOARD_ROUTE", "/dashboard")
+        port_env = os.getenv("SONIC_DASHBOARD_PORT", "5001")
+        try:
+            port = int(port_env)
+        except ValueError:
+            port = 5001
+        emit_dashboard_link(host=host, port=port, route=route)
 
     install_strict_console_filter()
     muted = silence_legacy_console_loggers()
