@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any, Dict, Optional, List
 
-from config.config_loader import load_config
+try:
+    # Correct import path per repo layout
+    from backend.config.config_loader import load_config
+except Exception:
+    # Last-ditch fallback if module is executed differently
+    from config_loader import load_config  # type: ignore
 
 _CFG: Dict[str, Any] = {}
 _LOADED: bool = False
@@ -11,7 +18,13 @@ _LOADED: bool = False
 def load(path: Optional[str] = None) -> Dict[str, Any]:
     global _CFG, _LOADED
     if not _LOADED:
-        _CFG = load_config(path) or {}
+        # Default to backend/config/sonic_config.json unless overridden by env
+        cfg_path = (
+            path
+            or os.getenv("SONIC_CONFIG_JSON_PATH")
+            or str(Path(__file__).resolve().parents[3] / "backend" / "config" / "sonic_config.json")
+        )
+        _CFG = load_config(cfg_path) or {}
         _LOADED = True
     return _CFG
 
