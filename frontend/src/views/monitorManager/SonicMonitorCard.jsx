@@ -65,7 +65,7 @@ export default function SonicMonitorCard({
   const [remaining, setRemaining] = useState(0);
   const [running, setRunning] = useState(false);
   const [nowTs, setNowTs] = useState(Date.now());
-  const [prov, setProv] = useState(null);
+  const [prov, setProv] = useState(null); // {interval, thresholds_label, json_path, json_used}
 
   const { snoozeEndTs } = useSonicStatusPolling();
   const snoozeEnd = typeof snoozeEndTs === 'number' ? snoozeEndTs : snoozeEndTs ? Date.parse(snoozeEndTs) : 0;
@@ -326,10 +326,17 @@ export default function SonicMonitorCard({
       {prov && (
         <Box sx={{ px: 2, pb: 1.25, opacity: 0.7 }}>
           <Typography variant="caption" sx={{ display: 'block' }}>
-            Loop: db <b>{prov?.interval?.table || 'monitor_heartbeat'}</b> • {Number(prov?.interval?.seconds) || '–'}s
+            Loop: {prov?.json_used ? 'json' : 'db'}{' '}
+            <b>
+              {prov?.json_used
+                ? prov?.json_path || ''
+                : prov?.interval?.table || 'monitor_heartbeat'}
+            </b>{' '}
+            • {Number(prov?.interval?.seconds) || '–'}s
           </Typography>
           <Typography variant="caption" sx={{ display: 'block' }}>
             Limits: {prov?.thresholds_label || '—'}
+            {prov?.json_path ? ` • ${prov.json_path}` : ''}
           </Typography>
         </Box>
       )}
