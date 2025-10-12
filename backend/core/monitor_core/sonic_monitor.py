@@ -80,6 +80,25 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
     _candidate_str = str(_candidate)
     if _candidate_str not in sys.path:
         sys.path.insert(0, _candidate_str)
+
+# Build DAL from sonic_config.json (or env) — no shared_store.
+_CFG_PATH = os.getenv("SONIC_CONFIG_JSON_PATH") or str(
+    Path(__file__).resolve().parents[2] / "config" / "sonic_config.json"
+)
+try:
+    _cfg = load_config(_CFG_PATH) or {}
+except Exception:
+    _cfg = {}
+
+# Determine DB path: config → env → default backend/mother.db
+_db_from_cfg = (_cfg.get("system_config") or {}).get("db_path")
+_db_from_env = os.getenv("SONIC_DB_PATH")
+_DB_PATH = _db_from_cfg or _db_from_env or str(
+    Path(__file__).resolve().parents[2] / "mother.db"
+)
+
+# Singleton DAL (DataLocker handles all DL* managers internally)
+dal = DataLocker.get_instance(_DB_PATH)
 import asyncio
 import logging
 import time
@@ -105,12 +124,11 @@ from backend.core.reporting_core.summary_cache import (
     set_prices,
     set_prices_reason,
 )
-from backend.core.monitor_core.shared_store import dal
+from backend.config.config_loader import load_config
+from backend.data.data_locker import DataLocker
 from backend.core.monitor_core.dl_hedges import DLHedgeManager
-from data.data_locker import DataLocker
 from backend.core.config.json_config import load_config as load_json_config
 from backend.models.monitor_status import MonitorStatus, MonitorType
-from core.core_constants import MOTHER_DB_PATH
 
 MONITOR_NAME = "sonic_monitor"
 DEFAULT_INTERVAL = 60  # fallback if nothing set in DB
