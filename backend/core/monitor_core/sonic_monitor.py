@@ -1,4 +1,10 @@
 import os
+try:
+    from dotenv import load_dotenv  # type: ignore
+
+    load_dotenv()
+except Exception:
+    pass
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Callable
@@ -208,6 +214,15 @@ def _enrich_summary_from_locker(summary: Dict[str, Any], dl: DataLocker) -> None
     if latest_price_ts:
         summary["prices_updated_at"] = latest_price_ts
 
+    # Hedge snapshot — count active hedge groups for console endcap
+    try:
+        hedge_mgr = getattr(dl, "hedges", None)
+        if hedge_mgr:
+            hedges = hedge_mgr.get_hedges() or []
+            summary["hedge_groups"] = len(hedges)
+    except Exception:
+        pass
+
     # Positions snapshot
     try:
         positions = (
@@ -381,6 +396,23 @@ def run_monitor(
         except ValueError:
             port = 5001
         emit_dashboard_link(host=host, port=port, route=route)
+
+    # ── Top-of-screen Twilio env readout (masked) ─────────────────────────────
+    try:
+        sid = (
+            os.getenv("TWILIO_SID")
+            or os.getenv("TWILIO_ACCOUNT_SID")
+            or "–"
+        )
+        from_ = os.getenv("TWILIO_FROM") or "–"
+        to_ = (
+            os.getenv("TWILIO_TO")
+            or os.getenv("TWILIO_DEFAULT_TO")
+            or "–"
+        )
+        print(f"📞 Twilio (env): sid={str(sid)[:3]}… • from={from_} • to={to_}")
+    except Exception:
+        pass
 
     install_strict_console_filter()
     muted = silence_legacy_console_loggers()

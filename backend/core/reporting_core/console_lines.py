@@ -7,7 +7,7 @@ _RED = "\x1b[31m"
 _DIM = "\x1b[90m"
 _RESET = "\x1b[0m"
 
-# Price icons by ticker symbol for quick visual parsing in the console.
+# Price & position icons by ticker symbol for quick visual parsing in the console.
 _PX_ICON = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
 
 def _fmt_short_clock(iso: Optional[str]) -> str:
@@ -81,22 +81,14 @@ def emit_compact_cycle(
     )
 
     # Positions
-    pos_line = summary.get("positions_icon_line") or summary.get("positions_line", "↑0/0/0")
+    pos_line = summary.get("positions_icon_line") or "–"
     pos_when = _fmt_short_clock(summary.get("positions_updated_at"))
-    pos_error = summary.get("positions_error")
-    if pos_error:
-        print(f"   📊 Positions: {pos_line}  • @ {pos_when} — {_RED}{pos_error}{_RESET}")
-    else:
-        print(f"   📊 Positions: {pos_line}  • @ {pos_when}")
-
-    # Holdings brief
-    brief = summary.get("positions_brief", "–")
-    print(f"   📄 Holdings : {brief}")
+    print(f"   📊 Positions: {pos_line}  • @ {pos_when}")
 
     # Hedges — render one hedgehog per active hedge group
     hedge_count = int(summary.get("hedge_groups", 0) or 0)
-    hedgehogs = "".join("🦔" for _ in range(hedge_count))
-    print(f"   🛡  Hedges  : {hedgehogs if hedge_count > 0 else '–'}")
+    hedgehogs = "".join("🦔" for _ in range(hedge_count)) if hedge_count > 0 else "–"
+    print(f"   🛡  Hedges  : {hedgehogs}")
 
     # Alerts (cheap inline)
     alerts_inline = summary.get("alerts_inline", "pass 0/0 –")
