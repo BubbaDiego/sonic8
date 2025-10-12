@@ -113,11 +113,10 @@ def emit_compact_cycle(
 
     # Optional notifications line (kept from your previous build)
     notif = summary.get("notifications_brief", "NONE (no_breach)")
-    # No leading newline here; add a trailing blank line after notifications
     print(f"   📨 Notifications : {notif}")
     print()
 
     # Tail
     tail = f"✅ cycle #{cycle_number} done • {total_elapsed:.2f}s  (sleep {poll_interval_s:.1f}s)"
     print(tail, flush=True)
-    print()
+    print("─" * 72)

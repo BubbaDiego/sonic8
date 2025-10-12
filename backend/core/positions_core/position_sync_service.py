@@ -230,7 +230,7 @@ class PositionSyncService:
             # reconcile wallets shown in UI
             PositionCore.reconcile_wallet_balances(self.dl)
 
-            msg = f"Sync complete: {imported} imported, {updated} updated, {skipped} skipped, {errors} errors"
+            msg = f"   Sync complete: {imported} imported, {updated} updated, {skipped} skipped, {errors} errors"
             log.info(f"📦 {msg}", source="PositionSyncService")
             console.print(f"[green]{msg}[/green]")
 
