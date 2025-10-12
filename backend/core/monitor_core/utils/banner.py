@@ -20,8 +20,22 @@ def emit_config_banner(dl: Any, interval_s: int) -> None:
         except Exception:
             env_path = None
     print(f"   📦 .env        : {env_path or '–'}")
-    tw_sid = os.getenv("TWILIO_SID", "–")
-    tw_from = os.getenv("TWILIO_FROM", "–")
-    tw_to = os.getenv("TWILIO_TO", "–")
-    print(f"   📞 Twilio      : sid={tw_sid[:3]}… • from={tw_from} • to={tw_to or '–'}")
+
+    sid = (
+        os.getenv("TWILIO_SID")
+        or os.getenv("TWILIO_ACCOUNT_SID")
+        or "–"
+    )
+    from_ = (
+        os.getenv("TWILIO_FROM")
+        or os.getenv("TWILIO_FROM_PHONE")
+        or "–"
+    )
+    to_ = (
+        os.getenv("TWILIO_TO")
+        or os.getenv("TWILIO_TO_PHONE")
+        or os.getenv("TWILIO_DEFAULT_TO")
+        or "–"
+    )
+    print(f"   📞 Twilio      : sid={sid[:3]}… • from={from_} • to={to_}")
     print("══════════════════════════════════════════════════════════════")
