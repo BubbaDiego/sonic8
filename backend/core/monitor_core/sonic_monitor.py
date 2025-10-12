@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -150,6 +151,24 @@ def _load_monitor_json() -> dict:
 
 
 _MON = _load_monitor_json()
+
+
+def _expand_env(node):
+    """Recursively expand ${VARS} in the loaded JSON using environment values."""
+
+    if isinstance(node, str):
+        m = re.fullmatch(r"\$\{([^}]+)\}", node.strip())
+        if m:
+            return os.getenv(m.group(1), node)
+        return node
+    if isinstance(node, list):
+        return [_expand_env(x) for x in node]
+    if isinstance(node, dict):
+        return {k: _expand_env(v) for k, v in node.items()}
+    return node
+
+
+_MON = _expand_env(_MON)
 
 
 def _cfg(*keys, default=None):
