@@ -74,16 +74,21 @@ def emit_compact_cycle(
     print(line, flush=True)
 
     # Prices
+    prices_top3 = summary.get("prices_top3", [])
     prices_when = _fmt_short_clock(summary.get("prices_updated_at"))
-    print(
-        "   💰 Prices   : "
-        f"{_prices_line(summary.get('prices_top3', []), summary.get('price_ages', {}), enable_color=enable_color)}  • @ {prices_when}"
-    )
+    if prices_top3:
+        line = _prices_line(prices_top3, summary.get("price_ages", {}), enable_color=enable_color)
+        print(f"   💰 Prices   : {line}  • @ {prices_when}")
+    else:
+        print("   💰 Prices   : –  • @ –")
 
     # Positions
-    pos_line = summary.get("positions_icon_line") or "–"
+    pos_line = summary.get("positions_icon_line")
     pos_when = _fmt_short_clock(summary.get("positions_updated_at"))
-    print(f"   📊 Positions: {pos_line}  • @ {pos_when}")
+    if pos_line:
+        print(f"   📊 Positions: {pos_line}  • @ {pos_when}")
+    else:
+        print("   📊 Positions: –  • @ –")
 
     # Hedges — render one hedgehog per active hedge group
     hedge_count = int(summary.get("hedge_groups", 0) or 0)

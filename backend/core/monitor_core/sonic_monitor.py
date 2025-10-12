@@ -86,6 +86,7 @@ from backend.core.reporting_core.console_reporter import (
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
 )
+from backend.core.reporting_core.prelaunch import print_prelaunch_checklist
 from data.data_locker import DataLocker
 from backend.models.monitor_status import MonitorStatus, MonitorType
 from core.core_constants import MOTHER_DB_PATH
@@ -505,6 +506,12 @@ def run_monitor(
     display_interval = poll_interval_s or DEFAULT_INTERVAL
     emit_config_banner(dl, display_interval)
 
+    # 1.5) one-time Pre-Launch Checklist (provenance + Twilio + monitor values)
+    try:
+        print_prelaunch_checklist(dl, display_interval)
+    except Exception:
+        pass
+
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
 
@@ -577,6 +584,56 @@ def run_monitor(
                 status_snapshot,
                 alerts_line=alerts_line,
             )
+            # Populate summary data directly from the DataLocker so the endcap has
+            # fresh values even if later enrich steps fail.
+            try:
+                price_mgr = getattr(dl, "prices", None)
+                if price_mgr:
+                    price_rows = price_mgr.get_all_prices() or []
+                    top3: list[tuple[str, float]] = []
+                    seen_assets: set[str] = set()
+                    latest_iso: Optional[str] = None
+                    for row in price_rows:
+                        asset = str(row.get("asset_type") or "").upper() or "UNKNOWN"
+                        if asset in seen_assets:
+                            continue
+                        seen_assets.add(asset)
+                        try:
+                            price_val = float(row.get("current_price") or 0.0)
+                        except Exception:
+                            price_val = 0.0
+                        top3.append((asset, price_val))
+                        iso = _to_iso(row.get("last_update_time"))
+                        if iso and (latest_iso is None or iso > latest_iso):
+                            latest_iso = iso
+                        if len(top3) >= 3:
+                            break
+                    if top3:
+                        summary["prices_top3"] = top3
+                    if latest_iso and not summary.get("prices_updated_at"):
+                        summary["prices_updated_at"] = latest_iso
+            except Exception:
+                logging.debug("Failed to populate price summary", exc_info=True)
+            try:
+                positions_mgr = getattr(dl, "positions", None)
+                if positions_mgr:
+                    positions = positions_mgr.get_all_positions() or []
+                    latest_iso: Optional[str] = None
+                    for pos in positions:
+                        iso = _to_iso(getattr(pos, "last_updated", None))
+                        if iso and (latest_iso is None or iso > latest_iso):
+                            latest_iso = iso
+                    if latest_iso and not summary.get("positions_updated_at"):
+                        summary["positions_updated_at"] = latest_iso
+            except Exception:
+                logging.debug("Failed to populate position summary", exc_info=True)
+            try:
+                hedge_mgr = getattr(dl, "hedges", None)
+                if hedge_mgr:
+                    hedges = hedge_mgr.get_hedges() or []
+                    summary["hedge_groups"] = len(hedges)
+            except Exception:
+                logging.debug("Failed to populate hedge summary", exc_info=True)
             try:
                 if _MON_STATE:
                     ordered_keys = (
