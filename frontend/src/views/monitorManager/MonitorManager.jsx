@@ -1,158 +1,192 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
-import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
-import axios from 'utils/axios';
+import { mutate } from 'swr';
 import { Box, Typography, Snackbar, Alert, Button } from '@mui/material';
+import axios from 'utils/axios';
+import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
+
+// profit helpers (present in sonic6; keep same API in 7 if available)
 import { getProfitCfg, saveProfitCfg } from 'api/profitMonitor';
+import { endpoints as portfolioEP, refreshLatestPortfolio } from 'api/portfolio';
+import { endpoints as sessionEP, refreshActiveSession } from 'api/session';
+import { endpoints as statusEP } from 'api/monitorStatus';
 
 import LiquidationMonitorCard from './LiquidationMonitorCard';
 import ProfitMonitorCard from './ProfitMonitorCard';
-import SonicMonitorCard from './SonicMonitorCard';
 import MarketMonitorCard from './MarketMonitorCard';
+import SonicMonitorCard from './SonicMonitorCard';
 
-/* ------------------------------------------------------------------ */
-/* Layout constants — keep cards compact but tall enough for bars */
-/* ------------------------------------------------------------------ */
+// Layout constants (mirror sonic6 visual)
 export const COLUMN_A_WIDTH = 450; // px
-export const COLUMN_B_WIDTH = 480; // px
-export const ROW_A_MIN = 420; // px
-export const ROW_B_MIN = 430; // px (reduced; prevents overstretch)
-/* ------------------------------------------------------------------ */
+export const GRID_GAP = 24;        // px
 
 export default function MonitorManager() {
-  useSonicStatusPolling();
+  const { sonicActive } = useSonicStatusPolling();
+
   const [liqCfg, setLiqCfg] = useState({});
   const [profitCfg, setProfitCfg] = useState({});
   const [marketCfg, setMarketCfg] = useState({});
+  const [nearestLiq, setNearestLiq] = useState({});
   const [pctMoves, setPctMoves] = useState({});
   const [loopSec, setLoopSec] = useState('');
-  const [nearestLiq, setNearestLiq] = useState({});
-  const [toast, setToast] = useState('');
+
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState({ open: false, msg: '', sev: 'success' });
 
-  const markDirty = useCallback((setter) => (value) => {
-    setDirty(true);
-    setter(value);
-  }, []);
+  // markDirty wrapper so edits light up "Save All"
+  const markDirtySetter = (setter) =>
+    (updater) => {
+      setDirty(true);
+      setter((prev) => (typeof updater === 'function' ? updater(prev) : updater));
+    };
 
-  /* ------------------------- initial fetch ------------------------------- */
+  const setLiqCfgDirty    = markDirtySetter(setLiqCfg);
+  const setProfitCfgDirty = markDirtySetter(setProfitCfg);
+  const setMarketCfgDirty = markDirtySetter(setMarketCfg);
+
+  /* ------------------------- initial bootstrap --------------------------- */
   useEffect(() => {
-    axios.get('/api/monitor-settings/liquidation').then((r) => setLiqCfg(r.data));
-    getProfitCfg().then((cfg) => setProfitCfg(cfg));
-    axios.get('/api/monitor-settings/market').then((r) => setMarketCfg(r.data));
-    axios.get('/api/market/latest').then((r) => setPctMoves(r.data));
-    axios.get('/api/monitor-settings/sonic').then((r) => {
-      setLoopSec(String(r.data.interval_seconds ?? ''));
-      setLiqCfg((prev) => ({ ...prev, ...r.data }));
-    });
+    let alive = true;
+    (async () => {
+      try {
+        const [
+          liqRes,
+          profitRes,
+          mktRes,
+          movesRes,
+          sonicRes,
+          nearestRes
+        ] = await Promise.all([
+          axios.get('/api/monitor-settings/liquidation'),
+          getProfitCfg().catch(() => ({})),
+          axios.get('/api/monitor-settings/market'),
+          axios.get('/api/market/latest'),
+          axios.get('/api/monitor-settings/sonic'),
+          axios.get('/api/liquidation/nearest-distance').catch(() => ({ data: {} }))
+        ]);
+        if (!alive) return;
+        const liq   = liqRes?.data || {};
+        const prof  = profitRes   || {};
+        const mkt   = mktRes?.data || {};
+        const moves = movesRes?.data || {};
+        const sonic = sonicRes?.data || {};
+        const loop  = String(sonic.interval_seconds ?? '');
+        const nearest = nearestRes?.data ?? {};
 
-    axios
-      .get('/api/liquidation/nearest-distance')
-      .then((r) => setNearestLiq(r.data))
-      .catch(() => setNearestLiq({}));
+        // carry Sonic master flags onto liqCfg so children can gate by it
+        setLiqCfg({ ...liq, ...sonic });
+        setProfitCfg(prof);
+        setMarketCfg(mkt);
+        setPctMoves(moves);
+        setLoopSec(loop);
+        setNearestLiq(nearest);
+        setDirty(false);
+      } catch (e) {
+        // best-effort; page still renders
+      }
+    })();
+    return () => {
+      alive = false;
+      // Nudge dashboards to refresh next paint (mirrors sonic6)
+      try {
+        refreshActiveSession();
+        refreshLatestPortfolio();
+        mutate(statusEP.summary, undefined, { revalidate: true });
+        mutate(sessionEP.active, undefined, { revalidate: true });
+        mutate(portfolioEP.latest, undefined, { revalidate: true });
+      } catch {}
+    };
   }, []);
 
-  /* ---------------------------- handlers --------------------------------- */
-  const saveAll = async () => {
-    await axios.post('/api/monitor-settings/liquidation', liqCfg);
-    await saveProfitCfg({
-      enabled: profitCfg?.enabled,
-      position_profit_usd: Number(profitCfg?.position_profit_usd ?? 0),
-      portfolio_profit_usd: Number(profitCfg?.portfolio_profit_usd ?? 0),
-      notifications: profitCfg?.notifications
-    });
-    await axios.post('/api/monitor-settings/market', marketCfg);
-    await axios.post('/api/monitor-settings/sonic', {
-      interval_seconds: parseInt(loopSec || '0', 10),
-      enabled_sonic: liqCfg.enabled_sonic,
-      enabled_liquid: liqCfg.enabled_liquid,
-      enabled_profit: liqCfg.enabled_profit,
-      enabled_market: liqCfg.enabled_market
-    });
-    setToast('Settings saved');
-  };
+  const handleSaveAll = useCallback(async () => {
+    setSaving(true);
+    try {
+      const sonicPatch = {
+        interval_seconds: Number.isFinite(Number(loopSec)) ? Number(loopSec) : undefined,
+        enabled_sonic: liqCfg?.enabled_sonic
+      };
+      await Promise.all([
+        axios.post('/api/monitor-settings/liquidation', liqCfg),
+        axios.post('/api/monitor-settings/market',      marketCfg),
+        // prefer helper if present
+        (saveProfitCfg ? saveProfitCfg(profitCfg) : axios.post('/api/monitor-settings/profit', profitCfg)),
+        axios.post('/api/monitor-settings/sonic', sonicPatch)
+      ]);
+      setDirty(false);
+      setToast({ open: true, msg: 'Monitor settings saved', sev: 'success' });
+    } catch (err) {
+      setToast({ open: true, msg: 'Save failed: ' + (err?.message || 'unknown error'), sev: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [liqCfg, marketCfg, profitCfg, loopSec]);
 
-  /* ----------------------------- render ---------------------------------- */
+  const isSonicOn = Boolean(liqCfg?.enabled_sonic ?? true);
+
   return (
-    <Box p={3}>
-      <Typography variant="h4" gutterBottom>
-        Monitor Manager
-      </Typography>
-
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-start' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Header with Save All on right */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h3" fontWeight={700}>Monitor Manager</Typography>
         <Button
           variant="contained"
-          color={dirty ? 'success' : 'primary'}
-          onClick={() => {
-            saveAll();
-            setDirty(false);
-          }}
-          sx={{ fontWeight: 'bold', textTransform: 'none' }}
+          disabled={!dirty || saving}
+          onClick={handleSaveAll}
         >
-          Save All
+          {saving ? 'Saving…' : 'Save All'}
         </Button>
       </Box>
 
-      {/* 2×2 card grid with compact rows */}
+      {/* 2x2 grid */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: `${COLUMN_A_WIDTH}px ${COLUMN_B_WIDTH}px`,
-          gridTemplateRows: `minmax(${ROW_A_MIN}px, auto) minmax(${ROW_B_MIN}px, auto)`,
-          gap: `24px`,
-          width: '100%',
-          boxSizing: 'border-box'
+          gridTemplateColumns: `${COLUMN_A_WIDTH}px 1fr`,
+          gridAutoRows: 'minmax(320px, auto)',
+          gap: `${GRID_GAP}px`
         }}
       >
-        {/* Row A / Col A */}
-        <Box sx={{ gridColumn: 1, gridRow: 1 }}>
-          <SonicMonitorCard
-            cfg={liqCfg}
-            setCfg={markDirty(setLiqCfg)}
-            loop={loopSec}
-            setLoop={markDirty(setLoopSec)}
-          />
-        </Box>
+        {/* Sonic master (always interactive) */}
+        <SonicMonitorCard
+          cfg={liqCfg}
+          setCfg={setLiqCfgDirty}
+        />
 
-        {/* Row A / Col B */}
-        <Box sx={{ gridColumn: 2, gridRow: 1 }}>
-          <LiquidationMonitorCard
-            cfg={liqCfg}
-            setCfg={markDirty(setLiqCfg)}
-            blast={marketCfg.blast_radius}
-            nearest={nearestLiq}
-            disabled={!liqCfg.enabled_sonic || !liqCfg.enabled_liquid}
-          />
-        </Box>
+        {/* Liquidation */}
+        <LiquidationMonitorCard
+          cfg={liqCfg}
+          setCfg={setLiqCfgDirty}
+          blast={liqCfg?.blast_radius || {}}
+          nearest={nearestLiq}
+          disabled={!isSonicOn}
+        />
 
-        {/* Row B / Col A */}
-        <Box sx={{ gridColumn: 1, gridRow: 2 }}>
-          <ProfitMonitorCard
-            cfg={profitCfg}
-            setCfg={markDirty(setProfitCfg)}
-            disabled={!liqCfg.enabled_sonic || !liqCfg.enabled_profit}
-          />
-        </Box>
+        {/* Profit */}
+        <ProfitMonitorCard
+          cfg={profitCfg}
+          setCfg={setProfitCfgDirty}
+          disabled={!isSonicOn}
+        />
 
-        {/* Row B / Col B */}
-        <Box sx={{ gridColumn: 2, gridRow: 2 }}>
-          <MarketMonitorCard
-            cfg={marketCfg}
-            setCfg={markDirty(setMarketCfg)}
-            live={pctMoves}
-            disabled={!liqCfg.enabled_sonic || !liqCfg.enabled_market}
-          />
-        </Box>
+        {/* Market */}
+        <MarketMonitorCard
+          cfg={marketCfg}
+          setCfg={setMarketCfgDirty}
+          live={pctMoves}
+          disabled={!isSonicOn}
+        />
       </Box>
 
       <Snackbar
-        open={!!toast}
-        autoHideDuration={3000}
-        onClose={() => setToast('')}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        open={toast.open}
+        autoHideDuration={3500}
+        onClose={() => setToast((t) => ({ ...t, open: false }))}
       >
-        <Alert severity="success">{toast}</Alert>
+        <Alert onClose={() => setToast((t) => ({ ...t, open: false }))} severity={toast.sev} sx={{ width: '100%' }}>
+          {toast.msg}
+        </Alert>
       </Snackbar>
     </Box>
   );
 }
+
