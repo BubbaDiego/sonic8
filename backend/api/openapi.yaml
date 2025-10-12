@@ -178,6 +178,7 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: true
               title: Fields
       responses:
         '200':
@@ -322,6 +323,7 @@ paths:
             application/json:
               schema:
                 items:
+                  additionalProperties: true
                   type: object
                 type: array
                 title: Response List Wallets Get Wallets 9
@@ -499,6 +501,7 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: true
               title: Trader
       responses:
         '200':
@@ -614,6 +617,7 @@ paths:
           content:
             application/json:
               schema:
+                additionalProperties: true
                 type: object
                 title: Response Get Bulk Get Alert Thresholds Bulk 23
     put:
@@ -626,6 +630,7 @@ paths:
         content:
           application/json:
             schema:
+              additionalProperties: true
               type: object
               title: Config
         required: true
@@ -688,6 +693,7 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: true
               title: Updates
       responses:
         '200':
@@ -770,6 +776,7 @@ paths:
                 type: array
                 items:
                   type: object
+                  additionalProperties: true
                 title: Response Read Table Get Db Admin Tables Table 13
         '422':
           description: Validation Error
@@ -830,7 +837,7 @@ paths:
       tags:
       - XCom
       summary: Read Providers
-      operationId: read_providers_get_xcom_providers_19
+      operationId: read_providers_get_xcom_providers_25
       responses:
         '200':
           description: Successful Response
@@ -842,7 +849,7 @@ paths:
       tags:
       - XCom
       summary: Write Providers
-      operationId: write_providers_put_xcom_providers_33
+      operationId: write_providers_put_xcom_providers_85
       requestBody:
         content:
           application/json:
@@ -861,25 +868,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /xcom/status:
+  /xcom/providers/resolved:
     get:
       tags:
       - XCom
-      summary: Check Status
-      operationId: check_status_get_xcom_status_38
+      summary: Read Providers Resolved
+      description: Return env-resolved provider configs with secrets masked.
+      operationId: read_providers_resolved_get_xcom_providers_resolved_40
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StatusResponse'
+                $ref: '#/components/schemas/ProviderMap-Output'
+  /xcom/status:
+    get:
+      tags:
+      - XCom
+      summary: Check Status
+      operationId: check_status_get_xcom_status_90
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Check Status Get Xcom Status 90
   /xcom/test:
     post:
       tags:
       - XCom
       summary: Run Test
-      operationId: run_test_post_xcom_test_44
+      operationId: run_test_post_xcom_test_95
       requestBody:
         content:
           application/json:
@@ -904,13 +928,50 @@ paths:
       tags:
       - XCom
       summary: Last Ping
-      operationId: last_ping_get_xcom_last_ping_57
+      operationId: last_ping_get_xcom_last_ping_112
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema: {}
+  /xcom/cooldown/reset:
+    post:
+      tags:
+      - XCom
+      summary: Reset Call Cooldown
+      operationId: reset_call_cooldown_post_xcom_cooldown_reset_117
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /xcom/cooldown:
+    put:
+      tags:
+      - XCom
+      summary: Set Call Cooldown
+      operationId: set_call_cooldown_put_xcom_cooldown_123
+      parameters:
+      - name: seconds
+        in: query
+        required: true
+        schema:
+          type: integer
+          title: Seconds
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /session/:
     get:
       tags:
@@ -1151,49 +1212,12 @@ paths:
           content:
             application/json:
               schema: {}
-  /api/monitor-settings/market:
-    get:
-      tags:
-      - monitor-settings
-      summary: Get Market Settings
-      description: Return current MarketMovementMonitor configuration with defaults.
-      operationId: get_market_settings_get_api_monitor-settings_market_22
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - monitor-settings
-      summary: Update Market Settings
-      operationId: update_market_settings_post_api_monitor-settings_market_30
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              title: Payload
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /api/monitor-settings/market/reset-anchors:
     post:
       tags:
-      - monitor-settings
+      - monitor_settings
       summary: Reset Market Anchors
-      operationId: reset_market_anchors_post_api_monitor-settings_market_reset-anchors_41
+      operationId: reset_market_anchors_post_api_monitor-settings_market_reset-anchors_68
       responses:
         '200':
           description: Successful Response
@@ -1203,10 +1227,10 @@ paths:
   /api/monitor-settings/sonic:
     get:
       tags:
-      - monitor-settings
+      - monitor_settings
       summary: Get Sonic Settings
       description: Return current Sonic monitor settings.
-      operationId: get_sonic_settings_get_api_monitor-settings_sonic_61
+      operationId: get_sonic_settings_get_api_monitor-settings_sonic_103
       responses:
         '200':
           description: Successful Response
@@ -1215,14 +1239,15 @@ paths:
               schema: {}
     post:
       tags:
-      - monitor-settings
+      - monitor_settings
       summary: Update Sonic Settings
       description: Update Sonic monitor settings.
-      operationId: update_sonic_settings_post_api_monitor-settings_sonic_86
+      operationId: update_sonic_settings_post_api_monitor-settings_sonic_119
       requestBody:
         content:
           application/json:
             schema:
+              additionalProperties: true
               type: object
               title: Payload
         required: true
@@ -1238,13 +1263,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/monitor-settings/provenance:
+    get:
+      tags:
+      - monitor_settings
+      summary: Get Provenance
+      description: "Report Sonic loop provenance for diagnostics.\n\nReturns:\n  \
+        \  interval: {'seconds': int, 'source': 'db', 'table': 'monitor_heartbeat'}\n\
+        \    thresholds: nested dict of values observed by the loop\n    thresholds_label:\
+        \ description of source(s) such as\n                      'DL.system_vars\
+        \ (...path)', 'global_config (...path)',\n                      'env (...file)',\
+        \ or 'mixed: A + B'"
+      operationId: get_provenance_get_api_monitor-settings_provenance_181
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvenanceResponse'
   /api/monitor-settings/liquidation:
     get:
       tags:
-      - monitor-settings
-      summary: Get Liquidation Settings
-      description: Return the current liquidation monitor configuration.
-      operationId: get_liquidation_settings_get_api_monitor-settings_liquidation_211
+      - monitor_settings
+      summary: Get Liquid Cfg
+      operationId: get_liquid_cfg_get_api_monitor-settings_liquidation_20
       responses:
         '200':
           description: Successful Response
@@ -1253,19 +1296,14 @@ paths:
               schema: {}
     post:
       tags:
-      - monitor-settings
-      summary: Update Liquidation Settings
-      description: 'Update liquidation monitor settings.
-
-
-        Accepts both new nested structure and legacy flat keys.'
-      operationId: update_liquidation_settings_post_api_monitor-settings_liquidation_225
+      - monitor_settings
+      summary: Save Liquid Cfg
+      operationId: save_liquid_cfg_post_api_monitor-settings_liquidation_25
       requestBody:
         content:
           application/json:
             schema:
-              type: object
-              title: Payload
+              $ref: '#/components/schemas/LiquidCfg'
         required: true
       responses:
         '200':
@@ -1273,6 +1311,39 @@ paths:
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/monitor-settings/market:
+    get:
+      tags:
+      - monitor_settings
+      summary: Get Market Settings
+      operationId: get_market_settings_get_api_monitor-settings_market_399
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketSettings'
+    post:
+      tags:
+      - monitor_settings
+      summary: Post Market Settings
+      operationId: post_market_settings_post_api_monitor-settings_market_416
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketSettings'
+        required: true
+      responses:
+        '204':
+          description: Successful Response
         '422':
           description: Validation Error
           content:
@@ -1281,11 +1352,8 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
   /api/monitor-settings/profit:
     get:
-      tags:
-      - monitor-settings
-      summary: Get Profit Settings
-      description: Return the profit monitor threshold configuration.
-      operationId: get_profit_settings_get_api_monitor-settings_profit_244
+      summary: Get Profit Cfg
+      operationId: get_profit_cfg_get_api_monitor-settings_profit_18
       responses:
         '200':
           description: Successful Response
@@ -1293,17 +1361,13 @@ paths:
             application/json:
               schema: {}
     post:
-      tags:
-      - monitor-settings
-      summary: Update Profit Settings
-      description: Update profit monitor thresholds.
-      operationId: update_profit_settings_post_api_monitor-settings_profit_270
+      summary: Save Profit Cfg
+      operationId: save_profit_cfg_post_api_monitor-settings_profit_24
       requestBody:
         content:
           application/json:
             schema:
-              type: object
-              title: Payload
+              $ref: '#/components/schemas/ProfitCfg'
         required: true
       responses:
         '200':
@@ -1317,6 +1381,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /debug/market/state:
+    get:
+      tags:
+      - debug_market
+      summary: State
+      description: 'Raw market monitor inputs for quick diagnosis: cfg + anchors +
+        latest prices.'
+      operationId: state_get_debug_market_state_39
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response State Get Debug Market State 39
+  /debug/market/eval:
+    get:
+      tags:
+      - debug_market
+      summary: Eval Inputs
+      description: 'Pure function preview: computes deltas against anchors and indicates
+        would-trigger flags.'
+      operationId: eval_inputs_get_debug_market_eval_58
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Eval Inputs Get Debug Market Eval 58
   /api/liquidation/nearest-distance:
     get:
       tags:
@@ -1334,13 +1432,18 @@ paths:
       tags:
       - market
       summary: Market Latest
-      operationId: market_latest_get_api_market_latest_9
+      operationId: market_latest_get_api_market_latest_10
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                additionalProperties:
+                  additionalProperties: true
+                  type: object
+                type: object
+                title: Response Market Latest Get Api Market Latest 10
   /prices/:
     get:
       tags:
@@ -1355,6 +1458,7 @@ paths:
             application/json:
               schema:
                 items:
+                  additionalProperties: true
                   type: object
                 type: array
                 title: Response List Prices Get Prices 7
@@ -1435,7 +1539,7 @@ paths:
       tags:
       - wallet
       summary: Send Token Api
-      operationId: send_token_api_post_api_wallet_send_186
+      operationId: send_token_api_post_api_wallet_send_150
       requestBody:
         content:
           application/json:
@@ -1459,7 +1563,7 @@ paths:
       tags:
       - wallet
       summary: Wallet Debug
-      operationId: wallet_debug_get_api_wallet_debug_257
+      operationId: wallet_debug_get_api_wallet_debug_221
       responses:
         '200':
           description: Successful Response
@@ -1469,7 +1573,7 @@ paths:
   /api/jupiter/wallet/send:
     post:
       summary: Send Token Api
-      operationId: send_token_api_post_api_jupiter_wallet_send_186
+      operationId: send_token_api_post_api_jupiter_wallet_send_150
       requestBody:
         content:
           application/json:
@@ -2335,6 +2439,7 @@ paths:
         content:
           application/json:
             schema:
+              additionalProperties: true
               type: object
               title: Payload
         required: true
@@ -2344,6 +2449,7 @@ paths:
           content:
             application/json:
               schema:
+                additionalProperties: true
                 type: object
                 title: Response Api Perps Dry Run Increase Post Api Perps Dry-Run
                   Increase 8
@@ -2849,7 +2955,7 @@ paths:
   /api/status:
     get:
       summary: Status
-      operationId: status_get_api_status_161
+      operationId: status_get_api_status_197
       responses:
         '200':
           description: Successful Response
@@ -2921,7 +3027,8 @@ components:
           title: Request Type
         params:
           anyOf:
-          - type: object
+          - additionalProperties: true
+            type: object
           - type: 'null'
           title: Params
       type: object
@@ -3017,7 +3124,8 @@ components:
           title: Fetched At
         extra:
           anyOf:
-          - type: object
+          - additionalProperties: true
+            type: object
           - type: 'null'
           title: Extra
       type: object
@@ -3053,6 +3161,88 @@ components:
           default: https://jup.ag/perps
       type: object
       title: JupiterParams
+    LiquidCfg:
+      properties:
+        enabled_sonic:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enabled Sonic
+        enabled_liquid:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enabled Liquid
+        snooze_seconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Snooze Seconds
+        blast_radius:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Blast Radius
+        thresholds:
+          anyOf:
+          - additionalProperties:
+              type: number
+            type: object
+          - type: 'null'
+          title: Thresholds
+        notifications:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Notifications
+      type: object
+      title: LiquidCfg
+    LiquidationSettings:
+      properties:
+        thresholds:
+          additionalProperties: true
+          type: object
+          title: Thresholds
+        blast_radius:
+          additionalProperties: true
+          type: object
+          title: Blast Radius
+        notifications:
+          additionalProperties:
+            type: boolean
+          type: object
+          title: Notifications
+        enabled_liquid:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enabled Liquid
+      type: object
+      title: LiquidationSettings
+    MarketSettings:
+      properties:
+        thresholds:
+          additionalProperties: true
+          type: object
+          title: Thresholds
+        rearm_mode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rearm Mode
+        notifications:
+          additionalProperties:
+            type: boolean
+          type: object
+          title: Notifications
+        enabled_market:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enabled Market
+      type: object
+      title: MarketSettings
     MonitorDetail:
       properties:
         status:
@@ -3067,7 +3257,8 @@ components:
           description: Timestamp of the last successful update
         metadata:
           anyOf:
-          - type: object
+          - additionalProperties: true
+            type: object
           - type: 'null'
           title: Metadata
           description: Additional contextual metadata
@@ -3398,6 +3589,80 @@ components:
       - to
       - amountAtoms
       title: PreflightReq
+    ProfitCfg:
+      properties:
+        enabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enabled
+        position_profit_usd:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Position Profit Usd
+        portfolio_profit_usd:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Portfolio Profit Usd
+        notifications:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Notifications
+      type: object
+      title: ProfitCfg
+    ProfitSettings:
+      properties:
+        position_profit_usd:
+          title: Position Profit Usd
+          default: 0
+        portfolio_profit_usd:
+          title: Portfolio Profit Usd
+          default: 0
+        notifications:
+          additionalProperties:
+            type: boolean
+          type: object
+          title: Notifications
+        enabled_profit:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enabled Profit
+      type: object
+      title: ProfitSettings
+    ProvenanceResponse:
+      properties:
+        interval:
+          additionalProperties: true
+          type: object
+          title: Interval
+        thresholds:
+          additionalProperties: true
+          type: object
+          title: Thresholds
+        thresholds_label:
+          type: string
+          title: Thresholds Label
+        json_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Json Path
+        json_used:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Json Used
+      type: object
+      required:
+      - interval
+      - thresholds
+      - thresholds_label
+      title: ProvenanceResponse
     ProviderConfig:
       properties:
         enabled:
@@ -3684,11 +3949,6 @@ components:
       - amount
       - stopPrice
       title: SpotTriggerRequest
-    StatusResponse:
-      additionalProperties:
-        type: string
-      type: object
-      title: StatusResponse
     SwapExecReq:
       properties:
         inputMint:
@@ -3720,7 +3980,8 @@ components:
           default: true
         quoteResponse:
           anyOf:
-          - type: object
+          - additionalProperties: true
+            type: object
           - type: 'null'
           title: Quoteresponse
         dynamicSlippageMaxBps:
@@ -3798,6 +4059,12 @@ components:
           - HIGH
           title: Level
           default: LOW
+        ignore_cooldown:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Ignore Cooldown
+          default: false
       type: object
       required:
       - mode
@@ -3809,6 +4076,7 @@ components:
           type: boolean
           title: Success
         results:
+          additionalProperties: true
           type: object
           title: Results
       type: object
@@ -3880,15 +4148,18 @@ components:
           title: Profit
           default: 0.0
         portfolio:
+          additionalProperties: true
           type: object
           title: Portfolio
         positions:
           items:
+            additionalProperties: true
             type: object
           type: array
           title: Positions
         hedges:
           items:
+            additionalProperties: true
             type: object
           type: array
           title: Hedges
@@ -3910,7 +4181,8 @@ components:
           $ref: '#/components/schemas/MonitorHealth'
         metadata:
           anyOf:
-          - type: object
+          - additionalProperties: true
+            type: object
           - type: 'null'
           title: Metadata
       type: object

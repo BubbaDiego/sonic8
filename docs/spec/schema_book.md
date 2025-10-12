@@ -1,6 +1,6 @@
 # Sonic Schema Book — Teaching Bundle
 
-> Generated: 2025-09-21 14:35:09 UTC  
+> Generated: 2025-10-12 19:39:06 UTC  
 > Source: `docs/spec/spec.manifest.yaml`  
 > Note: This file consolidates many repo schemas into one for *teaching*. In the repository, each schema lives as its own JSON file.
 
@@ -77,6 +77,7 @@
 | `GET` | `/api/perps/debug/idl-inspect` | `SCHEMA-API_PERPS_DEBUG_IDL-INSPECT` |
 | `GET` | `/api/perps/debug/idl-names` | `SCHEMA-API_PERPS_DEBUG_IDL-NAMES` |
 | `GET` | `/api/perps/debug/owner-offset` | `SCHEMA-API_PERPS_DEBUG_OWNER-OFFSET` |
+| `POST` | `/api/perps/dry-run/increase` | `SCHEMA-API_PERPS_DRY-RUN_INCREASE` |
 | `GET` | `/api/perps/markets` | `SCHEMA-API_PERPS_MARKETS` |
 | `GET` | `/api/perps/markets/resolve` | `SCHEMA-API_PERPS_MARKETS_RESOLVE` |
 | `POST` | `/api/perps/order` | `SCHEMA-API_PERPS_ORDER` |
@@ -209,6 +210,7 @@
 - [SCHEMA-API_PERPS_DEBUG_IDL-INSPECT](#schema-api-perps-debug-idl-inspect)
 - [SCHEMA-API_PERPS_DEBUG_IDL-NAMES](#schema-api-perps-debug-idl-names)
 - [SCHEMA-API_PERPS_DEBUG_OWNER-OFFSET](#schema-api-perps-debug-owner-offset)
+- [SCHEMA-API_PERPS_DRY-RUN_INCREASE](#schema-api-perps-dry-run-increase)
 - [SCHEMA-API_PERPS_MARKETS](#schema-api-perps-markets)
 - [SCHEMA-API_PERPS_MARKETS_RESOLVE](#schema-api-perps-markets-resolve)
 - [SCHEMA-API_PERPS_ORDER](#schema-api-perps-order)
@@ -4916,6 +4918,87 @@
         }
       ]
     }
+  ]
+}
+```
+
+---
+
+### SCHEMA-API_PERPS_DRY-RUN_INCREASE
+**Used by:** `POST /api/perps/dry-run/increase`
+
+**Schema**
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PerpsDryRunIncreaseResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "market": {
+      "type": "string"
+    },
+    "requested_size": {
+      "type": "number"
+    },
+    "new_position_size": {
+      "type": "number"
+    },
+    "est_entry_price": {
+      "type": "number"
+    },
+    "est_liq_price": {
+      "type": "number"
+    },
+    "est_fees": {
+      "type": "number"
+    },
+    "slippage_bps": {
+      "type": "number"
+    },
+    "route": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "step": {
+            "type": "integer"
+          },
+          "venue": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "price": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "venue",
+          "qty"
+        ]
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "ok"
   ]
 }
 ```

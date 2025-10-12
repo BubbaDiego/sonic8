@@ -19,7 +19,7 @@ from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.data.data_locker import DataLocker
 from backend.core.logging import log
 from backend.core.core_constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
-from config.config_loader import load_config
+from backend.config.config_loader import load_config
 from backend.utils.schema_validation_service import SchemaValidationService
 from jsonschema import validate
 

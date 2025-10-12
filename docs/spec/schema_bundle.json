@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generated_at": "2025-09-21 14:35:09 UTC",
-    "count": 116
+    "generated_at": "2025-10-12 19:39:06 UTC",
+    "count": 117
   },
   "schemas": {
     "SCHEMA-POSITION": {
@@ -3833,6 +3833,78 @@
         }
       ]
     },
+    "SCHEMA-API_PERPS_DRY-RUN_INCREASE": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "PerpsDryRunIncreaseResponse",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "market": {
+          "type": "string"
+        },
+        "requested_size": {
+          "type": "number"
+        },
+        "new_position_size": {
+          "type": "number"
+        },
+        "est_entry_price": {
+          "type": "number"
+        },
+        "est_liq_price": {
+          "type": "number"
+        },
+        "est_fees": {
+          "type": "number"
+        },
+        "slippage_bps": {
+          "type": "number"
+        },
+        "route": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "step": {
+                "type": "integer"
+              },
+              "venue": {
+                "type": "string"
+              },
+              "qty": {
+                "type": "number"
+              },
+              "price": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "venue",
+              "qty"
+            ]
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timestamp": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ok"
+      ]
+    },
     "SCHEMA-API_JUPITER_OPEN": {
       "type": "object",
       "properties": {
@@ -5809,6 +5881,13 @@
         "method": "GET",
         "path": "/api/status",
         "id": "API-get-api_status"
+      }
+    ],
+    "SCHEMA-API_PERPS_DRY-RUN_INCREASE": [
+      {
+        "method": "POST",
+        "path": "/api/perps/dry-run/increase",
+        "id": "API-post-api_perps_dry-run_increase"
       }
     ]
   }
