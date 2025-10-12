@@ -455,19 +455,27 @@ def run_monitor(
     # ── Top-of-screen env readout (path + Twilio) ─────────────────────────────
     try:
         env_path = os.getenv("SONIC_ENV_PATH_RESOLVED") or _env_used or "–"
-        print(f"📦 .env (used): {env_path}")
+
+        # Canonical first, then fall back to legacy/aliases
         sid = (
             os.getenv("TWILIO_SID")
             or os.getenv("TWILIO_ACCOUNT_SID")
             or "–"
         )
-        from_ = os.getenv("TWILIO_FROM") or "–"
+        from_ = (
+            os.getenv("TWILIO_FROM")
+            or os.getenv("TWILIO_FROM_PHONE")
+            or "–"
+        )
         to_ = (
             os.getenv("TWILIO_TO")
+            or os.getenv("TWILIO_TO_PHONE")
             or os.getenv("TWILIO_DEFAULT_TO")
             or "–"
         )
-        print(f"📞 Twilio (env): sid={str(sid)[:3]}… • from={from_} • to={to_}")
+
+        print(f"📦 .env (used): {env_path}")
+        print(f"📞 Twilio (env): sid={sid[:3]}… • from={from_} • to={to_}")
     except Exception:
         pass
 
