@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Callable
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -15,6 +15,7 @@ from backend.core.monitor_core.utils.console_title import set_console_title
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
+from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.console_lines import emit_compact_cycle
 from backend.core.reporting_core.console_reporter import (
     emit_boot_status,
@@ -110,6 +111,18 @@ def _build_cycle_summary(
 
 set_console_title("🦔 Sonic Monitor 🦔")
 
+
+async def _run_monitor_tick(name: str, runner: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
+    key = f"mon_{name}"
+    task_start(key, name)
+    try:
+        await asyncio.to_thread(runner, *args, **kwargs)
+    except Exception as exc:
+        task_end(key, "fail", note=str(exc))
+        raise
+    else:
+        task_end(key, "ok")
+
 def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
     dl = DataLocker(str(db_path))
     cursor = dl.db.get_cursor()
@@ -181,16 +194,16 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     # Run monitors based on config
     if cfg.get("enabled_market", True):
 
-        await asyncio.to_thread(cyclone.monitor_core.run_by_name, "price_monitor")
+        await _run_monitor_tick("price_monitor", cyclone.monitor_core.run_by_name, "price_monitor")
 
-        await asyncio.to_thread(cyclone.monitor_core.run_by_name, "market_monitor")
+        await _run_monitor_tick("market_monitor", cyclone.monitor_core.run_by_name, "market_monitor")
     if cfg.get("enabled_profit", True):
-        await asyncio.to_thread(cyclone.monitor_core.run_by_name, "profit_monitor")
+        await _run_monitor_tick("profit_monitor", cyclone.monitor_core.run_by_name, "profit_monitor")
     else:
         logging.info("Profit monitor disabled via configuration")
     # await asyncio.to_thread(cyclone.monitor_core.run_by_name, "risk_monitor")
     if cfg.get("enabled_liquid", True):
-        await asyncio.to_thread(cyclone.monitor_core.run_by_name, "liquid_monitor")
+        await _run_monitor_tick("liquid_monitor", cyclone.monitor_core.run_by_name, "liquid_monitor")
 
     # Alert V2 pipeline disabled
 
@@ -282,10 +295,13 @@ def run_monitor(
             status_snapshot: Optional[MonitorStatus] = None
             try:
                 status_snapshot = dl.ledger.get_monitor_status_summary()
-                logging.debug(
-                    "Monitor status summary: %s",
-                    status_snapshot.dict() if hasattr(status_snapshot, "dict") else status_snapshot,
-                )
+                if hasattr(status_snapshot, "model_dump"):
+                    payload = status_snapshot.model_dump()
+                elif hasattr(status_snapshot, "dict"):
+                    payload = status_snapshot.dict()
+                else:
+                    payload = status_snapshot
+                logging.debug("Monitor status summary: %s", payload)
             except Exception:  # pragma: no cover - defensive logging
                 logging.exception("Failed to update monitor status summary")
 
