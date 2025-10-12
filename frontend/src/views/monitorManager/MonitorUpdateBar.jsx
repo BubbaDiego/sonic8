@@ -5,39 +5,22 @@ import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import SmsIcon from '@mui/icons-material/Sms';
 import CampaignIcon from '@mui/icons-material/Campaign';
 
-/**
- * Re-usable bar with the four “update” / “notification” buttons that appear
- * at the bottom of every monitor card.
- *
- * Props
- * ――――
- * • cfg    – object with boolean flags { system, voice, sms, tts }
- * • toggle – function(key) to flip a boolean in the parent cfg
- */
 const ITEMS = [
-  { key: 'system', label: 'System', icon: MemoryIcon,        color: 'info'    },
+  { key: 'system', label: 'System', icon: MemoryIcon,          color: 'info'    },
   { key: 'voice',  label: 'Voice',  icon: RecordVoiceOverIcon, color: 'success' },
-  { key: 'sms',    label: 'SMS',    icon: SmsIcon,            color: 'warning' },
-  { key: 'tts',    label: 'TTS',    icon: CampaignIcon,       color: 'error'   }
+  { key: 'sms',    label: 'SMS',    icon: SmsIcon,             color: 'warning' },
+  { key: 'tts',    label: 'TTS',    icon: CampaignIcon,        color: 'error'   }
 ];
 
-export default function MonitorUpdateBar({ cfg = {}, toggle, sx = {} }) {
+export default function MonitorUpdateBar({ cfg = {}, toggle, sx = {}, endAdornment = null }) {
   return (
     <Box
-      /* framed wrapper */
       sx={{
-        mt: 3,
-        // Standard padding with slightly reduced bottom space
-        // Tweak `pb` to adjust the bottom padding if needed
-        pt: 2,
-        pb: 1.5,
-        px: 2,
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 1,
-        backgroundColor: 'background.paper',
+        px: 2, py: 1.25, mt: 1.5,
         display: 'flex',
-        justifyContent: 'center',
+        alignItems: 'center',
+        borderTop: '1px solid',
+        borderColor: 'divider',
         ...sx
       }}
     >
@@ -47,7 +30,7 @@ export default function MonitorUpdateBar({ cfg = {}, toggle, sx = {} }) {
             <Button
               size="small"
               variant={cfg[key] ? 'contained' : 'outlined'}
-              onClick={() => toggle(key)}
+              onClick={() => toggle?.(key)}
             >
               {label}
             </Button>
@@ -55,6 +38,8 @@ export default function MonitorUpdateBar({ cfg = {}, toggle, sx = {} }) {
           </Box>
         ))}
       </Stack>
+      <Box sx={{ ml: 'auto' }}>{endAdornment}</Box>
     </Box>
   );
 }
+
