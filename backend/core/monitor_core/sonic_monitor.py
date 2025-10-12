@@ -82,7 +82,7 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
         sys.path.insert(0, _candidate_str)
 
 # Build DAL from sonic_config.json (or env) — no shared_store.
-from backend.config.config_loader import load_config, load_monitor_config
+from backend.config.config_loader import load_config
 from backend.data.data_locker import DataLocker
 
 # ── Config + DB bootstrap (order matters) ─────────────────────
@@ -105,20 +105,101 @@ MONITOR_NAME = "sonic_monitor"
 
 dal = DataLocker.get_instance(MOTHER_DB_PATH)
 
-_mon_cfg = load_monitor_config() or {}
+
+# ---- Load monitor JSON once (no bridge) ------------------------------------
+def _monitor_json_path() -> str:
+    # default = backend/config/sonic_monitor_config.json
+    return os.getenv("SONIC_MONITOR_CONFIG_PATH") or str(
+        Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
+    )
 
 
-def _cfg_get(*keys: str, default: Any = None) -> Any:
-    """Safely walk nested keys inside ``_mon_cfg`` with a fallback."""
+def _load_monitor_json() -> dict:
+    p = _monitor_json_path()
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
-    cur: Any = _mon_cfg if isinstance(_mon_cfg, dict) else {}
-    for key in keys:
-        if not isinstance(cur, Mapping):
+
+_MON = _load_monitor_json()
+
+
+def _cfg(*keys, default=None):
+    """Walk nested keys in _MON safely; return default if missing."""
+
+    cur = _MON
+    for k in keys:
+        if not isinstance(cur, dict):
             return default
-        if key not in cur:
-            return default
-        cur = cur[key]
+        cur = cur.get(k, default)
     return cur if cur is not None else default
+
+
+# Convenience getters (use these instead of config_bridge.get_*)
+def cfg_loop_seconds(default: int | None) -> int | None:
+    v = _cfg("monitor", "loop_seconds")
+    try:
+        return int(v) if v is not None else default
+    except Exception:
+        return default
+
+
+def cfg_enabled(name: str, default: bool | None = True) -> bool | None:
+    v = _cfg("monitor", "enabled", name)
+    return bool(v) if v is not None else default
+
+
+def cfg_xcom_live(default: bool | None = True) -> bool | None:
+    v = _cfg("monitor", "xcom_live")
+    return bool(v) if v is not None else default
+
+
+def cfg_price_assets(default=None):
+    v = _cfg("price", "assets")
+    return v if isinstance(v, list) and v else (default or ["BTC", "ETH", "SOL"])
+
+
+def cfg_liquid_thresholds() -> dict:
+    v = _cfg("liquid", "thresholds")
+    return v if isinstance(v, dict) else {}
+
+
+def cfg_liquid_blast() -> dict:
+    v = _cfg("liquid", "blast")
+    return v if isinstance(v, dict) else {}
+
+
+def cfg_profit_thresholds() -> dict:
+    # returns {"position_usd": 50, "portfolio_usd": 200} if present
+    v = _cfg("profit")
+    return v if isinstance(v, dict) else {}
+
+
+def cfg_twilio() -> dict:
+    t = _cfg("twilio", default={}) or {}
+    # normalized keys you already show in the banner
+    return {
+        "sid": t.get("sid"),
+        "auth": t.get("auth"),
+        "from": t.get("from"),
+        "to": t.get("to"),
+        "flow": t.get("flow"),
+    }
+
+
+def get_price_assets() -> list[str]:
+    assets = cfg_price_assets()
+    normalized: list[str] = []
+    for asset in assets:
+        if asset is None:
+            continue
+        text = str(asset).strip().upper()
+        if text:
+            normalized.append(text)
+    return normalized or ["BTC", "ETH", "SOL"]
 
 
 try:
@@ -129,7 +210,7 @@ try:
 except Exception:
     _db_monitor_cfg = {}
 
-_loop_from_cfg_raw = _cfg_get("monitor", "loop_seconds")
+_loop_from_cfg_raw = cfg_loop_seconds(None)
 _LOOP_SECONDS_OVERRIDE: Optional[int]
 try:
     loop_val = int(_loop_from_cfg_raw) if _loop_from_cfg_raw is not None else None
@@ -137,19 +218,21 @@ try:
 except Exception:
     _LOOP_SECONDS_OVERRIDE = None
 
-_enabled_overrides_raw = {
-    "sonic": _cfg_get("monitor", "enabled", "sonic"),
-    "liquid": _cfg_get(
-        "monitor", "enabled", "liquid", default=_db_monitor_cfg.get("enabled_liquid")
-    ),
-    "profit": _cfg_get(
-        "monitor", "enabled", "profit", default=_db_monitor_cfg.get("enabled_profit")
-    ),
-    "market": _cfg_get(
-        "monitor", "enabled", "market", default=_db_monitor_cfg.get("enabled_market")
-    ),
-    "price": _cfg_get("monitor", "enabled", "price"),
+_enabled_overrides_raw: dict[str, Any] = {
+    "sonic": cfg_enabled("sonic", default=None),
+    "liquid": cfg_enabled("liquid", default=None),
+    "profit": cfg_enabled("profit", default=None),
+    "market": cfg_enabled("market", default=None),
+    "price": cfg_enabled("price", default=None),
 }
+
+if _enabled_overrides_raw.get("liquid") is None:
+    _enabled_overrides_raw["liquid"] = _db_monitor_cfg.get("enabled_liquid")
+if _enabled_overrides_raw.get("profit") is None:
+    _enabled_overrides_raw["profit"] = _db_monitor_cfg.get("enabled_profit")
+if _enabled_overrides_raw.get("market") is None:
+    _enabled_overrides_raw["market"] = _db_monitor_cfg.get("enabled_market")
+
 _ENABLED_OVERRIDES: dict[str, Optional[bool]] = {}
 for name, value in _enabled_overrides_raw.items():
     if value is None:
@@ -157,92 +240,13 @@ for name, value in _enabled_overrides_raw.items():
     else:
         _ENABLED_OVERRIDES[name] = bool(value)
 
-_xcom_live_cfg = _cfg_get("monitor", "xcom_live")
-if _xcom_live_cfg is not None:
-    os.environ["SONIC_XCOM_LIVE"] = "1" if _xcom_live_cfg else "0"
+_xcom_from_json = cfg_xcom_live(None)
+if _xcom_from_json is not None:
+    os.environ["SONIC_XCOM_LIVE"] = "1" if _xcom_from_json else "0"
 
-_tw_sid = _cfg_get("twilio", "sid")
-_tw_auth = _cfg_get("twilio", "auth")
-_tw_from = _cfg_get("twilio", "from")
-_tw_to = _cfg_get("twilio", "to")
-_tw_flow = _cfg_get("twilio", "flow")
-
-_liq_thr_cfg = _cfg_get("liquid", "thresholds", default={}) or {}
-_blast_cfg = _cfg_get("liquid", "blast", default={}) or {}
-_profit_cfg = _cfg_get("profit", default={}) or {}
-_price_assets_cfg = _cfg_get("price", "assets")
-
-
-def _override_config_bridge() -> None:
-    """Patch ``sonic_config_bridge`` helpers to respect monitor JSON overrides."""
-
-    original_loop_seconds = config_bridge.get_loop_seconds
-
-    def loop_seconds_override() -> Optional[int]:
-        if _LOOP_SECONDS_OVERRIDE is not None:
-            return _LOOP_SECONDS_OVERRIDE
-        return original_loop_seconds()
-
-    config_bridge.get_loop_seconds = loop_seconds_override  # type: ignore[assignment]
-
-    original_price_assets = config_bridge.get_price_assets
-
-    def price_assets_override() -> list[str]:
-        assets = []
-        if isinstance(_price_assets_cfg, (list, tuple)):
-            for asset in _price_assets_cfg:
-                if asset is None:
-                    continue
-                text = str(asset).strip()
-                if text:
-                    assets.append(text.upper())
-        if assets:
-            return assets
-        return original_price_assets()
-
-    config_bridge.get_price_assets = price_assets_override  # type: ignore[assignment]
-
-    original_liq_thresholds = config_bridge.get_liquid_thresholds
-
-    def liquid_thresholds_override() -> dict[str, float]:
-        base = original_liq_thresholds() or {}
-        overrides: dict[str, float] = {}
-        for key, value in (_liq_thr_cfg or {}).items():
-            try:
-                overrides[str(key).upper()] = float(value)
-            except Exception:
-                continue
-        if overrides:
-            merged = dict(base)
-            merged.update(overrides)
-            return merged
-        return base
-
-    config_bridge.get_liquid_thresholds = liquid_thresholds_override  # type: ignore[assignment]
-
-    original_twilio = config_bridge.get_twilio
-
-    def twilio_override() -> dict[str, str]:
-        result = dict(original_twilio() or {})
-        overrides = {
-            "SID": _tw_sid,
-            "AUTH": _tw_auth,
-            "FROM": _tw_from,
-            "TO": _tw_to,
-            "FLOW": _tw_flow,
-        }
-        for key, value in overrides.items():
-            if value is not None:
-                result[key] = str(value)
-        return result
-
-    config_bridge.get_twilio = twilio_override  # type: ignore[assignment]
-
-
-_override_config_bridge()
-
-# Alias the patched helper for local use
-get_price_assets = config_bridge.get_price_assets
+_liq_thr_cfg = cfg_liquid_thresholds()
+_blast_cfg = cfg_liquid_blast()
+_profit_cfg = cfg_profit_thresholds()
 
 
 def _monitor_enabled(cfg: Mapping[str, Any], name: str, *, default: bool = True, alias: str | None = None) -> bool:
@@ -265,7 +269,6 @@ from datetime import datetime, timezone
 from backend.core.monitor_core.utils.console_title import set_console_title
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.utils.banner import emit_config_banner
-import backend.core.config_core.sonic_config_bridge as config_bridge
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.console_lines import emit_compact_cycle
