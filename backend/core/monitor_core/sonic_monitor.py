@@ -488,7 +488,7 @@ def run_monitor(
                 summary,
                 cfg,
                 interval,
-                enable_color=False,
+                enable_color=True,
             )
 
             sleep_time = max(interval - elapsed, 0)
