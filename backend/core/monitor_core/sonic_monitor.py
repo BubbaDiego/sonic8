@@ -82,6 +82,10 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
         sys.path.insert(0, _candidate_str)
 
 # Build DAL from sonic_config.json (or env) — no shared_store.
+# 1) config loader (as requested)
+from backend.config.config_loader import load_config
+
+# 2) Resolve config path: env override → backend/config/sonic_config.json
 _CFG_PATH = os.getenv("SONIC_CONFIG_JSON_PATH") or str(
     Path(__file__).resolve().parents[2] / "config" / "sonic_config.json"
 )
@@ -90,14 +94,34 @@ try:
 except Exception:
     _cfg = {}
 
-# Determine DB path: config → env → default backend/mother.db
+# 3) Determine DB path: config → env → default backend/mother.db
 _db_from_cfg = (_cfg.get("system_config") or {}).get("db_path")
 _db_from_env = os.getenv("SONIC_DB_PATH")
-_DB_PATH = _db_from_cfg or _db_from_env or str(
-    Path(__file__).resolve().parents[2] / "mother.db"
-)
+_DB_PATH = _db_from_cfg or _db_from_env or str(Path(__file__).resolve().parents[2] / "mother.db")
 
-# Singleton DAL (DataLocker handles all DL* managers internally)
+# 4) Robust import for DataLocker (no new files). Try known locations.
+DataLocker = None
+try:
+    from backend.data_locker import DataLocker as _DL  # common path
+    DataLocker = _DL
+except Exception:
+    try:
+        from backend.core.data_locker import DataLocker as _DL  # alternate
+        DataLocker = _DL
+    except Exception:
+        try:
+            from backend.core.monitor_core.data_locker import DataLocker as _DL  # local
+            DataLocker = _DL
+        except Exception:
+            DataLocker = None
+
+if DataLocker is None:
+    raise RuntimeError(
+        "DataLocker import failed. Expected at backend.data_locker (or backend.core.data_locker). "
+        "Fix the import path above to your actual DataLocker module."
+    )
+
+# 5) Singleton DAL
 dal = DataLocker.get_instance(_DB_PATH)
 import asyncio
 import logging
@@ -124,8 +148,6 @@ from backend.core.reporting_core.summary_cache import (
     set_prices,
     set_prices_reason,
 )
-from backend.config.config_loader import load_config
-from backend.data.data_locker import DataLocker
 from backend.core.monitor_core.dl_hedges import DLHedgeManager
 from backend.core.config.json_config import load_config as load_json_config
 from backend.models.monitor_status import MonitorStatus, MonitorType
