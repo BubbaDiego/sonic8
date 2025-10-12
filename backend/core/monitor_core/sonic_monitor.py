@@ -98,7 +98,7 @@ def _build_cycle_summary(
     else:
         notif_line = "NONE (no_breach)"
 
-    return {
+    summary = {
         "cycle_num": cycle_num,
         "elapsed_s": elapsed,
         "positions_line": pos_line,
@@ -108,8 +108,139 @@ def _build_cycle_summary(
         "hedge_groups": 0,
     }
 
+    summary["monitor_states_line"] = pos_line
+    summary["monitor_brief"] = brief
+    return summary
+
 
 set_console_title("🦔 Sonic Monitor 🦔")
+
+
+def _to_iso(ts: Any) -> Optional[str]:
+    if ts in (None, "", 0):
+        return None
+    try:
+        if isinstance(ts, (int, float)):
+            return datetime.fromtimestamp(float(ts), timezone.utc).isoformat()
+        if isinstance(ts, str):
+            try:
+                return datetime.fromtimestamp(float(ts), timezone.utc).isoformat()
+            except ValueError:
+                # assume already iso-formatted
+                datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                return ts
+    except Exception:
+        return None
+    return None
+
+
+def _enrich_summary_from_locker(summary: Dict[str, Any], dl: DataLocker) -> None:
+    try:
+        prices = dl.prices.get_all_prices() if getattr(dl, "prices", None) else []
+    except Exception:
+        prices = []
+
+    top_assets: list[str] = []
+    prices_top3: list[tuple[str, float]] = []
+    price_changes: Dict[str, bool] = {}
+    price_ages: Dict[str, int] = {}
+    latest_price_ts: Optional[str] = None
+
+    if prices:
+        # Deduplicate by asset_type preserving latest order
+        seen = set()
+        sorted_prices = sorted(
+            prices,
+            key=lambda row: float(row.get("last_update_time") or 0.0),
+            reverse=True,
+        )
+        now_ts = datetime.now(timezone.utc).timestamp()
+        for row in sorted_prices:
+            asset = str(row.get("asset_type") or "").strip() or "UNKNOWN"
+            if asset in seen:
+                continue
+            seen.add(asset)
+            price = float(row.get("current_price") or 0.0)
+            prices_top3.append((asset, price))
+            top_assets.append(asset)
+
+            last_ts = row.get("last_update_time")
+            if latest_price_ts is None:
+                latest_price_ts = _to_iso(last_ts)
+            try:
+                last_float = float(last_ts)
+                price_ages[asset] = max(int((now_ts - last_float) // 60), 0)
+            except Exception:
+                pass
+
+            prev = row.get("previous_price")
+            try:
+                price_changes[asset] = float(prev or 0.0) != float(price)
+            except Exception:
+                price_changes[asset] = False
+
+            if len(prices_top3) >= 3:
+                break
+
+    if prices_top3:
+        summary["prices_top3"] = prices_top3
+        summary["assets_line"] = " ".join(top_assets)
+    if price_changes:
+        summary["price_changes"] = price_changes
+    if price_ages:
+        summary["price_ages"] = price_ages
+    if latest_price_ts:
+        summary["prices_updated_at"] = latest_price_ts
+
+    # Positions snapshot
+    try:
+        positions = (
+            dl.positions.get_all_positions() if getattr(dl, "positions", None) else []
+        )
+    except Exception:
+        positions = []
+
+    if positions:
+        active = [p for p in positions if getattr(p, "status", "ACTIVE") != "CLOSED"]
+        summary["positions_line"] = f"active {len(active)}/{len(positions)} total"
+
+        # top 3 holdings summary
+        def _fmt_position(p: Any) -> str:
+            side = getattr(p, "position_type", "").upper() or "–"
+            asset = getattr(p, "asset_type", "–")
+            size = getattr(p, "size", 0)
+            try:
+                size_str = f"{float(size):.2f}" if isinstance(size, (int, float)) else str(size)
+            except Exception:
+                size_str = str(size)
+            entry = getattr(p, "entry_price", 0)
+            try:
+                entry_str = f"{float(entry):.2f}" if isinstance(entry, (int, float)) else str(entry)
+            except Exception:
+                entry_str = str(entry)
+            return f"{asset} {side} {size_str}@{entry_str}"
+
+        try:
+            top_positions = sorted(
+                positions,
+                key=lambda p: getattr(p, "last_updated", ""),
+                reverse=True,
+            )[:3]
+        except Exception:
+            top_positions = positions[:3]
+        summary["positions_brief"] = " | ".join(_fmt_position(p) for p in top_positions)
+
+        # Determine latest timestamp
+        latest_ts: Optional[str] = None
+        for pos in positions:
+            ts = getattr(pos, "last_updated", None)
+            iso = _to_iso(ts)
+            if iso:
+                if latest_ts is None or iso > latest_ts:
+                    latest_ts = iso
+        if latest_ts:
+            summary["positions_updated_at"] = latest_ts
+
 
 
 async def _run_monitor_tick(name: str, runner: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
@@ -235,7 +366,10 @@ def run_monitor(
 
     install_strict_console_filter()
     muted = silence_legacy_console_loggers()
-    emit_boot_status(muted, group_label=CYCLONE_GROUP_LABEL, groups=CYCLONE_GROUPS)
+    # print muted modules only; no “Groups:” line
+    emit_boot_status(muted, group_label=CYCLONE_GROUP_LABEL, groups=None)
+    # (keep this list around if you later want SONIC_SHOW_GROUPS=1)
+    _cyclone_group = CYCLONE_GROUPS
 
     from backend.core.monitor_core.monitor_core import MonitorCore
 
@@ -313,6 +447,10 @@ def run_monitor(
                 status_snapshot,
                 alerts_line=alerts_line,
             )
+            try:
+                _enrich_summary_from_locker(summary, dl)
+            except Exception:
+                logging.exception("Failed to enrich sonic summary")
             emit_compact_cycle(summary, {}, interval, enable_color=enable_color)
 
             sleep_time = max(interval - elapsed, 0)
