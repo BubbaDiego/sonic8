@@ -798,12 +798,16 @@ def run_daily_maintenance():
             print(f"{title:<32} [skip] {relpath} not found")
             return None
         print(f"{title:<32} [run]  {relpath}")
+        env = os.environ.copy()
+        # Ensure Python uses UTF-8 for stdio to avoid cp1252 UnicodeEncodeError in child scripts
+        env.setdefault("PYTHONIOENCODING", "utf-8")
         # capture output to keep it in the action log and on screen
         proc = subprocess.run(
             [PYTHON_EXEC, str(script), *args],
             cwd=str(repo_root()),
             capture_output=True,
             text=True,
+            env=env,
             check=False,
         )
         if proc.stdout:

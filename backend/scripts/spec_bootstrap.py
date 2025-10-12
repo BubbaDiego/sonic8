@@ -7,12 +7,13 @@ from importlib import import_module
 from pathlib import Path
 from typing import List, Tuple
 
-REQUIRED_PACKAGES = ["pyyaml", "jsonschema"]  # minimal toolchain for spec & UI sweeper
+# Map pip package → python module to import
+REQUIRED = [("pyyaml", "yaml"), ("jsonschema", "jsonschema")]  # minimal toolchain for spec/UI
 
 
 def _pip_install(pkg: str) -> None:
     """Install a package into the current venv using the same interpreter."""
-    # Use the real OS-backed stdio (not any redirected wrappers) to avoid 'fileno' errors.
+    # Use OS-backed stdio to avoid fileno() complaints from wrapped streams
     try:
         subprocess.check_call(
             [sys.executable, "-m", "pip", "install", pkg],
@@ -20,7 +21,7 @@ def _pip_install(pkg: str) -> None:
             stderr=sys.__stderr__,
         )
     except Exception:
-        # Fallback: inherit parent's handles (no explicit redirection)
+        # Fallback: inherit parent's stdio
         subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
 
 
@@ -32,16 +33,18 @@ def ensure_repo_root_and_path() -> Path:
     """
     here = Path(__file__).resolve()
 
-    # walk up until we find a folder containing backend/
-    root: Path | None = None
-    for p in here.parents:
-        if (p / "backend").exists():
-            root = p
-            break
-
-    if root is None:
-        # fallback: two levels up is typical: <repo>/backend/scripts/spec_bootstrap.py
+    # If we live under <repo>/backend/scripts/, repo root is 2 levels up.
+    if here.parent.name == "scripts" and here.parent.parent.name == "backend":
         root = here.parents[2]
+    else:
+        # Otherwise find a directory where 'backend' is an immediate child.
+        root = None
+        for p in [here, *here.parents]:
+            if (p / "backend").is_dir() and not (p / "backend" / "backend").exists():
+                root = p
+                break
+        if root is None:
+            root = here.parents[2]
 
     os.chdir(root)
     if str(root) not in sys.path:
@@ -62,7 +65,7 @@ def ensure_spec_toolchain(install: bool = True) -> Tuple[List[str], List[str]]:
     If install=True, missing packages are installed and re-checked.
     """
     available: List[str] = []
-    missing: List[str] = []
+    missing: List[Tuple[str, str]] = []
 
     def _try_import(name: str) -> bool:
         try:
@@ -71,22 +74,22 @@ def ensure_spec_toolchain(install: bool = True) -> Tuple[List[str], List[str]]:
         except Exception:
             return False
 
-    for name in REQUIRED_PACKAGES:
-        if _try_import(name):
-            available.append(name)
+    for pkg, mod in REQUIRED:
+        if _try_import(mod):
+            available.append(mod)
         else:
-            missing.append(name)
+            missing.append((pkg, mod))
 
     if missing and install:
-        for pkg in list(missing):
+        for pkg, _ in list(missing):
             _pip_install(pkg)
         # verify again
-        still_missing = []
-        for name in list(missing):
-            if _try_import(name):
-                available.append(name)
+        still_missing: List[Tuple[str, str]] = []
+        for pkg, mod in list(missing):
+            if _try_import(mod):
+                available.append(mod)
             else:
-                still_missing.append(name)
+                still_missing.append((pkg, mod))
         missing = still_missing
 
     return available, missing
@@ -102,7 +105,7 @@ def preflight(install: bool = True) -> None:
     root = ensure_repo_root_and_path()
     avail, miss = ensure_spec_toolchain(install=install)
     print(f"[spec-bootstrap] repo_root={root}")
-    print(f"[spec-bootstrap] available={avail} missing={miss}")
+    print(f"[spec-bootstrap] available={avail} missing={[m[1] for m in miss]}")
     if miss:
         # We do not hard-exit; we leave it to callers to decide. But we print loudly.
         print("[spec-bootstrap] WARNING: some packages are still missing; downstream steps may fail.")

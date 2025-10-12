@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+from datetime import UTC
 import json
 from pathlib import Path
 from typing import Dict, List, Any
@@ -14,7 +15,7 @@ OUT_JSON = ROOT / "docs" / "spec" / "schema_bundle.json"
 OUT_MD   = ROOT / "docs" / "spec" / "schema_book.md"
 
 def _now_iso() -> str:
-    return _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    return _dt.datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 def load_manifest() -> Dict[str, Any]:
     if not MANIFEST.exists():

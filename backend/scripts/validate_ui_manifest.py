@@ -7,14 +7,24 @@ MANIFEST = ROOT / "docs" / "spec" / "ui.manifest.yaml"
 
 BUILTINS = {"navigate", "outlet", "suspense", "fragment"}  # react-router / react built-ins
 
-def _err(errors, msg): 
-    print("❌", msg); errors.append(msg)
 
-def _warn(msg): 
-    print("⚠️", msg)
+def _safe_print(sym_utf8: str, ascii_fallback: str, msg: str):
+    try:
+        print(sym_utf8, msg)
+    except UnicodeEncodeError:
+        print(ascii_fallback, msg)
 
-def _ok(msg): 
-    print("✅", msg)
+
+def _err(errors, msg):
+    _safe_print("\u274C", "[FAIL]", msg); errors.append(msg)  # ❌
+
+
+def _warn(msg):
+    _safe_print("\u26A0\uFE0F", "[WARN]", msg)  # ⚠️
+
+
+def _ok(msg):
+    _safe_print("\u2705", "[OK]", msg)  # ✅
 
 def _exists(p: str) -> bool:
     return bool(p) and (ROOT / p).exists()
