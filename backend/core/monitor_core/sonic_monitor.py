@@ -670,6 +670,14 @@ def run_monitor(
             except Exception:
                 pass
             try:
+                errors = sum(1 for state in _MON_STATE.values() if str(state).upper() == "FAIL")
+                if cycle_failed:
+                    errors += 1
+                summary["errors_count"] = int(errors)
+            except Exception:
+                if cycle_failed:
+                    summary["errors_count"] = 1
+            try:
                 _enrich_summary_from_locker(summary, dl)
             except Exception:
                 logging.exception("Failed to enrich sonic summary")

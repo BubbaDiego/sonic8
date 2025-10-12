@@ -63,14 +63,17 @@ def emit_compact_cycle(
       hedge_groups, elapsed_s, cycle_num, notifications_brief
     """
     _ = cfg  # placeholder for future config-specific rendering tweaks
-    elapsed_seconds = f"{float(summary.get('elapsed_s') or 0.0):.0f}"
+    total_elapsed = float(summary.get("elapsed_s") or 0.0)
     cycle_number = summary.get("cycle_num", "?")
 
-    # Cyclone headline
-    line = (
-        "   🌀 Cyclone  : "
-        f"{summary.get('positions_line', '↑0/0/0')} • {summary.get('hedge_groups', 0)} hedges • {elapsed_seconds} seconds"
-    )
+    # 🌀 Cyclone headline (simplified status icon + elapsed seconds)
+    errs = int(summary.get("errors_count", 0) or 0)
+    mons = summary.get("monitors_inline") or ""
+    al_inline = summary.get("alerts_inline") or ""
+    has_fail = (errs > 0) or ("FAIL" in mons)
+    has_alert = ("breach" in str(al_inline).lower()) or ("ALERT" in str(al_inline))
+    icon = "☠️" if has_fail else ("⚠️" if has_alert else "✅")
+    line = f"   🌀 Cyclone  : {icon} {int(max(total_elapsed, 0.0))}s"
     print(line, flush=True)
 
     # Prices
@@ -113,6 +116,5 @@ def emit_compact_cycle(
     print(f"\n   📨 Notifications : {notif}")
 
     # Tail
-    total_elapsed = float(summary.get("elapsed_s") or 0.0)
     tail = f"✅ cycle #{cycle_number} done • {total_elapsed:.2f}s  (sleep {poll_interval_s:.1f}s)"
     print(tail, flush=True)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import os
 import sqlite3
 from pathlib import Path
@@ -47,6 +48,18 @@ def _sysvar(conn: sqlite3.Connection, key: str) -> Optional[str]:
     return None
 
 
+def _sysvar_json(conn: Optional[sqlite3.Connection], key: str) -> Optional[dict]:
+    if not conn:
+        return None
+    try:
+        raw = _sysvar(conn, key)
+        if not raw:
+            return None
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
 def _profit_thresholds(conn: Optional[sqlite3.Connection]) -> Tuple[str, str, str]:
     """
     Pulls Position/Portfolio profit thresholds with broad key support.
@@ -86,11 +99,38 @@ def _profit_thresholds(conn: Optional[sqlite3.Connection]) -> Tuple[str, str, st
 
 
 def _liquid_row(conn: Optional[sqlite3.Connection], asset: str) -> Tuple[str, str, str]:
-    """Return (threshold, blast, source_tag)."""
+    """Return (threshold, blast, source_tag).
+
+    Search order:
+        1) system_vars.alert_thresholds JSON blob (Monitor Manager)
+        2) liquid_thresholds table
+        3) legacy system_vars liquid_* keys
+    """
+
     thr, bl, src = "0.00", "0", "DB|FILE"
     if not conn:
         return thr, bl, src
-    # dedicated table?
+
+    # 1) JSON blob with per-asset overrides
+    try:
+        blob = _sysvar_json(conn, "alert_thresholds")
+        if isinstance(blob, dict):
+            aset = asset.upper()
+            node = blob.get(aset) or {}
+            t = node.get("threshold") or node.get("limit") or blob.get(f"{aset}_threshold")
+            b = node.get("blast") or node.get("blast_radius") or blob.get(f"{aset}_blast")
+            if t is not None:
+                thr = f"{float(t):.2f}"
+                src = "DB"
+            if b is not None:
+                bl = str(int(float(b)))
+                src = "DB"
+            if src == "DB":
+                return thr, bl, src
+    except Exception:
+        pass
+
+    # 2) dedicated table?
     try:
         if _table_exists(conn, "liquid_thresholds"):
             cur = conn.execute(
@@ -107,7 +147,8 @@ def _liquid_row(conn: Optional[sqlite3.Connection], asset: str) -> Tuple[str, st
                 return thr, bl, src
     except Exception:
         pass
-    # system_vars fallback
+
+    # 3) system_vars fallback
     try:
         vt = _sysvar(conn, f"liquid_{asset.lower()}_threshold")
         vb = _sysvar(conn, f"liquid_{asset.lower()}_blast")
