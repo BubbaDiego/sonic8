@@ -1,95 +1,68 @@
+from __future__ import annotations
+
+import importlib
+import importlib.util
 import json
 import os
 from pathlib import Path
-from backend.core import ALERT_THRESHOLDS_PATH, CONFIG_DIR, log
-from backend.data.locker_factory import get_locker
-from typing import Optional
+from typing import Any, Dict, Optional
 
-
-def _deep_merge(base: dict, overrides: dict) -> dict:
-    """Recursively merge ``overrides`` into ``base`` returning a new dict."""
-    result = dict(base)
-    for key, value in overrides.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(value, dict)
-        ):
-            result[key] = _deep_merge(result[key], value)
-        else:
-            result[key] = value
-    return result
-
-def load_config(filename=None):
-    """Load alert configuration.
-
-    If ``filename`` is provided, the JSON file at that path is loaded.
-    Otherwise the configuration is read from the ``global_config`` table
-    via :func:`~data.dl_system_data.DLSystemDataManager.get_var` using the
-    ``"alert_thresholds"`` key.
-    """
-
-    if filename:
-        if not os.path.isabs(filename):
-            filename = os.path.abspath(filename)
-
-        if os.path.exists(filename):
-            log.info(
-                f"✅ [ConfigLoader] Loading config from: {filename}",
-                source="ConfigLoader",
-            )
-            with open(filename, "r", encoding="utf-8") as f:
-                return json.load(f)
-
-        log.error(
-            f"❌ [ConfigLoader] Config not found at: {filename}",
-            source="ConfigLoader",
+ALERT_THRESHOLDS_PATH: Path
+_spec = importlib.util.find_spec("backend.core.core_constants")
+if _spec is not None:
+    _module = importlib.import_module("backend.core.core_constants")
+    ALERT_THRESHOLDS_PATH = Path(
+        getattr(
+            _module,
+            "ALERT_THRESHOLDS_PATH",
+            Path(__file__).resolve().parents[1] / "config" / "alert_thresholds.json",
         )
+    )
+else:
+    ALERT_THRESHOLDS_PATH = Path(__file__).resolve().parents[1] / "config" / "alert_thresholds.json"
+
+
+def _expand_env(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return {k: _expand_env(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_expand_env(v) for v in obj]
+    if isinstance(obj, str):
+        return os.path.expandvars(obj)
+    return obj
+
+
+def _read_json(path: Path) -> Dict[str, Any]:
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f) or {}
+    except Exception:
         return {}
 
-    # Default: load from database
-    locker = get_locker()
-    config = locker.system.get_var("alert_thresholds") or {}
-    log.info("✅ [ConfigLoader] Loaded config from DB", source="ConfigLoader")
-    return config
 
-
-def update_config(new_config: dict, filename: Optional[str] = None) -> dict:
-    """Merge ``new_config`` into the existing config and persist the result."""
-
-    if filename:
-        filename = (
-            str(ALERT_THRESHOLDS_PATH)
-            if Path(filename).name == "alert_thresholds.json"
-            else os.path.abspath(filename)
-        )
-
-        current = load_config(filename)
-        merged = _deep_merge(current, new_config)
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(merged, f, indent=2)
-        return merged
-
-    # Default: update database entry
-    locker = get_locker()
-    current = locker.system.get_var("alert_thresholds") or {}
-    merged = _deep_merge(current, new_config)
-    locker.system.set_var("alert_thresholds", merged)
-    return merged
-
-
-def save_config(filename: str, data: dict) -> None:
-    """Save ``data`` to ``filename`` resolving default locations."""
-    path = Path(filename)
-    if path.name == "alert_thresholds.json":
-        path = ALERT_THRESHOLDS_PATH
-    elif not path.is_absolute():
-        path = CONFIG_DIR / path
+def _atomic_write(path: Path, data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-    log.info(f"✅ [ConfigLoader] Saved config to: {path}", source="ConfigLoader")
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+    tmp.replace(path)
 
 
+def load_config(path: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Read a JSON config file and expand environment variables inside string values.
+    Mirrors the simple usage expected by OperationsMonitor.
+    """
+
+    config_path = Path(path) if path else ALERT_THRESHOLDS_PATH
+    if not config_path.exists():
+        return {}
+    return _expand_env(_read_json(config_path))
 
 
+def save_config(data: Dict[str, Any], path: Optional[str] = None) -> Path:
+    """Write a JSON config file atomically."""
+
+    config_path = Path(path) if path else ALERT_THRESHOLDS_PATH
+    _atomic_write(config_path, data or {})
+    return config_path
