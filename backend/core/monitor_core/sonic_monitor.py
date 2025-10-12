@@ -82,7 +82,7 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
         sys.path.insert(0, _candidate_str)
 
 # Build DAL from sonic_config.json (or env) — no shared_store.
-from backend.config.config_loader import load_config
+from backend.config.config_loader import load_config, load_monitor_config
 from backend.data.data_locker import DataLocker
 
 _CFG_PATH = os.getenv("SONIC_CONFIG_JSON_PATH") or str(
@@ -97,6 +97,159 @@ _DB_PATH = (
 )
 
 dal = DataLocker.get_instance(_DB_PATH)
+
+_mon_cfg = load_monitor_config() or {}
+
+
+def _cfg_get(*keys: str, default: Any = None) -> Any:
+    """Safely walk nested keys inside ``_mon_cfg`` with a fallback."""
+
+    cur: Any = _mon_cfg if isinstance(_mon_cfg, dict) else {}
+    for key in keys:
+        if not isinstance(cur, Mapping):
+            return default
+        if key not in cur:
+            return default
+        cur = cur[key]
+    return cur if cur is not None else default
+
+
+try:
+    _db_monitor_cfg_raw = (
+        dal.system.get_var("sonic_monitor") if getattr(dal, "system", None) else {}
+    )
+    _db_monitor_cfg = dict(_db_monitor_cfg_raw) if isinstance(_db_monitor_cfg_raw, Mapping) else {}
+except Exception:
+    _db_monitor_cfg = {}
+
+_loop_from_cfg_raw = _cfg_get("monitor", "loop_seconds")
+_LOOP_SECONDS_OVERRIDE: Optional[int]
+try:
+    loop_val = int(_loop_from_cfg_raw) if _loop_from_cfg_raw is not None else None
+    _LOOP_SECONDS_OVERRIDE = loop_val if loop_val and loop_val > 0 else None
+except Exception:
+    _LOOP_SECONDS_OVERRIDE = None
+
+_enabled_overrides_raw = {
+    "sonic": _cfg_get("monitor", "enabled", "sonic"),
+    "liquid": _cfg_get(
+        "monitor", "enabled", "liquid", default=_db_monitor_cfg.get("enabled_liquid")
+    ),
+    "profit": _cfg_get(
+        "monitor", "enabled", "profit", default=_db_monitor_cfg.get("enabled_profit")
+    ),
+    "market": _cfg_get(
+        "monitor", "enabled", "market", default=_db_monitor_cfg.get("enabled_market")
+    ),
+    "price": _cfg_get("monitor", "enabled", "price"),
+}
+_ENABLED_OVERRIDES: dict[str, Optional[bool]] = {}
+for name, value in _enabled_overrides_raw.items():
+    if value is None:
+        _ENABLED_OVERRIDES[name] = None
+    else:
+        _ENABLED_OVERRIDES[name] = bool(value)
+
+_xcom_live_cfg = _cfg_get("monitor", "xcom_live")
+if _xcom_live_cfg is not None:
+    os.environ["SONIC_XCOM_LIVE"] = "1" if _xcom_live_cfg else "0"
+
+_tw_sid = _cfg_get("twilio", "sid")
+_tw_auth = _cfg_get("twilio", "auth")
+_tw_from = _cfg_get("twilio", "from")
+_tw_to = _cfg_get("twilio", "to")
+_tw_flow = _cfg_get("twilio", "flow")
+
+_liq_thr_cfg = _cfg_get("liquid", "thresholds", default={}) or {}
+_blast_cfg = _cfg_get("liquid", "blast", default={}) or {}
+_profit_cfg = _cfg_get("profit", default={}) or {}
+_price_assets_cfg = _cfg_get("price", "assets")
+
+
+def _override_config_bridge() -> None:
+    """Patch ``sonic_config_bridge`` helpers to respect monitor JSON overrides."""
+
+    original_loop_seconds = config_bridge.get_loop_seconds
+
+    def loop_seconds_override() -> Optional[int]:
+        if _LOOP_SECONDS_OVERRIDE is not None:
+            return _LOOP_SECONDS_OVERRIDE
+        return original_loop_seconds()
+
+    config_bridge.get_loop_seconds = loop_seconds_override  # type: ignore[assignment]
+
+    original_price_assets = config_bridge.get_price_assets
+
+    def price_assets_override() -> list[str]:
+        assets = []
+        if isinstance(_price_assets_cfg, (list, tuple)):
+            for asset in _price_assets_cfg:
+                if asset is None:
+                    continue
+                text = str(asset).strip()
+                if text:
+                    assets.append(text.upper())
+        if assets:
+            return assets
+        return original_price_assets()
+
+    config_bridge.get_price_assets = price_assets_override  # type: ignore[assignment]
+
+    original_liq_thresholds = config_bridge.get_liquid_thresholds
+
+    def liquid_thresholds_override() -> dict[str, float]:
+        base = original_liq_thresholds() or {}
+        overrides: dict[str, float] = {}
+        for key, value in (_liq_thr_cfg or {}).items():
+            try:
+                overrides[str(key).upper()] = float(value)
+            except Exception:
+                continue
+        if overrides:
+            merged = dict(base)
+            merged.update(overrides)
+            return merged
+        return base
+
+    config_bridge.get_liquid_thresholds = liquid_thresholds_override  # type: ignore[assignment]
+
+    original_twilio = config_bridge.get_twilio
+
+    def twilio_override() -> dict[str, str]:
+        result = dict(original_twilio() or {})
+        overrides = {
+            "SID": _tw_sid,
+            "AUTH": _tw_auth,
+            "FROM": _tw_from,
+            "TO": _tw_to,
+            "FLOW": _tw_flow,
+        }
+        for key, value in overrides.items():
+            if value is not None:
+                result[key] = str(value)
+        return result
+
+    config_bridge.get_twilio = twilio_override  # type: ignore[assignment]
+
+
+_override_config_bridge()
+
+# Alias the patched helper for local use
+get_price_assets = config_bridge.get_price_assets
+
+
+def _monitor_enabled(cfg: Mapping[str, Any], name: str, *, default: bool = True, alias: str | None = None) -> bool:
+    """Resolve monitor enable flags with JSON override → DB fallback."""
+
+    override = _ENABLED_OVERRIDES.get(name)
+    if override is not None:
+        return override
+
+    key = alias or f"enabled_{name}"
+    value = cfg.get(key, default)
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(default if value is None else value)
 import asyncio
 import logging
 import time
@@ -105,7 +258,7 @@ from datetime import datetime, timezone
 from backend.core.monitor_core.utils.console_title import set_console_title
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.utils.banner import emit_config_banner
-from backend.core.config_core.sonic_config_bridge import get_price_assets
+import backend.core.config_core.sonic_config_bridge as config_bridge
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.console_lines import emit_compact_cycle
@@ -215,12 +368,52 @@ def _read_monitor_threshold_sources_legacy(dl: DataLocker) -> tuple[Dict[str, An
 
 
 def _read_monitor_threshold_sources(dl: DataLocker) -> tuple[Dict[str, Any], str]:
+    json_values: Dict[str, Any] = {}
+
+    if _liq_thr_cfg or _blast_cfg:
+        liq_section: Dict[str, Any] = {}
+        if _liq_thr_cfg:
+            liq_section["thresholds"] = {}
+            for asset, value in _liq_thr_cfg.items():
+                try:
+                    liq_section["thresholds"][str(asset).upper()] = float(value)
+                except Exception:
+                    continue
+        if _blast_cfg:
+            liq_section["blast_radius"] = {}
+            for asset, value in _blast_cfg.items():
+                try:
+                    liq_section["blast_radius"][str(asset).upper()] = float(value)
+                except Exception:
+                    continue
+        if liq_section:
+            json_values["liquid_monitor"] = liq_section
+
+    if _profit_cfg:
+        profit_section: Dict[str, Any] = {}
+        pos = _profit_cfg.get("position_usd") or _profit_cfg.get("position_profit_usd")
+        pf = _profit_cfg.get("portfolio_usd") or _profit_cfg.get("portfolio_profit_usd")
+        try:
+            if pos is not None:
+                profit_section["position_profit_usd"] = int(float(pos))
+        except Exception:
+            pass
+        try:
+            if pf is not None:
+                profit_section["portfolio_profit_usd"] = int(float(pf))
+        except Exception:
+            pass
+        if profit_section:
+            json_values["profit_monitor"] = profit_section
+
+    if json_values:
+        return json_values, "JSON"
+
     try:
         json_cfg = load_json_config()
     except Exception:
         json_cfg = {}
 
-    json_values: Dict[str, Any] = {}
     for key in ("liquid_monitor", "market_monitor", "profit_monitor"):
         section = json_cfg.get(key)
         if isinstance(section, Mapping) and section:
@@ -469,6 +662,9 @@ async def _run_monitor_tick(name: str, runner: Callable[..., Any], *args: Any, *
         return result
 
 def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
+    if _LOOP_SECONDS_OVERRIDE is not None and _LOOP_SECONDS_OVERRIDE > 0:
+        return int(_LOOP_SECONDS_OVERRIDE)
+
     try:
         json_cfg = load_json_config()
         loop_seconds = int(
@@ -540,9 +736,15 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     dl = DataLocker.get_instance()
     cfg = dl.system.get_var("sonic_monitor") or {}
 
+    sonic_enabled = _monitor_enabled(cfg, "sonic")
+    market_enabled = _monitor_enabled(cfg, "market")
+    price_enabled = _monitor_enabled(cfg, "price", default=market_enabled)
+    profit_enabled = _monitor_enabled(cfg, "profit")
+    liquid_enabled = _monitor_enabled(cfg, "liquid")
+
     _MON_STATE.clear()
 
-    if not cfg.get("enabled_sonic", True):
+    if not sonic_enabled:
         logging.info("Sonic loop disabled via config")
         heartbeat(loop_counter)
         return
@@ -551,18 +753,25 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     await cyclone.run_cycle()
 
     # Run monitors based on config
-    if cfg.get("enabled_market", True):
-
+    if price_enabled:
         await _run_monitor_tick("price_monitor", cyclone.monitor_core.run_by_name, "price_monitor")
+    else:
+        logging.info("Price monitor disabled via configuration")
 
+    if market_enabled:
         await _run_monitor_tick("market_monitor", cyclone.monitor_core.run_by_name, "market_monitor")
-    if cfg.get("enabled_profit", True):
+    else:
+        logging.info("Market monitor disabled via configuration")
+
+    if profit_enabled:
         await _run_monitor_tick("profit_monitor", cyclone.monitor_core.run_by_name, "profit_monitor")
     else:
         logging.info("Profit monitor disabled via configuration")
     # await asyncio.to_thread(cyclone.monitor_core.run_by_name, "risk_monitor")
-    if cfg.get("enabled_liquid", True):
+    if liquid_enabled:
         await _run_monitor_tick("liquid_monitor", cyclone.monitor_core.run_by_name, "liquid_monitor")
+    else:
+        logging.info("Liquidation monitor disabled via configuration")
 
     # Alert V2 pipeline disabled
 
@@ -590,6 +799,9 @@ def run_monitor(
     else:
         # Ensure the provided locker is reused by singleton consumers
         setattr(DataLocker, "_instance", dl)
+
+    if _LOOP_SECONDS_OVERRIDE is not None and _LOOP_SECONDS_OVERRIDE > 0:
+        poll_interval_s = _LOOP_SECONDS_OVERRIDE
 
     display_interval = poll_interval_s or DEFAULT_INTERVAL
 
