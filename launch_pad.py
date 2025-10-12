@@ -382,71 +382,38 @@ def launch_perps_console(new_window: bool = False) -> int:
     return run_in_console(cmd, cwd=repo_root(), title="Perps Console", new_window=new_window)
 
 
-def launch_cyclone_app(new_window: bool = False) -> int:
+def launch_cyclone_app(new_window: bool = True) -> int:
     """
-    Cyclone App launcher:
-      1) Try in-process import+call if backend.console package exists.
-      2) Else run script path fallback (service or legacy).
+    Try in-process first; if not available, spawn external.
+
+    Prefer external module so the menu stays responsive, and package context is correct.
     """
-    root = repo_root()
-    pkg_dir = root / "backend" / "console"
-    if pkg_dir.exists() and (pkg_dir / "__init__.py").exists():
-        print("\n[Cyclone] Launching Cyclone console in-process…\n")
+    if not new_window:
+        # old in-process import attempt kept for backward compat (but we don't rely on it)
         try:
-            # Prefer the service entrypoint if present
-            try:
-                mod = importlib.import_module("backend.console.cyclone_console_service")
-                fn = getattr(mod, "run_cyclone_console", None)
-                if callable(fn):
-                    fn(poll_interval=60)
-                    return 0
-            except ModuleNotFoundError:
-                pass
-            # Fallback to legacy run_console()
-            mod = importlib.import_module("backend.console.cyclone_console")
-            fn = getattr(mod, "run_console", None)
-            if callable(fn):
-                fn()
-                return 0
+            from backend.core.cyclone_core import run_cyclone_console  # type: ignore
+
+            print("[Cyclone] Launching Cyclone console in-process…")
+            return run_cyclone_console()
+        except Exception:
             print("[Cyclone] In-process entry not found (run_cyclone_console / run_console missing).")
-            # Last in-process attempt: try the shim directly if the package is importable
             try:
+                # last in-process attempt via shim
                 from backend.console.cyclone_console import main as _cyclone_main  # type: ignore
+
                 print("[Cyclone] Using backend.console.cyclone_console:main in-process…")
                 return _cyclone_main()
             except Exception:
                 pass
-        except Exception as e:
-            print(f"[Cyclone] In-process import failed: {e!r} — falling back to script.")
 
-    # 2) Script path fallback (no package import needed)
-    py = PYTHON_EXEC
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(root) if "PYTHONPATH" not in env else f"{root}{os.pathsep}{env['PYTHONPATH']}"
-
-    service = root / "backend" / "console" / "cyclone_console_service.py"
-    legacy  = root / "backend" / "console" / "cyclone_console.py"
-    if service.exists():
-        print("\n[Cyclone] Launching via module: backend.console.cyclone_console_service\n")
-        return run_in_console([py, "-m", "backend.console.cyclone_console_service"], cwd=root, title="Cyclone App", new_window=new_window, env=env)
-    if legacy.exists():
-        print("\n[Cyclone] Launching via script: backend\\console\\cyclone_console.py\n")
-        return run_in_console([py, str(legacy)], cwd=root, title="Cyclone App", new_window=new_window, env=env)
-
-    print("[Cyclone] No console entry found.")
-    print("  Looked for:")
-    print("   - backend\\console\\cyclone_console_service.py")
-    print("   - backend\\console\\cyclone_console.py")
-    try:
-        import glob
-        matches = glob.glob(str(root / "backend" / "**" / "*cyclone_console*.py"), recursive=True)
-        if matches:
-            print("  Found:")
-            for m in matches:
-                print("   •", m)
-    except Exception:
-        pass
-    return 1
+    # external: run as module to preserve package context
+    print("[Cyclone] Launching via module: backend.console.cyclone_console_service")
+    return run_in_console(
+        [PYTHON_EXEC, "-m", "backend.console.cyclone_console_service"],
+        cwd=repo_root(),
+        title="Cyclone",
+        new_window=new_window,
+    )
 
 
 def verify_database():
