@@ -239,15 +239,19 @@ def run_menu_action(label: str, fn):
         if _STICKY_HOLD:
             _pause_after_action()
         return
+    result = None
     with _ActionCapture(label):
         try:
-            return fn()
+            result = fn()
         except SystemExit:
+            # allow actions to exit without killing the menu
             pass
         except Exception:
+            # traceback/log handled by _ActionCapture.__exit__
             pass
     if _STICKY_HOLD:
         _pause_after_action()
+    return result
 
 
 # ──────────────────────────── Actions ─────────────────────────────────────────
