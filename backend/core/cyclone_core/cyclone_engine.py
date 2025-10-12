@@ -6,6 +6,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 import asyncio
+import inspect
 import logging
 from datetime import datetime
 from uuid import uuid4
@@ -179,9 +180,19 @@ class Cyclone:
     async def run_composite_position_pipeline(self):
         await asyncio.to_thread(self.position_core.update_positions_from_jupiter)
 
+    async def _call_create_global_alerts(self) -> None:
+        """Invoke the alert service, supporting both sync and async implementations."""
+        fn = getattr(self.alert_core, "create_global_alerts", None)
+        if fn is None:
+            return
+        if inspect.iscoroutinefunction(fn):
+            await fn()
+        else:
+            await asyncio.to_thread(fn)
+
     async def run_create_market_alerts(self):
         """Create global market alerts via CycloneAlertService."""
-        await asyncio.to_thread(self.alert_core.create_global_alerts)
+        await self._call_create_global_alerts()
 
     async def run_clear_all_data(self):
         log.warning("⚠️ Starting Clear All Data", source="Cyclone")
@@ -273,7 +284,7 @@ class Cyclone:
 
     async def run_create_global_alerts(self):
         """Generate default global market alerts."""
-        await asyncio.to_thread(self.alert_core.create_global_alerts)
+        await self._call_create_global_alerts()
 
     def clear_alerts_backend(self):
         """Clear all alerts using :class:`CycloneMaintenanceService`."""

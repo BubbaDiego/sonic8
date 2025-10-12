@@ -70,14 +70,24 @@ def _format_monitor_lines(status: Optional[MonitorStatus]) -> tuple[str, str]:
     if status is None:
         return "↑0/0/0", "–"
 
-    pos_tokens = []
-    brief_tokens = []
+    pos_tokens: list[str] = []
+    brief_tokens: list[str] = []
     for monitor_type, detail in status.monitors.items():
         label = _MONITOR_LABELS.get(monitor_type, monitor_type.value)
         state = getattr(detail.status, "value", str(detail.status))
-        pos_tokens.append(f"{label}:{state}")
-        last = detail.last_updated.isoformat() if getattr(detail, "last_updated", None) else "Never"
-        brief_tokens.append(f"{label} → {state} ({last})")
+        meta = detail.metadata if isinstance(getattr(detail, "metadata", None), dict) else {}
+        skipped = bool(meta.get("skipped"))
+        reason = str(meta.get("reason")) if meta.get("reason") else None
+        token = "⏭" if skipped else state
+        pos_tokens.append(f"{label}:{token}")
+        last_dt = getattr(detail, "last_updated", None)
+        last = last_dt.isoformat() if last_dt else "Never"
+        if skipped and reason:
+            brief_tokens.append(f"{label} → {token} ({reason}; {last})")
+        elif skipped:
+            brief_tokens.append(f"{label} → {token} ({last})")
+        else:
+            brief_tokens.append(f"{label} → {state} ({last})")
 
     pos_line = " • ".join(pos_tokens) if pos_tokens else "↑0/0/0"
     brief = " | ".join(brief_tokens) if brief_tokens else "–"
@@ -115,6 +125,11 @@ def _build_cycle_summary(
 
 
 set_console_title("🦔 Sonic Monitor 🦔")
+
+if os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() not in {"1", "true", "on", "yes"}:
+    _CONSOLE_REPORT = neuter_legacy_console_logger()
+else:
+    _CONSOLE_REPORT = {"present": False, "patched": [], "skipped": "ConsoleLogger enabled"}
 
 
 def _to_iso(ts: Any) -> Optional[str]:
@@ -355,12 +370,6 @@ def run_monitor(
     cycles: Optional[int] = None,
 ) -> None:
     """Run the Sonic monitor console loop."""
-
-    try:
-        if os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() not in {"1", "true", "on", "yes"}:
-            neuter_legacy_console_logger()
-    except Exception:
-        logging.debug("ConsoleLogger neuter skipped due to error", exc_info=True)
 
     link_flag = os.getenv("SONIC_MONITOR_DASHBOARD_LINK", "1").strip().lower()
     if link_flag not in {"0", "false", "off", "no"}:
