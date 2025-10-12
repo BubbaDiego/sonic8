@@ -12,11 +12,16 @@ REQUIRED_PACKAGES = ["pyyaml", "jsonschema"]  # minimal toolchain for spec & UI 
 
 def _pip_install(pkg: str) -> None:
     """Install a package into the current venv using the same interpreter."""
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", pkg],
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-    )
+    # Use the real OS-backed stdio (not any redirected wrappers) to avoid 'fileno' errors.
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", pkg],
+            stdout=sys.__stdout__,
+            stderr=sys.__stderr__,
+        )
+    except Exception:
+        # Fallback: inherit parent's handles (no explicit redirection)
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
 
 
 def ensure_repo_root_and_path() -> Path:

@@ -790,7 +790,41 @@ def run_daily_maintenance():
             print(f"[WARN] spec preflight encountered an issue: {_e}")
     else:
         print("[WARN] spec bootstrap unavailable; proceeding without preflight")
-    # Hook scripts here as they become available
+
+    # ── helper to run a single Python script with capture ───────────────────
+    def _run_spec_step(title: str, relpath: str, *args: str) -> int | None:
+        script = (repo_root() / relpath)
+        if not script.exists():
+            print(f"{title:<32} [skip] {relpath} not found")
+            return None
+        print(f"{title:<32} [run]  {relpath}")
+        # capture output to keep it in the action log and on screen
+        proc = subprocess.run(
+            [PYTHON_EXEC, str(script), *args],
+            cwd=str(repo_root()),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.stdout:
+            print(proc.stdout)
+        if proc.stderr:
+            print(proc.stderr)
+        status = "ok" if proc.returncode == 0 else f"fail({proc.returncode})"
+        print(f"{title:<32} [{status}]")
+        return proc.returncode
+
+    # ── run available steps (exists-check protects sonic7 state) ────────────
+    results = []
+    results.append(_run_spec_step("Export OpenAPI",            "backend/scripts/export_openapi.py"))
+    results.append(_run_spec_step("Build UI Components doc",   "backend/scripts/build_ui_components_doc.py"))
+    results.append(_run_spec_step("Build Schema Bundle",       "backend/scripts/build_schema_bundle.py"))
+    results.append(_run_spec_step("Validate ALL specs",        "backend/scripts/validate_all_specs.py"))
+
+    ok   = sum(1 for r in results if r == 0)
+    fail = sum(1 for r in results if isinstance(r, int) and r != 0)
+    skip = sum(1 for r in results if r is None)
+    print(f"\nSummary → ok={ok}  fail={fail}  skip={skip}")
     console.print("[green]Done.[/]")
 
 
