@@ -43,6 +43,10 @@ export default function MonitorManager() {
   const setLiqCfgDirty    = markDirtySetter(setLiqCfg);
   const setProfitCfgDirty = markDirtySetter(setProfitCfg);
   const setMarketCfgDirty = markDirtySetter(setMarketCfg);
+  const setLoopSecDirty   = (value) => {
+    setDirty(true);
+    setLoopSec(value);
+  };
 
   /* ------------------------- initial bootstrap --------------------------- */
   useEffect(() => {
@@ -104,9 +108,14 @@ export default function MonitorManager() {
         interval_seconds: Number.isFinite(Number(loopSec)) ? Number(loopSec) : undefined,
         enabled_sonic: liqCfg?.enabled_sonic
       };
+      const postMarket = axios
+        .post('/api/monitor-settings/market', marketCfg)
+        .catch((err) => {
+          if (err?.response?.status !== 410) throw err;
+        });
       await Promise.all([
         axios.post('/api/monitor-settings/liquidation', liqCfg),
-        axios.post('/api/monitor-settings/market',      marketCfg),
+        postMarket,
         // prefer helper if present
         (saveProfitCfg ? saveProfitCfg(profitCfg) : axios.post('/api/monitor-settings/profit', profitCfg)),
         axios.post('/api/monitor-settings/sonic', sonicPatch)
@@ -118,7 +127,7 @@ export default function MonitorManager() {
     } finally {
       setSaving(false);
     }
-  }, [liqCfg, marketCfg, profitCfg, loopSec]);
+  }, [liqCfg, marketCfg, profitCfg, loopSec, saveProfitCfg]);
 
   const isSonicOn = Boolean(liqCfg?.enabled_sonic ?? true);
 
@@ -149,6 +158,8 @@ export default function MonitorManager() {
         <SonicMonitorCard
           cfg={liqCfg}
           setCfg={setLiqCfgDirty}
+          loop={loopSec}
+          setLoop={setLoopSecDirty}
         />
 
         {/* Liquidation */}
