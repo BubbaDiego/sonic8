@@ -5,52 +5,57 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-# Default JSON path: <repo_root>/backend/data/sonic_config.json
-DEFAULT_JSON_PATH = Path(__file__).resolve().parents[1] / "backend" / "data" / "sonic_config.json"
+# Default JSON at repo root → backend/data/sonic_config.json
+_DEFAULT_JSON_PATH = Path(__file__).resolve().parents[1] / "backend" / "data" / "sonic_config.json"
+_ENV_VAR = "SONIC_CONFIG_JSON_PATH"  # optional override
 
 
-def _expand_env(obj: Any) -> Any:
-    if isinstance(obj, dict):
-        return {k: _expand_env(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_expand_env(v) for v in obj]
-    if isinstance(obj, str):
-        return os.path.expandvars(obj)
-    return obj
+def _cfg_path(path: Optional[str] = None) -> Path:
+    if path:
+        return Path(path)
+    env = os.getenv(_ENV_VAR)
+    return Path(env) if env else _DEFAULT_JSON_PATH
 
 
-def _read_json(path: Path) -> Dict[str, Any]:
+def _expand_env(v: Any) -> Any:
+    if isinstance(v, dict):
+        return {k: _expand_env(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_expand_env(x) for x in v]
+    if isinstance(v, str):
+        return os.path.expandvars(v)
+    return v
+
+
+def _read_json(p: Path) -> Dict[str, Any]:
     try:
-        with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        return _expand_env(data or {})
+        with p.open("r", encoding="utf-8") as f:
+            data = json.load(f) or {}
+        return _expand_env(data)
     except Exception:
         return {}
 
 
-def _atomic_write(path: Path, data: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = Path(str(path) + ".tmp")
+def _atomic_write(p: Path, data: Dict[str, Any]) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as f:
         json.dump(data or {}, f, indent=2, sort_keys=True)
-    tmp.replace(path)
+    tmp.replace(p)
 
 
 def load_config(path: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Minimal loader used by OperationsMonitor and friends.
-    Reads a JSON config file and expands ${ENV_VARS} inside string values.
-    """
-    p = Path(path) if path else DEFAULT_JSON_PATH
-    if not p.exists():
-        return {}
-    return _read_json(p)
+    """Read sonic JSON config (expands ${ENV} inside strings)."""
+    p = _cfg_path(path)
+    return _read_json(p) if p.exists() else {}
 
 
 def save_config(data: Dict[str, Any], path: Optional[str] = None) -> Path:
-    """
-    Minimal saver for tools that want to persist config.
-    """
-    p = Path(path) if path else DEFAULT_JSON_PATH
+    """Atomically write sonic JSON config."""
+    p = _cfg_path(path)
     _atomic_write(p, data or {})
     return p
+
+
+def get_default_path() -> str:
+    return str(_cfg_path(None))
