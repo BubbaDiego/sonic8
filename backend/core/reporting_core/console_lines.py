@@ -1,21 +1,24 @@
 import datetime
-import logging
 from typing import Dict, Any, List, Tuple, Optional
 
 _GREEN = "\x1b[32m"
 _YELLOW = "\x1b[33m"
 _RED = "\x1b[31m"
+_DIM = "\x1b[90m"
 _RESET = "\x1b[0m"
 
 def _fmt_short_clock(iso: Optional[str]) -> str:
     if not iso:
         return "–"
     try:
-        if iso.endswith("Z"):
-            dt = datetime.datetime.fromisoformat(iso[:-1] + "+00:00")
+        value = iso
+        if value.endswith("Z"):
+            dt = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
         else:
-            dt = datetime.datetime.fromisoformat(iso)
-        return dt.strftime("%H:%M:%S")
+            dt = datetime.datetime.fromisoformat(value)
+        local = dt.astimezone()
+        # Windows-friendly format (no %-I)
+        return local.strftime("%I:%M%p").lstrip("0").lower()
     except Exception:
         return "–"
 
@@ -24,7 +27,6 @@ def _prices_line(
     ages: Optional[Dict[str, int]] = None,
     *,
     enable_color: bool = False,
-    changes: Optional[Dict[str, bool]] = None,
 ) -> str:
     if not top3:
         return "–"
@@ -33,10 +35,8 @@ def _prices_line(
         label = symbol
         if enable_color:
             age = (ages or {}).get(symbol, 999_999)
-            changed = (changes or {}).get(symbol, False)
             if age == 0:
-                # highlight only if price actually changed at this tick
-                label = f"{_GREEN}{symbol}{_RESET}" if changed else symbol
+                label = f"{_GREEN}{symbol}{_RESET}"
             elif 2 <= age <= 5:
                 label = f"{_YELLOW}{symbol}{_RESET}"
             elif age > 5:
@@ -45,74 +45,62 @@ def _prices_line(
     return "  ".join(parts)
 
 def emit_compact_cycle(
-    csum: Dict[str, Any],
-    loop_counter: int,
-    total_elapsed: float,
-    sleep_time: float,
+    summary: Dict[str, Any],
+    cfg: Dict[str, Any],
+    poll_interval_s: int,
+    *,
+    enable_color: bool = False,
 ) -> None:
     """
-    Sonic6-compatible compact cycle summary.
-    The snapshot is expected to look like Cyclone.get_summary_snapshot(), but the
-    function defensively tolerates missing keys or unexpected types.
+    Sonic6-compatible compact endcap driven by the classic `summary` dict.
+    Expected keys (all optional with safe fallbacks):
+      prices_top3, price_ages, prices_updated_at,
+      positions_line, positions_updated_at, positions_brief,
+      hedge_groups, elapsed_s, cycle_num, notifications_brief
     """
+    _ = cfg  # placeholder for future config-specific rendering tweaks
+    elapsed_seconds = f"{float(summary.get('elapsed_s') or 0.0):.0f}"
+    cycle_number = summary.get("cycle_num", "?")
 
-    def _as_dict(val: Any) -> Dict[str, Any]:
-        return val if isinstance(val, dict) else {}
-
-    prices = _as_dict(csum.get("prices"))
-    positions = _as_dict(csum.get("positions"))
-    hedges = _as_dict(csum.get("hedges"))
-    alerts = _as_dict(csum.get("alerts"))
-    monitors = _as_dict(csum.get("monitors"))
-
-    cycle_ms = int(max(total_elapsed * 1000.0, 1))
-
-    # 🌀 Cyclone headline
-    headline = (
+    # Cyclone headline
+    line = (
         "   🌀 Cyclone  : "
-        f"{prices.get('assets_line', '–')} • "
-        f"{positions.get('sync_line', '–')} • "
-        f"{alerts.get('line', '–')} • "
-        f"groups {hedges.get('groups', 0)} • {cycle_ms}ms"
+        f"{summary.get('positions_line', '↑0/0/0')} • {summary.get('hedge_groups', 0)} hedges • {elapsed_seconds} seconds"
     )
-    print(headline, flush=True)
+    print(line, flush=True)
 
-    # 💰 Prices
-    if prices:
-        assets_cnt = prices.get("assets", 0)
-        price_line = f"   💰 Prices   : ✓ assets={assets_cnt}"
-        errors = prices.get("errors")
-        if errors:
-            price_line += f" • {errors}"
-        print(price_line, flush=True)
+    # Prices
+    prices_when = _fmt_short_clock(summary.get("prices_updated_at"))
+    print(
+        "   💰 Prices   : "
+        f"{_prices_line(summary.get('prices_top3', []), summary.get('price_ages', {}), enable_color=enable_color)}  • @ {prices_when}"
+    )
 
-    # 📊 Positions
-    if positions:
-        enrich = positions.get("enrich", 0)
-        print(
-            "   📊 Positions: "
-            f"{positions.get('sync_line', '–')} • enrich {enrich}",
-            flush=True,
-        )
+    # Positions
+    pos_line = summary.get("positions_line", "↑0/0/0")
+    pos_when = _fmt_short_clock(summary.get("positions_updated_at"))
+    pos_error = summary.get("positions_error")
+    if pos_error:
+        print(f"   📊 Positions: {pos_line}  • @ {pos_when} — {_RED}{pos_error}{_RESET}")
+    else:
+        print(f"   📊 Positions: {pos_line}  • @ {pos_when}")
 
-    # 🛡 Hedges (only when groups > 0)
-    hedge_groups = hedges.get("groups", 0)
-    if hedge_groups:
-        print(f"   🛡 Hedges   : groups {hedge_groups}", flush=True)
+    # Holdings brief
+    brief = summary.get("positions_brief", "–")
+    print(f"   📄 Holdings : {brief}")
 
-    # 🔔 Alerts
-    if alerts:
-        print(f"   🔔 Alerts   : {alerts.get('line', '–')}", flush=True)
+    # Hedges
+    print(f"   🛡  Hedges  : {'🦔' if int(summary.get('hedge_groups', 0) or 0) > 0 else '–'}")
 
-    # 📡 Monitors
-    if monitors:
-        try:
-            tokens = " ".join(f"{k}:{v}" for k, v in monitors.items())
-        except Exception:
-            logging.debug("Unable to render monitor tokens: %r", monitors)
-            tokens = ""
-        if tokens:
-            print(f"   📡 Monitors : {tokens}", flush=True)
+    # Alerts (cheap inline)
+    alerts_inline = summary.get("alerts_inline", "pass 0/0 –")
+    print(f"   🔔 Alerts   : {alerts_inline}")
 
-    tail = f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)"
+    # Optional notifications line (kept from your previous build)
+    notif = summary.get("notifications_brief", "NONE (no_breach)")
+    print(f"\n   📨 Notifications : {notif}")
+
+    # Tail
+    total_elapsed = float(summary.get("elapsed_s") or 0.0)
+    tail = f"✅ cycle #{cycle_number} done • {total_elapsed:.2f}s  (sleep {poll_interval_s:.1f}s)"
     print(tail, flush=True)

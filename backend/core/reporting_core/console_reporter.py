@@ -4,8 +4,6 @@ import logging
 import os
 from typing import Any, Iterable
 
-_SHOW_GROUPS = os.getenv("SONIC_SHOW_GROUPS", "").strip().lower() in {"1", "true", "yes", "on"}
-
 # ---- Strict allowlist filter -------------------------------------------------
 
 WL_SOURCES = {
@@ -154,10 +152,7 @@ def emit_dashboard_link(host: str = "127.0.0.1", port: int = 5001, route: str = 
 
 # ---- One-time boot status line (for your vibe) --------------------------------
 
-def emit_boot_status(muted: list[str], group_label: str = "cyclone_core", groups: list[str] | None = None) -> None:
-    """One-time boot line: muted modules, and (optionally) groups."""
+def emit_boot_status(muted: list[str], group_label: str = "", groups: list[str] | None = None) -> None:
+    """Print muted modules once at startup (no Groups dump)."""
     m = ", ".join(muted) if muted else "–"
     print(f"🔒 Muted Modules:      {m}")
-    if _SHOW_GROUPS and groups:
-        joined = ", ".join(groups)
-        print(f"    🧠 Groups:\n        {group_label} ➜ {joined}")

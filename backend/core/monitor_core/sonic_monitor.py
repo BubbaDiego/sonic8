@@ -449,22 +449,17 @@ def run_monitor(
                 _enrich_summary_from_locker(summary, dl)
             except Exception:
                 logging.exception("Failed to enrich sonic summary")
+            cfg = {}
             try:
-                snapshot: Dict[str, Any] = {}
-                if hasattr(cyclone, "get_summary_snapshot"):
-                    snapshot = cyclone.get_summary_snapshot() or {}
+                cfg = dl.system.get_var("sonic_monitor") or {}
             except Exception:
-                logging.debug("Cyclone summary snapshot unavailable", exc_info=True)
-                snapshot = {}
-
-            if not isinstance(snapshot, dict) or not snapshot:
-                snapshot = summary if isinstance(summary, dict) else {}
+                logging.debug("Failed to load sonic_monitor config", exc_info=True)
 
             emit_compact_cycle(
-                csum=snapshot,
-                loop_counter=loop_counter,
-                total_elapsed=float(summary.get("elapsed_s") or 0.0),
-                sleep_time=float(interval),
+                summary,
+                cfg,
+                interval,
+                enable_color=False,
             )
 
             sleep_time = max(interval - elapsed, 0)
