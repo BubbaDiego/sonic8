@@ -169,25 +169,29 @@ def wait_and_open(url: str, secs: float = 3.0) -> None:
         pass
 
 
-# --- Sticky output + logging for actions ---
-_STICKY_HOLD = True  # set False to revert to old behavior
+# ── Sticky output + logging ─────────────────────────────────
+_STICKY_HOLD = True
 _LOG_DIR = Path("reports/launchpad_logs")
 
 
-class _StreamTee:
-    def __init__(self, buffer: io.StringIO, original):
-        self._buffer = buffer
-        self._original = original
+class _Tee(io.TextIOBase):
+    def __init__(self, *streams):
+        self._streams = streams
 
-    def write(self, data: str) -> int:
-        self._buffer.write(data)
-        self._original.write(data)
-        self._original.flush()
-        return len(data)
+    def write(self, s):
+        for st in self._streams:
+            try:
+                st.write(s)
+            except Exception:
+                pass
+        return len(s)
 
-    def flush(self) -> None:
-        self._buffer.flush()
-        self._original.flush()
+    def flush(self):
+        for st in self._streams:
+            try:
+                st.flush()
+            except Exception:
+                pass
 
 
 def _pause_after_action():
@@ -198,63 +202,49 @@ def _pause_after_action():
 
 
 class _ActionCapture:
-    """Context manager that tees stdout/stderr to a per-run log file while still printing live."""
+    """Tee stdout/stderr to console and a per-action log."""
 
     def __init__(self, label: str):
-        self.label = (label or "action").strip().replace(" ", "_").replace("/", "_")
+        safe = (label or "action").strip().replace(" ", "_").replace("/", "_")
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         _LOG_DIR.mkdir(parents=True, exist_ok=True)
-        self.path = _LOG_DIR / f"{self.label}_{ts}.log"
+        self.path = _LOG_DIR / f"{safe}_{ts}.log"
         self._buf = io.StringIO()
 
     def __enter__(self):
-        self._stdout_cm = contextlib.redirect_stdout(_StreamTee(self._buf, sys.__stdout__))
-        self._stderr_cm = contextlib.redirect_stderr(_StreamTee(self._buf, sys.__stderr__))
-        self._stdout_cm.__enter__()
-        self._stderr_cm.__enter__()
+        self._tee_out = _Tee(sys.__stdout__, self._buf)
+        self._tee_err = _Tee(sys.__stderr__, self._buf)
+        self._out_cm = contextlib.redirect_stdout(self._tee_out)
+        self._err_cm = contextlib.redirect_stderr(self._tee_err)
+        self._out_cm.__enter__()
+        self._err_cm.__enter__()
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        # stop capturing
-        self._stderr_cm.__exit__(exc_type, exc, tb)
-        self._stdout_cm.__exit__(exc_type, exc, tb)
-        # write the captured text to log
-        text = self._buf.getvalue()
-        if exc_type:
-            text += "".join(traceback.format_exception(exc_type, exc, tb))
+        self._err_cm.__exit__(exc_type, exc, tb)
+        self._out_cm.__exit__(exc_type, exc, tb)
         try:
-            self.path.write_text(text, encoding="utf-8")
+            self.path.write_text(self._buf.getvalue(), encoding="utf-8")
             print(f"\n📄 Log saved: {self.path}")
         except Exception:
-            # logging should never crash the menu
             pass
-        # if there was an exception, also print traceback to screen (and log already has it)
         if exc_type:
             traceback.print_exception(exc_type, exc, tb, file=sys.__stdout__)
-        # don't suppress exceptions; caller handles visibility / pause
         return False
 
 
 def run_menu_action(label: str, fn):
-    """
-    Run a menu action, keep its output visible, and optionally log it.
-    Works for both quick in-process actions and those that spawn other windows.
-    """
-
     if not callable(fn):
         print(f"[WARN] Not a callable action: {label}")
         if _STICKY_HOLD:
             _pause_after_action()
         return
-
     with _ActionCapture(label):
         try:
             return fn()
         except SystemExit:
-            # allow actions to call sys.exit() without killing the menu loop
             pass
         except Exception:
-            # error text will be shown by _ActionCapture.__exit__
             pass
     if _STICKY_HOLD:
         _pause_after_action()
