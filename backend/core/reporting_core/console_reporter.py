@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Iterable
+from typing import Any, Iterable
 
 # ---- Strict allowlist filter -------------------------------------------------
 
@@ -71,6 +71,84 @@ def silence_legacy_console_loggers() -> list[str]:
         except Exception:
             pass
     return muted
+
+
+def neuter_legacy_console_logger() -> dict[str, Any]:
+    """Force-mute the legacy ConsoleLogger regardless of import order or dotenv timing.
+
+    Returns a small report of what was patched.
+    """
+
+    report: dict[str, Any] = {"present": False, "patched": []}
+
+    # 1) Env kill switch for any code that reads it at runtime
+    os.environ.setdefault("SONIC_CONSOLE_LOGGER", "0")
+
+    try:
+        from backend.core.monitor_core.console_logger import ConsoleLogger as CL  # type: ignore
+        report["present"] = True
+    except Exception:
+        try:
+            from backend.utils.console_logger import ConsoleLogger as CL  # type: ignore
+            report["present"] = True
+        except Exception:
+            try:
+                from console_logger import ConsoleLogger as CL  # type: ignore
+                report["present"] = True
+            except Exception:
+                return report
+
+    # 2) Runtime flag off
+    try:
+        CL.logging_enabled = False
+        report["patched"].append("logging_enabled=False")
+    except Exception:
+        pass
+
+    # 3) Force the activity check to always return False
+    try:
+        CL._active = classmethod(lambda *_a, **_k: False)  # type: ignore
+        report["patched"].append("_active->False")
+    except Exception:
+        pass
+
+    # 4) Monkey-patch all public writers to no-ops (belt & suspenders)
+    def _noop(*_a: Any, **_k: Any) -> None:  # pragma: no cover
+        return None
+
+    for name in (
+        "debug",
+        "info",
+        "success",
+        "warning",
+        "error",
+        "critical",
+        "exception",
+        "banner",
+        "start_timer",
+        "end_timer",
+        "init_status",
+        "hijack_logger",
+        "add_sink",
+        "set_level",
+        "print_dashboard_link",
+        "route",
+    ):
+        if hasattr(CL, name):
+            try:
+                setattr(CL, name, classmethod(_noop))  # type: ignore
+                report["patched"].append(f"{name}=noop")
+            except Exception:
+                pass
+
+    return report
+
+
+def emit_dashboard_link(host: str = "127.0.0.1", port: int = 5001, route: str = "/dashboard") -> None:
+    """Emit the Sonic Dashboard URL via the new reporter (stdout print; downstream can wrap this)."""
+
+    url = f"http://{host}:{port}{route}"
+    print(f"🌐 Sonic Dashboard: {url}")
 
 # ---- One-time boot status line (for your vibe) --------------------------------
 
