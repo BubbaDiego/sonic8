@@ -54,3 +54,7 @@ Thumbs.db
 !/src/examples/
 !/src/examples/**
 /keys/kp_from_signer_base58.txt
+backend/mother.db
+backend/mother.db-shm
+backend/mother.db-wal
+reports/*.html
