@@ -142,7 +142,7 @@ class DLMonitorLedgerManager:
 
         entry = self.get_last_entry(monitor_name)
         if not entry or not entry.get("timestamp"):
-            return {"last_timestamp": None, "age_seconds": 9999}
+            return {"last_timestamp": None, "age_seconds": 9999, "metadata": {}}
 
         try:
             raw_ts = entry["timestamp"]
@@ -153,14 +153,22 @@ class DLMonitorLedgerManager:
                 last_ts = last_ts.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
             age = (now - last_ts).total_seconds()
+            metadata_raw = entry.get("metadata")
+            metadata = {}
+            if metadata_raw:
+                try:
+                    metadata = json.loads(metadata_raw)
+                except Exception:
+                    metadata = {}
             return {
                 "last_timestamp": last_ts.isoformat(),
                 "age_seconds": round(age),
-                "status": entry.get("status", "Unknown")
+                "status": entry.get("status", "Unknown"),
+                "metadata": metadata,
             }
         except Exception as e:
             log.error(f"🧨 Failed to parse timestamp for {monitor_name}: {e}", source="DLMonitorLedger")
-            return {"last_timestamp": None, "age_seconds": 9999}
+            return {"last_timestamp": None, "age_seconds": 9999, "metadata": {}}
 
     def get_monitor_status_summary(self) -> MonitorStatus:
         """Return a MonitorStatus populated with the latest ledger info."""
@@ -197,7 +205,7 @@ class DLMonitorLedgerManager:
             summary.monitors[mtype] = MonitorDetail(
                 status=health,
                 last_updated=ts,
-                metadata={},
+                metadata=status_data.get("metadata") or {},
             )
         return summary
 
