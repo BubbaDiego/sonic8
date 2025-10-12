@@ -482,6 +482,30 @@ def run_fun_console():
         console.print("[yellow]Fun Console not available.[/]")
 
 
+def _get_dl_manager():
+    candidates = [
+        ("backend.data.dl_wallets", "DLWalletManager"),
+        ("backend.core.wallet_core.dl_wallet_manager", "DLWalletManager"),
+        ("backend.core.data_locker.dl_wallet_manager", "DLWalletManager"),
+        ("backend.core.data_locker.wallet_manager", "DLWalletManager"),
+    ]
+    for module_name, symbol in candidates:
+        try:
+            module = importlib.import_module(module_name)
+            manager = getattr(module, symbol, None)
+            if manager is None:
+                continue
+            if callable(manager):
+                try:
+                    return manager()
+                except Exception:
+                    return manager
+            return manager
+        except Exception:
+            continue
+    return None
+
+
 def wallet_menu():
     """Interactive, capability-aware Wallet Manager (works with whatever wallet_core provides)."""
     # Lazy imports; we don't assume all modules exist in sonic7
@@ -499,7 +523,9 @@ def wallet_menu():
     except Exception:
         core = None
 
-    if not svc and not core:
+    dl = _get_dl_manager()
+
+    if not svc and not core and not dl:
         console.print("[yellow]Wallet service not available.[/]")
         return
 
@@ -512,6 +538,13 @@ def wallet_menu():
             return None, f"[not-supported] {name}"
         try:
             return fn(*a, **k), None
+        except TypeError as e:
+            if len(a) == 1 and isinstance(a[0], dict) and not k:
+                try:
+                    return fn(**a[0]), None
+                except Exception as inner:
+                    return None, str(inner)
+            return None, str(e)
         except Exception as e:
             return None, str(e)
 
@@ -527,6 +560,9 @@ def wallet_menu():
             if s and _has(s, "list_wallets"):
                 out, err = _call(s, "list_wallets")
                 return (out or []), err
+        if dl and _has(dl, "list_wallets"):
+            out, err = _call(dl, "list_wallets")
+            return (out or []), err
         return [], None  # nothing available
 
     def _as_dict(w):
@@ -681,18 +717,50 @@ def wallet_menu():
                 continue
 
         elif choice == "5":
-            # Create wallet; prefer a ‘name’ prompt
+            # Create wallet; prompt for key fields
             name = _input("New wallet name: ")
-            if not name:
+            pub = _input("Public address: ")
+            img = _input("Image path or URL (e.g., /static/images/vader.jpg): ")
+            if not name or not pub:
+                console.print("[yellow]Name and public address are required.[/]")
                 continue
-            for meth in ("create_wallet", "create", "new_wallet"):
+
+            payload_dict = {
+                "name": name,
+                "public_address": pub,
+                "image_path": img or None,
+            }
+            payload_obj = payload_dict
+            try:
+                from backend.core.wallet_core.wallet_schema import WalletIn  # type: ignore
+
+                payload_obj = WalletIn(**payload_dict)  # type: ignore[assignment]
+            except Exception:
+                pass
+
+            created = False
+            last_err = None
+            for meth in ("create_wallet", "create", "add_wallet", "new_wallet"):
                 if svc and _has(svc, meth):
-                    _, e = _call(svc, meth, name)
-                    if not e:
-                        console.print(f"[green]Created: {name}[/]")
+                    _, last_err = _call(svc, meth, payload_obj)
+                    if not last_err:
+                        created = True
+                    break
+
+            if not created and dl:
+                for meth in ("create_wallet", "create", "add_wallet", "add"):
+                    if _has(dl, meth):
+                        _, last_err = _call(dl, meth, payload_dict)
+                        if not last_err:
+                            created = True
                         break
+
+            if created:
+                console.print(f"[green]Created: {name}[/]")
             else:
-                console.print("[yellow]Create not supported by WalletService.[/]")
+                if last_err:
+                    console.print(f"[yellow]{last_err}[/]")
+                console.print("[yellow]Create not supported by WalletService/DLWalletManager.[/]")
                 continue
 
         elif choice == "6":
