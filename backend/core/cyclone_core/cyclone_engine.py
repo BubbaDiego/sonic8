@@ -173,12 +173,14 @@ class Cyclone:
             await asyncio.to_thread(self.position_core.update_positions_from_jupiter)
             log.end_timer("position_update", source="Cyclone")
             log.success("🪐 Position updates completed", source="Cyclone")
+            self._mark_position_monitor_synced()
         except Exception as e:
             log.error(f"Position Updates crashed: {e}", source="Cyclone")
             log.end_timer("position_update", source="Cyclone")
 
     async def run_composite_position_pipeline(self):
         await asyncio.to_thread(self.position_core.update_positions_from_jupiter)
+        self._mark_position_monitor_synced()
 
     async def _call_create_global_alerts(self) -> None:
         """Invoke the alert service, supporting both sync and async implementations."""
@@ -337,6 +339,17 @@ class Cyclone:
                 monitor.mark_cycle_synced()
         except Exception as exc:  # pragma: no cover - defensive logging
             log.debug(f"Unable to flag price monitor as synced: {exc}", source="Cyclone")
+
+    def _mark_position_monitor_synced(self) -> None:
+        try:
+            registry = getattr(self.monitor_core, "registry", None)
+            if registry is None:
+                return
+            monitor = registry.get("position_monitor")
+            if monitor and hasattr(monitor, "mark_cycle_synced"):
+                monitor.mark_cycle_synced()
+        except Exception as exc:  # pragma: no cover - defensive logging
+            log.debug(f"Unable to flag position monitor as synced: {exc}", source="Cyclone")
 
     async def run_enrich_positions(self):
         await self.position_core.enrich_positions()
