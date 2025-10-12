@@ -1,3 +1,1 @@
-"""Configuration package for backend helpers."""
-
-__all__ = []
+# Package marker so 'config' imports resolve via backend/ on sys.path.

@@ -1,9 +1,17 @@
 import json
 import os
-from pathlib import Path
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, Dict, Optional, Callable
+
+# --- Ensure absolute imports resolve when launching this file directly ---------
+if __package__ in (None, ""):
+    _REPO_ROOT = Path(__file__).resolve().parents[3]
+    _BACKEND_ROOT = _REPO_ROOT / "backend"
+    for _p in (str(_REPO_ROOT), str(_BACKEND_ROOT)):
+        if _p not in sys.path:
+            sys.path.insert(0, _p)
 
 
 def _resolve_and_load_env() -> str | None:
@@ -66,9 +74,12 @@ def _resolve_and_load_env() -> str | None:
 
 _env_used = _resolve_and_load_env()
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = REPO_ROOT / "backend"
+for _candidate in (REPO_ROOT, BACKEND_ROOT):
+    _candidate_str = str(_candidate)
+    if _candidate_str not in sys.path:
+        sys.path.insert(0, _candidate_str)
 import asyncio
 import logging
 import time
