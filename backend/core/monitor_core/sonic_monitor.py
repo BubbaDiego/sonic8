@@ -366,10 +366,10 @@ def run_monitor(
 
     install_strict_console_filter()
     muted = silence_legacy_console_loggers()
-    # print muted modules only; no “Groups:” line
-    emit_boot_status(muted, group_label=CYCLONE_GROUP_LABEL, groups=None)
-    # (keep this list around if you later want SONIC_SHOW_GROUPS=1)
-    _cyclone_group = CYCLONE_GROUPS
+    try:
+        emit_boot_status(muted, group_label="", groups=None)
+    except Exception:
+        logging.debug("emit_boot_status failed", exc_info=True)
 
     from backend.core.monitor_core.monitor_core import MonitorCore
 
@@ -405,8 +405,6 @@ def run_monitor(
 
     loop_counter = 0
     cycle_limit = cycles if cycles is not None and cycles > 0 else None
-    enable_color = sys.stdout.isatty()
-
     try:
         while cycle_limit is None or loop_counter < cycle_limit:
             interval = get_monitor_interval()
@@ -451,7 +449,23 @@ def run_monitor(
                 _enrich_summary_from_locker(summary, dl)
             except Exception:
                 logging.exception("Failed to enrich sonic summary")
-            emit_compact_cycle(summary, {}, interval, enable_color=enable_color)
+            try:
+                snapshot: Dict[str, Any] = {}
+                if hasattr(cyclone, "get_summary_snapshot"):
+                    snapshot = cyclone.get_summary_snapshot() or {}
+            except Exception:
+                logging.debug("Cyclone summary snapshot unavailable", exc_info=True)
+                snapshot = {}
+
+            if not isinstance(snapshot, dict) or not snapshot:
+                snapshot = summary if isinstance(summary, dict) else {}
+
+            emit_compact_cycle(
+                csum=snapshot,
+                loop_counter=loop_counter,
+                total_elapsed=float(summary.get("elapsed_s") or 0.0),
+                sleep_time=float(interval),
+            )
 
             sleep_time = max(interval - elapsed, 0)
             if sleep_time > 0:

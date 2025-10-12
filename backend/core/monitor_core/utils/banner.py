@@ -4,94 +4,59 @@ import os
 from typing import Any
 
 
-def _mask(s: str, left: int = 3, right: int = 2) -> str:
-    if not s or s == "–":
-        return "–"
-    if len(s) <= left + right:
-        return s
-    return f"{s[:left]}…{s[-right:]}"
+def emit_config_banner(dl: Any, interval_s: int) -> None:
+    print("══════════════════════════════════════════════════════════════")
+    print("   🦔 Sonic Monitor Configuration")
+    print("══════════════════════════════════════════════════════════════")
+    print(f"   🕒 Poll Interval : {interval_s}s")
+    db_path = getattr(getattr(dl, "db", None), "db_path", None) if dl else None
+    print(f"   🗄️  Database Path : {db_path or '–'}")
+    print("──────────────────────────────────────────────────────────────")
 
+    def _true(key: str, default: bool = False) -> bool:
+        value = os.getenv(key)
+        if value is None:
+            return default
+        return str(value).strip().lower() not in {"0", "false", "no", "", "none"}
 
-def emit_config_banner(dl: Any, interval_s: int | None) -> None:
-    """
-    One-time configuration banner (sonic6 parity):
-      • Root / DB path / .env
-      • Twilio (sys) + Twilio (env) presence snapshot
-      • RPC / Helius presence / Perps Program ID
-    """
-    root = getattr(dl, "root", lambda: os.getcwd())()
-    # Be forgiving about how db path is exposed
-    db_path = getattr(getattr(dl, "db", None), "db_path", "") or os.path.join(
-        os.getcwd(), "backend", "mother.db"
+    def _float_env(key: str, default: float) -> float:
+        raw = os.getenv(key)
+        if raw in (None, ""):
+            return default
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return default
+
+    enabled_liquid = _true("ENABLED_LIQUID", True)
+    enabled_profit = _true("ENABLED_PROFIT", True)
+    enabled_market = _true("ENABLED_MARKET", False)
+    enabled_price = _true("ENABLED_PRICE", False)
+    liquid_dist_pct = _float_env("LIQUID_DIST_PCT", 8.0)
+    profit_pos = _float_env("PROFIT_POS", 75.0)
+    profit_pf = _float_env("PROFIT_PF", 200.0)
+
+    monitors_line = (
+        f"liquid={'on' if enabled_liquid else 'off'}({liquid_dist_pct:.1f}%) • "
+        f"profit={'on' if enabled_profit else 'off'}(pos={profit_pos:.0f}%, pf=${profit_pf:.0f}) • "
+        f"market={'on' if enabled_market else 'off'} • "
+        f"price={'on' if enabled_price else 'off'}"
     )
-    env_path = getattr(dl, "env_path", lambda: "not found")()
 
-    # Twilio (system snapshot via DataLocker)
-    sys_twilio = getattr(
-        dl,
-        "twilio_system",
-        lambda: type(
-            "T",
-            (),
-            {
-                "enabled": False,
-                "sid": "–",
-                "token": "–",
-                "from_": "–",
-                "to": [],
-                "flow": "–",
-            },
-        )(),
-    )()
-    # Twilio (env presence only)
-    env_twilio = type(
-        "E",
-        (),
-        {
-            "sid": os.getenv("TWILIO_ACCOUNT_SID")
-            or os.getenv("TWILIO_SID")
-            or "–",
-            "token": os.getenv("TWILIO_AUTH_TOKEN")
-            or os.getenv("TWILIO_TOKEN")
-            or "–",
-            "from_": os.getenv("TWILIO_FROM_PHONE")
-            or os.getenv("TWILIO_FROM")
-            or "–",
-            "to": os.getenv("TWILIO_TO_PHONE") or "–",
-        },
-    )()
+    assets_env = os.getenv("SONIC_PRICE_ASSETS", "BTC,ETH,SOL")
+    assets = [token.strip().upper() for token in assets_env.split(",") if token.strip()]
+    if len(assets) > 6:
+        assets_display = ", ".join(assets[:6]) + f", +{len(assets) - 6} more"
+    else:
+        assets_display = ", ".join(assets) if assets else "–"
 
-    rpc = (
-        os.getenv("PERP_RPC_URL")
-        or os.getenv("ANCHOR_PROVIDER_URL")
-        or os.getenv("RPC")
-        or ""
-    )
-    helius_present = bool(os.getenv("HELIUS_API_KEY"))
-    perps_program = os.getenv("PERPS_PROGRAM_ID") or ""
+    position_src = (os.getenv("SONIC_POSITIONS_SOURCE", "dl") or "dl").lower()
+    sync_on_empty = _true("SONIC_SYNC_ON_EMPTY", False)
 
-    print("────────────────────────────────── ⚙️  Configuration ──────────────────────────────────")
-    print(f"📦 Root          : {root}")
-    print(f"🗃  Database      : {db_path} ({os.path.basename(db_path) if db_path else ''})")
-    print(f"🧾 .env          : {env_path}")
-    if interval_s is not None:
-        print(f"⏱  Poll Interval : {interval_s}s")
+    print(f"   🔧 Monitors     : {monitors_line}")
+    print(f"   🪙 Price Assets : {assets_display}")
     print(
-        "📞 Twilio (sys)  : "
-        f"enabled={getattr(sys_twilio, 'enabled', False)} "
-        f"| sid={_mask(getattr(sys_twilio, 'sid', '–'))} "
-        f"| token={_mask(getattr(sys_twilio, 'token', '–'))} "
-        f"| from={_mask(getattr(sys_twilio, 'from_', '–'))} "
-        f"| to={[ _mask(x) for x in getattr(sys_twilio, 'to', []) ]} "
-        f"| flow={_mask(getattr(sys_twilio, 'flow', '–'))}"
+        "   📈 Position src : "
+        f"{position_src} (sync_on_empty={'on' if sync_on_empty else 'off'})"
     )
-    print(
-        f"📞 Twilio (env)  : sid={_mask(getattr(env_twilio, 'sid', '–'))} "
-        f"| token={_mask(getattr(env_twilio, 'token', '–'))} "
-        f"| from={_mask(getattr(env_twilio, 'from_', '–'))} "
-        f"| to={_mask(getattr(env_twilio, 'to', '–'))}"
-    )
-    print(f"🌐 RPC           : {rpc or '–'}")
-    print(f"🔑 Helius key    : {'✓' if helius_present else '–'}")
-    print(f"📜 Perps ProgID  : {perps_program or '–'}")
-    print("──────────────────────────────────────────────────────────────────────────────────────")
+    print("══════════════════════════════════════════════════════════════")

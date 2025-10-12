@@ -1,4 +1,5 @@
 import datetime
+import logging
 from typing import Dict, Any, List, Tuple, Optional
 
 _GREEN = "\x1b[32m"
@@ -43,42 +44,75 @@ def _prices_line(
         parts.append(f"{label}=${price:,.2f}")
     return "  ".join(parts)
 
-def emit_compact_cycle(summary: Dict[str, Any], cfg: Dict[str, Any], poll_interval_s: int, *, enable_color: bool = True) -> None:
-    # Cyclone headline
-    cyc_ms = int(max((summary.get("elapsed_s") or 0.0) * 1000.0, 1))
-    pos_line = summary.get("positions_line", "↑0/0/0")
-    monitor_line = summary.get("monitor_states_line") or pos_line
-    hedges = int(summary.get("hedge_groups", 0) or 0)
-    alerts = summary.get("alerts_inline", "pass 0/0 –")
-    line = (
+def emit_compact_cycle(
+    csum: Dict[str, Any],
+    loop_counter: int,
+    total_elapsed: float,
+    sleep_time: float,
+) -> None:
+    """
+    Sonic6-compatible compact cycle summary.
+    The snapshot is expected to look like Cyclone.get_summary_snapshot(), but the
+    function defensively tolerates missing keys or unexpected types.
+    """
+
+    def _as_dict(val: Any) -> Dict[str, Any]:
+        return val if isinstance(val, dict) else {}
+
+    prices = _as_dict(csum.get("prices"))
+    positions = _as_dict(csum.get("positions"))
+    hedges = _as_dict(csum.get("hedges"))
+    alerts = _as_dict(csum.get("alerts"))
+    monitors = _as_dict(csum.get("monitors"))
+
+    cycle_ms = int(max(total_elapsed * 1000.0, 1))
+
+    # 🌀 Cyclone headline
+    headline = (
         "   🌀 Cyclone  : "
-        f"{summary.get('assets_line','–')} • {monitor_line} • {alerts} • groups {hedges} • {cyc_ms}ms"
+        f"{prices.get('assets_line', '–')} • "
+        f"{positions.get('sync_line', '–')} • "
+        f"{alerts.get('line', '–')} • "
+        f"groups {hedges.get('groups', 0)} • {cycle_ms}ms"
     )
-    print(line, flush=True)
+    print(headline, flush=True)
 
-    # Prices
-    prices_when = _fmt_short_clock(summary.get("prices_updated_at"))
-    print(
-        "   💰 Prices   : "
-        f"{_prices_line(summary.get('prices_top3', []), summary.get('price_ages', {}), enable_color=enable_color, changes=summary.get('price_changes', {}))}  • @ {prices_when}"
-    )
+    # 💰 Prices
+    if prices:
+        assets_cnt = prices.get("assets", 0)
+        price_line = f"   💰 Prices   : ✓ assets={assets_cnt}"
+        errors = prices.get("errors")
+        if errors:
+            price_line += f" • {errors}"
+        print(price_line, flush=True)
 
-    # Positions
-    pos_when = _fmt_short_clock(summary.get("positions_updated_at"))
-    print(f"   📊 Positions: {pos_line}  • @ {pos_when}")
+    # 📊 Positions
+    if positions:
+        enrich = positions.get("enrich", 0)
+        print(
+            "   📊 Positions: "
+            f"{positions.get('sync_line', '–')} • enrich {enrich}",
+            flush=True,
+        )
 
-    # Holdings
-    brief = summary.get("positions_brief", "–")
-    print(f"   📄 Holdings : {brief}")
+    # 🛡 Hedges (only when groups > 0)
+    hedge_groups = hedges.get("groups", 0)
+    if hedge_groups:
+        print(f"   🛡 Hedges   : groups {hedge_groups}", flush=True)
 
-    # Hedges
-    print(f"   🛡  Hedges  : {(''.join('🦔' for _ in range(hedges))) if hedges > 0 else '–'}")
+    # 🔔 Alerts
+    if alerts:
+        print(f"   🔔 Alerts   : {alerts.get('line', '–')}", flush=True)
 
-    # Alerts + Notifications
-    print(f"   🔔 Alerts   : {alerts}")
-    print(f"\n   📨 Notifications : {summary.get('notifications_brief', 'NONE (no_breach)')}")
+    # 📡 Monitors
+    if monitors:
+        try:
+            tokens = " ".join(f"{k}:{v}" for k, v in monitors.items())
+        except Exception:
+            logging.debug("Unable to render monitor tokens: %r", monitors)
+            tokens = ""
+        if tokens:
+            print(f"   📡 Monitors : {tokens}", flush=True)
 
-    # Tail
-    total_elapsed = float(summary.get("elapsed_s") or 0.0)
-    tail = f"✅ cycle #{int(summary.get('cycle_num') or 0)} done • {total_elapsed:.2f}s  (sleep {poll_interval_s:.1f}s)"
+    tail = f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)"
     print(tail, flush=True)
