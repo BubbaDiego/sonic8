@@ -94,6 +94,11 @@ def emit_compact_cycle(
     alerts_inline = summary.get("alerts_inline", "pass 0/0 –")
     print(f"   🔔 Alerts   : {alerts_inline}")
 
+    # Monitors inline (optional)
+    mon_inline = summary.get("monitors_inline")
+    if mon_inline:
+        print(f"   📡 Monitors : {mon_inline}")
+
     # Optional notifications line (kept from your previous build)
     notif = summary.get("notifications_brief", "NONE (no_breach)")
     print(f"\n   📨 Notifications : {notif}")
