@@ -6,8 +6,8 @@ import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 
 // profit helpers (present in sonic6; keep same API in 7 if available)
 import { getProfitCfg, saveProfitCfg } from 'api/profitMonitor';
-import { endpoints as portfolioEP, refreshLatestPortfolio } from 'api/portfolio';
-import { endpoints as sessionEP, refreshActiveSession } from 'api/session';
+import { refreshLatestPortfolio } from 'api/portfolio';
+import { refreshActiveSession } from 'api/session';
 import { endpoints as statusEP } from 'api/monitorStatus';
 
 import LiquidationMonitorCard from './LiquidationMonitorCard';
@@ -86,14 +86,13 @@ export default function MonitorManager() {
       }
     })();
     return () => {
+      // Leaving Monitor Manager: force dashboards to refresh next paint
       alive = false;
-      // Nudge dashboards to refresh next paint (mirrors sonic6)
       try {
+        // These helpers handle their own SWR keys; monitorStatus needs an explicit mutate
         refreshActiveSession();
         refreshLatestPortfolio();
         mutate(statusEP.summary, undefined, { revalidate: true });
-        mutate(sessionEP.active, undefined, { revalidate: true });
-        mutate(portfolioEP.latest, undefined, { revalidate: true });
       } catch {}
     };
   }, []);
