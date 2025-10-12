@@ -6,7 +6,10 @@ from backend.core.logging import log
 from backend.core.monitor_core.monitor_service import MonitorService
 from backend.data.dl_monitor_ledger import DLMonitorLedgerManager
 from datetime import datetime, timezone
-from backend.core.reporting_core.task_events import task_start, task_end
+from backend.core.reporting_core.task_events import (
+    phase_end,
+    phase_start,
+)
 
 
 class PriceSyncService:
@@ -20,7 +23,7 @@ class PriceSyncService:
 
         log.banner("📈 Starting Price Sync")
         log.info("Initiating sync workflow...", source="PriceSyncService")
-        task_start("price_sync", "Starting Price Sync")
+        phase_start("price_sync", "Starting Price Sync")
 
         try:
             now = datetime.now(timezone.utc)
@@ -36,7 +39,7 @@ class PriceSyncService:
                     "timestamp": now.isoformat()
                 }
                 self._write_ledger(result, "Error")
-                task_end("price_sync", "warn", note="no prices returned")
+                phase_end("price_sync", "warn", note="no prices returned")
                 return result
 
             asset_list = []
@@ -77,7 +80,7 @@ class PriceSyncService:
 
             self._write_ledger(result, "Success")
             log.banner("✅ Price Sync Completed")
-            task_end("price_sync", "ok", note=f"{len(asset_list)} assets")
+            phase_end("price_sync", "ok", note=f"{len(asset_list)} assets")
             return result
 
         except Exception as e:
@@ -92,7 +95,7 @@ class PriceSyncService:
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
             self._write_ledger(result, "Error")
-            task_end("price_sync", "fail", note=error_message)
+            phase_end("price_sync", "fail", note=error_message)
             return result
 
     def _write_ledger(self, result: dict, status: str):
