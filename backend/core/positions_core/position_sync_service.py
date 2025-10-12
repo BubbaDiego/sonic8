@@ -5,7 +5,7 @@ from datetime import datetime
 import requests
 from rich.console import Console
 
-from backend.core.reporting_core.task_events import task_start, task_end
+from backend.core.reporting_core.task_events import phase_end, phase_start
 
 # Core / services
 from backend.core.logging import log
@@ -20,6 +20,7 @@ from backend.services.signer_loader import load_signer
 from backend.utils.pubkey import extract_pubkey, is_base58_pubkey
 
 console = Console()
+_VERBOSE = os.getenv("SONIC_TASKS_VERBOSE", "0").strip().lower() in {"1", "true", "yes"}
 
 def _extract_wallet_pubkey(wallet: dict) -> tuple[str, str]:
     """Return the first valid base58 pubkey found in *wallet* (if any)."""
@@ -128,11 +129,11 @@ class PositionSyncService:
         log.info("Starting full Jupiter Perps sync...")
 
         try:
-            task_start("positions_fetch", "Fetching positions from Jupiter perps-api")
+            phase_start("positions_fetch", "Fetching positions from Jupiter perps-api")
             try:
                 sync = self.update_jupiter_positions()
             except Exception as exc:
-                task_end("positions_fetch", "fail", note=str(exc))
+                phase_end("positions_fetch", "fail", note=str(exc))
                 raise
 
             errors = sync.get("errors", 0)
@@ -144,7 +145,7 @@ class PositionSyncService:
             elif errors:
                 verdict = "warn"
                 fetch_note = f"{errors} errors"
-            task_end("positions_fetch", verdict, note=fetch_note)
+            phase_end("positions_fetch", verdict, note=fetch_note)
 
             if "error" in sync:
                 log.error(f"❌ Perps Sync Failed: {sync['error']}", source="PositionSyncService")
@@ -158,32 +159,35 @@ class PositionSyncService:
             live_ids = set(sync.get("position_ids", []))
 
             # stale handling
-            console.print("[cyan]Handle stale positions[/cyan]")
-            task_start("positions_stale", "Handle stale positions")
+            if _VERBOSE:
+                console.print("[cyan]Handle stale positions[/cyan]")
+            phase_start("positions_stale", "Handle stale positions")
             try:
                 self._handle_stale_positions(live_ids)
             except Exception as exc:
-                task_end("positions_stale", "fail", note=str(exc))
+                phase_end("positions_stale", "fail", note=str(exc))
                 raise
             else:
-                task_end("positions_stale", "ok")
+                phase_end("positions_stale", "ok")
 
             # hedges
-            console.print("[cyan]Generate hedges[/cyan]")
-            task_start("hedges", "Generate hedges")
+            if _VERBOSE:
+                console.print("[cyan]Generate hedges[/cyan]")
+            phase_start("hedges", "Generate hedges")
             try:
                 hedges = HedgeManager(self.dl.positions.get_all_positions()).get_hedges()
             except Exception as exc:
-                task_end("hedges", "fail", note=str(exc))
+                phase_end("hedges", "fail", note=str(exc))
                 raise
             else:
-                task_end("hedges", "ok", note=f"{len(hedges)} hedges")
+                phase_end("hedges", "ok")
             log.success(f"🌐 HedgeManager produced {len(hedges)} hedges", source="PositionSyncService")
 
             # snapshot
-            console.print("[cyan]Snapshot portfolio[/cyan]")
+            if _VERBOSE:
+                console.print("[cyan]Snapshot portfolio[/cyan]")
             now = datetime.now()
-            task_start("snapshot", "Snapshot portfolio")
+            phase_start("snapshot", "Snapshot portfolio")
             try:
                 self.dl.system.set_last_update_times(
                     {
@@ -196,21 +200,22 @@ class PositionSyncService:
                 totals = CalculationCore(self.dl).calculate_totals(PositionCore(self.dl).get_active_positions())
                 self.dl.portfolio.record_snapshot(totals)
             except Exception as exc:
-                task_end("snapshot", "fail", note=str(exc))
+                phase_end("snapshot", "fail", note=str(exc))
                 raise
             else:
-                task_end("snapshot", "ok")
+                phase_end("snapshot", "ok")
 
             # simple HTML report (keeps your prior behavior)
-            console.print("[cyan]Write sync report[/cyan]")
-            task_start("report", "Write sync report")
+            if _VERBOSE:
+                console.print("[cyan]Write sync report[/cyan]")
+            phase_start("report", "Write sync report")
             try:
                 self._write_report(now, sync, hedges)
             except Exception as exc:
-                task_end("report", "fail", note=str(exc))
+                phase_end("report", "fail", note=str(exc))
                 raise
             else:
-                task_end("report", "ok")
+                phase_end("report", "ok")
 
             # reconcile wallets shown in UI
             PositionCore.reconcile_wallet_balances(self.dl)
@@ -219,13 +224,13 @@ class PositionSyncService:
             log.info(f"📦 {msg}", source="PositionSyncService")
             console.print(f"[green]{msg}[/green]")
 
-            task_start("sync_summary", "Sync summary")
+            phase_start("sync_summary", "Sync summary")
             try:
                 verdict = "ok" if errors == 0 else "warn"
                 note = f"{errors} errors" if errors else None
-                task_end("sync_summary", verdict, note=note)
+                phase_end("sync_summary", verdict, note=note)
             except Exception:
-                task_end("sync_summary", "warn")
+                phase_end("sync_summary", "warn")
 
             try:
                 DLMonitorLedgerManager(self.dl.db).insert_ledger_entry(
@@ -250,7 +255,8 @@ class PositionSyncService:
     def update_jupiter_positions(self) -> dict:
         """Fetch perps positions from Jupiter and upsert into DB."""
         log.info("🔄 Updating Jupiter Perps positions…", source="PositionSyncService")
-        console.print("[cyan]Fetching positions from Jupiter perps-api...[/cyan]")
+        if _VERBOSE:
+            console.print("[cyan]Fetching positions from Jupiter perps-api...[/cyan]")
 
         imported = updated = skipped = errors = 0
         jup_ids: set[str] = set()
