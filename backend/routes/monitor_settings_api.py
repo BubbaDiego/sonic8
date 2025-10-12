@@ -4,33 +4,61 @@ v2 – Adds nested ``notifications`` dict (system / voice / sms / tts) to liquid
 Back‑compat: still accepts flat ``threshold_btc`` etc. and old ``windows_alert`` / ``voice_alert`` flags.
 """
 
-from fastapi import APIRouter, Depends, status
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
+
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.core.alert_core.threshold_service import ThresholdService  # type: ignore
+from backend.core.config.json_config import (
+    get_path_str,
+    load_config as load_json_cfg,
+    save_config_patch,
+)
 from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.monitor_core.sonic_monitor import DEFAULT_INTERVAL, MONITOR_NAME
 from backend.core.monitor_core import market_monitor
 from backend.deps import get_app_locker
 
+
+log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/monitor-settings", tags=["monitor_settings"])
 
 
-def _read_interval(dl: DataLocker) -> int:
-    """Return Sonic loop interval from the heartbeat table, defaulting when absent."""
+def _read_interval(dl: DataLocker) -> tuple[int, str]:
+    """Return the Sonic loop interval and the backing source."""
+
+    try:
+        cfg = load_json_cfg()
+        seconds = int(
+            cfg.get("system_config", {})
+            .get("sonic_monitor_loop_time", 0)
+            or 0
+        )
+        if seconds > 0:
+            return seconds, "json"
+    except Exception:
+        pass
 
     cursor = dl.db.get_cursor()
     if cursor is None:
-        return int(DEFAULT_INTERVAL)
+        return int(DEFAULT_INTERVAL), "default"
 
     cursor.execute(
         "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name = ?",
         (MONITOR_NAME,),
     )
     row = cursor.fetchone()
-    return int(row[0]) if row and row[0] is not None else int(DEFAULT_INTERVAL)
+    if row and row[0] is not None:
+        try:
+            return int(row[0]), "db"
+        except Exception:
+            pass
+    return int(DEFAULT_INTERVAL), "default"
 
 # ------------------------------------------------------------------ #
 # Market Movement Monitor settings
@@ -76,7 +104,7 @@ def reset_market_anchors():
 def get_sonic_settings(dl: DataLocker = Depends(get_app_locker)):
     """Return current Sonic monitor settings."""
 
-    interval = _read_interval(dl)
+    interval, _ = _read_interval(dl)
 
     cfg = dl.system.get_var("sonic_monitor") or {}
     return {
@@ -128,6 +156,13 @@ def update_sonic_settings(payload: dict, dl: DataLocker = Depends(get_app_locker
 
     dl.system.set_var("sonic_monitor", cfg)
 
+    try:
+        save_config_patch(
+            {"system_config": {"sonic_monitor_loop_time": int(interval)}}
+        )
+    except Exception:
+        log.debug("Failed to persist sonic loop interval to JSON", exc_info=True)
+
     return {"success": True, "config": {"interval_seconds": interval, **cfg}}
 
 
@@ -135,6 +170,8 @@ class ProvenanceResponse(BaseModel):
     interval: Dict[str, Any]
     thresholds: Dict[str, Any]
     thresholds_label: str
+    json_path: Optional[str] = None
+    json_used: Optional[bool] = None
 
 
 # ----------------------- Provenance (new) -----------------------
@@ -154,11 +191,11 @@ def get_provenance(dl: DataLocker = Depends(get_app_locker)):
                           'env (...file)', or 'mixed: A + B'
     """
 
-    # Interval always comes from the monitor_heartbeat table unless unavailable
+    # Interval prefers JSON override then falls back to the monitor_heartbeat table.
     try:
-        seconds = _read_interval(dl)  # uses monitor_heartbeat under the hood
+        seconds, interval_source = _read_interval(dl)
     except Exception:
-        seconds = int(DEFAULT_INTERVAL)
+        seconds, interval_source = int(DEFAULT_INTERVAL), "default"
 
     # Thresholds + provenance label come from the Sonic loop's resolver helper
     try:
@@ -170,14 +207,19 @@ def get_provenance(dl: DataLocker = Depends(get_app_locker)):
     except Exception:
         thresholds, label = {}, ""
 
+    json_path = get_path_str()
+    json_used = interval_source == "json" or label == "JSON"
+
     return {
         "interval": {
             "seconds": int(seconds),
-            "source": "db",
+            "source": interval_source,
             "table": "monitor_heartbeat",
         },
         "thresholds": thresholds or {},
         "thresholds_label": label or "",
+        "json_path": json_path,
+        "json_used": json_used,
     }
 
 
@@ -243,6 +285,16 @@ def _dl_set_system_var(dl: DataLocker, key: str, value: Any) -> None:
         system_vars[key] = value
 
 
+def _json_section(key: str) -> Dict[str, Any]:
+    try:
+        cfg = load_json_cfg()
+    except Exception:
+        return {}
+
+    section = cfg.get(key)
+    return dict(section) if isinstance(section, dict) else {}
+
+
 class LiquidationSettings(BaseModel):
     thresholds: Dict[str, Any] = Field(default_factory=dict)
     blast_radius: Dict[str, Any] = Field(default_factory=dict)
@@ -284,11 +336,17 @@ def _normalize_liq(payload: LiquidationSettings) -> Dict[str, Any]:
 @router.get("/liquidation", response_model=LiquidationSettings)
 def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
     data = _dl_get_system_var(dl, "liquid_monitor", {}) or {}
+    json_cfg = _json_section("liquid_monitor")
+    cfg: Dict[str, Any] = {}
+    if isinstance(data, dict):
+        cfg.update(data)
+    if json_cfg:
+        cfg.update(json_cfg)
     return LiquidationSettings(
-        thresholds=data.get("thresholds", {}),
-        blast_radius=data.get("blast_radius", {}),
-        notifications=data.get("notifications", {}),
-        enabled_liquid=data.get("enabled_liquid"),
+        thresholds=cfg.get("thresholds", {}),
+        blast_radius=cfg.get("blast_radius", {}),
+        notifications=cfg.get("notifications", {}),
+        enabled_liquid=cfg.get("enabled_liquid"),
     )
 
 
@@ -297,6 +355,10 @@ def post_liquidation_settings(
     payload: LiquidationSettings, dl: DataLocker = Depends(get_app_locker)
 ):
     shaped = _normalize_liq(payload)
+    try:
+        save_config_patch({"liquid_monitor": shaped})
+    except Exception:
+        log.debug("Failed to persist liquidation config to JSON", exc_info=True)
     _dl_set_system_var(dl, "liquid_monitor", shaped)
 
 
@@ -337,92 +399,131 @@ def _normalize_market(payload: MarketSettings) -> Dict[str, Any]:
 @router.get("/market", response_model=MarketSettings)
 def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
     data = _dl_get_system_var(dl, "market_monitor", {}) or {}
+    json_cfg = _json_section("market_monitor")
+    cfg: Dict[str, Any] = {}
+    if isinstance(data, dict):
+        cfg.update(data)
+    if json_cfg:
+        cfg.update(json_cfg)
     return MarketSettings(
-        thresholds=data.get("thresholds", {}),
-        rearm_mode=data.get("rearm_mode"),
-        notifications=data.get("notifications", {}),
-        enabled_market=data.get("enabled_market"),
+        thresholds=cfg.get("thresholds", {}),
+        rearm_mode=cfg.get("rearm_mode"),
+        notifications=cfg.get("notifications", {}),
+        enabled_market=cfg.get("enabled_market"),
     )
 
 
 @router.post("/market", status_code=status.HTTP_204_NO_CONTENT)
 def post_market_settings(payload: MarketSettings, dl: DataLocker = Depends(get_app_locker)):
     shaped = _normalize_market(payload)
+    try:
+        save_config_patch({"market_monitor": shaped})
+    except Exception:
+        log.debug("Failed to persist market config to JSON", exc_info=True)
     _dl_set_system_var(dl, "market_monitor", shaped)
 
 
 # ------------------------------------------------------------------ #
-# Profit Monitor thresholds (uses ThresholdService rows)
+# Profit Monitor thresholds (mirrors Liquid/Market schema)
 # ------------------------------------------------------------------ #
 
 
-@router.get("/profit")
+class ProfitSettings(BaseModel):
+    position_profit_usd: Any = 0
+    portfolio_profit_usd: Any = 0
+    notifications: Dict[str, bool] = Field(default_factory=dict)
+    enabled_profit: Optional[bool] = None
+
+
+def _bool(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def _normalize_profit(payload: ProfitSettings) -> Dict[str, Any]:
+    notifications = {"system": True, "voice": True, "sms": False, "tts": True}
+    notifications.update(payload.notifications or {})
+
+    cfg: Dict[str, Any] = {
+        "position_profit_usd": float(_num(payload.position_profit_usd, 0.0) or 0.0),
+        "portfolio_profit_usd": float(_num(payload.portfolio_profit_usd, 0.0) or 0.0),
+        "notifications": {
+            "system": _bool(notifications.get("system")),
+            "voice": _bool(notifications.get("voice")),
+            "sms": _bool(notifications.get("sms")),
+            "tts": _bool(notifications.get("tts")),
+        },
+    }
+
+    if payload.enabled_profit is not None:
+        enabled = _bool(payload.enabled_profit)
+        cfg["enabled_profit"] = enabled
+        cfg["enabled"] = enabled
+
+    return cfg
+
+
+@router.get("/profit", response_model=ProfitSettings)
 def get_profit_settings(dl: DataLocker = Depends(get_app_locker)):
-    """Return the profit monitor threshold configuration."""
     ts = ThresholdService(dl.db)
     portfolio_th = ts.get_thresholds("TotalProfit", "Portfolio", "ABOVE")
     single_th = ts.get_thresholds("Profit", "Position", "ABOVE")
-    cfg = dl.system.get_var("profit_monitor") or {}
-    notifications = cfg.get("notifications") or {
-        "system": True,
-        "voice": True,
-        "sms": False,
-        "tts": True,
-    }
-    return {
-        "portfolio_low": getattr(portfolio_th, "low", None),
-        "portfolio_high": getattr(portfolio_th, "high", None),
-        "single_low": getattr(single_th, "low", None),
-        "single_high": getattr(single_th, "high", None),
-        "notifications": notifications,
 
-        "enabled": cfg.get("enabled", True),
+    data = _dl_get_system_var(dl, "profit_monitor", {}) or {}
+    json_cfg = _json_section("profit_monitor")
+    cfg: Dict[str, Any] = {}
+    if isinstance(data, dict):
+        cfg.update(data)
+    if json_cfg:
+        cfg.update(json_cfg)
 
-    }
+    position_value = cfg.get("position_profit_usd")
+    if position_value in (None, ""):
+        position_value = getattr(single_th, "high", 0.0) or 0.0
 
+    portfolio_value = cfg.get("portfolio_profit_usd")
+    if portfolio_value in (None, ""):
+        portfolio_value = getattr(portfolio_th, "high", 0.0) or 0.0
 
-@router.post("/profit")
-def update_profit_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
-    """Update profit monitor thresholds."""
-    ts = ThresholdService(dl.db)
-    ts.set_threshold(
-        "TotalProfit",
-        "Portfolio",
-        payload.get("portfolio_low"),
-        payload.get("portfolio_high"),
-    )
-    ts.set_threshold(
-        "Profit", "Position", payload.get("single_low"), payload.get("single_high")
-    )
-
-    cfg = dl.system.get_var("profit_monitor") or {}
-
-    changed = False
-
-    def to_bool(v):
-        if isinstance(v, str):
-            return v.lower() in ("1", "true", "yes", "on")
-        return bool(v)
-
-    if "enabled" in payload:
-        cfg["enabled"] = to_bool(payload.get("enabled"))
-        changed = True
-
-    notifs = payload.get("notifications")
-    if isinstance(notifs, dict):
-        cfg["notifications"] = {
-            "system": to_bool(notifs.get("system")),
-            "voice": to_bool(notifs.get("voice")),
-            "sms": to_bool(notifs.get("sms")),
-            "tts": to_bool(notifs.get("tts")),
+    notifications = cfg.get("notifications", {})
+    if not isinstance(notifications, dict):
+        notifications = {
+            "system": True,
+            "voice": True,
+            "sms": False,
+            "tts": True,
         }
 
-        changed = True
+    enabled_profit = cfg.get("enabled_profit")
+    if enabled_profit is None:
+        enabled_profit = cfg.get("enabled")
 
-    if changed:
-        dl.system.set_var("profit_monitor", cfg)
+    return ProfitSettings(
+        position_profit_usd=position_value,
+        portfolio_profit_usd=portfolio_value,
+        notifications=notifications,
+        enabled_profit=enabled_profit,
+    )
 
-    return {"success": True, "config": cfg}
+
+@router.post("/profit", status_code=status.HTTP_204_NO_CONTENT)
+def post_profit_settings(payload: ProfitSettings, dl: DataLocker = Depends(get_app_locker)):
+    shaped = _normalize_profit(payload)
+
+    try:
+        save_config_patch({"profit_monitor": shaped})
+    except Exception:
+        log.debug("Failed to persist profit config to JSON", exc_info=True)
+
+    _dl_set_system_var(dl, "profit_monitor", shaped)
+
+    ts = ThresholdService(dl.db)
+    try:
+        ts.set_threshold("TotalProfit", "Portfolio", 0.0, shaped.get("portfolio_profit_usd"))
+        ts.set_threshold("Profit", "Position", 0.0, shaped.get("position_profit_usd"))
+    except Exception:
+        log.debug("Failed to update profit thresholds", exc_info=True)
 
 
 __all__ = ["router"]

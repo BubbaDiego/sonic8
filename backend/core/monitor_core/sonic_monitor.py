@@ -1,6 +1,8 @@
+import json
 import os
 from pathlib import Path
 import sys
+from collections.abc import Mapping
 from typing import Any, Dict, Optional, Callable
 
 
@@ -92,6 +94,7 @@ from backend.core.reporting_core.summary_cache import (
     set_prices_reason,
 )
 from data.data_locker import DataLocker
+from backend.core.config.json_config import load_config as load_json_config
 from backend.models.monitor_status import MonitorStatus, MonitorType
 from core.core_constants import MOTHER_DB_PATH
 
@@ -133,6 +136,72 @@ _MONITOR_LABELS: Dict[MonitorType, str] = {
 
 
 _MON_STATE: Dict[str, str] = {}
+
+
+def _coerce_mapping(value: Any) -> Dict[str, Any]:
+    if isinstance(value, Mapping):
+        return dict(value)
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except Exception:
+            return {}
+        if isinstance(parsed, Mapping):
+            return dict(parsed)
+    return {}
+
+
+def _read_monitor_threshold_sources_legacy(dl: DataLocker) -> tuple[Dict[str, Any], str]:
+    values: Dict[str, Any] = {}
+    labels: list[str] = []
+
+    system_mgr = getattr(dl, "system", None)
+    if system_mgr is not None:
+        system_values: Dict[str, Any] = {}
+        for key in ("liquid_monitor", "market_monitor", "profit_monitor"):
+            try:
+                raw = system_mgr.get_var(key)
+            except Exception:
+                raw = None
+            data = _coerce_mapping(raw)
+            if data:
+                system_values[key] = data
+        if system_values:
+            values.update(system_values)
+            labels.append("DL.system")
+
+    if not values:
+        system_vars = getattr(dl, "system_vars", None)
+        if isinstance(system_vars, Mapping):
+            var_values: Dict[str, Any] = {}
+            for key in ("liquid_monitor", "market_monitor", "profit_monitor"):
+                data = _coerce_mapping(system_vars.get(key))  # type: ignore[arg-type]
+                if data:
+                    var_values[key] = data
+            if var_values:
+                values.update(var_values)
+                labels.append("system_vars")
+
+    label = " + ".join(labels)
+    return values, label
+
+
+def _read_monitor_threshold_sources(dl: DataLocker) -> tuple[Dict[str, Any], str]:
+    try:
+        json_cfg = load_json_config()
+    except Exception:
+        json_cfg = {}
+
+    json_values: Dict[str, Any] = {}
+    for key in ("liquid_monitor", "market_monitor", "profit_monitor"):
+        section = json_cfg.get(key)
+        if isinstance(section, Mapping) and section:
+            json_values[key] = dict(section)
+
+    if json_values:
+        return json_values, "JSON"
+
+    return _read_monitor_threshold_sources_legacy(dl)
 
 
 def _xcom_live() -> bool:
@@ -372,6 +441,18 @@ async def _run_monitor_tick(name: str, runner: Callable[..., Any], *args: Any, *
         return result
 
 def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
+    try:
+        json_cfg = load_json_config()
+        loop_seconds = int(
+            json_cfg.get("system_config", {})
+            .get("sonic_monitor_loop_time", 0)
+            or 0
+        )
+        if loop_seconds > 0:
+            return loop_seconds
+    except Exception:
+        pass
+
     dl = DataLocker(str(db_path))
     cursor = dl.db.get_cursor()
     if not cursor:
