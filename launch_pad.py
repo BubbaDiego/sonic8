@@ -7,7 +7,20 @@ and optional integrations (Perps, Cyclone, Fun Console, Wallet UI).
 
 from __future__ import annotations
 
-import os, sys, subprocess, shlex, platform, webbrowser, time, importlib, json, shutil
+import contextlib
+import io
+import os
+import shutil
+import sys
+import subprocess
+import shlex
+import platform
+import webbrowser
+import time
+import importlib
+import json
+import traceback
+from datetime import datetime
 from pathlib import Path
 from typing import Sequence, Optional, Dict
 
@@ -154,6 +167,97 @@ def wait_and_open(url: str, secs: float = 3.0) -> None:
         webbrowser.open(url)
     except Exception:
         pass
+
+
+# --- Sticky output + logging for actions ---
+_STICKY_HOLD = True  # set False to revert to old behavior
+_LOG_DIR = Path("reports/launchpad_logs")
+
+
+class _StreamTee:
+    def __init__(self, buffer: io.StringIO, original):
+        self._buffer = buffer
+        self._original = original
+
+    def write(self, data: str) -> int:
+        self._buffer.write(data)
+        self._original.write(data)
+        self._original.flush()
+        return len(data)
+
+    def flush(self) -> None:
+        self._buffer.flush()
+        self._original.flush()
+
+
+def _pause_after_action():
+    try:
+        input("\n⏸  Press ENTER to return to the menu…")
+    except KeyboardInterrupt:
+        pass
+
+
+class _ActionCapture:
+    """Context manager that tees stdout/stderr to a per-run log file while still printing live."""
+
+    def __init__(self, label: str):
+        self.label = (label or "action").strip().replace(" ", "_").replace("/", "_")
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        _LOG_DIR.mkdir(parents=True, exist_ok=True)
+        self.path = _LOG_DIR / f"{self.label}_{ts}.log"
+        self._buf = io.StringIO()
+
+    def __enter__(self):
+        self._stdout_cm = contextlib.redirect_stdout(_StreamTee(self._buf, sys.__stdout__))
+        self._stderr_cm = contextlib.redirect_stderr(_StreamTee(self._buf, sys.__stderr__))
+        self._stdout_cm.__enter__()
+        self._stderr_cm.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        # stop capturing
+        self._stderr_cm.__exit__(exc_type, exc, tb)
+        self._stdout_cm.__exit__(exc_type, exc, tb)
+        # write the captured text to log
+        text = self._buf.getvalue()
+        if exc_type:
+            text += "".join(traceback.format_exception(exc_type, exc, tb))
+        try:
+            self.path.write_text(text, encoding="utf-8")
+            print(f"\n📄 Log saved: {self.path}")
+        except Exception:
+            # logging should never crash the menu
+            pass
+        # if there was an exception, also print traceback to screen (and log already has it)
+        if exc_type:
+            traceback.print_exception(exc_type, exc, tb, file=sys.__stdout__)
+        # don't suppress exceptions; caller handles visibility / pause
+        return False
+
+
+def run_menu_action(label: str, fn):
+    """
+    Run a menu action, keep its output visible, and optionally log it.
+    Works for both quick in-process actions and those that spawn other windows.
+    """
+
+    if not callable(fn):
+        print(f"[WARN] Not a callable action: {label}")
+        if _STICKY_HOLD:
+            _pause_after_action()
+        return
+
+    with _ActionCapture(label):
+        try:
+            return fn()
+        except SystemExit:
+            # allow actions to call sys.exit() without killing the menu loop
+            pass
+        except Exception:
+            # error text will be shown by _ActionCapture.__exit__
+            pass
+    if _STICKY_HOLD:
+        _pause_after_action()
 
 
 # ──────────────────────────── Actions ─────────────────────────────────────────
@@ -503,35 +607,35 @@ def main() -> None:
         choice = input("→ ").strip()
 
         if choice == "1":
-            launch_sonic_apps()
+            run_menu_action("Full Sonic", launch_sonic_apps)
         elif choice == "2":
-            launch_full_stack()
+            run_menu_action("Sonic - Full App", launch_full_stack)
         elif choice == "3":
-            launch_frontend()
+            run_menu_action("Launch Frontend (Sonic/Vite)", launch_frontend)
         elif choice == "4":
-            launch_backend()
+            run_menu_action("Launch Backend (FastAPI)", launch_backend)
         elif choice == "5":
-            launch_sonic_monitor()
+            run_menu_action("Start Sonic Monitor", launch_sonic_monitor)
         elif choice == "6":
-            launch_perps_console()
+            run_menu_action("Launch Perps Console", launch_perps_console)
         elif choice == "7":
-            verify_database()
+            run_menu_action("Verify Database", verify_database)
         elif choice == "8":
-            run_tests()
+            run_menu_action("Run Unit Tests", run_tests)
         elif choice == "9":
-            run_fun_console()
+            run_menu_action("Fun Console", run_fun_console)
         elif choice == "10":
-            wallet_menu()
+            run_menu_action("Wallet Manager", wallet_menu)
         elif choice == "11":
-            run_test_console()
+            run_menu_action("Test Console UI", run_test_console)
         elif choice == "12":
-            launch_cyclone_app()
+            run_menu_action("Launch Cyclone App", launch_cyclone_app)
         elif choice == "13":
-            goals_menu()
+            run_menu_action("Session / Goals", goals_menu)
         elif choice == "14":
-            run_daily_maintenance()
+            run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
         elif choice.upper() == "C":
-            launch_cyclone_app(new_window=True)
+            run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
         elif choice in {"0", "q", "quit", "exit"}:
             print("bye 👋")
             return
