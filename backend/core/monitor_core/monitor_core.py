@@ -60,8 +60,11 @@ class MonitorCore:
         for name, monitor in self.registry.get_all_monitors().items():
             try:
                 log.info(f"Running monitor: {name}", source="MonitorCore")
-                monitor.run_cycle()
-                log.success(f"Monitor '{name}' completed successfully.", source="MonitorCore")
+                result = monitor.run_cycle()
+                if isinstance(result, dict) and result.get("skipped"):
+                    log.info(f"Monitor '{name}' skipped (fresh data).", source="MonitorCore")
+                else:
+                    log.success(f"Monitor '{name}' completed successfully.", source="MonitorCore")
             except Exception as e:
                 log.error(f"Monitor '{name}' failed: {e}", source="MonitorCore")
 
@@ -73,8 +76,12 @@ class MonitorCore:
         if monitor:
             try:
                 log.info(f"Running monitor: {name}", source="MonitorCore")
-                monitor.run_cycle()
-                log.success(f"Monitor '{name}' completed successfully.", source="MonitorCore")
+                result = monitor.run_cycle()
+                if isinstance(result, dict) and result.get("skipped"):
+                    log.info(f"Monitor '{name}' skipped (fresh data).", source="MonitorCore")
+                else:
+                    log.success(f"Monitor '{name}' completed successfully.", source="MonitorCore")
+                return result
             except Exception as e:
                 log.error(f"Monitor '{name}' failed: {e}", source="MonitorCore")
         else:

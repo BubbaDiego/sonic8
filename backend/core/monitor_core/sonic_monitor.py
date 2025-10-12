@@ -247,12 +247,16 @@ async def _run_monitor_tick(name: str, runner: Callable[..., Any], *args: Any, *
     key = f"mon_{name}"
     task_start(key, name)
     try:
-        await asyncio.to_thread(runner, *args, **kwargs)
+        result = await asyncio.to_thread(runner, *args, **kwargs)
     except Exception as exc:
         task_end(key, "fail", note=str(exc))
         raise
     else:
-        task_end(key, "ok")
+        if isinstance(result, dict) and result.get("skipped"):
+            task_end(key, "skip", note="fresh")
+        else:
+            task_end(key, "ok")
+        return result
 
 def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
     dl = DataLocker(str(db_path))
