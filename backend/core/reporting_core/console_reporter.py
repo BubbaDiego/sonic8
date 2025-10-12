@@ -49,9 +49,18 @@ DEFAULT_BLOCKLIST = [
     "ConsoleLogger","console_logger","LoggerControl",
     "werkzeug","uvicorn.access","fuzzy_wuzzy","asyncio",
 ]
+
+
 def _iter_blocklist() -> Iterable[str]:
     env_list = [x.strip() for x in os.getenv("SONIC_LOG_BLOCKLIST", "").split(",") if x.strip()]
-    return env_list or DEFAULT_BLOCKLIST
+    blocklist = list(env_list or DEFAULT_BLOCKLIST)
+    if os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() in {"1", "true", "on", "yes"}:
+        blocklist = [
+            name
+            for name in blocklist
+            if name not in {"ConsoleLogger", "console_logger", "LoggerControl"}
+        ]
+    return blocklist
 
 def silence_legacy_console_loggers() -> list[str]:
     """Force-raise blocklisted loggers to ERROR and strip their StreamHandlers."""
@@ -78,6 +87,9 @@ def neuter_legacy_console_logger() -> dict[str, Any]:
 
     Returns a small report of what was patched.
     """
+
+    if os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() in {"1", "true", "on", "yes"}:
+        return {"present": False, "patched": [], "skipped": "SONIC_CONSOLE_LOGGER=1"}
 
     report: dict[str, Any] = {"present": False, "patched": []}
 

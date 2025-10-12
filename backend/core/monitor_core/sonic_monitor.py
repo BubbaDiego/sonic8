@@ -17,6 +17,7 @@ from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.console_lines import emit_compact_cycle
+from backend.core.reporting_core.positions_icons import compute_positions_icon_line
 from backend.core.reporting_core.console_reporter import (
     emit_boot_status,
     emit_dashboard_link,
@@ -355,7 +356,11 @@ def run_monitor(
 ) -> None:
     """Run the Sonic monitor console loop."""
 
-    neuter_legacy_console_logger()
+    try:
+        if os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() not in {"1", "true", "on", "yes"}:
+            neuter_legacy_console_logger()
+    except Exception:
+        logging.debug("ConsoleLogger neuter skipped due to error", exc_info=True)
 
     link_flag = os.getenv("SONIC_MONITOR_DASHBOARD_LINK", "1").strip().lower()
     if link_flag not in {"0", "false", "off", "no"}:
@@ -443,6 +448,15 @@ def run_monitor(
 
             elapsed = time.time() - start_time
             alerts_line = "fail 1/1 error" if cycle_failed else "pass 0/0 –"
+            icon_line: Optional[str] = None
+            try:
+                db_manager = getattr(dl, "db", None)
+                conn = None
+                if db_manager is not None:
+                    conn = getattr(db_manager, "conn", None) or db_manager.connect()
+                icon_line = compute_positions_icon_line(conn)
+            except Exception:
+                logging.debug("positions icon line computation failed", exc_info=True)
             summary = _build_cycle_summary(
                 loop_counter,
                 elapsed,
@@ -453,6 +467,8 @@ def run_monitor(
                 _enrich_summary_from_locker(summary, dl)
             except Exception:
                 logging.exception("Failed to enrich sonic summary")
+            if icon_line:
+                summary.setdefault("positions_icon_line", icon_line)
             cfg = {}
             try:
                 cfg = dl.system.get_var("sonic_monitor") or {}

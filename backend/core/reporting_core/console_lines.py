@@ -77,7 +77,7 @@ def emit_compact_cycle(
     )
 
     # Positions
-    pos_line = summary.get("positions_line", "↑0/0/0")
+    pos_line = summary.get("positions_icon_line") or summary.get("positions_line", "↑0/0/0")
     pos_when = _fmt_short_clock(summary.get("positions_updated_at"))
     pos_error = summary.get("positions_error")
     if pos_error:
