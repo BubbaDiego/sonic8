@@ -1,13 +1,68 @@
 import os
-try:
-    from dotenv import load_dotenv  # type: ignore
-
-    load_dotenv()
-except Exception:
-    pass
-import sys
 from pathlib import Path
+import sys
 from typing import Any, Dict, Optional, Callable
+
+
+def _resolve_and_load_env() -> str | None:
+    """
+    Find the intended .env file and load it once.
+    Priority:
+      1) SONIC_ENV_PATH (explicit override)
+      2) repo root /.env
+      3) backend/.env
+      4) CWD/.env
+      5) python-dotenv discovery (find_dotenv)
+    Saves the resolved path into SONIC_ENV_PATH_RESOLVED for banner usage.
+    """
+
+    try:
+        from dotenv import load_dotenv, find_dotenv  # type: ignore
+    except Exception:
+        return None
+
+    here = Path(__file__).resolve()
+    repo_root = here.parents[3] if len(here.parents) >= 4 else Path.cwd()
+
+    candidates: list[Path] = []
+    explicit = os.getenv("SONIC_ENV_PATH")
+    if explicit:
+        candidates.append(Path(explicit))
+    candidates.extend([
+        repo_root / ".env",
+        repo_root / "backend" / ".env",
+        Path.cwd() / ".env",
+    ])
+
+    chosen: Path | None = None
+    for path_candidate in candidates:
+        try:
+            if path_candidate and path_candidate.exists():
+                chosen = path_candidate
+                break
+        except Exception:
+            pass
+
+    if chosen is None:
+        try:
+            found = find_dotenv(usecwd=True)
+            if found:
+                chosen = Path(found)
+        except Exception:
+            chosen = None
+
+    if chosen is not None:
+        try:
+            load_dotenv(dotenv_path=str(chosen), override=False)
+            os.environ["SONIC_ENV_PATH_RESOLVED"] = str(chosen)
+        except Exception:
+            pass
+        return str(chosen)
+
+    return None
+
+
+_env_used = _resolve_and_load_env()
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -397,8 +452,10 @@ def run_monitor(
             port = 5001
         emit_dashboard_link(host=host, port=port, route=route)
 
-    # ── Top-of-screen Twilio env readout (masked) ─────────────────────────────
+    # ── Top-of-screen env readout (path + Twilio) ─────────────────────────────
     try:
+        env_path = os.getenv("SONIC_ENV_PATH_RESOLVED") or _env_used or "–"
+        print(f"📦 .env (used): {env_path}")
         sid = (
             os.getenv("TWILIO_SID")
             or os.getenv("TWILIO_ACCOUNT_SID")
