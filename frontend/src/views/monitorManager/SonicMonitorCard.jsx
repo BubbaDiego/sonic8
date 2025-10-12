@@ -157,6 +157,7 @@ export default function SonicMonitorCard({
 
   const onLoopChange = (e) => setLoop(e.target.value);
 
+  // Fetch provenance (subtle footer display)
   useEffect(() => {
     let live = true;
     (async () => {

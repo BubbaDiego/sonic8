@@ -156,15 +156,30 @@ class ProvenanceResponse(BaseModel):
     thresholds_label: str
 
 
+# ----------------------- Provenance (new) -----------------------
+# Return where the loop actually sourced its thresholds and the DB table for the loop interval.
+
+
 @router.get("/provenance", response_model=ProvenanceResponse)
 def get_provenance(dl: DataLocker = Depends(get_app_locker)):
-    """Return Sonic loop interval + threshold provenance for diagnostics."""
+    """
+    Report Sonic loop provenance for diagnostics.
 
+    Returns:
+        interval: {'seconds': int, 'source': 'db', 'table': 'monitor_heartbeat'}
+        thresholds: nested dict of values observed by the loop
+        thresholds_label: description of source(s) such as
+                          'DL.system_vars (...path)', 'global_config (...path)',
+                          'env (...file)', or 'mixed: A + B'
+    """
+
+    # Interval always comes from the monitor_heartbeat table unless unavailable
     try:
-        seconds = _read_interval(dl)
+        seconds = _read_interval(dl)  # uses monitor_heartbeat under the hood
     except Exception:
         seconds = int(DEFAULT_INTERVAL)
 
+    # Thresholds + provenance label come from the Sonic loop's resolver helper
     try:
         from backend.core.monitor_core.sonic_monitor import (  # type: ignore
             _read_monitor_threshold_sources,
