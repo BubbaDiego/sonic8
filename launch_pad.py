@@ -17,6 +17,12 @@ try:
 except Exception:
     pass
 
+# --- spec toolchain bootstrap (ensures cwd/PYTHONPATH + pyyaml/jsonschema) ---
+try:
+    from backend.scripts.spec_bootstrap import preflight as spec_preflight
+except Exception:
+    spec_preflight = None
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Preferred interpreter logic:
 # - If .venv exists, ALWAYS re-exec Launch Pad under that interpreter
@@ -401,6 +407,15 @@ def goals_menu():
 
 def run_daily_maintenance():
     console.print("[cyan]Running on-demand maintenance…[/]")
+    # Ensure environment is sane for spec scripts before doing anything else.
+    if spec_preflight is not None:
+        try:
+            spec_preflight(install=True)
+        except Exception as _e:
+            # Do not crash the UI; surface the problem as a WARN row and continue.
+            print(f"[WARN] spec preflight encountered an issue: {_e}")
+    else:
+        print("[WARN] spec bootstrap unavailable; proceeding without preflight")
     # Hook scripts here as they become available
     console.print("[green]Done.[/]")
 
