@@ -99,27 +99,8 @@ _db_from_cfg = (_cfg.get("system_config") or {}).get("db_path")
 _db_from_env = os.getenv("SONIC_DB_PATH")
 _DB_PATH = _db_from_cfg or _db_from_env or str(Path(__file__).resolve().parents[2] / "mother.db")
 
-# 4) Robust import for DataLocker (no new files). Try known locations.
-DataLocker = None
-try:
-    from backend.data_locker import DataLocker as _DL  # common path
-    DataLocker = _DL
-except Exception:
-    try:
-        from backend.core.data_locker import DataLocker as _DL  # alternate
-        DataLocker = _DL
-    except Exception:
-        try:
-            from backend.core.monitor_core.data_locker import DataLocker as _DL  # local
-            DataLocker = _DL
-        except Exception:
-            DataLocker = None
-
-if DataLocker is None:
-    raise RuntimeError(
-        "DataLocker import failed. Expected at backend.data_locker (or backend.core.data_locker). "
-        "Fix the import path above to your actual DataLocker module."
-    )
+# 4) Import DataLocker from the actual module location in this repo
+from backend.data.data_locker import DataLocker
 
 # 5) Singleton DAL
 dal = DataLocker.get_instance(_DB_PATH)
