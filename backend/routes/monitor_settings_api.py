@@ -4,10 +4,10 @@ v2 – Adds nested ``notifications`` dict (system / voice / sms / tts) to liquid
 Back‑compat: still accepts flat ``threshold_btc`` etc. and old ``windows_alert`` / ``voice_alert`` flags.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from datetime import datetime, timezone
-from typing import Any, Dict
-from pydantic import BaseModel
+from typing import Any, Dict, Optional
+from pydantic import BaseModel, Field
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.core.alert_core.threshold_service import ThresholdService  # type: ignore
 from backend.core.core_constants import MOTHER_DB_PATH
@@ -15,7 +15,7 @@ from backend.core.monitor_core.sonic_monitor import DEFAULT_INTERVAL, MONITOR_NA
 from backend.core.monitor_core import market_monitor
 from backend.deps import get_app_locker
 
-router = APIRouter(prefix="/api/monitor-settings", tags=["monitor-settings"])
+router = APIRouter(prefix="/api/monitor-settings", tags=["monitor_settings"])
 
 
 def _read_interval(dl: DataLocker) -> int:
@@ -35,25 +35,6 @@ def _read_interval(dl: DataLocker) -> int:
 # ------------------------------------------------------------------ #
 # Market Movement Monitor settings
 # ------------------------------------------------------------------ #
-
-
-@router.get("/market")
-def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
-    """Return current MarketMovementMonitor configuration with defaults."""
-
-    mon = market_monitor.MarketMonitor(dl)
-    return mon._cfg()
-
-
-@router.post("/market")
-def update_market_settings(payload: dict, dl: DataLocker = Depends(get_app_locker)):
-    mon = market_monitor.MarketMonitor(dl)
-    cfg = mon._cfg()
-    for key in ("notifications", "thresholds", "rearm_mode", "anchors", "armed"):
-        if key in payload:
-            cfg[key] = payload[key]
-    dl.system.set_var(mon.name, cfg)
-    return cfg
 
 
 @router.post("/market/reset-anchors")
@@ -201,113 +182,173 @@ def get_provenance(dl: DataLocker = Depends(get_app_locker)):
 
 
 # ------------------------------------------------------------------ #
-# Liquidation Monitor (liquid_monitor)
+# Liquidation & Market Monitor system_var helpers
 # ------------------------------------------------------------------ #
 
 
-def _merge_liq_config(cfg: dict, payload: dict) -> dict:
-    """Return merged config respecting new + legacy keys."""
-    cfg = cfg.copy()
+def _dl_get_system_var(dl: DataLocker, key: str, default: Any = None) -> Any:
+    """Fetch a system-level value from any available accessor on DataLocker."""
 
-    def to_bool(value):
-        if isinstance(value, str):
-            return value.lower() in ("1", "true", "yes", "on")
-        return bool(value)
+    system_mgr = getattr(dl, "system", None)
+    if system_mgr is not None:
+        try:
+            value = system_mgr.get_var(key)
+        except Exception:
+            value = None
+        if value is not None:
+            return value
 
-    # --- Global fields ------------------------------------------------
-    cfg["threshold_percent"] = float(
-        payload.get("threshold_percent", cfg.get("threshold_percent", 5.0))
-    )
-    cfg["snooze_seconds"] = int(
-        payload.get("snooze_seconds", cfg.get("snooze_seconds", 300))
-    )
-    cfg["enabled"] = to_bool(payload.get("enabled", cfg.get("enabled", True)))
-
-    # Enabled flag ----------------------------------------------------
-    cfg["enabled"] = to_bool(payload.get("enabled", cfg.get("enabled", True)))
-
-    # --- Thresholds dict ---------------------------------------------
-    thresholds = payload.get("thresholds")
-    if thresholds is None:
-        # Fallback to legacy ``threshold_btc`` style keys
-        thresholds = {}
-        for sym in ("btc", "eth", "sol"):
-            if (k := f"threshold_{sym}") in payload:
-                try:
-                    thresholds[sym.upper()] = float(payload[k])
-                except Exception:
-                    pass
-    elif isinstance(thresholds, dict):
-        # Cast each provided value to float when merging
-        casted = {}
-        for sym, value in thresholds.items():
+    for name in ("get_system_var", "get_sysvar", "get_var", "system_var_get"):
+        func = getattr(dl, name, None)
+        if callable(func):
             try:
-                casted[sym] = float(value)
+                return func(key)
+            except TypeError:
+                try:
+                    return func(key, default)
+                except Exception:
+                    continue
             except Exception:
-                # Skip values that cannot be converted
-                pass
-        thresholds = casted
-    else:
-        thresholds = {}
+                continue
 
-    cfg["thresholds"] = thresholds or cfg.get("thresholds", {})
+    system_vars = getattr(dl, "system_vars", None)
+    if isinstance(system_vars, dict):
+        return system_vars.get(key, default)
 
-    # --- Notifications ----------------------------------------------
-    notifications = payload.get("notifications")
-    if notifications is None or not isinstance(notifications, dict):
-        # Map any flat keys so that UI relying on old names still works
-        notifications = {
-            "system": to_bool(
-                payload.get("windows_alert", cfg.get("windows_alert", True))
-            ),
-            "voice": to_bool(payload.get("voice_alert", cfg.get("voice_alert", True))),
-            "sms": to_bool(payload.get("sms_alert", cfg.get("sms_alert", False))),
-            "tts": to_bool(payload.get("tts_alert", cfg.get("tts_alert", True))),
-        }
-    # Ensure booleans
-    notifications = {
-        "system": to_bool(notifications.get("system")),
-        "voice": to_bool(notifications.get("voice")),
-        "sms": to_bool(notifications.get("sms")),
-        "tts": to_bool(notifications.get("tts")),
+    return default
+
+
+def _dl_set_system_var(dl: DataLocker, key: str, value: Any) -> None:
+    """Persist a system-level value via the best available accessor."""
+
+    system_mgr = getattr(dl, "system", None)
+    if system_mgr is not None:
+        try:
+            system_mgr.set_var(key, value)
+            return
+        except Exception:
+            pass
+
+    for name in ("set_system_var", "set_sysvar", "set_var", "system_var_set"):
+        func = getattr(dl, name, None)
+        if callable(func):
+            try:
+                func(key, value)
+                return
+            except Exception:
+                continue
+
+    system_vars = getattr(dl, "system_vars", None)
+    if isinstance(system_vars, dict):
+        system_vars[key] = value
+
+
+class LiquidationSettings(BaseModel):
+    thresholds: Dict[str, Any] = Field(default_factory=dict)
+    blast_radius: Dict[str, Any] = Field(default_factory=dict)
+    notifications: Dict[str, bool] = Field(default_factory=dict)
+    enabled_liquid: Optional[bool] = None
+
+
+def _num(value: Any, default: float | None = 0.0) -> float | None:
+    if value is None or value == "":
+        return default
+    try:
+        return float(str(value).replace(",", ""))
+    except Exception:
+        return default
+
+
+def _normalize_liq(payload: LiquidationSettings) -> Dict[str, Any]:
+    thresholds = payload.thresholds or {}
+    blast_radius = payload.blast_radius or {}
+
+    normalized_thresholds = {k.upper(): _num(v, 0.0) for k, v in thresholds.items()}
+    normalized_blast = {k.upper(): _num(v, 0.0) for k, v in blast_radius.items()}
+
+    notifications = {"system": True, "voice": True, "sms": False, "tts": True}
+    notifications.update(payload.notifications or {})
+
+    cfg: Dict[str, Any] = {
+        "thresholds": normalized_thresholds,
+        "blast_radius": normalized_blast,
+        "notifications": notifications,
     }
-    cfg["notifications"] = notifications
 
-    # Preserve legacy flags for the monitor until fully migrated
-    cfg["windows_alert"] = notifications["system"]
-    cfg["voice_alert"] = notifications["voice"]
-    cfg["sms_alert"] = notifications["sms"]
-    cfg["tts_alert"] = notifications["tts"]
+    if payload.enabled_liquid is not None:
+        cfg["enabled_liquid"] = bool(payload.enabled_liquid)
 
     return cfg
 
 
-@router.get("/liquidation")
+@router.get("/liquidation", response_model=LiquidationSettings)
 def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
-    """Return the current liquidation monitor configuration."""
-    cfg = dl.system.get_var("liquid_monitor") or {}
-    # Ensure defaults so that frontend checkboxes have values
-    cfg.setdefault("thresholds", {})
-    cfg.setdefault(
-        "notifications",
-        {"system": True, "voice": True, "sms": False, "tts": True},
+    data = _dl_get_system_var(dl, "liquid_monitor", {}) or {}
+    return LiquidationSettings(
+        thresholds=data.get("thresholds", {}),
+        blast_radius=data.get("blast_radius", {}),
+        notifications=data.get("notifications", {}),
+        enabled_liquid=data.get("enabled_liquid"),
     )
-    cfg.setdefault("enabled", True)
+
+
+@router.post("/liquidation", status_code=status.HTTP_204_NO_CONTENT)
+def post_liquidation_settings(
+    payload: LiquidationSettings, dl: DataLocker = Depends(get_app_locker)
+):
+    shaped = _normalize_liq(payload)
+    _dl_set_system_var(dl, "liquid_monitor", shaped)
+
+
+class MarketSettings(BaseModel):
+    thresholds: Dict[str, Any] = Field(default_factory=dict)
+    rearm_mode: Optional[str] = None
+    notifications: Dict[str, bool] = Field(default_factory=dict)
+    enabled_market: Optional[bool] = None
+
+
+def _normalize_market(payload: MarketSettings) -> Dict[str, Any]:
+    normalized: Dict[str, Dict[str, Any]] = {}
+    for asset, value in (payload.thresholds or {}).items():
+        if isinstance(value, dict):
+            delta = _num(value.get("delta"), 0.0)
+            direction = str(value.get("direction", "both")).lower()
+        else:
+            delta = _num(value, 0.0)
+            direction = "both"
+        normalized[asset.upper()] = {"delta": delta, "direction": direction}
+
+    notifications = {"system": True, "voice": True, "sms": False, "tts": True}
+    notifications.update(payload.notifications or {})
+
+    cfg: Dict[str, Any] = {
+        "thresholds": normalized,
+        "notifications": notifications,
+    }
+
+    if payload.rearm_mode:
+        cfg["rearm_mode"] = payload.rearm_mode.lower()
+    if payload.enabled_market is not None:
+        cfg["enabled_market"] = bool(payload.enabled_market)
+
     return cfg
 
 
-@router.post("/liquidation")
-def update_liquidation_settings(
-    payload: dict, dl: DataLocker = Depends(get_app_locker)
-):
-    """Update liquidation monitor settings.
+@router.get("/market", response_model=MarketSettings)
+def get_market_settings(dl: DataLocker = Depends(get_app_locker)):
+    data = _dl_get_system_var(dl, "market_monitor", {}) or {}
+    return MarketSettings(
+        thresholds=data.get("thresholds", {}),
+        rearm_mode=data.get("rearm_mode"),
+        notifications=data.get("notifications", {}),
+        enabled_market=data.get("enabled_market"),
+    )
 
-    Accepts both new nested structure and legacy flat keys.
-    """
-    existing = dl.system.get_var("liquid_monitor") or {}
-    cfg = _merge_liq_config(existing, payload)
-    dl.system.set_var("liquid_monitor", cfg)
-    return {"success": True, "config": cfg}
+
+@router.post("/market", status_code=status.HTTP_204_NO_CONTENT)
+def post_market_settings(payload: MarketSettings, dl: DataLocker = Depends(get_app_locker)):
+    shaped = _normalize_market(payload)
+    _dl_set_system_var(dl, "market_monitor", shaped)
 
 
 # ------------------------------------------------------------------ #
@@ -328,7 +369,6 @@ def get_profit_settings(dl: DataLocker = Depends(get_app_locker)):
         "sms": False,
         "tts": True,
     }
-    enabled = cfg.get("enabled", True)
     return {
         "portfolio_low": getattr(portfolio_th, "low", None),
         "portfolio_high": getattr(portfolio_th, "high", None),
