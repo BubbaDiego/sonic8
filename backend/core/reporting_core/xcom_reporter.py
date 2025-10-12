@@ -26,6 +26,26 @@ _ERR_HINTS = {
 }
 
 
+def _compact_msg(s: str) -> str:
+    """Return a trimmed, human-friendly version of Twilio exception strings."""
+
+    if not s:
+        return ""
+
+    compact = re.sub(r"\s+", " ", s).strip()
+
+    compact = re.sub(
+        r"HTTP Error Your request was:.*?twilio\.com/docs/errors/\d+\)?",
+        "",
+        compact,
+        flags=re.IGNORECASE,
+    )
+
+    compact = re.sub(r".*Unable to create record:\s*", "", compact, flags=re.IGNORECASE)
+
+    return compact.strip(" .")
+
+
 def _mask(v: Optional[str]) -> str:
     if not v or v == "-":
         return "–"
@@ -33,10 +53,11 @@ def _mask(v: Optional[str]) -> str:
 
 
 def _parse_twilio_error(exc: Exception) -> Tuple[Optional[str], str]:
-    """Returns (code, message). Tries to read attributes then falls back to regex."""
+    """Returns ``(code, compact_message)`` from a Twilio exception."""
 
     code: Optional[str] = None
-    msg = str(exc).strip()
+    raw = str(exc) if exc else ""
+    msg = _compact_msg(raw)
     # Try attribute first
     try:
         code_attr = getattr(exc, "code", None)
@@ -46,11 +67,9 @@ def _parse_twilio_error(exc: Exception) -> Tuple[Optional[str], str]:
         pass
     # Fallback: extract .../errors/<code>
     if not code:
-        match = re.search(r"/errors/(\d+)", msg)
+        match = re.search(r"/errors/(\d+)", raw)
         if match:
             code = match.group(1)
-    # Clean message a bit
-    msg = re.sub(r"\s+", " ", msg)
     return code, msg
 
 
@@ -68,7 +87,8 @@ def twilio_success(channel: str, note: str = "") -> None:
 def twilio_fail(channel: str, exc: Exception) -> None:
     code, message = _parse_twilio_error(exc)
     hint = _ERR_HINTS.get(code or "", "")
-    note = f"{(code + ' — ') if code else ''}{message}"
+    note_core = f"{code} {message}".strip() if code else message
+    note = note_core or "(unknown Twilio error)"
     if hint:
         note += f"  ({hint})"
     phase_end(f"xcom_{channel}", "fail", note=note)

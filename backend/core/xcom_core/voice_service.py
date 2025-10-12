@@ -151,6 +151,13 @@ class VoiceService:
             twilio_success("voice", note="call created")
             return True, sid, to_resolved, from_number
         except Exception as exc:  # pragma: no cover - Twilio network errors
+            # Log a concise one-liner (no traceback spam) and emit the failure via XCom.
+            message = str(exc) if exc else ""
+            lines = message.splitlines()
+            first_line = lines[0] if lines else (message or "Unknown error")
+            self.logger.error(
+                "Twilio voice failed (compact): %s", first_line, exc_info=False
+            )
             twilio_fail("voice", exc)
-            self.logger.exception("Twilio voice call failed: %s", exc)
+            # Do not re-raise; the failure is reported upstream and we return a tuple.
             return False, str(exc), to_resolved, from_number

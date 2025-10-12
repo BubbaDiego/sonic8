@@ -127,6 +127,9 @@ _MONITOR_LABELS: Dict[MonitorType, str] = {
 }
 
 
+_MON_STATE: Dict[str, str] = {}
+
+
 def _format_monitor_lines(status: Optional[MonitorStatus]) -> tuple[str, str]:
     if status is None:
         return "↑0/0/0", "–"
@@ -336,12 +339,15 @@ async def _run_monitor_tick(name: str, runner: Callable[..., Any], *args: Any, *
         result = await asyncio.to_thread(runner, *args, **kwargs)
     except Exception as exc:
         task_end(key, "fail", note=str(exc))
+        _MON_STATE[name] = "FAIL"
         raise
     else:
         if isinstance(result, dict) and result.get("skipped"):
             task_end(key, "skip", note="fresh")
+            _MON_STATE[name] = "⏭"
         else:
             task_end(key, "ok")
+            _MON_STATE[name] = "OK"
         return result
 
 def get_monitor_interval(db_path=MOTHER_DB_PATH, monitor_name=MONITOR_NAME):
@@ -403,6 +409,8 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
 
     dl = DataLocker.get_instance()
     cfg = dl.system.get_var("sonic_monitor") or {}
+
+    _MON_STATE.clear()
 
     if not cfg.get("enabled_sonic", True):
         logging.info("Sonic loop disabled via config")
@@ -569,6 +577,24 @@ def run_monitor(
                 status_snapshot,
                 alerts_line=alerts_line,
             )
+            try:
+                if _MON_STATE:
+                    ordered_keys = (
+                        "price_monitor",
+                        "market_monitor",
+                        "profit_monitor",
+                        "liquid_monitor",
+                        "position_monitor",
+                    )
+                    tokens: list[str] = []
+                    for key in ordered_keys:
+                        if key in _MON_STATE:
+                            label = key.replace("_monitor", "")
+                            tokens.append(f"{label}:{_MON_STATE[key]}")
+                    if tokens:
+                        summary["monitors_inline"] = " ".join(tokens)
+            except Exception:
+                pass
             try:
                 _enrich_summary_from_locker(summary, dl)
             except Exception:
