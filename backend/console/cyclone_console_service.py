@@ -1,6 +1,4 @@
-# Thin shim so Launch Pad can launch Cyclone reliably.
-# Works both when executed as a module (-m backend.console.cyclone_console_service)
-# and when executed directly as a script (python backend\console\cyclone_console_service.py).
+"""Support both module and script execution for the Cyclone console launcher."""
 
 from __future__ import annotations
 
