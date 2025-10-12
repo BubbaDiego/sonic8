@@ -88,6 +88,7 @@ from datetime import datetime, timezone
 from backend.core.monitor_core.utils.console_title import set_console_title
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.utils.banner import emit_config_banner
+from backend.core.config_core.sonic_config_bridge import get_price_assets
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.console_lines import emit_compact_cycle
@@ -694,6 +695,9 @@ def run_monitor(
                             pass
                         if len(top3) >= 3:
                             break
+                    if not top3:
+                        desired = get_price_assets()
+                        top3 = [(asset, float("nan")) for asset in desired]
                     if top3:
                         summary["prices_top3"] = top3
                     if price_ages:
