@@ -5,6 +5,14 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
+from backend.core.config_core.sonic_config_bridge import (
+    get_db_path,
+    get_liquid_thresholds,
+    get_loop_seconds,
+    get_price_assets,
+    get_twilio,
+)
+
 _ICON_ASSET = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
 
 
@@ -168,15 +176,17 @@ def print_prelaunch_body(
 ) -> None:
     """Body only; banner prints the header. One-time at startup."""
     env_path = os.getenv("SONIC_ENV_PATH_RESOLVED") or "–"
-    db_path = getattr(getattr(dl, "db", None), "db_path", None) or "–"
+    db_path = get_db_path() or (getattr(getattr(dl, "db", None), "db_path", None) or "–")
 
     # Twilio (show full values: dev console)
-    sid = os.getenv("TWILIO_SID") or os.getenv("TWILIO_ACCOUNT_SID") or "–"
-    auth = os.getenv("TWILIO_AUTH_TOKEN") or "–"
-    flow = os.getenv("TWILIO_FLOW_SID") or "–"
-    from_ = os.getenv("TWILIO_FROM") or os.getenv("TWILIO_FROM_PHONE") or "–"
+    tcfg = get_twilio()
+    sid = tcfg.get("SID") or os.getenv("TWILIO_SID") or os.getenv("TWILIO_ACCOUNT_SID") or "–"
+    auth = tcfg.get("AUTH") or os.getenv("TWILIO_AUTH_TOKEN") or "–"
+    flow = tcfg.get("FLOW") or os.getenv("TWILIO_FLOW_SID") or "–"
+    from_ = tcfg.get("FROM") or os.getenv("TWILIO_FROM") or os.getenv("TWILIO_FROM_PHONE") or "–"
     to_ = (
-        os.getenv("TWILIO_TO")
+        tcfg.get("TO")
+        or os.getenv("TWILIO_TO")
         or os.getenv("TWILIO_TO_PHONE")
         or os.getenv("TWILIO_DEFAULT_TO")
         or "–"
@@ -199,19 +209,28 @@ def print_prelaunch_body(
         f"                    FROM={from_}   TO={to_}   FLOW={flow}"
     )
     print()
+    cfg_loop = get_loop_seconds()
+    loop_val = cfg_loop if cfg_loop is not None else poll_interval_s
     print(
         "⚙️ Runtime        : Poll Interval="
-        f"{int(poll_interval_s)}s   Loop Mode=Live   Snooze=disabled"
+        f"{int(loop_val)}s   Loop Mode=Live   Snooze=disabled"
     )
     print()
     # Enabled flags (best-effort)
     print("📡 Monitors       : Sonic=ON   Liquid=ON   Profit=ON   Market=ON")
     print()
-    print("💧 Liquidation (per-asset)   [source: DB|FILE]")
-    for sym in ("BTC", "ETH", "SOL"):
-        thr, bl, src = _liquid_row(conn, sym)
+    print("💧 Liquidation (per-asset)   [source: CONFIG→DB|FILE]")
+    cfg_liq = get_liquid_thresholds()
+    sym_list = list(cfg_liq.keys()) or get_price_assets()
+    if not sym_list:
+        sym_list = ["BTC", "ETH", "SOL"]
+    for sym in sym_list:
+        thr_cfg = cfg_liq.get(sym)
+        thr_db, bl_db, _ = _liquid_row(conn, sym)
+        thr = f"{thr_cfg:.2f}" if thr_cfg is not None else thr_db
+        bl = bl_db
         icon = _ICON_ASSET.get(sym, "•")
-        print(f"  {icon} {sym:<3}  Threshold: {thr:<6}  Blast: {bl:<2}  [{src}]")
+        print(f"  {icon} {sym:<3}  Threshold: {thr:<6}  Blast: {bl:<2}")
     print()
     print("💰 Profit Monitor           [source: DB]")
     print(f"  Position Profit (USD) : {pos}")
