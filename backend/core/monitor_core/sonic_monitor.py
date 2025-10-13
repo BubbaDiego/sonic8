@@ -539,7 +539,7 @@ def _build_cycle_summary(
     alerts_line: str,
     notifications: Optional[str] = None,
 ) -> Dict[str, Any]:
-    pos_line, brief = _format_monitor_lines(status)
+    mon_line, mon_brief = _format_monitor_lines(status)
     notif = notifications or (status.sonic_last_complete if status else None)
     if notif:
         notif_line = f"Last sonic completion @ {notif}"
@@ -549,13 +549,11 @@ def _build_cycle_summary(
     summary = {
         "cycle_num": cycle_num,
         "elapsed_s": elapsed,
-        "positions_line": pos_line,
-        "positions_brief": brief,
         "alerts_inline": alerts_line,
         "notifications_brief": notif_line,
         "hedge_groups": 0,
-        "monitor_states_line": pos_line,
-        "monitor_brief": brief,
+        "monitor_states_line": mon_line,
+        "monitor_brief": mon_brief,
     }
     return summary
 
@@ -831,6 +829,16 @@ def run_monitor(
 
     # JSON-ONLY interval for banner and runtime
     poll_interval_s = int(LOOP_SECONDS)
+    try:
+        env_loop = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
+        if env_loop and int(float(env_loop)) != poll_interval_s:
+            print(f"DEBUG[CFG] ENV loop={env_loop} ignored (JSON ONLY)")
+        if getattr(dal, 'system', None):
+            db_loop = dal.system.get_var('sonic_monitor_loop_time')
+            if db_loop and int(float(db_loop)) != poll_interval_s:
+                print(f"DEBUG[CFG] DB loop={db_loop} overwritten by JSON ({poll_interval_s})")
+    except Exception:
+        pass
     emit_config_banner(dl, poll_interval_s, muted_modules=muted, xcom_live=_xcom_live(), config_source=("JSON ONLY", _json_path()))
 
     monitor_core = MonitorCore()
@@ -855,6 +863,7 @@ def run_monitor(
 
     loop_counter = 0
     cycle_limit = cycles if cycles is not None and cycles > 0 else None
+    print(f"DEBUG[CYCLES] cycle_limit={cycle_limit}  (None means infinite)")
 
     try:
         while cycle_limit is None or loop_counter < cycle_limit:
@@ -895,22 +904,21 @@ def run_monitor(
 
             icon_line: Optional[str] = None
             try:
-                db_manager = getattr(dl, "db", None)
-                conn = getattr(db_manager, "conn", None) if db_manager is not None else None
-                if conn is None and db_manager is not None:
-                    conn = db_manager.connect()
-                icon_line = compute_positions_icon_line(conn)
+                db_obj = getattr(dl, "db", None)
+                conn = getattr(db_obj, "conn", None) if db_obj is not None else None
+                icon_line = compute_positions_icon_line(conn if conn is not None else None)
             except Exception:
                 logging.debug("positions icon line computation failed", exc_info=True)
 
             if not icon_line:
                 try:
-                    fallback_positions = getattr(dl, "last_positions_fetch", None)
-                    icon_line = compute_from_list(fallback_positions)
+                    icon_line = compute_from_list(getattr(dl, "last_positions_fetch", None))
                 except Exception:
                     icon_line = None
 
             summary = _build_cycle_summary(loop_counter, elapsed, status_snapshot, alerts_line=alerts_line)
+            if icon_line:
+                summary["positions_icon_line"] = icon_line
 
             # populate prices/positions/hedges into summary for endcap
             try:
@@ -1021,8 +1029,10 @@ def run_monitor(
                         if key in _MON_STATE:
                             tokens.append(f"{key.replace('_monitor','')}:{_MON_STATE[key]}")
                     if tokens:
+                        # keep monitor health on its own line
                         summary["monitors_inline"] = " ".join(tokens)
-                        summary["alerts_inline"] = summary.get("alerts_inline") or summary["monitors_inline"]
+                        # if alerts line is empty, use monitors as a fallback
+                        summary.setdefault("alerts_inline", summary["monitors_inline"])
             except Exception:
                 pass
 

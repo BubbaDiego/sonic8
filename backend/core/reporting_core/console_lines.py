@@ -85,9 +85,9 @@ def emit_compact_cycle(
         f"{_prices_line(summary.get('prices_top3', []), summary.get('price_ages', {}), enable_color=enable_color)}  • @ {prices_when}"
     )
 
-    # Positions
+    # Positions — show iconified line (e.g., 🟡 BTC-S, 🔷 ETH-L, 🟣 SOL-S)
     pos_when = _fmt_short_clock(summary.get("positions_updated_at"))
-    pos_line = summary.get("positions_line", summary.get("positions_icon_line", "–"))
+    pos_line = summary.get("positions_icon_line") or "–"
     pos_error = summary.get("positions_error")
     if pos_error:
         print(f"   {_CYAN}Positions{_RESET}: {pos_line}  • @ {pos_when} — {_RED}{pos_error}{_RESET}")
