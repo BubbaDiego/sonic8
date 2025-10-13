@@ -86,7 +86,7 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
 from backend.data.data_locker import DataLocker
 
 
-def _json_path() -> str:
+def _monitor_json_path() -> str:
     return os.getenv("SONIC_MONITOR_CONFIG_PATH") or str(
         Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
     )
@@ -104,7 +104,7 @@ def _expand_env(node):
 
 
 def _load_json_only() -> Dict[str, Any]:
-    path = _json_path()
+    path = _monitor_json_path()
     if not os.path.exists(path):
         print(f"❌ JSON not found: {path}")
         raise SystemExit(2)
@@ -133,6 +133,15 @@ MONITOR_NAME = "sonic_monitor"
 dal = DataLocker.get_instance(MOTHER_DB_PATH)
 
 
+def _cfg_get(d: dict, *ks, default=None):
+    cur = d
+    for k in ks:
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(k, default)
+    return cur if cur is not None else default
+
+
 def _get(d: Dict[str, Any], *keys, default=None):
     cur = d
     for key in keys:
@@ -153,12 +162,22 @@ def _require(path_desc: str, value, coerce=lambda x: x):
         raise SystemExit(2)
 
 
-LOOP_SECONDS = _require(
-    "system_config.sonic_loop_delay | monitor.loop_seconds",
-    _get(CFG, "system_config", "sonic_loop_delay")
-    or _get(CFG, "monitor", "loop_seconds"),
-    coerce=lambda x: int(float(x)),
-)
+def _require_loop_seconds() -> int:
+    _json_loop = _cfg_get(CFG, "system_config", "sonic_loop_delay") or _cfg_get(
+        CFG, "monitor", "loop_seconds"
+    )
+    if _json_loop is None:
+        print("❌ JSON missing: system_config.sonic_loop_delay | monitor.loop_seconds")
+        raise SystemExit(2)
+
+    try:
+        return int(float(_json_loop))
+    except Exception:
+        print(f"❌ JSON invalid type for loop: {_json_loop!r}")
+        raise SystemExit(2)
+
+
+LOOP_SECONDS = _require_loop_seconds()
 
 LIQ_THR = _require(
     "liquid.thresholds | (legacy) liquid_monitor.thresholds",
@@ -262,14 +281,6 @@ try:
     _db_monitor_cfg = dict(_db_monitor_cfg_raw) if isinstance(_db_monitor_cfg_raw, Mapping) else {}
 except Exception:
     _db_monitor_cfg = {}
-
-_loop_from_cfg_raw = cfg_loop_seconds(None)
-_LOOP_SECONDS_OVERRIDE: Optional[int]
-try:
-    loop_val = int(_loop_from_cfg_raw) if _loop_from_cfg_raw is not None else None
-    _LOOP_SECONDS_OVERRIDE = loop_val if loop_val and loop_val > 0 else None
-except Exception:
-    _LOOP_SECONDS_OVERRIDE = None
 
 _enabled_overrides_raw: dict[str, Any] = {
     "sonic": cfg_enabled("sonic", default=None),
@@ -825,9 +836,6 @@ def get_monitor_interval(db_path: str | None = None, monitor_name: str | None = 
     _ = db_path or MOTHER_DB_PATH
     _ = monitor_name or MONITOR_NAME
 
-    if _LOOP_SECONDS_OVERRIDE is not None and _LOOP_SECONDS_OVERRIDE > 0:
-        return int(_LOOP_SECONDS_OVERRIDE)
-
     return int(LOOP_SECONDS)
 
 
@@ -949,9 +957,31 @@ def run_monitor(
     except Exception:
         _ALERT_LIMITS = {}
 
-    poll_interval_s = _LOOP_SECONDS_OVERRIDE or LOOP_SECONDS
-    if not poll_interval_s:
-        poll_interval_s = DEFAULT_INTERVAL
+    _json_loop = _cfg_get(CFG, "system_config", "sonic_loop_delay") or _cfg_get(
+        CFG, "monitor", "loop_seconds"
+    )
+    if _json_loop is None:
+        print("❌ JSON missing: system_config.sonic_loop_delay | monitor.loop_seconds")
+        raise SystemExit(2)
+
+    try:
+        poll_interval_s = int(float(_json_loop))
+    except Exception:
+        print(f"❌ JSON invalid type for loop: {_json_loop!r}")
+        raise SystemExit(2)
+
+    try:
+        env_loop = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
+        if env_loop and int(float(env_loop)) != poll_interval_s:
+            print(f"DEBUG[CFG] ENV loop={env_loop} ignored (JSON ONLY)")
+        if getattr(dal, "system", None):
+            db_loop = dal.system.get_var("sonic_monitor_loop_time")
+            if db_loop and int(float(db_loop)) != poll_interval_s:
+                print(
+                    f"DEBUG[CFG] DB loop={db_loop} overwritten by JSON ({poll_interval_s})"
+                )
+    except Exception:
+        pass
 
     display_interval = poll_interval_s or DEFAULT_INTERVAL
 
@@ -961,7 +991,7 @@ def run_monitor(
         poll_interval_s,
         muted_modules=muted,
         xcom_live=_xcom_live(),
-        config_source=("JSON ONLY", _json_path()),
+        config_source=("JSON ONLY", _monitor_json_path()),
     )
 
     monitor_core = MonitorCore()
@@ -993,8 +1023,10 @@ def run_monitor(
             if interval <= 0:
                 interval = display_interval
 
-            line = "─" * 28 + f" ◆ cycle #{loop_counter + 1} start " + "─" * 28
-            print(line)
+            cycle_number = loop_counter + 1
+            print(
+                f"✅ cycle #{cycle_number} - {datetime.now().strftime('%-I:%M%p').lower()}"
+            )
             print()
             loop_counter += 1
             start_time = time.time()
