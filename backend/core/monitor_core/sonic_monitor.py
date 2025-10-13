@@ -15,6 +15,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Callable
 
+
+def _center_banner(text: str, width: int = 78) -> str:
+    pad = max(0, (width - len(text)) // 2)
+    return " " * pad + text
+
 # ── ensure absolute imports resolve when launching this file directly ─────────
 if __package__ in (None, ""):
     _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -787,8 +792,17 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
         heartbeat(loop_counter)
         return
 
+    # ----- Sync section header (centered) -----
+    print(_center_banner(" 🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️ "))
+    print()
+
     # Full Cyclone pipeline
     await cyclone.run_cycle()
+
+    # ----- Monitors section header (centered) -----
+    print()
+    print(_center_banner(" 🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️ "))
+    print()
 
     # Run monitors (each will call XCom inline if needed)
     if price_enabled:
