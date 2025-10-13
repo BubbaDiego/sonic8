@@ -86,65 +86,8 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
 from backend.config.config_loader import load_config
 from backend.data.data_locker import DataLocker
 
-# ── Config + DB bootstrap (order matters) ─────────────────────
-_CFG_PATH = os.getenv("SONIC_CONFIG_JSON_PATH") or str(
-    Path(__file__).resolve().parents[2] / "config" / "sonic_config.json"
-)
-try:
-    _cfg = load_config(_CFG_PATH) or {}
-except Exception:
-    _cfg = {}
 
-
-def _cfg_get(d: dict, *keys, default=None):
-    cur = d
-    for k in keys:
-        if not isinstance(cur, dict):
-            return default
-        cur = cur.get(k, default)
-    return cur if cur is not None else default
-
-
-def _resolve_poll_interval(default_seconds: int) -> int:
-    from_json = (
-        _cfg_get(_cfg, "system_config", "sonic_loop_delay")
-        or _cfg_get(_cfg, "monitor", "loop_seconds")
-        or _cfg_get(_cfg, "system_config", "sonic_monitor_loop_time")
-    )
-    if from_json:
-        try:
-            return int(float(from_json))
-        except Exception:
-            pass
-    env = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
-    if env:
-        try:
-            return int(float(env))
-        except Exception:
-            pass
-    return int(default_seconds)
-
-_DB_PATH = (
-    (_cfg.get("system_config") or {}).get("db_path")
-    or os.getenv("SONIC_DB_PATH")
-    or str(Path(__file__).resolve().parents[2] / "mother.db")
-)
-
-MOTHER_DB_PATH = _DB_PATH           # ← compatibility alias
-MONITOR_NAME = "sonic_monitor"
-
-dal = DataLocker.get_instance(MOTHER_DB_PATH)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# JSON-ONLY CONFIG MODE
-# If sonic_monitor_config.json exists, we will use ONLY it.
-# We expand ${ENV} placeholders, validate required keys, and then:
-#   1) set runtime values directly from JSON
-#   2) seed DB system_vars from JSON so legacy readers match JSON
-# No "effective sources", no implicit fallback. If a domain is missing, we print why.
-# ─────────────────────────────────────────────────────────────────────────────
-def _mon_json_path() -> str:
+def _json_path() -> str:
     return os.getenv("SONIC_MONITOR_CONFIG_PATH") or str(
         Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
     )
@@ -161,187 +104,142 @@ def _expand_env(node):
     return node
 
 
-def _load_mon_json_with_meta() -> tuple[dict, dict]:
-    path = _mon_json_path()
-    meta = {"path": path, "exists": False, "error": None}
-    data = {}
+def _load_json_only() -> Dict[str, Any]:
+    path = _json_path()
+    if not os.path.exists(path):
+        print(f"❌ JSON not found: {path}")
+        raise SystemExit(2)
     try:
-        if os.path.exists(path):
-            meta["exists"] = True
-            with open(path, "r", encoding="utf-8") as f:
-                data = _expand_env(json.load(f) or {})
-        else:
-            meta["error"] = "file_not_found"
-    except Exception as e:
-        meta["error"] = f"json_error:{e.__class__.__name__}"
-    return (data if isinstance(data, dict) else {}), meta
+        data = load_config(path) or {}
+        if not isinstance(data, dict):
+            return {}
+        return _expand_env(data)
+    except Exception as exc:
+        print(f"❌ JSON load error ({path}): {exc.__class__.__name__}: {exc}")
+        raise SystemExit(2)
 
 
-_MON, _MON_META = _load_mon_json_with_meta()
+CFG: Dict[str, Any] = _load_json_only()
+
+MOTHER_DB_PATH = (
+    (CFG.get("system_config") or {}).get("db_path")
+    or os.getenv("SONIC_DB_PATH")
+    or str(Path(__file__).resolve().parents[2] / "mother.db")
+)
+MONITOR_NAME = "sonic_monitor"
 
 
-def _present(v) -> bool:
-    if v is None:
-        return False
-    if isinstance(v, str):
-        s = v.strip()
-        if not s:
-            return False
-        if s.startswith("${") and s.endswith("}"):
-            return False
-        return True
-    return True
+dal = DataLocker.get_instance(MOTHER_DB_PATH)
 
 
-def _j(*keys, default=None):
-    cur = _MON
-    for k in keys:
+def _get(d: Dict[str, Any], *keys, default=None):
+    cur = d
+    for key in keys:
         if not isinstance(cur, dict):
             return default
-        cur = cur.get(k, default)
+        cur = cur.get(key, default)
     return cur if cur is not None else default
 
 
-def _required(path_desc: str, value, errors: list[str]):
-    if not _present(value):
-        errors.append(f"missing/invalid: {path_desc}")
-        return None
-    return value
+def _require(path_desc: str, value, coerce=lambda x: x):
+    if value is None or (isinstance(value, str) and not value.strip()):
+        print(f"❌ JSON missing: {path_desc}")
+        raise SystemExit(2)
+    try:
+        return coerce(value)
+    except Exception:
+        print(f"❌ JSON invalid type for {path_desc}: {value!r}")
+        raise SystemExit(2)
 
 
-def _seed_db_from_json(strict: bool = True):
-    """Overwrite DB system_vars from JSON so legacy monitor code sees JSON values."""
+LOOP_SECONDS = _require(
+    "system_config.sonic_loop_delay | monitor.loop_seconds",
+    _get(CFG, "system_config", "sonic_loop_delay")
+    or _get(CFG, "monitor", "loop_seconds"),
+    coerce=lambda x: int(float(x)),
+)
 
-    sys = getattr(dal, "system", None)
-    if sys is None or not isinstance(_MON, dict):
-        return
+LIQ_THR = _require(
+    "liquid.thresholds | liquid_monitor.thresholds",
+    _get(CFG, "liquid", "thresholds")
+    or _get(CFG, "liquid_monitor", "thresholds"),
+    coerce=lambda mapping: {str(k).upper(): float(v) for k, v in mapping.items()},
+)
+_liq_blast_cfg = _get(CFG, "liquid", "blast") or {}
+LIQ_BLAST = {str(k).upper(): int(_liq_blast_cfg.get(k, 0)) for k in LIQ_THR.keys()}
 
-    if strict:
-        pass
+PROFIT_POS = _require(
+    "profit.position_usd",
+    _get(CFG, "profit", "position_usd"),
+    coerce=lambda x: int(float(x)),
+)
+PROFIT_PF = _require(
+    "profit.portfolio_usd",
+    _get(CFG, "profit", "portfolio_usd"),
+    coerce=lambda x: int(float(x)),
+)
 
-    loop = (
-        _j("system_config", "sonic_loop_delay")
-        or _j("monitor", "loop_seconds")
-        or _j("system_config", "sonic_monitor_loop_time")
+TW = {
+    "sid": _get(CFG, "twilio", "sid"),
+    "auth": _get(CFG, "twilio", "auth"),
+    "from": _get(CFG, "twilio", "from"),
+    "to": _get(CFG, "twilio", "to"),
+    "flow": _get(CFG, "twilio", "flow"),
+}
+
+try:
+    sysmgr = dal.system
+    sysmgr.set_var("sonic_monitor_loop_time", LOOP_SECONDS)
+    sysmgr.set_var(
+        "alert_thresholds",
+        json.dumps({"thresholds": LIQ_THR, "blast": LIQ_BLAST}, separators=(",", ":")),
     )
-    if _present(loop):
-        try:
-            sys.set_var("sonic_monitor_loop_time", int(float(loop)))
-        except Exception:
-            pass
-
-    pos = _j("profit", "position_usd")
-    pf = _j("profit", "portfolio_usd")
-    if _present(pos):
-        try:
-            sys.set_var("profit_pos", int(float(pos)))
-        except Exception:
-            pass
-    if _present(pf):
-        try:
-            value = int(float(pf))
-            sys.set_var("profit_pf", value)
-            sys.set_var("profit_badge_value", value)
-        except Exception:
-            pass
-
-    thr = _j("liquid", "thresholds") or _j("liquid_monitor", "thresholds") or {}
-    blast = _j("liquid", "blast") or {}
-    if isinstance(thr, dict) and thr:
-        try:
-            payload = {
-                "thresholds": {k.upper(): float(v) for k, v in thr.items() if _present(v)},
-                "blast": {k.upper(): int(blast.get(k, 0)) for k in thr.keys()},
-            }
-            sys.set_var("alert_thresholds", json.dumps(payload, separators=(",", ":")))
-        except Exception:
-            pass
-
-    ch = _j("channels") or {"global": _j("xcom", "channels")}
-    if isinstance(ch, dict) and ch:
-        try:
-            sys.set_var("xcom_providers", json.dumps(ch, separators=(",", ":")))
-        except Exception:
-            pass
+    sysmgr.set_var("profit_pos", PROFIT_POS)
+    sysmgr.set_var("profit_pf", PROFIT_PF)
+    sysmgr.set_var("profit_badge_value", PROFIT_PF)
+except Exception as exc:
+    print(f"⚠ DB seed from JSON failed: {exc}")
 
 
-def _json_only_debug():
-    print("🧭 Configuration: JSON ONLY ({})".format(_MON_META.get("path", "?")))
-    if _MON_META.get("error"):
-        print(f"❌ JSON load issue: { _MON_META['error'] }")
-    missing: list[str] = []
-    _required(
-        "system_config.sonic_loop_delay | monitor.loop_seconds",
-        _j("system_config", "sonic_loop_delay") or _j("monitor", "loop_seconds"),
-        missing,
-    )
-    _required(
-        "liquid.thresholds",
-        _j("liquid", "thresholds") or _j("liquid_monitor", "thresholds"),
-        missing,
-    )
-    _required("profit.position_usd", _j("profit", "position_usd"), missing)
-    _required("profit.portfolio_usd", _j("profit", "portfolio_usd"), missing)
-    if missing:
-        print("⚠ JSON missing keys:\n  - " + "\n  - ".join(missing))
-
-
-def _cfg(*keys, default=None):
-    """Walk nested keys in _MON safely; return default if missing."""
-
-    return _j(*keys, default=default)
+xcom_json = _get(CFG, "monitor", "xcom_live")
+if isinstance(xcom_json, bool):
+    os.environ["SONIC_XCOM_LIVE"] = "1" if xcom_json else "0"
 
 
 # Convenience getters (use these instead of config_bridge.get_*)
 def cfg_loop_seconds(default: int | None) -> int | None:
-    v = _cfg("monitor", "loop_seconds")
-    try:
-        return int(v) if v is not None else default
-    except Exception:
-        return default
+    return LOOP_SECONDS if LOOP_SECONDS is not None else default
 
 
 def cfg_enabled(name: str, default: bool | None = True) -> bool | None:
-    v = _cfg("monitor", "enabled", name)
-    return bool(v) if v is not None else default
+    value = _get(CFG, "monitor", "enabled", name)
+    return bool(value) if value is not None else default
 
 
 def cfg_xcom_live(default: bool | None = True) -> bool | None:
-    v = _cfg("monitor", "xcom_live")
-    return bool(v) if v is not None else default
+    value = _get(CFG, "monitor", "xcom_live")
+    return bool(value) if value is not None else default
 
 
 def cfg_price_assets(default=None):
-    v = _cfg("price", "assets")
-    return v if isinstance(v, list) and v else (default or ["BTC", "ETH", "SOL"])
+    assets = _get(CFG, "price", "assets")
+    return assets if isinstance(assets, list) and assets else (default or ["BTC", "ETH", "SOL"])
 
 
 def cfg_liquid_thresholds() -> dict:
-    v = _cfg("liquid", "thresholds")
-    return v if isinstance(v, dict) else {}
+    return dict(LIQ_THR)
 
 
 def cfg_liquid_blast() -> dict:
-    v = _cfg("liquid", "blast")
-    return v if isinstance(v, dict) else {}
+    return dict(LIQ_BLAST)
 
 
 def cfg_profit_thresholds() -> dict:
-    # returns {"position_usd": 50, "portfolio_usd": 200} if present
-    v = _cfg("profit")
-    return v if isinstance(v, dict) else {}
+    return {"position_usd": PROFIT_POS, "portfolio_usd": PROFIT_PF}
 
 
 def cfg_twilio() -> dict:
-    t = _cfg("twilio", default={}) or {}
-    # normalized keys you already show in the banner
-    return {
-        "sid": t.get("sid"),
-        "auth": t.get("auth"),
-        "from": t.get("from"),
-        "to": t.get("to"),
-        "flow": t.get("flow"),
-    }
+    return dict(TW)
 
 
 def get_price_assets() -> list[str]:
@@ -415,6 +313,8 @@ def _monitor_enabled(cfg: Mapping[str, Any], name: str, *, default: bool = True,
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "on"}
     return bool(default if value is None else value)
+
+
 import asyncio
 import logging
 import time
@@ -921,60 +821,13 @@ async def _run_monitor_tick(name: str, runner: Callable[..., Any], *args: Any, *
         return result
 
 def get_monitor_interval(db_path: str | None = None, monitor_name: str | None = None):
-    db_path = db_path or MOTHER_DB_PATH
-    monitor_name = monitor_name or MONITOR_NAME
+    _ = db_path or MOTHER_DB_PATH
+    _ = monitor_name or MONITOR_NAME
 
     if _LOOP_SECONDS_OVERRIDE is not None and _LOOP_SECONDS_OVERRIDE > 0:
         return int(_LOOP_SECONDS_OVERRIDE)
 
-    try:
-        json_cfg = load_json_config() or {}
-        sys_cfg = json_cfg.get("system_config") if isinstance(json_cfg, Mapping) else {}
-        if not isinstance(sys_cfg, Mapping):
-            sys_cfg = {}
-        monitor_cfg = json_cfg.get("monitor") if isinstance(json_cfg, Mapping) else {}
-        if not isinstance(monitor_cfg, Mapping):
-            monitor_cfg = {}
-        for candidate in (
-            sys_cfg.get("sonic_loop_delay"),
-            monitor_cfg.get("loop_seconds"),
-            sys_cfg.get("sonic_monitor_loop_time"),
-        ):
-            if candidate:
-                try:
-                    loop_seconds = int(float(candidate))
-                except Exception:
-                    continue
-                if loop_seconds > 0:
-                    return loop_seconds
-    except Exception:
-        pass
-
-    env_val = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
-    if env_val:
-        try:
-            loop_seconds = int(float(env_val))
-            if loop_seconds > 0:
-                return loop_seconds
-        except Exception:
-            pass
-
-    dl = DataLocker(str(db_path))
-    cursor = dl.db.get_cursor()
-    if not cursor:
-        logging.error("No DB cursor available; using default interval")
-        return DEFAULT_INTERVAL
-    cursor.execute(
-        "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name = ?",
-        (monitor_name,),
-    )
-    row = cursor.fetchone()
-    if row and row[0]:
-        try:
-            return int(row[0])
-        except Exception:
-            pass
-    return DEFAULT_INTERVAL
+    return int(LOOP_SECONDS)
 
 
 def update_heartbeat(
@@ -1095,56 +948,19 @@ def run_monitor(
     except Exception:
         _ALERT_LIMITS = {}
 
-    if _LOOP_SECONDS_OVERRIDE is not None and _LOOP_SECONDS_OVERRIDE > 0:
-        poll_interval_s = _LOOP_SECONDS_OVERRIDE
-
-    base_interval = poll_interval_s
-    if base_interval is None:
-        base_interval = DEFAULT_INTERVAL
-    else:
-        try:
-            base_interval = int(float(base_interval))
-        except Exception:
-            base_interval = DEFAULT_INTERVAL
-
-    poll_interval_s = _resolve_poll_interval(base_interval)
-
-    # prefer new JSON field
-    json_loop = _cfg_get(_cfg, "system_config", "sonic_loop_delay")
-    legacy_json_loop = _cfg_get(_cfg, "monitor", "loop_seconds") or _cfg_get(
-        _cfg, "system_config", "sonic_monitor_loop_time"
-    )
-    env_loop = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
-
-    try:
-        poll_interval_s = int(
-            float(
-                json_loop
-                if json_loop is not None
-                else (
-                    legacy_json_loop
-                    if legacy_json_loop is not None
-                    else (env_loop or poll_interval_s)
-                )
-            )
-        )
-    except Exception:
-        pass
-
+    poll_interval_s = _LOOP_SECONDS_OVERRIDE or LOOP_SECONDS
     if not poll_interval_s:
         poll_interval_s = DEFAULT_INTERVAL
 
     display_interval = poll_interval_s or DEFAULT_INTERVAL
 
     # 1) standard config banner (single unified "Sonic Monitor Configuration" block)
-    _seed_db_from_json(strict=True)
-    _json_only_debug()
     emit_config_banner(
         dl,
         poll_interval_s,
         muted_modules=muted,
         xcom_live=_xcom_live(),
-        config_source=("JSON ONLY", _MON_META.get("path", "?")),
+        config_source=("JSON ONLY", _json_path()),
     )
 
     monitor_core = MonitorCore()
@@ -1176,7 +992,8 @@ def run_monitor(
             if interval <= 0:
                 interval = display_interval
 
-            print(f"▶ cycle #{loop_counter + 1} start")
+            print(f"◆ cycle #{loop_counter + 1} start")
+            print()
             loop_counter += 1
             start_time = time.time()
             cycle_failed = False
