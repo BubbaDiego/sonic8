@@ -95,6 +95,35 @@ try:
 except Exception:
     _cfg = {}
 
+
+def _cfg_get(d: dict, *keys, default=None):
+    cur = d
+    for k in keys:
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(k, default)
+    return cur if cur is not None else default
+
+
+def _resolve_poll_interval(default_seconds: int) -> int:
+    from_json = (
+        _cfg_get(_cfg, "system_config", "sonic_loop_delay")
+        or _cfg_get(_cfg, "monitor", "loop_seconds")
+        or _cfg_get(_cfg, "system_config", "sonic_monitor_loop_time")
+    )
+    if from_json:
+        try:
+            return int(float(from_json))
+        except Exception:
+            pass
+    env = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
+    if env:
+        try:
+            return int(float(env))
+        except Exception:
+            pass
+    return int(default_seconds)
+
 _DB_PATH = (
     (_cfg.get("system_config") or {}).get("db_path")
     or os.getenv("SONIC_DB_PATH")
@@ -859,16 +888,36 @@ def get_monitor_interval(db_path: str | None = None, monitor_name: str | None = 
         return int(_LOOP_SECONDS_OVERRIDE)
 
     try:
-        json_cfg = load_json_config()
-        loop_seconds = int(
-            json_cfg.get("system_config", {})
-            .get("sonic_monitor_loop_time", 0)
-            or 0
-        )
-        if loop_seconds > 0:
-            return loop_seconds
+        json_cfg = load_json_config() or {}
+        sys_cfg = json_cfg.get("system_config") if isinstance(json_cfg, Mapping) else {}
+        if not isinstance(sys_cfg, Mapping):
+            sys_cfg = {}
+        monitor_cfg = json_cfg.get("monitor") if isinstance(json_cfg, Mapping) else {}
+        if not isinstance(monitor_cfg, Mapping):
+            monitor_cfg = {}
+        for candidate in (
+            sys_cfg.get("sonic_loop_delay"),
+            monitor_cfg.get("loop_seconds"),
+            sys_cfg.get("sonic_monitor_loop_time"),
+        ):
+            if candidate:
+                try:
+                    loop_seconds = int(float(candidate))
+                except Exception:
+                    continue
+                if loop_seconds > 0:
+                    return loop_seconds
     except Exception:
         pass
+
+    env_val = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
+    if env_val:
+        try:
+            loop_seconds = int(float(env_val))
+            if loop_seconds > 0:
+                return loop_seconds
+        except Exception:
+            pass
 
     dl = DataLocker(str(db_path))
     cursor = dl.db.get_cursor()
@@ -1009,6 +1058,16 @@ def run_monitor(
     if _LOOP_SECONDS_OVERRIDE is not None and _LOOP_SECONDS_OVERRIDE > 0:
         poll_interval_s = _LOOP_SECONDS_OVERRIDE
 
+    base_interval = poll_interval_s
+    if base_interval is None:
+        base_interval = DEFAULT_INTERVAL
+    else:
+        try:
+            base_interval = int(float(base_interval))
+        except Exception:
+            base_interval = DEFAULT_INTERVAL
+
+    poll_interval_s = _resolve_poll_interval(base_interval)
     display_interval = poll_interval_s or DEFAULT_INTERVAL
 
     # 1) standard config banner (single unified "Sonic Monitor Configuration" block)
@@ -1183,12 +1242,67 @@ def run_monitor(
                     summary["hedge_groups"] = int(fallback_hedges)
                     set_hedges(int(fallback_hedges))
             try:
-                if int(summary.get("hedge_groups") or 0) <= 0 and getattr(dal, "db", None):
-                    _dlh = DLHedgeManager(dal.db)
-                    _db_hedges = _dlh.get_hedges() or []
-                    if _db_hedges:
-                        summary["hedge_groups"] = len(_db_hedges)
-                        set_hedges(len(_db_hedges))
+                if getattr(dal, "db", None):
+                    hmgr = DLHedgeManager(dal.db)
+                    for fn in (
+                        "rebuild_groups_from_positions",
+                        "rebuild_from_positions",
+                        "rebuild",
+                        "refresh",
+                    ):
+                        if hasattr(hmgr, fn):
+                            try:
+                                getattr(hmgr, fn)()
+                                break
+                            except Exception:
+                                pass
+                    hedge_count = 0
+                    if hasattr(hmgr, "count_groups"):
+                        try:
+                            hedge_count = int(hmgr.count_groups() or 0)
+                        except Exception:
+                            hedge_count = 0
+                    else:
+                        try:
+                            cur = dal.db.execute(
+                                "SELECT COUNT(DISTINCT group_id) AS n FROM hedges"
+                            )
+                            row = cur.fetchone()
+                            if row is not None:
+                                if isinstance(row, Mapping):
+                                    hedge_count = int(row.get("n") or 0)
+                                else:
+                                    hedge_count = int(row[0] if len(row) else 0)
+                        except Exception:
+                            try:
+                                cur = dal.db.execute(
+                                    """
+                                    SELECT asset,
+                                           SUM(CASE WHEN side IN ('long','L',1) THEN 1 ELSE 0 END) AS longs,
+                                           SUM(CASE WHEN side IN ('short','S',0) THEN 1 ELSE 0 END) AS shorts
+                                      FROM positions
+                                     WHERE is_open=1
+                                     GROUP BY asset
+                                    """
+                                )
+                                hedge_count = 0
+                                for r in cur.fetchall() or []:
+                                    if isinstance(r, Mapping):
+                                        longs = r.get("longs") or 0
+                                        shorts = r.get("shorts") or 0
+                                    else:
+                                        longs = r[1] if len(r) > 1 else 0
+                                        shorts = r[2] if len(r) > 2 else 0
+                                    if (longs or 0) > 0 and (shorts or 0) > 0:
+                                        hedge_count += 1
+                            except Exception:
+                                hedge_count = 0
+                    summary["hedge_groups"] = hedge_count
+                    set_hedges(hedge_count)
+                    try:
+                        setattr(dl, "last_hedge_groups", int(hedge_count))
+                    except Exception:
+                        pass
             except Exception:
                 pass
             if "hedge_groups" not in summary:
