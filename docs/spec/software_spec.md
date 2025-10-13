@@ -43,7 +43,7 @@
 | MOD-SCRIPTS | `backend/scripts/` | Operational CLIs (perps_open_long, send_token_standalone, verify_all_tables_exist). |  |
 | MOD-AUTO | `backend/core/auto_core/` | Automation flows (Solflare/Jupiter) and helpers. |  |
 | MOD-FRONTEND | `frontend/` | React/Vite/Tailwind UI (Sonic Dashboard, Monitor Manager, Trader Shop). |  |
-<!-- REPO_MAP:END -->
+<!-- REPO_MAP:END -->[sonic_monitor_config.json](../../backend/config/sonic_monitor_config.json)
 
 > Keep IDs stable; referenced by interfaces/schemas/config.
 

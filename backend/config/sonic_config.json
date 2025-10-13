@@ -16,7 +16,7 @@
     "db_path": "${MOTHER_DB_PATH}",
     "price_monitor_enabled": true,
     "alert_monitor_enabled": true,
-    "sonic_monitor_loop_time": 300,
+    "sonic_monitor_loop_time": 500,
     "sonic_loop_delay": 60,
     "last_price_update_time": null,
     "phantom_path": "wallets/phantom_wallet"
@@ -61,9 +61,9 @@
     "voice_alert": true,
     "snooze_seconds": 300,
     "thresholds": {
-      "BTC": 5.0,
+      "BTC": 6.0,
       "ETH": 5.0,
-      "SOL": 5.0
+      "SOL": 25.0
     }
   },
 
