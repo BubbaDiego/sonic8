@@ -1,3 +1,4 @@
+import json
 import sys
 import os
 from copy import deepcopy
@@ -52,23 +53,42 @@ class XComConfigService:
         # available.
         self.dl_sys = dl_sys
 
+    def _resolve_system_manager(self):
+        locker = None
+        if has_app_context():
+            locker = getattr(current_app, "data_locker", None)
+
+        if locker and hasattr(locker, "system"):
+            return locker.system
+
+        if hasattr(self.dl_sys, "get_var"):
+            return self.dl_sys
+
+        if hasattr(self.dl_sys, "system") and hasattr(self.dl_sys.system, "get_var"):
+            return self.dl_sys.system
+
+        raise Exception("data_locker.system not available")
+
+    def _load_providers(self) -> dict:
+        try:
+            system_mgr = self._resolve_system_manager()
+            config = system_mgr.get_var("xcom_providers") or {}
+            if isinstance(config, str):
+                try:
+                    config = json.loads(config)
+                except Exception:
+                    config = {}
+            return config if isinstance(config, dict) else {}
+        except Exception as exc:
+            log.error(
+                f"Failed to load xcom providers: {exc}",
+                source="XComConfigService",
+            )
+            return {}
+
     def get_provider(self, name: str) -> dict:
         try:
-            locker = None
-            if has_app_context():
-                locker = getattr(current_app, "data_locker", None)
-
-            if not locker or not hasattr(locker, "system"):
-                if hasattr(self.dl_sys, "get_var"):
-                    system_mgr = self.dl_sys
-                elif hasattr(self.dl_sys, "system") and hasattr(self.dl_sys.system, "get_var"):
-                    system_mgr = self.dl_sys.system
-                else:
-                    raise Exception("data_locker.system not available")
-            else:
-                system_mgr = locker.system
-
-            config = system_mgr.get_var("xcom_providers") or {}
+            config = self._load_providers()
             provider_name = "twilio" if name == "api" else name
             provider = config.get(provider_name) or {}
 
@@ -125,3 +145,21 @@ class XComConfigService:
         except Exception as e:
             log.error(f"Failed to load provider config for '{name}': {e}", source="XComConfigService")
             return {}
+
+    def channels_for(self, monitor: str) -> dict:
+        """
+        Build effective channel flags for the given monitor.
+        LIVE/DRY-RUN comes from env only; 'voice' ignores global and defaults True.
+        """
+
+        cfg = self._load_providers() or {}
+        g = cfg.get("global") or {}
+        m = cfg.get(monitor) or {}
+        live = os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() in {"1", "true", "yes", "on"}
+        return {
+            "live": live,
+            "system": bool(m.get("system", g.get("system", True))),
+            "voice": bool(m.get("voice", True)),
+            "sms": bool(m.get("sms", g.get("sms", False))),
+            "tts": bool(m.get("tts", g.get("tts", False))),
+        }
