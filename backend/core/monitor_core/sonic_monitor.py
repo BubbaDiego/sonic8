@@ -1068,6 +1068,32 @@ def run_monitor(
             base_interval = DEFAULT_INTERVAL
 
     poll_interval_s = _resolve_poll_interval(base_interval)
+
+    # prefer new JSON field
+    json_loop = _cfg_get(_cfg, "system_config", "sonic_loop_delay")
+    legacy_json_loop = _cfg_get(_cfg, "monitor", "loop_seconds") or _cfg_get(
+        _cfg, "system_config", "sonic_monitor_loop_time"
+    )
+    env_loop = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
+
+    try:
+        poll_interval_s = int(
+            float(
+                json_loop
+                if json_loop is not None
+                else (
+                    legacy_json_loop
+                    if legacy_json_loop is not None
+                    else (env_loop or poll_interval_s)
+                )
+            )
+        )
+    except Exception:
+        pass
+
+    if not poll_interval_s:
+        poll_interval_s = DEFAULT_INTERVAL
+
     display_interval = poll_interval_s or DEFAULT_INTERVAL
 
     # 1) standard config banner (single unified "Sonic Monitor Configuration" block)
@@ -1075,7 +1101,7 @@ def run_monitor(
     _hydrate_db_from_json()
     emit_config_banner(
         dl,
-        display_interval,
+        poll_interval_s,
         muted_modules=muted,
         xcom_live=_xcom_live(),
         config_source=(src, note),
