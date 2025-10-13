@@ -180,10 +180,6 @@ PROFIT_PF = _require(
     coerce=lambda x: int(float(x)),
 )
 
-# honor xcom_live from JSON (no fallback)
-xcom_json = _get(CFG, "monitor", "xcom_live")
-if isinstance(xcom_json, bool):
-    os.environ["SONIC_XCOM_LIVE"] = "1" if xcom_json else "0"
 
 # seed DB once so legacy readers behave like JSON (but JSON stays the source)
 try:
@@ -487,7 +483,12 @@ def _read_monitor_threshold_sources(dl: DataLocker) -> tuple[Dict[str, Any], str
     return _read_monitor_threshold_sources_legacy(dl)
 
 def _xcom_live() -> bool:
-    return os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() not in {"0", "false", "no", "off"}
+    """Env-only control for XCom live/dry-run."""
+    v = os.getenv("SONIC_XCOM_LIVE")
+    if v is None:
+        # choose default; 'True' means live if not explicitly disabled
+        return True
+    return v.strip().lower() in {"1", "true", "yes", "on"}
 
 # ── console helpers & endcap plumbing (imports above) ────────────────────────
 from backend.core.monitor_core.utils.banner import emit_config_banner
@@ -853,7 +854,14 @@ def run_monitor(
                 print(f"DEBUG[CFG] DB loop={db_loop} overwritten by JSON ({poll_interval_s})")
     except Exception:
         pass
-    emit_config_banner(dl, poll_interval_s, muted_modules=muted, xcom_live=_xcom_live(), config_source=("JSON ONLY", _json_path()))
+    emit_config_banner(
+        dl,
+        poll_interval_s,
+        muted_modules=muted,
+        xcom_live=_xcom_live(),
+        config_source=("JSON ONLY", _json_path()),
+    )
+    print(f"DEBUG[XCOM] env={os.getenv('SONIC_XCOM_LIVE')} (JSON ignored)")
 
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
