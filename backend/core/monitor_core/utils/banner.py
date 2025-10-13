@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import Any, List, Dict, Tuple
 
 from backend.core.reporting_core.prelaunch import print_prelaunch_body
@@ -30,35 +29,12 @@ def emit_config_banner(
         print(f"🔒 Muted Modules:      {m}")
     if config_source:
         src, note = config_source
-        if src == "JSON" and note:
-            print(f"🧭 Configuration: {src} ({note})")
-        elif note:
+        if note:
             print(f"🧭 Configuration: {src} — {note}")
         else:
             print(f"🧭 Configuration: {src}")
 
-    # One concise “effective source” line (what the monitor is *actually* using now)
-    # We infer like this: if SONIC_MONITOR_LOOP_SECONDS is set and differs from interval_s → ENV,
-    # else if system_vars has loop and equals interval_s → DB, else → JSON.
-    try:
-        eff_runtime = "JSON"
-        env_loop = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
-        if env_loop and float(env_loop) == float(interval_s):
-            eff_runtime = "ENV"
-        elif hasattr(dl, "system") and getattr(dl, "system", None):
-            dbv = dl.system.get_var("sonic_monitor_loop_time")
-            if dbv and float(dbv) == float(interval_s):
-                eff_runtime = "DB"
-    except Exception:
-        eff_runtime = "JSON"
-    # The rest (liquid/profit/twilio) are still driven by DB in legacy code paths;
-    # we mark them DB unless UI has just written JSON-only. Keep this pragmatic and simple.
-    eff_liquid = "JSON"
-    eff_profit = "DB"
-    eff_twilio = "ENV"
-    print(
-        f"🧾 Effective sources: runtime={eff_runtime}  liquid={eff_liquid}  profit={eff_profit}  twilio={eff_twilio}"
-    )
+    # (No “effective sources” — JSON-ONLY mode)
     # === Then the detailed pre-launch body ===
     cfg_loop = get_loop_seconds()
     print_prelaunch_body(
