@@ -136,60 +136,24 @@ MONITOR_NAME = "sonic_monitor"
 dal = DataLocker.get_instance(MOTHER_DB_PATH)
 
 
-# ── Config source (JSON → DB → ENV) one-liner for the banner ────────────────
-def _config_source() -> tuple[str, str]:
-    """Return (SOURCE, NOTE). SOURCE ∈ {JSON, DB, ENV}. NOTE is JSON path or reason."""
-
-    json_path = os.getenv("SONIC_MONITOR_CONFIG_PATH") or str(
-        Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
-    )
-    try:
-        if os.path.exists(json_path):
-            with open(json_path, "r", encoding="utf-8") as f:
-                _ = json.load(f)  # parse ok
-            return ("JSON", json_path)
-    except Exception as e:
-        # fall through, we’ll say DB/ENV and show a tiny reason
-        return ("DB", f"JSON unusable ({e.__class__.__name__})")
-
-    # no JSON file -> DB if we can read any known key, else ENV
-    try:
-        if dal and dal.system.get_var("alert_thresholds") is not None:
-            return ("DB", "system_vars")
-    except Exception:
-        pass
-    return ("ENV", "")
-
-
-# ---- Load monitor JSON once (no bridge) ------------------------------------
-def _monitor_json_path() -> str:
-    # default = backend/config/sonic_monitor_config.json
+# ─────────────────────────────────────────────────────────────────────────────
+# JSON-ONLY CONFIG MODE
+# If sonic_monitor_config.json exists, we will use ONLY it.
+# We expand ${ENV} placeholders, validate required keys, and then:
+#   1) set runtime values directly from JSON
+#   2) seed DB system_vars from JSON so legacy readers match JSON
+# No "effective sources", no implicit fallback. If a domain is missing, we print why.
+# ─────────────────────────────────────────────────────────────────────────────
+def _mon_json_path() -> str:
     return os.getenv("SONIC_MONITOR_CONFIG_PATH") or str(
         Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
     )
 
 
-def _load_monitor_json() -> dict:
-    p = _monitor_json_path()
-    try:
-        with open(p, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-
-
-_MON = _load_monitor_json()
-
-
 def _expand_env(node):
-    """Recursively replace ${VAR} with os.environ['VAR'] if present."""
-
     if isinstance(node, str):
         m = re.fullmatch(r"\$\{([^}]+)\}", node.strip())
-        if m:
-            return os.getenv(m.group(1), node)
-        return node
+        return os.getenv(m.group(1), node) if m else node
     if isinstance(node, list):
         return [_expand_env(x) for x in node]
     if isinstance(node, dict):
@@ -197,59 +161,135 @@ def _expand_env(node):
     return node
 
 
-_MON = _expand_env(_MON)
-
-
-def _hydrate_db_from_json():
-    """Write JSON thresholds into system_vars so legacy monitors use the same values."""
-
-    sys = getattr(dal, "system", None)
-    if sys is None or not isinstance(_MON, dict):
-        return
-
-    # --- Profit thresholds ---
-    p = _MON.get("profit") or {}
-    pos = p.get("position_usd")
-    pf = p.get("portfolio_usd")
+def _load_mon_json_with_meta() -> tuple[dict, dict]:
+    path = _mon_json_path()
+    meta = {"path": path, "exists": False, "error": None}
+    data = {}
     try:
-        if pos is not None:
-            sys.set_var("profit_pos", float(pos))
-        if pf is not None:
-            sys.set_var("profit_pf", float(pf))
-    except Exception:
-        pass
-
-    # --- Liquid thresholds (per asset) ---
-    l = _MON.get("liquid") or {}
-    thr_map = l.get("thresholds") or {}
-    blast = l.get("blast") or {}
-    if isinstance(thr_map, dict):
-        try:
-            payload = {
-                "thresholds": {
-                    k.upper(): float(v)
-                    for k, v in thr_map.items()
-                    if v is not None
-                },
-                "blast": {
-                    k.upper(): int(blast.get(k, 0))
-                    for k in thr_map.keys()
-                },
-            }
-            sys.set_var("alert_thresholds", json.dumps(payload))
-        except Exception:
-            pass
+        if os.path.exists(path):
+            meta["exists"] = True
+            with open(path, "r", encoding="utf-8") as f:
+                data = _expand_env(json.load(f) or {})
+        else:
+            meta["error"] = "file_not_found"
+    except Exception as e:
+        meta["error"] = f"json_error:{e.__class__.__name__}"
+    return (data if isinstance(data, dict) else {}), meta
 
 
-def _cfg(*keys, default=None):
-    """Walk nested keys in _MON safely; return default if missing."""
+_MON, _MON_META = _load_mon_json_with_meta()
 
+
+def _present(v) -> bool:
+    if v is None:
+        return False
+    if isinstance(v, str):
+        s = v.strip()
+        if not s:
+            return False
+        if s.startswith("${") and s.endswith("}"):
+            return False
+        return True
+    return True
+
+
+def _j(*keys, default=None):
     cur = _MON
     for k in keys:
         if not isinstance(cur, dict):
             return default
         cur = cur.get(k, default)
     return cur if cur is not None else default
+
+
+def _required(path_desc: str, value, errors: list[str]):
+    if not _present(value):
+        errors.append(f"missing/invalid: {path_desc}")
+        return None
+    return value
+
+
+def _seed_db_from_json(strict: bool = True):
+    """Overwrite DB system_vars from JSON so legacy monitor code sees JSON values."""
+
+    sys = getattr(dal, "system", None)
+    if sys is None or not isinstance(_MON, dict):
+        return
+
+    if strict:
+        pass
+
+    loop = (
+        _j("system_config", "sonic_loop_delay")
+        or _j("monitor", "loop_seconds")
+        or _j("system_config", "sonic_monitor_loop_time")
+    )
+    if _present(loop):
+        try:
+            sys.set_var("sonic_monitor_loop_time", int(float(loop)))
+        except Exception:
+            pass
+
+    pos = _j("profit", "position_usd")
+    pf = _j("profit", "portfolio_usd")
+    if _present(pos):
+        try:
+            sys.set_var("profit_pos", int(float(pos)))
+        except Exception:
+            pass
+    if _present(pf):
+        try:
+            value = int(float(pf))
+            sys.set_var("profit_pf", value)
+            sys.set_var("profit_badge_value", value)
+        except Exception:
+            pass
+
+    thr = _j("liquid", "thresholds") or _j("liquid_monitor", "thresholds") or {}
+    blast = _j("liquid", "blast") or {}
+    if isinstance(thr, dict) and thr:
+        try:
+            payload = {
+                "thresholds": {k.upper(): float(v) for k, v in thr.items() if _present(v)},
+                "blast": {k.upper(): int(blast.get(k, 0)) for k in thr.keys()},
+            }
+            sys.set_var("alert_thresholds", json.dumps(payload, separators=(",", ":")))
+        except Exception:
+            pass
+
+    ch = _j("channels") or {"global": _j("xcom", "channels")}
+    if isinstance(ch, dict) and ch:
+        try:
+            sys.set_var("xcom_providers", json.dumps(ch, separators=(",", ":")))
+        except Exception:
+            pass
+
+
+def _json_only_debug():
+    print("🧭 Configuration: JSON ONLY ({})".format(_MON_META.get("path", "?")))
+    if _MON_META.get("error"):
+        print(f"❌ JSON load issue: { _MON_META['error'] }")
+    missing: list[str] = []
+    _required(
+        "system_config.sonic_loop_delay | monitor.loop_seconds",
+        _j("system_config", "sonic_loop_delay") or _j("monitor", "loop_seconds"),
+        missing,
+    )
+    _required(
+        "liquid.thresholds",
+        _j("liquid", "thresholds") or _j("liquid_monitor", "thresholds"),
+        missing,
+    )
+    _required("profit.position_usd", _j("profit", "position_usd"), missing)
+    _required("profit.portfolio_usd", _j("profit", "portfolio_usd"), missing)
+    if missing:
+        print("⚠ JSON missing keys:\n  - " + "\n  - ".join(missing))
+
+
+def _cfg(*keys, default=None):
+    """Walk nested keys in _MON safely; return default if missing."""
+
+    return _j(*keys, default=default)
 
 
 # Convenience getters (use these instead of config_bridge.get_*)
@@ -1097,14 +1137,14 @@ def run_monitor(
     display_interval = poll_interval_s or DEFAULT_INTERVAL
 
     # 1) standard config banner (single unified "Sonic Monitor Configuration" block)
-    src, note = _config_source()
-    _hydrate_db_from_json()
+    _seed_db_from_json(strict=True)
+    _json_only_debug()
     emit_config_banner(
         dl,
         poll_interval_s,
         muted_modules=muted,
         xcom_live=_xcom_live(),
-        config_source=(src, note),
+        config_source=("JSON ONLY", _MON_META.get("path", "?")),
     )
 
     monitor_core = MonitorCore()
