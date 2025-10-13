@@ -105,7 +105,7 @@ from backend.routes.liquidation_distance_api import router as liquidation_distan
 from backend.routes.monitor_api_adapter import router as monitor_router
 from backend.routes.auto_core_api import router as auto_core_router  # <-- Auto Core routes
 from backend.core.fun_core.fun_router import router as fun_core_router
-from backend.routers import jupiter
+from backend.routers import jupiter, monitor_manager
 from backend.routes.jupiter_api import router as jupiter_router
 from backend.routes.jupiter_perps_api import router as perps_router
 from backend.api.routes_perps import router as perps_cli_router
@@ -179,6 +179,9 @@ app.include_router(jupiter.router, prefix="/api")
 
 # Monitor status without extra /api prefix (as in your existing setup)
 app.include_router(monitor_status_router)
+
+# Monitor configuration management
+app.include_router(monitor_manager.router)
 
 # Temporary alias route for /monitor_status/ (underscore path)
 from backend.routes.monitor_status_api import get_status as _monitor_status_get
