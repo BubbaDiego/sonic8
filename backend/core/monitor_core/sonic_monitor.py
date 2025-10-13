@@ -77,6 +77,10 @@ def _resolve_and_load_env() -> str | None:
 
 _env_used = _resolve_and_load_env()
 
+# default SONIC_XCOM_LIVE=1 if not set
+if os.getenv("SONIC_XCOM_LIVE") is None:
+    os.environ["SONIC_XCOM_LIVE"] = "1"
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = REPO_ROOT / "backend"
 for _candidate in (REPO_ROOT, BACKEND_ROOT):
@@ -483,10 +487,10 @@ def _read_monitor_threshold_sources(dl: DataLocker) -> tuple[Dict[str, Any], str
     return _read_monitor_threshold_sources_legacy(dl)
 
 def _xcom_live() -> bool:
-    """Env-only control for XCom live/dry-run."""
+    """Env-only control for XCom live/dry-run (JSON ignored)."""
     v = os.getenv("SONIC_XCOM_LIVE")
     if v is None:
-        # choose default; 'True' means live if not explicitly disabled
+        # default to live if not explicitly disabled
         return True
     return v.strip().lower() in {"1", "true", "yes", "on"}
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING
 
 from twilio.rest import Client
 
@@ -16,11 +16,18 @@ from backend.core.reporting_core.xcom_reporter import (
     twilio_success,
 )
 
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from backend.core.xcom_core.xcom_config_service import XComConfigService
+
 E164 = re.compile(r"^\+[1-9]\d{6,14}$")
 
 
 def _xcom_live() -> bool:
-    return os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() not in {"0", "false", "no", "off"}
+    """Env-only control for XCom live/dry-run (JSON ignored)."""
+    v = os.getenv("SONIC_XCOM_LIVE")
+    if v is None:
+        return True
+    return v.strip().lower() in {"1", "true", "yes", "on"}
 
 
 class VoiceService:
@@ -67,7 +74,14 @@ class VoiceService:
         return number
 
     def call(
-        self, to_number: Optional[str], subject: str, body: str
+        self,
+        to_number: Optional[str],
+        subject: str,
+        body: str,
+        *,
+        monitor_name: str | None = None,
+        xcom_config_service: "XComConfigService" | None = None,
+        channels: Optional[dict] = None,
     ) -> Tuple[bool, str, str, str]:
         """Initiate a voice notification via Twilio.
 
@@ -79,6 +93,24 @@ class VoiceService:
         if not self.config.get("enabled", False):
             self.logger.warning("VoiceService: provider disabled → skipping call")
             return False, "provider-disabled", "", ""
+
+        effective_channels = channels
+        if effective_channels is None and monitor_name and xcom_config_service:
+            try:
+                effective_channels = xcom_config_service.channels_for(monitor_name)
+            except Exception:
+                effective_channels = None
+
+        if effective_channels is not None:
+            live = bool(effective_channels.get("live", True))
+            voice_enabled = bool(effective_channels.get("voice", True))
+        else:
+            live = _xcom_live()
+            voice_enabled = True
+
+        if not live or not voice_enabled:
+            self.logger.warning("VoiceService: provider disabled -> skipping call")
+            return False, "disabled", "", ""
 
         from_number = self._pick(
             self.config.get("default_from_phone"),
@@ -111,7 +143,7 @@ class VoiceService:
         twilio_start("voice")
 
         try:
-            if not _xcom_live():
+            if not live:
                 twilio_skip("voice", "disabled")
                 return False, "xcom-disabled", to_resolved, from_number
             if use_studio and flow_sid and not re.search(r"your_flow_sid_here", flow_sid, re.IGNORECASE):
