@@ -83,7 +83,6 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
         sys.path.insert(0, _candidate_str)
 
 # Build DAL from sonic_config.json (or env) — no shared_store.
-from backend.config.config_loader import load_config
 from backend.data.data_locker import DataLocker
 
 
@@ -110,10 +109,12 @@ def _load_json_only() -> Dict[str, Any]:
         print(f"❌ JSON not found: {path}")
         raise SystemExit(2)
     try:
-        data = load_config(path) or {}
-        if not isinstance(data, dict):
-            return {}
-        return _expand_env(data)
+        with open(path, "r", encoding="utf-8") as handle:
+            raw = json.load(handle) or {}
+        if not isinstance(raw, dict):
+            print(f"❌ JSON root is not an object: {path}")
+            raise SystemExit(2)
+        return _expand_env(raw)
     except Exception as exc:
         print(f"❌ JSON load error ({path}): {exc.__class__.__name__}: {exc}")
         raise SystemExit(2)
@@ -160,7 +161,7 @@ LOOP_SECONDS = _require(
 )
 
 LIQ_THR = _require(
-    "liquid.thresholds | liquid_monitor.thresholds",
+    "liquid.thresholds | (legacy) liquid_monitor.thresholds",
     _get(CFG, "liquid", "thresholds")
     or _get(CFG, "liquid_monitor", "thresholds"),
     coerce=lambda mapping: {str(k).upper(): float(v) for k, v in mapping.items()},
@@ -992,7 +993,8 @@ def run_monitor(
             if interval <= 0:
                 interval = display_interval
 
-            print(f"◆ cycle #{loop_counter + 1} start")
+            line = "─" * 28 + f" ◆ cycle #{loop_counter + 1} start " + "─" * 28
+            print(line)
             print()
             loop_counter += 1
             start_time = time.time()
