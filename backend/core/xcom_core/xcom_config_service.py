@@ -41,6 +41,13 @@ ENV_MAP = {
         "use_studio": None,
         "speak_plain": "TWILIO_SPEAK_PLAIN",
     },
+    "sms": {
+        "sid": "TWILIO_ACCOUNT_SID",
+        "token": "TWILIO_AUTH_TOKEN",
+        "from_number": ["TWILIO_FROM_PHONE", "TWILIO_PHONE_NUMBER"],
+        "default_recipient": ["TWILIO_TO_PHONE", "MY_PHONE_NUMBER"],
+        "carrier_gateway": "SMS_CARRIER_GATEWAY",
+    },
     "alexa": {
         "enabled": "ALEXA_ENABLED",
         "access_code": "ALEXA_ACCESS_CODE",
@@ -119,6 +126,17 @@ class XComConfigService:
                     ),
                     "use_studio": False,
                     "speak_plain": os.getenv("TWILIO_SPEAK_PLAIN"),
+                }
+
+            # Fallback to Twilio environment vars for SMS provider
+            if provider_name == "sms" and (not provider or not provider.get("sid")):
+                provider = {
+                    "enabled": True,
+                    "sid": os.getenv("TWILIO_ACCOUNT_SID"),
+                    "token": os.getenv("TWILIO_AUTH_TOKEN"),
+                    "from_number": os.getenv("TWILIO_FROM_PHONE") or os.getenv("TWILIO_PHONE_NUMBER"),
+                    "default_recipient": os.getenv("TWILIO_TO_PHONE") or os.getenv("MY_PHONE_NUMBER"),
+                    "carrier_gateway": os.getenv("SMS_CARRIER_GATEWAY"),
                 }
 
             def apply_env(data: dict, mapping: dict) -> dict:
