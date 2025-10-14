@@ -57,6 +57,9 @@ try:
     _xcom_base = Path(__file__).parent / "core" / "xcom_core"
     _cfg, _cfg_path = load_xcom_config(base_dir=_xcom_base)
     if _cfg:
+        helius_key = (_cfg.get("HELIUS_API_KEY") or "").strip()
+        if helius_key and not os.getenv("HELIUS_API_KEY"):
+            os.environ["HELIUS_API_KEY"] = helius_key
         _effective = apply_xcom_env(_cfg)
         _xcom_logger.info(
             "XCom env loaded from %s → %s",
@@ -79,9 +82,12 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI
-from backend.core.xcom_core.textbelt_reply_router import (
-    router as textbelt_router,
-)
+try:
+    from backend.core.xcom_core.textbelt_reply_router import (
+        router as textbelt_router,
+    )
+except Exception:
+    textbelt_router = None
 
 
 def _unique_id(route) -> str:
@@ -184,9 +190,10 @@ app.include_router(threshold_router)
 app.include_router(db_admin_router)
 app.include_router(alerts_router)
 app.include_router(xcom_router)
-app.include_router(
-    textbelt_router, prefix="/api/xcom/textbelt", tags=["xcom-textbelt"]
-)
+if textbelt_router:
+    app.include_router(
+        textbelt_router, prefix="/api/xcom/textbelt", tags=["xcom-textbelt"]
+    )
 app.include_router(session_router)
 app.include_router(notification_router)
 app.include_router(monitor_settings_router)
