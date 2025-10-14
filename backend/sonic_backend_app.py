@@ -17,6 +17,11 @@ import os
 from pathlib import Path
 import asyncio
 
+from backend.core.xcom_core.xcom_config_loader import (
+    load_xcom_config,
+    apply_xcom_env,
+    mask_for_log,
+)
 try:
     from dotenv import load_dotenv, find_dotenv
 except Exception:  # pragma: no cover - optional dependency
@@ -45,6 +50,26 @@ else:
 _example_env = ROOT_DIR / ".env.example"
 if _example_env.exists():
     load_dotenv(_example_env, override=False)
+
+# Load XCom config before app/providers initialize
+_xcom_logger = logging.getLogger("xcom.init")
+try:
+    _xcom_base = Path(__file__).parent / "core" / "xcom_core"
+    _cfg, _cfg_path = load_xcom_config(base_dir=_xcom_base)
+    if _cfg:
+        _effective = apply_xcom_env(_cfg)
+        _xcom_logger.info(
+            "XCom env loaded from %s → %s",
+            str(_cfg_path) if _cfg_path else "N/A",
+            mask_for_log(_effective),
+        )
+    else:
+        _xcom_logger.warning(
+            "No xcom_config.json found in %s; Twilio may be unresolved in this process.",
+            _xcom_base,
+        )
+except Exception as _xcom_exc:
+    _xcom_logger.exception("Failed to load XCom env at API startup: %s", _xcom_exc)
 
 from utils.console_title import set_console_title
 set_console_title("Sonic - FastAPI Backend")
