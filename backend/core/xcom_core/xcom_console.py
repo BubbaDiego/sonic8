@@ -542,6 +542,28 @@ def _status_probe():
     print()
     _pause()
 
+    print("---------- Backend health ----------")
+    print()
+
+    try:
+        hb = _probe_backend()
+
+        print("• Backend")
+        _row("  Local", hb["local"]["label"], hb["local"]["ok"])
+
+        if hb["public"]["checked"]:
+            _row("  Public", hb["public"]["label"], hb["public"]["ok"])
+
+        last_ts = _inbox_last_ts()
+        if last_ts:
+            _row("  Last inbound SMS", last_ts)
+
+    except Exception as _e:
+        _row("BACKEND", f"probe error: {_e}", False)
+
+    print()
+    _pause()
+
     print("---------- Textbelt probe (JSON config first, env fallback) ----------")
     print()
 
@@ -568,6 +590,79 @@ def _status_probe():
 
     print()
     _pause()
+
+
+def _probe_backend() -> Dict[str, Any]:
+    """Probe the backend health endpoints."""
+
+    result: Dict[str, Any] = {
+        "local": {"ok": False, "label": "offline"},
+        "public": {"ok": False, "label": "skipped", "checked": False},
+    }
+
+    base_local = _local_api_base()
+
+    try:
+        if requests is not None:
+            resp = requests.get(f"{base_local}/api/status", timeout=3)
+            is_ok = 200 <= resp.status_code < 500
+            result["local"]["ok"] = is_ok
+            result["local"]["label"] = "live" if is_ok else f"error {resp.status_code}"
+        else:
+            result["local"]["ok"] = None
+            result["local"]["label"] = "unknown (no requests)"
+    except Exception:
+        result["local"]["ok"] = False
+        result["local"]["label"] = "offline"
+
+    base_public = cfg_get("PUBLIC_BASE_URL", "").rstrip("/")
+
+    if base_public:
+        result["public"]["checked"] = True
+        try:
+            if requests is not None:
+                resp = requests.get(f"{base_public}/api/status", timeout=3)
+                is_ok = 200 <= resp.status_code < 500
+                result["public"]["ok"] = is_ok
+                result["public"]["label"] = "live" if is_ok else f"error {resp.status_code}"
+            else:
+                result["public"]["ok"] = None
+                result["public"]["label"] = "unknown (no requests)"
+        except Exception:
+            result["public"]["ok"] = False
+            result["public"]["label"] = "offline"
+
+    return result
+
+
+def _inbox_last_ts() -> str | None:
+    """Return the formatted timestamp of the last inbound SMS if available."""
+
+    path = _inbound_log_path()
+    file_path = Path(path)
+
+    if not file_path.exists() or file_path.stat().st_size == 0:
+        return None
+
+    try:
+        with file_path.open("r", encoding="utf-8") as handle:
+            dq = deque(handle, maxlen=1)
+
+        if not dq:
+            return None
+
+        payload = json.loads(dq[0])
+        ts_val = float(payload.get("ts", 0))
+        if ts_val:
+            return (
+                datetime.fromtimestamp(ts_val, tz=timezone.utc)
+                .astimezone()
+                .strftime("%Y-%m-%d %H:%M:%S")
+            )
+    except Exception:
+        return None
+
+    return None
 
 
 def _probe_textbelt() -> Dict[str, Any]:
@@ -1245,6 +1340,12 @@ _REPLY_SERVER_PROC: Optional[subprocess.Popen] = None
 
 def _inbound_log_path() -> str:
     return cfg_get("XCOM_INBOUND_LOG", "backend/logs/xcom_inbound_sms.jsonl")
+
+
+def _local_api_base() -> str:
+    """Return the local base URL for backend API probes."""
+
+    return cfg_get("LOCAL_API_BASE", "http://127.0.0.1:5000").rstrip("/")
 
 
 def _reply_port() -> int:
