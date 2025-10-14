@@ -5,23 +5,31 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
-DEFAULT_FILENAMES = ("xcom_congig.json", "xcom_config.json")  # tries your exact name first
+# Prefer the correct filename, keep typo as fallback for safety
+DEFAULT_FILENAMES = ("xcom_config.json", "xcom_congig.json")
 
 
-def load_xcom_config(base_dir: Path | None = None, filename: str | None = None) -> Tuple[Dict[str, Any], Path | None]:
-    """Loads JSON config from the console app's local directory by default.
+def load_xcom_config(
+    base_dir: Path | None = None,
+    filename: str | None = None,
+) -> Tuple[Dict[str, Any], Path | None]:
+    """Load JSON config from disk.
 
-    Tries xcom_congig.json first, then xcom_config.json (typo-friendly).
+    By default, look in the provided ``base_dir`` (or this file's directory).
+    Try ``xcom_config.json`` first, then the legacy typo ``xcom_congig.json``
+    for backwards compatibility.
     """
+
     base = base_dir or Path(__file__).parent
     candidates = [filename] if filename else list(DEFAULT_FILENAMES)
+
     for name in candidates:
         if not name:
             continue
         path = (base / name).resolve()
         if path.exists():
-            with path.open("r", encoding="utf-8") as f:
-                data = json.load(f)
+            with path.open("r", encoding="utf-8") as fh:
+                data = json.load(fh)
             return data, path
     return {}, None
 
@@ -33,20 +41,24 @@ def _to_str(val: Any) -> str:
 
 
 def apply_xcom_env(cfg: Dict[str, Any]) -> Dict[str, str]:
-    """Maps JSON keys to environment names that the rest of the stack expects."""
+    """Map JSON keys to environment variables used by XCom/Twilio paths."""
+
     mapping = {
         "SONIC_XCOM_LIVE": "SONIC_XCOM_LIVE",
-
-        # Twilio creds (required)
+        # Canonical Twilio credentials
         "TWILIO_ACCOUNT_SID": "TWILIO_ACCOUNT_SID",
         "TWILIO_AUTH_TOKEN": "TWILIO_AUTH_TOKEN",
-
-        # Phones (env fallbacks XCom probes)
-        "TWILIO_FROM_PHONE": "TWILIO_FROM_PHONE",
-        "TWILIO_TO_PHONE": "TWILIO_TO_PHONE",
-
         # Studio Flow (optional)
         "TWILIO_FLOW_SID": "TWILIO_FLOW_SID",
+        # Canonical phone numbers
+        "TWILIO_FROM_PHONE": "TWILIO_FROM_PHONE",
+        "TWILIO_TO_PHONE": "TWILIO_TO_PHONE",
+        # Legacy aliases for compatibility
+        "TWILIO_FROM": "TWILIO_FROM_PHONE",
+        "TWILIO_TO": "TWILIO_TO_PHONE",
+        "TWILIO_PHONE_NUMBER": "TWILIO_FROM_PHONE",
+        "MY_PHONE_NUMBER": "TWILIO_TO_PHONE",
+        "TWILIO_SID": "TWILIO_ACCOUNT_SID",
     }
 
     effective: Dict[str, str] = {}
@@ -60,13 +72,13 @@ def apply_xcom_env(cfg: Dict[str, Any]) -> Dict[str, str]:
 def mask_for_log(effective_env: Dict[str, str]) -> Dict[str, str]:
     masked: Dict[str, str] = {}
     for key, value in effective_env.items():
-        if "TOKEN" in key or "SID" in key:
-            if len(value) > 8:
+        if "TOKEN" in key or key.endswith("_SID"):
+            if isinstance(value, str) and len(value) > 8:
                 masked[key] = value[:4] + "…" + value[-4:]
             else:
                 masked[key] = "****"
         elif "PHONE" in key or key.endswith("_NUMBER"):
-            masked[key] = value  # phone numbers are fine to show
+            masked[key] = value  # phone numbers are safe to show
         else:
             masked[key] = value
     return masked

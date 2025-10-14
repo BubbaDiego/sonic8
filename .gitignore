@@ -58,3 +58,7 @@ backend/mother.db
 backend/mother.db-shm
 backend/mother.db-wal
 reports/*.html
+
+# Local secrets/config
+xcom_config.json
+xcom_congig.json
