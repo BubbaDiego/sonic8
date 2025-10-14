@@ -14,7 +14,7 @@ Features
   6) 🔊  TTS test (placeholder)
   7) ❤️  Heartbeat (best-effort; calls heartbeat service if present)
   8) 🎙️  Set voice (update Polly voice for console tests)
-  9) 🧪  Comms wizard (guided send/test shortcuts)
+  9) 🧙  Comms Wizard (guided send/test shortcuts)
 
 Notes
   - We call the same dispatch_notifications() you use in XCom, so channel
@@ -98,6 +98,7 @@ ICON = {
     "back": "◀",
     "exit": "⏻",
     "mic": "🎙️",
+    "wizard": "🧙",
     "link": "🔗",
     "magnifier": "🔎",
 }
@@ -843,6 +844,7 @@ def _voice_options_menu():
 
 
 def _wizard_pick_comm_type() -> str:
+    print("\n🧙  Comms Test Wizard\n")
     print("   Choose a communication type:")
     print("   1) 📞 Voice call")
     print("   2) ✉️  SMS")
@@ -883,7 +885,6 @@ def _wizard_message(default_msg: str = "Test message") -> str:
 
 def _comms_wizard():
     _print_header()
-    print("🧪  Comms Test Wizard\n")
     choice = _wizard_pick_comm_type()
     if choice == "0":
         print("   (canceled)\n")
@@ -1076,15 +1077,15 @@ def _heartbeat():
 
 def _menu() -> str:
     print("Main Menu\n")
-    print(f"  1. {ICON['status']}  Status probe")
-    print(f"  2. {ICON['gear']}  Inspect providers")
-    print(f"  3. {ICON['voice']}  Voice test")
-    print(f"  4. {ICON['sys']}  System test")
-    print(f"  5. {ICON['sms']}  SMS test")
-    print(f"  6. {ICON['tts']}  TTS test")
-    print(f"  7. {ICON['hb']}  Heartbeat")
-    print(f"  8. {ICON['mic']}  Set voice")
-    print("  9. 🧪  Comms wizard")
+    print(f"  1. {ICON['wizard']}  Comms Wizard")
+    print(f"  2. {ICON['status']}  Status probe")
+    print(f"  3. {ICON['gear']}  Inspect providers")
+    print(f"  4. {ICON['voice']}  Voice test")
+    print(f"  5. {ICON['sys']}  System test")
+    print(f"  6. {ICON['sms']}  SMS test")
+    print(f"  7. {ICON['tts']}  TTS test")
+    print(f"  8. {ICON['hb']}  Heartbeat")
+    print(f"  9. {ICON['mic']}  Set voice")
     print(" 10. 🎚️  Voice options")
     print(f" 11. {ICON['link']}  Textbelt SMS (no registration)")
     print(f" 12. {ICON['magnifier']}  Textbelt status (by textId)")
@@ -1101,23 +1102,23 @@ def launch():
             _clear()
             return
         if choice == "1":
-            _status_probe()
-        elif choice == "2":
-            _inspect_providers()
-        elif choice == "3":
-            _voice_test()
-        elif choice == "4":
-            _system_test()
-        elif choice == "5":
-            _sms_test()
-        elif choice == "6":
-            _tts_test()
-        elif choice == "7":
-            _heartbeat()
-        elif choice == "8":
-            _set_voice_menu()
-        elif choice == "9":
             _comms_wizard()
+        elif choice == "2":
+            _status_probe()
+        elif choice == "3":
+            _inspect_providers()
+        elif choice == "4":
+            _voice_test()
+        elif choice == "5":
+            _system_test()
+        elif choice == "6":
+            _sms_test()
+        elif choice == "7":
+            _tts_test()
+        elif choice == "8":
+            _heartbeat()
+        elif choice == "9":
+            _set_voice_menu()
         elif choice == "10":
             _voice_options_menu()
         elif choice == "11":
