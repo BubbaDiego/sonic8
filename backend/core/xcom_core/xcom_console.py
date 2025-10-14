@@ -113,6 +113,18 @@ def _pause(msg="Press ENTER to continue…"):
         pass
 
 
+def _stdin_flush() -> None:
+    """Drain pending characters from stdin to avoid double-enter artifacts."""
+    try:
+        import msvcrt  # type: ignore
+
+        while msvcrt.kbhit():
+            msvcrt.getwch()
+    except Exception:
+        # Non-Windows environments won't have msvcrt; that's fine.
+        pass
+
+
 def _first_env(*names: str) -> str:
     for n in names:
         v = os.getenv(n)
@@ -254,10 +266,12 @@ def _set_voice_name(voice_name: str) -> bool:
     providers = dict(_get_providers())
     twilio = dict(providers.get("twilio") or {})
     twilio["voice_name"] = name
+    twilio["use_studio"] = False
     providers["twilio"] = twilio
 
     api = dict(providers.get("api") or {})
     api["voice_name"] = name
+    api["use_studio"] = False
     providers["api"] = api
     return _set_providers(providers)
 
@@ -430,13 +444,17 @@ def _voice_test():
     _print_header()
     print(f"{ICON['voice']}  Voice Test (Direct TwiML)\n")
     default_msg = "Console test call"
-    msg = input(f"Message (default: '{default_msg}'): ").strip() or default_msg
+    _stdin_flush()
+    msg = input(f"Message (default: '{default_msg}'): ").strip()
+    if not msg:
+        msg = default_msg
 
     try:
         to_number, from_number = _resolve_to_from()
     except Exception as exc:
         print(f"{ICON['err']}  {exc}\n")
-        _pause()
+        time.sleep(0.2)
+        _stdin_flush()
         return
 
     providers = _get_providers()
@@ -445,6 +463,12 @@ def _voice_test():
     if not cfg.get("voice_name"):
         cfg["voice_name"] = _get_voice_name()
     cfg["speak_plain"] = True
+    cfg["use_studio"] = False
+    for legacy_flag in ("picker", "voice_picker", "interactive_voice_select", "show_spinner"):
+        if legacy_flag in cfg:
+            cfg.pop(legacy_flag, None)
+
+    print(f"   → Using voice: {cfg.get('voice_name')} (direct TwiML)\n")
 
     try:
         ok, sid, to_resolved, from_resolved = VoiceService(cfg).call(
@@ -454,7 +478,8 @@ def _voice_test():
         )
     except Exception as exc:
         print(f"{ICON['err']}  Error while placing call: {exc}\n")
-        _pause()
+        time.sleep(0.2)
+        _stdin_flush()
         return
 
     if ok:
@@ -464,7 +489,13 @@ def _voice_test():
         )
     else:
         print("  ❌ Call failed.\n")
-    _pause()
+    time.sleep(0.2)
+    _stdin_flush()
+
+
+def voice_test():
+    """Backward-compatible alias that routes to the direct TwiML path."""
+    return _voice_test()
 
 
 def _set_voice_menu():
@@ -477,10 +508,12 @@ def _set_voice_menu():
         print(f"   {index}. {name}")
     print("   0. Cancel")
 
+    _stdin_flush()
     choice = input("\n→ ").strip()
     if choice == "0":
         print("   (no changes)\n")
-        _pause()
+        time.sleep(0.2)
+        _stdin_flush()
         return
 
     selected: Optional[str] = None
@@ -493,14 +526,16 @@ def _set_voice_menu():
 
     if not selected:
         print("   (no input) — keeping existing voice.\n")
-        _pause()
+        time.sleep(0.2)
+        _stdin_flush()
         return
 
     if _set_voice_name(selected):
         print(f"   ✅ Voice set to {selected}\n")
     else:
         print(f"   ❌ Failed to persist voice '{selected}'.\n")
-    _pause()
+    time.sleep(0.2)
+    _stdin_flush()
 
 
 def _system_test():
@@ -570,6 +605,7 @@ def _menu() -> str:
     print(f"  7. {ICON['hb']}  Heartbeat")
     print(f"  8. {ICON['mic']}  Set voice")
     print(f"  0. {ICON['exit']}  Exit")
+    _stdin_flush()
     return input("\n→ ").strip().lower()
 
 
