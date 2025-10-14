@@ -116,6 +116,21 @@ def _first_env(*names: str) -> str:
     return ""
 
 
+def _compose_sms_cfg() -> dict:
+    """Build SMSService config from env (Twilio-first)."""
+    return {
+        "enabled": True,
+        "sid": _first_env("TWILIO_ACCOUNT_SID"),
+        "token": _first_env("TWILIO_AUTH_TOKEN"),
+        "from_number": _first_env("TWILIO_FROM_PHONE", "TWILIO_PHONE_NUMBER"),
+        "default_recipient": _first_env("TWILIO_TO_PHONE", "MY_PHONE_NUMBER"),
+        # Optional email-gateway fallback (e.g., "vtext.com", "tmomail.net")
+        "carrier_gateway": os.getenv("SMS_CARRIER_GATEWAY", "").strip(),
+        # Set to True to log without sending
+        "dry_run": os.getenv("SMS_DRY_RUN", "").strip() == "1",
+    }
+
+
 def _visible(s: Optional[str]) -> bool:
     return bool(s and str(s).strip())
 
@@ -285,7 +300,12 @@ def _compose_context(message: str, level: str = "LOW") -> Dict[str, Any]:
     return ctx
 
 
-def _do_dispatch(label: str, channels: Dict[str, Any], message: str):
+def _do_dispatch(
+    label: str,
+    channels: Dict[str, Any],
+    message: str,
+    extra_ctx: Optional[Dict[str, Any]] = None,
+):
     if not _ensure_dispatch():
         return
 
@@ -294,12 +314,20 @@ def _do_dispatch(label: str, channels: Dict[str, Any], message: str):
         "level": next((k for k, v in channels.items() if v), "LOW"),
         "message": message,
     }
+    ctx = _compose_context(message, level=result["level"])
+    if isinstance(extra_ctx, dict):
+        try:
+            merged = dict(ctx)
+            merged.update(extra_ctx)
+            ctx = merged
+        except Exception:
+            pass
     try:
         summary = dispatch_notifications(
             monitor_name="xcom_console",
             result=result,
             channels=channels,
-            context=_compose_context(message, level=result["level"]),
+            context=ctx,
         )
         print("\nSummary:\n" + json.dumps(summary, indent=2))
     except Exception as e:
@@ -325,8 +353,23 @@ def _system_test():
 def _sms_test():
     _print_header()
     print(f"{ICON['sms']}  SMS Test\n")
+    cfg = _compose_sms_cfg()
+    default_to = cfg.get("default_recipient") or ""
+    to = input(f"Send to (E.164, default={default_to or 'unset'}): ").strip() or default_to
     msg = input("Message (default: 'Console SMS test'): ").strip() or "Console SMS test"
-    _do_dispatch("sms", {"sms": True}, msg)
+
+    extra_ctx = {
+        # The dispatcher will pick up sms.service/config/to/body from context
+        "sms": {
+            "config": cfg,   # consumed by SMSService
+            "to": to,        # recipient (overrides default_recipient)
+            "body": msg,     # message body
+        },
+        # these are convenience shorthands the dispatcher also checks
+        "sms_to": to,
+        "sms_body": msg,
+    }
+    _do_dispatch("sms", {"sms": True}, msg, extra_ctx)
 
 
 def _tts_test():
