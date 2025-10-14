@@ -41,6 +41,12 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     requests = None  # type: ignore
 
+# Optional slant title (pyfiglet). Degrade gracefully if missing.
+try:
+    import pyfiglet  # type: ignore
+except Exception:  # pragma: no cover - optional enhancement
+    pyfiglet = None  # type: ignore
+
 from backend.core.xcom_core.xcom_config_loader import (
     apply_xcom_env,
     load_xcom_config,
@@ -54,11 +60,6 @@ try:  # Optional dependency for the wizard's SMS shortcut
     from twilio.rest import Client as _TwilioClient  # type: ignore
 except Exception:  # pragma: no cover - Twilio often absent in dev shells
     _TwilioClient = None  # type: ignore
-
-try:
-    import pyfiglet as _pyfiglet  # type: ignore
-except Exception:  # pragma: no cover - optional enhancement
-    _pyfiglet = None  # type: ignore
 
 # Optional color, degrade gracefully
 try:
@@ -152,11 +153,12 @@ def cfg_get(key: str, default: str | None = None) -> str:
     env = os.getenv(key)
     return env.strip() if isinstance(env, str) and env.strip() else (default or "")
 
-BANNER = r"""
-  ╔════════════════════════════════════════════════════════╗
-  ║          Cross-Communication Ops & Diagnostics        ║
-  ╚════════════════════════════════════════════════════════╝
-"""
+# Box banner (no leading newline to avoid extra space under the slant title)
+BANNER = (
+    " ╔════════════════════════════════════════════════════════╗\n"
+    " ║ Cross-Communication Ops & Diagnostics ║\n"
+    " ╚════════════════════════════════════════════════════════╝"
+)
 
 _IS_TTY = sys.stdout.isatty()
 
@@ -458,22 +460,31 @@ def _send_sms_direct(to_number: str, from_number: str, body: str) -> Tuple[bool,
         return False, None
 
 
-def _print_banner() -> None:
-    """Render the console title with figlet if available."""
-
-    title = "XCom Console"
-    if _pyfiglet is not None:
-        try:
-            print(_pyfiglet.figlet_format(title, font="slant"))
-            return
-        except Exception:
-            pass
-    print("\n=== XCom Console ===\n")
-
-
 def _print_header():
     _clear()
-    _print_banner()
+
+    title = "XCom Console"
+    if pyfiglet is not None:
+        try:
+            slant = pyfiglet.figlet_format(title, font="slant")
+        except Exception:
+            slant = ""
+        else:
+            slant = slant.rstrip("\n")
+    else:
+        slant = ""
+
+    if not slant:
+        slant = (
+            "   _  ________                   ______                       __   \n"
+            "  | |/ / ____/___  ____ ___     / ____/___  ____  _________  / /__ \n"
+            "  |   / /   / __ \\ / __ `__ \\   / /   / __ \\/ __ \\/ ___/ __ \\/ / _ \\\n"
+            " /   / /___/ /_/ / / / / / /  / /___/ /_/ / / / (__  ) /_/ / /  __/\n"
+            "/_/|_|\\____/\\____/_/ /_/ /_/   \\____/\\____/_/ /_/____/\\____/_/\\___/"
+        )
+
+    # Render bold cyan slant title, then the box with NO blank line in-between
+    print(Style.BRIGHT + Fore.CYAN + slant + Style.RESET_ALL)
     print(BANNER)
 
 
@@ -1137,6 +1148,15 @@ _E164 = re.compile(r"^\+\d{8,15}$")
 _LAST_TEXTBELT_ID: str = ""
 
 
+def _sanitize_for_textbelt(msg: str) -> str:
+    """Lightly scrub SMS content to dodge Textbelt's URL heuristics."""
+
+    scrubbed = re.sub(r"https?://\S+", "[link]", msg, flags=re.I)
+    scrubbed = re.sub(r"\b(www)\.", r"\1•", scrubbed, flags=re.I)
+    scrubbed = re.sub(r"\b(Mr|Mrs|Ms|Dr|St|No|Vs)\.(?=\s)", r"\1", scrubbed)
+    return scrubbed
+
+
 def _default_sms_to() -> str:
     """Prefer Textbelt default, then Twilio defaults, then blank."""
 
@@ -1221,7 +1241,8 @@ def _textbelt_sms_send() -> None:
         _pause()
         return
 
-    msg = input("Message (default: 'Console SMS test'): ").strip() or "Console SMS test"
+    raw = input("Message (default: 'Console SMS test'): ").strip() or "Console SMS test"
+    msg = _sanitize_for_textbelt(raw)
 
     ok, text_id, resp_json = _textbelt_send_core(to, msg)
 
@@ -1257,7 +1278,8 @@ def _canned_scenarios():
             return
         elif sel == "1":
             # ---- Alert Demo - SMS (Textbelt) ----
-            msg = "🚨 Air-in-Line alarm  🏥 Room 55  👤 Mr. Rogers"
+            msg = "🚨 Air-in-Line alarm  🏥 Room 55  👤 Mr Rogers"
+            msg = _sanitize_for_textbelt(msg)
             to = _default_sms_to()
 
             if not to or not _E164.match(to):
@@ -1281,7 +1303,7 @@ def _canned_scenarios():
         elif sel == "2":
             # ---- Alert Demo - Voice (Twilio voice path) ----
             # (Twilio SMS remains disabled; voice stays enabled)
-            vmsg = " Air-in-line alarm detected in roon 55.  Patient is Mr. Rogers"
+            vmsg = " Air-in-line alarm detected in room 55 — patient is Mr. Rogers"
             _do_dispatch("voice", {"voice": True}, vmsg)
         else:
             print("Unknown selection.")
