@@ -269,6 +269,66 @@ def _set_providers(cfg: Dict[str, Any]) -> bool:
         return False
 
 
+def _get_twilio_cfg() -> Dict[str, Any]:
+    providers = _get_providers()
+    twilio_cfg: Dict[str, Any] = dict(providers.get("twilio") or {})
+    voice = str(twilio_cfg.get("voice_name", "")).strip() or "Polly.Amy"
+    twilio_cfg["voice_name"] = voice
+    twilio_cfg.setdefault("speak_plain", True)
+    twilio_cfg.setdefault("use_studio", False)
+    twilio_cfg.setdefault("start_delay_ms", 400)
+    twilio_cfg.setdefault("end_delay_ms", 250)
+    twilio_cfg.setdefault("prosody_rate_pct", 94)
+    return twilio_cfg
+
+
+def _save_twilio_cfg(twilio_cfg: Dict[str, Any], mirror_api: bool = True) -> bool:
+    providers = dict(_get_providers())
+    providers["twilio"] = dict(twilio_cfg)
+    if mirror_api:
+        api_cfg: Dict[str, Any] = dict(providers.get("api") or {})
+        for key in ("voice_name", "speak_plain", "use_studio", "start_delay_ms", "end_delay_ms", "prosody_rate_pct"):
+            if key in twilio_cfg:
+                api_cfg[key] = twilio_cfg[key]
+        providers["api"] = api_cfg
+    return _set_providers(providers)
+
+
+def _print_voice_settings(prefix: str = "   ") -> None:
+    twilio_cfg = _get_twilio_cfg()
+    face = VOICE_FACES.get(twilio_cfg.get("voice_name", ""), "🙂")
+    print(f"{prefix}Voice: {face}  {twilio_cfg['voice_name']}")
+    print(f"{prefix}speak_plain: {twilio_cfg['speak_plain']}")
+    print(f"{prefix}use_studio : {twilio_cfg['use_studio']}")
+    print(
+        f"{prefix}start_delay_ms: {twilio_cfg['start_delay_ms']}  | "
+        f"end_delay_ms: {twilio_cfg['end_delay_ms']}"
+    )
+    print(f"{prefix}prosody_rate_pct: {twilio_cfg['prosody_rate_pct']}")
+
+
+def _prompt_int(
+    label: str,
+    default_val: int,
+    min_v: Optional[int] = None,
+    max_v: Optional[int] = None,
+) -> int:
+    _stdin_flush()
+    raw = input(f"{label} (default: {default_val}): ").strip()
+    if not raw:
+        return default_val
+    try:
+        value = int(raw)
+    except Exception:
+        print("   (invalid number — keeping default)")
+        return default_val
+    if min_v is not None and value < min_v:
+        value = min_v
+    if max_v is not None and value > max_v:
+        value = max_v
+    return value
+
+
 def _get_voice_name() -> str:
     providers = _get_providers()
     twilio = providers.get("twilio") if isinstance(providers.get("twilio"), dict) else {}
@@ -282,17 +342,10 @@ def _set_voice_name(voice_name: str) -> bool:
     name = (voice_name or "").strip()
     if not name:
         return False
-    providers = dict(_get_providers())
-    twilio = dict(providers.get("twilio") or {})
-    twilio["voice_name"] = name
-    twilio["use_studio"] = False
-    providers["twilio"] = twilio
-
-    api = dict(providers.get("api") or {})
-    api["voice_name"] = name
-    api["use_studio"] = False
-    providers["api"] = api
-    return _set_providers(providers)
+    twilio_cfg = _get_twilio_cfg()
+    twilio_cfg["voice_name"] = name
+    twilio_cfg["use_studio"] = False
+    return _save_twilio_cfg(twilio_cfg)
 
 
 def _resolve_from() -> str:
@@ -592,6 +645,152 @@ def _set_voice_menu():
     _stdin_flush()
 
 
+def _voice_options_menu():
+    while True:
+        _print_header()
+        print("🎚️  Voice Options\n")
+        _print_voice_settings()
+        print(
+            """
+   1) 🎤 Select voice
+   2) 🗣  Toggle speak_plain
+   3) 🧩 Toggle use_studio
+   4) ⏱  Set start_delay_ms
+   5) ⏱  Set end_delay_ms
+   6) 🎼 Set prosody_rate_pct
+   7) ♻️  Reset to defaults
+   0) ◀ Back
+"""
+        )
+        _stdin_flush()
+        choice = input("→ ").strip()
+        if choice == "0":
+            print("   (back)\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            return
+
+        twilio_cfg = _get_twilio_cfg()
+
+        if choice == "1":
+            print("\n🎙️  Voice Selection")
+            for index, name in enumerate(SUPPORTED_VOICES, start=1):
+                face = VOICE_FACES.get(name, "🙂")
+                print(f"   {index}. {face}  {name}")
+            print("   0. Cancel")
+            _stdin_flush()
+            selection = input("\n→ ").strip()
+            if selection == "0":
+                continue
+            selected: Optional[str] = None
+            if selection.isdigit():
+                idx = int(selection) - 1
+                if 0 <= idx < len(SUPPORTED_VOICES):
+                    selected = SUPPORTED_VOICES[idx]
+            if not selected and selection:
+                selected = selection.strip()
+            if not selected:
+                print("   (no change)\n")
+                time.sleep(0.2)
+                _stdin_flush()
+                continue
+            twilio_cfg["voice_name"] = selected
+            twilio_cfg["use_studio"] = False
+            if _save_twilio_cfg(twilio_cfg):
+                print(f"   ✅ Voice set to {selected}\n")
+            else:
+                print("   ❌ Failed to save voice change.\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            continue
+
+        if choice == "2":
+            twilio_cfg["speak_plain"] = not bool(twilio_cfg.get("speak_plain", True))
+            if _save_twilio_cfg(twilio_cfg):
+                print(f"   ✅ speak_plain → {twilio_cfg['speak_plain']}\n")
+            else:
+                print("   ❌ Failed to update speak_plain.\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            continue
+
+        if choice == "3":
+            twilio_cfg["use_studio"] = not bool(twilio_cfg.get("use_studio", False))
+            if _save_twilio_cfg(twilio_cfg):
+                print(f"   ✅ use_studio  → {twilio_cfg['use_studio']}\n")
+            else:
+                print("   ❌ Failed to update use_studio.\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            continue
+
+        if choice == "4":
+            twilio_cfg["start_delay_ms"] = _prompt_int(
+                "start_delay_ms",
+                int(twilio_cfg.get("start_delay_ms", 400)),
+                0,
+                3000,
+            )
+            if _save_twilio_cfg(twilio_cfg):
+                print("   ✅ updated\n")
+            else:
+                print("   ❌ Failed to update start_delay_ms.\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            continue
+
+        if choice == "5":
+            twilio_cfg["end_delay_ms"] = _prompt_int(
+                "end_delay_ms",
+                int(twilio_cfg.get("end_delay_ms", 250)),
+                0,
+                3000,
+            )
+            if _save_twilio_cfg(twilio_cfg):
+                print("   ✅ updated\n")
+            else:
+                print("   ❌ Failed to update end_delay_ms.\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            continue
+
+        if choice == "6":
+            twilio_cfg["prosody_rate_pct"] = _prompt_int(
+                "prosody_rate_pct",
+                int(twilio_cfg.get("prosody_rate_pct", 94)),
+                70,
+                120,
+            )
+            if _save_twilio_cfg(twilio_cfg):
+                print("   ✅ updated\n")
+            else:
+                print("   ❌ Failed to update prosody_rate_pct.\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            continue
+
+        if choice == "7":
+            defaults = {
+                "voice_name": "Polly.Amy",
+                "speak_plain": True,
+                "use_studio": False,
+                "start_delay_ms": 400,
+                "end_delay_ms": 250,
+                "prosody_rate_pct": 94,
+            }
+            if _save_twilio_cfg(defaults):
+                print("   ♻️  Reset to defaults.\n")
+            else:
+                print("   ❌ Failed to reset voice settings.\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            continue
+
+        print("   (invalid)\n")
+        time.sleep(0.2)
+        _stdin_flush()
+
+
 def _wizard_pick_comm_type() -> str:
     print("   Choose a communication type:")
     print("   1) 📞 Voice call")
@@ -835,6 +1034,7 @@ def _menu() -> str:
     print(f"  7. {ICON['hb']}  Heartbeat")
     print(f"  8. {ICON['mic']}  Set voice")
     print("  9. 🧪  Comms wizard")
+    print(" 10. 🎚️  Voice options")
     print(f"  0. {ICON['exit']}  Exit")
     _stdin_flush()
     return input("\n→ ").strip().lower()
@@ -865,6 +1065,8 @@ def launch():
             _set_voice_menu()
         elif choice == "9":
             _comms_wizard()
+        elif choice == "10":
+            _voice_options_menu()
         else:
             print("\nUnknown selection.")
             time.sleep(0.8)
