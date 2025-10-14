@@ -536,6 +536,85 @@ def _status_probe():
     print()
     _pause()
 
+    print("---------- Textbelt probe (JSON config first, env fallback) ----------")
+    print()
+
+    try:
+        tb = _probe_textbelt()
+
+        print("\n• Textbelt")
+        _row("  Key", "present" if tb["key_ok"] else "(missing)", tb["key_ok"])
+        _row("  Endpoint", tb["endpoint"] or "(missing)")
+        _row("  Default To", tb["default_to"] or "(missing)", tb["to_ok"])
+
+        if tb["reachable"] is True:
+            _row("  Reachable", "ok", True)
+        elif tb["reachable"] is False:
+            _row("  Reachable", "error", False)
+        else:
+            _row("  Reachable", "skipped (no requests)")
+
+        if tb.get("quota") is not None:
+            _row("  Quota Remaining", str(tb["quota"]))
+
+    except Exception as _e:
+        _row("TEXTBELT", f"probe error: {_e}", False)
+
+    print()
+    _pause()
+
+
+def _probe_textbelt() -> Dict[str, Any]:
+    """
+    Best-effort health probe for Textbelt.
+
+    Returns: {
+        key_ok: bool, to_ok: bool, reachable: bool|None, quota: int|None,
+        endpoint: str, default_to: str
+    }
+    """
+
+    base = (cfg_get("TEXTBELT_ENDPOINT", "https://textbelt.com").rstrip("/"))
+    key = cfg_get("TEXTBELT_KEY", "")
+    default_to = _default_sms_to()
+
+    key_ok = bool(key)
+    to_ok = bool(default_to and _E164.match(default_to))
+
+    reachable: Optional[bool] = None
+    quota_val: Optional[int] = None
+
+    if requests is not None:
+        try:
+            if key_ok:
+                # Try quota endpoint if available; ignore if not supported
+                r = requests.get(f"{base}/quota/{key}", timeout=4)
+                reachable = r.status_code < 500
+                try:
+                    j = r.json()
+                    quota_val = j.get("quotaRemaining") or j.get("quota_remaining")
+                except Exception:
+                    quota_val = None
+            else:
+                r = requests.get(base, timeout=4)
+                reachable = r.status_code < 500
+        except Exception:
+            reachable = False
+    else:
+        reachable = None
+
+    overall_ok = key_ok and to_ok and (reachable in (True, None))
+
+    return {
+        "ok": overall_ok,
+        "key_ok": key_ok,
+        "to_ok": to_ok,
+        "reachable": reachable,
+        "quota": quota_val,
+        "endpoint": base,
+        "default_to": default_to,
+    }
+
 
 def _inspect_providers():
     _print_header()
