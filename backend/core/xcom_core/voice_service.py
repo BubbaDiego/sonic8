@@ -30,6 +30,12 @@ def _xcom_live() -> bool:
     return v.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _as_bool(value):
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
 class VoiceService:
     """Thin wrapper around the Twilio SDK with Studio Flow support."""
 
@@ -124,7 +130,7 @@ class VoiceService:
             os.getenv("MY_PHONE_NUMBER"),
         )
         flow_sid = self._pick(self.config.get("flow_sid"), os.getenv("TWILIO_FLOW_SID"))
-        use_studio = bool(self.config.get("use_studio", False))
+        use_studio = _as_bool(self.config.get("use_studio", False))
 
         raw_from, raw_to = from_number, to_resolved
         from_number = self._normalize_e164(from_number)
@@ -166,10 +172,14 @@ class VoiceService:
                 twilio_success("voice", note="studio execution")
                 return True, sid, to_resolved, from_number
 
-            twiml = (
-                "<Response><Say voice='Polly.Matthew'>Sonic says: "
-                f"{body or subject or 'Alert'}</Say></Response>"
-            )
+            # If speak_plain is enabled, say exactly the body (or subject); otherwise keep the legacy prefix.
+            speak_plain = _as_bool(self.config.get("speak_plain", False))
+            text = (body or subject or "")
+            if not speak_plain:
+                text = f"Sonic says: {text or 'Alert'}"
+            elif not text:
+                text = "Alert"
+            twiml = f"<Response><Say voice='Polly.Matthew'>{text}</Say></Response>"
             call = self.client.calls.create(to=to_resolved, from_=from_number, twiml=twiml)
             sid = getattr(call, "sid", "")
             self.logger.info(

@@ -16,6 +16,12 @@ from core.core_constants import MOTHER_DB_PATH
 from data.dl_monitor_ledger import DLMonitorLedgerManager
 from backend.core.logging import log
 
+
+def _as_bool(value):
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
 class XComCore:
     def __init__(self, dl_sys_data_manager):
         self.config_service = XComConfigService(dl_sys_data_manager)
@@ -106,11 +112,18 @@ class XComCore:
             # ---------------- VOICE ---------------------------------------------------
             if "voice" in requested:
                 if allow_call:
+                    # If the provider says to speak plain, or we're running a direct console/API test,
+                    # skip the pre-roll and speak exactly the user-supplied body.
+                    speak_plain = _as_bool(voice_cfg.get("speak_plain")) or initiator in {"xcom_console", "api_test"}
                     voice_message = (
-                        f"New High Priority Alert. "
-                        f"Initiated by {initiator}. "
-                        f"Subject: {subject}. "
-                        f"Details: {body}."
+                        (body or subject or "")
+                        if speak_plain
+                        else (
+                            f"New High Priority Alert. "
+                            f"Initiated by {initiator}. "
+                            f"Subject: {subject}. "
+                            f"Details: {body}."
+                        )
                     )
                     ok, sid, to_num, from_num = VoiceService(voice_cfg).call(
                         recipient,
