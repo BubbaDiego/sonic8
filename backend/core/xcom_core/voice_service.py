@@ -148,6 +148,10 @@ class VoiceService:
 
         twilio_start("voice")
 
+        voice_name = (self.config.get("voice_name") or "Polly.Amy").strip()
+        if not voice_name:
+            voice_name = "Polly.Amy"
+
         try:
             if not live:
                 twilio_skip("voice", "disabled")
@@ -159,6 +163,7 @@ class VoiceService:
                     parameters={
                         "subject": subject or "Sonic Alert",
                         "body": body or "",
+                        "voice": voice_name,
                     },
                 )
                 sid = getattr(execution, "sid", "")
@@ -179,7 +184,7 @@ class VoiceService:
                 text = f"Sonic says: {text or 'Alert'}"
             elif not text:
                 text = "Alert"
-            twiml = f"<Response><Say voice='Polly.Matthew'>{text}</Say></Response>"
+            twiml = f"<Response><Say voice='{voice_name}'>{text}</Say></Response>"
             call = self.client.calls.create(to=to_resolved, from_=from_number, twiml=twiml)
             sid = getattr(call, "sid", "")
             self.logger.info(
