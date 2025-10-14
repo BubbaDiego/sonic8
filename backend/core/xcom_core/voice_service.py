@@ -177,14 +177,46 @@ class VoiceService:
                 twilio_success("voice", note="studio execution")
                 return True, sid, to_resolved, from_number
 
-            # If speak_plain is enabled, say exactly the body (or subject); otherwise keep the legacy prefix.
+            # If speak_plain is enabled, say exactly the body (or subject); otherwise keep a small prefix
             speak_plain = _as_bool(self.config.get("speak_plain", False))
+
+            # Tunables (ms) — small intro/outro cushions to avoid clip at start/end
+            start_delay_ms = int(self.config.get("start_delay_ms", 400))  # 0.4s before speaking
+            end_delay_ms = int(self.config.get("end_delay_ms", 250))  # 0.25s after speaking
+            # Smooth pace (percentage of normal). 90–98 feels natural for most messages.
+            prosody_rate_pct = int(self.config.get("prosody_rate_pct", 94))
+
             text = (body or subject or "")
-            if not speak_plain:
-                text = f"Sonic says: {text or 'Alert'}"
-            elif not text:
+            if not text:
                 text = "Alert"
-            twiml = f"<Response><Say voice='{voice_name}'>{text}</Say></Response>"
+            if not speak_plain:
+                text = f"Sonic says: {text}"
+
+            # Basic escaping to keep TwiML/SSML safe
+            def _esc(s: str) -> str:
+                return s.replace("&", "and").replace("<", " ").replace(">", " ")
+
+            # If we’re on a Polly voice, leverage SSML <break/> and <prosody>.
+            # Otherwise, fall back to a TwiML <Pause/> prefix to create the intro cushion.
+            is_polly = voice_name.lower().startswith("polly.")
+            if is_polly:
+                ssml = (
+                    f"<prosody rate='{prosody_rate_pct}%'>"
+                    f"<break time='{start_delay_ms}ms'/>"
+                    f"{_esc(text)}"
+                    f"<break time='{end_delay_ms}ms'/>"
+                    f"</prosody>"
+                )
+                twiml = f"<Response><Say voice='{voice_name}'>{ssml}</Say></Response>"
+            else:
+                # TwiML-level pause first, then speak (no SSML available for non-Polly voices)
+                pause_secs = max(0, round(start_delay_ms / 1000, 1))
+                twiml = (
+                    f"<Response>"
+                    f"<Pause length='{pause_secs}'/>"
+                    f"<Say voice='{voice_name}'>{_esc(text)}</Say>"
+                    f"</Response>"
+                )
             call = self.client.calls.create(to=to_resolved, from_=from_number, twiml=twiml)
             sid = getattr(call, "sid", "")
             self.logger.info(
