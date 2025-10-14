@@ -29,8 +29,15 @@ import os
 import sys
 import json
 import time
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
+
+from backend.core.xcom_core.xcom_config_loader import (
+    apply_xcom_env,
+    load_xcom_config,
+    mask_for_log,
+)
 
 # Optional color, degrade gracefully
 try:
@@ -105,6 +112,14 @@ def _read_env(name: str, default: str = "") -> str:
     return os.getenv(name, default).strip()
 
 
+def _read_env_any(*names: str, default: str = "") -> str:
+    for name in names:
+        value = _read_env(name)
+        if value:
+            return value
+    return default
+
+
 def _visible(s: Optional[str]) -> bool:
     return bool(s and str(s).strip())
 
@@ -120,11 +135,19 @@ class TwilioConfig:
     @classmethod
     def from_env(cls) -> "TwilioConfig":
         return cls(
-            account_sid=_read_env("TWILIO_ACCOUNT_SID"),
+            account_sid=_read_env_any("TWILIO_ACCOUNT_SID", "TWILIO_SID"),
             auth_token=_read_env("TWILIO_AUTH_TOKEN"),
             flow_sid=_read_env("TWILIO_FLOW_SID"),
-            default_from_phone=_read_env("TWILIO_DEFAULT_FROM_PHONE"),
-            default_to_phone=_read_env("TWILIO_DEFAULT_TO_PHONE"),
+            default_from_phone=_read_env_any(
+                "TWILIO_DEFAULT_FROM_PHONE",
+                "TWILIO_PHONE_NUMBER",
+                "TWILIO_FROM",
+            ),
+            default_to_phone=_read_env_any(
+                "TWILIO_DEFAULT_TO_PHONE",
+                "MY_PHONE_NUMBER",
+                "TWILIO_TO",
+            ),
         )
 
     def present(self) -> Dict[str, bool]:
@@ -366,5 +389,14 @@ def launch():
             time.sleep(0.8)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    cfg, path = load_xcom_config(base_dir=Path(__file__).parent)
+    effective_env = apply_xcom_env(cfg)
+    print(
+        f"[XCom Config] loaded_from={path or 'N/A'} effective={mask_for_log(effective_env)}"
+    )
     launch()
+
+
+if __name__ == "__main__":
+    main()
