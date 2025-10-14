@@ -14,6 +14,7 @@ Features
   6) 🔊  TTS test (placeholder)
   7) ❤️  Heartbeat (best-effort; calls heartbeat service if present)
   8) 🎙️  Set voice (update Polly voice for console tests)
+  9) 🧪  Comms wizard (guided send/test shortcuts)
 
 Notes
   - We call the same dispatch_notifications() you use in XCom, so channel
@@ -42,6 +43,11 @@ from backend.core.xcom_core.xcom_config_loader import (
 from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.xcom_core.voice_service import VoiceService
 from backend.data.data_locker import DataLocker
+
+try:  # Optional dependency for the wizard's SMS shortcut
+    from twilio.rest import Client as _TwilioClient  # type: ignore
+except Exception:  # pragma: no cover - Twilio often absent in dev shells
+    _TwilioClient = None  # type: ignore
 
 # Optional color, degrade gracefully
 try:
@@ -221,6 +227,19 @@ SUPPORTED_VOICES: List[str] = [
 ]
 
 
+VOICE_FACES = {
+    "Polly.Amy": "🙂",
+    "Polly.Brian": "😎",
+    "Polly.Emma": "😊",
+    "Polly.Joanna": "🙂",
+    "Polly.Matthew": "😐",
+    "Polly.Kendra": "🙂",
+    "Polly.Kimberly": "🙂",
+    "Polly.Salli": "🙂",
+    "Polly.Joey": "😄",
+}
+
+
 def _dl() -> Optional[DataLocker]:
     try:
         return DataLocker.get_instance(str(MOTHER_DB_PATH))
@@ -276,9 +295,17 @@ def _set_voice_name(voice_name: str) -> bool:
     return _set_providers(providers)
 
 
+def _resolve_from() -> str:
+    from_number = _first_env("TWILIO_FROM_PHONE", "TWILIO_PHONE_NUMBER")
+    if from_number:
+        return from_number
+    providers = _get_providers().get("twilio") or {}
+    return str(providers.get("default_from_phone", "")).strip()
+
+
 def _resolve_to_from() -> Tuple[str, str]:
     to_number = _first_env("TWILIO_TO_PHONE", "MY_PHONE_NUMBER")
-    from_number = _first_env("TWILIO_FROM_PHONE", "TWILIO_PHONE_NUMBER")
+    from_number = _resolve_from()
     if to_number and from_number:
         return to_number, from_number
 
@@ -293,6 +320,32 @@ def _resolve_to_from() -> Tuple[str, str]:
             "Missing to/from numbers. Set environment variables or update xcom_providers."
         )
     return to_number, from_number
+
+
+def _prompt_phone(label: str, default_value: str) -> str:
+    _stdin_flush()
+    raw = input(f"{label} (default: {default_value or 'unset'}): ").strip()
+    return raw or default_value
+
+
+def _send_sms_direct(to_number: str, from_number: str, body: str) -> Tuple[bool, Optional[str]]:
+    if not _TwilioClient:
+        print("   ⚠ Twilio client not available in this environment.")
+        return False, None
+
+    sid = _first_env("TWILIO_ACCOUNT_SID")
+    token = _first_env("TWILIO_AUTH_TOKEN")
+    if not sid or not token:
+        print("   ⚠ Missing TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN.")
+        return False, None
+
+    try:
+        client = _TwilioClient(sid, token)
+        message = client.messages.create(to=to_number, from_=from_number, body=body)
+        return True, getattr(message, "sid", None)
+    except Exception as exc:  # pragma: no cover - network call
+        print(f"   ❌ SMS error: {exc}")
+        return False, None
 
 
 def _print_header():
@@ -505,7 +558,8 @@ def _set_voice_menu():
     print(f"   Current: {current}")
     print("   Choose a voice by number or type a custom Polly voice (e.g., Polly.Amy).")
     for index, name in enumerate(SUPPORTED_VOICES, start=1):
-        print(f"   {index}. {name}")
+        face = VOICE_FACES.get(name, "🙂")
+        print(f"   {index}. {face}  {name}")
     print("   0. Cancel")
 
     _stdin_flush()
@@ -534,6 +588,182 @@ def _set_voice_menu():
         print(f"   ✅ Voice set to {selected}\n")
     else:
         print(f"   ❌ Failed to persist voice '{selected}'.\n")
+    time.sleep(0.2)
+    _stdin_flush()
+
+
+def _wizard_pick_comm_type() -> str:
+    print("   Choose a communication type:")
+    print("   1) 📞 Voice call")
+    print("   2) ✉️  SMS")
+    print("   3) 🔊 TTS")
+    print("   4) 🛡 System (local sound)")
+    print("   0) Cancel")
+    _stdin_flush()
+    return input("\n→ ").strip()
+
+
+def _wizard_pick_voice(current: Optional[str] = None) -> str:
+    selected = current or _get_voice_name()
+    print("\n🎙️  Voice Selection")
+    print(f"   Current: {selected}")
+    print("   Pick a voice (faces hint at vibe), or type a custom Polly voice.")
+    for index, name in enumerate(SUPPORTED_VOICES, start=1):
+        face = VOICE_FACES.get(name, "🙂")
+        print(f"   {index}. {face}  {name}")
+    print("   0. Keep current")
+    _stdin_flush()
+    choice = input("\n→ ").strip()
+    if choice == "0":
+        return selected
+    if choice.isdigit():
+        idx = int(choice) - 1
+        if 0 <= idx < len(SUPPORTED_VOICES):
+            return SUPPORTED_VOICES[idx]
+    if choice:
+        return choice
+    return selected
+
+
+def _wizard_message(default_msg: str = "Test message") -> str:
+    _stdin_flush()
+    msg = input(f"\n📝  Message (default: '{default_msg}'): ").strip()
+    return msg or default_msg
+
+
+def _comms_wizard():
+    _print_header()
+    print("🧪  Comms Test Wizard\n")
+    choice = _wizard_pick_comm_type()
+    if choice == "0":
+        print("   (canceled)\n")
+        time.sleep(0.2)
+        _stdin_flush()
+        return
+
+    to_number = ""
+    from_number = ""
+    if choice in {"1", "2"}:
+        try:
+            default_to, default_from = _resolve_to_from()
+        except Exception:
+            default_to, default_from = "", _resolve_from()
+        print("\n☎️  Numbers")
+        to_number = _prompt_phone("   To", default_to or "+1XXXXXXXXXX")
+        if choice == "2":
+            from_number = _prompt_phone("   From", default_from or "+1XXXXXXXXXX")
+
+    voice_name: Optional[str] = None
+    if choice == "1":
+        voice_name = _wizard_pick_voice()
+        if _set_voice_name(voice_name):
+            print(f"\n   ✅ Voice set to {voice_name}")
+        else:
+            print(f"\n   ⚠ Could not persist voice '{voice_name}', using transient value.")
+
+    message = _wizard_message()
+
+    print("\n🚀  Running test…\n")
+    if choice == "1":
+        try:
+            if not to_number:
+                to_number = _resolve_to_from()[0]
+        except Exception as exc:
+            print(f"   ❌ {exc}\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            return
+
+        cfg = dict(_get_providers().get("twilio") or {})
+        cfg.setdefault("enabled", True)
+        cfg["speak_plain"] = True
+        cfg["use_studio"] = False
+        cfg.setdefault("start_delay_ms", 400)
+        cfg.setdefault("end_delay_ms", 250)
+        if voice_name:
+            cfg["voice_name"] = voice_name
+        elif not cfg.get("voice_name"):
+            cfg["voice_name"] = _get_voice_name()
+
+        try:
+            ok, sid, to_resolved, from_resolved = VoiceService(cfg).call(
+                to_number=to_number,
+                subject="[Wizard] voice",
+                body=message,
+            )
+        except Exception as exc:
+            print(f"   ❌ Voice error: {exc}\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            return
+
+        if ok:
+            print(
+                "   ✅ Voice call placed — "
+                f"SID={sid or 'n/a'} to={to_resolved or to_number} from={from_resolved or _resolve_from()}\n"
+            )
+        else:
+            print("   ❌ Voice call failed.\n")
+        time.sleep(0.2)
+        _stdin_flush()
+        return
+
+    if choice == "2":
+        if not to_number:
+            try:
+                to_number = _resolve_to_from()[0]
+            except Exception as exc:
+                print(f"   ❌ {exc}\n")
+                time.sleep(0.2)
+                _stdin_flush()
+                return
+        from_number = from_number or _resolve_from()
+        if not from_number:
+            print("   ❌ Missing FROM number for SMS.\n")
+            time.sleep(0.2)
+            _stdin_flush()
+            return
+        ok, sid = _send_sms_direct(to_number, from_number, message)
+        if ok:
+            print(f"   ✅ SMS sent — SID={sid or 'n/a'} to={to_number}\n")
+        else:
+            print("   ❌ SMS failed.\n")
+        time.sleep(0.2)
+        _stdin_flush()
+        return
+
+    if choice == "3":
+        try:
+            if "tts_test" in globals():  # type: ignore
+                func = globals()["tts_test"]  # type: ignore[index]
+                try:
+                    func(message)  # type: ignore[misc]
+                except TypeError:
+                    print("   (tts_test helper expects no args; echoing message)")
+                    print(f"   🔊 {message}\n")
+            else:
+                print(f"   🔊 {message}\n")
+        except Exception as exc:
+            print(f"   ❌ TTS error: {exc}\n")
+        time.sleep(0.2)
+        _stdin_flush()
+        return
+
+    if choice == "4":
+        try:
+            import winsound  # type: ignore
+
+            winsound.Beep(880, 220)
+            time.sleep(0.1)
+            winsound.Beep(988, 220)
+            print("   🛡 System chime played.\n")
+        except Exception:
+            print("   (system sound not available on this platform)\n")
+        time.sleep(0.2)
+        _stdin_flush()
+        return
+
+    print("   (no action taken)\n")
     time.sleep(0.2)
     _stdin_flush()
 
@@ -604,6 +834,7 @@ def _menu() -> str:
     print(f"  6. {ICON['tts']}  TTS test")
     print(f"  7. {ICON['hb']}  Heartbeat")
     print(f"  8. {ICON['mic']}  Set voice")
+    print("  9. 🧪  Comms wizard")
     print(f"  0. {ICON['exit']}  Exit")
     _stdin_flush()
     return input("\n→ ").strip().lower()
@@ -632,6 +863,8 @@ def launch():
             _heartbeat()
         elif choice == "8":
             _set_voice_menu()
+        elif choice == "9":
+            _comms_wizard()
         else:
             print("\nUnknown selection.")
             time.sleep(0.8)
