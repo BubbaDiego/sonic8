@@ -36,12 +36,17 @@ def apply_xcom_env(cfg: Dict[str, Any]) -> Dict[str, str]:
     """Maps JSON keys to environment names that the rest of the stack expects."""
     mapping = {
         "SONIC_XCOM_LIVE": "SONIC_XCOM_LIVE",
-        "TWILIO_SID": "TWILIO_SID",
+
+        # Twilio creds (required)
+        "TWILIO_ACCOUNT_SID": "TWILIO_ACCOUNT_SID",
         "TWILIO_AUTH_TOKEN": "TWILIO_AUTH_TOKEN",
+
+        # Phones (env fallbacks XCom probes)
+        "TWILIO_FROM_PHONE": "TWILIO_FROM_PHONE",
+        "TWILIO_TO_PHONE": "TWILIO_TO_PHONE",
+
+        # Studio Flow (optional)
         "TWILIO_FLOW_SID": "TWILIO_FLOW_SID",
-        # Normalize to the env names existing code already reads:
-        "TWILIO_FROM": "TWILIO_PHONE_NUMBER",
-        "TWILIO_TO": "MY_PHONE_NUMBER",
     }
 
     effective: Dict[str, str] = {}
