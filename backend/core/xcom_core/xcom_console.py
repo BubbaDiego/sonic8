@@ -32,6 +32,9 @@ import sys
 import json
 import time
 import re
+import subprocess
+from collections import deque
+from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -108,6 +111,9 @@ ICON = {
     "link": "🔗",
     "magnifier": "🔎",
     "scene": "🎬",
+    "inbox": "📥",
+    "play": "🛰",
+    "stop": "⏹",
 }
 
 # ---------------- config loader (JSON-first, env fallback) -------------------
@@ -1181,6 +1187,9 @@ def _menu() -> str:
     print(f" 10. {ICON['link']}  Textbelt SMS (no registration)")
     print(f" 11. {ICON['magnifier']}  Textbelt status (by textId)")
     print(f" 12. {ICON['scene']}  Canned Scenarios")
+    print(f" 13. {ICON['inbox']}  Inbox (Textbelt replies)")
+    print(f" 14. {ICON['play']}  Start reply webhook server")
+    print(f" 15. {ICON['stop']}  Stop reply webhook server")
     print(f"  0. {ICON['exit']}  Exit")
     _stdin_flush()
     return input("\n→ ").strip().lower()
@@ -1217,6 +1226,12 @@ def launch():
             _textbelt_status_check()
         elif choice == "12":
             _canned_scenarios()
+        elif choice == "13":
+            _inbox_view()
+        elif choice == "14":
+            _reply_server_start()
+        elif choice == "15":
+            _reply_server_stop()
         else:
             print("\nUnknown selection.")
             time.sleep(0.8)
@@ -1225,6 +1240,168 @@ def launch():
 # -------------------- Textbelt integration (quick, no 10DLC) ----------------
 _E164 = re.compile(r"^\+\d{8,15}$")
 _LAST_TEXTBELT_ID: str = ""
+_REPLY_SERVER_PROC: Optional[subprocess.Popen] = None
+
+
+def _inbound_log_path() -> str:
+    return cfg_get("XCOM_INBOUND_LOG", "backend/logs/xcom_inbound_sms.jsonl")
+
+
+def _reply_port() -> int:
+    try:
+        return int(cfg_get("XCOM_REPLY_PORT", "5000"))
+    except Exception:
+        return 5000
+
+
+def _fmt_ts(ts: int | float | None) -> str:
+    try:
+        return (
+            datetime.fromtimestamp(float(ts), tz=timezone.utc)
+            .astimezone()
+            .strftime("%Y-%m-%d %H:%M:%S")
+        )
+    except Exception:
+        return "n/a"
+
+
+def _inbox_view():
+    _print_header()
+    print(f"{ICON['inbox']}  Inbox (Textbelt replies)\n")
+
+    path = _inbound_log_path()
+    if not Path(path).exists():
+        print(f"No inbox file found yet at:\n  {path}\n")
+        print(
+            "Tip: Start the reply server (14) and send yourself a Textbelt SMS with a replyWebhookUrl."
+        )
+        _pause()
+        return
+
+    try:
+        n_in = input("How many recent messages? (default 10): ").strip()
+        n = max(1, int(n_in)) if n_in else 10
+    except Exception:
+        n = 10
+
+    filt = input("Filter by From (E.164, optional): ").strip()
+    lines: list[dict[str, Any]] = []
+
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            dq = deque(fh, maxlen=n)
+        for ln in dq:
+            try:
+                obj = json.loads(ln)
+            except Exception:
+                continue
+            if filt and obj.get("fromNumber") != filt:
+                continue
+            lines.append(obj)
+    except Exception as exc:
+        print("Failed to read inbox:", exc)
+        _pause()
+        return
+
+    if not lines:
+        print("No matching messages.")
+        _pause()
+        return
+
+    for idx, message in enumerate(lines, 1):
+        print(f"— #{idx} —")
+        print("  time :", _fmt_ts(message.get("ts")))
+        print("  from :", message.get("fromNumber"))
+        print("  text :", message.get("text"))
+        if message.get("ip"):
+            print("  ip   :", message.get("ip"))
+        print()
+
+    _pause()
+
+
+def _reply_server_start():
+    _print_header()
+    print(f"{ICON['play']}  Start reply webhook server\n")
+
+    global _REPLY_SERVER_PROC
+    if _REPLY_SERVER_PROC and _REPLY_SERVER_PROC.poll() is None:
+        print("Server already running.")
+        print()
+        _pause()
+        return
+
+    port = _reply_port()
+    py = sys.executable
+    args = [
+        py,
+        "-m",
+        "uvicorn",
+        "backend.sonic_backend_app:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        str(port),
+    ]
+
+    flags = 0
+    if os.name == "nt":
+        # CREATE_NO_WINDOW
+        flags = 0x08000000
+
+    try:
+        _REPLY_SERVER_PROC = subprocess.Popen(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+            creationflags=flags,
+        )
+        print(f"Started uvicorn on port {port}.")
+        base = cfg_get("PUBLIC_BASE_URL", "")
+        if base:
+            print(f"Webhook URL: {base.rstrip('/')}/api/xcom/textbelt/reply")
+        else:
+            print(
+                "Set PUBLIC_BASE_URL in config to advertise a public webhook (e.g., ngrok HTTPS URL)."
+            )
+    except Exception as exc:
+        print("Failed to start uvicorn:", exc)
+
+    print()
+    _pause()
+
+
+def _reply_server_stop():
+    _print_header()
+    print(f"{ICON['stop']}  Stop reply webhook server\n")
+
+    global _REPLY_SERVER_PROC
+    if not _REPLY_SERVER_PROC:
+        print("No server process tracked.")
+        print()
+        _pause()
+        return
+
+    if _REPLY_SERVER_PROC.poll() is not None:
+        print("Server is not running.")
+        print()
+        _pause()
+        _REPLY_SERVER_PROC = None
+        return
+
+    try:
+        _REPLY_SERVER_PROC.terminate()
+        time.sleep(0.5)
+        if _REPLY_SERVER_PROC.poll() is None:
+            _REPLY_SERVER_PROC.kill()
+        print("Server stopped.")
+    except Exception as exc:
+        print("Failed to stop server:", exc)
+
+    _REPLY_SERVER_PROC = None
+
+    print()
+    _pause()
 
 
 def build_canned_alert_sms() -> str:
