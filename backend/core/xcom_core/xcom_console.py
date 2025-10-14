@@ -37,7 +37,7 @@ from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TextIO
 
 try:
     import requests  # type: ignore  # pip install requests
@@ -1371,6 +1371,7 @@ def launch():
 _E164 = re.compile(r"^\+\d{8,15}$")
 _LAST_TEXTBELT_ID: str = ""
 _REPLY_SERVER_PROC: Optional[subprocess.Popen] = None
+_REPLY_SERVER_LOG_FH: Optional[TextIO] = None
 
 
 def _inbound_log_path() -> str:
@@ -1460,7 +1461,7 @@ def _reply_server_start():
     _print_header()
     print(f"{ICON['play']}  Start reply webhook server\n")
 
-    global _REPLY_SERVER_PROC
+    global _REPLY_SERVER_PROC, _REPLY_SERVER_LOG_FH
     if _REPLY_SERVER_PROC and _REPLY_SERVER_PROC.poll() is None:
         print("Server already running.")
         print()
@@ -1469,15 +1470,31 @@ def _reply_server_start():
 
     port = _reply_port()
     py = sys.executable
+    repo_root = Path(__file__).resolve().parents[3]
+    backend_dir = repo_root / "backend"
+    logs_dir = backend_dir / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    log_file = logs_dir / "uvicorn_reply.log"
+
+    app_str = "backend.core.xcom_core.xcom_standalone_app:app"
     args = [
         py,
         "-m",
         "uvicorn",
-        "backend.sonic_backend_app:app",
+        app_str,
         "--host",
-        "0.0.0.0",
+        "127.0.0.1",
         "--port",
         str(port),
+        "--reload",
+        "--reload-dir",
+        str(backend_dir),
+        "--reload-dir",
+        str(repo_root),
+        "--app-dir",
+        str(repo_root),
+        "--log-level",
+        "info",
     ]
 
     flags = 0
@@ -1486,13 +1503,30 @@ def _reply_server_start():
         flags = 0x08000000
 
     try:
+        env = os.environ.copy()
+        existing_path = env.get("PYTHONPATH", "")
+        path_parts = [str(repo_root), str(backend_dir)]
+        if existing_path:
+            path_parts.append(existing_path)
+        env["PYTHONPATH"] = os.pathsep.join(path_parts)
+
+        if _REPLY_SERVER_LOG_FH is not None and not _REPLY_SERVER_LOG_FH.closed:
+            try:
+                _REPLY_SERVER_LOG_FH.close()
+            except Exception:
+                pass
+
+        log_fh = open(log_file, "a", encoding="utf-8")
         _REPLY_SERVER_PROC = subprocess.Popen(
             args,
-            stdout=subprocess.DEVNULL,
+            stdout=log_fh,
             stderr=subprocess.STDOUT,
             creationflags=flags,
+            cwd=str(repo_root),
+            env=env,
         )
-        print(f"Started uvicorn on port {port}.")
+        _REPLY_SERVER_LOG_FH = log_fh
+        print(f"Started uvicorn on port {port} (XCom standalone). (log: {log_file})")
         base = cfg_get("PUBLIC_BASE_URL", "")
         if base:
             print(f"Webhook URL: {base.rstrip('/')}/api/xcom/textbelt/reply")
@@ -1511,7 +1545,7 @@ def _reply_server_stop():
     _print_header()
     print(f"{ICON['stop']}  Stop reply webhook server\n")
 
-    global _REPLY_SERVER_PROC
+    global _REPLY_SERVER_PROC, _REPLY_SERVER_LOG_FH
     if not _REPLY_SERVER_PROC:
         print("No server process tracked.")
         print()
@@ -1535,6 +1569,12 @@ def _reply_server_stop():
         print("Failed to stop server:", exc)
 
     _REPLY_SERVER_PROC = None
+    if _REPLY_SERVER_LOG_FH is not None:
+        try:
+            _REPLY_SERVER_LOG_FH.close()
+        except Exception:
+            pass
+        _REPLY_SERVER_LOG_FH = None
 
     print()
     _pause()
