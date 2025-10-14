@@ -79,6 +79,9 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI
+from backend.core.xcom_core.textbelt_reply_router import (
+    router as textbelt_router,
+)
 
 
 def _unique_id(route) -> str:
@@ -181,6 +184,9 @@ app.include_router(threshold_router)
 app.include_router(db_admin_router)
 app.include_router(alerts_router)
 app.include_router(xcom_router)
+app.include_router(
+    textbelt_router, prefix="/api/xcom/textbelt", tags=["xcom-textbelt"]
+)
 app.include_router(session_router)
 app.include_router(notification_router)
 app.include_router(monitor_settings_router)

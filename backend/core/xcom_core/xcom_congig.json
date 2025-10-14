@@ -4,5 +4,12 @@
   "TWILIO_AUTH_TOKEN": "05a424538435f00cb2e39a1917087d85",
   "TWILIO_FLOW_SID": "FWbc0ac9a340985c39b6e0d0fa578c52c7",
   "TWILIO_FROM_PHONE": "+18336913467",
-  "TWILIO_TO_PHONE": "+16199804758"
+  "TWILIO_TO_PHONE": "+16199804758",
+  "TEXTBELT_KEY": "78a8920a873978139b2bb8220f1135bafcfe1f7ern54jyGZ9zKqMiviZU6EDJWg7",
+  "TEXTBELT_ENDPOINT": "https://textbelt.com",
+  "TEXTBELT_DEFAULT_TO": "+16199804758",
+  "PUBLIC_BASE_URL": "https://<your-ngrok-or-domain>",
+  "TEXTBELT_REPLY_WEBHOOK_URL": "https://<your-ngrok-or-domain>/api/xcom/textbelt/reply",
+  "TEXTBELT_WEBHOOK_SECRET": "change_me_strong_secret",
+  "XCOM_INBOUND_LOG": "backend/logs/xcom_inbound_sms.jsonl"
 }

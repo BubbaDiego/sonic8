@@ -1182,11 +1182,23 @@ def _textbelt_send_core(to: str, msg: str):
         return False, None, {"error": "TEXTBELT_KEY missing in config/env"}
 
     base = (cfg_get("TEXTBELT_ENDPOINT", "https://textbelt.com").rstrip("/"))
+    reply = cfg_get("TEXTBELT_REPLY_WEBHOOK_URL", "")
+    if not reply:
+        pub = cfg_get("PUBLIC_BASE_URL", "")
+        if pub:
+            reply = pub.rstrip("/") + "/api/xcom/textbelt/reply"
+    secret = cfg_get("TEXTBELT_WEBHOOK_SECRET", "")
+    if reply and secret and "secret=" not in reply:
+        sep = "&" if "?" in reply else "?"
+        reply = f"{reply}{sep}secret={secret}"
 
     try:
+        payload = {"phone": to, "message": msg, "key": key}
+        if reply:
+            payload["replyWebhookUrl"] = reply
         r = requests.post(  # type: ignore[misc]
             f"{base}/text",
-            data={"phone": to, "message": msg, "key": key},
+            data=payload,
             timeout=20,
         )
         resp = r.json()
