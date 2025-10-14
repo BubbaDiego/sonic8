@@ -108,16 +108,12 @@ def _pause(msg="Press ENTER to continue…"):
         pass
 
 
-def _read_env(name: str, default: str = "") -> str:
-    return os.getenv(name, default).strip()
-
-
-def _read_env_any(*names: str, default: str = "") -> str:
-    for name in names:
-        value = _read_env(name)
-        if value:
-            return value
-    return default
+def _first_env(*names: str) -> str:
+    for n in names:
+        v = os.getenv(n)
+        if v and str(v).strip():
+            return str(v).strip()
+    return ""
 
 
 def _visible(s: Optional[str]) -> bool:
@@ -129,21 +125,23 @@ class TwilioConfig:
     account_sid: str = ""
     auth_token: str = ""
     flow_sid: str = ""
-    default_from_phone: str = ""
-    default_to_phone: str = ""
+    from_phone: str = ""
+    to_phone: str = ""
 
     @classmethod
     def from_env(cls) -> "TwilioConfig":
         return cls(
-            account_sid=_read_env_any("TWILIO_ACCOUNT_SID", "TWILIO_SID"),
-            auth_token=_read_env("TWILIO_AUTH_TOKEN"),
-            flow_sid=_read_env("TWILIO_FLOW_SID"),
-            default_from_phone=_read_env_any(
-                "TWILIO_DEFAULT_FROM_PHONE",
+            account_sid=_first_env("TWILIO_ACCOUNT_SID", "TWILIO_SID"),
+            auth_token=_first_env("TWILIO_AUTH_TOKEN", "TWILIO_TOKEN"),
+            flow_sid=_first_env("TWILIO_FLOW_SID", "TWILIO_FLOW_ID", "TWILIO_FLOW"),
+            from_phone=_first_env(
+                "TWILIO_FROM_PHONE",
                 "TWILIO_PHONE_NUMBER",
+                "TWILIO_DEFAULT_FROM_PHONE",
                 "TWILIO_FROM",
             ),
-            default_to_phone=_read_env_any(
+            to_phone=_first_env(
+                "TWILIO_TO_PHONE",
                 "TWILIO_DEFAULT_TO_PHONE",
                 "MY_PHONE_NUMBER",
                 "TWILIO_TO",
@@ -155,19 +153,26 @@ class TwilioConfig:
             "sid": _visible(self.account_sid),
             "token": _visible(self.auth_token),
             "flow_sid": _visible(self.flow_sid),
-            "from": _visible(self.default_from_phone),
-            "to": _visible(self.default_to_phone),
+            "from": _visible(self.from_phone),
+            "to": _visible(self.to_phone),
         }
 
     def as_context_node(self) -> Dict[str, Any]:
-        # Match the structure xcom_core expects for context["twilio"]
+        # include BOTH the names XCom resolves and the UI “default_*” names
         return {
-            "enabled": True,
+            "sid": self.account_sid,
             "account_sid": self.account_sid,
+            "token": self.auth_token,
             "auth_token": self.auth_token,
+            "from": self.from_phone,
+            "from_phone": self.from_phone,
+            "to": self.to_phone,
+            "to_phone": [self.to_phone] if self.to_phone else [],
+            "default_from_phone": self.from_phone,
+            "default_to_phone": self.to_phone,
+            "flow": self.flow_sid,
             "flow_sid": self.flow_sid,
-            "default_from_phone": self.default_from_phone,
-            "default_to_phone": self.default_to_phone,
+            "enabled": True,
         }
 
 
@@ -244,8 +249,8 @@ def _inspect_providers():
     _row("  Account SID", tw.account_sid or "(missing)", tw_map["sid"])
     _row("  Auth token", "[hidden]" if tw_map["token"] else "(missing)", tw_map["token"])
     _row("  Flow SID", tw.flow_sid or "(missing)", tw_map["flow_sid"])
-    _row("  From phone", tw.default_from_phone or "(missing)", tw_map["from"])
-    _row("  To phone", tw.default_to_phone or "(missing)", tw_map["to"])
+    _row("  From phone", tw.from_phone or "(missing)", tw_map["from"])
+    _row("  To phone", tw.to_phone or "(missing)", tw_map["to"])
 
     if config:
         print("\n• Backend Resolved (snapshot)")
@@ -271,7 +276,8 @@ def _compose_context(message: str, level: str = "LOW") -> Dict[str, Any]:
         "subject": f"[XCom Test] {level}",
         "body": message,
         "initiator": "xcom_console",
-        "recipient": tw.default_to_phone or _read_env("MY_PHONE_NUMBER"),
+        "recipient": tw.to_phone
+        or _first_env("MY_PHONE_NUMBER", "TWILIO_TO_PHONE", "TWILIO_DEFAULT_TO_PHONE", "TWILIO_TO"),
         "twilio": tw.as_context_node(),
         # PREVIEW sugar used by xcom_core debug prints
         "positions": [{"asset": "SOL"}, {"asset": "ETH"}],
