@@ -490,8 +490,26 @@ def _print_header():
         )
 
     # Render bold cyan slant title, then the box with NO blank line in-between
-    print(Style.BRIGHT + Fore.CYAN + slant + Style.RESET_ALL)
+    print(Style.BRIGHT + Fore.CYAN + slant.rstrip("\n") + Style.RESET_ALL)
+    # Inline, quick health snapshot (short timeouts, don’t block)
+    live_local = "?"
+    live_pub = "?"
+    webhook = _effective_webhook_url()
+    try:
+        hb = _probe_backend()
+        live_local = "LIVE" if hb["local"]["ok"] else "OFFLINE"
+        live_pub = (
+            "LIVE" if hb["public"]["ok"] else "OFFLINE"
+        ) if hb["public"].get("checked") else "—"
+    except Exception:
+        pass
     print(BANNER)
+    print(
+        "  Backend: "
+        f"{('✅ ' if live_local == 'LIVE' else '❌ ')}"
+        f"Local={live_local} | Public={live_pub}   "
+        f"WebHook: {webhook or '(none)'}\n"
+    )
 
 
 def _row(k: str, v: str, ok: Optional[bool] = None):
@@ -633,6 +651,23 @@ def _probe_backend() -> Dict[str, Any]:
             result["public"]["label"] = "offline"
 
     return result
+
+
+def _effective_webhook_url() -> str:
+    """Return the webhook URL that _textbelt_send_core will use."""
+
+    reply = cfg_get("TEXTBELT_REPLY_WEBHOOK_URL", "")
+    if not reply:
+        pub = cfg_get("PUBLIC_BASE_URL", "")
+        if pub:
+            reply = pub.rstrip("/") + "/api/xcom/textbelt/reply"
+
+    secret = cfg_get("TEXTBELT_WEBHOOK_SECRET", "")
+    if reply and secret and "secret=" not in reply:
+        sep = "&" if "?" in reply else "?"
+        reply = f"{reply}{sep}secret={secret}"
+
+    return reply
 
 
 def _inbox_last_ts() -> str | None:
@@ -1568,15 +1603,8 @@ def _textbelt_send_core(to: str, msg: str):
         return False, None, {"error": "TEXTBELT_KEY missing in config/env"}
 
     base = (cfg_get("TEXTBELT_ENDPOINT", "https://textbelt.com").rstrip("/"))
-    reply = cfg_get("TEXTBELT_REPLY_WEBHOOK_URL", "")
-    if not reply:
-        pub = cfg_get("PUBLIC_BASE_URL", "")
-        if pub:
-            reply = pub.rstrip("/") + "/api/xcom/textbelt/reply"
-    secret = cfg_get("TEXTBELT_WEBHOOK_SECRET", "")
-    if reply and secret and "secret=" not in reply:
-        sep = "&" if "?" in reply else "?"
-        reply = f"{reply}{sep}secret={secret}"
+    # Compute reply webhook exactly like header preview
+    reply = _effective_webhook_url()
 
     try:
         payload = {"phone": to, "message": msg, "key": key}
