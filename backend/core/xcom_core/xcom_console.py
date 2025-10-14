@@ -106,6 +106,7 @@ ICON = {
     "wizard": "🧙",
     "link": "🔗",
     "magnifier": "🔎",
+    "scene": "🎬",
 }
 
 # ---------------- config loader (JSON-first, env fallback) -------------------
@@ -1089,6 +1090,7 @@ def _menu() -> str:
     print("  9. 🎚️  Voice options")
     print(f" 10. {ICON['link']}  Textbelt SMS (no registration)")
     print(f" 11. {ICON['magnifier']}  Textbelt status (by textId)")
+    print(f" 12. {ICON['scene']}  Canned Scenarios")
     print(f"  0. {ICON['exit']}  Exit")
     _stdin_flush()
     return input("\n→ ").strip().lower()
@@ -1123,6 +1125,8 @@ def launch():
             _textbelt_sms_send()
         elif choice == "11":
             _textbelt_status_check()
+        elif choice == "12":
+            _canned_scenarios()
         else:
             print("\nUnknown selection.")
             time.sleep(0.8)
@@ -1131,6 +1135,17 @@ def launch():
 # -------------------- Textbelt integration (quick, no 10DLC) ----------------
 _E164 = re.compile(r"^\+\d{8,15}$")
 _LAST_TEXTBELT_ID: str = ""
+
+
+def _default_sms_to() -> str:
+    """Prefer Textbelt default, then Twilio defaults, then blank."""
+
+    return (
+        cfg_get("TEXTBELT_DEFAULT_TO")
+        or cfg_get("TWILIO_TO_PHONE")
+        or cfg_get("MY_PHONE_NUMBER")
+        or ""
+    )
 
 
 def _textbelt_send_core(to: str, msg: str):
@@ -1199,11 +1214,7 @@ def _textbelt_sms_send() -> None:
         if _CFG_CACHE is not None:
             _CFG_CACHE["TEXTBELT_KEY"] = key
 
-    default_to = (
-        cfg_get("TEXTBELT_DEFAULT_TO")
-        or cfg_get("TWILIO_TO_PHONE")
-        or cfg_get("MY_PHONE_NUMBER")
-    )
+    default_to = _default_sms_to()
     to = input(f"Send to (E.164, default={default_to or 'unset'}): ").strip() or default_to
     if not _E164.match(to):
         print("Invalid E.164 number. Use +1… for US.")
@@ -1228,6 +1239,53 @@ def _textbelt_sms_send() -> None:
 
     print()
     _pause()
+
+
+# -------------------- Canned Scenarios --------------------------------------
+def _canned_scenarios():
+    while True:
+        _print_header()
+
+        print(f"{ICON['scene']}  Canned Scenarios\n")
+        print("  1) Alert Demo - SMS")
+        print("  2) Alert Demo - Voice")
+        print(f"  0) {ICON['back']} Back")
+
+        sel = (input("\n→ ").strip() or "").lower()
+
+        if sel in {"0", "b", "back"}:
+            return
+        elif sel == "1":
+            # ---- Alert Demo - SMS (Textbelt) ----
+            msg = "🚨 Air-in-Line alarm  🏥 Room 55  👤 Mr. Rogers"
+            to = _default_sms_to()
+
+            if not to or not _E164.match(to):
+                to = input("Send to (E.164, e.g. +1619…): ").strip()
+                if not _E164.match(to):
+                    print("Invalid E.164 number.")
+                    time.sleep(0.9)
+                    continue
+
+            ok, text_id, resp = _textbelt_send_core(to, msg)
+            if isinstance(resp, dict):
+                print("\nResponse:\n" + json.dumps(resp, indent=2))
+            if ok:
+                print(f"\n✅ Queued via Textbelt — textId={text_id or 'n/a'} to={to}")
+            else:
+                err = resp.get("error") if isinstance(resp, dict) else None
+                print(
+                    f"\n❌ Textbelt send failed. {('Reason: ' + err) if err else ''}"
+                )
+            _pause()
+        elif sel == "2":
+            # ---- Alert Demo - Voice (Twilio voice path) ----
+            # (Twilio SMS remains disabled; voice stays enabled)
+            vmsg = " Air-in-line alarm detected in roon 55.  Patient is Mr. Rogers"
+            _do_dispatch("voice", {"voice": True}, vmsg)
+        else:
+            print("Unknown selection.")
+            time.sleep(0.7)
 
 
 def _textbelt_status_check() -> None:
