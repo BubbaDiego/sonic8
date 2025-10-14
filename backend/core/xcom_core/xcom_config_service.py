@@ -39,6 +39,7 @@ ENV_MAP = {
             "TWILIO_DEFAULT_FROM_PHONE",
         ],
         "use_studio": None,
+        "speak_plain": "TWILIO_SPEAK_PLAIN",
     },
     "alexa": {
         "enabled": "ALEXA_ENABLED",
@@ -117,6 +118,7 @@ class XComConfigService:
                         ["TWILIO_PHONE_NUMBER", "TWILIO_FROM_PHONE", "TWILIO_DEFAULT_FROM_PHONE"]
                     ),
                     "use_studio": False,
+                    "speak_plain": os.getenv("TWILIO_SPEAK_PLAIN"),
                 }
 
             def apply_env(data: dict, mapping: dict) -> dict:
