@@ -102,6 +102,49 @@ ICON = {
     "magnifier": "🔎",
 }
 
+# ---------------- config loader (JSON-first, env fallback) -------------------
+_CFG_CACHE: dict | None = None
+
+
+def _load_cfg() -> dict:
+    """Load JSON config once. Lookup order:
+       1) XCOM_CONFIG_JSON env path
+       2) backend/config/xcom_config.json
+       3) config/xcom_config.json
+       4) ./xcom_config.json
+    """
+
+    global _CFG_CACHE
+    if _CFG_CACHE is not None:
+        return _CFG_CACHE
+
+    candidates = [
+        os.getenv("XCOM_CONFIG_JSON", "").strip(),
+        os.path.join(os.getcwd(), "backend", "config", "xcom_config.json"),
+        os.path.join(os.getcwd(), "config", "xcom_config.json"),
+        os.path.join(os.getcwd(), "xcom_config.json"),
+    ]
+
+    for p in [c for c in candidates if c]:
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                _CFG_CACHE = json.load(f)
+                _CFG_CACHE["_path"] = p
+                return _CFG_CACHE
+        except Exception:
+            pass
+
+    _CFG_CACHE = {}
+    return _CFG_CACHE
+
+
+def cfg_get(key: str, default: str | None = None) -> str:
+    val = _load_cfg().get(key)
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    env = os.getenv(key)
+    return env.strip() if isinstance(env, str) and env.strip() else (default or "")
+
 BANNER = r"""
   ╔════════════════════════════════════════════════════════╗
   ║                    X C o m   C o n s o l e            ║
@@ -1092,13 +1135,13 @@ _LAST_TEXTBELT_ID: str = ""
 
 
 def _textbelt_key() -> str:
-    """Resolve TEXTBELT_KEY from env or prompt once."""
+    """Resolve TEXTBELT_KEY from config/env or prompt once."""
 
-    key = os.getenv("TEXTBELT_KEY", "").strip()
+    key = cfg_get("TEXTBELT_KEY", "")
     if key:
         return key
 
-    print("TEXTBELT_KEY not found in env.")
+    print("TEXTBELT_KEY not found in config/env.")
     key = input("Enter your Textbelt key (or leave blank to cancel): ").strip()
     return key
 
@@ -1118,7 +1161,11 @@ def _textbelt_sms_send() -> None:
         _pause()
         return
 
-    default_to = os.getenv("TWILIO_TO_PHONE", "") or os.getenv("MY_PHONE_NUMBER", "")
+    default_to = (
+        cfg_get("TEXTBELT_DEFAULT_TO")
+        or cfg_get("TWILIO_TO_PHONE")
+        or cfg_get("MY_PHONE_NUMBER")
+    )
     to = input(f"Send to (E.164, default={default_to or 'unset'}): ").strip() or default_to
     if not _E164.match(to):
         print("Invalid E.164 number. Use +1… for US.")
@@ -1128,8 +1175,9 @@ def _textbelt_sms_send() -> None:
     msg = input("Message (default: 'Console SMS test'): ").strip() or "Console SMS test"
 
     try:
+        base = (cfg_get("TEXTBELT_ENDPOINT", "https://textbelt.com").rstrip("/"))
         response = requests.post(  # type: ignore[misc]
-            "https://textbelt.com/text",
+            f"{base}/text",
             data={"phone": to, "message": msg, "key": key},
             timeout=20,
         )
@@ -1173,8 +1221,9 @@ def _textbelt_status_check() -> None:
         return
 
     try:
+        base = (cfg_get("TEXTBELT_ENDPOINT", "https://textbelt.com").rstrip("/"))
         response = requests.get(  # type: ignore[misc]
-            f"https://textbelt.com/status/{tid}",
+            f"{base}/status/{tid}",
             timeout=15,
         )
         resp_json = response.json()
