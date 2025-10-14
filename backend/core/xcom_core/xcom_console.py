@@ -1399,14 +1399,28 @@ def _canned_scenarios():
         elif sel == "1":
             # ---- Alert Demo - SMS (Textbelt) ----
             msg = build_canned_alert_sms()
-            to = _default_sms_to()
+
+            # allow user to override number, default to configured
+            def_to = _default_sms_to()
+            prompt = f"Send to (E.164, default={def_to or 'unset'}): "
+            to_in = input(prompt).strip()
+            to = (to_in or def_to)
 
             if not to or not _E164.match(to):
-                to = input("Send to (E.164, e.g. +1619…): ").strip()
-                if not _E164.match(to):
-                    print("Invalid E.164 number.")
-                    time.sleep(0.9)
-                    continue
+                print("Invalid E.164 number.")
+                time.sleep(0.9)
+                continue
+
+            # optional delay
+            d_in = input("Delay seconds (default 0): ").strip()
+            try:
+                delay = max(0, int(d_in)) if d_in else 0
+            except Exception:
+                delay = 0
+
+            if delay:
+                print(f"⏳ Delaying {delay}s…")
+                time.sleep(delay)
 
             ok, text_id, resp = _textbelt_send_core(to, msg)
             if isinstance(resp, dict):
@@ -1421,9 +1435,41 @@ def _canned_scenarios():
             _pause()
         elif sel == "2":
             # ---- Alert Demo - Voice (Twilio voice path) ----
-            # (Twilio SMS remains disabled; voice stays enabled)
             vmsg = " Air-in-line alarm detected in room 55 — patient is Mr Rogers"
-            _do_dispatch("voice", {"voice": True}, vmsg)
+
+            # allow user to override call target; default to config
+            from copy import deepcopy
+
+            tw = TwilioConfig.from_env()
+            def_to = (
+                tw.to_phone
+                or cfg_get("TWILIO_TO_PHONE")
+                or cfg_get("MY_PHONE_NUMBER")
+            )
+            to_in = input(f"Call to (E.164, default={def_to or 'unset'}): ").strip()
+            to = (to_in or def_to)
+
+            if not to or not _E164.match(to):
+                print("Invalid E.164 number.")
+                time.sleep(0.9)
+                continue
+
+            d_in = input("Delay seconds (default 0): ").strip()
+            try:
+                delay = max(0, int(d_in)) if d_in else 0
+            except Exception:
+                delay = 0
+
+            if delay:
+                print(f"⏳ Delaying {delay}s…")
+                time.sleep(delay)
+
+            # Override recipient in context so voice targets the chosen number
+            twc = deepcopy(tw.as_context_node())
+            twc["default_to_phone"] = to
+            extra_ctx = {"recipient": to, "twilio": twc}
+
+            _do_dispatch("voice", {"voice": True}, vmsg, extra_ctx)
         else:
             print("Unknown selection.")
             time.sleep(0.7)
