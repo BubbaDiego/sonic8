@@ -13,6 +13,7 @@ Features
   5) ✉️  SMS test (placeholder)
   6) 🔊  TTS test (placeholder)
   7) ❤️  Heartbeat (best-effort; calls heartbeat service if present)
+  8) 🎙️  Set voice (update Polly voice for console tests)
 
 Notes
   - We call the same dispatch_notifications() you use in XCom, so channel
@@ -31,13 +32,16 @@ import json
 import time
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from backend.core.xcom_core.xcom_config_loader import (
     apply_xcom_env,
     load_xcom_config,
     mask_for_log,
 )
+from backend.core.core_constants import MOTHER_DB_PATH
+from backend.core.xcom_core.voice_service import VoiceService
+from backend.data.data_locker import DataLocker
 
 # Optional color, degrade gracefully
 try:
@@ -81,6 +85,7 @@ ICON = {
     "hb": "❤️",
     "back": "◀",
     "exit": "⏻",
+    "mic": "🎙️",
 }
 
 BANNER = r"""
@@ -189,6 +194,91 @@ class TwilioConfig:
             "flow_sid": self.flow_sid,
             "enabled": True,
         }
+
+
+SUPPORTED_VOICES: List[str] = [
+    "Polly.Amy",     # UK, crisp
+    "Polly.Brian",   # UK, male
+    "Polly.Emma",    # UK
+    "Polly.Joanna",  # US, warm
+    "Polly.Matthew", # US, neutral
+    "Polly.Kendra",  # US
+    "Polly.Kimberly",# US
+    "Polly.Salli",   # US
+    "Polly.Joey",    # US, male
+]
+
+
+def _dl() -> Optional[DataLocker]:
+    try:
+        return DataLocker.get_instance(str(MOTHER_DB_PATH))
+    except Exception:
+        return None
+
+
+def _get_providers() -> Dict[str, Any]:
+    locker = _dl()
+    if not locker or getattr(locker, "system", None) is None:
+        return {}
+    try:
+        cfg = locker.system.get_var("xcom_providers")  # type: ignore[attr-defined]
+    except Exception:
+        return {}
+    return cfg if isinstance(cfg, dict) else {}
+
+
+def _set_providers(cfg: Dict[str, Any]) -> bool:
+    locker = _dl()
+    if not locker or getattr(locker, "system", None) is None:
+        return False
+    try:
+        locker.system.set_var("xcom_providers", cfg or {})  # type: ignore[attr-defined]
+        return True
+    except Exception:
+        return False
+
+
+def _get_voice_name() -> str:
+    providers = _get_providers()
+    twilio = providers.get("twilio") if isinstance(providers.get("twilio"), dict) else {}
+    voice = (twilio or {}).get("voice_name")
+    if not voice:
+        voice = "Polly.Amy"
+    return str(voice)
+
+
+def _set_voice_name(voice_name: str) -> bool:
+    name = (voice_name or "").strip()
+    if not name:
+        return False
+    providers = dict(_get_providers())
+    twilio = dict(providers.get("twilio") or {})
+    twilio["voice_name"] = name
+    providers["twilio"] = twilio
+
+    api = dict(providers.get("api") or {})
+    api["voice_name"] = name
+    providers["api"] = api
+    return _set_providers(providers)
+
+
+def _resolve_to_from() -> Tuple[str, str]:
+    to_number = _first_env("TWILIO_TO_PHONE", "MY_PHONE_NUMBER")
+    from_number = _first_env("TWILIO_FROM_PHONE", "TWILIO_PHONE_NUMBER")
+    if to_number and from_number:
+        return to_number, from_number
+
+    providers = _get_providers().get("twilio") or {}
+    if not to_number:
+        to_number = str(providers.get("default_to_phone", "")).strip()
+    if not from_number:
+        from_number = str(providers.get("default_from_phone", "")).strip()
+
+    if not to_number or not from_number:
+        raise RuntimeError(
+            "Missing to/from numbers. Set environment variables or update xcom_providers."
+        )
+    return to_number, from_number
 
 
 def _print_header():
@@ -338,9 +428,79 @@ def _do_dispatch(
 
 def _voice_test():
     _print_header()
-    print(f"{ICON['voice']}  Voice Test (Twilio Studio)\n")
-    msg = input("Message (default: 'Console test call'): ").strip() or "Console test call"
-    _do_dispatch("voice", {"voice": True}, msg)
+    print(f"{ICON['voice']}  Voice Test (Direct TwiML)\n")
+    default_msg = "Console test call"
+    msg = input(f"Message (default: '{default_msg}'): ").strip() or default_msg
+
+    try:
+        to_number, from_number = _resolve_to_from()
+    except Exception as exc:
+        print(f"{ICON['err']}  {exc}\n")
+        _pause()
+        return
+
+    providers = _get_providers()
+    cfg = dict(providers.get("twilio") or {})
+    cfg.setdefault("enabled", True)
+    if not cfg.get("voice_name"):
+        cfg["voice_name"] = _get_voice_name()
+    cfg["speak_plain"] = True
+
+    try:
+        ok, sid, to_resolved, from_resolved = VoiceService(cfg).call(
+            to_number=to_number,
+            subject="[XCom Test] voice",
+            body=msg,
+        )
+    except Exception as exc:
+        print(f"{ICON['err']}  Error while placing call: {exc}\n")
+        _pause()
+        return
+
+    if ok:
+        print(
+            "  ✅ Twilio call created — "
+            f"SID={sid or 'n/a'} to={to_resolved or to_number} from={from_resolved or from_number}\n"
+        )
+    else:
+        print("  ❌ Call failed.\n")
+    _pause()
+
+
+def _set_voice_menu():
+    _print_header()
+    current = _get_voice_name()
+    print(f"{ICON['mic']}  Set Voice\n")
+    print(f"   Current: {current}")
+    print("   Choose a voice by number or type a custom Polly voice (e.g., Polly.Amy).")
+    for index, name in enumerate(SUPPORTED_VOICES, start=1):
+        print(f"   {index}. {name}")
+    print("   0. Cancel")
+
+    choice = input("\n→ ").strip()
+    if choice == "0":
+        print("   (no changes)\n")
+        _pause()
+        return
+
+    selected: Optional[str] = None
+    if choice.isdigit():
+        idx = int(choice) - 1
+        if 0 <= idx < len(SUPPORTED_VOICES):
+            selected = SUPPORTED_VOICES[idx]
+    if not selected and choice:
+        selected = choice
+
+    if not selected:
+        print("   (no input) — keeping existing voice.\n")
+        _pause()
+        return
+
+    if _set_voice_name(selected):
+        print(f"   ✅ Voice set to {selected}\n")
+    else:
+        print(f"   ❌ Failed to persist voice '{selected}'.\n")
+    _pause()
 
 
 def _system_test():
@@ -408,6 +568,7 @@ def _menu() -> str:
     print(f"  5. {ICON['sms']}  SMS test")
     print(f"  6. {ICON['tts']}  TTS test")
     print(f"  7. {ICON['hb']}  Heartbeat")
+    print(f"  8. {ICON['mic']}  Set voice")
     print(f"  0. {ICON['exit']}  Exit")
     return input("\n→ ").strip().lower()
 
@@ -433,6 +594,8 @@ def launch():
             _tts_test()
         elif choice == "7":
             _heartbeat()
+        elif choice == "8":
+            _set_voice_menu()
         else:
             print("\nUnknown selection.")
             time.sleep(0.8)
