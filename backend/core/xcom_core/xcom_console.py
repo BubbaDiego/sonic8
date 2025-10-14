@@ -55,6 +55,11 @@ try:  # Optional dependency for the wizard's SMS shortcut
 except Exception:  # pragma: no cover - Twilio often absent in dev shells
     _TwilioClient = None  # type: ignore
 
+try:
+    import pyfiglet as _pyfiglet  # type: ignore
+except Exception:  # pragma: no cover - optional enhancement
+    _pyfiglet = None  # type: ignore
+
 # Optional color, degrade gracefully
 try:
     from colorama import Fore, Style, init as _colorama_init  # type: ignore
@@ -148,7 +153,6 @@ def cfg_get(key: str, default: str | None = None) -> str:
 
 BANNER = r"""
   ╔════════════════════════════════════════════════════════╗
-  ║                    X C o m   C o n s o l e            ║
   ║          Cross-Communication Ops & Diagnostics        ║
   ╚════════════════════════════════════════════════════════╝
 """
@@ -453,8 +457,22 @@ def _send_sms_direct(to_number: str, from_number: str, body: str) -> Tuple[bool,
         return False, None
 
 
+def _print_banner() -> None:
+    """Render the console title with figlet if available."""
+
+    title = "XCom Console"
+    if _pyfiglet is not None:
+        try:
+            print(_pyfiglet.figlet_format(title, font="slant"))
+            return
+        except Exception:
+            pass
+    print("\n=== XCom Console ===\n")
+
+
 def _print_header():
     _clear()
+    _print_banner()
     print(BANNER)
 
 
@@ -1068,10 +1086,9 @@ def _menu() -> str:
     print(f"  6. {ICON['sms']}  SMS test (Textbelt)")
     print(f"  7. {ICON['tts']}  TTS test")
     print(f"  8. {ICON['hb']}  Heartbeat")
-    print(f"  9. {ICON['mic']}  Set voice")
-    print(" 10. 🎚️  Voice options")
-    print(f" 11. {ICON['link']}  Textbelt SMS (no registration)")
-    print(f" 12. {ICON['magnifier']}  Textbelt status (by textId)")
+    print("  9. 🎚️  Voice options")
+    print(f" 10. {ICON['link']}  Textbelt SMS (no registration)")
+    print(f" 11. {ICON['magnifier']}  Textbelt status (by textId)")
     print(f"  0. {ICON['exit']}  Exit")
     _stdin_flush()
     return input("\n→ ").strip().lower()
@@ -1101,12 +1118,10 @@ def launch():
         elif choice == "8":
             _heartbeat()
         elif choice == "9":
-            _set_voice_menu()
-        elif choice == "10":
             _voice_options_menu()
-        elif choice == "11":
+        elif choice == "10":
             _textbelt_sms_send()
-        elif choice == "12":
+        elif choice == "11":
             _textbelt_status_check()
         else:
             print("\nUnknown selection.")
