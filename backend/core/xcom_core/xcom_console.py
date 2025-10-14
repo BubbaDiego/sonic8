@@ -899,10 +899,13 @@ def _comms_wizard():
             default_to, default_from = _resolve_to_from()
         except Exception:
             default_to, default_from = "", _resolve_from()
-        print("\n☎️  Numbers")
-        to_number = _prompt_phone("   To", default_to or "+1XXXXXXXXXX")
         if choice == "2":
-            from_number = _prompt_phone("   From", default_from or "+1XXXXXXXXXX")
+            tb_default = cfg_get("TEXTBELT_DEFAULT_TO") or default_to
+            print("\n☎️  Numbers (Textbelt path — FROM not required)")
+            to_number = _prompt_phone("   To", tb_default or "+1XXXXXXXXXX")
+        else:
+            print("\n☎️  Numbers")
+            to_number = _prompt_phone("   To", default_to or "+1XXXXXXXXXX")
 
     voice_name: Optional[str] = None
     if choice == "1":
@@ -960,25 +963,21 @@ def _comms_wizard():
         return
 
     if choice == "2":
+        # === Textbelt path (Twilio SMS disabled) ===========================
+        # Old Twilio direct send kept for reference:
+        # ok, sid = _send_sms_direct(to_number, _resolve_from(), message)
+        # -------------------------------------------------------------------
         if not to_number:
             try:
                 to_number = _resolve_to_from()[0]
-            except Exception as exc:
-                print(f"   ❌ {exc}\n")
-                time.sleep(0.2)
-                _stdin_flush()
-                return
-        from_number = from_number or _resolve_from()
-        if not from_number:
-            print("   ❌ Missing FROM number for SMS.\n")
-            time.sleep(0.2)
-            _stdin_flush()
-            return
-        ok, sid = _send_sms_direct(to_number, from_number, message)
+            except Exception:
+                to_number = cfg_get("TEXTBELT_DEFAULT_TO") or "+1XXXXXXXXXX"
+        ok, text_id, resp = _textbelt_send_core(to_number, message)
         if ok:
-            print(f"   ✅ SMS sent — SID={sid or 'n/a'} to={to_number}\n")
+            print(f"   ✅ Textbelt queued — textId={text_id or 'n/a'} to={to_number}\n")
         else:
-            print("   ❌ SMS failed.\n")
+            err = (resp or {}).get("error") if isinstance(resp, dict) else None
+            print(f"   ❌ Textbelt send failed. {('Reason: ' + err) if err else ''}\n")
         time.sleep(0.2)
         _stdin_flush()
         return
@@ -1027,25 +1026,9 @@ def _system_test():
 
 
 def _sms_test():
-    _print_header()
-    print(f"{ICON['sms']}  SMS Test\n")
-    cfg = _compose_sms_cfg()
-    default_to = cfg.get("default_recipient") or ""
-    to = input(f"Send to (E.164, default={default_to or 'unset'}): ").strip() or default_to
-    msg = input("Message (default: 'Console SMS test'): ").strip() or "Console SMS test"
+    """Legacy Twilio SMS test replaced by Textbelt helper."""
 
-    extra_ctx = {
-        # The dispatcher will pick up sms.service/config/to/body from context
-        "sms": {
-            "config": cfg,   # consumed by SMSService
-            "to": to,        # recipient (overrides default_recipient)
-            "body": msg,     # message body
-        },
-        # these are convenience shorthands the dispatcher also checks
-        "sms_to": to,
-        "sms_body": msg,
-    }
-    _do_dispatch("sms", {"sms": True}, msg, extra_ctx)
+    _textbelt_sms_send()
 
 
 def _tts_test():
@@ -1082,7 +1065,7 @@ def _menu() -> str:
     print(f"  3. {ICON['gear']}  Inspect providers")
     print(f"  4. {ICON['voice']}  Voice test")
     print(f"  5. {ICON['sys']}  System test")
-    print(f"  6. {ICON['sms']}  SMS test")
+    print(f"  6. {ICON['sms']}  SMS test (Textbelt)")
     print(f"  7. {ICON['tts']}  TTS test")
     print(f"  8. {ICON['hb']}  Heartbeat")
     print(f"  9. {ICON['mic']}  Set voice")
@@ -1135,6 +1118,39 @@ _E164 = re.compile(r"^\+\d{8,15}$")
 _LAST_TEXTBELT_ID: str = ""
 
 
+def _textbelt_send_core(to: str, msg: str):
+    """Core Textbelt sender used by both SMS Test and Wizard.
+
+    Returns (ok: bool, text_id: str | None, resp_json: dict | None)
+    """
+
+    if requests is None:
+        return False, None, {"error": "requests not installed"}
+
+    key = cfg_get("TEXTBELT_KEY", "")
+    if not key:
+        return False, None, {"error": "TEXTBELT_KEY missing in config/env"}
+
+    base = (cfg_get("TEXTBELT_ENDPOINT", "https://textbelt.com").rstrip("/"))
+
+    try:
+        r = requests.post(  # type: ignore[misc]
+            f"{base}/text",
+            data={"phone": to, "message": msg, "key": key},
+            timeout=20,
+        )
+        resp = r.json()
+        ok = bool(resp.get("success"))
+        tid = resp.get("textId") or resp.get("id") or ""
+        if ok and tid:
+            global _LAST_TEXTBELT_ID
+            _LAST_TEXTBELT_ID = str(tid)
+        return ok, tid, resp
+
+    except Exception as e:  # pragma: no cover
+        return False, None, {"error": str(e)}
+
+
 def _textbelt_key() -> str:
     """Resolve TEXTBELT_KEY from config/env or prompt once."""
 
@@ -1162,6 +1178,12 @@ def _textbelt_sms_send() -> None:
         _pause()
         return
 
+    # Persist key to env/cache so shared sender can reuse it
+    if not cfg_get("TEXTBELT_KEY"):
+        os.environ["TEXTBELT_KEY"] = key
+        if _CFG_CACHE is not None:
+            _CFG_CACHE["TEXTBELT_KEY"] = key
+
     default_to = (
         cfg_get("TEXTBELT_DEFAULT_TO")
         or cfg_get("TWILIO_TO_PHONE")
@@ -1175,32 +1197,19 @@ def _textbelt_sms_send() -> None:
 
     msg = input("Message (default: 'Console SMS test'): ").strip() or "Console SMS test"
 
-    try:
-        base = (cfg_get("TEXTBELT_ENDPOINT", "https://textbelt.com").rstrip("/"))
-        response = requests.post(  # type: ignore[misc]
-            f"{base}/text",
-            data={"phone": to, "message": msg, "key": key},
-            timeout=20,
-        )
-        resp_json = response.json()
+    ok, text_id, resp_json = _textbelt_send_core(to, msg)
+
+    if isinstance(resp_json, dict):
         print("\nResponse:\n" + json.dumps(resp_json, indent=2))
 
-        ok = bool(resp_json.get("success"))
-        text_id = resp_json.get("textId") or resp_json.get("id") or ""
-        if ok:
-            print(
-                "\n✅ Queued via Textbelt — textId="
-                f"{text_id or 'n/a'}  (quotaRemaining={resp_json.get('quotaRemaining')})"
-            )
-        else:
-            print("\n❌ Not sent (see 'error' above).")
-
-        global _LAST_TEXTBELT_ID
-        if text_id:
-            _LAST_TEXTBELT_ID = str(text_id)
-
-    except Exception as exc:  # pragma: no cover - network call
-        print("❌ Textbelt request failed:", exc)
+    if ok:
+        quota = resp_json.get("quotaRemaining") if isinstance(resp_json, dict) else "n/a"
+        print(
+            f"\n✅ Queued via Textbelt — textId={text_id or 'n/a'}  (quotaRemaining={quota})"
+        )
+    else:
+        err = resp_json.get("error") if isinstance(resp_json, dict) else None
+        print("\n❌ Not sent." + (f" Reason: {err}" if err else ""))
 
     print()
     _pause()
