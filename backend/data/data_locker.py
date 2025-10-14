@@ -1074,6 +1074,13 @@ class DataLocker:
             return
         try:
             current = self.system.get_var("xcom_providers") or {}
+            if isinstance(current, str):
+                try:
+                    current = json.loads(current)
+                except Exception:
+                    current = {}
+            if not isinstance(current, Mapping):
+                current = {}
 
             json_path = os.path.join(CONFIG_DIR, "comm_config.json")
             overrides = {}
@@ -1106,6 +1113,13 @@ class DataLocker:
                     "default_to_phone": "MY_PHONE_NUMBER",
                     "default_from_phone": "TWILIO_PHONE_NUMBER",
                 },
+                "sms": {
+                    "sid": "TWILIO_ACCOUNT_SID",
+                    "token": "TWILIO_AUTH_TOKEN",
+                    "from_number": ["TWILIO_FROM_PHONE", "TWILIO_PHONE_NUMBER"],
+                    "default_recipient": ["TWILIO_TO_PHONE", "MY_PHONE_NUMBER"],
+                    "carrier_gateway": "SMS_CARRIER_GATEWAY",
+                },
             }
 
             def apply_env(data: dict, mapping: dict) -> dict:
@@ -1114,7 +1128,15 @@ class DataLocker:
                     if isinstance(v, Mapping):
                         data[k] = apply_env(dict(v), sub if isinstance(sub, dict) else {})
                     else:
-                        env_key = sub if isinstance(sub, str) else None
+                        env_key = None
+                        if isinstance(sub, str):
+                            env_key = sub
+                        elif isinstance(sub, (list, tuple)):
+                            for cand in sub:
+                                cand = str(cand or "")
+                                if cand and os.getenv(cand):
+                                    env_key = cand
+                                    break
                         data[k] = _resolve_env(v, env_key)
                 return data
 
