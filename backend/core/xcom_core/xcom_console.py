@@ -1227,6 +1227,35 @@ _E164 = re.compile(r"^\+\d{8,15}$")
 _LAST_TEXTBELT_ID: str = ""
 
 
+def build_canned_alert_sms() -> str:
+    """Build the canned multi-line alert SMS.
+
+    Values can be overridden via config:
+      ALERT_ROOM (default "Room 55")
+      ALERT_PATIENT (default "Mr Rogers")
+      ALERT_DEVICE_SN (default "SN:12345678")
+      ALERT_DRUG (default "Epinephrine")
+    """
+
+    room = cfg_get("ALERT_ROOM", "Room 55")
+    patient = cfg_get("ALERT_PATIENT", "Mr Rogers")  # avoid "Mr." to dodge URL heuristics
+    device_sn = cfg_get("ALERT_DEVICE_SN", "SN:12345678")
+    drug = cfg_get("ALERT_DRUG", "Epinephrine")
+
+    # Compose with exact line order and icons
+    text = (
+        "🔴 HIGH\n"
+        f"🚨 Air-in-Line alarm\n"
+        f"💧 {drug}\n"
+        f"🏥 {room}\n"
+        f"👤 {patient}\n"
+        f"📟 {device_sn}"
+    )
+
+    # Reuse sanitizer to avoid accidental URL flags
+    return _sanitize_for_textbelt(text)
+
+
 def _sanitize_for_textbelt(msg: str) -> str:
     """Lightly scrub SMS content to dodge Textbelt's URL heuristics."""
 
@@ -1369,8 +1398,7 @@ def _canned_scenarios():
             return
         elif sel == "1":
             # ---- Alert Demo - SMS (Textbelt) ----
-            msg = "🚨 Air-in-Line alarm  🏥 Room 55  👤 Mr Rogers"
-            msg = _sanitize_for_textbelt(msg)
+            msg = build_canned_alert_sms()
             to = _default_sms_to()
 
             if not to or not _E164.match(to):
@@ -1394,7 +1422,7 @@ def _canned_scenarios():
         elif sel == "2":
             # ---- Alert Demo - Voice (Twilio voice path) ----
             # (Twilio SMS remains disabled; voice stays enabled)
-            vmsg = " Air-in-line alarm detected in room 55 — patient is Mr. Rogers"
+            vmsg = " Air-in-line alarm detected in room 55 — patient is Mr Rogers"
             _do_dispatch("voice", {"voice": True}, vmsg)
         else:
             print("Unknown selection.")
