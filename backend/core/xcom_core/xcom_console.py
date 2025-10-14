@@ -31,9 +31,15 @@ import os
 import sys
 import json
 import time
+import re
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+
+try:
+    import requests  # type: ignore  # pip install requests
+except Exception:  # pragma: no cover - optional dependency
+    requests = None  # type: ignore
 
 from backend.core.xcom_core.xcom_config_loader import (
     apply_xcom_env,
@@ -92,6 +98,8 @@ ICON = {
     "back": "◀",
     "exit": "⏻",
     "mic": "🎙️",
+    "link": "🔗",
+    "magnifier": "🔎",
 }
 
 BANNER = r"""
@@ -1035,6 +1043,8 @@ def _menu() -> str:
     print(f"  8. {ICON['mic']}  Set voice")
     print("  9. 🧪  Comms wizard")
     print(" 10. 🎚️  Voice options")
+    print(f" 11. {ICON['link']}  Textbelt SMS (no registration)")
+    print(f" 12. {ICON['magnifier']}  Textbelt status (by textId)")
     print(f"  0. {ICON['exit']}  Exit")
     _stdin_flush()
     return input("\n→ ").strip().lower()
@@ -1067,9 +1077,117 @@ def launch():
             _comms_wizard()
         elif choice == "10":
             _voice_options_menu()
+        elif choice == "11":
+            _textbelt_sms_send()
+        elif choice == "12":
+            _textbelt_status_check()
         else:
             print("\nUnknown selection.")
             time.sleep(0.8)
+
+
+# -------------------- Textbelt integration (quick, no 10DLC) ----------------
+_E164 = re.compile(r"^\+\d{8,15}$")
+_LAST_TEXTBELT_ID: str = ""
+
+
+def _textbelt_key() -> str:
+    """Resolve TEXTBELT_KEY from env or prompt once."""
+
+    key = os.getenv("TEXTBELT_KEY", "").strip()
+    if key:
+        return key
+
+    print("TEXTBELT_KEY not found in env.")
+    key = input("Enter your Textbelt key (or leave blank to cancel): ").strip()
+    return key
+
+
+def _textbelt_sms_send() -> None:
+    _print_header()
+    print(f"{ICON['link']}  Textbelt SMS (no registration)\n")
+
+    if requests is None:
+        print("requests not available. Run: pip install requests")
+        _pause()
+        return
+
+    key = _textbelt_key()
+    if not key:
+        print("Cancelled.")
+        _pause()
+        return
+
+    default_to = os.getenv("TWILIO_TO_PHONE", "") or os.getenv("MY_PHONE_NUMBER", "")
+    to = input(f"Send to (E.164, default={default_to or 'unset'}): ").strip() or default_to
+    if not _E164.match(to):
+        print("Invalid E.164 number. Use +1… for US.")
+        _pause()
+        return
+
+    msg = input("Message (default: 'Console SMS test'): ").strip() or "Console SMS test"
+
+    try:
+        response = requests.post(  # type: ignore[misc]
+            "https://textbelt.com/text",
+            data={"phone": to, "message": msg, "key": key},
+            timeout=20,
+        )
+        resp_json = response.json()
+        print("\nResponse:\n" + json.dumps(resp_json, indent=2))
+
+        ok = bool(resp_json.get("success"))
+        text_id = resp_json.get("textId") or resp_json.get("id") or ""
+        if ok:
+            print(
+                "\n✅ Queued via Textbelt — textId="
+                f"{text_id or 'n/a'}  (quotaRemaining={resp_json.get('quotaRemaining')})"
+            )
+        else:
+            print("\n❌ Not sent (see 'error' above).")
+
+        global _LAST_TEXTBELT_ID
+        if text_id:
+            _LAST_TEXTBELT_ID = str(text_id)
+
+    except Exception as exc:  # pragma: no cover - network call
+        print("❌ Textbelt request failed:", exc)
+
+    print()
+    _pause()
+
+
+def _textbelt_status_check() -> None:
+    _print_header()
+    print(f"{ICON['magnifier']}  Textbelt status (by textId)\n")
+
+    if requests is None:
+        print("requests not available. Run: pip install requests")
+        _pause()
+        return
+
+    tid = input(f"textId (default={_LAST_TEXTBELT_ID or 'none'}): ").strip() or _LAST_TEXTBELT_ID
+    if not tid:
+        print("No textId yet — send a Textbelt SMS first.")
+        _pause()
+        return
+
+    try:
+        response = requests.get(  # type: ignore[misc]
+            f"https://textbelt.com/status/{tid}",
+            timeout=15,
+        )
+        resp_json = response.json()
+        print("\nStatus:\n" + json.dumps(resp_json, indent=2))
+
+        delivered = resp_json.get("status") == "DELIVERED" or bool(resp_json.get("delivered"))
+        print("\n📬 Delivered" if delivered else "\n⏳ Not delivered yet / unknown")
+
+    except Exception as exc:  # pragma: no cover - network call
+        print("❌ Status lookup failed:", exc)
+
+    print()
+    _pause()
 
 
 def main() -> None:
