@@ -1217,7 +1217,7 @@ paths:
       tags:
       - monitor_settings
       summary: Reset Market Anchors
-      operationId: reset_market_anchors_post_api_monitor-settings_market_reset-anchors_68
+      operationId: reset_market_anchors_post_api_monitor-settings_market_reset-anchors_157
       responses:
         '200':
           description: Successful Response
@@ -1230,7 +1230,7 @@ paths:
       - monitor_settings
       summary: Get Sonic Settings
       description: Return current Sonic monitor settings.
-      operationId: get_sonic_settings_get_api_monitor-settings_sonic_103
+      operationId: get_sonic_settings_get_api_monitor-settings_sonic_192
       responses:
         '200':
           description: Successful Response
@@ -1242,7 +1242,7 @@ paths:
       - monitor_settings
       summary: Update Sonic Settings
       description: Update Sonic monitor settings.
-      operationId: update_sonic_settings_post_api_monitor-settings_sonic_119
+      operationId: update_sonic_settings_post_api_monitor-settings_sonic_208
       requestBody:
         content:
           application/json:
@@ -1274,7 +1274,7 @@ paths:
         \ description of source(s) such as\n                      'DL.system_vars\
         \ (...path)', 'global_config (...path)',\n                      'env (...file)',\
         \ or 'mixed: A + B'"
-      operationId: get_provenance_get_api_monitor-settings_provenance_181
+      operationId: get_provenance_get_api_monitor-settings_provenance_292
       responses:
         '200':
           description: Successful Response
@@ -1322,7 +1322,7 @@ paths:
       tags:
       - monitor_settings
       summary: Get Market Settings
-      operationId: get_market_settings_get_api_monitor-settings_market_399
+      operationId: get_market_settings_get_api_monitor-settings_market_522
       responses:
         '200':
           description: Successful Response
@@ -1334,7 +1334,7 @@ paths:
       tags:
       - monitor_settings
       summary: Post Market Settings
-      operationId: post_market_settings_post_api_monitor-settings_market_416
+      operationId: post_market_settings_post_api_monitor-settings_market_539
       requestBody:
         content:
           application/json:
@@ -2662,6 +2662,51 @@ paths:
           content:
             application/json:
               schema: {}
+  /api/monitor/config:
+    get:
+      tags:
+      - monitor-config
+      summary: Get Monitor Config
+      description: Return the merged monitor configuration.
+      operationId: get_monitor_config_get_api_monitor_config_101
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Get Monitor Config Get Api Monitor Config 101
+    post:
+      tags:
+      - monitor-config
+      summary: Save Monitor Config
+      description: Persist the provided monitor configuration to DB and JSON.
+      operationId: save_monitor_config_post_api_monitor_config_222
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Payload
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Save Monitor Config Post Api Monitor Config 222
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /monitor_status/:
     get:
       summary: Get Status
@@ -2955,7 +3000,7 @@ paths:
   /api/status:
     get:
       summary: Status
-      operationId: status_get_api_status_197
+      operationId: status_get_api_status_200
       responses:
         '200':
           description: Successful Response

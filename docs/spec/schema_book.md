@@ -1,6 +1,6 @@
 # Sonic Schema Book — Teaching Bundle
 
-> Generated: 2025-10-12 19:39:06 UTC  
+> Generated: 2025-10-13 20:37:16 UTC  
 > Source: `docs/spec/spec.manifest.yaml`  
 > Note: This file consolidates many repo schemas into one for *teaching*. In the repository, each schema lives as its own JSON file.
 

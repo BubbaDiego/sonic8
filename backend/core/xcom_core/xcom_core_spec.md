@@ -16,7 +16,7 @@ xcom/
 ├── sms_service.py                 # 💬 SMS via carrier gateway
 ├── voice_service.py [ALEXA_INTEGRATION_INSTRUCTIONS.md](../../../../Users/bubba/AppData/Local/Temp/ALEXA_INTEGRATION_INSTRUCTIONS.md)              # 📞 Twilio voice calls
 ├── sound_service.py               # 🔊 Local audio playback
-├── tts_service.py                 # 🗣️ Local text-to-speech
+├── tts_service.py                 # 🗣️ Local t[xcom_console.py](xcom_console.py)ext-to-speech
 └── check_twilio_heartbeat_service.py  # ❤️ Twilio credential check
 ```
 

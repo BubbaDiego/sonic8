@@ -799,6 +799,8 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
 
     # ----- Sync section header (centered) -----
     print(_center_banner(" 🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️ "))
+    print(f"DEBUG[XCOM] json={CFG.get('monitor', {}).get('xcom_live')} env={os.getenv('SONIC_XCOM_LIVE')}")
+
     print()
 
     # Full Cyclone pipeline
