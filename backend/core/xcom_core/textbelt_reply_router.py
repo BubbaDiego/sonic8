@@ -38,11 +38,15 @@ async def textbelt_reply(req: Request):
     payload: Dict[str, Any] = {}
 
     try:
-        if req.headers.get("content-type", "").lower().startswith("application/json"):
+        ctype = (req.headers.get("content-type") or "").lower()
+        if "application/json" in ctype:
             payload = await req.json()
         else:
-            form = await req.form()
-            payload = dict(form) if form else {}
+            try:
+                form = await req.form()
+                payload = dict(form) if form else {}
+            except Exception:
+                payload = {}
     except Exception:
         payload = {}
 
