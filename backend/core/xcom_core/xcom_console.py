@@ -615,7 +615,7 @@ def _status_probe():
     _pause()
 
 
-def _strict_ok(url: str, timeout: float = 0.5) -> tuple[bool, str]:
+def _strict_ok(url: str, timeout: float = 1.2) -> tuple[bool, str]:
     """Return whether the endpoint returns JSON {"status": "ok"}."""
 
     try:
@@ -635,8 +635,18 @@ def _strict_ok(url: str, timeout: float = 0.5) -> tuple[bool, str]:
                 label = "no json"
 
         return (False, label)
-    except Exception:
-        return (False, "offline")
+    except Exception as exc:
+        if requests is not None:
+            try:
+                if isinstance(exc, requests.exceptions.Timeout):
+                    return (False, "timeout")
+                if isinstance(exc, requests.exceptions.ConnectionError):
+                    return (False, "conn err")
+            except Exception:
+                pass
+
+        message = (str(exc).strip() or "offline")[:40]
+        return (False, message if message else "offline")
 
 
 def _probe_backend() -> Dict[str, Any]:
@@ -649,7 +659,12 @@ def _probe_backend() -> Dict[str, Any]:
 
     base_local = _local_api_base().rstrip("/")
     local_url = f"{base_local}/api/status"
-    ok, label = _strict_ok(local_url)
+    ok, label = _strict_ok(local_url, timeout=1.0)
+    if not ok and label in {"timeout", "conn err", "offline", "no json"}:
+        time.sleep(0.25)
+        ok2, label2 = _strict_ok(local_url, timeout=1.5)
+        if ok2:
+            ok, label = ok2, label2
     result["local"]["ok"] = ok
     result["local"]["label"] = label
 
@@ -686,7 +701,28 @@ def _probe_backend() -> Dict[str, Any]:
 
     if base_public:
         result["public"]["checked"] = True
-        ok_public, label_public = _strict_ok(f"{base_public}/api/status")
+        ok_public, label_public = _strict_ok(f"{base_public}/api/status", timeout=2.5)
+
+        if (
+            not ok_public
+            and label_public in {"timeout", "conn err", "offline", "no json"}
+            and requests is not None
+        ):
+            try:
+                response = requests.get("http://127.0.0.1:4040/api/tunnels", timeout=1.5)
+                tunnels = response.json().get("tunnels", [])
+                https = next((tun for tun in tunnels if tun.get("proto") == "https"), None)
+
+                if https and https.get("public_url"):
+                    pub2 = https["public_url"].rstrip("/")
+                    if pub2 and pub2 != base_public:
+                        os.environ["PUBLIC_BASE_URL"] = pub2
+                        os.environ["TEXTBELT_REPLY_WEBHOOK_URL"] = pub2 + "/api/xcom/textbelt/reply"
+                        ok_public, label_public = _strict_ok(f"{pub2}/api/status", timeout=2.5)
+                        base_public = pub2
+            except Exception:
+                pass
+
         result["public"]["ok"] = ok_public
         result["public"]["label"] = label_public
 
