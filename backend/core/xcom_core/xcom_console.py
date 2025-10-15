@@ -729,15 +729,26 @@ def _probe_backend() -> Dict[str, Any]:
 
 
 def _effective_webhook_url() -> str:
-    """Return the webhook URL that _textbelt_send_core will use."""
+    """Return the webhook URL we will use to receive replies.
+       ENV > config > 4040 fallback (ngrok).
+    """
 
-    reply = cfg_get("TEXTBELT_REPLY_WEBHOOK_URL", "")
+    reply = os.getenv("TEXTBELT_REPLY_WEBHOOK_URL", "").strip() or cfg_get(
+        "TEXTBELT_REPLY_WEBHOOK_URL", ""
+    )
+    pub = os.getenv("PUBLIC_BASE_URL", "").strip() or cfg_get("PUBLIC_BASE_URL", "")
+
+    if not reply and pub:
+        reply = pub.rstrip("/") + "/api/xcom/textbelt/reply"
+
     if not reply:
-        pub = cfg_get("PUBLIC_BASE_URL", "")
+        pub = _ngrok_current_https()
         if pub:
             reply = pub.rstrip("/") + "/api/xcom/textbelt/reply"
 
-    secret = cfg_get("TEXTBELT_WEBHOOK_SECRET", "")
+    secret = os.getenv("TEXTBELT_WEBHOOK_SECRET", "").strip() or cfg_get(
+        "TEXTBELT_WEBHOOK_SECRET", ""
+    )
     if reply and secret and "secret=" not in reply:
         sep = "&" if "?" in reply else "?"
         reply = f"{reply}{sep}secret={secret}"

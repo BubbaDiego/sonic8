@@ -8,12 +8,19 @@ import os
 import json
 import time
 
+from pydantic import BaseModel
+
 try:
     from backend.core.xcom_core import dispatch_notifications  # type: ignore
 except Exception:  # pragma: no cover
     dispatch_notifications = None  # type: ignore
 
 router = APIRouter()
+
+
+class TextbeltReply(BaseModel):
+    fromNumber: str
+    text: str
 
 _REPO = Path(__file__).resolve().parents[3]
 _DEFAULT_REL = Path("backend") / "core" / "xcom_core" / "logs" / "xcom_inbound_sms.jsonl"
@@ -33,39 +40,32 @@ def _write_jsonl(path: str, payload: Dict[str, Any]) -> None:
 
 
 @router.post("/reply")
-async def textbelt_reply(req: Request):
+async def textbelt_reply(req: Request, body: TextbeltReply | None = None) -> Dict[str, Any]:
     q_secret = (req.query_params.get("secret") or "").strip()
     secret = _resolve_secret()
     if secret and q_secret != secret:
         raise HTTPException(status_code=401, detail="unauthorized")
 
-    payload: Dict[str, Any] = {}
+    if body is None:
+        payload: Dict[str, Any] = {}
 
-    try:
-        ctype = (req.headers.get("content-type") or "").lower()
-        if "application/json" in ctype:
-            payload = await req.json()
-        else:
-            form = await req.form()
-            payload = dict(form) if form else {}
-    except Exception:
-        payload = {}
+        try:
+            ctype = (req.headers.get("content-type") or "").lower()
+            if "application/json" in ctype:
+                payload = await req.json()
+            else:
+                form = await req.form()
+                payload = dict(form) if form else {}
+        except Exception:
+            payload = {}
 
-    from_number = (payload.get("fromNumber") or payload.get("from_number") or "").strip()
-    text_body = (payload.get("text") or payload.get("message") or "").strip()
-
-    if not from_number or not text_body:
-        raise HTTPException(
-            status_code=422,
-            detail=[
-                {
-                    "type": "missing",
-                    "loc": ["body"],
-                    "msg": "Field required",
-                    "input": None,
-                }
-            ],
-        )
+        from_number = (payload.get("fromNumber") or payload.get("from_number") or "").strip()
+        text_body = (payload.get("text") or payload.get("message") or "").strip()
+        if not from_number or not text_body:
+            raise HTTPException(status_code=422, detail="missing body")
+    else:
+        from_number = body.fromNumber
+        text_body = body.text
 
     event = {
         "ts": int(time.time()),
