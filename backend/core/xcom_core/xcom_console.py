@@ -1307,6 +1307,56 @@ def _heartbeat():
     _pause()
 
 
+def _normalize_choice(raw: str) -> str:
+    """Normalize menu input into a canonical lowercase token."""
+
+    s = (raw or "").strip().lower()
+    if not s:
+        return ""
+
+    # Trim trailing punctuation/whitespace such as "1)" or "2.".
+    s = re.sub(r"[\s).:]+$", "", s)
+
+    # Allow prefixes like "12 send" → "12".
+    m = re.match(r"^(\d+)", s)
+    if m:
+        return m.group(1)
+
+    return s
+
+
+def _ask_choice(valid: set[str], default: str | None = None, prompt: str = "\n→ ") -> str:
+    """Read input until a valid choice is supplied.
+
+    * Accepts variants such as "1)", "2." or "3 extra".
+    * ENTER returns ``default`` when provided.
+    * ``b``/``back`` map to ``"0"`` when ``"0"`` is an allowed option.
+    """
+
+    ordered = sorted(valid, key=lambda x: (0, int(x)) if x.isdigit() else (1, x))
+
+    while True:
+        try:
+            raw = input(prompt)
+        except (EOFError, KeyboardInterrupt):
+            raw = ""
+
+        norm = _normalize_choice(raw)
+
+        if not norm:
+            if default is not None:
+                return default
+        else:
+            if norm in {"b", "back"} and "0" in valid:
+                norm = "0"
+            if norm in valid:
+                return norm
+
+        if norm or default is None:
+            print("Please choose:", ", ".join(ordered))
+            time.sleep(0.5)
+
+
 def _menu() -> str:
     print("Main Menu\n")
     print(f"  1. {ICON['wizard']}  Comms Wizard")
@@ -1326,7 +1376,9 @@ def _menu() -> str:
     print(f" 15. {ICON['stop']}  Stop reply webhook server")
     print(f"  0. {ICON['exit']}  Exit")
     _stdin_flush()
-    return input("\n→ ").strip().lower()
+    valid = {str(i) for i in range(16)}
+    valid.update({"q", "quit", "exit"})
+    return _ask_choice(valid=valid, default=None)
 
 
 def launch():
@@ -1749,9 +1801,9 @@ def _canned_scenarios():
         print("  2) Alert Demo - Voice")
         print(f"  0) {ICON['back']} Back")
 
-        sel = (input("\n→ ").strip() or "").lower()
+        sel = _ask_choice(valid={"0", "1", "2"}, default="0")
 
-        if sel in {"0", "b", "back"}:
+        if sel == "0":
             return
         elif sel == "1":
             # ---- Alert Demo - SMS (Textbelt) ----
@@ -1828,8 +1880,8 @@ def _canned_scenarios():
 
             _do_dispatch("voice", {"voice": True}, vmsg, extra_ctx)
         else:
-            print("Unknown selection.")
-            time.sleep(0.7)
+            # Should not happen, but keep loop tight.
+            time.sleep(0.2)
 
 
 def _textbelt_status_check() -> None:
