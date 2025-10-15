@@ -33,6 +33,7 @@ import json
 import time
 import re
 import subprocess
+import socket
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -614,45 +615,80 @@ def _status_probe():
     _pause()
 
 
+def _strict_ok(url: str, timeout: float = 0.5) -> tuple[bool, str]:
+    """Return whether the endpoint returns JSON {"status": "ok"}."""
+
+    try:
+        if requests is None:
+            return (False, "unknown (no requests)")
+
+        response = requests.get(url, timeout=timeout)
+        label = f"error {response.status_code}"
+
+        if response.status_code == 200:
+            try:
+                payload = response.json()
+                if isinstance(payload, dict) and str(payload.get("status", "")).lower() == "ok":
+                    return (True, "live")
+                label = "bad body"
+            except Exception:
+                label = "no json"
+
+        return (False, label)
+    except Exception:
+        return (False, "offline")
+
+
 def _probe_backend() -> Dict[str, Any]:
     """Probe the backend health endpoints."""
 
     result: Dict[str, Any] = {
-        "local": {"ok": False, "label": "offline"},
+        "local": {"ok": False, "label": "offline", "pid": None, "port_open": False},
         "public": {"ok": False, "label": "skipped", "checked": False},
     }
 
-    base_local = _local_api_base()
+    base_local = _local_api_base().rstrip("/")
+    local_url = f"{base_local}/api/status"
+    ok, label = _strict_ok(local_url)
+    result["local"]["ok"] = ok
+    result["local"]["label"] = label
 
-    try:
-        if requests is not None:
-            resp = requests.get(f"{base_local}/api/status", timeout=3)
-            is_ok = 200 <= resp.status_code < 500
-            result["local"]["ok"] = is_ok
-            result["local"]["label"] = "live" if is_ok else f"error {resp.status_code}"
-        else:
-            result["local"]["ok"] = None
-            result["local"]["label"] = "unknown (no requests)"
-    except Exception:
-        result["local"]["ok"] = False
-        result["local"]["label"] = "offline"
+    if not ok:
+        try:
+            host, port = "127.0.0.1", int(base_local.rsplit(":", 1)[-1])
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(0.2)
+                result["local"]["port_open"] = sock.connect_ex((host, port)) == 0
+        except Exception:
+            result["local"]["port_open"] = False
+
+        if result["local"]["port_open"]:
+            try:
+                proc = subprocess.run(
+                    ["netstat", "-ano"],
+                    capture_output=True,
+                    text=True,
+                    timeout=1.0,
+                )
+                lines = [
+                    line
+                    for line in proc.stdout.splitlines()
+                    if f":{port} " in line and "LISTENING" in line
+                ]
+                if lines:
+                    pid = lines[0].split()[-1]
+                    result["local"]["pid"] = pid
+                    result["local"]["label"] = f"port {port} in use (PID {pid})"
+            except Exception:
+                pass
 
     base_public = cfg_get("PUBLIC_BASE_URL", "").rstrip("/")
 
     if base_public:
         result["public"]["checked"] = True
-        try:
-            if requests is not None:
-                resp = requests.get(f"{base_public}/api/status", timeout=3)
-                is_ok = 200 <= resp.status_code < 500
-                result["public"]["ok"] = is_ok
-                result["public"]["label"] = "live" if is_ok else f"error {resp.status_code}"
-            else:
-                result["public"]["ok"] = None
-                result["public"]["label"] = "unknown (no requests)"
-        except Exception:
-            result["public"]["ok"] = False
-            result["public"]["label"] = "offline"
+        ok_public, label_public = _strict_ok(f"{base_public}/api/status")
+        result["public"]["ok"] = ok_public
+        result["public"]["label"] = label_public
 
     return result
 
