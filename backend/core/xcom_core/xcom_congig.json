@@ -11,5 +11,5 @@
   "PUBLIC_BASE_URL": "https://<your-ngrok-or-domain>",
   "TEXTBELT_REPLY_WEBHOOK_URL": "https://<your-ngrok-or-domain>/api/xcom/textbelt/reply",
   "TEXTBELT_WEBHOOK_SECRET": "change_me_strong_secret",
-  "XCOM_INBOUND_LOG": "backend/logs/xcom_inbound_sms.jsonl"
+  "XCOM_INBOUND_LOG": "backend/core/xcom_core/logs/xcom_inbound_sms.jsonl"
 }

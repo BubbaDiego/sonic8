@@ -1781,10 +1781,17 @@ def _textbelt_send_core(to: str, msg: str):
     # Compute reply webhook exactly like header preview
     reply = _effective_webhook_url()
 
+    if not reply:
+        print("\n❌ No public webhook configured. Replies will NOT arrive.")
+        print(
+            "   Fix: set PUBLIC_BASE_URL / TEXTBELT_REPLY_WEBHOOK_URL (or menu: Refresh from ngrok)\n"
+        )
+        _pause()
+        return False, None, {"error": "no webhook configured"}
+
     try:
         payload = {"phone": to, "message": msg, "key": key}
-        if reply:
-            payload["replyWebhookUrl"] = reply
+        payload["replyWebhookUrl"] = reply
         r = requests.post(  # type: ignore[misc]
             f"{base}/text",
             data=payload,
