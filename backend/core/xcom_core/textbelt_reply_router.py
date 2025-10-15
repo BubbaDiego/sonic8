@@ -15,16 +15,11 @@ except Exception:  # pragma: no cover
 
 router = APIRouter()
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_LOG_DEFAULT_REL = Path("backend") / "core" / "xcom_core" / "logs" / "xcom_inbound_sms.jsonl"
-
-
-def _resolve_log_path() -> str:
-    cfg_raw = os.getenv("XCOM_INBOUND_LOG", str(_LOG_DEFAULT_REL))
-    cfg_path = Path(cfg_raw)
-    if cfg_path.is_absolute():
-        return str(cfg_path)
-    return str((_REPO_ROOT / cfg_path).resolve())
+_REPO = Path(__file__).resolve().parents[3]
+_DEFAULT_REL = Path("backend") / "core" / "xcom_core" / "logs" / "xcom_inbound_sms.jsonl"
+_cfg_raw = os.getenv("XCOM_INBOUND_LOG", str(_DEFAULT_REL))
+_p = Path(_cfg_raw)
+LOG_PATH = str(_p if _p.is_absolute() else (_REPO / _p).resolve())
 
 
 def _resolve_secret() -> str:
@@ -51,11 +46,8 @@ async def textbelt_reply(req: Request):
         if "application/json" in ctype:
             payload = await req.json()
         else:
-            try:
-                form = await req.form()
-                payload = dict(form) if form else {}
-            except Exception:
-                payload = {}
+            form = await req.form()
+            payload = dict(form) if form else {}
     except Exception:
         payload = {}
 
@@ -83,7 +75,7 @@ async def textbelt_reply(req: Request):
         "ua": req.headers.get("user-agent"),
         "source": "textbelt",
     }
-    _write_jsonl(_resolve_log_path(), event)
+    _write_jsonl(LOG_PATH, event)
 
     try:
         if dispatch_notifications:
