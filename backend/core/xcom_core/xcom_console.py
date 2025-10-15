@@ -729,9 +729,7 @@ def _probe_backend() -> Dict[str, Any]:
 
 
 def _effective_webhook_url() -> str:
-    """Return the webhook URL we will use to receive replies.
-       ENV > config > 4040 fallback (ngrok).
-    """
+    """Return the webhook URL we will use to receive replies. ENV > config > 4040."""
 
     reply = os.getenv("TEXTBELT_REPLY_WEBHOOK_URL", "").strip() or cfg_get(
         "TEXTBELT_REPLY_WEBHOOK_URL", ""
@@ -754,6 +752,145 @@ def _effective_webhook_url() -> str:
         reply = f"{reply}{sep}secret={secret}"
 
     return reply
+
+
+def _url_host(url: str) -> str:
+    try:
+        from urllib.parse import urlparse
+
+        return urlparse(url).netloc.lower()
+    except Exception:
+        return ""
+
+
+def _receiver_health() -> Tuple[bool, dict]:
+    """Check if the receiver (webhook) is live & correctly wired."""
+
+    info: dict[str, Any] = {
+        "webhook": _effective_webhook_url(),
+        "secret_present": bool(
+            os.getenv("TEXTBELT_WEBHOOK_SECRET", "").strip()
+            or cfg_get("TEXTBELT_WEBHOOK_SECRET", "")
+        ),
+        "public_ok": False,
+        "public_reason": "",
+        "ngrok_match": False,
+        "inbox_path": _inbound_log_path(),
+        "inbox_dir_ok": False,
+    }
+
+    try:
+        Path(info["inbox_path"]).parent.mkdir(parents=True, exist_ok=True)
+        info["inbox_dir_ok"] = True
+    except Exception as exc:
+        info["public_reason"] = f"inbox dir err: {exc}"
+
+    pub_base = (
+        os.getenv("PUBLIC_BASE_URL", "").strip() or cfg_get("PUBLIC_BASE_URL", "")
+    ).rstrip("/")
+
+    if pub_base and requests is not None:
+        try:
+            resp = requests.get(f"{pub_base}/api/status", timeout=2.5)
+            if resp.status_code == 200:
+                try:
+                    body = resp.json()
+                    info["public_ok"] = body.get("status", "").lower() == "ok"
+                    if not info["public_ok"]:
+                        info["public_reason"] = "bad body"
+                except Exception:
+                    info["public_reason"] = "no json"
+            else:
+                info["public_reason"] = f"http {resp.status_code}"
+        except requests.exceptions.Timeout:
+            info["public_reason"] = "timeout"
+        except requests.exceptions.ConnectionError:
+            info["public_reason"] = "conn err"
+        except Exception as exc:
+            info["public_reason"] = str(exc)[:60]
+    elif not pub_base:
+        info["public_reason"] = "no public url"
+    elif requests is None:
+        info["public_reason"] = "requests missing"
+
+    webhook_host = _url_host(info["webhook"])
+    if requests is not None:
+        try:
+            tunnels_resp = requests.get(
+                "http://127.0.0.1:4040/api/tunnels", timeout=1.2
+            )
+            tunnels = tunnels_resp.json().get("tunnels", [])
+            https_tunnel = next(
+                (tun for tun in tunnels if tun.get("proto") == "https"), None
+            )
+            if https_tunnel and https_tunnel.get("public_url"):
+                info["ngrok_match"] = (
+                    bool(webhook_host)
+                    and _url_host(https_tunnel["public_url"]) == webhook_host
+                )
+        except Exception:
+            pass
+
+    ok = (
+        bool(info["webhook"])
+        and info["secret_present"]
+        and info["public_ok"]
+        and info["ngrok_match"]
+        and info["inbox_dir_ok"]
+    )
+
+    return ok, info
+
+
+def _ensure_receiver_ready() -> bool:
+    ok, info = _receiver_health()
+    if ok:
+        return True
+
+    print("\n📡 Receiver health check:")
+    print(" webhook :", info.get("webhook") or "(none)")
+    print(
+        " secret :",
+        "present" if info.get("secret_present") else "(missing)",
+    )
+    print(
+        " public base :",
+        (os.getenv("PUBLIC_BASE_URL", "") or cfg_get("PUBLIC_BASE_URL", ""))
+        or "(none)",
+    )
+    public_ok = info.get("public_ok")
+    reason = info.get("public_reason") or "unknown"
+    print(" public ok :", "✅" if public_ok else f"❌ ({reason})")
+    print(" ngrok match :", "✅" if info.get("ngrok_match") else "❌")
+    inbox_path = info.get("inbox_path")
+    inbox_ok = info.get("inbox_dir_ok")
+    suffix = " (dir ok ✅)" if inbox_ok else " (dir ❌)"
+    print(" inbox path :", inbox_path, suffix)
+
+    print("\nOptions:")
+    print(" 1) Start reply server")
+    print(" 2) Start ngrok tunnel")
+    print(" 3) Refresh public URL from ngrok")
+    print(" 0) Cancel send")
+
+    choice = _ask_choice(valid={"0", "1", "2", "3"}, default="0")
+    if choice in {"retry", "0"}:
+        return False
+
+    if choice == "1":
+        _reply_server_start()
+    elif choice == "2":
+        _ngrok_start()
+    elif choice == "3":
+        _refresh_public_from_ngrok()
+
+    ok2, _ = _receiver_health()
+    if not ok2:
+        print("\n❌ Receiver still not ready. Aborting send.")
+        _pause()
+        return False
+
+    return True
 
 
 # -------------------- ngrok helpers ------------------------------------------
@@ -1694,7 +1831,7 @@ _NGROK_PROC: Optional[subprocess.Popen] = None
 
 
 def _inbound_log_path() -> str:
-    # Keep logs inside xcom_core by default
+    """Resolve the inbound SMS log path (default to xcom-local logs folder)."""
     cfg_path = cfg_get(
         "XCOM_INBOUND_LOG", "backend/core/xcom_core/logs/xcom_inbound_sms.jsonl"
     )
@@ -1730,7 +1867,7 @@ def _fmt_ts(ts: int | float | None) -> str:
 
 
 def _inbox_view():
-    _print_header()
+    # UX: show content immediately; the main loop redraws the header after pause.
     print(f"{ICON['inbox']}  Inbox (Textbelt replies)\n")
 
     path = _inbound_log_path()
@@ -2019,12 +2156,15 @@ def _textbelt_key() -> str:
 
 
 def _textbelt_sms_send() -> None:
-    _print_header()
+    # UX: show content inline; avoid clearing the screen here.
     print(f"{ICON['link']}  Textbelt SMS (no registration)\n")
 
     if requests is None:
         print("requests not available. Run: pip install requests")
         _pause()
+        return
+
+    if not _ensure_receiver_ready():
         return
 
     key = _textbelt_key()
@@ -2083,6 +2223,8 @@ def _canned_scenarios():
             return
         elif sel == "1":
             # ---- Alert Demo - SMS (Textbelt) ----
+            if not _ensure_receiver_ready():
+                return
             msg = build_canned_alert_sms()
 
             # allow user to override number, default to configured
