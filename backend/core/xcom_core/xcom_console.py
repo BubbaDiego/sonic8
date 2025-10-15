@@ -703,11 +703,7 @@ def _probe_backend() -> Dict[str, Any]:
         result["public"]["checked"] = True
         ok_public, label_public = _strict_ok(f"{base_public}/api/status", timeout=2.5)
 
-        if (
-            not ok_public
-            and label_public in {"timeout", "conn err", "offline", "no json"}
-            and requests is not None
-        ):
+        if not ok_public and requests is not None:
             try:
                 response = requests.get("http://127.0.0.1:4040/api/tunnels", timeout=1.5)
                 tunnels = response.json().get("tunnels", [])
@@ -1503,6 +1499,7 @@ _REPLY_SERVER_LOG_FH: Optional[TextIO] = None
 
 
 def _inbound_log_path() -> str:
+    # Keep logs inside xcom_core by default
     cfg_path = cfg_get(
         "XCOM_INBOUND_LOG", "backend/core/xcom_core/logs/xcom_inbound_sms.jsonl"
     )
@@ -1542,8 +1539,10 @@ def _inbox_view():
     print(f"{ICON['inbox']}  Inbox (Textbelt replies)\n")
 
     path = _inbound_log_path()
+    print(f"Resolved path: {path}\n")
+
     if not Path(path).exists():
-        print(f"No inbox file found yet at (resolved):\n  {path}\n")
+        print("No inbox file found yet.\n")
         print(
             "Tip: Start the reply server (15) and send yourself a Textbelt SMS with a replyWebhookUrl."
         )
@@ -1786,12 +1785,15 @@ def _textbelt_send_core(to: str, msg: str):
         print(
             "   Fix: set PUBLIC_BASE_URL / TEXTBELT_REPLY_WEBHOOK_URL (or menu: Refresh from ngrok)\n"
         )
-        _pause()
         return False, None, {"error": "no webhook configured"}
 
     try:
         payload = {"phone": to, "message": msg, "key": key}
         payload["replyWebhookUrl"] = reply
+
+        if reply:
+            print(f"\n→ Using replyWebhookUrl: {reply}")
+
         r = requests.post(  # type: ignore[misc]
             f"{base}/text",
             data=payload,
