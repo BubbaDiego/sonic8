@@ -16,12 +16,10 @@ except Exception:  # pragma: no cover
 router = APIRouter()
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_LOG_DEFAULT = Path("backend/logs/xcom_inbound_sms.jsonl")
-_cfg_raw = os.getenv("XCOM_INBOUND_LOG")
-_cfg_path = Path(_cfg_raw) if _cfg_raw else _LOG_DEFAULT
-LOG_PATH = str(
-    _cfg_path if _cfg_path.is_absolute() else (_REPO_ROOT / _cfg_path).resolve()
-)
+_LOG_DEFAULT_REL = Path("backend") / "core" / "xcom_core" / "logs" / "xcom_inbound_sms.jsonl"
+_cfg_raw = os.getenv("XCOM_INBOUND_LOG", str(_LOG_DEFAULT_REL))
+_cfg_path = Path(_cfg_raw)
+LOG_PATH = str(_cfg_path if _cfg_path.is_absolute() else (_REPO_ROOT / _cfg_path).resolve())
 WEBHOOK_SECRET = os.getenv("TEXTBELT_WEBHOOK_SECRET", "").strip()
 
 

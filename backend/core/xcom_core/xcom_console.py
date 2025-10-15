@@ -159,12 +159,15 @@ def cfg_get(key: str, default: str | None = None) -> str:
     env = os.getenv(key)
     return env.strip() if isinstance(env, str) and env.strip() else (default or "")
 
-# Box banner (no leading newline to avoid extra space under the slant title)
-BANNER = (
-    " ╔════════════════════════════════════════════════════════╗\n"
-    " ║ Cross-Communication Ops & Diagnostics ║\n"
-    " ╚════════════════════════════════════════════════════════╝"
-)
+def _box(title: str, pad: int = 1) -> str:
+    """Render a perfectly aligned single-line box with the given title."""
+
+    t = title.strip()
+    inner = len(t) + pad * 2
+    top = f" ╔{'═' * inner}╗"
+    mid = f" ║{' ' * pad}{t}{' ' * pad}║"
+    bot = f" ╚{'═' * inner}╝"
+    return "\n".join([top, mid, bot])
 
 _IS_TTY = sys.stdout.isatty()
 
@@ -491,6 +494,8 @@ def _print_header():
 
     # Render bold cyan slant title, then the box with NO blank line in-between
     print(Style.BRIGHT + Fore.CYAN + slant.rstrip("\n") + Style.RESET_ALL)
+    print(_box("Cross-Communication Ops & Diagnostics"))
+
     # Inline, quick health snapshot (short timeouts, don’t block)
     live_local = "?"
     live_pub = "?"
@@ -503,11 +508,10 @@ def _print_header():
         ) if hb["public"].get("checked") else "—"
     except Exception:
         pass
-    print(BANNER)
     print(
-        "  Backend: "
+        " Backend: "
         f"{('✅ ' if live_local == 'LIVE' else '❌ ')}"
-        f"Local={live_local} | Public={live_pub}   "
+        f"Local={live_local} | Public={live_pub} "
         f"WebHook: {webhook or '(none)'}\n"
     )
 
@@ -1375,7 +1379,14 @@ _REPLY_SERVER_LOG_FH: Optional[TextIO] = None
 
 
 def _inbound_log_path() -> str:
-    return cfg_get("XCOM_INBOUND_LOG", "backend/logs/xcom_inbound_sms.jsonl")
+    cfg_path = cfg_get(
+        "XCOM_INBOUND_LOG", "backend/core/xcom_core/logs/xcom_inbound_sms.jsonl"
+    )
+    p = Path(cfg_path)
+    if p.is_absolute():
+        return str(p)
+    repo_root = Path(__file__).resolve().parents[3]
+    return str((repo_root / p).resolve())
 
 
 def _local_api_base() -> str:
@@ -1408,9 +1419,9 @@ def _inbox_view():
 
     path = _inbound_log_path()
     if not Path(path).exists():
-        print(f"No inbox file found yet at:\n  {path}\n")
+        print(f"No inbox file found yet at (resolved):\n  {path}\n")
         print(
-            "Tip: Start the reply server (14) and send yourself a Textbelt SMS with a replyWebhookUrl."
+            "Tip: Start the reply server (15) and send yourself a Textbelt SMS with a replyWebhookUrl."
         )
         _pause()
         return
