@@ -59,6 +59,15 @@ def apply_xcom_env(cfg: Dict[str, Any]) -> Dict[str, str]:
         "TWILIO_PHONE_NUMBER": "TWILIO_FROM_PHONE",
         "MY_PHONE_NUMBER": "TWILIO_TO_PHONE",
         "TWILIO_SID": "TWILIO_ACCOUNT_SID",
+        # Textbelt + ngrok metadata used by the console/router
+        "PUBLIC_BASE_URL": "PUBLIC_BASE_URL",
+        "TEXTBELT_REPLY_WEBHOOK_URL": "TEXTBELT_REPLY_WEBHOOK_URL",
+        "TEXTBELT_WEBHOOK_SECRET": "TEXTBELT_WEBHOOK_SECRET",
+        "TEXTBELT_KEY": "TEXTBELT_KEY",
+        "TEXTBELT_ENDPOINT": "TEXTBELT_ENDPOINT",
+        "TEXTBELT_DEFAULT_TO": "TEXTBELT_DEFAULT_TO",
+        # Inbox path (Textbelt replies JSONL)
+        "XCOM_INBOUND_LOG": "XCOM_INBOUND_LOG",
     }
 
     effective: Dict[str, str] = {}

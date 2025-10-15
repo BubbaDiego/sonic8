@@ -17,10 +17,18 @@ router = APIRouter()
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _LOG_DEFAULT_REL = Path("backend") / "core" / "xcom_core" / "logs" / "xcom_inbound_sms.jsonl"
-_cfg_raw = os.getenv("XCOM_INBOUND_LOG", str(_LOG_DEFAULT_REL))
-_cfg_path = Path(_cfg_raw)
-LOG_PATH = str(_cfg_path if _cfg_path.is_absolute() else (_REPO_ROOT / _cfg_path).resolve())
-WEBHOOK_SECRET = os.getenv("TEXTBELT_WEBHOOK_SECRET", "").strip()
+
+
+def _resolve_log_path() -> str:
+    cfg_raw = os.getenv("XCOM_INBOUND_LOG", str(_LOG_DEFAULT_REL))
+    cfg_path = Path(cfg_raw)
+    if cfg_path.is_absolute():
+        return str(cfg_path)
+    return str((_REPO_ROOT / cfg_path).resolve())
+
+
+def _resolve_secret() -> str:
+    return os.getenv("TEXTBELT_WEBHOOK_SECRET", "").strip()
 
 
 def _write_jsonl(path: str, payload: Dict[str, Any]) -> None:
@@ -32,7 +40,8 @@ def _write_jsonl(path: str, payload: Dict[str, Any]) -> None:
 @router.post("/reply")
 async def textbelt_reply(req: Request):
     q_secret = (req.query_params.get("secret") or "").strip()
-    if WEBHOOK_SECRET and q_secret != WEBHOOK_SECRET:
+    secret = _resolve_secret()
+    if secret and q_secret != secret:
         raise HTTPException(status_code=401, detail="unauthorized")
 
     payload: Dict[str, Any] = {}
@@ -74,7 +83,7 @@ async def textbelt_reply(req: Request):
         "ua": req.headers.get("user-agent"),
         "source": "textbelt",
     }
-    _write_jsonl(LOG_PATH, event)
+    _write_jsonl(_resolve_log_path(), event)
 
     try:
         if dispatch_notifications:
