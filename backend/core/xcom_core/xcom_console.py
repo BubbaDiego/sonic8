@@ -32,6 +32,7 @@ import sys
 import json
 import time
 import re
+import shutil
 import subprocess
 import socket
 from collections import deque
@@ -115,6 +116,8 @@ ICON = {
     "inbox": "📥",
     "play": "🛰",
     "stop": "⏹",
+    "ngrok": "🧭",
+    "refresh": "🔁",
 }
 
 # ---------------- config loader (JSON-first, env fallback) -------------------
@@ -740,6 +743,174 @@ def _effective_webhook_url() -> str:
         reply = f"{reply}{sep}secret={secret}"
 
     return reply
+
+
+# -------------------- ngrok helpers ------------------------------------------
+def _ngrok_cfg_path() -> str:
+    repo_root = Path(__file__).resolve().parents[3]
+    return str((repo_root / "backend" / "core" / "xcom_core" / ".ngrok" / "ngrok.yml").resolve())
+
+
+def _ngrok_exe() -> Optional[str]:
+    exe = shutil.which("ngrok")
+    if exe:
+        return exe
+
+    fallbacks = []
+    local_app_data = os.getenv("LOCALAPPDATA", "")
+    if local_app_data:
+        fallbacks.append(os.path.join(local_app_data, "ngrok", "ngrok.exe"))
+
+    for candidate in fallbacks:
+        if candidate and os.path.exists(candidate):
+            return candidate
+
+    return None
+
+
+def _ngrok_running() -> bool:
+    if requests is None:
+        return False
+
+    try:
+        response = requests.get("http://127.0.0.1:4040/api/tunnels", timeout=0.6)
+        return response.status_code == 200 and bool(response.json().get("tunnels"))
+    except Exception:
+        return False
+
+
+def _ngrok_current_https() -> str:
+    if requests is None:
+        return ""
+
+    try:
+        response = requests.get("http://127.0.0.1:4040/api/tunnels", timeout=1.2)
+        tunnels = response.json().get("tunnels", [])
+        https = next((tun for tun in tunnels if tun.get("proto") == "https"), None)
+        return (https or {}).get("public_url", "")
+    except Exception:
+        return ""
+
+
+def _persist_public_to_config(pub: str) -> None:
+    try:
+        repo_root = Path(__file__).resolve().parents[3]
+        cfg_path = repo_root / "backend" / "core" / "xcom_core" / "xcom_config.json"
+        if not cfg_path.exists():
+            return
+
+        data = json.loads(cfg_path.read_text(encoding="utf-8"))
+        data["PUBLIC_BASE_URL"] = pub
+        data["TEXTBELT_REPLY_WEBHOOK_URL"] = pub.rstrip("/") + "/api/xcom/textbelt/reply"
+        cfg_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _ngrok_start() -> None:
+    global _NGROK_PROC
+
+    _print_header()
+    print(f"{ICON['ngrok']}  Start ngrok tunnel\n")
+
+    if _ngrok_running():
+        print("ngrok already running.")
+        print()
+        _pause()
+        return
+
+    if _NGROK_PROC and _NGROK_PROC.poll() is None:
+        print("ngrok process is already tracked as running.")
+        print()
+        _pause()
+        return
+
+    exe = _ngrok_exe()
+    if not exe:
+        print("ngrok executable not found. Install it and ensure it's on PATH.")
+        print()
+        _pause()
+        return
+
+    try:
+        cfg_path = Path(_ngrok_cfg_path())
+        args = [exe, "http", "5000"]
+        if cfg_path.exists():
+            args.extend(["--config", str(cfg_path)])
+        else:
+            print(f"ngrok config not found at {cfg_path}. Starting with defaults.")
+
+        _NGROK_PROC = subprocess.Popen(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+        )
+
+        for _ in range(20):
+            if _ngrok_running():
+                break
+            time.sleep(0.25)
+
+        pub = _ngrok_current_https()
+        if pub:
+            os.environ["PUBLIC_BASE_URL"] = pub
+            os.environ["TEXTBELT_REPLY_WEBHOOK_URL"] = pub.rstrip("/") + "/api/xcom/textbelt/reply"
+            print("Public URL:", pub)
+            _persist_public_to_config(pub)
+        else:
+            print("Started ngrok, but no https tunnel reported yet.")
+            print("Use 'Refresh public URL from ngrok' after it appears.")
+    except Exception as exc:
+        print("Failed to start ngrok:", exc)
+        _NGROK_PROC = None
+
+    print()
+    _pause()
+
+
+def _ngrok_stop() -> None:
+    global _NGROK_PROC
+
+    _print_header()
+    print(f"{ICON['stop']}  Stop ngrok tunnel\n")
+
+    if _NGROK_PROC and _NGROK_PROC.poll() is None:
+        try:
+            _NGROK_PROC.terminate()
+            time.sleep(0.5)
+            if _NGROK_PROC.poll() is None:
+                _NGROK_PROC.kill()
+            print("ngrok tunnel stopped.")
+        except Exception as exc:
+            print("Failed to stop ngrok:", exc)
+        finally:
+            _NGROK_PROC = None
+    else:
+        print("No tracked ngrok process is running. If a tunnel is active, close it manually.")
+
+    print()
+    _pause()
+
+
+def _refresh_public_from_ngrok() -> None:
+    _print_header()
+    print(f"{ICON['refresh']}  Refresh public URL from ngrok\n")
+
+    pub = _ngrok_current_https()
+    if not pub:
+        print("No https tunnel detected on the local ngrok API (127.0.0.1:4040).")
+        print("Start ngrok or run it in another terminal, then try again.")
+        print()
+        _pause()
+        return
+
+    os.environ["PUBLIC_BASE_URL"] = pub
+    os.environ["TEXTBELT_REPLY_WEBHOOK_URL"] = pub.rstrip("/") + "/api/xcom/textbelt/reply"
+    print("Updated webhook to:", os.environ["TEXTBELT_REPLY_WEBHOOK_URL"])
+    _persist_public_to_config(pub)
+
+    print()
+    _pause()
 
 
 def _inbox_last_ts() -> str | None:
@@ -1429,22 +1600,26 @@ def _menu() -> str:
     print("Main Menu\n")
     print(f"  1. {ICON['wizard']}  Comms Wizard")
     print(f"  2. {ICON['status']}  Status probe")
-    print(f"  3. {ICON['gear']}  Inspect providers")
-    print(f"  4. {ICON['voice']}  Voice test")
-    print(f"  5. {ICON['sys']}  System test")
-    print(f"  6. {ICON['sms']}  SMS test (Textbelt)")
-    print(f"  7. {ICON['tts']}  TTS test")
-    print(f"  8. {ICON['hb']}  Heartbeat")
-    print("  9. 🎚️  Voice options")
-    print(f" 10. {ICON['link']}  Textbelt SMS (no registration)")
-    print(f" 11. {ICON['magnifier']}  Textbelt status (by textId)")
-    print(f" 12. {ICON['scene']}  Canned Scenarios")
-    print(f" 13. {ICON['inbox']}  Inbox (Textbelt replies)")
-    print(f" 14. {ICON['play']}  Start reply webhook server")
-    print(f" 15. {ICON['stop']}  Stop reply webhook server")
+    print(f"  3. {ICON['scene']}  Canned Scenarios")
+    print(f"  4. {ICON['inbox']}  Inbox (Textbelt replies)")
+    print(f"  5. {ICON['gear']}  Inspect providers")
+    print(f"  6. {ICON['voice']}  Voice test")
+    print(f"  7. {ICON['sys']}  System test")
+    print(f"  8. {ICON['sms']}  SMS test (Textbelt)")
+    print(f"  9. {ICON['tts']}  TTS test")
+    print(f" 10. {ICON['hb']}  Heartbeat")
+    print(f" 11. {ICON['mic']}  Set voice")
+    print(" 12. 🎚️  Voice options")
+    print(f" 13. {ICON['link']}  Textbelt SMS (no registration)")
+    print(f" 14. {ICON['magnifier']}  Textbelt status (by textId)")
+    print(f" 15. {ICON['play']}  Start reply webhook server")
+    print(f" 16. {ICON['stop']}  Stop reply webhook server")
+    print(f" 17. {ICON['ngrok']}  Start ngrok tunnel")
+    print(f" 18. {ICON['stop']}  Stop ngrok tunnel")
+    print(f" 19. {ICON['refresh']}  Refresh public URL from ngrok")
     print(f"  0. {ICON['exit']}  Exit")
     _stdin_flush()
-    valid = {str(i) for i in range(16)}
+    valid = {str(i) for i in range(20)}
     valid.update({"q", "quit", "exit"})
     return _ask_choice(valid=valid, default=None)
 
@@ -1461,31 +1636,39 @@ def launch():
         elif choice == "2":
             _status_probe()
         elif choice == "3":
-            _inspect_providers()
-        elif choice == "4":
-            _voice_test()
-        elif choice == "5":
-            _system_test()
-        elif choice == "6":
-            _sms_test()
-        elif choice == "7":
-            _tts_test()
-        elif choice == "8":
-            _heartbeat()
-        elif choice == "9":
-            _voice_options_menu()
-        elif choice == "10":
-            _textbelt_sms_send()
-        elif choice == "11":
-            _textbelt_status_check()
-        elif choice == "12":
             _canned_scenarios()
-        elif choice == "13":
+        elif choice == "4":
             _inbox_view()
+        elif choice == "5":
+            _inspect_providers()
+        elif choice == "6":
+            _voice_test()
+        elif choice == "7":
+            _system_test()
+        elif choice == "8":
+            _sms_test()
+        elif choice == "9":
+            _tts_test()
+        elif choice == "10":
+            _heartbeat()
+        elif choice == "11":
+            _set_voice_menu()
+        elif choice == "12":
+            _voice_options_menu()
+        elif choice == "13":
+            _textbelt_sms_send()
         elif choice == "14":
-            _reply_server_start()
+            _textbelt_status_check()
         elif choice == "15":
+            _reply_server_start()
+        elif choice == "16":
             _reply_server_stop()
+        elif choice == "17":
+            _ngrok_start()
+        elif choice == "18":
+            _ngrok_stop()
+        elif choice == "19":
+            _refresh_public_from_ngrok()
         else:
             print("\nUnknown selection.")
             time.sleep(0.8)
@@ -1496,6 +1679,7 @@ _E164 = re.compile(r"^\+\d{8,15}$")
 _LAST_TEXTBELT_ID: str = ""
 _REPLY_SERVER_PROC: Optional[subprocess.Popen] = None
 _REPLY_SERVER_LOG_FH: Optional[TextIO] = None
+_NGROK_PROC: Optional[subprocess.Popen] = None
 
 
 def _inbound_log_path() -> str:
