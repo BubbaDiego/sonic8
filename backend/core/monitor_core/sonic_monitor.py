@@ -499,11 +499,13 @@ from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.console_lines import emit_compact_cycle
+from backend.core.reporting_core.console_reporter import emit_sources_line
 from backend.core.reporting_core.positions_icons import compute_positions_icon_line, compute_from_list
 from backend.core.reporting_core.summary_cache import (
     snapshot_into, set_hedges, set_positions_icon_line, set_prices, set_prices_reason
 )
 from backend.core.reporting_core.alerts_formatter import compose_alerts_inline
+from backend.core.monitor_core.utils.trace_sources import read_monitor_threshold_sources
 from backend.data.dl_hedges import DLHedgeManager
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.utils.console_title import set_console_title
@@ -1095,6 +1097,13 @@ def run_monitor(
             print()  # breathing room before summary
             summary = snapshot_into(summary)
             emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            try:
+                if os.getenv("SONIC_SHOW_SOURCES", "1") != "0":
+                    dl_instance = DataLocker.get_instance()
+                    sources, src_label = read_monitor_threshold_sources(dl_instance)
+                    emit_sources_line(sources, src_label)
+            except Exception:
+                pass
             if os.getenv("SONIC_TRACE_THRESHOLDS", "0") == "1":
                 from backend.core.monitor_core.utils.trace_sources import trace_monitor_thresholds
                 from backend.config.config_loader import _load_json_config  # noqa: F401 (imported for side effects)
