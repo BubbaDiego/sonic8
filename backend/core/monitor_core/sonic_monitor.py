@@ -499,13 +499,11 @@ from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.console_lines import emit_compact_cycle
-from backend.core.reporting_core.console_reporter import emit_sources_line
 from backend.core.reporting_core.positions_icons import compute_positions_icon_line, compute_from_list
 from backend.core.reporting_core.summary_cache import (
     snapshot_into, set_hedges, set_positions_icon_line, set_prices, set_prices_reason
 )
 from backend.core.reporting_core.alerts_formatter import compose_alerts_inline
-from backend.core.monitor_core.utils.trace_sources import read_monitor_threshold_sources
 from backend.data.dl_hedges import DLHedgeManager
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.utils.console_title import set_console_title
@@ -1098,20 +1096,33 @@ def run_monitor(
             summary = snapshot_into(summary)
             emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
             try:
+                # show single-line sources (on by default; set SONIC_SHOW_SOURCES=0 to hide)
+                import os
+                from backend.core.reporting_core.console_reporter import emit_sources_line
+                from backend.core.monitor_core.sonic_monitor import _read_monitor_threshold_sources  # already present
+                from backend.data.data_locker import DataLocker
+
                 if os.getenv("SONIC_SHOW_SOURCES", "1") != "0":
                     dl_instance = DataLocker.get_instance()
-                    sources, src_label = read_monitor_threshold_sources(dl_instance)
+                    sources, src_label = _read_monitor_threshold_sources(dl_instance)
                     emit_sources_line(sources, src_label)
-            except Exception:
-                pass
-            if os.getenv("SONIC_TRACE_THRESHOLDS", "0") == "1":
-                from backend.core.monitor_core.utils.trace_sources import pretty_print_trace, trace_monitor_thresholds
 
-                try:
-                    trace = trace_monitor_thresholds(DataLocker.get_instance())
-                    pretty_print_trace(trace)
-                except Exception as exc:
-                    print(f"   (trace error: {exc})")
+                # optional detailed path trace (off by default; set SONIC_TRACE_THRESHOLDS=1 to show)
+                if os.getenv("SONIC_TRACE_THRESHOLDS", "0") == "1":
+                    from backend.core.monitor_core.utils.trace_sources import trace_monitor_thresholds
+                    if "dl_instance" not in locals():
+                        dl_instance = DataLocker.get_instance()
+                    traces = trace_monitor_thresholds(dl_instance)
+                    print("   🔎 Trace")
+                    for mon in ("profit", "liquid"):
+                        rows = traces.get(mon, [])
+                        for src, key, val, used in rows:
+                            used_mark = "(used)" if used else "(skip)"
+                            display_val = val if val not in (None, "") else "—"
+                            print(f"     {mon:6s} : {src:<8s} {key} = {display_val} {used_mark}")
+            except Exception:
+                # never crash the loop because of diagnostics
+                pass
 
             print()  # spacer between cycles
 
