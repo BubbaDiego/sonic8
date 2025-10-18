@@ -1105,21 +1105,14 @@ def run_monitor(
             except Exception:
                 pass
             if os.getenv("SONIC_TRACE_THRESHOLDS", "0") == "1":
-                from backend.core.monitor_core.utils.trace_sources import trace_monitor_thresholds
-                from backend.config.config_loader import _load_json_config  # noqa: F401 (imported for side effects)
+                from backend.core.monitor_core.utils.trace_sources import pretty_print_trace, trace_monitor_thresholds
 
                 try:
                     traces = trace_monitor_thresholds(DataLocker.get_instance())
                 except Exception:
                     logging.exception("Failed to trace monitor thresholds")
                 else:
-                    print("   🔎 Trace")
-                    for mon in ("profit", "liquid"):
-                        rows = traces.get(mon, []) if isinstance(traces, dict) else []
-                        for src, key, val, used in rows:
-                            used_mark = "(used)" if used else "(skip)"
-                            value_display = val if val not in (None, "") else "—"
-                            print(f"     {mon:6s} : {src:<8s} {key} = {value_display} {used_mark}")
+                    pretty_print_trace(traces)
 
             print()  # spacer between cycles
 

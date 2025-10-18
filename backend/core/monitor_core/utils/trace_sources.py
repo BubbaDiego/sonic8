@@ -1,179 +1,194 @@
 from __future__ import annotations
+
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from backend.config.config_loader import get_config, _load_json_config  # noqa: F401
+# ---- Lightweight JSON probe (no dependency on config_loader) -----------------
 
-def read_monitor_threshold_sources(dl) -> Tuple[Dict[str, Any], str]:
-    """
-    Probe monitor thresholds from (in order): DL.system_vars → global_config → ENV.
-    Returns (sources_dict, source_label) where label is 'DL.system_vars' | 'global_config' | 'env' | 'mixed' | ''.
-    """
-    if not dl:
-        return {}, ""
+_ENV_JSON_PATH = "SONIC_CONFIG_JSON"
+_JSON_CANDIDATES = (
+    "backend/config/sonic_monitor_config.json",
+    "config/sonic_monitor_config.json",
+)
 
-    sysvars = getattr(dl, "system", None)
-    gconf   = getattr(dl, "global_config", None)
-    used: set[str] = set()
-
-    def _get(key: str):
-        if sysvars is not None:
-            try:
-                v = sysvars.get_var(key)
-            except Exception:
-                v = None
-            if v is not None:
-                used.add("DL.system_vars"); return v
-        if gconf is not None:
-            try:
-                v = gconf.get(key)
-            except Exception:
-                v = None
-            if v is not None:
-                used.add("global_config"); return v
-        v = os.getenv(key)
-        if v is not None:
-            used.add("env"); return v
-        return None
-
-    def _collect(mapping: Dict[str, tuple[str, ...] | str]) -> Dict[str, Any]:
-        out: Dict[str, Any] = {}
-        for short, keys in mapping.items():
-            cands = (keys,) if isinstance(keys, str) else tuple(keys)
-            for k in cands:
-                val = _get(k)
-                if val is not None:
-                    out[short] = val
-                    break
-        return out
-
-    profit = _collect({
-        "pos": ("profit_position_threshold", "profit_threshold", "profit_badge_value"),
-        "pf":  ("profit_portfolio_threshold", "profit_total_threshold", "profit_total"),
-    })
-    liquid = _collect({
-        "btc": ("liquid_threshold_btc", "liquid_threshold", "liquid_threshold_BTC"),
-        "eth": ("liquid_threshold_eth", "liquid_threshold_ETH"),
-        "sol": ("liquid_threshold_sol", "liquid_threshold_SOL"),
-    })
-    market = _collect({
-        "btc": ("market_delta_btc", "market_delta_BTC"),
-        "eth": ("market_delta_eth", "market_delta_ETH"),
-        "sol": ("market_delta_sol", "market_delta_SOL"),
-        "rearm": ("market_rearm_mode",),
-        "sonic": ("market_sonic_state",),
-    })
-
-    if not used:
-        label = ""
-    elif len(used) == 1:
-        label = next(iter(used))
-    else:
-        label = "mixed: " + " + ".join(sorted(used))
-
-    return {"profit": profit, "liquid": liquid, "market": market}, label
-
-
-def _as_dict(raw: Any) -> Dict[str, Any]:
-    if isinstance(raw, dict):
-        return raw
-    if isinstance(raw, str):
-        try:
-            return json.loads(raw)
-        except Exception:
-            return {}
-    return {}
-
-
-def _probe_env(name: str) -> Optional[str]:
-    return os.getenv(name)
-
-
-def _probe_sysvars(dl, name: str) -> Any:
-    try:
-        system = getattr(dl, "system", None)
-        return system.get_var(name) if system else None
-    except Exception:
-        return None
-
-
-def _probe_gconf(dl, name: str) -> Any:
-    try:
-        gconf = getattr(dl, "global_config", None)
-        return gconf.get(name) if gconf else None
-    except Exception:
-        return None
-
-
-def _probe_json(name: str, json_obj: Dict[str, Any]) -> Any:
-    if name in json_obj:
-        return json_obj.get(name)
-    for bucket in ("profit_monitor", "liquid_monitor", "monitors", "monitor"):
-        node = _as_dict(json_obj.get(bucket))
-        if name in node:
-            return node.get(name)
+def _first_existing(paths: Iterable[str]) -> Optional[Path]:
+    for p in paths:
+        pp = Path(p).expanduser()
+        if pp.exists():
+            return pp
     return None
 
 
-def trace_monitor_thresholds(dl) -> Dict[str, List[Tuple[str, str, Any, bool]]]:
+def _load_json_config_light() -> Tuple[Dict[str, Any], Optional[Path]]:
+    env_path = os.getenv(_ENV_JSON_PATH)
+    if env_path:
+        p = Path(env_path).expanduser()
+        if p.exists():
+            try:
+                return json.loads(p.read_text(encoding="utf-8")), p
+            except Exception:
+                pass  # fall through to candidates
+    cand = _first_existing(_JSON_CANDIDATES)
+    if not cand:
+        return {}, None
+    try:
+        obj = json.loads(cand.read_text(encoding="utf-8"))
+        return obj if isinstance(obj, dict) else {}, cand
+    except Exception:
+        return {}, cand
+
+
+# ---- DB/ENV/JSON probing helpers --------------------------------------------
+
+def _probe_sysvars(dl: Any, key: str) -> Any:
+    try:
+        sys = getattr(dl, "system", None)
+        return sys.get_var(key) if sys else None
+    except Exception:
+        return None
+
+
+def _probe_gconf(dl: Any, key: str) -> Any:
+    try:
+        g = getattr(dl, "global_config", None)
+        return g.get(key) if g else None
+    except Exception:
+        return None
+
+
+def _probe_env(key: str) -> Any:
+    # ENV keys are usually uppercased
+    return os.getenv(key.upper())
+
+
+def _find_key_recursive(obj: Any, target: str) -> Any:
+    """Find first value for key == target anywhere in a JSON object, recursively."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if str(k).lower() == target.lower():
+                return v
+            found = _find_key_recursive(v, target)
+            if found is not None:
+                return found
+    elif isinstance(obj, list):
+        for v in obj:
+            found = _find_key_recursive(v, target)
+            if found is not None:
+                return found
+    return None
+
+
+def _probe_json(json_obj: Dict[str, Any], key: str) -> Any:
     """
-    Returns a dict with 'profit' and 'liquid', each a list of tuples:
-      (source, keypath, value, used)
-    Only one item per monitor will have used=True (the chosen value after precedence).
-    Precedence (highest last): ENV_OVERRIDES/DB snapshot < ENV < JSON   (JSON rules)
+    Try both exact-name lookups (for flat configs) and common nested patterns:
+      liquid_threshold_btc  → look under {liquid/liq/liquidation}.{thresholds}.{BTC/btc}
     """
+    # 1) Exact key anywhere
+    val = _find_key_recursive(json_obj, key)
+    if val is not None:
+        return val
 
-    json_obj, json_path = _load_json_config()
-    merged = get_config()
+    # 2) Heuristic for per-asset thresholds in nested maps
+    if key.lower().startswith("liquid_threshold_"):
+        asset = key.split("_")[-1].upper()
+        for bucket in ("liquid", "liquidation", "liquid_monitor", "monitors"):
+            node = _find_key_recursive(json_obj, bucket)
+            if isinstance(node, dict):
+                # common shapes: {thresholds:{BTC:6.0}}, {BTC:{threshold:6.0}}
+                thresholds = node.get("thresholds") if isinstance(node, dict) else None
+                if isinstance(thresholds, dict) and asset in thresholds:
+                    return thresholds.get(asset)
+                if asset in node and isinstance(node[asset], dict):
+                    cand = node[asset].get("threshold")
+                    if cand is not None:
+                        return cand
+    return None
 
-    def choose(keys: Tuple[str, ...]) -> List[Tuple[str, str, Any, bool]]:
-        rows: List[Tuple[str, str, Any, bool]] = []
-        found: Dict[str, Tuple[str, Any]] = {}
-        for k in keys:
-            sysv = _probe_sysvars(dl, k)
-            if sysv is not None:
-                found.setdefault("DB", (k, sysv))
-            gcv = _probe_gconf(dl, k)
-            if gcv is not None:
-                found.setdefault("DB(gconf)", (k, gcv))
-            envv = _probe_env(k.upper())
-            if envv is not None:
-                found.setdefault("ENV", (k.upper(), envv))
-            jsv = _probe_json(k, json_obj)
-            if jsv is not None:
-                found.setdefault("JSON", (f"{json_path or '<json>'}:{k}", jsv))
 
-            merged_val = merged.get(k)
-            if merged_val is not None and "JSON" not in found:
-                found.setdefault("JSON", (k, merged_val))
+# ---- Public trace API --------------------------------------------------------
 
-        winner_src = None
-        for src in ("JSON", "ENV", "DB", "DB(gconf)"):
-            if src in found:
-                winner_src = src
-                break
+_PRECEDENCE = ("JSON", "ENV", "DB", "DB(gconf)")  # JSON wins (your rule)
 
-        for src in ("DB", "DB(gconf)", "ENV", "JSON"):
-            if src in found:
-                kp, val = found[src]
-                rows.append((src, kp, val, src == winner_src))
-        return rows
 
-    profit_keys: Dict[str, Tuple[str, ...]] = {
-        "pos": ("profit_position_threshold", "profit_threshold", "profit_badge_value"),
-        "pf": ("profit_portfolio_threshold", "profit_total_threshold", "profit_total"),
+def _collect_for_keys(
+    dl: Any,
+    json_obj: Dict[str, Any],
+    keys: Iterable[str],
+) -> List[Tuple[str, str, Any, bool]]:
+    """
+    Return a list of rows (source, keypath, value, used) for the given keys.
+    Only one row will have used=True according to _PRECEDENCE.
+    """
+    found: Dict[str, Tuple[str, Any]] = {}
+    for k in keys:
+        db = _probe_sysvars(dl, k)
+        if db is not None and "DB" not in found:
+            found["DB"] = (k, db)
+        g = _probe_gconf(dl, k)
+        if g is not None and "DB(gconf)" not in found:
+            found["DB(gconf)"] = (k, g)
+        ev = _probe_env(k)
+        if ev is not None and "ENV" not in found:
+            found["ENV"] = (k, ev)
+        jv = _probe_json(json_obj, k)
+        if jv is not None and "JSON" not in found:
+            # include a pseudo keypath to show origin
+            found["JSON"] = (k, jv)
+
+    # Winner by precedence
+    winner = None
+    for src in _PRECEDENCE:
+        if src in found:
+            winner = src
+            break
+
+    rows: List[Tuple[str, str, Any, bool]] = []
+    for src in ("DB", "DB(gconf)", "ENV", "JSON"):
+        if src in found:
+            kp, val = found[src]
+            rows.append((src, kp, val, src == winner))
+    return rows
+
+
+def trace_monitor_thresholds(dl: Any) -> Dict[str, List[Tuple[str, str, Any, bool]]]:
+    """
+    Return a dict with two keys, 'profit' and 'liquid'.
+    Each maps to a list of (source, key, value, used) rows.
+    """
+    json_obj, _ = _load_json_config_light()
+
+    PROFIT_KEYS_POS = ("profit_position_threshold", "profit_threshold", "profit_badge_value")
+    PROFIT_KEYS_PF  = ("profit_portfolio_threshold", "profit_total_threshold", "profit_total")
+    LIQ_KEYS_BTC    = ("liquid_threshold_btc", "liquid_threshold_BTC", "liquid_threshold")
+    LIQ_KEYS_ETH    = ("liquid_threshold_eth", "liquid_threshold_ETH", "liquid_threshold")
+    LIQ_KEYS_SOL    = ("liquid_threshold_sol", "liquid_threshold_SOL", "liquid_threshold")
+
+    trace: Dict[str, List[Tuple[str, str, Any, bool]]] = {
+        "profit": [],
+        "liquid": [],
     }
-    liquid_keys: Dict[str, Tuple[str, ...]] = {
-        "btc": ("liquid_threshold_btc", "liquid_threshold_BTC", "liquid_threshold"),
-        "eth": ("liquid_threshold_eth", "liquid_threshold_ETH", "liquid_threshold"),
-        "sol": ("liquid_threshold_sol", "liquid_threshold_SOL", "liquid_threshold"),
-    }
-
-    trace = {"profit": [], "liquid": []}
-    for keys in profit_keys.values():
-        trace["profit"].extend(choose(keys))
-    for keys in liquid_keys.values():
-        trace["liquid"].extend(choose(keys))
-
+    trace["profit"].extend(_collect_for_keys(dl, json_obj, PROFIT_KEYS_POS))
+    trace["profit"].extend(_collect_for_keys(dl, json_obj, PROFIT_KEYS_PF))
+    trace["liquid"].extend(_collect_for_keys(dl, json_obj, LIQ_KEYS_BTC))
+    trace["liquid"].extend(_collect_for_keys(dl, json_obj, LIQ_KEYS_ETH))
+    trace["liquid"].extend(_collect_for_keys(dl, json_obj, LIQ_KEYS_SOL))
     return trace
+
+
+def pretty_print_trace(trace: Dict[str, List[Tuple[str, str, Any, bool]]]) -> None:
+    """Optional helper to dump a human-friendly trace block."""
+
+    def _fmt(v: Any) -> str:
+        return "—" if v in (None, "") else str(v)
+
+    print("   🔎 Trace (winner per setting is marked)")
+    for mon in ("profit", "liquid"):
+        rows = trace.get(mon, [])
+        if not rows:
+            continue
+        print(f"     {mon}:")
+        for src, key, val, used in rows:
+            tick = "✓" if used else "·"
+            print(f"       {tick} {src:<8s} {key} = {_fmt(val)}")
