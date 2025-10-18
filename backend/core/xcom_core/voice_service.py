@@ -15,6 +15,7 @@ from backend.core.reporting_core.xcom_reporter import (
     twilio_start,
     twilio_success,
 )
+from backend.core.config_core import sonic_config_bridge as C
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from backend.core.xcom_core.xcom_config_service import XComConfigService
@@ -23,11 +24,8 @@ E164 = re.compile(r"^\+[1-9]\d{6,14}$")
 
 
 def _xcom_live() -> bool:
-    """Env-only control for XCom live/dry-run (JSON ignored)."""
-    v = os.getenv("SONIC_XCOM_LIVE")
-    if v is None:
-        return True
-    return v.strip().lower() in {"1", "true", "yes", "on"}
+    """Return the XCom live/dry-run toggle from JSON config."""
+    return C.get_xcom_live()
 
 
 def _as_bool(value):

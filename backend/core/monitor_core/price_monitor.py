@@ -1,4 +1,3 @@
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +16,7 @@ from backend.core.monitor_core.monitor_service import MonitorService
 from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.logging import log
 from backend.core.reporting_core.config import PRICE_TTL_SECONDS
+from backend.core.config_core import sonic_config_bridge as C
 
 
 class PriceMonitor(BaseMonitor):
@@ -41,7 +41,7 @@ class PriceMonitor(BaseMonitor):
 
     @staticmethod
     def _force_sync_requested() -> bool:
-        return os.getenv("SONIC_FORCE_PRICE_MONITOR_SYNC", "").strip().lower() in {"1", "true", "yes"}
+        return C.should_force_price_sync()
 
     def mark_cycle_synced(self, when: Optional[datetime] = None) -> None:
         """Record that prices were synced during the current Sonic cycle."""

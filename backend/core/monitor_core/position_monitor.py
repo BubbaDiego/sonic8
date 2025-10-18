@@ -1,5 +1,4 @@
 import sys
-import os
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Tuple
@@ -13,6 +12,7 @@ from backend.core.positions_core.position_core import PositionCore
 from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.logging import log
 from backend.core.reporting_core.config import POSITIONS_TTL_SECONDS
+from backend.core.config_core import sonic_config_bridge as C
 
 class PositionMonitor(BaseMonitor):
     """
@@ -31,7 +31,7 @@ class PositionMonitor(BaseMonitor):
 
     @staticmethod
     def _force_sync_requested() -> bool:
-        return os.getenv("SONIC_FORCE_POSITION_MONITOR_SYNC", "").strip().lower() in {"1", "true", "yes"}
+        return C.should_force_position_sync()
 
     def mark_cycle_synced(self, when: Optional[datetime] = None) -> None:
         """Record that positions were refreshed during the current Sonic cycle."""

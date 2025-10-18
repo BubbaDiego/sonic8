@@ -15,6 +15,20 @@ def load() -> Dict[str, Any]:
         _CFG = load_config_json_only(str(_CFG_PATH))
     return _CFG
 
+# ---- Helpers ----------------------------------------------------------------
+
+
+def _coerce_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered == "":
+            return default
+        return lowered in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
 # ---- Tiny getters (all FILE-origin) -----------------------------------------
 def get_loop_seconds(default: int = 300) -> int:
     return int(load().get("monitor", {}).get("loop_seconds", default))
@@ -25,12 +39,46 @@ def get_enabled_monitors() -> Dict[str, bool]:
         return {}
     return {str(k): bool(v) for k, v in raw.items()}
 
+
+def get_monitor_log_success(default: bool = False) -> bool:
+    monitor = load().get("monitor", {})
+    value = monitor.get("log_success")
+    if value is None:
+        value = monitor.get("notify_on_success")
+    return _coerce_bool(value, default)
+
 def get_db_path() -> str | None:
     value = load().get("database", {}).get("path")
     return str(value) if value is not None else None
 
 def get_xcom_live() -> bool:
-    return bool(load().get("monitor", {}).get("xcom_live", False))
+    return _coerce_bool(load().get("monitor", {}).get("xcom_live"), False)
+
+
+def should_force_price_sync() -> bool:
+    cfg = load()
+    price_cfg = cfg.get("price", {})
+    monitor_cfg = cfg.get("monitor", {})
+    legacy_cfg = cfg.get("price_monitor", {})
+    value = price_cfg.get("force_sync")
+    if value is None:
+        value = monitor_cfg.get("force_price_sync")
+    if value is None:
+        value = legacy_cfg.get("force_sync")
+    return _coerce_bool(value, False)
+
+
+def should_force_position_sync() -> bool:
+    cfg = load()
+    position_cfg = cfg.get("position", {})
+    monitor_cfg = cfg.get("monitor", {})
+    legacy_cfg = cfg.get("position_monitor", {})
+    value = position_cfg.get("force_sync")
+    if value is None:
+        value = monitor_cfg.get("force_position_sync")
+    if value is None:
+        value = legacy_cfg.get("force_sync")
+    return _coerce_bool(value, False)
 
 def get_channels() -> Dict[str, Dict[str, bool]]:
     return dict(load().get("channels", {}))

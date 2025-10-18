@@ -14,10 +14,11 @@ from backend.core.reporting_core.xcom_reporter import (
     twilio_start,
     twilio_success,
 )
+from backend.core.config_core import sonic_config_bridge as C
 
 
 def _xcom_live() -> bool:
-    return os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() not in {"0", "false", "no", "off"}
+    return C.get_xcom_live()
 
 class TTSService:
     def __init__(self, voice_name: str | None = None, speed: int | None = None):
