@@ -208,3 +208,58 @@ def print_banner(cfg: Dict[str, Any]) -> None:
     mons = safe.get("Monitors", [])
     print(f"Monitors        : {', '.join(mons) if mons else '(none)'}")
     print("══════════════════════════════════════════════════════════════")
+
+
+# --- JSON-only monitor-config helpers (CONFIG from file; no env, no DB) ---
+
+
+_DEFAULT_MONITOR_JSON_PATH = (
+    Path(__file__).resolve().parent / "sonic_monitor_config.json"
+)
+
+
+def _ensure_parent_dir(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def load_monitor_config(
+    dl: Any = None,
+    json_path: Optional[str] = None,
+    allow_env_overlay: bool = False,
+) -> Tuple[Dict[str, Any], str]:
+    """
+    JSON-only loader for monitor settings.
+    Returns (config, source) where source == 'json'.
+    DB and ENV are intentionally ignored for CONFIG.
+    """
+    path = Path(json_path) if json_path else _DEFAULT_MONITOR_JSON_PATH
+    cfg = load_config_json_only(str(path))
+    # Optional normalization guardrails
+    cfg.setdefault("monitor", {})
+    cfg.setdefault("liquid", {})
+    cfg.setdefault("profit", {})
+    cfg.setdefault("market", {})
+    cfg.setdefault("price", {})
+    return cfg, "json"
+
+
+def save_monitor_config(
+    cfg: Dict[str, Any],
+    dl: Any = None,
+    json_path: Optional[str] = None,
+) -> str:
+    """
+    Persist CONFIG to JSON only. DB mirroring is *not* performed here.
+    Returns the path written.
+    """
+    path = Path(json_path) if json_path else _DEFAULT_MONITOR_JSON_PATH
+    _ensure_parent_dir(path)
+    current: Dict[str, Any]
+    try:
+        current = load_config_json_only(str(path))
+    except Exception:
+        current = {}
+    merged = _deep_merge(current, cfg or {})
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(merged, f, indent=2)
+    return str(path)
