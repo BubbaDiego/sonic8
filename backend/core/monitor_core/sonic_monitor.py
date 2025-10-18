@@ -1108,11 +1108,10 @@ def run_monitor(
                 from backend.core.monitor_core.utils.trace_sources import pretty_print_trace, trace_monitor_thresholds
 
                 try:
-                    traces = trace_monitor_thresholds(DataLocker.get_instance())
-                except Exception:
-                    logging.exception("Failed to trace monitor thresholds")
-                else:
-                    pretty_print_trace(traces)
+                    trace = trace_monitor_thresholds(DataLocker.get_instance())
+                    pretty_print_trace(trace)
+                except Exception as exc:
+                    print(f"   (trace error: {exc})")
 
             print()  # spacer between cycles
 
