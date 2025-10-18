@@ -24,6 +24,7 @@ from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.monitor_core.sonic_monitor import DEFAULT_INTERVAL, MONITOR_NAME
 from backend.core.monitor_core import market_monitor
 from backend.deps import get_app_locker
+from backend.core.config_core import sonic_config_bridge as C
 
 
 log = logging.getLogger(__name__)
@@ -250,8 +251,7 @@ def update_sonic_settings(payload: dict, dl: DataLocker = Depends(get_app_locker
         xcom_live = to_bool(xcom_live_val)
         os.environ["SONIC_XCOM_LIVE"] = "1" if xcom_live else "0"
     else:
-        xcom_env = os.getenv("SONIC_XCOM_LIVE", "1")
-        xcom_live = xcom_env.strip().lower() not in {"0", "false", "no", "off"}
+        xcom_live = C.get_xcom_live()
 
     try:
         save_config_patch(

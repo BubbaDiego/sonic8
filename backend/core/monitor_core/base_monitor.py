@@ -1,6 +1,6 @@
-import os
 import traceback
 
+from backend.core.config_core import sonic_config_bridge as C
 from backend.core.logging import log
 from backend.data.data_locker import DataLocker
 from backend.core.core_constants import MOTHER_DB_PATH
@@ -12,7 +12,7 @@ class BaseMonitor:
     # ------------------------------------------------------------------ #
     # Config flags
     # ------------------------------------------------------------------ #
-    LOG_SUCCESS: bool = bool(int(os.getenv("MONITOR_LOG_SUCCESS", "0")))
+    LOG_SUCCESS: bool = bool(C.get_monitor_log_success())
     SUCCESS_LEVEL: str = "LOW"
 
     def __init__(self, name: str, ledger_filename: str = None, timer_config_path: str = None):

@@ -13,6 +13,7 @@ except Exception:  # pragma: no cover - optional dependency
         return False
 from core.logging import log
 from backend.utils.env_utils import _resolve_env
+from backend.core.config_core import sonic_config_bridge as C
 
 ENV_MAP = {
     "email": {
@@ -169,13 +170,13 @@ class XComConfigService:
     def channels_for(self, monitor: str) -> dict:
         """
         Build effective channel flags for the given monitor.
-        LIVE/DRY-RUN comes from env only; 'voice' ignores global and defaults True.
+        LIVE/DRY-RUN now follows the JSON bridge; 'voice' ignores global and defaults True.
         """
 
         cfg = self._load_providers() or {}
         g = cfg.get("global") or {}
         m = cfg.get(monitor) or {}
-        live = os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() in {"1", "true", "yes", "on"}
+        live = C.get_xcom_live()
         return {
             "live": live,
             "system": bool(m.get("system", g.get("system", True))),

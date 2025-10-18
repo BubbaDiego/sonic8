@@ -23,10 +23,11 @@ except ModuleNotFoundError:  # pragma: no cover
 
 # Legacy email fallback --------------------------------------------------
 from backend.core.xcom_core.email_service import EmailService
+from backend.core.config_core import sonic_config_bridge as C
 
 
 def _xcom_live() -> bool:
-    return os.getenv("SONIC_XCOM_LIVE", "1").strip().lower() not in {"0", "false", "no", "off"}
+    return C.get_xcom_live()
 
 
 class SMSService:
