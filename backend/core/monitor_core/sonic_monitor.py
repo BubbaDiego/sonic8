@@ -1095,6 +1095,23 @@ def run_monitor(
             print()  # breathing room before summary
             summary = snapshot_into(summary)
             emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            if os.getenv("SONIC_TRACE_THRESHOLDS", "0") == "1":
+                from backend.core.monitor_core.utils.trace_sources import trace_monitor_thresholds
+                from backend.config.config_loader import _load_json_config  # noqa: F401 (imported for side effects)
+
+                try:
+                    traces = trace_monitor_thresholds(DataLocker.get_instance())
+                except Exception:
+                    logging.exception("Failed to trace monitor thresholds")
+                else:
+                    print("   🔎 Trace")
+                    for mon in ("profit", "liquid"):
+                        rows = traces.get(mon, []) if isinstance(traces, dict) else []
+                        for src, key, val, used in rows:
+                            used_mark = "(used)" if used else "(skip)"
+                            value_display = val if val not in (None, "") else "—"
+                            print(f"     {mon:6s} : {src:<8s} {key} = {value_display} {used_mark}")
+
             print()  # spacer between cycles
 
             # sleep until next cycle based on JSON-only interval
