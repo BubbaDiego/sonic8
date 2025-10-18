@@ -882,8 +882,8 @@ def run_monitor(
     except Exception:
         pass
     env_path = str((Path(__file__).resolve().parents[3] / ".env"))
-    db_path = "mother.db"
-    emit_config_banner(env_path, db_path)
+    db_path_hint = "mother.db"
+    emit_config_banner(env_path, db_path_hint)
     print(f"DEBUG[XCOM] live={get_xcom_live()} (FILE)")
 
     monitor_core = MonitorCore()
