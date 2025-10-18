@@ -174,15 +174,10 @@ def get_config(cfg_path: Optional[Union[str, os.PathLike]] = None, **_kwargs) ->
 load_config = get_config
 
 
-# --- JSON-only loader for bootstrap (no env expansion, no asserts) ---
+# --- JSON-only loader (bootstrap-friendly; no env, no DB, no asserts) ---
 
 
 def load_config_json_only(cfg_path: str) -> Dict[str, Any]:
-    """
-    Load the monitor config strictly from JSON with no environment expansion
-    and no 'unexpanded placeholder' assertions. This is a temporary bootstrap path.
-    """
-
     p = Path(cfg_path)
     if not p.exists():
         raise FileNotFoundError(f"Config JSON not found: {cfg_path}")

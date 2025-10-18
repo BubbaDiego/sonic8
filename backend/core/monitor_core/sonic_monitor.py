@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Callable
 
+from backend.core.config_core.sonic_config_bridge import get_xcom_live
+
 
 def _center_banner(text: str, width: int = 78) -> str:
     pad = max(0, (width - len(text)) // 2)
@@ -78,10 +80,6 @@ def _resolve_and_load_env() -> str | None:
 
 _env_used = _resolve_and_load_env()
 
-# default SONIC_XCOM_LIVE=1 if not set
-if _os.getenv("SONIC_XCOM_LIVE") is None:
-    os.environ["SONIC_XCOM_LIVE"] = "1"
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = REPO_ROOT / "backend"
 for _candidate in (REPO_ROOT, BACKEND_ROOT):
@@ -111,13 +109,6 @@ if DL is not None:
 else:  # pragma: no cover
     class DataLocker:  # type: ignore[too-many-ancestors]
         pass
-
-# Config loader (JSON-first, masking helpers)
-try:
-    from backend.config.config_loader import load_config, redacted_view
-except Exception:
-    def load_config(): return {}
-    def redacted_view(x): return x
 
 # ── JSON-ONLY helpers ────────────────────────────────────────────────────────
 def _json_path() -> str:
@@ -526,27 +517,8 @@ def _read_monitor_threshold_sources(dl: DataLocker) -> tuple[Dict[str, Any], str
     return _read_monitor_threshold_sources_legacy(dl)
 
 def _xcom_live() -> bool:
-    """Env-only control for XCom live/dry-run (JSON ignored)."""
-    v = _os.getenv("SONIC_XCOM_LIVE")
-    if v is None:
-        # default to live if not explicitly disabled
-        return True
-    return v.strip().lower() in {"1", "true", "yes", "on"}
-
-# ── console helpers & endcap plumbing (imports above) ────────────────────────
-from backend.core.monitor_core.utils.banner import emit_config_banner
-from backend.core.monitor_core.sonic_events import notify_listeners
-from backend.core.reporting_core.task_events import task_start, task_end
-from backend.core.reporting_core.console_lines import emit_compact_cycle
-from backend.core.reporting_core.positions_icons import compute_positions_icon_line, compute_from_list
-from backend.core.reporting_core.summary_cache import (
-    snapshot_into, set_hedges, set_positions_icon_line, set_prices, set_prices_reason
-)
-from backend.core.reporting_core.alerts_formatter import compose_alerts_inline
-from backend.data.dl_hedges import DLHedgeManager
-from backend.core.cyclone_core.cyclone_engine import Cyclone
-from backend.core.monitor_core.utils.console_title import set_console_title
-from backend.models.monitor_status import MonitorStatus, MonitorType
+    """JSON-only control for XCom live/dry-run."""
+    return bool(get_xcom_live())
 
 def _format_monitor_lines(status: Optional[MonitorStatus]) -> tuple[str, str]:
     if status is None:
@@ -838,7 +810,7 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
 
     # ----- Sync section header (centered) -----
     print(_center_banner(" 🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️ "))
-    print(f"DEBUG[XCOM] json={CFG.get('monitor', {}).get('xcom_live')} env={_os.getenv('SONIC_XCOM_LIVE')}")
+    print(f"DEBUG[XCOM] file={get_xcom_live()}")
 
     print()
 
@@ -870,7 +842,7 @@ def run_monitor(
     cycles: Optional[int] = None,
 ) -> None:
     install_strict_console_filter()
-    muted = silence_legacy_console_loggers()
+    silence_legacy_console_loggers()
 
     if dl is None:
         dl = None
@@ -909,25 +881,10 @@ def run_monitor(
                 print(f"DEBUG[CFG] DB loop={db_loop} overwritten by JSON ({poll_interval_s})")
     except Exception:
         pass
-    banner_cfg: Dict[str, Any] = {}
-    try:
-        _cfg = load_config()
-        banner_cfg = {
-            "database_path": _cfg.get("database", {}).get("path", ""),
-            "twilio": redacted_view(_cfg.get("twilio", {})),
-        }
-    except Exception:
-        banner_cfg = {}
-
-    emit_config_banner(
-        dl,
-        poll_interval_s,
-        muted_modules=muted,
-        xcom_live=_xcom_live(),
-        resolved=banner_cfg,
-        config_source=("JSON ONLY", _json_path()),
-    )
-    print(f"DEBUG[XCOM] env={_os.getenv('SONIC_XCOM_LIVE')} (JSON ignored)")
+    env_path = str((Path(__file__).resolve().parents[3] / ".env"))
+    db_path = "mother.db"
+    emit_config_banner(env_path, db_path)
+    print(f"DEBUG[XCOM] live={get_xcom_live()} (FILE)")
 
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)

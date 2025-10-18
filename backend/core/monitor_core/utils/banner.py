@@ -1,46 +1,56 @@
 from __future__ import annotations
 
-from typing import Any, List, Dict, Tuple
-
-from backend.core.reporting_core.prelaunch import print_prelaunch_body
-from backend.core.reporting_core.console_reporter import emit_dashboard_link
-from backend.core.config_core.sonic_config_bridge import get_loop_seconds
+from backend.core.config_core import sonic_config_bridge as C
 
 
-def emit_config_banner(
-    dl: Any,
-    interval_s: int,
-    *,
-    muted_modules: List[str] | None = None,
-    xcom_live: bool = True,
-    resolved: Dict | None = None,
-    config_source: Tuple[str, str] | None = None,
-) -> None:
+def emit_config_banner(env_path: str, db_path: str) -> None:
+    C.load()
+
+    loop_s   = C.get_loop_seconds()
+    enabled  = C.get_enabled_monitors()
+    lq_thr   = C.get_liquid_thresholds()
+    lq_blast = C.get_liquid_blasts()
+    market   = C.get_market_config()
+    profit   = C.get_profit_config()
+
     print("══════════════════════════════════════════════════════════════")
     print("   🦔 Sonic Monitor Configuration")
     print("══════════════════════════════════════════════════════════════")
-    # === Top lines first ===
-    try:
-        emit_dashboard_link()
-    except Exception:
-        pass
-    if muted_modules is not None:
-        m = ", ".join(muted_modules) if muted_modules else "–"
-        print(f"🔒 Muted Modules:      {m}")
-    if config_source:
-        src, note = config_source
-        if note:
-            print(f"🧭 Configuration: {src} — {note}")
-        else:
-            print(f"🧭 Configuration: {src}")
+    print("🌐 Sonic Dashboard: http://127.0.0.1:5001/dashboard")
+    print("🔒 Muted Modules:      ConsoleLogger, console_logger, LoggerControl, werkzeug, uvicorn.access, fuzzy_wuzzy, asyncio")
+    print(f"🧭 Configuration: JSON ONLY — {C._CFG_PATH}")  # FILE is the single source
+    print(f"📦 .env (ignored) : {env_path}")
+    print(f"🔌 Database       : {db_path} (ignored)")
 
-    # (No “effective sources” — JSON-ONLY mode)
-    # === Then the detailed pre-launch body ===
-    cfg_loop = get_loop_seconds()
-    print_prelaunch_body(
-        dl,
-        cfg_loop if cfg_loop else interval_s,
-        xcom_live=xcom_live,
-        resolved=resolved or {},
-    )
+    # No env previews because env is ignored in JSON-only mode
+    print()
+    print(f"⚙️ Runtime        : Poll Interval={loop_s}s   Loop Mode=Live   Snooze=disabled")
+    print()
+    print(f"📡 Monitors       : Sonic={'ON' if enabled.get('sonic') else 'OFF'}   "
+          f"Liquid={'ON' if enabled.get('liquid') else 'OFF'}   "
+          f"Profit={'ON' if enabled.get('profit') else 'OFF'}   "
+          f"Market={'ON' if enabled.get('market') else 'OFF'}")
+
+    print()
+    print("💧 Liquidation (per-asset)   [source: FILE]")
+    for asset in ("BTC", "ETH", "SOL"):
+        thr = float(lq_thr.get(asset, 0) or 0)
+        bl  = int(lq_blast.get(asset, 0) or 0)
+        icon = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}.get(asset, "•")
+        print(f"  {icon} {asset:<3} Threshold: {thr:.2f}    Blast: {bl}")
+
+    print()
+    print("💰 Profit Monitor           [source: FILE]")
+    pos = profit.get("position_usd", None)
+    pf  = profit.get("portfolio_usd", None)
+    print(f"  Position Profit (USD) : {pos if pos is not None else '–'}")
+    print(f"  Portfolio Profit (USD): {pf if pf is not None else '–'}")
+
+    print()
+    print("📈 Market Monitor          [source: FILE]")
+    print(f"  Re-arm: {market.get('rearm_mode','ladder').capitalize()}   Reset: available")
+
+    # Provenance footer
+    print()
+    print("Provenance: [FILE]=sonic_monitor_config.json (env & DB ignored)")
     print("══════════════════════════════════════════════════════════════")
