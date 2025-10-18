@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from backend.core.common.path_utils import resolve_mother_db_path, is_under_repo
 from backend.core.config_core import sonic_config_bridge as C
 
 
-def emit_config_banner(env_path: str, db_path: str) -> None:
+def emit_config_banner(env_path: str, db_path_hint: str) -> None:
     C.load()
 
     loop_s   = C.get_loop_seconds()
@@ -13,6 +14,12 @@ def emit_config_banner(env_path: str, db_path: str) -> None:
     market   = C.get_market_config()
     profit   = C.get_profit_config()
 
+    resolved_db, prov = resolve_mother_db_path()
+    db_exists = resolved_db.exists()
+    under_repo = is_under_repo(resolved_db)
+    existence = "exists" if db_exists else "MISSING"
+    scope = "inside repo" if under_repo else "OUTSIDE repo"
+
     print("══════════════════════════════════════════════════════════════")
     print("   🦔 Sonic Monitor Configuration")
     print("══════════════════════════════════════════════════════════════")
@@ -20,7 +27,19 @@ def emit_config_banner(env_path: str, db_path: str) -> None:
     print("🔒 Muted Modules:      ConsoleLogger, console_logger, LoggerControl, werkzeug, uvicorn.access, fuzzy_wuzzy, asyncio")
     print(f"🧭 Configuration: JSON ONLY — {C._CFG_PATH}")            # CONFIG from FILE
     print(f"📦 .env (ignored for config) : {env_path}")             # ENV ignored for CONFIG
-    print(f"🔌 Database       : {db_path} (ACTIVE for runtime data)")  # DB ACTIVE
+    print(
+        f"🔌 Database       : {resolved_db}  "
+        f"(ACTIVE for runtime data, provenance={prov}, {existence}, {scope})"
+    )  # DB ACTIVE
+    if not db_exists:
+        print(
+            "⚠️  mother.db not found. Runtime numbers will be empty. Create/seed DB or point "
+            "MOTHER_DB_PATH correctly."
+        )
+    if not under_repo:
+        print(
+            "⚠️  DB path points outside this repo. Verify backend & monitor are using the SAME file."
+        )
 
     print()
     print(f"⚙️ Runtime        : Poll Interval={loop_s}s   Loop Mode=Live   Snooze=disabled")
