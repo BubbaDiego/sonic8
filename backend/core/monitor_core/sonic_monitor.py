@@ -89,7 +89,19 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
         sys.path.insert(0, _candidate_str)
 
 # ── Data access layer ────────────────────────────────────────────────────────
-from backend.data.data_locker import DataLocker
+try:
+    from backend.data.data_locker import DataLocker as DL  # avoid local shadowing
+except Exception:
+    DL = None
+try:
+    from backend.data.locker_factory import get_locker  # preferred singleton
+except Exception:
+    get_locker = None
+
+if DL is not None:
+    DataLocker = DL  # type: ignore[assignment]
+else:  # pragma: no cover - fallback for type hints
+    DataLocker = Any  # type: ignore[assignment,misc]
 
 # ── JSON-ONLY helpers ────────────────────────────────────────────────────────
 def _json_path() -> str:
@@ -136,7 +148,18 @@ MOTHER_DB_PATH = (
 )
 MONITOR_NAME = "sonic_monitor"
 
-dal = DataLocker.get_instance(MOTHER_DB_PATH)
+dal = None
+if get_locker:
+    try:
+        dal = get_locker()
+    except Exception:
+        dal = None
+if dal is None and DL:
+    _db_path = str(MOTHER_DB_PATH)
+    try:
+        dal = DL.get_instance(_db_path)
+    except Exception:
+        dal = DL(_db_path)
 
 def _get(d: Dict[str, Any], *keys, default=None):
     cur = d
@@ -834,9 +857,19 @@ def run_monitor(
     muted = silence_legacy_console_loggers()
 
     if dl is None:
-        dl = DataLocker.get_instance(str(MOTHER_DB_PATH))
-    else:
-        setattr(DataLocker, "_instance", dl)
+        if get_locker:
+            try:
+                dl = get_locker()
+            except Exception:
+                dl = None
+        if dl is None and DL:
+            _db = str(MOTHER_DB_PATH)
+            try:
+                dl = DL.get_instance(_db)
+            except Exception:
+                dl = DL(_db)
+    if DL and dl is not None:
+        setattr(DL, "_instance", dl)
 
     global _ALERT_LIMITS
     try:
