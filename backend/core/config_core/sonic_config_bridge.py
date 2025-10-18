@@ -1,31 +1,22 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
-try:
-    # Correct import path per repo layout
-    from backend.config.config_loader import load_config
-except Exception:
-    # Last-ditch fallback if module is executed differently
-    from config_loader import load_config  # type: ignore
+from backend.config.config_loader import load_config_json_only
 
-_CFG: Dict[str, Any] = {}
-_LOADED: bool = False
+_CFG: Dict[str, Any] | None = None
+CFG_PATH = Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
 
 
-def load(path: Optional[str] = None) -> Dict[str, Any]:
-    global _CFG, _LOADED
-    if not _LOADED:
-        # Default to backend/config/sonic_config.json unless overridden by env
-        cfg_path = (
-            path
-            or os.getenv("SONIC_CONFIG_JSON_PATH")
-            or str(Path(__file__).resolve().parents[3] / "backend" / "config" / "sonic_config.json")
-        )
-        _CFG = load_config(cfg_path) or {}
-        _LOADED = True
+def load() -> Dict[str, Any]:
+    """
+    Temporary: JSON-only path (no env/DB). Revert to load_config(...) later.
+    """
+
+    global _CFG
+    if _CFG is None:
+        _CFG = load_config_json_only(str(CFG_PATH))
     return _CFG
 
 
