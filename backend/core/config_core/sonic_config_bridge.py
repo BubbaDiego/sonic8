@@ -1,64 +1,84 @@
 from __future__ import annotations
-
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from backend.config.config_loader import load_config_json_only
 
 _CFG: Dict[str, Any] | None = None
-CFG_PATH = Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
-
+_CFG_PATH = Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
+# e.g., .../backend/config/sonic_monitor_config.json
 
 def load() -> Dict[str, Any]:
-    """
-    Temporary: JSON-only path (no env/DB). Revert to load_config(...) later.
-    """
-
+    """JSON-only source of truth."""
     global _CFG
     if _CFG is None:
-        _CFG = load_config_json_only(str(CFG_PATH))
+        _CFG = load_config_json_only(str(_CFG_PATH))
     return _CFG
 
+# ---- Tiny getters (all FILE-origin) -----------------------------------------
+def get_loop_seconds(default: int = 300) -> int:
+    return int(load().get("monitor", {}).get("loop_seconds", default))
 
-def get_loop_seconds() -> Optional[int]:
-    cfg = load()
-    try:
-        value = cfg.get("system_config", {}).get("sonic_monitor_loop_time")
-        return int(value) if value is not None else None
-    except Exception:
-        return None
+def get_enabled_monitors() -> Dict[str, bool]:
+    raw = load().get("monitor", {}).get("enabled", {})
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k): bool(v) for k, v in raw.items()}
 
+def get_db_path() -> str | None:
+    value = load().get("database", {}).get("path")
+    return str(value) if value is not None else None
 
-def get_db_path() -> Optional[str]:
-    cfg = load()
-    return cfg.get("system_config", {}).get("db_path") or None
+def get_xcom_live() -> bool:
+    return bool(load().get("monitor", {}).get("xcom_live", False))
 
-
-def get_price_assets() -> List[str]:
-    cfg = load()
-    assets = cfg.get("price_config", {}).get("assets") or []
-    normalized = [str(asset).upper() for asset in assets if str(asset).strip()]
-    return normalized or ["BTC", "ETH", "SOL"]
-
-
-def get_twilio() -> Dict[str, str]:
-    cfg = load().get("twilio_config", {}) or {}
-    return {
-        "SID": str(cfg.get("account_sid") or ""),
-        "AUTH": str(cfg.get("auth_token") or ""),
-        "FLOW": str(cfg.get("flow_sid") or ""),
-        "FROM": str(cfg.get("from_phone") or ""),
-        "TO": str(cfg.get("to_phone") or ""),
-    }
-
+def get_channels() -> Dict[str, Dict[str, bool]]:
+    return dict(load().get("channels", {}))
 
 def get_liquid_thresholds() -> Dict[str, float]:
-    cfg = load()
-    thresholds = cfg.get("liquid_monitor", {}).get("thresholds") or {}
+    raw = load().get("liquid", {}).get("thresholds", {})
     output: Dict[str, float] = {}
-    for key, value in thresholds.items():
-        try:
-            output[str(key).upper()] = float(value)
-        except Exception:
-            pass
+    if isinstance(raw, dict):
+        for key, value in raw.items():
+            try:
+                output[str(key).upper()] = float(value)
+            except Exception:
+                continue
     return output
+
+def get_liquid_blasts() -> Dict[str, int]:
+    raw = load().get("liquid", {}).get("blast", {})
+    output: Dict[str, int] = {}
+    if isinstance(raw, dict):
+        for key, value in raw.items():
+            try:
+                output[str(key).upper()] = int(value)
+            except Exception:
+                continue
+    return output
+
+def get_market_config() -> Dict[str, Any]:
+    return dict(load().get("market", {}))
+
+def get_price_assets() -> list[str]:
+    assets = load().get("price", {}).get("assets", [])
+    result: list[str] = []
+    if isinstance(assets, (list, tuple)):
+        for asset in assets:
+            text = str(asset).strip().upper()
+            if text:
+                result.append(text)
+    return result
+
+def get_profit_config() -> Dict[str, Any]:
+    return dict(load().get("profit", {}))
+
+def get_twilio() -> Dict[str, str]:
+    cfg = dict(load().get("twilio", {}))
+    return {
+        "SID": str(cfg.get("account_sid") or cfg.get("sid") or ""),
+        "AUTH": str(cfg.get("auth_token") or cfg.get("token") or ""),
+        "FLOW": str(cfg.get("flow_sid") or cfg.get("flow") or ""),
+        "FROM": str(cfg.get("from") or cfg.get("from_phone") or ""),
+        "TO": str(cfg.get("to") or cfg.get("to_phone") or ""),
+    }
