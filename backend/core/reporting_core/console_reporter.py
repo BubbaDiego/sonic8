@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Iterable
+from typing import Any, Dict, Iterable
 
 # ---- Strict allowlist filter -------------------------------------------------
 
@@ -161,6 +161,50 @@ def emit_dashboard_link(host: str = "127.0.0.1", port: int = 5001, route: str = 
 
     url = f"http://{host}:{port}{route}"
     print(f"🌐 Sonic Dashboard: {url}")
+
+
+def emit_sources_line(sources: Dict[str, Any], label: str) -> None:
+    if not sources:
+        return
+    blocks: list[str] = []
+
+    profit = sources.get("profit") or {}
+    if profit:
+        pos = profit.get("pos"); pf = profit.get("pf")
+        blocks.append("profit:{" + ",".join([
+            f"pos={pos if pos not in (None, '') else '–'}",
+            f"pf={pf  if pf  not in (None, '') else '–'}",
+        ]) + "}")
+
+    liquid = sources.get("liquid") or {}
+    if liquid:
+        btc = liquid.get("btc"); eth = liquid.get("eth"); sol = liquid.get("sol")
+        blocks.append("liquid:{" + ",".join([
+            f"btc={btc if btc not in (None, '') else '–'}",
+            f"eth={eth if eth not in (None, '') else '–'}",
+            f"sol={sol if sol not in (None, '') else '–'}",
+        ]) + "}")
+
+    market = sources.get("market") or {}
+    if market:
+        parts = []
+        for a in ("btc","eth","sol"):
+            if a in market:
+                v = market.get(a)
+                parts.append(f"{a}=${v if v not in (None, '') else '–'}")
+        if "rearm" in market:
+            parts.append(f"rearm={market.get('rearm') or '–'}")
+        if "sonic" in market:
+            parts.append(f"sonic={market.get('sonic') or '–'}")
+        if parts:
+            blocks.append("market:{" + ",".join(parts) + "}")
+
+    if not blocks:
+        return
+    label_suffix = f" ← {label}" if label else ""
+    line = "   🧭 Sources  : " + " ".join(blocks) + label_suffix
+    logging.getLogger("ConsoleReporter").info(line)
+    print(line, flush=True)
 
 # ---- One-time boot status line (for your vibe) --------------------------------
 
