@@ -180,21 +180,37 @@ def print_prelaunch_body(
 ) -> None:
     """Body only; banner prints the header. One-time at startup."""
     env_path = os.getenv("SONIC_ENV_PATH_RESOLVED") or "–"
-    db_path = get_db_path() or (getattr(getattr(dl, "db", None), "db_path", None) or "–")
-
-    # Twilio (show full values: dev console)
-    tcfg = get_twilio()
-    sid = tcfg.get("SID") or os.getenv("TWILIO_SID") or os.getenv("TWILIO_ACCOUNT_SID") or "–"
-    auth = tcfg.get("AUTH") or os.getenv("TWILIO_AUTH_TOKEN") or "–"
-    flow = tcfg.get("FLOW") or os.getenv("TWILIO_FLOW_SID") or "–"
-    from_ = tcfg.get("FROM") or os.getenv("TWILIO_FROM") or os.getenv("TWILIO_FROM_PHONE") or "–"
-    to_ = (
-        tcfg.get("TO")
-        or os.getenv("TWILIO_TO")
-        or os.getenv("TWILIO_TO_PHONE")
-        or os.getenv("TWILIO_DEFAULT_TO")
-        or "–"
+    resolved_cfg = resolved or {}
+    db_path = resolved_cfg.get("database_path") or (
+        get_db_path() or (getattr(getattr(dl, "db", None), "db_path", None) or "–")
     )
+
+    twilio_lines: List[str] = []
+    tw_safe = resolved_cfg.get("twilio") if isinstance(resolved_cfg, dict) else None
+    if isinstance(tw_safe, dict) and tw_safe:
+        sid = tw_safe.get("account_sid") or tw_safe.get("SID") or tw_safe.get("sid") or "—"
+        token = tw_safe.get("auth_token") or tw_safe.get("TOKEN") or tw_safe.get("token") or "—"
+        from_ = tw_safe.get("from") or tw_safe.get("from_phone") or "—"
+        to_ = tw_safe.get("to") or tw_safe.get("to_phone") or "—"
+        twilio_lines.append(f"☎️ Twilio         : SID={sid}  AUTH={token}  FROM={from_}  TO={to_}")
+    else:
+        tcfg = get_twilio()
+        sid = tcfg.get("SID") or os.getenv("TWILIO_SID") or os.getenv("TWILIO_ACCOUNT_SID") or "–"
+        auth = tcfg.get("AUTH") or os.getenv("TWILIO_AUTH_TOKEN") or "–"
+        flow = tcfg.get("FLOW") or os.getenv("TWILIO_FLOW_SID") or "–"
+        from_ = tcfg.get("FROM") or os.getenv("TWILIO_FROM") or os.getenv("TWILIO_FROM_PHONE") or "–"
+        to_ = (
+            tcfg.get("TO")
+            or os.getenv("TWILIO_TO")
+            or os.getenv("TWILIO_TO_PHONE")
+            or os.getenv("TWILIO_DEFAULT_TO")
+            or "–"
+        )
+        twilio_lines.extend([
+            f"☎️ Twilio (env)   : SID={sid}",
+            f"                    AUTH={auth}",
+            f"                    FROM={from_}   TO={to_}   FLOW={flow}",
+        ])
 
     conn = _db_connect(db_path)
 
@@ -206,12 +222,8 @@ def print_prelaunch_body(
     # Show dry-run state for XCom right before Twilio
     if not xcom_live:
         print("🔕 XCom live alerts disabled (dry-run) — events will be logged, not sent.")
-    print(
-        "☎️ Twilio (env)   : "
-        f"SID={sid}\n"
-        f"                    AUTH={auth}\n"
-        f"                    FROM={from_}   TO={to_}   FLOW={flow}"
-    )
+    for line in twilio_lines:
+        print(line)
     print()
     cfg_loop = get_loop_seconds()
     loop_val = cfg_loop if cfg_loop is not None else poll_interval_s

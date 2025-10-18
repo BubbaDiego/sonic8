@@ -163,47 +163,30 @@ def emit_dashboard_link(host: str = "127.0.0.1", port: int = 5001, route: str = 
     print(f"🌐 Sonic Dashboard: {url}")
 
 
-def emit_sources_line(sources: Dict[str, Any], label: str) -> None:
+def emit_sources_line(sources: dict, label: str) -> None:
     if not sources:
         return
-    blocks: list[str] = []
+    blocks = []
 
-    profit = sources.get("profit") or {}
-    if profit:
-        pos = profit.get("pos"); pf = profit.get("pf")
+    pr = sources.get("profit") or {}
+    if pr:
         blocks.append("profit:{" + ",".join([
-            f"pos={pos if pos not in (None, '') else '–'}",
-            f"pf={pf  if pf  not in (None, '') else '–'}",
+            f"pos={pr.get('pos','–') if pr.get('pos') not in (None,'') else '–'}",
+            f"pf={pr.get('pf','–') if pr.get('pf') not in (None,'') else '–'}",
         ]) + "}")
 
-    liquid = sources.get("liquid") or {}
-    if liquid:
-        btc = liquid.get("btc"); eth = liquid.get("eth"); sol = liquid.get("sol")
+    liq = sources.get("liquid") or {}
+    if liq:
         blocks.append("liquid:{" + ",".join([
-            f"btc={btc if btc not in (None, '') else '–'}",
-            f"eth={eth if eth not in (None, '') else '–'}",
-            f"sol={sol if sol not in (None, '') else '–'}",
+            f"btc={liq.get('btc','–') if liq.get('btc') not in (None,'') else '–'}",
+            f"eth={liq.get('eth','–') if liq.get('eth') not in (None,'') else '–'}",
+            f"sol={liq.get('sol','–') if liq.get('sol') not in (None,'') else '–'}",
         ]) + "}")
-
-    market = sources.get("market") or {}
-    if market:
-        parts = []
-        for a in ("btc","eth","sol"):
-            if a in market:
-                v = market.get(a)
-                parts.append(f"{a}=${v if v not in (None, '') else '–'}")
-        if "rearm" in market:
-            parts.append(f"rearm={market.get('rearm') or '–'}")
-        if "sonic" in market:
-            parts.append(f"sonic={market.get('sonic') or '–'}")
-        if parts:
-            blocks.append("market:{" + ",".join(parts) + "}")
 
     if not blocks:
         return
     label_suffix = f" ← {label}" if label else ""
     line = "   🧭 Sources  : " + " ".join(blocks) + label_suffix
-    logging.getLogger("ConsoleReporter").info(line)
     print(line, flush=True)
 
 # ---- One-time boot status line (for your vibe) --------------------------------

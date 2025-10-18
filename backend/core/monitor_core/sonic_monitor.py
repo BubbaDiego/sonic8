@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import os as _os  # safe alias; we'll use _os.getenv in runtime sections
 import re
 import sys
 import asyncio
@@ -39,7 +40,7 @@ def _resolve_and_load_env() -> str | None:
     repo_root = here.parents[3] if len(here.parents) >= 4 else Path.cwd()
 
     candidates: list[Path] = []
-    explicit = os.getenv("SONIC_ENV_PATH")
+    explicit = _os.getenv("SONIC_ENV_PATH")
     if explicit:
         candidates.append(Path(explicit))
     candidates.extend([
@@ -78,7 +79,7 @@ def _resolve_and_load_env() -> str | None:
 _env_used = _resolve_and_load_env()
 
 # default SONIC_XCOM_LIVE=1 if not set
-if os.getenv("SONIC_XCOM_LIVE") is None:
+if _os.getenv("SONIC_XCOM_LIVE") is None:
     os.environ["SONIC_XCOM_LIVE"] = "1"
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -88,25 +89,40 @@ for _candidate in (REPO_ROOT, BACKEND_ROOT):
     if _candidate_str not in sys.path:
         sys.path.insert(0, _candidate_str)
 
-# ── Data access layer ────────────────────────────────────────────────────────
+# --- Hardening: avoid local-shadow pitfalls ---
 try:
-    from backend.data.data_locker import DataLocker as DL  # avoid local shadowing
+    from backend.data.data_locker import DataLocker as DL
 except Exception:
     DL = None
+
 try:
-    from backend.data.locker_factory import get_locker  # preferred singleton
+    from backend.data.locker_factory import get_locker
 except Exception:
-    get_locker = None
+    def get_locker():  # fallback to DL if factory missing
+        if DL:
+            try:
+                return DL.get_instance()
+            except Exception:
+                return DL("mother.db")
+        return None
 
 if DL is not None:
     DataLocker = DL  # type: ignore[assignment]
-else:  # pragma: no cover - fallback for type hints
-    DataLocker = Any  # type: ignore[assignment,misc]
+else:  # pragma: no cover
+    class DataLocker:  # type: ignore[too-many-ancestors]
+        pass
+
+# Config loader (JSON-first, masking helpers)
+try:
+    from backend.config.config_loader import load_config, redacted_view
+except Exception:
+    def load_config(): return {}
+    def redacted_view(x): return x
 
 # ── JSON-ONLY helpers ────────────────────────────────────────────────────────
 def _json_path() -> str:
     # the only monitor config file we accept
-    return os.getenv("SONIC_MONITOR_CONFIG_PATH") or str(
+    return _os.getenv("SONIC_MONITOR_CONFIG_PATH") or str(
         Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
     )
 
@@ -114,7 +130,7 @@ def _json_path() -> str:
 def _expand_env(node):
     if isinstance(node, str):
         m = re.fullmatch(r"\$\{([^}]+)\}", node.strip())
-        return os.getenv(m.group(1), node) if m else node
+        return _os.getenv(m.group(1), node) if m else node
     if isinstance(node, list):
         return [_expand_env(x) for x in node]
     if isinstance(node, dict):
@@ -143,7 +159,7 @@ CFG: Dict[str, Any] = _load_json_only()
 
 MOTHER_DB_PATH = (
     (CFG.get("system_config") or {}).get("db_path")
-    or os.getenv("SONIC_DB_PATH")
+    or _os.getenv("SONIC_DB_PATH")
     or str(Path(__file__).resolve().parents[2] / "mother.db")
 )
 MONITOR_NAME = "sonic_monitor"
@@ -511,7 +527,7 @@ def _read_monitor_threshold_sources(dl: DataLocker) -> tuple[Dict[str, Any], str
 
 def _xcom_live() -> bool:
     """Env-only control for XCom live/dry-run (JSON ignored)."""
-    v = os.getenv("SONIC_XCOM_LIVE")
+    v = _os.getenv("SONIC_XCOM_LIVE")
     if v is None:
         # default to live if not explicitly disabled
         return True
@@ -593,7 +609,7 @@ def _build_cycle_summary(
 set_console_title("🦔 Sonic Monitor 🦔")
 
 # neuter legacy console logger unless explicitly enabled
-if os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() not in {"1", "true", "on", "yes"}:
+if _os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() not in {"1", "true", "on", "yes"}:
     _CONSOLE_REPORT = neuter_legacy_console_logger()
 else:
     _CONSOLE_REPORT = {"present": False, "patched": [], "skipped": "ConsoleLogger enabled"}
@@ -822,7 +838,7 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
 
     # ----- Sync section header (centered) -----
     print(_center_banner(" 🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️ "))
-    print(f"DEBUG[XCOM] json={CFG.get('monitor', {}).get('xcom_live')} env={os.getenv('SONIC_XCOM_LIVE')}")
+    print(f"DEBUG[XCOM] json={CFG.get('monitor', {}).get('xcom_live')} env={_os.getenv('SONIC_XCOM_LIVE')}")
 
     print()
 
@@ -857,13 +873,13 @@ def run_monitor(
     muted = silence_legacy_console_loggers()
 
     if dl is None:
-        if get_locker:
-            try:
-                dl = get_locker()
-            except Exception:
-                dl = None
+        dl = None
+        try:
+            dl = get_locker()
+        except Exception:
+            pass
         if dl is None and DL:
-            _db = str(MOTHER_DB_PATH)
+            _db = str(MOTHER_DB_PATH) if 'MOTHER_DB_PATH' in globals() else "mother.db"
             try:
                 dl = DL.get_instance(_db)
             except Exception:
@@ -884,7 +900,7 @@ def run_monitor(
     # JSON-ONLY interval for banner and runtime
     poll_interval_s = int(LOOP_SECONDS)
     try:
-        env_loop = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
+        env_loop = _os.getenv("SONIC_MONITOR_LOOP_SECONDS")
         if env_loop and int(float(env_loop)) != poll_interval_s:
             print(f"DEBUG[CFG] ENV loop={env_loop} ignored (JSON ONLY)")
         if getattr(dal, 'system', None):
@@ -893,14 +909,25 @@ def run_monitor(
                 print(f"DEBUG[CFG] DB loop={db_loop} overwritten by JSON ({poll_interval_s})")
     except Exception:
         pass
+    banner_cfg: Dict[str, Any] = {}
+    try:
+        _cfg = load_config()
+        banner_cfg = {
+            "database_path": _cfg.get("database", {}).get("path", ""),
+            "twilio": redacted_view(_cfg.get("twilio", {})),
+        }
+    except Exception:
+        banner_cfg = {}
+
     emit_config_banner(
         dl,
         poll_interval_s,
         muted_modules=muted,
         xcom_live=_xcom_live(),
+        resolved=banner_cfg,
         config_source=("JSON ONLY", _json_path()),
     )
-    print(f"DEBUG[XCOM] env={os.getenv('SONIC_XCOM_LIVE')} (JSON ignored)")
+    print(f"DEBUG[XCOM] env={_os.getenv('SONIC_XCOM_LIVE')} (JSON ignored)")
 
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
@@ -1128,34 +1155,28 @@ def run_monitor(
             print()  # breathing room before summary
             summary = snapshot_into(summary)
             emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            # ---- Sources line (compact) + optional deep trace ----
             try:
-                # show single-line sources (on by default; set SONIC_SHOW_SOURCES=0 to hide)
-                import os
                 from backend.core.reporting_core.console_reporter import emit_sources_line
-                from backend.core.monitor_core.sonic_monitor import _read_monitor_threshold_sources  # already present
-                from backend.data.data_locker import DataLocker
-
-                if os.getenv("SONIC_SHOW_SOURCES", "1") != "0":
-                    dl_instance = DataLocker.get_instance()
-                    sources, src_label = _read_monitor_threshold_sources(dl_instance)
-                    emit_sources_line(sources, src_label)
-
-                # optional detailed path trace (off by default; set SONIC_TRACE_THRESHOLDS=1 to show)
-                if os.getenv("SONIC_TRACE_THRESHOLDS", "0") == "1":
-                    from backend.core.monitor_core.utils.trace_sources import trace_monitor_thresholds
-                    if "dl_instance" not in locals():
-                        dl_instance = DataLocker.get_instance()
-                    traces = trace_monitor_thresholds(dl_instance)
-                    print("   🔎 Trace")
-                    for mon in ("profit", "liquid"):
-                        rows = traces.get(mon, [])
-                        for src, key, val, used in rows:
-                            used_mark = "(used)" if used else "(skip)"
-                            display_val = val if val not in (None, "") else "—"
-                            print(f"     {mon:6s} : {src:<8s} {key} = {display_val} {used_mark}")
             except Exception:
-                # never crash the loop because of diagnostics
-                pass
+                def emit_sources_line(sources, label):
+                    line = "   🧭 Sources  : " + str(sources) + (f" ← {label}" if label else "")
+                    print(line)
+
+            try:
+                from backend.core.monitor_core.utils.trace_sources import (
+                    read_monitor_threshold_sources,
+                    trace_monitor_thresholds,
+                    pretty_print_trace,
+                )
+                if _os.getenv("SONIC_SHOW_SOURCES", "1") != "0":
+                    sources, src_label = read_monitor_threshold_sources(dl)
+                    emit_sources_line(sources, src_label)
+                if _os.getenv("SONIC_TRACE_THRESHOLDS", "0") == "1":
+                    pretty_print_trace(trace_monitor_thresholds(dl))
+            except Exception as _e:
+                print(f"   (trace disabled: {_e})")
+            # ------------------------------------------------------
 
             print()  # spacer between cycles
 
