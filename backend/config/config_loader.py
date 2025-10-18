@@ -5,7 +5,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Dict, Iterable, Tuple, Optional, Union
 
 try:
     from dotenv import load_dotenv  # type: ignore
@@ -67,7 +67,22 @@ def _first_existing_path(cands: Iterable[Path]) -> Path | None:
 def _load_defaults() -> Dict[str, Any]:
     return {"database": {"path": "mother.db"}, "monitors": {}, "twilio": {}, "poll_interval_seconds": 5}
 
-def _load_json_config() -> Tuple[Dict[str, Any], Path | None]:
+def _load_json_config(preferred_path: Optional[Union[str, os.PathLike]] = None) -> Tuple[Dict[str, Any], Path | None]:
+    """
+    Load JSON config. If preferred_path is provided, try that first (silently
+    skipping if it doesn't exist). Otherwise use ENV hint + fallbacks.
+    """
+    # 0) explicit path, if given
+    if preferred_path:
+        p = Path(preferred_path).expanduser()
+        if p.exists():
+            data = json.loads(p.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise RuntimeError("Top-level JSON must be an object")
+            return data, p
+        # if explicit path is given but missing, do NOT hard-fail; fall back below
+
+    # 1) environment hint
     env_path = os.getenv(ENV_JSON_PATH_VAR)
     candidates = (
         Path(env_path).expanduser() if env_path else None,
@@ -129,12 +144,17 @@ def _assert_no_unexpanded_vars(cfg: Dict[str, Any]) -> None:
 def redacted_view(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return _redacted_dict(cfg)  # type: ignore[return-value]
 
-def get_config() -> Dict[str, Any]:
+def get_config(cfg_path: Optional[Union[str, os.PathLike]] = None, **_kwargs) -> Dict[str, Any]:
+    """
+    Load merged configuration.
+    Optional cfg_path lets callers pass an explicit JSON file path.
+    Extra kwargs are ignored for compatibility with older call sites.
+    """
     load_dotenv()
     defaults_cfg = _load_defaults()
     db_cfg = _load_db_config()
     env_overrides_cfg = _load_env_overrides()
-    json_cfg, json_path = _load_json_config()
+    json_cfg, json_path = _load_json_config(cfg_path)
 
     merged = _deep_merge(defaults_cfg, db_cfg)
     merged = _deep_merge(merged, env_overrides_cfg)
@@ -150,7 +170,7 @@ def get_config() -> Dict[str, Any]:
         pass
     return merged
 
-# Alias for existing call sites
+# Alias for call sites that import load_config
 load_config = get_config
 
 def print_banner(cfg: Dict[str, Any]) -> None:
