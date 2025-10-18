@@ -173,6 +173,25 @@ def get_config(cfg_path: Optional[Union[str, os.PathLike]] = None, **_kwargs) ->
 # Alias for call sites that import load_config
 load_config = get_config
 
+
+# --- JSON-only loader for bootstrap (no env expansion, no asserts) ---
+
+
+def load_config_json_only(cfg_path: str) -> Dict[str, Any]:
+    """
+    Load the monitor config strictly from JSON with no environment expansion
+    and no 'unexpanded placeholder' assertions. This is a temporary bootstrap path.
+    """
+
+    p = Path(cfg_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Config JSON not found: {cfg_path}")
+    with p.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError("Root of config JSON must be an object/dict.")
+    return data
+
 def print_banner(cfg: Dict[str, Any]) -> None:
     safe = redacted_view({
         "Database": cfg.get("database", {}).get("path", ""),
