@@ -1,5 +1,6 @@
 import datetime
-from typing import Dict, Any, List, Tuple, Optional
+import os
+from typing import Dict, Any, List, Tuple, Optional, Mapping
 
 _GREEN = "\x1b[32m"
 _YELLOW = "\x1b[33m"
@@ -7,6 +8,136 @@ _RED = "\x1b[31m"
 _CYAN = "\x1b[36m"
 _DIM = "\x1b[90m"
 _RESET = "\x1b[0m"
+
+
+def _monitor_items_per_line() -> int:
+    value = os.getenv("SONIC_MONITOR_TUPLES_PER_LINE", "4")
+    try:
+        parsed = int(value)
+        return parsed if parsed > 0 else 4
+    except (TypeError, ValueError):
+        return 4
+
+
+def _format_number(value: Any) -> Optional[str]:
+    if value in (None, ""):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if abs(number) >= 100:
+        return f"{number:.0f}"
+    return f"{number:.1f}"
+
+
+def _format_monitor_items(items: Any, *, max_items: int = 4) -> str:
+    if not items:
+        return "—"
+    if isinstance(items, str):
+        return items
+    if not isinstance(items, list):
+        return str(items)
+
+    tokens: List[str] = []
+    for idx, item in enumerate(items):
+        if idx >= max_items:
+            tokens.append("…")
+            break
+        if isinstance(item, str):
+            tokens.append(item)
+            continue
+        if isinstance(item, Mapping):
+            tag = (
+                item.get("tag")
+                or item.get("label")
+                or item.get("name")
+                or item.get("asset")
+                or item.get("symbol")
+            )
+            tag_str = str(tag) if tag not in (None, "") else "item"
+            thr = _format_number(
+                item.get("threshold")
+                or item.get("threshold_pct")
+                or item.get("threshold_value")
+            )
+            val = _format_number(
+                item.get("value")
+                or item.get("value_pct")
+                or item.get("distance")
+                or item.get("dist_pct")
+            )
+            segments: List[str] = []
+            if thr is not None:
+                segments.append(f"T={thr}")
+            if val is not None:
+                segments.append(f"V={val}")
+            meta = item.get("meta")
+            if isinstance(meta, str) and meta:
+                segments.append(meta)
+            severity = item.get("severity")
+            if severity and str(severity).lower() not in {"pass", "ok"}:
+                segments.append(str(severity))
+            details = ", ".join(segments)
+            if details:
+                tokens.append(f"({tag_str}, {details})")
+            else:
+                tokens.append(str(tag_str))
+            continue
+        tokens.append(str(item))
+
+    return "  ".join(tokens) if tokens else "—"
+
+
+def _emit_monitor_lines(monitor_map: Dict[str, Any], *, max_items: int = 4) -> None:
+    order = [
+        ("liquid", "Liquid"),
+        ("profit", "Profit"),
+        ("market", "Market"),
+        ("price", "Price"),
+    ]
+    for key, label in order:
+        items = monitor_map.get(key) if isinstance(monitor_map, Mapping) else None
+        line = _format_monitor_items(items or [], max_items=max_items)
+        print(f"      {label:<7}: {line}")
+
+
+def _emit_alerts_per_monitor(
+    monitor_map: Dict[str, Any],
+    *,
+    max_items: int = 4,
+    severities=("breach", "fail"),
+) -> int:
+    """Print per-monitor alerts for flagged severities. Returns count printed."""
+
+    order = [
+        ("liquid", "Liquid"),
+        ("profit", "Profit"),
+        ("market", "Market"),
+        ("price", "Price"),
+    ]
+    shown = 0
+    for key, label in order:
+        items_all: List[Any] = []
+        if isinstance(monitor_map, Mapping):
+            raw = monitor_map.get(key)
+            if isinstance(raw, list):
+                items_all = raw
+        flagged = [
+            item
+            for item in items_all
+            if (
+                isinstance(item, Mapping)
+                and str(item.get("severity", "pass")).lower() in severities
+            )
+            or (not isinstance(item, Mapping) and item)
+        ]
+        if not flagged:
+            continue
+        line = _format_monitor_items(flagged, max_items=max_items)
+        print(f"      {label:<7}: {line}")
+        shown += 1
+    return shown
 
 # Price & position icons by ticker symbol for quick visual parsing in the console.
 _PX_ICON = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
@@ -98,10 +229,22 @@ def emit_compact_cycle(
     hc = int(summary.get("hedge_groups", 0) or 0)
     print(f"   {_CYAN}Hedges{_RESET}   : {(''.join('🦔' for _ in range(hc))) if hc > 0 else '–'}")
 
-    # Alerts + Monitors + Notifications
+    # Monitors + Alerts + Notifications
+    monitor_map = summary.get("monitor_lines")
+    if not isinstance(monitor_map, Mapping):
+        monitor_map = {}
+    max_items = _monitor_items_per_line()
+
+    print("   📡 Monitors :")
+    _emit_monitor_lines(monitor_map, max_items=max_items)
+
     alerts_inline = summary.get("alerts_inline", "pass 0/0 –")
-    print(f"   {_CYAN}Alerts{_RESET}   : {alerts_inline}")
-    print(f"   {_CYAN}Monitors{_RESET} : {summary.get('monitors_inline','–')}")
+    printed = _emit_alerts_per_monitor(monitor_map, max_items=max_items)
+    if printed == 0:
+        print(f"   🔔 Alerts   : {alerts_inline}")
+    else:
+        print("   🔔 Alerts   :")
+
     print(f"   {_CYAN}Notifications{_RESET} : {summary.get('notifications_brief', 'NONE (no_breach)')}")
 
     # Tail
