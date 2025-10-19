@@ -877,6 +877,43 @@ def launch_sonic_apps():
     console.log("[green]Sonic Apps running with monitor in background.[/]")
 
 
+def launch_full_sonic_uno() -> None:
+    console.log("🦔 Launching Full Sonic – Uno layout…")
+    if os.name != "nt":
+        console.log("[yellow]Full Sonic – Uno requires Windows. Launching legacy Full Sonic instead.[/]")
+        launch_sonic_apps()
+        return
+
+    powershell = shutil.which("powershell.exe") or shutil.which("powershell")
+    if not powershell:
+        console.log("[yellow]PowerShell not found. Launching legacy Full Sonic instead.[/]")
+        launch_sonic_apps()
+        return
+
+    uno_script = repo_root() / "scripts" / "full_sonic_uno.ps1"
+    if not uno_script.exists():
+        console.log("[yellow]scripts/full_sonic_uno.ps1 not found. Launching legacy Full Sonic instead.[/]")
+        launch_sonic_apps()
+        return
+
+    try:
+        subprocess.Popen(
+            [
+                powershell,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(uno_script),
+            ],
+            cwd=str(repo_root()),
+        )
+        console.log("[green]Windows Terminal Uno layout launching. Panes will open shortly.[/]")
+    except Exception as exc:
+        console.log(f"[yellow]Full Sonic – Uno launch failed ({exc}). Launching legacy Full Sonic instead.[/]")
+        launch_sonic_apps()
+
+
 # ───────────────────────── Main menu loop ─────────────────────────────────────
 
 def _print_panel(body: str, title: str, border_style: str = "bright_magenta") -> None:
@@ -896,19 +933,20 @@ def main() -> None:
         menu_body = "\n".join(
             [
                 f"1. {ICON['hog']} [bold]Full Sonic[/]",
-                f"2. {ICON['rocket']} Sonic - [bold]Full App[/] (Frontend + Backend)",
-                f"3. {ICON['frontend']} Launch [bold]Frontend[/] (Sonic/Vite)",
-                f"4. {ICON['backend']} Launch [bold]Backend[/] (FastAPI)",
-                f"5. {ICON['monitor']} Start [bold]Sonic Monitor[/]",
-                f"6. {ICON['perps']} Launch Perps Console",
-                f"7. {ICON['verify_db']} Verify Database",
-                f"8. {ICON['tests']} Run Unit Tests",
-                f"9. 🃏 Fun Console (Jokes / Quotes / Trivia)",
-                f"10. {ICON['wallet']} Wallet Manager",
-                f"11. {ICON['test_ui']} Test Console UI",
-                f"12. {ICON['cyclone']} Launch Cyclone App",
-                f"13. {ICON['goals']} Session / Goals",
-                f"14. {ICON['maintenance']} On-Demand Daily Maintenance",
+                f"2. {ICON['hog']} [bold]Full Sonic – Uno[/] (single window, split panes)",
+                f"3. {ICON['rocket']} Sonic - [bold]Full App[/] (Frontend + Backend)",
+                f"4. {ICON['frontend']} Launch [bold]Frontend[/] (Sonic/Vite)",
+                f"5. {ICON['backend']} Launch [bold]Backend[/] (FastAPI)",
+                f"6. {ICON['monitor']} Start [bold]Sonic Monitor[/]",
+                f"7. {ICON['perps']} Launch Perps Console",
+                f"8. {ICON['verify_db']} Verify Database",
+                f"9. {ICON['tests']} Run Unit Tests",
+                f"10. 🃏 Fun Console (Jokes / Quotes / Trivia)",
+                f"11. {ICON['wallet']} Wallet Manager",
+                f"12. {ICON['test_ui']} Test Console UI",
+                f"13. {ICON['cyclone']} Launch Cyclone App",
+                f"14. {ICON['goals']} Session / Goals",
+                f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
                 f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window)",
             ]
         )
@@ -919,30 +957,32 @@ def main() -> None:
         if choice == "1":
             run_menu_action("Full Sonic", launch_sonic_apps)
         elif choice == "2":
-            run_menu_action("Sonic - Full App", launch_full_stack)
+            run_menu_action("Full Sonic – Uno", launch_full_sonic_uno)
         elif choice == "3":
-            run_menu_action("Launch Frontend (Sonic/Vite)", launch_frontend)
+            run_menu_action("Sonic - Full App", launch_full_stack)
         elif choice == "4":
-            run_menu_action("Launch Backend (FastAPI)", launch_backend)
+            run_menu_action("Launch Frontend (Sonic/Vite)", launch_frontend)
         elif choice == "5":
-            run_menu_action("Start Sonic Monitor", launch_sonic_monitor)
+            run_menu_action("Launch Backend (FastAPI)", launch_backend)
         elif choice == "6":
-            run_menu_action("Launch Perps Console", launch_perps_console)
+            run_menu_action("Start Sonic Monitor", launch_sonic_monitor)
         elif choice == "7":
-            run_menu_action("Verify Database", verify_database)
+            run_menu_action("Launch Perps Console", launch_perps_console)
         elif choice == "8":
-            run_menu_action("Run Unit Tests", run_tests)
+            run_menu_action("Verify Database", verify_database)
         elif choice == "9":
-            run_menu_action("Fun Console", run_fun_console)
+            run_menu_action("Run Unit Tests", run_tests)
         elif choice == "10":
-            run_menu_action("Wallet Manager", wallet_menu)
+            run_menu_action("Fun Console", run_fun_console)
         elif choice == "11":
-            run_menu_action("Test Console UI", run_test_console)
+            run_menu_action("Wallet Manager", wallet_menu)
         elif choice == "12":
-            run_menu_action("Launch Cyclone App", launch_cyclone_app)
+            run_menu_action("Test Console UI", run_test_console)
         elif choice == "13":
-            run_menu_action("Session / Goals", goals_menu)
+            run_menu_action("Launch Cyclone App", launch_cyclone_app)
         elif choice == "14":
+            run_menu_action("Session / Goals", goals_menu)
+        elif choice == "15":
             run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
