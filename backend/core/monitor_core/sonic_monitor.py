@@ -18,6 +18,14 @@ from typing import Any, Dict, Optional, Callable
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 
+try:
+    from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
+except ImportError:  # pragma: no cover - fallback when spinner helpers unavailable
+    spin_progress = None
+
+    def style_for_cycle(*_args, **_kwargs):  # type: ignore[return-type]
+        return None
+
 
 def _center_banner(text: str, width: int = 78) -> str:
     pad = max(0, (width - len(text)) // 2)
@@ -1140,7 +1148,14 @@ def run_monitor(
             # sleep until next cycle based on JSON-only interval
             sleep_time = max(interval - elapsed, 0)
             if sleep_time > 0:
-                time.sleep(sleep_time)
+                if sys.stdout.isatty() and spin_progress is not None:
+                    spin_progress(
+                        sleep_time,
+                        style=style_for_cycle(loop_counter),
+                        label=f"sleeping {sleep_time:.1f}s",
+                    )
+                else:
+                    time.sleep(sleep_time)
 
     except KeyboardInterrupt:
         logging.info("SonicMonitor terminated by user.")
