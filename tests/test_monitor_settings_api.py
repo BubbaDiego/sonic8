@@ -18,25 +18,40 @@ def test_liquidation_settings_persists(tmp_path, monkeypatch):
     client, dl = _setup(tmp_path, monkeypatch)
 
     payload = {
-        "threshold_percent": 2.5,
-        "snooze_seconds": 123,
-        # Submit numbers as strings to ensure casting occurs
         "thresholds": {"BTC": "1.2", "ETH": "3.4"},
+        "blast_radius": {"BTC": "4", "ETH": "6"},
+        "notifications": {"system": True, "voice": False, "sms": True, "tts": False},
+        "enabled_liquid": False,
     }
     resp = client.post("/api/monitor-settings/liquidation", json=payload)
-    assert resp.status_code == 200
+    assert resp.status_code == 204
 
     cfg = dl.system.get_var("liquid_monitor")
-    assert cfg["threshold_percent"] == pytest.approx(2.5)
-    assert cfg["snooze_seconds"] == 123
     assert cfg["thresholds"] == {"BTC": 1.2, "ETH": 3.4}
+    assert cfg["blast_radius"] == {"BTC": 4.0, "ETH": 6.0}
+    assert cfg["notifications"] == {"system": True, "voice": False, "sms": True, "tts": False}
+    assert cfg["enabled_liquid"] is False
+    assert cfg["enabled"] is False
+    assert "threshold_percent" not in cfg
 
     resp = client.get("/api/monitor-settings/liquidation")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["threshold_percent"] == pytest.approx(2.5)
-    assert data["snooze_seconds"] == 123
     assert data["thresholds"] == {"BTC": 1.2, "ETH": 3.4}
+    assert data["blast_radius"] == {"BTC": 4.0, "ETH": 6.0}
+    assert data["notifications"] == {"system": True, "voice": False, "sms": True, "tts": False}
+    assert data["enabled_liquid"] is False
+
+
+def test_liquidation_rejects_threshold_percent(tmp_path, monkeypatch):
+    client, _ = _setup(tmp_path, monkeypatch)
+
+    resp = client.post(
+        "/api/monitor-settings/liquidation",
+        json={"threshold_percent": 5.0},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "threshold_percent removed; set per-asset thresholds instead."
 
 
 def test_profit_settings_persists(tmp_path, monkeypatch):
@@ -106,8 +121,6 @@ def test_liq_notifications_merge(tmp_path, monkeypatch):
     client, dl = _setup(tmp_path, monkeypatch)
 
     payload = {
-        "threshold_percent": 1.1,
-        "snooze_seconds": 42,
         "threshold_btc": 0.9,
         "threshold_eth": 0.7,
         "windows_alert": False,
@@ -116,6 +129,10 @@ def test_liq_notifications_merge(tmp_path, monkeypatch):
         "tts_alert": False,
     }
 
+    resp = client.post("/api/monitor-settings/liquidation", json=payload)
+    assert resp.status_code == 204
+
+    cfg = dl.system.get_var("liquid_monitor")
     assert cfg["thresholds"] == {"BTC": 0.9, "ETH": 0.7}
     assert cfg["notifications"] == {
         "system": False,
@@ -126,6 +143,8 @@ def test_liq_notifications_merge(tmp_path, monkeypatch):
     assert cfg["windows_alert"] is False
     assert cfg["voice_alert"] is False
     assert cfg["sms_alert"] is True
+    assert cfg["tts_alert"] is False
+    assert "threshold_percent" not in cfg
 
     resp = client.get("/api/monitor-settings/liquidation")
     assert resp.status_code == 200
@@ -139,6 +158,7 @@ def test_liq_notifications_merge(tmp_path, monkeypatch):
     assert data["windows_alert"] is False
     assert data["voice_alert"] is False
     assert data["sms_alert"] is True
+    assert data["tts_alert"] is False
     assert data["thresholds"] == {"BTC": 0.9, "ETH": 0.7}
 
 
@@ -211,11 +231,13 @@ def test_liquidation_enabled_roundtrip(tmp_path, monkeypatch):
         "/api/monitor-settings/liquidation",
         json={"enabled": False},
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 204
 
     cfg = dl.system.get_var("liquid_monitor")
     assert cfg["enabled"] is False
+    assert cfg["enabled_liquid"] is False
 
     resp = client.get("/api/monitor-settings/liquidation")
     assert resp.status_code == 200
+    assert resp.json()["enabled_liquid"] is False
     assert resp.json()["enabled"] is False

@@ -86,3 +86,23 @@ def test_xcom_config_resolves_alexa_env(tmp_path, monkeypatch):
     provider = svc.get_provider("alexa")
     assert provider["enabled"] == "true"
     assert provider["access_code"] == "code123"
+
+
+def test_channels_for_defaults_ignore_global(tmp_path, monkeypatch):
+    monkeypatch.setattr("backend.core.xcom_core.xcom_config_service.C.get_xcom_live", lambda: False)
+    dl = DataLocker(str(tmp_path / "test.db"))
+    svc = XComConfigService(dl)
+
+    dl.system.set_var(
+        "xcom_providers",
+        {
+            "global": {"voice": True, "system": False},
+            "profit": {"sms": True},
+        },
+    )
+
+    profit_channels = svc.channels_for("profit")
+    assert profit_channels == {"live": False, "system": True, "voice": False, "sms": True, "tts": False}
+
+    market_channels = svc.channels_for("market")
+    assert market_channels == {"live": False, "system": True, "voice": False, "sms": False, "tts": False}
