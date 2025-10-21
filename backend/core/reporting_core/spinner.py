@@ -51,6 +51,9 @@ SPINSETS: Dict[str, List[str]] = {
 ORDER: tuple[str, ...] = ("line", "pipe", "moon", "arrow", "bar", "clock")
 
 
+_console_lock = threading.Lock()
+
+
 def _frames(style: str | None) -> Iterator[str]:
     frames: Iterable[str] = SPINSETS.get(style or "", [])
     if not frames:
@@ -76,11 +79,33 @@ def _term_width(default: int = 80) -> int:
         return default
 
 
-def spin_progress(seconds: float, *, style: str = "line", label: str = "") -> None:
+def _write_line(msg: str, *, last_len: int) -> int:
     """
-    Spinner + progress bar during sleep.
-    - Uses only stdlib; auto-falls back to plain sleep when not a TTY.
-    - Clears its line at the end; Ctrl+C propagates.
+    Redraw a single console line in-place. Returns new last_len.
+    Strategy:
+      1) '\r' to carriage return
+      2) ANSI erase-line if supported (Windows Terminal, modern conhost), else pad spaces
+      3) write message, flush
+    """
+    # Always CR to the start
+    sys.stdout.write("\r")
+    # Try VT erase line; harmless on non-VT consoles
+    sys.stdout.write("\x1b[2K")
+    # Write message; if ANSI not supported, pad with spaces to overwrite leftovers
+    sys.stdout.write(msg)
+    if last_len > len(msg):
+        sys.stdout.write(" " * (last_len - len(msg)))
+        sys.stdout.write("\r")  # return to start again
+        sys.stdout.write(msg)
+    sys.stdout.flush()
+    return len(msg)
+
+
+def spin_progress(seconds: float, *, style: str = "line", label: str = "sleep") -> None:
+    """
+    Spinner + progress bar during sleep (single-line, in-place).
+    - Clears the line each tick so output never wraps.
+    - Auto-falls back to plain sleep when stdout is not a TTY.
     """
     if seconds <= 0:
         return
@@ -88,40 +113,48 @@ def spin_progress(seconds: float, *, style: str = "line", label: str = "") -> No
         time.sleep(seconds)
         return
 
-    frames = _frames(style)
-    width = max(20, _term_width() - len(label) - 28)
-    start = time.perf_counter()
-    end = start + seconds
+    frames = _frames(style)           # existing generator from this module
+    width  = max(16, _term_width() - 28 - len(label))  # leave room for counters
+    start  = time.perf_counter()
+    end    = start + seconds
     last_fill = -1
+    last_len  = 0
+
+    # Adaptive tick ~10Hz but not too chatty; clamp for very short sleeps
+    tick = 0.1 if seconds >= 5 else 0.05
 
     try:
-        while True:
-            now = time.perf_counter()
-            remaining = end - now
-            if remaining <= 0:
-                break
-            frac = 1.0 - (remaining / seconds)
-            fill = int(frac * width)
-            if fill != last_fill:
-                bar = "█" * fill + "░" * (width - fill)
-                frame = next(frames)
-                elapsed = int(seconds * frac)
-                rem = int(remaining + 0.999)
-                mins, secs = divmod(rem, 60)
-                msg = (
-                    f"\r{frame} {label} [{bar}] {elapsed:>3}s/{int(seconds):<3}s  "
-                    f"(eta {mins:02d}:{secs:02d})"
-                )
-                sys.stdout.write(msg)
-                sys.stdout.flush()
-                last_fill = fill
-            time.sleep(0.1)
+        with _console_lock:
+            while True:
+                now = time.perf_counter()
+                remaining = end - now
+                if remaining <= 0:
+                    break
+                frac = 1.0 - (remaining / seconds)
+                fill = int(frac * width)
+                # update on fill change or every ~0.5s to keep the spinner lively
+                if fill != last_fill or int((seconds - remaining) * 2) != int((seconds - remaining - tick) * 2):
+                    bar   = "█" * fill + "░" * (width - fill)
+                    frame = next(frames)
+                    elapsed = int(seconds - remaining)
+                    rem     = int(remaining + 0.999)
+                    mins, secs_i = divmod(rem, 60)
+                    msg = f"{frame} {label} [{bar}] {elapsed:>2}s/{int(seconds):<2}s (eta {mins:02d}:{secs_i:02d})"
+                    # Truncate to terminal width minus 1 to avoid accidental wrap
+                    termw = _term_width()
+                    if len(msg) > termw - 1:
+                        msg = msg[:max(0, termw - 2)]
+                    last_len = _write_line(msg, last_len=last_len)
+                    last_fill = fill
+                time.sleep(tick)
     except KeyboardInterrupt:
-        sys.stdout.write("\r" + " " * (width + 64) + "\r")
-        sys.stdout.flush()
+        # Clear line and propagate
+        with _console_lock:
+            _write_line("", last_len=last_len)  # erase
         raise
-    sys.stdout.write("\r" + " " * (width + 64) + "\r")
-    sys.stdout.flush()
+    # Final clear
+    with _console_lock:
+        _write_line("", last_len=last_len)
 
 
 class _SpinnerThread:
