@@ -1147,7 +1147,7 @@ def run_monitor(
                 spin_progress(
                     sleep_time,
                     style=style_for_cycle(loop_counter),
-                    label=f"sleeping {sleep_time:.1f}s",
+                    label=f"sleep {int(round(sleep_time))}s",
                 )
 
     except KeyboardInterrupt:
