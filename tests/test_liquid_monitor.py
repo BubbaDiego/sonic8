@@ -72,12 +72,12 @@ def _make_position(dist):
 def test_liquid_monitor_alert_and_snooze(monkeypatch):
     cfg = {
         "liquid_monitor": {
-            "threshold_percent": 10.0,
             "snooze_seconds": 60,
             "windows_alert": False,
             "voice_alert": True,
             "level": "HIGH",
             "thresholds": {"BTC": 5.0},
+            "notifications": {"system": False, "voice": True, "sms": False, "tts": True},
         }
     }
     dl = FakeDataLocker(cfg)
@@ -100,7 +100,30 @@ def test_liquid_monitor_alert_and_snooze(monkeypatch):
     assert first["alert_sent"] is True
     assert fake_xcom.sent
     assert first["details"][0]["threshold"] == 5.0
+    assert "threshold_percent" not in first
+    assert first["thresholds"]["BTC"] == 5.0
 
     second = monitor._do_work()
     assert second["alert_sent"] is False
     assert len(fake_xcom.sent) == 2
+
+
+def test_liquid_monitor_resolves_defaults(monkeypatch):
+    cfg = {
+        "liquid_monitor": {
+            "thresholds": {"BTC": 4.2},
+            "threshold_percent": 2.0,
+        }
+    }
+    dl = FakeDataLocker(cfg)
+    monkeypatch.setattr(liquidation_monitor.DataLocker, "get_instance", classmethod(lambda cls: dl))
+
+    monitor = liquidation_monitor.LiquidationMonitor()
+    resolved = monitor._get_config()
+
+    assert resolved["thresholds"]["BTC"] == 4.2
+    # ETH uses default, ignoring threshold_percent
+    assert resolved["thresholds"]["ETH"] == liquidation_monitor.LiquidationMonitor.DEFAULT_ASSET_THRESHOLDS["ETH"]
+    assert "threshold_percent" not in resolved
+    assert monitor._resolve_threshold("ETH", resolved["thresholds"]) == liquidation_monitor.LiquidationMonitor.DEFAULT_ASSET_THRESHOLDS["ETH"]
+    assert monitor._resolve_threshold("BTC", resolved["thresholds"]) == 4.2

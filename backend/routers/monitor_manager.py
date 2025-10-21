@@ -157,35 +157,38 @@ def get_monitor_config() -> Dict[str, Any]:
         pf = _coerce_int(sysmgr.get_var(_DB_KEYS["profit_badge_value"]))
 
     # channels
-    channels = json_payload.get("channels") or {}
-    if not channels:
-        channels = {"global": json_payload.get("xcom", {}).get("channels", {})}
+    raw_channels = json_payload.get("channels") or {}
+    if not isinstance(raw_channels, dict):
+        raw_channels = {}
+    if not raw_channels:
+        legacy_global = json_payload.get("xcom", {}).get("channels", {})
+        raw_channels = {"global": legacy_global}
         for monitor_key in ("price", "liquid", "profit", "market"):
             monitor_cfg = json_payload.get(monitor_key, {})
-            if monitor_cfg.get("notifications"):
-                channels[monitor_key] = monitor_cfg["notifications"]
+            if isinstance(monitor_cfg, dict) and monitor_cfg.get("notifications"):
+                raw_channels[monitor_key] = monitor_cfg["notifications"]
 
     try:
         db_channels = json.loads(sysmgr.get_var(_DB_KEYS["xcom_providers"]) or "{}")
     except Exception:
         db_channels = {}
 
+    json_global = raw_channels.get("global") if isinstance(raw_channels.get("global"), dict) else {}
+    db_global = db_channels.get("global") if isinstance(db_channels.get("global"), dict) else {}
+
     def _norm_channels(cfg: dict | None, fallback: dict | None):
-        if not cfg and fallback:
-            cfg = fallback
-        return {
-            "system": _coerce_bool(cfg.get("system") if isinstance(cfg, dict) else None, True),
-            "voice": _coerce_bool(cfg.get("voice") if isinstance(cfg, dict) else None, False),
-            "sms": _coerce_bool(cfg.get("sms") if isinstance(cfg, dict) else None, False),
-            "tts": _coerce_bool(cfg.get("tts") if isinstance(cfg, dict) else None, False),
-        }
+        merged = {"system": True, "voice": False, "sms": False, "tts": False}
+        for source in (db_global, json_global, fallback, cfg):
+            if not isinstance(source, dict):
+                continue
+            for key in merged:
+                if key in source:
+                    merged[key] = _coerce_bool(source.get(key), merged[key])
+        return merged
 
     merged_channels = {
-        "global": _norm_channels(channels.get("global"), db_channels.get("global")),
-        "price": _norm_channels(channels.get("price"), db_channels.get("price")),
-        "liquid": _norm_channels(channels.get("liquid"), db_channels.get("liquid")),
-        "profit": _norm_channels(channels.get("profit"), db_channels.get("profit")),
-        "market": _norm_channels(channels.get("market"), db_channels.get("market")),
+        monitor: _norm_channels(raw_channels.get(monitor), db_channels.get(monitor))
+        for monitor in ("price", "liquid", "profit", "market")
     }
 
     # market blob

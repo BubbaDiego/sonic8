@@ -55,7 +55,6 @@
   },
 
   "liquid_monitor": {
-    "threshold_percent": 5.0,
     "level": "HIGH",
     "windows_alert": true,
     "voice_alert": true,
