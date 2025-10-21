@@ -1,0 +1,74 @@
+{
+  "monitor": {
+    "loop_seconds": 30,
+    "xcom_live": true,
+    "log_success": true,
+    "cycle_limit": null,
+    "enabled": {
+      "sonic": true,
+      "liquid": true,
+      "profit": true,
+      "market": true,
+      "price": true
+    }
+  },
+  "channels": {
+    "global": {
+      "system": true,
+      "voice": true,
+      "sms": true,
+      "tts": true
+    },
+    "liquid": {
+      "system": true,
+      "voice": true,
+      "sms": false,
+      "tts": false
+    },
+    "profit": {
+      "system": true,
+      "voice": true,
+      "sms": false,
+      "tts": false
+    },
+    "market": {
+      "system": true,
+      "voice": false,
+      "sms": false,
+      "tts": false
+    },
+    "price": {
+      "system": true,
+      "voice": false,
+      "sms": false,
+      "tts": false
+    }
+  },
+  "liquid": {
+    "thresholds": {
+      "BTC": 5.0,
+      "ETH": 6.0,
+      "SOL": 14.1
+    },
+    "blast": {
+      "BTC": 10,
+      "ETH": 110,
+      "SOL": 110
+    }
+  },
+  "profit": {
+    "snooze_seconds": 600,
+    "position_usd": 10,
+    "portfolio_usd": 50
+  },
+  "market": {
+    "rearm_mode": "ladder"
+  },
+  "price": {
+    "assets": [
+      "BTC",
+      "ETH",
+      "SOL"
+    ]
+  }
+}
