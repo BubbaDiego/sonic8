@@ -946,6 +946,9 @@ class DataLocker:
             current = self.system.get_var("liquid_monitor")
             if current:
                 migrated = False
+                from backend.core.monitor_core.liquidation_monitor import (  # lazy import
+                    LiquidationMonitor,
+                )
                 if (
                     isinstance(current, Mapping)
                     and "asset_thresholds" in current
@@ -955,6 +958,25 @@ class DataLocker:
                     if isinstance(at, Mapping):
                         current["thresholds"] = dict(at)
                         migrated = True
+                if isinstance(current, Mapping) and "asset_thresholds" in current:
+                    current.pop("asset_thresholds", None)
+                    migrated = True
+                thresholds_map = current.get("thresholds") if isinstance(current, Mapping) else {}
+                if isinstance(thresholds_map, Mapping):
+                    normalized = {}
+                    for key, value in thresholds_map.items():
+                        try:
+                            normalized[str(key).upper()] = float(value)
+                        except Exception:
+                            continue
+                    for asset, default_value in LiquidationMonitor.DEFAULT_ASSET_THRESHOLDS.items():
+                        normalized.setdefault(asset, float(default_value))
+                    if normalized != thresholds_map:
+                        current["thresholds"] = normalized
+                        migrated = True
+                if isinstance(current, Mapping) and "threshold_percent" in current:
+                    current.pop("threshold_percent", None)
+                    migrated = True
                 if migrated:
                     self.system.set_var("liquid_monitor", current)
                 return
@@ -971,25 +993,46 @@ class DataLocker:
                         if isinstance(price_cfg, Mapping):
                             assets = price_cfg.get("assets")
 
-            if not config:
-                from backend.core.monitor_core.liquidation_monitor import (
-                    LiquidationMonitor,
-                )
+            from backend.core.monitor_core.liquidation_monitor import (  # lazy import
+                LiquidationMonitor,
+            )
 
-                config = LiquidationMonitor.DEFAULT_CONFIG
+            if not config:
+                config = dict(LiquidationMonitor.DEFAULT_CONFIG)
 
             if not assets:
                 assets = ["BTC", "ETH", "SOL"]
 
             try:
-                threshold = float(config.get("threshold_percent", 5.0))
+                fallback = float(config.get("threshold_percent", LiquidationMonitor.DEFAULT_THRESHOLD))
             except Exception:
-                threshold = 5.0
+                fallback = float(LiquidationMonitor.DEFAULT_THRESHOLD)
 
-            config.setdefault("thresholds", {})
-            config.setdefault("enabled", True)
+            raw_thresholds = config.get("thresholds") or {}
+            if not isinstance(raw_thresholds, Mapping):
+                raw_thresholds = {}
+
+            normalized: dict[str, float] = {}
+            for key, value in raw_thresholds.items():
+                asset = str(key).upper()
+                try:
+                    normalized[asset] = float(value)
+                except Exception:
+                    continue
+
             for asset in assets:
-                config["thresholds"].setdefault(asset, threshold)
+                if asset is None:
+                    continue
+                asset_key = str(asset).upper()
+                default_asset = LiquidationMonitor.DEFAULT_ASSET_THRESHOLDS.get(asset_key, fallback)
+                if asset_key not in normalized:
+                    normalized[asset_key] = float(default_asset)
+                elif normalized[asset_key] == LiquidationMonitor.DEFAULT_THRESHOLD and asset_key in LiquidationMonitor.DEFAULT_ASSET_THRESHOLDS and fallback != LiquidationMonitor.DEFAULT_THRESHOLD:
+                    normalized[asset_key] = float(fallback)
+
+            config["thresholds"] = normalized
+            config.setdefault("enabled", True)
+            config.pop("threshold_percent", None)
 
             self.system.set_var("liquid_monitor", config)
             log.debug(

@@ -56,7 +56,6 @@ def test_liquid_snooze_countdown(monkeypatch, tmp_path):
     dl.system.set_var(
         "liquid_monitor",
         {
-            "threshold_percent": 5.0,
             "snooze_seconds": 60,
             "thresholds": {"BTC": 5.0},
             "notifications": {"system": False, "voice": False, "sms": False, "tts": False},
@@ -149,7 +148,6 @@ def test_reset_liquid_snooze(monkeypatch, tmp_path):
     dl.system.set_var(
         "liquid_monitor",
         {
-            "threshold_percent": 5.0,
             "snooze_seconds": 60,
             "thresholds": {"BTC": 5.0},
             "notifications": {
@@ -183,7 +181,6 @@ def test_profit_voice_updates_liquid_snooze(monkeypatch, tmp_path):
     dl.system.set_var(
         "liquid_monitor",
         {
-            "threshold_percent": 5.0,
             "snooze_seconds": 60,
             "thresholds": {"BTC": 5.0},
         },

@@ -174,13 +174,12 @@ class XComConfigService:
         """
 
         cfg = self._load_providers() or {}
-        g = cfg.get("global") or {}
         m = cfg.get(monitor) or {}
         live = C.get_xcom_live()
         return {
             "live": live,
-            "system": bool(m.get("system", g.get("system", True))),
-            "voice": bool(m.get("voice", True)),
-            "sms": bool(m.get("sms", g.get("sms", False))),
-            "tts": bool(m.get("tts", g.get("tts", False))),
+            "system": bool(m.get("system", True)),
+            "voice": bool(m.get("voice", False)),
+            "sms": bool(m.get("sms", False)),
+            "tts": bool(m.get("tts", False)),
         }

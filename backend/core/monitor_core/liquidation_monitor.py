@@ -1,13 +1,14 @@
 """LiquidationMonitor – alerts when positions approach their liquidation price.
 
-v2 – July 2025
-• Supports per‑asset thresholds via ``thresholds`` dict (already present).
-• Adds nested ``notifications`` dict (system / voice / sms / tts).
+v3 – October 2025
+• Global threshold overrides removed (per-asset only).
+• Nested ``notifications`` dict (system / voice / sms / tts).
 """
 
 from datetime import datetime, timezone, timedelta
 from collections.abc import Mapping
 import json
+import os
 
 from backend.core.monitor_core.base_monitor import BaseMonitor  # type: ignore
 from backend.data.data_locker import DataLocker  # type: ignore
@@ -17,7 +18,7 @@ from backend.core.logging import log  # type: ignore
 from backend.utils.env_utils import _resolve_env  # type: ignore
 
 class LiquidationMonitor(BaseMonitor):
-    """Check active positions: if liquidation_distance <= threshold_percent → alert.
+    """Check active positions: emit alerts when liquidation distance breaches thresholds.
 
     Config key: ``liquid_monitor``
 
@@ -25,7 +26,6 @@ class LiquidationMonitor(BaseMonitor):
 
         {
           "liquid_monitor": {
-            "threshold_percent": 5.0,
             "snooze_seconds": 300,
             "thresholds": { "BTC": 5, "ETH": 8, "SOL": 7 },
             "notifications": { "system": true, "voice": true, "sms": false, "tts": true }
@@ -33,8 +33,11 @@ class LiquidationMonitor(BaseMonitor):
         }
     """
 
+    DEFAULT_THRESHOLD = 5.0
+    DEFAULT_ASSET_THRESHOLDS = {"BTC": DEFAULT_THRESHOLD, "ETH": DEFAULT_THRESHOLD, "SOL": DEFAULT_THRESHOLD}
+    _WARNED_ENV = False
+
     DEFAULT_CONFIG = {
-        "threshold_percent": 5.0,
         "level": "HIGH",
         "windows_alert": True,   # kept for env overrides / CLI
         "voice_alert": True,
@@ -66,7 +69,6 @@ class LiquidationMonitor(BaseMonitor):
         merged = {**self.DEFAULT_CONFIG, **cfg}
 
         env_map = {
-            "threshold_percent": "LIQ_MON_THRESHOLD_PERCENT",
             "level": "LIQ_MON_LEVEL",
             "windows_alert": "LIQ_MON_WINDOWS_ALERT",
             "voice_alert": "LIQ_MON_VOICE_ALERT",
@@ -78,16 +80,17 @@ class LiquidationMonitor(BaseMonitor):
         for key, env_key in env_map.items():
             merged[key] = _resolve_env(merged.get(key), env_key)
 
+        if not self.__class__._WARNED_ENV and os.getenv("LIQ_MON_THRESHOLD_PERCENT") is not None:
+            self.__class__._WARNED_ENV = True
+            log.warning(
+                "LIQ_MON_THRESHOLD_PERCENT is ignored; configure per-asset thresholds instead.",
+                source=self.name,
+            )
+
         def to_bool(value):
             if isinstance(value, str):
                 return value.lower() in ("1", "true", "yes", "on")
             return bool(value)
-
-        # Coerce numeric
-        try:
-            merged["threshold_percent"] = float(merged.get("threshold_percent", 0))
-        except Exception:
-            merged["threshold_percent"] = float(self.DEFAULT_CONFIG["threshold_percent"])
 
         try:
             merged["snooze_seconds"] = int(float(merged.get("snooze_seconds", 0)))
@@ -108,7 +111,20 @@ class LiquidationMonitor(BaseMonitor):
                 thresholds = {}
         if not isinstance(thresholds, Mapping):
             thresholds = {}
-        merged["thresholds"] = dict(thresholds)
+
+        normalized: dict[str, float] = {}
+        for key, value in dict(thresholds).items():
+            asset = str(key).upper()
+            try:
+                normalized[asset] = float(value)
+            except Exception:
+                continue
+
+        for asset, default_value in self.DEFAULT_ASSET_THRESHOLDS.items():
+            normalized.setdefault(asset, float(default_value))
+
+        merged["thresholds"] = normalized
+        merged.pop("threshold_percent", None)
 
         # Parse notifications dict – ensure booleans and sync with legacy keys
         notifications = merged.get("notifications", {})
@@ -139,6 +155,18 @@ class LiquidationMonitor(BaseMonitor):
 
         return merged
 
+    def _resolve_threshold(self, asset: str | None, thresholds: Mapping[str, float]) -> float:
+        if asset:
+            key = str(asset).upper()
+            if key in thresholds:
+                try:
+                    return float(thresholds[key])
+                except Exception:
+                    pass
+            if key in self.DEFAULT_ASSET_THRESHOLDS:
+                return float(self.DEFAULT_ASSET_THRESHOLDS[key])
+        return float(self.DEFAULT_THRESHOLD)
+
     def _snoozed(self, cfg: dict) -> bool:
         if not self._last_alert_ts:
             return False
@@ -164,6 +192,7 @@ class LiquidationMonitor(BaseMonitor):
 
         details = []
         in_danger = []
+        thresholds = cfg.get("thresholds", {})
         for p in positions:
             if p.liquidation_distance is None or p.liquidation_distance == "":
                 continue
@@ -171,9 +200,7 @@ class LiquidationMonitor(BaseMonitor):
                 dist = float(p.liquidation_distance)
             except Exception:
                 continue
-            threshold = cfg.get("thresholds", {}).get(
-                getattr(p, "asset_type", None), cfg["threshold_percent"]
-            )
+            threshold = self._resolve_threshold(getattr(p, "asset_type", None), thresholds)
             breach = dist <= threshold
             if breach:
                 in_danger.append(p)
@@ -192,7 +219,7 @@ class LiquidationMonitor(BaseMonitor):
         summary = {
             "total_checked": len(positions),
             "danger_count": len(in_danger),
-            "threshold_percent": cfg["threshold_percent"],
+            "thresholds": dict(thresholds),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "details": details,
         }

@@ -9,8 +9,8 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Body, Depends, HTTPException, status
+from pydantic import BaseModel, Field, ValidationError
 
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.config.config_loader import load_monitor_config, save_monitor_config
@@ -438,8 +438,15 @@ def _normalize_liq(payload: LiquidationSettings) -> Dict[str, Any]:
         "notifications": notifications,
     }
 
+    cfg["windows_alert"] = bool(notifications.get("system"))
+    cfg["voice_alert"] = bool(notifications.get("voice"))
+    cfg["sms_alert"] = bool(notifications.get("sms"))
+    cfg["tts_alert"] = bool(notifications.get("tts"))
+
     if payload.enabled_liquid is not None:
-        cfg["enabled_liquid"] = bool(payload.enabled_liquid)
+        enabled_value = bool(payload.enabled_liquid)
+        cfg["enabled_liquid"] = enabled_value
+        cfg["enabled"] = enabled_value
 
     return cfg
 
@@ -463,9 +470,46 @@ def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
 
 @router.post("/liquidation", status_code=status.HTTP_204_NO_CONTENT)
 def post_liquidation_settings(
-    payload: LiquidationSettings, dl: DataLocker = Depends(get_app_locker)
+    payload: Dict[str, Any] = Body(...), dl: DataLocker = Depends(get_app_locker)
 ):
-    shaped = _normalize_liq(payload)
+    if "threshold_percent" in payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="threshold_percent removed; set per-asset thresholds instead.",
+        )
+
+    normalized_payload = dict(payload)
+    if "enabled" in normalized_payload and "enabled_liquid" not in normalized_payload:
+        normalized_payload["enabled_liquid"] = normalized_payload.pop("enabled")
+
+    thresholds_payload = dict(normalized_payload.get("thresholds") or {})
+    legacy_threshold_keys = [key for key in list(normalized_payload.keys()) if key.startswith("threshold_") and key not in {"thresholds"}]
+    for legacy_key in legacy_threshold_keys:
+        value = normalized_payload.pop(legacy_key)
+        asset = legacy_key.split("_", 1)[-1]
+        if asset:
+            thresholds_payload.setdefault(asset.upper(), value)
+    if thresholds_payload:
+        normalized_payload["thresholds"] = thresholds_payload
+
+    notifications_payload = dict(normalized_payload.get("notifications") or {})
+    for legacy_key, target in (
+        ("windows_alert", "system"),
+        ("voice_alert", "voice"),
+        ("sms_alert", "sms"),
+        ("tts_alert", "tts"),
+    ):
+        if legacy_key in normalized_payload:
+            notifications_payload[target] = normalized_payload.pop(legacy_key)
+    if notifications_payload:
+        normalized_payload["notifications"] = notifications_payload
+
+    try:
+        model = LiquidationSettings(**normalized_payload)
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors())
+
+    shaped = _normalize_liq(model)
     try:
         save_config_patch({"liquid_monitor": shaped})
     except Exception:

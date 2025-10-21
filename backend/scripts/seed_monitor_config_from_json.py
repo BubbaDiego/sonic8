@@ -120,13 +120,7 @@ def seed(db_path: str, json_path: str) -> int:
         wrote.append(("profit_pf", pf_thr))
 
     # 4) per-monitor notification channels → xcom_providers
-    # shape supports both a global default and per-monitor overrides
-    # {
-    #   "channels": {
-    #     "global": {"system": true, "voice": true, "sms": false, "tts": true},
-    #     "price":  {...}, "liquid": {...}, "profit": {...}, "market": {...}
-    #   }
-    # }
+    # shape supports optional "global" defaults but stores explicit per-monitor flags
     channels = _get(cfg, "channels", default=None)
     # also accept legacy: monitor.notifications like the market schema bundle shows
     #  e.g., cfg["market"]["notifications"] = {system,voice,sms,tts}
@@ -147,11 +141,15 @@ def seed(db_path: str, json_path: str) -> int:
             "tts"   : _coerce_bool(d.get("tts"),    False),
         }
 
-    if isinstance(channels, dict) and channels:
-        xcom_providers = {"global": _norm_ch(channels.get("global"))}
+    if isinstance(channels, dict) and channels is not None:
+        global_defaults = _norm_ch(channels.get("global")) if channels.get("global") is not None else {}
+        xcom_providers: Dict[str, dict] = {}
         for m in ("price", "liquid", "profit", "market"):
-            if channels.get(m) is not None:
-                xcom_providers[m] = _norm_ch(channels.get(m))
+            block = _norm_ch(channels.get(m)) if channels.get(m) is not None else {}
+            merged = {"system": True, "voice": False, "sms": False, "tts": False}
+            merged.update(global_defaults)
+            merged.update(block)
+            xcom_providers[m] = merged
         sysmgr.set_var("xcom_providers", json.dumps(xcom_providers, separators=(",", ":")))
         wrote.append(("xcom_providers", xcom_providers))
 

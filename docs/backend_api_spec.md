@@ -96,12 +96,11 @@ curl -X POST http://localhost:5000/session/reset
 
 - `GET /liquidation` – Return the liquidation monitor configuration including an `enabled` flag.
 - `POST /liquidation` – Update liquidation settings. Accepts a JSON body with:
-  - `threshold_percent` – default percent distance from liquidation to trigger alerts.
-  - `snooze_seconds` – cooldown between alerts.
-  - `thresholds` – optional per‑asset overrides.
-  - `notifications` – `{ "system": bool, "voice": bool, "sms": bool }`.
-  - `enabled` – optional boolean to toggle the monitor.
-    Environment variable `LIQ_MON_SMS_ALERT` overrides the `sms` flag when set.
+  - `thresholds` – per‑asset percentage thresholds.
+  - `blast_radius` – optional per‑asset blast radius overrides.
+  - `notifications` – `{ "system": bool, "voice": bool, "sms": bool, "tts": bool }`.
+  - `enabled_liquid` (or legacy `enabled`) – optional boolean to toggle the monitor.
+    Payloads including `threshold_percent` are rejected (HTTP 400).
 - `GET /profit` – Return profit monitor threshold settings including `enabled`.
 - `POST /profit` – Update profit thresholds with `portfolio_low`, `portfolio_high`,
   `single_low` and `single_high` fields. Payload may include an optional `enabled` boolean.
@@ -117,10 +116,9 @@ Example `notifications` payload:
 
 ```json
 {
-  "threshold_percent": 5.0,
-  "snooze_seconds": 300,
   "thresholds": {"BTC": 5, "ETH": 8, "SOL": 7},
-  "notifications": {"system": true, "voice": true, "sms": false, "tts": true}
+  "blast_radius": {"BTC": 5, "ETH": 5, "SOL": 2.5},
+  "notifications": {"system": true, "voice": false, "sms": false, "tts": true}
 }
 ```
 
