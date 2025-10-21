@@ -17,14 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Callable
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
-
-try:
-    from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
-except ImportError:  # pragma: no cover - fallback when spinner helpers unavailable
-    spin_progress = None
-
-    def style_for_cycle(*_args, **_kwargs):  # type: ignore[return-type]
-        return None
+from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
 
 
 def _center_banner(text: str, width: int = 78) -> str:
@@ -1146,16 +1139,16 @@ def run_monitor(
             print()  # spacer between cycles
 
             # sleep until next cycle based on JSON-only interval
-            sleep_time = max(interval - elapsed, 0)
+            sleep_time = max(
+                0.0,
+                float(interval) - float(summary.get("elapsed_s", elapsed)),
+            )
             if sleep_time > 0:
-                if sys.stdout.isatty() and spin_progress is not None:
-                    spin_progress(
-                        sleep_time,
-                        style=style_for_cycle(loop_counter),
-                        label=f"sleeping {sleep_time:.1f}s",
-                    )
-                else:
-                    time.sleep(sleep_time)
+                spin_progress(
+                    sleep_time,
+                    style=style_for_cycle(loop_counter),
+                    label=f"sleeping {sleep_time:.1f}s",
+                )
 
     except KeyboardInterrupt:
         logging.info("SonicMonitor terminated by user.")
