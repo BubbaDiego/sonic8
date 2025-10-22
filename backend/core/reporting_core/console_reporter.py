@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, Iterable
+from typing import Any, Iterable
 
 # ---- Strict allowlist filter -------------------------------------------------
 
@@ -62,31 +62,15 @@ def _iter_blocklist() -> Iterable[str]:
         ]
     return blocklist
 
-def silence_legacy_console_loggers() -> list[str]:
-    """Force-raise blocklisted loggers to ERROR and strip their StreamHandlers."""
-    muted: list[str] = []
-    for name in _iter_blocklist():
-        try:
-            lg = logging.getLogger(name)
-            lg.setLevel(logging.ERROR)
-            # remove direct console spew
-            for h in list(getattr(lg, "handlers", [])):
-                if isinstance(h, logging.StreamHandler):
-                    try:
-                        lg.removeHandler(h)
-                    except Exception:
-                        pass
-            muted.append(name)
-        except Exception:
-            pass
-    return muted
-
-
-def neuter_legacy_console_logger() -> dict[str, Any]:
+def neuter_legacy_console_logger(
+    names: list[str] | None = None, *, level: int = logging.ERROR
+) -> dict[str, Any]:
     """Force-mute the legacy ConsoleLogger regardless of import order or dotenv timing.
 
     Returns a small report of what was patched.
     """
+
+    _ = names, level  # Backward-compat args (unused)
 
     if os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() in {"1", "true", "on", "yes"}:
         return {"present": False, "patched": [], "skipped": "SONIC_CONSOLE_LOGGER=1"}
@@ -156,6 +140,13 @@ def neuter_legacy_console_logger() -> dict[str, Any]:
     return report
 
 
+def silence_legacy_console_loggers(
+    names: list[str] | None = None, *, level: int = logging.ERROR
+) -> None:
+    """Backward-compat alias (old import name used by sonic_monitor.py)."""
+    return neuter_legacy_console_logger(names, level=level)
+
+
 def emit_dashboard_link(host: str = "127.0.0.1", port: int = 5001, route: str = "/dashboard") -> None:
     """Emit the Sonic Dashboard URL via the new reporter (stdout print; downstream can wrap this)."""
 
@@ -195,3 +186,16 @@ def emit_boot_status(muted: list[str], group_label: str = "", groups: list[str] 
     """Print muted modules once at startup (no Groups dump)."""
     m = ", ".join(muted) if muted else "–"
     print(f"🔒 Muted Modules:      {m}")
+
+
+__all__ = [
+    "StrictWhitelistFilter",
+    "install_strict_console_filter",
+    "install_legacy_capture_file",
+    "neuter_legacy_console_logger",
+    "silence_legacy_console_loggers",
+    "emit_config_banner",
+    "emit_compact_cycle",
+    "emit_sources_line",
+    "emit_json_summary",
+]
