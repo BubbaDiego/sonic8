@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { mutate } from 'swr';
 import { Box, Typography, Snackbar, Alert, Button } from '@mui/material';
 import axios from 'utils/axios';
+import { patchLiquidationSettings } from 'api/monitorSettings';
 import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 
 // profit helpers (present in sonic6; keep same API in 7 if available)
@@ -114,8 +115,14 @@ export default function MonitorManager() {
         .catch((err) => {
           if (err?.response?.status !== 410) throw err;
         });
+      const liqPatch = {};
+      if (liqCfg?.thresholds) liqPatch.thresholds = liqCfg.thresholds;
+      if (liqCfg?.blast_radius) liqPatch.blast_radius = liqCfg.blast_radius;
+      if (liqCfg?.notifications) liqPatch.notifications = liqCfg.notifications;
+      if (liqCfg?.snooze_seconds != null) liqPatch.snooze_seconds = liqCfg.snooze_seconds;
+
       await Promise.all([
-        axios.post('/api/monitor-settings/liquidation', liqCfg),
+        patchLiquidationSettings(liqPatch),
         postMarket,
         // prefer helper if present
         (saveProfitCfg ? saveProfitCfg(profitCfg) : axios.post('/api/monitor-settings/profit', profitCfg)),
