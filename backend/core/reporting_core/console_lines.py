@@ -102,43 +102,6 @@ def _emit_monitor_lines(monitor_map: Dict[str, Any], *, max_items: int = 4) -> N
         print(f"      {label:<7}: {line}")
 
 
-def _emit_alerts_per_monitor(
-    monitor_map: Dict[str, Any],
-    *,
-    max_items: int = 4,
-    severities=("breach", "fail"),
-) -> int:
-    """Print per-monitor alerts for flagged severities. Returns count printed."""
-
-    order = [
-        ("liquid", "Liquid"),
-        ("profit", "Profit"),
-        ("market", "Market"),
-        ("price", "Price"),
-    ]
-    shown = 0
-    for key, label in order:
-        items_all: List[Any] = []
-        if isinstance(monitor_map, Mapping):
-            raw = monitor_map.get(key)
-            if isinstance(raw, list):
-                items_all = raw
-        flagged = [
-            item
-            for item in items_all
-            if (
-                isinstance(item, Mapping)
-                and str(item.get("severity", "pass")).lower() in severities
-            )
-            or (not isinstance(item, Mapping) and item)
-        ]
-        if not flagged:
-            continue
-        line = _format_monitor_items(flagged, max_items=max_items)
-        print(f"      {label:<7}: {line}")
-        shown += 1
-    return shown
-
 # Price & position icons by ticker symbol for quick visual parsing in the console.
 _PX_ICON = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
 
@@ -239,11 +202,7 @@ def emit_compact_cycle(
     _emit_monitor_lines(monitor_map, max_items=max_items)
 
     alerts_inline = summary.get("alerts_inline", "pass 0/0 –")
-    printed = _emit_alerts_per_monitor(monitor_map, max_items=max_items)
-    if printed == 0:
-        print(f"   🔔 Alerts   : {alerts_inline}")
-    else:
-        print("   🔔 Alerts   :")
+    print(f"   🔔 Alerts   : {alerts_inline}")
 
     print(f"   {_CYAN}Notifications{_RESET} : {summary.get('notifications_brief', 'NONE (no_breach)')}")
 
