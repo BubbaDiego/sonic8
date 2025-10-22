@@ -12,6 +12,11 @@ from fastapi import APIRouter, HTTPException
 
 from backend.data.data_locker import DataLocker
 from backend.data.dl_system_data import DLSystemDataManager
+from backend.config.config_loader import (
+    load_monitor_config,
+    _deep_merge_dict_inplace,
+    _atomic_write_json,
+)
 
 router = APIRouter(prefix="/api/monitor", tags=["monitor-config"])
 
@@ -52,21 +57,24 @@ def _load_json_cfg() -> Dict:
         return {}
 
 
-def _save_json_cfg(data: Dict) -> None:
-    """Persist the given data atomically to the JSON config file."""
+def _save_json_cfg(patch: Dict[str, Any]) -> Dict[str, Any]:
+    """Patch-merge monitor settings into JSON and write atomically."""
 
-    path = _json_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    profit = data.get("profit")
-    if not isinstance(profit, dict):
-        profit = {}
-    profit.setdefault("position_usd", 0)
-    profit.setdefault("portfolio_usd", 0)
-    data["profit"] = profit
-    tmp_path = f"{path}.tmp"
-    with open(tmp_path, "w", encoding="utf-8") as file:
-        json.dump(data, file, indent=2, sort_keys=True)
-    os.replace(tmp_path, path)
+    cfg, path = load_monitor_config()
+    _deep_merge_dict_inplace(cfg, patch or {})
+
+    profit = cfg.setdefault("profit", {})
+    if profit.get("snooze_seconds") is None:
+        profit["snooze_seconds"] = 600
+    if profit.get("position_usd") is None:
+        profit["position_usd"] = 0
+    if profit.get("portfolio_usd") is None:
+        profit["portfolio_usd"] = 0
+
+    cfg.setdefault("price", {}).setdefault("assets", ["BTC", "ETH", "SOL"])
+
+    _atomic_write_json(Path(path), cfg)
+    return cfg
 
 
 def _coerce_bool(value: Any, default: bool = False) -> bool:
@@ -235,13 +243,20 @@ def save_monitor_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(payload, dict):  # defensive guard
         raise HTTPException(status_code=400, detail="Payload must be an object")
 
+    if "threshold_percent" in (payload.get("liquid") or {}):
+        raise HTTPException(
+            status_code=400,
+            detail="threshold_percent removed; set per-asset thresholds instead.",
+        )
+
     root = Path(__file__).resolve().parents[2]
     db_path = os.getenv("SONIC_DB_PATH") or str(root / "mother.db")
     dal = DataLocker.get_instance(db_path)
     sysmgr = DLSystemDataManager(dal.db)
 
     # loop
-    loop = _coerce_int(payload.get("monitor", {}).get("loop_seconds"))
+    monitor_payload = payload.get("monitor", {}) or {}
+    loop = _coerce_int(monitor_payload.get("loop_seconds"))
     if loop is not None:
         sysmgr.set_var(_DB_KEYS["loop_time"], loop)
 
@@ -285,46 +300,71 @@ def save_monitor_config(payload: Dict[str, Any]) -> Dict[str, Any]:
         json.dumps(market_payload, separators=(",", ":")),
     )
 
-    # JSON mirror (deep-merge; preserve unrelated sections and avoid writing nulls)
-    json_payload = _load_json_cfg()
-    json_payload.setdefault("version", 1)
-    json_payload.setdefault("system_config", {})
-    json_payload["system_config"]["sonic_loop_delay"] = (
-        loop or json_payload["system_config"].get("sonic_loop_delay") or 60
-    )
+    patch: Dict[str, Any] = {}
 
-    # price
-    if payload.get("assets") is not None:
-        json_payload.setdefault("price", {})["assets"] = (
-            payload.get("assets") or ["BTC", "ETH", "SOL"]
-        )
-    else:
-        json_payload.setdefault("price", {}).setdefault("assets", ["BTC", "ETH", "SOL"])
+    sonic = payload.get("system_config") or {}
+    if "sonic_loop_delay" in sonic:
+        try:
+            delay = int(sonic["sonic_loop_delay"])
+        except (TypeError, ValueError):
+            delay = None
+        if delay is not None:
+            patch.setdefault("monitor", {})["loop_seconds"] = delay
+            patch.setdefault("system_config", {})["sonic_loop_delay"] = delay
+    elif loop is not None:
+        patch.setdefault("monitor", {})["loop_seconds"] = loop
+        patch.setdefault("system_config", {})["sonic_loop_delay"] = loop
 
-    # liquid (always mirror thresholds/blast that we computed)
-    json_payload.setdefault("liquid", {})
-    json_payload["liquid"]["thresholds"] = thr_clean
-    json_payload["liquid"]["blast"] = blast_clean
+    if "live" in sonic:
+        patch.setdefault("monitor", {})["xcom_live"] = bool(sonic["live"])
+    elif "xcom_live" in monitor_payload:
+        patch.setdefault("monitor", {})["xcom_live"] = bool(monitor_payload["xcom_live"])
 
-    # profit (ONLY update keys that are present; never write null)
-    prof = json_payload.setdefault("profit", {})
-    if pos is not None:
-        prof["position_usd"] = pos
-    else:
-        prof.setdefault("position_usd", 0)
-    if pf is not None:
-        prof["portfolio_usd"] = pf
-    else:
-        prof.setdefault("portfolio_usd", 0)
+    assets_payload = payload.get("assets")
+    if isinstance(assets_payload, list):
+        patch.setdefault("price", {})["assets"] = assets_payload
 
-    # channels / market — deep-merge, don’t nuke
+    if thresholds:
+        patch.setdefault("liquid", {})["thresholds"] = thr_clean
+    if blast:
+        patch.setdefault("liquid", {})["blast"] = blast_clean
+
+    liq_notifications = liquid_payload.get("notifications")
+    if isinstance(liq_notifications, dict):
+        patch.setdefault("channels", {}).setdefault("liquid", {}).update(liq_notifications)
+
+    profit_payload = payload.get("profit")
+    if isinstance(profit_payload, dict):
+        profit_patch: Dict[str, Any] = {}
+        if profit_payload.get("position_usd") is not None:
+            pos_val = _coerce_int(profit_payload.get("position_usd"))
+            if pos_val is not None:
+                profit_patch["position_usd"] = pos_val
+        if profit_payload.get("portfolio_usd") is not None:
+            pf_val = _coerce_int(profit_payload.get("portfolio_usd"))
+            if pf_val is not None:
+                profit_patch["portfolio_usd"] = pf_val
+        if profit_payload.get("snooze_seconds") is not None:
+            snooze_val = _coerce_int(profit_payload.get("snooze_seconds"))
+            if snooze_val is not None:
+                profit_patch["snooze_seconds"] = snooze_val
+        if profit_patch:
+            patch["profit"] = profit_patch
+
     if isinstance(channels_payload, dict):
-        existing = json_payload.setdefault("channels", {})
-        existing.update(channels_payload)
-    if isinstance(market_payload, dict):
-        existing_m = json_payload.setdefault("market", {})
-        existing_m.update(market_payload)
+        channels_patch = patch.setdefault("channels", {})
+        for key, value in channels_payload.items():
+            if (
+                isinstance(value, dict)
+                and isinstance(channels_patch.get(key), dict)
+            ):
+                channels_patch.setdefault(key, {}).update(value)
+            else:
+                channels_patch[key] = value
 
-    _save_json_cfg(json_payload)
+    if isinstance(market_payload, dict) and market_payload:
+        patch.setdefault("market", {}).update(market_payload)
 
-    return {"ok": True, "db": db_path, "json": _json_path()}
+    cfg = _save_json_cfg(patch)
+
+    return {"ok": True, "config": cfg}
