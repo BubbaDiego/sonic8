@@ -306,6 +306,11 @@ from backend.core.reporting_core.console_reporter import (
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
 )
+from backend.core.monitor_core.summary_helpers import (
+    load_monitor_config_snapshot,
+    build_sources_snapshot,
+    build_alerts_detail,
+)
 from backend.core.reporting_core.summary_cache import (
     snapshot_into,
     set_hedges,
@@ -1112,6 +1117,17 @@ def run_monitor(
 
             print()  # breathing room before summary
             summary = snapshot_into(summary)
+            # ---- Alerts detail + sources snapshot (tolerant; safe when missing) ----
+            try:
+                cfg_snapshot = load_monitor_config_snapshot(summary)
+                summary["sources"] = build_sources_snapshot(cfg_snapshot)
+                # build detail only if monitors didn't already include it
+                summary.setdefault("alerts", {})
+                if not isinstance(summary["alerts"].get("detail"), dict):
+                    summary["alerts"]["detail"] = build_alerts_detail(summary, cfg_snapshot)
+            except Exception as _e:
+                # don't fail the cycle on cosmetics; console will show ✓ for missing detail
+                pass
             emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
             # ---- Sources line (compact) + optional deep trace ----
             try:
