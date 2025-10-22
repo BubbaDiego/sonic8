@@ -9,8 +9,8 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
-from pydantic import BaseModel, Field, ValidationError
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 
 from backend.data.data_locker import DataLocker  # type: ignore
 from backend.config.config_loader import load_monitor_config, save_monitor_config
@@ -65,8 +65,8 @@ def _read_interval(dl: DataLocker) -> tuple[int, str]:
 
 
 def _monitor_json_state() -> Dict[str, Any]:
-    data = load_monitor_config()
-    return dict(data) if isinstance(data, dict) else {}
+    cfg, _ = load_monitor_config()
+    return dict(cfg)
 
 
 def _persist_monitor_json(
@@ -78,21 +78,30 @@ def _persist_monitor_json(
     liquid: Optional[Dict[str, Any]] = None,
     profit: Optional[Dict[str, Any]] = None,
     twilio: Optional[Dict[str, Any]] = None,
-) -> None:
-    cfg = _monitor_json_state()
+    channels: Optional[Dict[str, Any]] = None,
+    monitor: Optional[Dict[str, Any]] = None,
+    market: Optional[Dict[str, Any]] = None,
+    price: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    patch: Dict[str, Any] = {}
 
-    monitor_section = cfg.setdefault("monitor", {})
+    monitor_patch: Dict[str, Any] = {}
+    if monitor:
+        monitor_patch.update(monitor)
     if loop_seconds is not None:
         try:
-            monitor_section["loop_seconds"] = int(loop_seconds)
+            monitor_patch["loop_seconds"] = int(loop_seconds)
         except Exception:
             pass
     if enabled:
-        enabled_section = monitor_section.setdefault("enabled", {})
+        enabled_section = monitor_patch.setdefault("enabled", {})
         for key, value in enabled.items():
             enabled_section[key] = bool(value)
     if xcom_live is not None:
-        monitor_section["xcom_live"] = bool(xcom_live)
+        monitor_patch["xcom_live"] = bool(xcom_live)
+
+    if monitor_patch:
+        patch["monitor"] = monitor_patch
 
     if price_assets is not None:
         assets: list[str] = []
@@ -103,12 +112,22 @@ def _persist_monitor_json(
             if text:
                 assets.append(text.upper())
         if assets:
-            cfg.setdefault("price", {})["assets"] = assets
+            patch.setdefault("price", {})["assets"] = assets
+
+    if price:
+        patch.setdefault("price", {}).update(price)
+
+    if channels:
+        patch.setdefault("channels", {}).update(channels)
+
+    if market:
+        patch.setdefault("market", {}).update(market)
 
     if liquid:
-        liq_section = cfg.setdefault("liquid", {})
+        liq_patch: Dict[str, Any] = {}
         thresholds = liquid.get("thresholds") if isinstance(liquid, dict) else None
         blast = liquid.get("blast") if isinstance(liquid, dict) else None
+        blast_radius = liquid.get("blast_radius") if isinstance(liquid, dict) else None
         if isinstance(thresholds, dict):
             shaped = {}
             for key, value in thresholds.items():
@@ -117,7 +136,16 @@ def _persist_monitor_json(
                 except Exception:
                     continue
             if shaped:
-                liq_section["thresholds"] = shaped
+                liq_patch["thresholds"] = shaped
+        if isinstance(blast_radius, dict):
+            shaped_blast_radius = {}
+            for key, value in blast_radius.items():
+                try:
+                    shaped_blast_radius[str(key).upper()] = float(value)
+                except Exception:
+                    continue
+            if shaped_blast_radius:
+                liq_patch["blast_radius"] = shaped_blast_radius
         if isinstance(blast, dict):
             shaped_blast = {}
             for key, value in blast.items():
@@ -126,29 +154,45 @@ def _persist_monitor_json(
                 except Exception:
                     continue
             if shaped_blast:
-                liq_section["blast"] = shaped_blast
+                liq_patch.setdefault("blast", {}).update(shaped_blast)
+        for key in ("notifications", "snooze_seconds"):
+            if key in liquid and liquid[key] is not None:
+                liq_patch[key] = liquid[key]
+        if liq_patch:
+            patch["liquid"] = liq_patch
 
     if profit:
-        prof_section = cfg.setdefault("profit", {})
+        prof_patch: Dict[str, Any] = {}
         if "position_usd" in profit and profit["position_usd"] is not None:
             try:
-                prof_section["position_usd"] = int(float(profit["position_usd"]))
+                prof_patch["position_usd"] = int(float(profit["position_usd"]))
             except Exception:
                 pass
         if "portfolio_usd" in profit and profit["portfolio_usd"] is not None:
             try:
-                prof_section["portfolio_usd"] = int(float(profit["portfolio_usd"]))
+                prof_patch["portfolio_usd"] = int(float(profit["portfolio_usd"]))
             except Exception:
                 pass
+        for key in ("snooze_seconds", "notifications"):
+            if key in profit and profit[key] is not None:
+                prof_patch[key] = profit[key]
+
+        if prof_patch:
+            patch["profit"] = prof_patch
 
     if twilio:
-        twilio_section = cfg.setdefault("twilio", {})
-        for key in ("sid", "auth", "from", "to", "flow"):
-            value = twilio.get(key) if isinstance(twilio, dict) else None
+        twilio_section = patch.setdefault("twilio", {})
+        for key, value in twilio.items():
             if value is not None:
                 twilio_section[key] = value
 
-    save_monitor_config(cfg)
+    if not patch:
+        cfg, _ = load_monitor_config()
+        return cfg
+
+    path = save_monitor_config(patch)
+    cfg, _ = load_monitor_config(json_path=path)
+    return cfg
 
 # ------------------------------------------------------------------ #
 # Market Movement Monitor settings
@@ -422,35 +466,6 @@ def _num(value: Any, default: float | None = 0.0) -> float | None:
         return default
 
 
-def _normalize_liq(payload: LiquidationSettings) -> Dict[str, Any]:
-    thresholds = payload.thresholds or {}
-    blast_radius = payload.blast_radius or {}
-
-    normalized_thresholds = {k.upper(): _num(v, 0.0) for k, v in thresholds.items()}
-    normalized_blast = {k.upper(): _num(v, 0.0) for k, v in blast_radius.items()}
-
-    notifications = {"system": True, "voice": True, "sms": False, "tts": True}
-    notifications.update(payload.notifications or {})
-
-    cfg: Dict[str, Any] = {
-        "thresholds": normalized_thresholds,
-        "blast_radius": normalized_blast,
-        "notifications": notifications,
-    }
-
-    cfg["windows_alert"] = bool(notifications.get("system"))
-    cfg["voice_alert"] = bool(notifications.get("voice"))
-    cfg["sms_alert"] = bool(notifications.get("sms"))
-    cfg["tts_alert"] = bool(notifications.get("tts"))
-
-    if payload.enabled_liquid is not None:
-        enabled_value = bool(payload.enabled_liquid)
-        cfg["enabled_liquid"] = enabled_value
-        cfg["enabled"] = enabled_value
-
-    return cfg
-
-
 @router.get("/liquidation", response_model=LiquidationSettings)
 def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
     data = _dl_get_system_var(dl, "liquid_monitor", {}) or {}
@@ -468,65 +483,33 @@ def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
     )
 
 
-@router.post("/liquidation", status_code=status.HTTP_204_NO_CONTENT)
-def post_liquidation_settings(
-    payload: Dict[str, Any] = Body(...), dl: DataLocker = Depends(get_app_locker)
-):
-    if "threshold_percent" in payload:
+@router.post("/liquidation")
+async def post_liquidation_settings(req: Request, dl: DataLocker = Depends(get_app_locker)):
+    body = await req.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Body must be a JSON object.")
+
+    liq = body.get("liquid") if "liquid" in body else body
+    if not isinstance(liq, dict):
+        raise HTTPException(status_code=400, detail="Expected object with liquidation settings.")
+
+    if "threshold_percent" in liq:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="threshold_percent removed; set per-asset thresholds instead.",
+            status_code=400,
+            detail="threshold_percent has been removed. Set per-asset thresholds instead.",
         )
 
-    normalized_payload = dict(payload)
-    if "enabled" in normalized_payload and "enabled_liquid" not in normalized_payload:
-        normalized_payload["enabled_liquid"] = normalized_payload.pop("enabled")
+    if "blast" in liq and "blast_radius" not in liq:
+        liq["blast_radius"] = liq.pop("blast")
 
-    thresholds_payload = dict(normalized_payload.get("thresholds") or {})
-    legacy_threshold_keys = [key for key in list(normalized_payload.keys()) if key.startswith("threshold_") and key not in {"thresholds"}]
-    for legacy_key in legacy_threshold_keys:
-        value = normalized_payload.pop(legacy_key)
-        asset = legacy_key.split("_", 1)[-1]
-        if asset:
-            thresholds_payload.setdefault(asset.upper(), value)
-    if thresholds_payload:
-        normalized_payload["thresholds"] = thresholds_payload
+    allowed = {"thresholds", "blast_radius", "notifications", "snooze_seconds"}
+    for key in list(liq.keys()):
+        if key not in allowed:
+            liq.pop(key, None)
 
-    notifications_payload = dict(normalized_payload.get("notifications") or {})
-    for legacy_key, target in (
-        ("windows_alert", "system"),
-        ("voice_alert", "voice"),
-        ("sms_alert", "sms"),
-        ("tts_alert", "tts"),
-    ):
-        if legacy_key in normalized_payload:
-            notifications_payload[target] = normalized_payload.pop(legacy_key)
-    if notifications_payload:
-        normalized_payload["notifications"] = notifications_payload
-
-    try:
-        model = LiquidationSettings(**normalized_payload)
-    except ValidationError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors())
-
-    shaped = _normalize_liq(model)
-    try:
-        save_config_patch({"liquid_monitor": shaped})
-    except Exception:
-        log.debug("Failed to persist liquidation config to JSON", exc_info=True)
-    _dl_set_system_var(dl, "liquid_monitor", shaped)
-
-    enabled_payload = {}
-    if "enabled_liquid" in shaped:
-        enabled_payload["liquid"] = shaped["enabled_liquid"]
-
-    _persist_monitor_json(
-        liquid={
-            "thresholds": shaped.get("thresholds", {}),
-            "blast": shaped.get("blast_radius", {}),
-        },
-        enabled=enabled_payload or None,
-    )
+    cfg = _persist_monitor_json(liquid=liq)
+    _dl_set_system_var(dl, "liquid_monitor", cfg.get("liquid", {}))
+    return {"ok": True, "liquid": cfg.get("liquid", {})}
 
 
 class MarketSettings(BaseModel):

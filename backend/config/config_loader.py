@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple, Optional, Union
 
@@ -213,13 +214,29 @@ def print_banner(cfg: Dict[str, Any]) -> None:
 # --- JSON-only monitor-config helpers (CONFIG from file; no env, no DB) ---
 
 
-_DEFAULT_MONITOR_JSON_PATH = (
-    Path(__file__).resolve().parent / "sonic_monitor_config.json"
-)
+_MONITOR_JSON_PATH = Path(__file__).resolve().parent / "sonic_monitor_config.json"
 
 
-def _ensure_parent_dir(path: Path) -> None:
+def _deep_merge_dict_inplace(dst: Dict[str, Any], src: Dict[str, Any]) -> Dict[str, Any]:
+    for k, v in (src or {}).items():
+        if isinstance(v, dict) and isinstance(dst.get(k), dict):
+            _deep_merge_dict_inplace(dst[k], v)
+        else:
+            dst[k] = v
+    return dst
+
+
+def _atomic_write_json(path: Path, obj: Dict[str, Any]) -> None:
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=str(path.parent), delete=False
+    ) as tmp:
+        json.dump(obj, tmp, indent=2)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp_name = tmp.name
+    os.replace(tmp_name, str(path))
 
 
 def load_monitor_config(
@@ -229,37 +246,42 @@ def load_monitor_config(
 ) -> Tuple[Dict[str, Any], str]:
     """
     JSON-only loader for monitor settings.
-    Returns (config, source) where source == 'json'.
+    Returns (config, path).
     DB and ENV are intentionally ignored for CONFIG.
     """
-    path = Path(json_path) if json_path else _DEFAULT_MONITOR_JSON_PATH
-    cfg = load_config_json_only(str(path))
-    # Optional normalization guardrails
-    cfg.setdefault("monitor", {})
-    cfg.setdefault("liquid", {})
-    cfg.setdefault("profit", {})
-    cfg.setdefault("market", {})
-    cfg.setdefault("price", {})
-    return cfg, "json"
+    path = Path(json_path) if json_path else _MONITOR_JSON_PATH
+    try:
+        data = load_config_json_only(str(path))
+    except FileNotFoundError:
+        data = {}
+
+    data.setdefault("monitor", {}).setdefault("enabled", {})
+    data.setdefault("channels", {})
+    data.setdefault("liquid", {}).setdefault("thresholds", {})
+    data.setdefault("profit", {}).setdefault("snooze_seconds", 600)
+    data.setdefault("market", {})
+    data.setdefault("price", {})
+
+    return data, str(path)
 
 
 def save_monitor_config(
-    cfg: Dict[str, Any],
+    patch: Dict[str, Any],
     dl: Any = None,
     json_path: Optional[str] = None,
 ) -> str:
     """
-    Persist CONFIG to JSON only. DB mirroring is *not* performed here.
+    Patch-merge `patch` into the monitor JSON and write atomically.
     Returns the path written.
     """
-    path = Path(json_path) if json_path else _DEFAULT_MONITOR_JSON_PATH
-    _ensure_parent_dir(path)
-    current: Dict[str, Any]
-    try:
-        current = load_config_json_only(str(path))
-    except Exception:
-        current = {}
-    merged = _deep_merge(current, cfg or {})
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(merged, f, indent=2)
-    return str(path)
+    cfg, path = load_monitor_config(json_path=json_path)
+    _deep_merge_dict_inplace(cfg, patch or {})
+
+    cfg.setdefault("profit", {})
+    if "position_usd" not in cfg["profit"]:
+        cfg["profit"].setdefault("position_usd", 0)
+    if "portfolio_usd" not in cfg["profit"]:
+        cfg["profit"].setdefault("portfolio_usd", 0)
+
+    _atomic_write_json(Path(path), cfg)
+    return path
