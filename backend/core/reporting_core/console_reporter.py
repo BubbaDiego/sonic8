@@ -1,191 +1,349 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
-from typing import Any, Iterable
+import shutil
+import sys
+import time
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Tuple
 
-# ---- Strict allowlist filter -------------------------------------------------
 
-WL_SOURCES = {
-    s.strip()
-    for s in os.getenv(
-        "SONIC_COMPACT_WHITELIST",
-        "SonicMonitor,ConsoleReporter,XComCore,backend.core.xcom_core,backend.core.xcom,xcom_core,xcom",
-    ).split(",")
-    if s.strip()
-}
-WL_PREFIXES: tuple[str, ...] = ("backend.core.xcom", "xcom")
+# -----------------------------------------------------------------------------
+# Logging helpers
+# -----------------------------------------------------------------------------
+_LOG = logging.getLogger("ConsoleReporter")
+
+
+def _i(line: str) -> None:
+    try:
+        _LOG.info(line)
+    except Exception:
+        pass
+
 
 class StrictWhitelistFilter(logging.Filter):
-    """Allow INFO/DEBUG only from sources we explicitly trust. Always pass WARNING+."""
+    """Allow only whitelisted logger names at INFO; always allow WARNING+."""
+    def __init__(self, *names: str) -> None:
+        super().__init__()
+        self._names = set(names or ("SonicMonitor", "ConsoleReporter"))
+
     def filter(self, record: logging.LogRecord) -> bool:  # type: ignore[override]
-        level = record.levelno
-        if level >= logging.WARNING:
+        try:
+            if record.levelno >= logging.WARNING:
+                return True
+            return record.name in self._names
+        except Exception:
             return True
-        src = getattr(record, "source", None) or record.name or ""
-        if src in WL_SOURCES:
-            return True
-        return any(src.startswith(p) for p in WL_PREFIXES)
+
 
 def install_strict_console_filter() -> None:
-    """Attach the StrictWhitelistFilter to all console handlers and raise root to WARNING."""
-    filt = StrictWhitelistFilter()
-    root = logging.getLogger()
-    if not root.handlers:
-        logging.basicConfig(level=logging.WARNING)
-    for logger_name in ("",):  # root only; propagate takes care of children
-        logger = logging.getLogger(logger_name)
-        for h in getattr(logger, "handlers", []):
+    try:
+        root = logging.getLogger()
+        for h in root.handlers:
             if isinstance(h, logging.StreamHandler):
-                try:
-                    h.addFilter(filt)
-                except Exception:
-                    pass
-    root.setLevel(logging.WARNING)
+                h.addFilter(StrictWhitelistFilter())
+    except Exception:
+        pass
 
-# ---- Legacy/Noisy logger silencer --------------------------------------------
-
-DEFAULT_BLOCKLIST = [
-    "ConsoleLogger","console_logger","LoggerControl",
-    "werkzeug","uvicorn.access","fuzzy_wuzzy","asyncio",
-]
-
-
-def _iter_blocklist() -> Iterable[str]:
-    env_list = [x.strip() for x in os.getenv("SONIC_LOG_BLOCKLIST", "").split(",") if x.strip()]
-    blocklist = list(env_list or DEFAULT_BLOCKLIST)
-    if os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() in {"1", "true", "on", "yes"}:
-        blocklist = [
-            name
-            for name in blocklist
-            if name not in {"ConsoleLogger", "console_logger", "LoggerControl"}
-        ]
-    return blocklist
 
 def neuter_legacy_console_logger(
-    names: list[str] | None = None, *, level: int = logging.ERROR
-) -> dict[str, Any]:
-    """Force-mute the legacy ConsoleLogger regardless of import order or dotenv timing.
-
-    Returns a small report of what was patched.
-    """
-
-    _ = names, level  # Backward-compat args (unused)
-
-    if os.getenv("SONIC_CONSOLE_LOGGER", "").strip().lower() in {"1", "true", "on", "yes"}:
-        return {"present": False, "patched": [], "skipped": "SONIC_CONSOLE_LOGGER=1"}
-
-    report: dict[str, Any] = {"present": False, "patched": []}
-
-    # 1) Env kill switch for any code that reads it at runtime
-    os.environ.setdefault("SONIC_CONSOLE_LOGGER", "0")
-
+    names: List[str] | None = None, *, level: int = logging.ERROR
+) -> None:
+    """Mute chatty loggers on console; keep WARNING/ERROR."""
     try:
-        from backend.core.monitor_core.console_logger import ConsoleLogger as CL  # type: ignore
-        report["present"] = True
-    except Exception:
-        try:
-            from backend.utils.console_logger import ConsoleLogger as CL  # type: ignore
-            report["present"] = True
-        except Exception:
-            try:
-                from console_logger import ConsoleLogger as CL  # type: ignore
-                report["present"] = True
-            except Exception:
-                return report
-
-    # 2) Runtime flag off
-    try:
-        CL.logging_enabled = False
-        report["patched"].append("logging_enabled=False")
+        names = names or [
+            "werkzeug",
+            "uvicorn.access",
+            "asyncio",
+            "fuzzy_wuzzy",
+            "ConsoleLogger",
+            "console_logger",
+            "LoggerControl",
+        ]
+        for n in names:
+            lg = logging.getLogger(n)
+            lg.setLevel(level)
+            lg.propagate = False
+            if not lg.handlers:
+                lg.addHandler(logging.NullHandler())
     except Exception:
         pass
 
-    # 3) Force the activity check to always return False
-    try:
-        CL._active = classmethod(lambda *_a, **_k: False)  # type: ignore
-        report["patched"].append("_active->False")
-    except Exception:
-        pass
 
-    # 4) Monkey-patch all public writers to no-ops (belt & suspenders)
-    def _noop(*_a: Any, **_k: Any) -> None:  # pragma: no cover
-        return None
-
-    for name in (
-        "debug",
-        "info",
-        "success",
-        "warning",
-        "error",
-        "critical",
-        "exception",
-        "banner",
-        "start_timer",
-        "end_timer",
-        "init_status",
-        "hijack_logger",
-        "add_sink",
-        "set_level",
-        "print_dashboard_link",
-        "route",
-    ):
-        if hasattr(CL, name):
-            try:
-                setattr(CL, name, classmethod(_noop))  # type: ignore
-                report["patched"].append(f"{name}=noop")
-            except Exception:
-                pass
-
-    return report
-
-
+# Back-compat alias used by sonic_monitor.py
 def silence_legacy_console_loggers(
     names: list[str] | None = None, *, level: int = logging.ERROR
 ) -> None:
-    """Backward-compat alias (old import name used by sonic_monitor.py)."""
     return neuter_legacy_console_logger(names, level=level)
 
 
-def emit_dashboard_link(host: str = "127.0.0.1", port: int = 5001, route: str = "/dashboard") -> None:
-    """Emit the Sonic Dashboard URL via the new reporter (stdout print; downstream can wrap this)."""
+def install_legacy_capture_file(path: str = "logs/sonic_console.log") -> None:
+    try:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        fh = logging.FileHandler(p, encoding="utf-8")
+        fh.setLevel(logging.INFO)
+        logging.getLogger().addHandler(fh)
+    except Exception:
+        pass
 
-    url = f"http://{host}:{port}{route}"
-    print(f"🌐 Sonic Dashboard: {url}")
+
+# -----------------------------------------------------------------------------
+# Banner (minimal)
+# -----------------------------------------------------------------------------
+def _mask(s: str, left: int = 3, right: int = 2) -> str:
+    if not s or s == "–":
+        return "–"
+    if len(s) <= left + right:
+        return s[0] + "…" + s[-1]
+    return s[:left] + "…" + s[-right:]
 
 
-def emit_sources_line(sources: dict, label: str) -> None:
+def emit_config_banner(dl: Any, interval_probe: int | None) -> None:
+    try:
+        db_path = getattr(getattr(dl, "db", None), "db_path", "unknown")
+    except Exception:
+        db_path = "unknown"
+    dotenv_path = ""
+    try:
+        from dotenv import find_dotenv  # type: ignore
+        dotenv_path = find_dotenv(usecwd=True) or ""
+    except Exception:
+        pass
+    rpc = os.getenv("PERP_RPC_URL") or os.getenv("ANCHOR_PROVIDER_URL") or os.getenv("RPC") or ""
+    helius_key = os.getenv("HELIUS_API_KEY") or "–"
+
+    lines = [
+        "══════════════════════════════════════════════════════════════",
+        "   🦔 Sonic Monitor Configuration",
+        "══════════════════════════════════════════════════════════════",
+        f"📦 Database : {db_path}",
+        f"🗒  .env     : {dotenv_path or 'not found'}",
+        f"⏱  Interval : {interval_probe}s" if interval_probe is not None else None,
+        f"🌐 RPC      : {rpc if rpc else '–'}",
+        f"🔐 Helius   : {_mask(helius_key)}" if helius_key and helius_key != "–" else None,
+        "══════════════════════════════════════════════════════════════",
+    ]
+    for line in filter(None, lines):
+        _i(line)
+        print(line, flush=True)
+
+
+# -----------------------------------------------------------------------------
+# Pretty helpers
+# -----------------------------------------------------------------------------
+def _fmt_prices_line(
+    top3: Iterable[Tuple[str, float]] | None,
+    ages: Dict[str, int] | None = None,
+    *,
+    enable_color: bool = False,
+) -> str:
+    if not top3:
+        return "–"
+    out: List[str] = []
+    ages = ages or {}
+    for sym, val in top3:
+        age = ages.get(sym.upper(), 0)
+        badge = "" if age in (0, None) else f"·{age}c"
+        out.append(f"{sym} ${val:,.2f}{badge}")
+    return "  ".join(out)
+
+
+def _fmt_monitors(monitors: Dict[str, Any] | None) -> str:
+    if not monitors:
+        return "–"
+    en = monitors.get("enabled") or monitors.get("monitors_enabled") or {}
+    ch = monitors.get("channels") or monitors.get("monitors_channels") or {}
+    order = ("liquid", "profit", "market", "price")
+    parts: List[str] = []
+    for key in order:
+        if key not in en:
+            continue
+        enabled = bool(en.get(key))
+        core = "🛠️" if enabled else "✖"
+        icons = " " + " ".join(ch.get(key, [])) if enabled and ch.get(key) else ""
+        parts.append(f"{key} ({core}{icons})")
+    return "  ".join(parts) if parts else "–"
+
+
+# ---- color -------------------------------------------------------------------
+def _c(s: str, code: int) -> str:
+    """Colorize with ANSI if TTY; otherwise return string unchanged."""
+    if sys.stdout.isatty():
+        return f"\x1b[{code}m{s}\x1b[0m"
+    return s
+
+
+# ---- Alerts detail formatting ------------------------------------------------
+def _fmt_liquid_detail(rows: List[Dict[str, Any]] | None) -> List[str]:
+    if not rows:
+        return ["✓"]
+    out: List[str] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        asset = str(r.get("asset") or r.get("symbol") or "—")
+        dist = r.get("distance")
+        thr = r.get("threshold")
+        sev = (str(r.get("severity") or "")).lower()
+        if dist is None or thr is None:
+            continue
+        tag = "breach" if sev == "breach" else ("near" if sev == "near" else "ok")
+        out.append(f"{asset} {float(dist):.1f}% / thr {float(thr):.1f}%  ({tag})")
+    return out or ["✓"]
+
+
+def _fmt_profit_detail(rows: List[Dict[str, Any]] | None) -> List[str]:
+    if not rows:
+        return ["✓"]
+    out: List[str] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        metric = (str(r.get("metric") or "pf")).lower()  # 'pf' or 'pos'
+        label = "portfolio" if metric in ("pf", "portfolio") else "position"
+        val = r.get("value")
+        thr = r.get("threshold")
+        sev = (str(r.get("severity") or "")).lower()
+        if val is None or thr is None:
+            continue
+        tag = "breach" if sev == "breach" else ("near" if sev == "near" else "ok")
+        out.append(f"{label} {float(val):.1f} / thr {float(thr):.1f}  ({tag})")
+    return out or ["✓"]
+
+
+def _emit_alerts_block(csum: Dict[str, Any]) -> None:
+    """Aligned blue '🔔 Alerts' header; then one line per monitor."""
+    alerts = csum.get("alerts") or {}
+    detail = alerts.get("detail") or {}
+    # header aligned with Notifications (blue)
+    print(_c("   🔔 Alerts   :", 94), flush=True)  # 94 = bright blue
+    # one line per monitor
+    for mon_key, title, fn in (
+        ("profit", "Profit", _fmt_profit_detail),
+        ("liquid", "Liquid", _fmt_liquid_detail),
+        ("market", "Market", lambda _: ["✓"]),
+        ("price", "Price", lambda _: ["✓"]),
+    ):
+        rows = detail.get(mon_key) if isinstance(detail, dict) else None
+        lines = fn(rows)
+        print(f"      {title:<7}: ", end="", flush=False)
+        if lines == ["✓"]:
+            print("✓", flush=True)
+        else:
+            print(lines[0], flush=True)
+            for extra in lines[1:]:
+                print(f"                 {extra}", flush=True)
+
+
+# -----------------------------------------------------------------------------
+# Compact cycle
+# -----------------------------------------------------------------------------
+def emit_compact_cycle(
+    csum: Dict[str, Any],
+    cyc_ms: int,
+    interval: int,
+    loop_counter: int,
+    total_elapsed: float,
+    sleep_time: float,
+    *,
+    enable_color: bool = False,
+) -> None:
+    prices = csum.get("prices", {}) or {}
+    positions = csum.get("positions", {}) or {}
+    hedges = csum.get("hedges", {}) or {}
+    monitors = csum.get("monitors", {}) or {}
+
+    print("   💰 Prices   : " + _fmt_prices_line(csum.get("prices_top3", []), csum.get("price_ages", {}), enable_color))
+    print(f"   📊 Positions: {positions.get('sync_line', '–')}")
+    brief = csum.get("positions_brief", "–")
+    print(f"   📄 Holdings : {brief}")
+    print(f"   🛡 Hedges   : {'🦔' if int(hedges.get('groups', 0) or 0) > 0 else '–'}")
+
+    # Alerts (multi-line, blue header)
+    _emit_alerts_block(csum)
+
+    # Notifications (dispatch outcomes only)
+    notif_line = csum.get("notifications_brief", "NONE (no_breach)")
+    print(f"   📨 Notifications : {notif_line}")
+
+    # Monitors summary
+    print(f"   📡 Monitors : {_fmt_monitors(monitors)}")
+
+    tail = f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)"
+    _i(tail)
+    print(tail, flush=True)
+
+
+# -----------------------------------------------------------------------------
+# “Sources” line (optional)
+# -----------------------------------------------------------------------------
+def emit_sources_line(sources: Dict[str, Any], label: str = "") -> None:
     if not sources:
         return
-    blocks = []
+    blocks: List[str] = []
 
-    pr = sources.get("profit") or {}
-    if pr:
-        blocks.append("profit:{" + ",".join([
-            f"pos={pr.get('pos','–') if pr.get('pos') not in (None,'') else '–'}",
-            f"pf={pr.get('pf','–') if pr.get('pf') not in (None,'') else '–'}",
-        ]) + "}")
+    profit = sources.get("profit") or {}
+    if profit:
+        pos = profit.get("pos"); pf = profit.get("pf")
+        blocks.append("profit:{" + ",".join([f"pos={pos if pos not in (None, '') else '–'}",
+                                             f"pf={pf if pf not in (None, '') else '–'}"]) + "}")
 
-    liq = sources.get("liquid") or {}
-    if liq:
-        blocks.append("liquid:{" + ",".join([
-            f"btc={liq.get('btc','–') if liq.get('btc') not in (None,'') else '–'}",
-            f"eth={liq.get('eth','–') if liq.get('eth') not in (None,'') else '–'}",
-            f"sol={liq.get('sol','–') if liq.get('sol') not in (None,'') else '–'}",
-        ]) + "}")
+    liquid = sources.get("liquid") or {}
+    if liquid:
+        btc = liquid.get("btc"); eth = liquid.get("eth"); sol = liquid.get("sol")
+        blocks.append("liquid:{" + ",".join([f"btc={btc if btc not in (None, '') else '–'}",
+                                             f"eth={eth if eth not in (None, '') else '–'}",
+                                             f"sol={sol if sol not in (None, '') else '–'}"]) + "}")
+
+    market = sources.get("market") or {}
+    if market:
+        parts = []
+        for a in ("btc", "eth", "sol"):
+            if a in market:
+                val = market.get(a); parts.append(f"{a}=${val if val not in (None, '') else '–'}")
+        if "rearm" in market: parts.append(f"rearm={market.get('rearm')}")
+        if "sonic" in market: parts.append(f"sonic={market.get('sonic')}")
+        if parts: blocks.append("market:{" + ",".join(parts) + "}")
 
     if not blocks:
         return
+
     label_suffix = f" ← {label}" if label else ""
     line = "   🧭 Sources  : " + " ".join(blocks) + label_suffix
+    _i(line)
     print(line, flush=True)
 
-# ---- One-time boot status line (for your vibe) --------------------------------
 
-def emit_boot_status(muted: list[str], group_label: str = "", groups: list[str] | None = None) -> None:
-    """Print muted modules once at startup (no Groups dump)."""
-    m = ", ".join(muted) if muted else "–"
-    print(f"🔒 Muted Modules:      {m}")
+# -----------------------------------------------------------------------------
+# JSONL summary (unchanged)
+# -----------------------------------------------------------------------------
+def emit_json_summary(
+    csum: Dict[str, Any],
+    cyc_ms: int,
+    loop_counter: int,
+    total_elapsed: float,
+    sleep_time: float,
+) -> None:
+    out = {
+        "cycle": loop_counter,
+        "durations_ms": {"cyclone": int(cyc_ms), "total": int(total_elapsed * 1000)},
+        "sleep_s": round(sleep_time, 3),
+        "prices": csum.get("prices", {}),
+        "positions": csum.get("positions", {}),
+        "hedges": csum.get("hedges", {}),
+        "alerts": csum.get("alerts", {}),
+        "monitors": csum.get("monitors", {}),
+        "ts": int(time.time()),
+    }
+    try:
+        logs = Path("logs"); logs.mkdir(exist_ok=True)
+        with (logs / "sonic_summary.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(out, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
 
 __all__ = [
