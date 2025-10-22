@@ -2,6 +2,20 @@ import datetime
 import os
 from typing import Dict, Any, List, Tuple, Optional, Mapping
 
+
+from __future__ import annotations
+
+# Compatibility shim: route all console output through the updated reporter.
+from backend.core.reporting_core.console_reporter import (  # noqa: F401
+    StrictWhitelistFilter,
+    install_strict_console_filter,
+    neuter_legacy_console_logger,
+    silence_legacy_console_loggers,
+    emit_compact_cycle,
+    emit_sources_line,
+    emit_json_summary,
+)
+
 _GREEN = "\x1b[32m"
 _YELLOW = "\x1b[33m"
 _RED = "\x1b[31m"
