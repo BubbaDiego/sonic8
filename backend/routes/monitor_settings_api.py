@@ -451,10 +451,20 @@ def _json_section(key: str) -> Dict[str, Any]:
 
 
 class LiquidationSettings(BaseModel):
-    thresholds: Dict[str, Any] = Field(default_factory=dict)
-    blast_radius: Dict[str, Any] = Field(default_factory=dict)
-    notifications: Dict[str, bool] = Field(default_factory=dict)
-    enabled_liquid: Optional[bool] = None
+    thresholds: Dict[str, float] = Field(default_factory=dict)
+    blast_radius: Dict[str, int] = Field(default_factory=dict)
+    snooze_seconds: int = 0
+
+
+def _to_float_map(d: Dict[str, Any]) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    for k, v in (d or {}).items():
+        try:
+            s = str(v).replace(",", "")
+            out[str(k).upper()] = float(s)
+        except Exception:
+            pass
+    return out
 
 
 def _num(value: Any, default: float | None = 0.0) -> float | None:
@@ -467,24 +477,23 @@ def _num(value: Any, default: float | None = 0.0) -> float | None:
 
 
 @router.get("/liquidation", response_model=LiquidationSettings)
-def get_liquidation_settings(dl: DataLocker = Depends(get_app_locker)):
-    data = _dl_get_system_var(dl, "liquid_monitor", {}) or {}
-    json_cfg = _json_section("liquid_monitor")
-    cfg: Dict[str, Any] = {}
-    if isinstance(data, dict):
-        cfg.update(data)
-    if json_cfg:
-        cfg.update(json_cfg)
+def get_liquidation_settings():
+    cfg, _ = load_monitor_config()
+    liq = cfg.get("liquid") or {}
+    thresholds = _to_float_map(liq.get("thresholds") or {})
+    blast = liq.get("blast") or {}
+    snooze_seconds = int(cfg.get("profit", {}).get("snooze_seconds", 600))
     return LiquidationSettings(
-        thresholds=cfg.get("thresholds", {}),
-        blast_radius=cfg.get("blast_radius", {}),
-        notifications=cfg.get("notifications", {}),
-        enabled_liquid=cfg.get("enabled_liquid"),
+        thresholds=thresholds,
+        blast_radius={
+            k.upper(): int(blast.get(k, 0)) for k in thresholds.keys() | set(blast.keys())
+        },
+        snooze_seconds=snooze_seconds,
     )
 
 
 @router.post("/liquidation")
-async def post_liquidation_settings(req: Request, dl: DataLocker = Depends(get_app_locker)):
+async def post_liquidation_settings(req: Request):
     body = await req.json()
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="Body must be a JSON object.")
@@ -499,17 +508,43 @@ async def post_liquidation_settings(req: Request, dl: DataLocker = Depends(get_a
             detail="threshold_percent has been removed. Set per-asset thresholds instead.",
         )
 
-    if "blast" in liq and "blast_radius" not in liq:
-        liq["blast_radius"] = liq.pop("blast")
+    patch: Dict[str, Any] = {"liquid": {}}
 
-    allowed = {"thresholds", "blast_radius", "notifications", "snooze_seconds"}
-    for key in list(liq.keys()):
-        if key not in allowed:
-            liq.pop(key, None)
+    if "thresholds" in liq:
+        patch["liquid"]["thresholds"] = _to_float_map(liq.get("thresholds") or {})
 
-    cfg = _persist_monitor_json(liquid=liq)
-    _dl_set_system_var(dl, "liquid_monitor", cfg.get("liquid", {}))
-    return {"ok": True, "liquid": cfg.get("liquid", {})}
+    if "blast_radius" in liq:
+        br = liq.get("blast_radius") or {}
+        blast: Dict[str, int] = {}
+        for k, v in br.items():
+            try:
+                blast[str(k).upper()] = int(float(str(v).replace(",", "")))
+            except Exception:
+                blast[str(k).upper()] = 0
+        patch["liquid"]["blast"] = blast
+
+    if "snooze_seconds" in liq:
+        ss = liq.get("snooze_seconds")
+        try:
+            snooze = int(ss)
+        except Exception:
+            snooze = 0
+        patch.setdefault("profit", {})["snooze_seconds"] = max(0, snooze)
+
+    cfg_path = save_monitor_config(patch)
+    cfg, _ = load_monitor_config(json_path=cfg_path)
+
+    liq_cfg = cfg.get("liquid") or {}
+    thresholds = _to_float_map(liq_cfg.get("thresholds") or {})
+    blast = liq_cfg.get("blast") or {}
+    return {
+        "ok": True,
+        "thresholds": thresholds,
+        "blast_radius": {
+            k.upper(): int(blast.get(k, 0)) for k in thresholds.keys() | set(blast.keys())
+        },
+        "snooze_seconds": int(cfg.get("profit", {}).get("snooze_seconds", 600)),
+    }
 
 
 class MarketSettings(BaseModel):
