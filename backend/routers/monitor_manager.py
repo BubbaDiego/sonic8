@@ -57,6 +57,12 @@ def _save_json_cfg(data: Dict) -> None:
 
     path = _json_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    profit = data.get("profit")
+    if not isinstance(profit, dict):
+        profit = {}
+    profit.setdefault("position_usd", 0)
+    profit.setdefault("portfolio_usd", 0)
+    data["profit"] = profit
     tmp_path = f"{path}.tmp"
     with open(tmp_path, "w", encoding="utf-8") as file:
         json.dump(data, file, indent=2, sort_keys=True)
@@ -279,18 +285,45 @@ def save_monitor_config(payload: Dict[str, Any]) -> Dict[str, Any]:
         json.dumps(market_payload, separators=(",", ":")),
     )
 
-    # JSON mirror
+    # JSON mirror (deep-merge; preserve unrelated sections and avoid writing nulls)
     json_payload = _load_json_cfg()
     json_payload.setdefault("version", 1)
     json_payload.setdefault("system_config", {})
     json_payload["system_config"]["sonic_loop_delay"] = (
         loop or json_payload["system_config"].get("sonic_loop_delay") or 60
     )
-    json_payload["price"] = {"assets": payload.get("assets") or ["BTC", "ETH", "SOL"]}
-    json_payload["liquid"] = {"thresholds": thr_clean, "blast": blast_clean}
-    json_payload["profit"] = {"position_usd": pos, "portfolio_usd": pf}
-    json_payload["channels"] = channels_payload
-    json_payload["market"] = market_payload
+
+    # price
+    if payload.get("assets") is not None:
+        json_payload.setdefault("price", {})["assets"] = (
+            payload.get("assets") or ["BTC", "ETH", "SOL"]
+        )
+    else:
+        json_payload.setdefault("price", {}).setdefault("assets", ["BTC", "ETH", "SOL"])
+
+    # liquid (always mirror thresholds/blast that we computed)
+    json_payload.setdefault("liquid", {})
+    json_payload["liquid"]["thresholds"] = thr_clean
+    json_payload["liquid"]["blast"] = blast_clean
+
+    # profit (ONLY update keys that are present; never write null)
+    prof = json_payload.setdefault("profit", {})
+    if pos is not None:
+        prof["position_usd"] = pos
+    else:
+        prof.setdefault("position_usd", 0)
+    if pf is not None:
+        prof["portfolio_usd"] = pf
+    else:
+        prof.setdefault("portfolio_usd", 0)
+
+    # channels / market — deep-merge, don’t nuke
+    if isinstance(channels_payload, dict):
+        existing = json_payload.setdefault("channels", {})
+        existing.update(channels_payload)
+    if isinstance(market_payload, dict):
+        existing_m = json_payload.setdefault("market", {})
+        existing_m.update(market_payload)
 
     _save_json_cfg(json_payload)
 
