@@ -1,0 +1,44 @@
+{
+  "market_monitor": {
+    "notifications": {
+      "sms": false,
+      "system": true,
+      "tts": true,
+      "voice": true
+    },
+    "rearm_mode": "ladder",
+    "thresholds": {
+      "BTC": {
+        "delta": 5.0,
+        "direction": "both"
+      },
+      "ETH": {
+        "delta": 5.0,
+        "direction": "both"
+      },
+      "SOL": {
+        "delta": 5.0,
+        "direction": "both"
+      },
+      "SPX": {
+        "delta": 5.0,
+        "direction": "both"
+      }
+    }
+  },
+  "profit_monitor": {
+    "enabled": true,
+    "enabled_profit": true,
+    "notifications": {
+      "sms": false,
+      "system": true,
+      "tts": true,
+      "voice": true
+    },
+    "portfolio_profit_usd": 40.0,
+    "position_profit_usd": 10.0
+  },
+  "system_config": {
+    "sonic_monitor_loop_time": 60
+  }
+}
