@@ -1,175 +1,268 @@
-"""
-console_lines.py — Legacy compatibility shim (signature-adapting)
-
-Some parts of the codebase still import console rendering utilities from
-`backend.core.reporting_core.console_lines`. The modern implementation lives
-in `backend.core.reporting_core.console_reporter` and expects a richer call
-signature for `emit_compact_cycle`.
-
-This shim proxies legacy imports to the updated reporter and adapts older
-call shapes (e.g., emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True))
-to the new signature so you do NOT need to touch callers like `sonic_monitor.py`.
-"""
-
+import json
 import logging
-from typing import Any, Dict, List
+import sys
+import time
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Tuple, Optional
 
-# Try to import the modern reporter. If that fails, degrade gracefully so the app still runs.
-try:
-    from backend.core.reporting_core.console_reporter import (  # type: ignore
-        StrictWhitelistFilter as _StrictWhitelistFilter,
-        install_strict_console_filter as _install_strict_console_filter,
-        neuter_legacy_console_logger as _neuter_legacy_console_logger,
-        silence_legacy_console_loggers as _silence_legacy_console_loggers,
-        emit_compact_cycle as _emit_compact_cycle,
-        emit_sources_line as _emit_sources_line,
-        emit_json_summary as _emit_json_summary,
-    )
-    _REPORTER_OK = True
-except Exception as _e:  # pragma: no cover
-    _REPORTER_OK = False
-    _IMPORT_ERR = _e
-    logging.getLogger("ConsoleReporter").warning(
-        "console_lines shim: failed to import console_reporter (%s). "
-        "Falling back to minimal no-op stubs.", type(_e).__name__
-    )
+# -------------------------------------------------------------------
+# Logging helpers
+# -------------------------------------------------------------------
+_LOG = logging.getLogger("ConsoleReporter")
 
-# ---------------------------- Public API (proxies) ----------------------------
+def _i(line: str) -> None:
+    try:
+        _LOG.info(line)
+    except Exception:
+        pass
 
-def StrictWhitelistFilter(*names: str):
-    """Proxy to console_reporter.StrictWhitelistFilter."""
-    if _REPORTER_OK:
-        return _StrictWhitelistFilter(*names)
-    # Minimal permissive filter if reporter unavailable
-    class _Permissive(logging.Filter):  # pragma: no cover
-        def filter(self, record: logging.LogRecord) -> bool:  # type: ignore[override]
+class StrictWhitelistFilter(logging.Filter):
+    """Allow only whitelisted logger names at INFO; always allow WARNING+."""
+    def __init__(self, *names: str) -> None:
+        super().__init__()
+        self._names = set(names or ("SonicMonitor", "ConsoleReporter"))
+
+    def filter(self, record: logging.LogRecord) -> bool:  # type: ignore[override]
+        try:
+            if record.levelno >= logging.WARNING:
+                return True
+            return record.name in self._names
+        except Exception:
             return True
-    return _Permissive()
 
 def install_strict_console_filter() -> None:
-    """Proxy to console_reporter.install_strict_console_filter()."""
-    if _REPORTER_OK:
-        _install_strict_console_filter()
+    """Install a strict filter on stream handlers (keeps compact mode tidy)."""
+    try:
+        root = logging.getLogger()
+        for h in root.handlers:
+            if isinstance(h, logging.StreamHandler):
+                h.addFilter(StrictWhitelistFilter())
+    except Exception:
+        pass
 
 def neuter_legacy_console_logger(
-    names: List[str] | None = None, *, level: int = logging.ERROR
+    names: Optional[List[str]] = None, *, level: int = logging.ERROR
 ) -> None:
-    """Proxy to console_reporter.neuter_legacy_console_logger()."""
-    if _REPORTER_OK:
-        _neuter_legacy_console_logger(names, level=level)
+    """
+    Mute chatty loggers on console; keep WARNING/ERROR.
+    Back-compat shim expected by the monitor runner.
+    """
+    try:
+        names = names or [
+            "werkzeug",
+            "uvicorn.access",
+            "asyncio",
+            "fuzzy_wuzzy",
+            "ConsoleLogger",
+            "console_logger",
+            "LoggerControl",
+        ]
+        for n in names:
+            lg = logging.getLogger(n)
+            lg.setLevel(level)
+            lg.propagate = False
+            if not lg.handlers:
+                lg.addHandler(logging.NullHandler())
+    except Exception:
+        pass
 
+# Back-compat alias some builds import
 def silence_legacy_console_loggers(
-    names: List[str] | None = None, *, level: int = logging.ERROR
+    names: Optional[List[str]] = None, *, level: int = logging.ERROR
 ) -> None:
-    """Back-compat alias expected by some builds; proxies to neuter_*."""
-    if _REPORTER_OK:
-        _silence_legacy_console_loggers(names, level=level)
-    else:  # pragma: no cover
-        neuter_legacy_console_logger(names, level=level)
+    return neuter_legacy_console_logger(names, level=level)
 
-def _derive_cycle_numbers(csum: Dict[str, Any], interval_hint: Any) -> Dict[str, Any]:
+# -------------------------------------------------------------------
+# Small formatting helpers
+# -------------------------------------------------------------------
+def _c(s: str, code: int) -> str:
+    """Colorize with ANSI if stdout is a TTY; else return s."""
+    if sys.stdout.isatty():
+        return f"\x1b[{code}m{s}\x1b[0m"
+    return s
+
+def _fmt_prices_line(
+    top3: Optional[Iterable[Tuple[str, float]]],
+    ages: Optional[Dict[str, int]] = None,
+    # NOTE: accept enable_color as a *positional* third arg to match legacy callers
+    enable_color: bool = False,
+) -> str:
     """
-    Best-effort derivation of numbers the new reporter expects when the caller
-    used the legacy signature. We prefer values present in the summary.
+    Keep the third positional parameter to accept legacy calls like:
+        _fmt_prices_line(top3, ages, enable_color)
+    We currently ignore enable_color here; colorization is handled by _c().
     """
-    durations = csum.get("durations_ms") or {}
-    cyc_ms = int(durations.get("cyclone") or 0)
-    total_ms = int(durations.get("total") or 0)
-    total_elapsed = float(total_ms) / 1000.0 if total_ms else 0.0
+    if not top3:
+        return "–"
+    ages = ages or {}
+    parts: List[str] = []
+    for sym, val in top3:
+        age = ages.get(str(sym).upper(), 0)
+        badge = "" if not age else f"·{age}c"
+        parts.append(f"{sym} ${val:,.2f}{badge}")
+    return "  ".join(parts)
 
-    # loop counter often stored by the caller; fall back to 0
-    loop_counter = int(csum.get("cycle") or csum.get("loop") or 0)
+def _fmt_monitors(monitors: Optional[Dict[str, Any]]) -> str:
+    if not monitors:
+        return "–"
+    en = monitors.get("enabled") or monitors.get("monitors_enabled") or {}
+    pieces: List[str] = []
+    for key in ("liquid", "profit", "market", "price"):
+        if key in en:
+            pieces.append(f"{key} ({'🛠️' if en.get(key) else '✖'})")
+    return "  ".join(pieces) if pieces else "–"
 
-    # interval from hint or summary; sleep from summary or interval
-    try:
-        interval = int(interval_hint) if interval_hint is not None else int(csum.get("interval") or 0)
-    except Exception:
-        interval = int(csum.get("interval") or 0)
-
-    try:
-        sleep_time = float(csum.get("sleep_s") or interval or 0.0)
-    except Exception:
-        sleep_time = float(interval or 0.0)
-
-    return {
-        "cyc_ms": cyc_ms,
-        "interval": interval,
-        "loop_counter": loop_counter,
-        "total_elapsed": total_elapsed,
-        "sleep_time": sleep_time,
-    }
-
-def emit_compact_cycle(
-    *args,
-    **kwargs,
-) -> None:
-    """
-    Signature-adapting proxy to console_reporter.emit_compact_cycle.
-
-    New reporter signature:
-        emit_compact_cycle(csum, cyc_ms, interval, loop_counter, total_elapsed, sleep_time, *, enable_color=False)
-
-    Legacy call shapes seen in older code:
-        emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
-        emit_compact_cycle(summary, interval)
-    """
-    if not _REPORTER_OK:
-        # Minimal degraded path: print inline alerts + notifications if present.
-        try:  # pragma: no cover
-            csum = args[0] if args else {}
-            alerts_inline = (csum.get("alerts") or {}).get("inline") or "—"
-            notif = csum.get("notifications_brief", "NONE (no_breach)")
-            print(f"   🔔 Alerts   : {alerts_inline}")
-            print(f"   📨 Notifications : {notif}")
+# -------------------------------------------------------------------
+# Alerts detail formatting (per-monitor)
+# -------------------------------------------------------------------
+def _fmt_liquid_detail(rows: Optional[List[Dict[str, Any]]]) -> List[str]:
+    if not rows:
+        return ["✓"]
+    out: List[str] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        asset = str(r.get("asset") or r.get("symbol") or "—")
+        dist = r.get("distance"); thr = r.get("threshold")
+        if dist is None or thr is None:
+            continue
+        try:
+            d = float(str(dist).replace("%", ""))
+            t = float(str(thr).replace("%", ""))
         except Exception:
-            pass
-        return
+            continue
+        sev = str(r.get("severity") or "").lower()
+        tag = "breach" if sev == "breach" else ("near" if sev == "near" else "ok")
+        out.append(f"{asset} {d:.1f}% / thr {t:.1f}%  ({tag})")
+    return out or ["✓"]
 
-    # If caller already supplied the full new signature (≥7 positional args), just forward.
-    if len(args) >= 7:
-        _emit_compact_cycle(*args, **kwargs)
-        return
+def _fmt_profit_detail(rows: Optional[List[Dict[str, Any]]]) -> List[str]:
+    if not rows:
+        return ["✓"]
+    out: List[str] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        metric = str(r.get("metric") or "pf").lower()
+        label  = "portfolio" if metric in ("pf", "portfolio") else "position"
+        val = r.get("value"); thr = r.get("threshold")
+        if val is None or thr is None:
+            continue
+        try:
+            v = float(val); t = float(thr)
+        except Exception:
+            continue
+        sev = str(r.get("severity") or "").lower()
+        tag = "breach" if sev == "breach" else ("near" if sev == "near" else "ok")
+        out.append(f"{label} {v:.1f} / thr {t:.1f}  ({tag})")
+    return out or ["✓"]
 
-    # Legacy/ad-hoc shapes: adapt them to the new signature.
-    if not args:
-        return  # nothing to do
+def _emit_alerts_block(csum: Dict[str, Any]) -> None:
+    """
+    Print aligned blue '🔔 Alerts' header, then one indented line per monitor.
+    Falls back to ✓ when no detail is available.
+    """
+    alerts = csum.get("alerts") or {}
+    detail = alerts.get("detail") or {}
 
-    csum = args[0] if len(args) >= 1 else {}
-    # legacy often passes (csum, cfg_for_endcap, interval, enable_color=?)
-    interval_hint = None
-    enable_color = bool(kwargs.get("enable_color", False))
+    # Aligned header (same column as Hedges / Notifications)
+    print(_c("   🔔 Alerts   :", 94), flush=True)
 
-    if len(args) >= 3:
-        interval_hint = args[2]
-    elif len(args) == 2:
-        # sometimes only (csum, interval) was passed
-        interval_hint = args[1]
+    for mon_key, title, fmt in (
+        ("profit", "Profit", _fmt_profit_detail),
+        ("liquid", "Liquid", _fmt_liquid_detail),
+        ("market", "Market", lambda _: ["✓"]),
+        ("price",  "Price",  lambda _: ["✓"]),
+    ):
+        rows = detail.get(mon_key) if isinstance(detail, dict) else None
+        lines = fmt(rows)
+        print(f"      {title:<7}: ", end="")
+        if lines == ["✓"]:
+            print("✓", flush=True)
+        else:
+            print(lines[0], flush=True)
+            for more in lines[1:]:
+                print(f"                 {more}", flush=True)
 
-    if "enable_color" in kwargs:
-        enable_color = bool(kwargs["enable_color"])
-    else:
-        # legacy sometimes passed enable_color as 4th positional
-        if len(args) >= 4:
-            try:
-                enable_color = bool(args[3])
-            except Exception:
-                enable_color = False
+# -------------------------------------------------------------------
+# Compact cycle renderer (new signature)
+# -------------------------------------------------------------------
+def emit_compact_cycle(
+    csum: Dict[str, Any],
+    cyc_ms: int,
+    interval: int,
+    loop_counter: int,
+    total_elapsed: float,
+    sleep_time: float,
+    *,
+    enable_color: bool = False,
+) -> None:
+    """
+    New reporter signature used by the console_lines shim (which adapts
+    legacy callers to provide cyc_ms/loop_counter/total_elapsed/sleep_time).
+    """
+    prices = csum.get("prices") or {}
+    positions = csum.get("positions") or {}
+    hedges = csum.get("hedges") or {}
+    monitors = csum.get("monitors") or {}
 
-    nums = _derive_cycle_numbers(csum, interval_hint)
-    _emit_compact_cycle(
-        csum,
-        nums["cyc_ms"],
-        nums["interval"],
-        nums["loop_counter"],
-        nums["total_elapsed"],
-        nums["sleep_time"],
-        enable_color=enable_color,
-    )
+    # Top rows
+    print("   💰 Prices   : " + _fmt_prices_line(
+        csum.get("prices_top3", []),
+        csum.get("price_ages", {}),
+        enable_color  # accept positional 3rd arg, safe even if ignored
+    ))
+    print(f"   📊 Positions: {positions.get('sync_line', '–')}")
+    # Keep Hedges aligned with Alerts/Notifications column
+    print(f"   🛡 Hedges   : {'🦔' if int(hedges.get('groups', 0) or 0) > 0 else '–'}")
 
+    # Multi-line Alerts
+    _emit_alerts_block(csum)
+
+    # Notifications (actual dispatch outcomes only)
+    notif_line = csum.get("notifications_brief", "NONE (no_breach)")
+    print(f"   📨 Notifications : {notif_line}")
+
+    # Monitors summary
+    print(f"   📡 Monitors : {_fmt_monitors(monitors)}")
+
+    # Tail
+    tail = f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)"
+    _i(tail)
+    print(tail, flush=True)
+
+# -------------------------------------------------------------------
+# Optional “Sources” line (threshold provenance) and JSONL
+# -------------------------------------------------------------------
 def emit_sources_line(sources: Dict[str, Any], label: str = "") -> None:
-    """Proxy to console_reporter.emit_sources_line()."""
-    if _REPORTER_OK:
-        _emit_sources_line(sources, label=label)
+    if not sources:
+        return
+    blocks: List[str] = []
+
+    profit = sources.get("profit") or {}
+    if profit:
+        pos = profit.get("pos"); pf = profit.get("pf")
+        blocks.append("profit:{"
+                      + ",".join([f"pos={pos if pos not in (None, '') else '–'}",
+                                  f"pf={pf if pf not in (None, '') else '–'}"])
+                      + "}")
+
+    liquid = sources.get("liquid") or {}
+    if liquid:
+        btc = liquid.get("btc"); eth = liquid.get("eth"); sol = liquid.get("sol")
+        blocks.append("liquid:{"
+                      + ",".join([f"btc={btc if btc not in (None, '') else '–'}",
+                                  f"eth={eth if eth not in (None, '') else '–'}",
+                                  f"sol={sol if sol not in (None, '') else '–'}"])
+                      + "}")
+
+    if not blocks:
+        return
+
+    suffix = f" ← {label}" if label else ""
+    line = "   🧭 Sources  : " + " ".join(blocks) + suffix
+    _i(line)
+    print(line, flush=True)
 
 def emit_json_summary(
     csum: Dict[str, Any],
@@ -178,9 +271,24 @@ def emit_json_summary(
     total_elapsed: float,
     sleep_time: float,
 ) -> None:
-    """Proxy to console_reporter.emit_json_summary()."""
-    if _REPORTER_OK:
-        _emit_json_summary(csum, cyc_ms, loop_counter, total_elapsed, sleep_time)
+    out = {
+        "cycle": loop_counter,
+        "durations_ms": {"cyclone": int(cyc_ms), "total": int(total_elapsed * 1000)},
+        "sleep_s": round(sleep_time, 3),
+        "prices": csum.get("prices", {}),
+        "positions": csum.get("positions", {}),
+        "hedges": csum.get("hedges", {}),
+        "alerts": csum.get("alerts", {}),
+        "monitors": csum.get("monitors", {}),
+        "ts": int(time.time()),
+    }
+    try:
+        logs = Path("logs")
+        logs.mkdir(exist_ok=True)
+        with (logs / "sonic_summary.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(out, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
 __all__ = [
     "StrictWhitelistFilter",
