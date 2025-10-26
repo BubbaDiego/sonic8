@@ -305,6 +305,7 @@ from backend.core.reporting_core.console_reporter import (
     install_strict_console_filter,
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
+    emit_thresholds_panel,
 )
 from backend.core.monitor_core.summary_helpers import (
     load_monitor_config_snapshot,
@@ -1129,6 +1130,30 @@ def run_monitor(
                 # don't fail the cycle on cosmetics; console will show ✓ for missing detail
                 pass
             emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            if dl is not None:
+                try:
+                    ts_label = None
+                    ts_value = (
+                        summary.get("positions_updated_at")
+                        or summary.get("prices_updated_at")
+                    )
+                    if ts_value:
+                        try:
+                            if isinstance(ts_value, (int, float)):
+                                ts_dt = datetime.fromtimestamp(float(ts_value), timezone.utc)
+                            else:
+                                ts_str = str(ts_value)
+                                if ts_str.endswith("Z"):
+                                    ts_str = ts_str[:-1] + "+00:00"
+                                ts_dt = datetime.fromisoformat(ts_str)
+                            if ts_dt.tzinfo is None:
+                                ts_dt = ts_dt.replace(tzinfo=timezone.utc)
+                            ts_label = ts_dt.strftime("%H:%M:%S")
+                        except Exception:
+                            ts_label = None
+                    emit_thresholds_panel(dl, summary, ts_label)
+                except Exception:
+                    logging.debug("Failed to emit thresholds panel", exc_info=True)
             # ---- Sources line (compact) + optional deep trace ----
             try:
                 from backend.core.reporting_core.console_reporter import emit_sources_line

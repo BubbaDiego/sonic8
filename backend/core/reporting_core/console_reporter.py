@@ -2,17 +2,23 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 # ───────────────────────── logger utils ─────────────────────────
 
 _LOG = logging.getLogger("ConsoleReporter")
-def _i(s: str) -> None:
-    try: _LOG.info(s)
-    except Exception: pass
+def _i(s: str, source: str | None = None) -> None:
+    try:
+        if source:
+            logging.getLogger(source).info(s)
+        else:
+            _LOG.info(s)
+    except Exception:
+        pass
 
 class StrictWhitelistFilter(logging.Filter):
     def __init__(self, *names: str) -> None:
@@ -202,6 +208,173 @@ def _emit_alerts_block(csum: Dict[str, Any]) -> None:
             for more in lines[1:]:
                 print(f"                 {more}")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Thresholds panel (Option 3A rendered in console)
+# ─────────────────────────────────────────────────────────────────────────────
+def _num(v, default=None):
+    try:
+        if v is None:
+            return default
+        if isinstance(v, (int, float)):
+            return float(v)
+        s = str(v).strip().replace("%", "").replace(",", "")
+        return float(s)
+    except Exception:
+        return default
+
+
+def _fmt_pct(v: Optional[float]) -> str:
+    if v is None:
+        return "—"
+    return f"{v:.2f}%" if v < 1 else f"{v:.1f}%"
+
+
+def _fmt_usd(v: Optional[float]) -> str:
+    if v is None:
+        return "—"
+    try:
+        return f"${v:,.2f}".rstrip('0').rstrip('.')
+    except Exception:
+        return f"${v}"
+
+
+def _bar(util: Optional[float], width: int = 10) -> Tuple[str, str]:
+    """Return (bar, label) where util is 0..1 (None => n/a)."""
+    if util is None or util < 0 or not (util == util):
+        return "░" * width, "n/a"
+    util = max(0.0, util)
+    fill = min(width, int(round(util * width)))
+    return "█" * fill + "░" * (width - fill), f"{int(round(util * 100))}%"
+
+
+def _nearest_liq_from_db(dl) -> Dict[str, Optional[float]]:
+    """Query minimum absolute liquidation distance per asset from positions."""
+    try:
+        db = getattr(dl, "db", None)
+        cur = db.get_cursor() if db else None
+        if not cur:
+            return {}
+        cur.execute(
+            """
+            SELECT asset_type, MIN(ABS(liquidation_distance)) AS min_dist
+              FROM positions
+             WHERE status = 'ACTIVE'
+            GROUP BY asset_type
+            """
+        )
+        rows = cur.fetchall() or []
+        out: Dict[str, Optional[float]] = {}
+        for r in rows:
+            if hasattr(r, "keys"):
+                asset = r.get("asset_type")
+                val = r.get("min_dist")
+            else:
+                asset = r[0] if len(r) > 0 else ""
+                val = r[1] if len(r) > 1 else None
+            out[str(asset or "").upper()] = _num(val, None)
+        return out
+    except Exception:
+        return {}
+
+
+def _profit_actuals_from_db(dl) -> Tuple[float, float]:
+    """Single = max positive PnL; Portfolio = sum of positives."""
+    try:
+        db = getattr(dl, "db", None)
+        cur = db.get_cursor() if db else None
+        if not cur:
+            return (0.0, 0.0)
+        cur.execute("SELECT pnl_after_fees_usd FROM positions WHERE status='ACTIVE'")
+        rows = cur.fetchall() or []
+        vals = []
+        for r in rows:
+            if hasattr(r, "keys"):
+                vals.append(_num(r.get("pnl_after_fees_usd"), 0.0))
+            else:
+                vals.append(_num(r[0] if len(r) > 0 else None, 0.0))
+        pos = [v for v in vals if v is not None and v > 0]
+        single = max(pos) if pos else 0.0
+        portfolio = sum(pos) if pos else 0.0
+        return (single, portfolio)
+    except Exception:
+        return (0.0, 0.0)
+
+
+def _resolve_liq_thresholds(liq_cfg: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    thr_map: Dict[str, Optional[float]] = {}
+    per = liq_cfg.get("thresholds") or {}
+    glob = _num(liq_cfg.get("threshold_percent"))
+    for sym in ("BTC", "ETH", "SOL"):
+        if isinstance(per, dict) and sym in per:
+            thr_map[sym] = _num(per.get(sym), glob)
+        else:
+            thr_map[sym] = glob
+    return thr_map
+
+
+def _resolve_profit_thresholds(prof_cfg: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
+    return (
+        _num(prof_cfg.get("position_profit_usd")),
+        _num(prof_cfg.get("portfolio_profit_usd")),
+    )
+
+
+def emit_thresholds_panel(dl, csum: Dict[str, Any], ts_label: Optional[str] = None) -> None:
+    if dl is None:
+        return
+    if os.getenv("SONIC_SHOW_THRESHOLDS", "1") == "0":
+        return
+
+    try:
+        sysvars = getattr(dl, "system", None)
+    except Exception:
+        sysvars = None
+
+    liq_cfg = (sysvars.get_var("liquid_monitor") if sysvars else {}) or {}
+    prof_cfg = (sysvars.get_var("profit_monitor") if sysvars else {}) or {}
+
+    liq_thr = _resolve_liq_thresholds(liq_cfg)
+    prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg)
+
+    nearest = _nearest_liq_from_db(dl)
+    single_act, port_act = _profit_actuals_from_db(dl)
+
+    header = "   🧭  Monitor Thresholds"
+    if ts_label:
+        header += f" — last cycle {ts_label}"
+    _i(header, "SonicMonitor")
+    print(header)
+
+    def _row_liq(sym: str) -> None:
+        actual = nearest.get(sym)
+        threshold = liq_thr.get(sym)
+        util = (actual / threshold) if (actual is not None and threshold and threshold > 0) else None
+        bar, lab = _bar(util)
+        label = '₿' if sym == 'BTC' else ('Ξ' if sym == 'ETH' else '◎')
+        line = (
+            f"      {label} {sym} • 💧 Liquid".ljust(28)
+            + f" {_fmt_pct(actual):>8} / {_fmt_pct(threshold):<8}  {bar} {lab:>4}   🗄 DB"
+        )
+        _i(line, "SonicMonitor")
+        print(line)
+
+    for sym in ("BTC", "ETH", "SOL"):
+        if (nearest.get(sym) is not None) or (liq_thr.get(sym) is not None):
+            _row_liq(sym)
+
+    def _row_profit(label: str, actual: Optional[float], threshold: Optional[float]) -> None:
+        util = (actual / threshold) if (actual is not None and threshold and threshold > 0) else None
+        bar, lab = _bar(util)
+        line = (
+            f"      {label}".ljust(28)
+            + f" {_fmt_usd(actual):>10} / {_fmt_usd(threshold):<10}  {bar} {lab:>4}   🗄 DB"
+        )
+        _i(line, "SonicMonitor")
+        print(line)
+
+    _row_profit("👤 Single • 💹 Profit", single_act, prof_single_thr)
+    _row_profit("🧺 Portfolio • 💹 Profit", port_act, prof_port_thr)
+
 # ───────────────────────── main compact renderer ─────────────────
 
 def emit_compact_cycle(
@@ -272,4 +445,5 @@ __all__ = [
     "emit_compact_cycle",
     "emit_sources_line",
     "emit_json_summary",
+    "emit_thresholds_panel",
 ]
