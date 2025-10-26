@@ -224,23 +224,21 @@ def _num(v, default=None):
 
 
 def _fmt_pct(v: Optional[float]) -> str:
-    if v is None:
-        return "—"
-    return f"{v:.2f}%" if v < 1 else f"{v:.1f}%"
+    return "—" if v is None else (f"{v:.2f}%" if (v < 1) else f"{v:.1f}%")
 
 
 def _fmt_usd(v: Optional[float]) -> str:
     if v is None:
         return "—"
     try:
-        return f"${v:,.2f}".rstrip('0').rstrip('.')
+        return f"${v:,.2f}".rstrip("0").rstrip(".")
     except Exception:
         return f"${v}"
 
 
 def _bar(util: Optional[float], width: int = 10) -> Tuple[str, str]:
     """Return (bar, label) where util is 0..1 (None => n/a)."""
-    if util is None or util < 0 or not (util == util):
+    if util is None or util < 0 or not (util == util):  # NaN guard
         return "░" * width, "n/a"
     util = max(0.0, util)
     fill = min(width, int(round(util * width)))
@@ -248,89 +246,95 @@ def _bar(util: Optional[float], width: int = 10) -> Tuple[str, str]:
 
 
 def _nearest_liq_from_db(dl) -> Dict[str, Optional[float]]:
-    """Query minimum absolute liquidation distance per asset from positions."""
+    """
+    Return minimum absolute liquidation distance per asset from positions.
+    We keep this intentionally lenient: if the table/column isn’t there, we return {}.
+    """
     try:
-        db = getattr(dl, "db", None)
-        cur = db.get_cursor() if db else None
+        cur = dl.db.get_cursor()
         if not cur:
             return {}
         cur.execute(
             """
             SELECT asset_type, MIN(ABS(liquidation_distance)) AS min_dist
               FROM positions
-             WHERE status = 'ACTIVE'
+             WHERE status='ACTIVE'
             GROUP BY asset_type
             """
         )
         rows = cur.fetchall() or []
-        out: Dict[str, Optional[float]] = {}
+        out = {}
         for r in rows:
-            if hasattr(r, "keys"):
-                asset = r.get("asset_type")
-                val = r.get("min_dist")
-            else:
-                asset = r[0] if len(r) > 0 else ""
-                val = r[1] if len(r) > 1 else None
-            out[str(asset or "").upper()] = _num(val, None)
+            # tolerate both mapping and tuple rows
+            asset = (r["asset_type"] if "asset_type" in r.keys() else r[0]) if hasattr(r, "keys") else r[0]
+            val   = (r["min_dist"]   if "min_dist"   in getattr(r, "keys", lambda: [])() else r[1])
+            out[str(asset).upper()] = _num(val, None)
         return out
     except Exception:
         return {}
 
 
 def _profit_actuals_from_db(dl) -> Tuple[float, float]:
-    """Single = max positive PnL; Portfolio = sum of positives."""
+    """
+    Single = max positive pnl_after_fees_usd; Portfolio = sum of positives.
+    This mirrors how your profit thresholds are compared (USD). :contentReference[oaicite:2]{index=2}
+    """
     try:
-        db = getattr(dl, "db", None)
-        cur = db.get_cursor() if db else None
+        cur = dl.db.get_cursor()
         if not cur:
             return (0.0, 0.0)
         cur.execute("SELECT pnl_after_fees_usd FROM positions WHERE status='ACTIVE'")
-        rows = cur.fetchall() or []
         vals = []
-        for r in rows:
-            if hasattr(r, "keys"):
-                vals.append(_num(r.get("pnl_after_fees_usd"), 0.0))
-            else:
-                vals.append(_num(r[0] if len(r) > 0 else None, 0.0))
-        pos = [v for v in vals if v is not None and v > 0]
-        single = max(pos) if pos else 0.0
-        portfolio = sum(pos) if pos else 0.0
+        for r in cur.fetchall() or []:
+            v = r["pnl_after_fees_usd"] if hasattr(r, "keys") and "pnl_after_fees_usd" in r.keys() else r[0]
+            vals.append(_num(v, 0.0))
+        positives = [v for v in vals if (isinstance(v, (int, float)) and v > 0)]
+        single = max(positives) if positives else 0.0
+        portfolio = sum(positives) if positives else 0.0
         return (single, portfolio)
     except Exception:
         return (0.0, 0.0)
 
 
 def _resolve_liq_thresholds(liq_cfg: Dict[str, Any]) -> Dict[str, Optional[float]]:
-    thr_map: Dict[str, Optional[float]] = {}
+    """
+    Accepts system var payload for 'liquid_monitor' and returns per-asset thresholds.
+    Keys honored:
+      - thresholds: {"BTC":..., "ETH":..., "SOL":...}
+      - threshold_percent: number (global fallback)
+    """
+    thr_map = {}
     per = liq_cfg.get("thresholds") or {}
     glob = _num(liq_cfg.get("threshold_percent"))
     for sym in ("BTC", "ETH", "SOL"):
-        if isinstance(per, dict) and sym in per:
-            thr_map[sym] = _num(per.get(sym), glob)
-        else:
-            thr_map[sym] = glob
+        thr_map[sym] = _num(per.get(sym), glob)
     return thr_map
 
 
 def _resolve_profit_thresholds(prof_cfg: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
-    return (
-        _num(prof_cfg.get("position_profit_usd")),
-        _num(prof_cfg.get("portfolio_profit_usd")),
-    )
+    """
+    Accepts system var payload for 'profit_monitor' and returns (single, portfolio) USD thresholds.
+    Keys honored: position_profit_usd, portfolio_profit_usd. :contentReference[oaicite:3]{index=3}
+    """
+    return (_num(prof_cfg.get("position_profit_usd")), _num(prof_cfg.get("portfolio_profit_usd")))
 
 
 def emit_thresholds_panel(dl, csum: Dict[str, Any], ts_label: Optional[str] = None) -> None:
-    if dl is None:
-        return
+    """
+    Print an icon-forward thresholds vs actuals panel (Option 3A) into the console.
+    Controlled by SONIC_SHOW_THRESHOLDS (default on).
+    """
     if os.getenv("SONIC_SHOW_THRESHOLDS", "1") == "0":
         return
+    logger = logging.getLogger("SonicMonitor")
+    _info = logger.info
 
+    # Load config (system vars)
     try:
         sysvars = getattr(dl, "system", None)
     except Exception:
         sysvars = None
-
-    liq_cfg = (sysvars.get_var("liquid_monitor") if sysvars else {}) or {}
+    liq_cfg  = (sysvars.get_var("liquid_monitor") if sysvars else {}) or {}
     prof_cfg = (sysvars.get_var("profit_monitor") if sysvars else {}) or {}
 
     liq_thr = _resolve_liq_thresholds(liq_cfg)
@@ -339,41 +343,42 @@ def emit_thresholds_panel(dl, csum: Dict[str, Any], ts_label: Optional[str] = No
     nearest = _nearest_liq_from_db(dl)
     single_act, port_act = _profit_actuals_from_db(dl)
 
-    header = "   🧭  Monitor Thresholds"
+    # Header
+    hdr = "🧭  Monitor Thresholds"
     if ts_label:
-        header += f" — last cycle {ts_label}"
-    _i(header, "SonicMonitor")
-    print(header)
+        hdr += f" — last cycle {ts_label}"
+    _info(hdr)
+    print(hdr, flush=True)
 
-    def _row_liq(sym: str) -> None:
+    def _row_liq(sym: str):
         actual = nearest.get(sym)
-        threshold = liq_thr.get(sym)
-        util = (actual / threshold) if (actual is not None and threshold and threshold > 0) else None
+        thr    = liq_thr.get(sym)
+        util   = (actual / thr) if (actual is not None and thr and thr > 0) else None
         bar, lab = _bar(util)
-        label = '₿' if sym == 'BTC' else ('Ξ' if sym == 'ETH' else '◎')
+        name = "₿" if sym == "BTC" else ("Ξ" if sym == "ETH" else "◎")
         line = (
-            f"      {label} {sym} • 💧 Liquid".ljust(28)
-            + f" {_fmt_pct(actual):>8} / {_fmt_pct(threshold):<8}  {bar} {lab:>4}   🗄 DB"
+            f"{name} {sym} • 💧 Liquid".ljust(22)
+            + f" {_fmt_pct(actual):>8} / {_fmt_pct(thr):<8}  {bar} {lab:>4}   🗄 DB"
         )
-        _i(line, "SonicMonitor")
-        print(line)
+        _info(line)
+        print(line, flush=True)
 
     for sym in ("BTC", "ETH", "SOL"):
         if (nearest.get(sym) is not None) or (liq_thr.get(sym) is not None):
             _row_liq(sym)
 
-    def _row_profit(label: str, actual: Optional[float], threshold: Optional[float]) -> None:
-        util = (actual / threshold) if (actual is not None and threshold and threshold > 0) else None
+    def _row_profit(label: str, actual: Optional[float], thr: Optional[float]):
+        util = (actual / thr) if (actual is not None and thr and thr > 0) else None
         bar, lab = _bar(util)
         line = (
-            f"      {label}".ljust(28)
-            + f" {_fmt_usd(actual):>10} / {_fmt_usd(threshold):<10}  {bar} {lab:>4}   🗄 DB"
+            f"{label}".ljust(22)
+            + f" {_fmt_usd(actual):>10} / {_fmt_usd(thr):<10}  {bar} {lab:>4}   🗄 DB"
         )
-        _i(line, "SonicMonitor")
-        print(line)
+        _info(line)
+        print(line, flush=True)
 
-    _row_profit("👤 Single • 💹 Profit", single_act, prof_single_thr)
-    _row_profit("🧺 Portfolio • 💹 Profit", port_act, prof_port_thr)
+    _row_profit("👤 Single • 💹 Profit",   single_act, prof_single_thr)
+    _row_profit("🧺 Portfolio • 💹 Profit", port_act,   prof_port_thr)
 
 # ───────────────────────── main compact renderer ─────────────────
 
