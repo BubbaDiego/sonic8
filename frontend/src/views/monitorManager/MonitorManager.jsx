@@ -6,7 +6,7 @@ import { patchLiquidationSettings } from 'api/monitorSettings';
 import useSonicStatusPolling from 'hooks/useSonicStatusPolling';
 
 // profit helpers (present in sonic6; keep same API in 7 if available)
-import { getProfitCfg, saveProfitCfg } from 'api/profitMonitor';
+import { saveProfitCfg } from 'api/profitMonitor';
 import { refreshLatestPortfolio } from 'api/portfolio';
 import { refreshActiveSession } from 'api/session';
 import { endpoints as statusEP } from 'api/monitorStatus';
@@ -49,52 +49,42 @@ export default function MonitorManager() {
     setLoopSec(value);
   };
 
-  /* ------------------------- initial bootstrap --------------------------- */
+  /* ------------------------- initial fetch (bootstrap) -------------------- */
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [
-          liqRes,
-          profitRes,
-          mktRes,
-          movesRes,
-          sonicRes,
-          nearestRes
-        ] = await Promise.all([
-          axios.get('/api/monitor-settings/liquidation'),
-          getProfitCfg().catch(() => ({})),
-          axios.get('/api/monitor-settings/market'),
-          axios.get('/api/market/latest'),
-          axios.get('/api/monitor-settings/sonic'),
-          axios.get('/api/liquidation/nearest-distance').catch(() => ({ data: {} }))
-        ]);
+        const { data: boot } = await axios.get('/api/monitor-settings/bootstrap');
         if (!alive) return;
-        const liq   = liqRes?.data || {};
-        const prof  = profitRes   || {};
-        const mkt   = mktRes?.data || {};
-        const moves = movesRes?.data || {};
-        const sonic = sonicRes?.data || {};
-        const loop  = String(sonic.interval_seconds ?? '');
-        const nearest = nearestRes?.data ?? {};
+        const liq = boot?.liquidation || {};
+        const prof = boot?.profit || {};
+        const mkt = boot?.market || {};
+        const sonic = boot?.sonic || {};
+        const loop = String(sonic?.interval_seconds ?? '');
+        const nearest = boot?.nearest || {};
 
-        // carry Sonic master flags onto liqCfg so children can gate by it
         setLiqCfg({ ...liq, ...sonic });
         setProfitCfg(prof);
         setMarketCfg(mkt);
-        setPctMoves(moves);
         setLoopSec(loop);
         setNearestLiq(nearest);
         setDirty(false);
       } catch (e) {
-        // best-effort; page still renders
+        // non-fatal; page still renders
+      } finally {
+        // After first paint, fetch the heavy market snapshot
+        setTimeout(async () => {
+          try {
+            const r = await axios.get('/api/market/latest');
+            if (alive) setPctMoves(r.data || {});
+          } catch {}
+        }, 0);
       }
     })();
     return () => {
       // Leaving Monitor Manager: force dashboards to refresh next paint
       alive = false;
       try {
-        // These helpers handle their own SWR keys; monitorStatus needs an explicit mutate
         refreshActiveSession();
         refreshLatestPortfolio();
         mutate(statusEP.summary, undefined, { revalidate: true });

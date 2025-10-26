@@ -127,6 +127,7 @@ from backend.routes.xcom_api import router as xcom_router
 from backend.routes.session_api import router as session_router
 from backend.routes.notification_api import router as notification_router
 from backend.routes.monitor_settings_api import router as monitor_settings_router
+from backend.routes.monitor_bootstrap_api import router as monitor_bootstrap_router
 from backend.routes.profit_settings_api import router as profit_settings_router
 from backend.routes.market_api import router as market_router
 from backend.routes.prices_api import router as prices_router
@@ -197,6 +198,7 @@ if textbelt_router:
 app.include_router(session_router)
 app.include_router(notification_router)
 app.include_router(monitor_settings_router)
+app.include_router(monitor_bootstrap_router)
 app.include_router(liquid_settings_router)
 app.include_router(debug_market_router)
 app.include_router(profit_settings_router)
