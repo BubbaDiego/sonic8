@@ -385,61 +385,77 @@ def _resolve_profit_thresholds(prof_cfg: Dict[str, Any]) -> Tuple[Optional[float
     return (_num(prof_cfg.get("position_profit_usd")), _num(prof_cfg.get("portfolio_profit_usd")))
 
 
-def emit_thresholds_panel(dl, csum: Dict[str, Any], ts_label: Optional[str] = None) -> None:
-    """
-    Print an icon-forward thresholds vs actuals panel (Option 3A) into the console.
-    Controlled by SONIC_SHOW_THRESHOLDS (default on).
-    """
+def _as_dict(v: Any) -> Dict[str, Any]:
+    if isinstance(v, dict):
+        return v
+    if isinstance(v, str):
+        try:
+            parsed = _json.loads(v)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _src_label(v_src: str, t_src: str) -> str:
+    v = "DB" if v_src == "db" else ("FILE" if v_src == "file" else "ENV" if v_src == "env" else v_src.upper())
+    t = "DB" if t_src == "db" else ("FILE" if t_src == "file" else "ENV" if t_src == "env" else t_src.upper())
+    return f"{v} / {t}"
+
+
+def _classify_result(kind: str, actual: Optional[float], thr: Optional[float]) -> str:
+    """Return a human label for monitor evaluation results."""
+    if actual is None or thr is None or thr <= 0:
+        return "· no data"
+    if kind == "liquid":
+        if actual <= thr:
+            return "🔴 HIT"
+        if actual <= 1.2 * thr:
+            return "🟡 NEAR"
+        return "🟢 OK"
+    else:
+        if actual >= thr:
+            return "🟢 HIT"
+        if actual >= 0.8 * thr:
+            return "🟡 NEAR"
+        return "· not met"
+
+
+def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = None) -> None:
     if os.getenv("SONIC_SHOW_THRESHOLDS", "1") == "0":
         return
 
-    # Load config preferring FILE (global_config) for liquidation, DB for profit
+    logger = logging.getLogger("SonicMonitor")
+    _info = logger.info
+
     try:
         sysvars = getattr(dl, "system", None)
-        gconf   = getattr(dl, "global_config", None)
+        gconf = getattr(dl, "global_config", None)
     except Exception:
         sysvars = None
-        gconf   = None
+        gconf = None
 
-    def _as_dict(val: Any) -> Dict[str, Any]:
-        if isinstance(val, dict):
-            return val
-        if isinstance(val, str):
-            try:
-                parsed = _json.loads(val)
-                return parsed if isinstance(parsed, dict) else {}
-            except Exception:
-                return {}
-        return {}
+    try:
+        liq_cfg_file_raw = gconf.get("liquid_monitor") if gconf is not None and hasattr(gconf, "get") else {}
+    except Exception:
+        liq_cfg_file_raw = {}
+    liq_cfg_file = _as_dict(liq_cfg_file_raw or {})
 
-    def _get_gconf(key: str) -> Dict[str, Any]:
-        try:
-            if isinstance(gconf, dict):
-                return _as_dict(gconf.get(key))
-            if gconf is not None and hasattr(gconf, "get"):
-                return _as_dict(gconf.get(key))
-        except Exception:
-            return {}
-        return {}
+    try:
+        liq_cfg_db_raw = sysvars.get_var("liquid_monitor") if sysvars else {}
+    except Exception:
+        liq_cfg_db_raw = {}
+    liq_cfg_db = _as_dict(liq_cfg_db_raw or {})
+    liq_cfg = liq_cfg_file or liq_cfg_db
+    liq_src_type = "file" if liq_cfg_file else ("db" if liq_cfg_db else "unknown")
 
-    def _get_sysvar(key: str) -> Dict[str, Any]:
-        try:
-            return _as_dict(sysvars.get_var(key)) if sysvars else {}
-        except Exception:
-            return {}
-
-    liq_cfg_file = _get_gconf("liquid_monitor")
-    liq_cfg_db   = _get_sysvar("liquid_monitor")
-    liq_cfg      = liq_cfg_file or liq_cfg_db
-    if liq_cfg_file:
-        liq_src_tag = "📄 FILE"
-    elif liq_cfg_db:
-        liq_src_tag = "🗄 DB"
-    else:
-        liq_src_tag = "–"
-
-    prof_cfg_db  = _get_sysvar("profit_monitor")
-    prof_cfg     = prof_cfg_db
+    try:
+        prof_cfg_db_raw = sysvars.get_var("profit_monitor") if sysvars else {}
+    except Exception:
+        prof_cfg_db_raw = {}
+    prof_cfg_db = _as_dict(prof_cfg_db_raw or {})
+    prof_cfg = prof_cfg_db
+    prof_src_type = "db" if prof_cfg_db else "unknown"
 
     liq_thr = _resolve_liq_thresholds(liq_cfg)
     prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg)
@@ -447,45 +463,73 @@ def emit_thresholds_panel(dl, csum: Dict[str, Any], ts_label: Optional[str] = No
     nearest = _nearest_liq_from_db(dl)
     single_act, port_act = _profit_actuals_from_db(dl)
 
-    hdr = "🧭  Monitor Thresholds"
+    title = "🧭  Monitor Evaluations"
     if ts_label:
-        hdr += f" — last cycle {ts_label}"
-    _i(hdr, "SonicMonitor"); print(hdr, flush=True)
+        title += f" — last cycle {ts_label}"
+    _info(title)
+    print(title, flush=True)
 
     METRIC_W = 26
-    ACT_W    = 10
-    THR_W    = 10
-    BAR_W    = 10
+    VAL_W = 12
+    RULE_W = 3
+    THR_W = 12
+    RES_W = 13
+    SRC_W = 18
+    top = "┌" + "─" * METRIC_W + "┬" + "─" * VAL_W + "┬" + "─" * RULE_W + "┬" + "─" * THR_W + "┬" + "─" * RES_W + "┬" + "─" * SRC_W + "┐"
+    header = (
+        f"│ {'Metric':<{METRIC_W}}│ {'Value':>{VAL_W}}│{'Rule':^{RULE_W}}│ {'Threshold':>{THR_W-1}}│ {'Result':<{RES_W-1}}│ {'Source (V / T)':<{SRC_W-1}}│"
+    )
+    sep = "├" + "─" * METRIC_W + "┼" + "─" * VAL_W + "┼" + "─" * RULE_W + "┼" + "─" * THR_W + "┼" + "─" * RES_W + "┼" + "─" * SRC_W + "┤"
+    bot = "└" + "─" * METRIC_W + "┴" + "─" * VAL_W + "┴" + "─" * RULE_W + "┴" + "─" * THR_W + "┴" + "─" * RES_W + "┴" + "─" * SRC_W + "┘"
+    for line in (top, header, sep):
+        _info(line)
+        print(line)
 
-    def _row_liq(sym: str) -> None:
-        actual = nearest.get(sym)
-        thr    = liq_thr.get(sym)
-        util   = (actual / thr) if (actual is not None and thr and thr > 0) else None
-        bar, lab = _bar(util, width=BAR_W)
-        metric = f"{'₿' if sym == 'BTC' else ('Ξ' if sym == 'ETH' else '◎')} {sym} • 💧 Liquid"
-        line = (
-            f"{metric:<{METRIC_W}} "
-            f"{_fmt_pct(actual):>{ACT_W}} / {_fmt_pct(thr):<{THR_W}}  "
-            f"{bar} {lab:>4}   {liq_src_tag}"
+    def _row_line(metric_label: str, actual_s: str, rule: str, thr_s: str, result: str, src_label: str) -> str:
+        return (
+            f"│ {metric_label:<{METRIC_W-1}}│{actual_s:>{VAL_W}}│{rule:^{RULE_W}}│{thr_s:>{THR_W}}│ {result:<{RES_W-1}}│ {src_label:<{SRC_W-1}}│"
         )
-        _i(line, "SonicMonitor"); print(line, flush=True)
 
     for sym in ("BTC", "ETH", "SOL"):
-        if (nearest.get(sym) is not None) or (liq_thr.get(sym) is not None):
-            _row_liq(sym)
+        metric = f"{'₿' if sym == 'BTC' else 'Ξ' if sym == 'ETH' else '◎'} {sym} • 💧 Liquid"
+        a = nearest.get(sym)
+        t = liq_thr.get(sym)
+        result = _classify_result("liquid", a, t)
+        actual_s = _fmt_pct(a)
+        thr_s = _fmt_pct(t)
+        src = _src_label("db", liq_src_type)
+        line = _row_line(metric, actual_s, "≤", thr_s, result, src)
+        _info(line)
+        print(line)
 
-    def _row_profit(label: str, actual: Optional[float], thr: Optional[float]) -> None:
-        util = (actual / thr) if (actual is not None and thr and thr > 0) else None
-        bar, lab = _bar(util, width=BAR_W)
-        line = (
-            f"{label:<{METRIC_W}} "
-            f"{_fmt_usd(actual):>{ACT_W}} / {_fmt_usd(thr):<{THR_W}}  "
-            f"{bar} {lab:>4}   🗄 DB"
-        )
-        _i(line, "SonicMonitor"); print(line, flush=True)
+    metric = "👤 Single • 💹 Profit"
+    a, t = single_act, prof_single_thr
+    line = _row_line(
+        metric,
+        _fmt_usd(a),
+        "≥",
+        _fmt_usd(t),
+        _classify_result("profit", a, t),
+        _src_label("db", prof_src_type),
+    )
+    _info(line)
+    print(line)
 
-    _row_profit("👤 Single • 💹 Profit",   single_act, prof_single_thr)
-    _row_profit("🧺 Portfolio • 💹 Profit", port_act,   prof_port_thr)
+    metric = "🧺 Portfolio • 💹 Profit"
+    a, t = port_act, prof_port_thr
+    line = _row_line(
+        metric,
+        _fmt_usd(a),
+        "≥",
+        _fmt_usd(t),
+        _classify_result("profit", a, t),
+        _src_label("db", prof_src_type),
+    )
+    _info(line)
+    print(line)
+
+    _info(bot)
+    print(bot, flush=True)
 
 # ───────────────────────── main compact renderer ─────────────────
 
