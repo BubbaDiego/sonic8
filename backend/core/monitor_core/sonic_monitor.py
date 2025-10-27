@@ -299,8 +299,6 @@ from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
-# Use the 4-arg compact printer from console_lines to match our call site
-from backend.core.reporting_core import console_lines as cl
 from backend.core.reporting_core.positions_icons import compute_positions_icon_line, compute_from_list
 from backend.core.reporting_core.console_reporter import (
     install_strict_console_filter,
@@ -308,6 +306,8 @@ from backend.core.reporting_core.console_reporter import (
     silence_legacy_console_loggers,
     emit_thresholds_panel,
 )
+# Use the 4-arg compact printer from console_lines to match our call site
+from backend.core.reporting_core import console_lines as cl
 from backend.core.monitor_core.summary_helpers import (
     load_monitor_config_snapshot,
     build_sources_snapshot,
