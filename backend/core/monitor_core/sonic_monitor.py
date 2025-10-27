@@ -304,7 +304,7 @@ from backend.core.reporting_core.console_reporter import (
     install_strict_console_filter,
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
-    emit_thresholds_panel,
+    emit_evaluations_table,
 )
 # Use the 4-arg compact printer from console_lines to match our call site
 from backend.core.reporting_core import console_lines as cl
@@ -1230,9 +1230,9 @@ def run_monitor(
                             ts_label = ts_dt.strftime("%H:%M:%S")
                         except Exception:
                             ts_label = None
-                    emit_thresholds_panel(dl, summary, ts_label)
+                    emit_evaluations_table(dl, summary, ts_label)
                 except Exception:
-                    logging.debug("Failed to emit thresholds panel", exc_info=True)
+                    logging.debug("Failed to emit evaluations table", exc_info=True)
             # ---- Sources line (compact) + optional deep trace ----
             try:
                 from backend.core.reporting_core.console_reporter import emit_sources_line
