@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json as _json
 import logging
 import os
@@ -380,7 +381,7 @@ def _resolve_liq_thresholds(liq_cfg: Dict[str, Any]) -> Dict[str, Optional[float
 def _resolve_profit_thresholds(prof_cfg: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
     """
     Accepts system var payload for 'profit_monitor' and returns (single, portfolio) USD thresholds.
-    Keys honored: position_profit_usd, portfolio_profit_usd. :contentReference[oaicite:3]{index=3}
+    Keys honored: position_profit_usd, portfolio_profit_usd.
     """
     return (_num(prof_cfg.get("position_profit_usd")), _num(prof_cfg.get("portfolio_profit_usd")))
 
@@ -397,6 +398,15 @@ def _as_dict(v: Any) -> Dict[str, Any]:
     return {}
 
 
+def _fmt_num(v: Optional[float]) -> str:
+    if v is None:
+        return "—"
+    try:
+        return f"{float(v):.2f}".rstrip("0").rstrip(".")
+    except Exception:
+        return str(v)
+
+
 def _src_label(v_src: str, t_src: str) -> str:
     v = "DB" if v_src == "db" else ("FILE" if v_src == "file" else "ENV" if v_src == "env" else v_src.upper())
     t = "DB" if t_src == "db" else ("FILE" if t_src == "file" else "ENV" if t_src == "env" else t_src.upper())
@@ -404,7 +414,6 @@ def _src_label(v_src: str, t_src: str) -> str:
 
 
 def _classify_result(kind: str, actual: Optional[float], thr: Optional[float]) -> str:
-    """Return a human label for monitor evaluation results."""
     if actual is None or thr is None or thr <= 0:
         return "· no data"
     if kind == "liquid":
@@ -413,21 +422,14 @@ def _classify_result(kind: str, actual: Optional[float], thr: Optional[float]) -
         if actual <= 1.2 * thr:
             return "🟡 NEAR"
         return "🟢 OK"
-    else:
-        if actual >= thr:
-            return "🟢 HIT"
-        if actual >= 0.8 * thr:
-            return "🟡 NEAR"
-        return "· not met"
+    if actual >= thr:
+        return "🟢 HIT"
+    if actual >= 0.8 * thr:
+        return "🟡 NEAR"
+    return "· not met"
 
 
-def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = None) -> None:
-    if os.getenv("SONIC_SHOW_THRESHOLDS", "1") == "0":
-        return
-
-    logger = logging.getLogger("SonicMonitor")
-    _info = logger.info
-
+def _build_eval_rows(dl) -> Tuple[List[Dict[str, Any]], str, str]:
     try:
         sysvars = getattr(dl, "system", None)
         gconf = getattr(dl, "global_config", None)
@@ -463,11 +465,87 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
     nearest = _nearest_liq_from_db(dl)
     single_act, port_act = _profit_actuals_from_db(dl)
 
+    rows: List[Dict[str, Any]] = []
+    for sym, icon in (("BTC", "₿"), ("ETH", "Ξ"), ("SOL", "◎")):
+        rows.append(
+            {
+                "metric": f"{icon} {sym} • 💧 Liquid",
+                "kind": "liquid",
+                "value": nearest.get(sym),
+                "rule": "≤",
+                "threshold": liq_thr.get(sym),
+                "src": _src_label("db", liq_src_type),
+            }
+        )
+
+    rows.append(
+        {
+            "metric": "👤 Single • 💹 Profit",
+            "kind": "profit",
+            "value": single_act,
+            "rule": "≥",
+            "threshold": prof_single_thr,
+            "src": _src_label("db", prof_src_type),
+        }
+    )
+    rows.append(
+        {
+            "metric": "🧺 Portfolio • 💹 Profit",
+            "kind": "profit",
+            "value": port_act,
+            "rule": "≥",
+            "threshold": prof_port_thr,
+            "src": _src_label("db", prof_src_type),
+        }
+    )
+    return rows, liq_src_type, prof_src_type
+
+
+def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = None) -> None:
+    if os.getenv("SONIC_SHOW_THRESHOLDS", "1") == "0":
+        return
+
+    logger = logging.getLogger("SonicMonitor")
+    _info = logger.info
+
     title = "🧭  Monitor Evaluations"
     if ts_label:
         title += f" — last cycle {ts_label}"
     _info(title)
     print(title, flush=True)
+
+    rows, _, _ = _build_eval_rows(dl)
+
+    try:
+        rich_console = importlib.import_module("rich.console")
+        rich_table = importlib.import_module("rich.table")
+        rich_box = importlib.import_module("rich.box")
+        Console = getattr(rich_console, "Console")
+        Table = getattr(rich_table, "Table")
+        box = getattr(rich_box, "SIMPLE_HEAVY")
+
+        tbl = Table(show_header=True, show_edge=True, box=box, pad_edge=False)
+        tbl.add_column("Metric", justify="left", no_wrap=True)
+        tbl.add_column("Value", justify="right")
+        tbl.add_column("Rule", justify="center")
+        tbl.add_column("Threshold", justify="right")
+        tbl.add_column("Result", justify="left", no_wrap=True)
+        tbl.add_column("Source (V / T)", justify="left", no_wrap=True)
+
+        for r in rows:
+            if r["kind"] == "liquid":
+                val = _fmt_num(r["value"])
+                thr = _fmt_num(r["threshold"])
+            else:
+                val = _fmt_usd(r["value"])
+                thr = _fmt_usd(r["threshold"])
+            res = _classify_result(r["kind"], r["value"], r["threshold"])
+            tbl.add_row(r["metric"], val, r["rule"], thr, res, r["src"])
+
+        Console().print(tbl)
+        return
+    except Exception:
+        pass
 
     METRIC_W = 26
     VAL_W = 12
@@ -481,52 +559,27 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
     )
     sep = "├" + "─" * METRIC_W + "┼" + "─" * VAL_W + "┼" + "─" * RULE_W + "┼" + "─" * THR_W + "┼" + "─" * RES_W + "┼" + "─" * SRC_W + "┤"
     bot = "└" + "─" * METRIC_W + "┴" + "─" * VAL_W + "┴" + "─" * RULE_W + "┴" + "─" * THR_W + "┴" + "─" * RES_W + "┴" + "─" * SRC_W + "┘"
-    for line in (top, header, sep):
+    _info(top)
+    print(top)
+    _info(header)
+    print(header)
+    _info(sep)
+    print(sep)
+
+    def _row(metric_label: str, actual_s: str, rule: str, thr_s: str, result: str, src_label: str) -> str:
+        return f"│ {metric_label:<{METRIC_W-1}}│{actual_s:>{VAL_W}}│{rule:^{RULE_W}}│{thr_s:>{THR_W}}│ {result:<{RES_W-1}}│ {src_label:<{SRC_W-1}}│"
+
+    for r in rows:
+        if r["kind"] == "liquid":
+            val = _fmt_num(r["value"])
+            thr = _fmt_num(r["threshold"])
+        else:
+            val = _fmt_usd(r["value"])
+            thr = _fmt_usd(r["threshold"])
+        res = _classify_result(r["kind"], r["value"], r["threshold"])
+        line = _row(r["metric"], val, r["rule"], thr, res, r["src"])
         _info(line)
         print(line)
-
-    def _row_line(metric_label: str, actual_s: str, rule: str, thr_s: str, result: str, src_label: str) -> str:
-        return (
-            f"│ {metric_label:<{METRIC_W-1}}│{actual_s:>{VAL_W}}│{rule:^{RULE_W}}│{thr_s:>{THR_W}}│ {result:<{RES_W-1}}│ {src_label:<{SRC_W-1}}│"
-        )
-
-    for sym in ("BTC", "ETH", "SOL"):
-        metric = f"{'₿' if sym == 'BTC' else 'Ξ' if sym == 'ETH' else '◎'} {sym} • 💧 Liquid"
-        a = nearest.get(sym)
-        t = liq_thr.get(sym)
-        result = _classify_result("liquid", a, t)
-        actual_s = _fmt_pct(a)
-        thr_s = _fmt_pct(t)
-        src = _src_label("db", liq_src_type)
-        line = _row_line(metric, actual_s, "≤", thr_s, result, src)
-        _info(line)
-        print(line)
-
-    metric = "👤 Single • 💹 Profit"
-    a, t = single_act, prof_single_thr
-    line = _row_line(
-        metric,
-        _fmt_usd(a),
-        "≥",
-        _fmt_usd(t),
-        _classify_result("profit", a, t),
-        _src_label("db", prof_src_type),
-    )
-    _info(line)
-    print(line)
-
-    metric = "🧺 Portfolio • 💹 Profit"
-    a, t = port_act, prof_port_thr
-    line = _row_line(
-        metric,
-        _fmt_usd(a),
-        "≥",
-        _fmt_usd(t),
-        _classify_result("profit", a, t),
-        _src_label("db", prof_src_type),
-    )
-    _info(line)
-    print(line)
 
     _info(bot)
     print(bot, flush=True)
@@ -609,6 +662,7 @@ __all__ = [
     "neuter_legacy_console_logger",
     "silence_legacy_console_loggers",
     "emit_compact_cycle",
+    "emit_evaluations_table",
     "emit_sources_line",
     "emit_json_summary",
     "emit_thresholds_panel",
