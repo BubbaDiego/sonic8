@@ -299,6 +299,7 @@ from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
+# Use the 4-arg compact cycle printer from console_lines
 from backend.core.reporting_core.console_lines import emit_compact_cycle
 from backend.core.reporting_core.positions_icons import compute_positions_icon_line, compute_from_list
 from backend.core.reporting_core.console_reporter import (
