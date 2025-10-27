@@ -6,7 +6,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # ───────────────────────── logger utils ─────────────────────────
 
@@ -69,19 +69,85 @@ def _c(s: str, code: int) -> str:
     return s
 
 def _fmt_prices_line(
-    top3: Iterable[Tuple[str, float]] | None,
-    ages: Dict[str, int] | None = None,
-    *,
+    prices_top3,
+    price_ages: dict | None = None,
     enable_color: bool = False,
 ) -> str:
-    if not top3: return "–"
-    ages = ages or {}
+    """
+    Render a compact 'BTC 69.1k (0s) • ETH 4.5k (3s) • SOL 227.8 (—)' line.
+    Accepts:
+      - prices_top3: iterable of (asset, price) OR dicts with {'asset'|'symbol'|'market', 'price'|'current_price'}
+      - price_ages: optional mapping {asset -> age_in_seconds or str}
+      - enable_color: reserved; keep signature compatible with callers
+    """
+
+    def _abbr(n):
+        try:
+            v = float(n)
+        except Exception:
+            return str(n)
+        abs_v = abs(v)
+        if abs_v >= 1_000_000_000:
+            return f"{v/1_000_000_000:.1f}B"
+        if abs_v >= 1_000_000:
+            return f"{v/1_000_000:.1f}M"
+        if abs_v >= 1_000:
+            return f"{v/1_000:.1f}k"
+        return f"{v:.2f}".rstrip("0").rstrip(".")
+
+    def _asset(x):
+        # tuple/list -> first item; dict -> common keys
+        if isinstance(x, (tuple, list)) and x:
+            return str(x[0]).upper()
+        if isinstance(x, dict):
+            for k in ("asset", "symbol", "market"):
+                if k in x and x[k]:
+                    return str(x[k]).upper()
+        return "?"
+
+    def _price(x):
+        if isinstance(x, (tuple, list)) and len(x) > 1:
+            return x[1]
+        if isinstance(x, dict):
+            for k in ("price", "current_price", "last", "value"):
+                if k in x and x[k] is not None:
+                    return x[k]
+        return None
+
+    def _age_tag(sym: str) -> str:
+        if not price_ages:
+            return ""
+        try:
+            if hasattr(price_ages, "get"):
+                age = price_ages.get(sym)
+                if age is None:
+                    age = price_ages.get(sym.upper())
+            else:
+                age = None
+        except Exception:
+            age = None
+        if age is None or age == "":
+            return "(—)"
+        try:
+            sec = float(age)
+            if sec < 1:
+                return "(0s)"
+            if sec < 60:
+                return f"({int(sec)}s)"
+            m = int(sec // 60)
+            return f"({m}m)"
+        except Exception:
+            return f"({age})"
+
     parts: List[str] = []
-    for sym, val in top3:
-        age = ages.get(sym.upper(), 0)
-        badge = "" if not age else f"·{age}c"
-        parts.append(f"{sym} ${val:,.2f}{badge}")
-    return "  ".join(parts)
+    for item in (prices_top3 or []):
+        sym = _asset(item)
+        price = _price(item)
+        age = _age_tag(sym) if price_ages else ""
+        pretty_price = _abbr(price) if price is not None else "—"
+        parts.append(f"{sym} {pretty_price} {age}".rstrip())
+
+    return " • ".join(parts) if parts else "–"
 
 def _fmt_monitors(mon: Dict[str, Any] | None) -> str:
     if not mon: return "–"
@@ -397,7 +463,17 @@ def emit_compact_cycle(
     hedges    = csum.get("hedges", {}) or {}
     monitors  = csum.get("monitors", {}) or {}
 
-    print("   💰 Prices   : " + _fmt_prices_line(csum.get("prices_top3", []), csum.get("price_ages", {}), enable_color))
+    prices_top3 = csum.get("prices_top3", [])
+    price_ages = csum.get("price_ages")
+    if prices_top3:
+        # pass ages if available; helper tolerates missing/None
+        print(
+            "   💰 Prices   : "
+            + _fmt_prices_line(prices_top3, price_ages, enable_color),
+            flush=True,
+        )
+    else:
+        print("   💰 Prices   : –", flush=True)
     print(f"   📊 Positions: {positions.get('sync_line', '–')}")
     print(f"   🛡 Hedges   : {'🦔' if int(hedges.get('groups', 0) or 0) > 0 else '–'}")
 
