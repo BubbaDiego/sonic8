@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import json as _json
 import logging
 import os
 import sys
@@ -392,16 +392,54 @@ def emit_thresholds_panel(dl, csum: Dict[str, Any], ts_label: Optional[str] = No
     """
     if os.getenv("SONIC_SHOW_THRESHOLDS", "1") == "0":
         return
-    logger = logging.getLogger("SonicMonitor")
-    _info = logger.info
 
-    # Load config (system vars)
+    # Load config preferring FILE (global_config) for liquidation, DB for profit
     try:
         sysvars = getattr(dl, "system", None)
+        gconf   = getattr(dl, "global_config", None)
     except Exception:
         sysvars = None
-    liq_cfg  = (sysvars.get_var("liquid_monitor") if sysvars else {}) or {}
-    prof_cfg = (sysvars.get_var("profit_monitor") if sysvars else {}) or {}
+        gconf   = None
+
+    def _as_dict(val: Any) -> Dict[str, Any]:
+        if isinstance(val, dict):
+            return val
+        if isinstance(val, str):
+            try:
+                parsed = _json.loads(val)
+                return parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    def _get_gconf(key: str) -> Dict[str, Any]:
+        try:
+            if isinstance(gconf, dict):
+                return _as_dict(gconf.get(key))
+            if gconf is not None and hasattr(gconf, "get"):
+                return _as_dict(gconf.get(key))
+        except Exception:
+            return {}
+        return {}
+
+    def _get_sysvar(key: str) -> Dict[str, Any]:
+        try:
+            return _as_dict(sysvars.get_var(key)) if sysvars else {}
+        except Exception:
+            return {}
+
+    liq_cfg_file = _get_gconf("liquid_monitor")
+    liq_cfg_db   = _get_sysvar("liquid_monitor")
+    liq_cfg      = liq_cfg_file or liq_cfg_db
+    if liq_cfg_file:
+        liq_src_tag = "📄 FILE"
+    elif liq_cfg_db:
+        liq_src_tag = "🗄 DB"
+    else:
+        liq_src_tag = "–"
+
+    prof_cfg_db  = _get_sysvar("profit_monitor")
+    prof_cfg     = prof_cfg_db
 
     liq_thr = _resolve_liq_thresholds(liq_cfg)
     prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg)
@@ -409,39 +447,42 @@ def emit_thresholds_panel(dl, csum: Dict[str, Any], ts_label: Optional[str] = No
     nearest = _nearest_liq_from_db(dl)
     single_act, port_act = _profit_actuals_from_db(dl)
 
-    # Header
     hdr = "🧭  Monitor Thresholds"
     if ts_label:
         hdr += f" — last cycle {ts_label}"
-    _info(hdr)
-    print(hdr, flush=True)
+    _i(hdr, "SonicMonitor"); print(hdr, flush=True)
 
-    def _row_liq(sym: str):
+    METRIC_W = 26
+    ACT_W    = 10
+    THR_W    = 10
+    BAR_W    = 10
+
+    def _row_liq(sym: str) -> None:
         actual = nearest.get(sym)
         thr    = liq_thr.get(sym)
         util   = (actual / thr) if (actual is not None and thr and thr > 0) else None
-        bar, lab = _bar(util)
-        name = "₿" if sym == "BTC" else ("Ξ" if sym == "ETH" else "◎")
+        bar, lab = _bar(util, width=BAR_W)
+        metric = f"{'₿' if sym == 'BTC' else ('Ξ' if sym == 'ETH' else '◎')} {sym} • 💧 Liquid"
         line = (
-            f"{name} {sym} • 💧 Liquid".ljust(22)
-            + f" {_fmt_pct(actual):>8} / {_fmt_pct(thr):<8}  {bar} {lab:>4}   🗄 DB"
+            f"{metric:<{METRIC_W}} "
+            f"{_fmt_pct(actual):>{ACT_W}} / {_fmt_pct(thr):<{THR_W}}  "
+            f"{bar} {lab:>4}   {liq_src_tag}"
         )
-        _info(line)
-        print(line, flush=True)
+        _i(line, "SonicMonitor"); print(line, flush=True)
 
     for sym in ("BTC", "ETH", "SOL"):
         if (nearest.get(sym) is not None) or (liq_thr.get(sym) is not None):
             _row_liq(sym)
 
-    def _row_profit(label: str, actual: Optional[float], thr: Optional[float]):
+    def _row_profit(label: str, actual: Optional[float], thr: Optional[float]) -> None:
         util = (actual / thr) if (actual is not None and thr and thr > 0) else None
-        bar, lab = _bar(util)
+        bar, lab = _bar(util, width=BAR_W)
         line = (
-            f"{label}".ljust(22)
-            + f" {_fmt_usd(actual):>10} / {_fmt_usd(thr):<10}  {bar} {lab:>4}   🗄 DB"
+            f"{label:<{METRIC_W}} "
+            f"{_fmt_usd(actual):>{ACT_W}} / {_fmt_usd(thr):<{THR_W}}  "
+            f"{bar} {lab:>4}   🗄 DB"
         )
-        _info(line)
-        print(line, flush=True)
+        _i(line, "SonicMonitor"); print(line, flush=True)
 
     _row_profit("👤 Single • 💹 Profit",   single_act, prof_single_thr)
     _row_profit("🧺 Portfolio • 💹 Profit", port_act,   prof_port_thr)
@@ -514,7 +555,7 @@ def emit_json_summary(csum: Dict[str, Any], cyc_ms: int, loop_counter: int, tota
     try:
         p = Path("logs"); p.mkdir(exist_ok=True)
         with (p / "sonic_summary.jsonl").open("a", encoding="utf-8") as f:
-            f.write(json.dumps(out, ensure_ascii=False) + "\n")
+            f.write(_json.dumps(out, ensure_ascii=False) + "\n")
     except Exception:
         pass
 
