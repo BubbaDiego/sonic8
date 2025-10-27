@@ -1,19 +1,4 @@
 {
-  "liquid_monitor": {
-    "blast_radius": {},
-    "enabled_liquid": true,
-    "notifications": {
-      "sms": false,
-      "system": false,
-      "tts": true,
-      "voice": true
-    },
-    "thresholds": {
-      "BTC": 5.0,
-      "ETH": 6.0,
-      "SOL": 14.1
-    }
-  },
   "market_monitor": {
     "notifications": {
       "sms": false,
@@ -50,10 +35,10 @@
       "tts": true,
       "voice": true
     },
-    "portfolio_profit_usd": 0.0,
-    "position_profit_usd": 2.0
+    "portfolio_profit_usd": 40.0,
+    "position_profit_usd": 10.0
   },
   "system_config": {
-    "sonic_monitor_loop_time": 30
+    "sonic_monitor_loop_time": 60
   }
 }

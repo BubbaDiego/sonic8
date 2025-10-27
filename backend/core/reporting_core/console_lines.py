@@ -1,253 +1,301 @@
-import datetime
-import os
-from typing import Dict, Any, List, Tuple, Optional, Mapping
+import json
+import logging
+import sys
+import time
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Tuple, Optional
 
-_GREEN = "\x1b[32m"
-_YELLOW = "\x1b[33m"
-_RED = "\x1b[31m"
-_CYAN = "\x1b[36m"
-_DIM = "\x1b[90m"
-_RESET = "\x1b[0m"
+# -------------------------------------------------------------------
+# Logging helpers
+# -------------------------------------------------------------------
+_LOG = logging.getLogger("ConsoleReporter")
 
-
-def _monitor_items_per_line() -> int:
-    value = os.getenv("SONIC_MONITOR_TUPLES_PER_LINE", "4")
+def _i(line: str) -> None:
     try:
-        parsed = int(value)
-        return parsed if parsed > 0 else 4
-    except (TypeError, ValueError):
-        return 4
-
-
-def _format_number(value: Any) -> Optional[str]:
-    if value in (None, ""):
-        return None
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return str(value)
-    if abs(number) >= 100:
-        return f"{number:.0f}"
-    return f"{number:.1f}"
-
-
-def _format_monitor_items(items: Any, *, max_items: int = 4) -> str:
-    if not items:
-        return "—"
-    if isinstance(items, str):
-        return items
-    if not isinstance(items, list):
-        return str(items)
-
-    tokens: List[str] = []
-    for idx, item in enumerate(items):
-        if idx >= max_items:
-            tokens.append("…")
-            break
-        if isinstance(item, str):
-            tokens.append(item)
-            continue
-        if isinstance(item, Mapping):
-            tag = (
-                item.get("tag")
-                or item.get("label")
-                or item.get("name")
-                or item.get("asset")
-                or item.get("symbol")
-            )
-            tag_str = str(tag) if tag not in (None, "") else "item"
-            thr = _format_number(
-                item.get("threshold")
-                or item.get("threshold_pct")
-                or item.get("threshold_value")
-            )
-            val = _format_number(
-                item.get("value")
-                or item.get("value_pct")
-                or item.get("distance")
-                or item.get("dist_pct")
-            )
-            segments: List[str] = []
-            if thr is not None:
-                segments.append(f"T={thr}")
-            if val is not None:
-                segments.append(f"V={val}")
-            meta = item.get("meta")
-            if isinstance(meta, str) and meta:
-                segments.append(meta)
-            severity = item.get("severity")
-            if severity and str(severity).lower() not in {"pass", "ok"}:
-                segments.append(str(severity))
-            details = ", ".join(segments)
-            if details:
-                tokens.append(f"({tag_str}, {details})")
-            else:
-                tokens.append(str(tag_str))
-            continue
-        tokens.append(str(item))
-
-    return "  ".join(tokens) if tokens else "—"
-
-
-def _emit_monitor_lines(monitor_map: Dict[str, Any], *, max_items: int = 4) -> None:
-    order = [
-        ("liquid", "Liquid"),
-        ("profit", "Profit"),
-        ("market", "Market"),
-        ("price", "Price"),
-    ]
-    for key, label in order:
-        items = monitor_map.get(key) if isinstance(monitor_map, Mapping) else None
-        line = _format_monitor_items(items or [], max_items=max_items)
-        print(f"      {label:<7}: {line}")
-
-
-def _emit_alerts_per_monitor(
-    monitor_map: Dict[str, Any],
-    *,
-    max_items: int = 4,
-    severities=("breach", "fail"),
-) -> int:
-    """Print per-monitor alerts for flagged severities. Returns count printed."""
-
-    order = [
-        ("liquid", "Liquid"),
-        ("profit", "Profit"),
-        ("market", "Market"),
-        ("price", "Price"),
-    ]
-    shown = 0
-    for key, label in order:
-        items_all: List[Any] = []
-        if isinstance(monitor_map, Mapping):
-            raw = monitor_map.get(key)
-            if isinstance(raw, list):
-                items_all = raw
-        flagged = [
-            item
-            for item in items_all
-            if (
-                isinstance(item, Mapping)
-                and str(item.get("severity", "pass")).lower() in severities
-            )
-            or (not isinstance(item, Mapping) and item)
-        ]
-        if not flagged:
-            continue
-        line = _format_monitor_items(flagged, max_items=max_items)
-        print(f"      {label:<7}: {line}")
-        shown += 1
-    return shown
-
-# Price & position icons by ticker symbol for quick visual parsing in the console.
-_PX_ICON = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
-
-def _fmt_short_clock(iso: Optional[str]) -> str:
-    if not iso:
-        return "–"
-    try:
-        value = iso
-        if value.endswith("Z"):
-            dt = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
-        else:
-            dt = datetime.datetime.fromisoformat(value)
-        local = dt.astimezone()
-        # Windows-friendly format (no %-I)
-        return local.strftime("%I:%M%p").lstrip("0").lower()
+        _LOG.info(line)
     except Exception:
-        return "–"
+        pass
 
-def _prices_line(
-    top3: List[Tuple[str, float]],
+class StrictWhitelistFilter(logging.Filter):
+    """Allow only whitelisted logger names at INFO; always allow WARNING+."""
+    def __init__(self, *names: str) -> None:
+        super().__init__()
+        self._names = set(names or ("SonicMonitor", "ConsoleReporter"))
+
+    def filter(self, record: logging.LogRecord) -> bool:  # type: ignore[override]
+        try:
+            if record.levelno >= logging.WARNING:
+                return True
+            return record.name in self._names
+        except Exception:
+            return True
+
+def install_strict_console_filter() -> None:
+    """Install a strict filter on stream handlers (keeps compact mode tidy)."""
+    try:
+        root = logging.getLogger()
+        for h in root.handlers:
+            if isinstance(h, logging.StreamHandler):
+                h.addFilter(StrictWhitelistFilter())
+    except Exception:
+        pass
+
+def neuter_legacy_console_logger(
+    names: Optional[List[str]] = None, *, level: int = logging.ERROR
+) -> None:
+    """
+    Mute chatty loggers on console; keep WARNING/ERROR.
+    Back-compat shim expected by the monitor runner.
+    """
+    try:
+        names = names or [
+            "werkzeug",
+            "uvicorn.access",
+            "asyncio",
+            "fuzzy_wuzzy",
+            "ConsoleLogger",
+            "console_logger",
+            "LoggerControl",
+        ]
+        for n in names:
+            lg = logging.getLogger(n)
+            lg.setLevel(level)
+            lg.propagate = False
+            if not lg.handlers:
+                lg.addHandler(logging.NullHandler())
+    except Exception:
+        pass
+
+# Back-compat alias some builds import
+def silence_legacy_console_loggers(
+    names: Optional[List[str]] = None, *, level: int = logging.ERROR
+) -> None:
+    return neuter_legacy_console_logger(names, level=level)
+
+# -------------------------------------------------------------------
+# Small formatting helpers
+# -------------------------------------------------------------------
+def _c(s: str, code: int) -> str:
+    """Colorize with ANSI if stdout is a TTY; else return s."""
+    if sys.stdout.isatty():
+        return f"\x1b[{code}m{s}\x1b[0m"
+    return s
+
+def _fmt_prices_line(
+    top3: Optional[Iterable[Tuple[str, float]]],
     ages: Optional[Dict[str, int]] = None,
-    *,
+    # NOTE: accept enable_color as a *positional* third arg to match legacy callers
     enable_color: bool = False,
 ) -> str:
+    """
+    Keep the third positional parameter to accept legacy calls like:
+        _fmt_prices_line(top3, ages, enable_color)
+    We currently ignore enable_color here; colorization is handled by _c().
+    """
     if not top3:
         return "–"
+    ages = ages or {}
     parts: List[str] = []
-    for symbol, price in top3:
-        icon = _PX_ICON.get(symbol, symbol)
-        value = f"${price:,.2f}"
-        if enable_color:
-            age = (ages or {}).get(symbol, 999_999)
-            if age == 0:
-                value = f"{_GREEN}{value}{_RESET}"
-            elif 2 <= age <= 3:
-                value = f"{_YELLOW}{value}{_RESET}"
-            elif age > 3:
-                value = f"{_RED}{value}{_RESET}"
-        parts.append(f"{icon} {value}")
+    for sym, val in top3:
+        age = ages.get(str(sym).upper(), 0)
+        badge = "" if not age else f"·{age}c"
+        parts.append(f"{sym} ${val:,.2f}{badge}")
     return "  ".join(parts)
 
+def _fmt_monitors(monitors: Optional[Dict[str, Any]]) -> str:
+    if not monitors:
+        return "–"
+    en = monitors.get("enabled") or monitors.get("monitors_enabled") or {}
+    pieces: List[str] = []
+    for key in ("liquid", "profit", "market", "price"):
+        if key in en:
+            pieces.append(f"{key} ({'🛠️' if en.get(key) else '✖'})")
+    return "  ".join(pieces) if pieces else "–"
+
+# -------------------------------------------------------------------
+# Alerts detail formatting (per-monitor)
+# -------------------------------------------------------------------
+def _fmt_liquid_detail(rows: Optional[List[Dict[str, Any]]]) -> List[str]:
+    if not rows:
+        return ["✓"]
+    out: List[str] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        asset = str(r.get("asset") or r.get("symbol") or "—")
+        dist = r.get("distance"); thr = r.get("threshold")
+        if dist is None or thr is None:
+            continue
+        try:
+            d = float(str(dist).replace("%", ""))
+            t = float(str(thr).replace("%", ""))
+        except Exception:
+            continue
+        sev = str(r.get("severity") or "").lower()
+        tag = "breach" if sev == "breach" else ("near" if sev == "near" else "ok")
+        out.append(f"{asset} {d:.1f}% / thr {t:.1f}%  ({tag})")
+    return out or ["✓"]
+
+def _fmt_profit_detail(rows: Optional[List[Dict[str, Any]]]) -> List[str]:
+    if not rows:
+        return ["✓"]
+    out: List[str] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        metric = str(r.get("metric") or "pf").lower()
+        label  = "portfolio" if metric in ("pf", "portfolio") else "position"
+        val = r.get("value"); thr = r.get("threshold")
+        if val is None or thr is None:
+            continue
+        try:
+            v = float(val); t = float(thr)
+        except Exception:
+            continue
+        sev = str(r.get("severity") or "").lower()
+        tag = "breach" if sev == "breach" else ("near" if sev == "near" else "ok")
+        out.append(f"{label} {v:.1f} / thr {t:.1f}  ({tag})")
+    return out or ["✓"]
+
+def _emit_alerts_block(csum: Dict[str, Any]) -> None:
+    """
+    Print aligned blue '🔔 Alerts' header, then one indented line per monitor.
+    Falls back to ✓ when no detail is available.
+    """
+    alerts = csum.get("alerts") or {}
+    detail = alerts.get("detail") or {}
+
+    # Aligned header (same column as Hedges / Notifications)
+    print(_c("   🔔 Alerts   :", 94), flush=True)
+
+    for mon_key, title, fmt in (
+        ("profit", "Profit", _fmt_profit_detail),
+        ("liquid", "Liquid", _fmt_liquid_detail),
+        ("market", "Market", lambda _: ["✓"]),
+        ("price",  "Price",  lambda _: ["✓"]),
+    ):
+        rows = detail.get(mon_key) if isinstance(detail, dict) else None
+        lines = fmt(rows)
+        print(f"      {title:<7}: ", end="")
+        if lines == ["✓"]:
+            print("✓", flush=True)
+        else:
+            print(lines[0], flush=True)
+            for more in lines[1:]:
+                print(f"                 {more}", flush=True)
+
+# -------------------------------------------------------------------
+# Compact cycle renderer (new signature)
+# -------------------------------------------------------------------
 def emit_compact_cycle(
-    summary: Dict[str, Any],
-    cfg: Dict[str, Any],
-    poll_interval_s: int,
+    csum: Dict[str, Any],
+    cyc_ms: int,
+    interval: int,
+    loop_counter: int,
+    total_elapsed: float,
+    sleep_time: float,
     *,
     enable_color: bool = False,
 ) -> None:
     """
-    Sonic6-compatible compact endcap driven by the classic `summary` dict.
-    Expected keys (all optional with safe fallbacks):
-      prices_top3, price_ages, prices_updated_at,
-      positions_line, positions_updated_at, positions_brief,
-      hedge_groups, elapsed_s, cycle_num, notifications_brief
+    New reporter signature used by the console_lines shim (which adapts
+    legacy callers to provide cyc_ms/loop_counter/total_elapsed/sleep_time).
     """
-    _ = cfg  # placeholder for future config-specific rendering tweaks
-    cycle_number = summary.get("cycle_num", "?")
+    prices = csum.get("prices") or {}
+    positions = csum.get("positions") or {}
+    hedges = csum.get("hedges") or {}
+    monitors = csum.get("monitors") or {}
 
-    # ----- Centered Cyclone banner -----
-    total_elapsed = float(summary.get("elapsed_s") or 0.0)
-    elapsed_label = f"{_GREEN}✅{_RESET} {int(total_elapsed):d}s"
+    # Top rows
+    print("   💰 Prices   : " + _fmt_prices_line(
+        csum.get("prices_top3", []),
+        csum.get("price_ages", {}),
+        enable_color  # accept positional 3rd arg, safe even if ignored
+    ))
+    print(f"   📊 Positions: {positions.get('sync_line', '–')}")
+    # Keep Hedges aligned with Alerts/Notifications column
+    print(f"   🛡 Hedges   : {'🦔' if int(hedges.get('groups', 0) or 0) > 0 else '–'}")
 
-    banner = " 🌀🌀🌀  Cyclone Summary  🌀🌀🌀 "
-    width = 78
-    pad = max(0, (width - len(banner)) // 2)
-    print(" " * pad + banner)
+    # Multi-line Alerts
+    _emit_alerts_block(csum)
 
-    # Time line under the banner
-    print(f"   {_CYAN}Time{_RESET}     : {elapsed_label}", flush=True)
+    # Notifications (actual dispatch outcomes only)
+    notif_line = csum.get("notifications_brief", "NONE (no_breach)")
+    print(f"   📨 Notifications : {notif_line}")
 
-    # Prices
-    prices_when = _fmt_short_clock(summary.get("prices_updated_at"))
-    print(
-        f"   {_CYAN}Prices{_RESET}   : "
-        f"{_prices_line(summary.get('prices_top3', []), summary.get('price_ages', {}), enable_color=enable_color)}  • @ {prices_when}"
-    )
-
-    # Positions — show iconified line (e.g., 🟡 BTC-S, 🔷 ETH-L, 🟣 SOL-S)
-    pos_when = _fmt_short_clock(summary.get("positions_updated_at"))
-    pos_line = summary.get("positions_icon_line") or "–"
-    pos_error = summary.get("positions_error")
-    if pos_error:
-        print(f"   {_CYAN}Positions{_RESET}: {pos_line}  • @ {pos_when} — {_RED}{pos_error}{_RESET}")
-    else:
-        print(f"   {_CYAN}Positions{_RESET}: {pos_line}  • @ {pos_when}")
-
-    # Hedges
-    hc = int(summary.get("hedge_groups", 0) or 0)
-    print(f"   {_CYAN}Hedges{_RESET}   : {(''.join('🦔' for _ in range(hc))) if hc > 0 else '–'}")
-
-    # Monitors + Alerts + Notifications
-    monitor_map = summary.get("monitor_lines")
-    if not isinstance(monitor_map, Mapping):
-        monitor_map = {}
-    max_items = _monitor_items_per_line()
-
-    print("   📡 Monitors :")
-    _emit_monitor_lines(monitor_map, max_items=max_items)
-
-    alerts_inline = summary.get("alerts_inline", "pass 0/0 –")
-    printed = _emit_alerts_per_monitor(monitor_map, max_items=max_items)
-    if printed == 0:
-        print(f"   🔔 Alerts   : {alerts_inline}")
-    else:
-        print("   🔔 Alerts   :")
-
-    print(f"   {_CYAN}Notifications{_RESET} : {summary.get('notifications_brief', 'NONE (no_breach)')}")
+    # Monitors summary
+    print(f"   📡 Monitors : {_fmt_monitors(monitors)}")
 
     # Tail
-    tail = f"✅ cycle #{cycle_number} done • {total_elapsed:.2f}s  (sleep {poll_interval_s:.1f}s)"
+    tail = f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)"
+    _i(tail)
     print(tail, flush=True)
-    print("─" * 72)
+
+# -------------------------------------------------------------------
+# Optional “Sources” line (threshold provenance) and JSONL
+# -------------------------------------------------------------------
+def emit_sources_line(sources: Dict[str, Any], label: str = "") -> None:
+    if not sources:
+        return
+    blocks: List[str] = []
+
+    profit = sources.get("profit") or {}
+    if profit:
+        pos = profit.get("pos"); pf = profit.get("pf")
+        blocks.append("profit:{"
+                      + ",".join([f"pos={pos if pos not in (None, '') else '–'}",
+                                  f"pf={pf if pf not in (None, '') else '–'}"])
+                      + "}")
+
+    liquid = sources.get("liquid") or {}
+    if liquid:
+        btc = liquid.get("btc"); eth = liquid.get("eth"); sol = liquid.get("sol")
+        blocks.append("liquid:{"
+                      + ",".join([f"btc={btc if btc not in (None, '') else '–'}",
+                                  f"eth={eth if eth not in (None, '') else '–'}",
+                                  f"sol={sol if sol not in (None, '') else '–'}"])
+                      + "}")
+
+    if not blocks:
+        return
+
+    suffix = f" ← {label}" if label else ""
+    line = "   🧭 Sources  : " + " ".join(blocks) + suffix
+    _i(line)
+    print(line, flush=True)
+
+def emit_json_summary(
+    csum: Dict[str, Any],
+    cyc_ms: int,
+    loop_counter: int,
+    total_elapsed: float,
+    sleep_time: float,
+) -> None:
+    out = {
+        "cycle": loop_counter,
+        "durations_ms": {"cyclone": int(cyc_ms), "total": int(total_elapsed * 1000)},
+        "sleep_s": round(sleep_time, 3),
+        "prices": csum.get("prices", {}),
+        "positions": csum.get("positions", {}),
+        "hedges": csum.get("hedges", {}),
+        "alerts": csum.get("alerts", {}),
+        "monitors": csum.get("monitors", {}),
+        "ts": int(time.time()),
+    }
+    try:
+        logs = Path("logs")
+        logs.mkdir(exist_ok=True)
+        with (logs / "sonic_summary.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(out, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+__all__ = [
+    "StrictWhitelistFilter",
+    "install_strict_console_filter",
+    "neuter_legacy_console_logger",
+    "silence_legacy_console_loggers",
+    "emit_compact_cycle",
+    "emit_sources_line",
+    "emit_json_summary",
+]

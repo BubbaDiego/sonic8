@@ -305,6 +305,12 @@ from backend.core.reporting_core.console_reporter import (
     install_strict_console_filter,
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
+    emit_thresholds_panel,
+)
+from backend.core.monitor_core.summary_helpers import (
+    load_monitor_config_snapshot,
+    build_sources_snapshot,
+    build_alerts_detail,
 )
 from backend.core.reporting_core.summary_cache import (
     snapshot_into,
@@ -494,28 +500,106 @@ def _read_monitor_threshold_sources_legacy(dl: DataLocker) -> tuple[Dict[str, An
     return values, label
 
 def _read_monitor_threshold_sources(dl: DataLocker) -> tuple[Dict[str, Any], str]:
-    # prefer JSON (already loaded above)
-    json_values: Dict[str, Any] = {}
+    """Return effective monitor thresholds and a summary label for their source.
+    JSON-aware: prefers monitor objects (profit_monitor, liquid_monitor) from global_config (FILE)
+    and falls back to DL.system_vars (DB)."""
 
-    if LIQ_THR or LIQ_BLAST:
-        json_values["liquid_monitor"] = {
-            "thresholds": dict(LIQ_THR),
-            "blast": dict(LIQ_BLAST),
-        }
+    sysvars = getattr(dl, "system", None)
+    gconf   = getattr(dl, "global_config", None)
 
-    if PROFIT_POS is not None or PROFIT_PF is not None:
-        section: Dict[str, Any] = {}
-        if PROFIT_POS is not None:
-            section["position_profit_usd"] = PROFIT_POS
-        if PROFIT_PF is not None:
-            section["portfolio_profit_usd"] = PROFIT_PF
-        json_values["profit_monitor"] = section
+    sources_used: set[str] = set()
 
-    if json_values:
-        return json_values, "JSON"
+    def _as_dict(val: Any) -> Dict[str, Any]:
+        if isinstance(val, Mapping):
+            return dict(val)
+        if isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+                return dict(parsed) if isinstance(parsed, Mapping) else {}
+            except Exception:
+                return {}
+        return {}
 
-    # fallback to legacy DB readers (should never happen in JSON-ONLY mode)
-    return _read_monitor_threshold_sources_legacy(dl)
+    def _from_gconf(key: str) -> Dict[str, Any]:
+        try:
+            if isinstance(gconf, Mapping):
+                return _as_dict(gconf.get(key))
+            if gconf is not None and hasattr(gconf, "get"):
+                return _as_dict(gconf.get(key))
+        except Exception:
+            return {}
+        return {}
+
+    def _from_sysvars(key: str) -> Dict[str, Any]:
+        try:
+            return _as_dict(sysvars.get_var(key)) if sysvars else {}
+        except Exception:
+            return {}
+
+    profit_obj = _from_gconf("profit_monitor")
+    profit_src = "global_config" if profit_obj else ""
+    if not profit_obj:
+        fallback = _from_sysvars("profit_monitor")
+        if fallback:
+            profit_obj = fallback
+            profit_src = "DL.system_vars"
+
+    liquid_obj = _from_gconf("liquid_monitor")
+    liquid_src = "global_config" if liquid_obj else ""
+    if not liquid_obj:
+        fallback = _from_sysvars("liquid_monitor")
+        if fallback:
+            liquid_obj = fallback
+            liquid_src = "DL.system_vars"
+
+    market_obj = _from_gconf("market_monitor")
+    market_src = "global_config" if market_obj else ""
+    if not market_obj:
+        fallback = _from_sysvars("market_monitor")
+        if fallback:
+            market_obj = fallback
+            market_src = "DL.system_vars"
+
+    profit: Dict[str, Any] = {}
+    if profit_obj:
+        if "position_profit_usd" in profit_obj:
+            profit["pos"] = profit_obj.get("position_profit_usd")
+        if "portfolio_profit_usd" in profit_obj:
+            profit["pf"] = profit_obj.get("portfolio_profit_usd")
+        if profit:
+            sources_used.add(profit_src)
+
+    liquid: Dict[str, Any] = {}
+    if liquid_obj:
+        thresholds = liquid_obj.get("thresholds") if isinstance(liquid_obj, Mapping) else None
+        if isinstance(thresholds, Mapping) and thresholds:
+            for sym in ("BTC", "ETH", "SOL"):
+                if sym in thresholds:
+                    liquid[sym.lower()] = thresholds.get(sym)
+        else:
+            glob = liquid_obj.get("threshold_percent")
+            if glob is not None:
+                for sym in ("btc", "eth", "sol"):
+                    liquid[sym] = glob
+        if liquid:
+            sources_used.add(liquid_src)
+
+    market: Dict[str, Any] = market_obj if isinstance(market_obj, dict) else {}
+    if market:
+        sources_used.add(market_src)
+
+    if not (profit or liquid or market):
+        return _read_monitor_threshold_sources_legacy(dl)
+
+    sources_used.discard("")
+    if not sources_used:
+        label = ""
+    elif len(sources_used) == 1:
+        label = next(iter(sources_used))
+    else:
+        label = "mixed: " + " + ".join(sorted(sources_used))
+
+    return {"profit": profit, "liquid": liquid, "market": market}, label
 
 def _xcom_live() -> bool:
     """JSON-only control for XCom live/dry-run."""
@@ -1112,7 +1196,42 @@ def run_monitor(
 
             print()  # breathing room before summary
             summary = snapshot_into(summary)
+            # ---- Alerts detail + sources snapshot (tolerant; safe when missing) ----
+            try:
+                cfg_snapshot = load_monitor_config_snapshot(summary)
+                summary["sources"] = build_sources_snapshot(cfg_snapshot)
+                # build detail only if monitors didn't already include it
+                summary.setdefault("alerts", {})
+                if not isinstance(summary["alerts"].get("detail"), dict):
+                    summary["alerts"]["detail"] = build_alerts_detail(summary, cfg_snapshot)
+            except Exception as _e:
+                # don't fail the cycle on cosmetics; console will show ✓ for missing detail
+                pass
             emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            if dl is not None:
+                try:
+                    ts_label = None
+                    ts_value = (
+                        summary.get("positions_updated_at")
+                        or summary.get("prices_updated_at")
+                    )
+                    if ts_value:
+                        try:
+                            if isinstance(ts_value, (int, float)):
+                                ts_dt = datetime.fromtimestamp(float(ts_value), timezone.utc)
+                            else:
+                                ts_str = str(ts_value)
+                                if ts_str.endswith("Z"):
+                                    ts_str = ts_str[:-1] + "+00:00"
+                                ts_dt = datetime.fromisoformat(ts_str)
+                            if ts_dt.tzinfo is None:
+                                ts_dt = ts_dt.replace(tzinfo=timezone.utc)
+                            ts_label = ts_dt.strftime("%H:%M:%S")
+                        except Exception:
+                            ts_label = None
+                    emit_thresholds_panel(dl, summary, ts_label)
+                except Exception:
+                    logging.debug("Failed to emit thresholds panel", exc_info=True)
             # ---- Sources line (compact) + optional deep trace ----
             try:
                 from backend.core.reporting_core.console_reporter import emit_sources_line
