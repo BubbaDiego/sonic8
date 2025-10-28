@@ -89,9 +89,12 @@ class WalletService:
                 decimals = dec
 
             if decimals is None:
+                decimals = self._fetch_mint_decimals(mint)
+
+            if decimals is None:
                 decimals = 0
 
-            ui_amount = total_amount / (10 ** decimals) if decimals else float(total_amount)
+            ui_amount = total_amount / (10 ** decimals) if decimals is not None else 0.0
             return {
                 "mint": mint,
                 "amount": total_amount,
@@ -100,6 +103,24 @@ class WalletService:
             }
         except Exception as exc:  # pragma: no cover - network failure
             return {"mint": mint, "error": f"{type(exc).__name__}: {exc}"}
+
+    def _fetch_mint_decimals(self, mint: str) -> Optional[int]:
+        """Best-effort fetch of mint decimals when no token accounts exist."""
+
+        try:
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getTokenSupply",
+                "params": [mint, {"commitment": "processed"}],
+            }
+            resp = requests.post(self.cfg.solana_rpc_url, json=payload, timeout=10)
+            resp.raise_for_status()
+            value = resp.json().get("result", {}).get("value")
+            decimals = value.get("decimals") if isinstance(value, dict) else None
+            return int(decimals) if isinstance(decimals, int) else None
+        except Exception:  # pragma: no cover - depends on RPC availability
+            return None
 
     def fetch_standard_balances(self, public_key: str) -> Dict[str, object]:
         """Fetch SOL plus a default basket of SPL tokens for convenience."""
