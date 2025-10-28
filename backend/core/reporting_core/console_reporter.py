@@ -312,46 +312,57 @@ def _bar(util: Optional[float], width: int = 10) -> Tuple[str, str]:
 
 def _nearest_liq_from_db(dl, cycle_id: Optional[str] = None) -> Dict[str, Optional[float]]:
     """
-    Return minimum absolute liquidation distance per asset.
-    Prefer current cycle snapshot (sonic_positions) when cycle_id is provided;
-    fall back to legacy positions table.
-    We keep this intentionally lenient: if the table/column isn’t there, we return {}.
+    Minimum absolute liquidation distance per asset.
+    Snapshot path (sonic_positions): 'liq_dist' preferred, fallback to 'liquidation_distance'.
+    Legacy runtime path (positions):  'liquidation_distance' preferred, fallback to 'liq_dist'.
     """
+    out: Dict[str, Optional[float]] = {}
     try:
         cur = dl.db.get_cursor()
         if not cur:
-            return {}
+            return out
         if cycle_id:
+            has_liq = False
+            try:
+                cur.execute("PRAGMA table_info(sonic_positions)")
+                has_liq = any(str(r[1]).lower() == "liq_dist" for r in (cur.fetchall() or []))
+            except Exception:
+                has_liq = False
+            col = "liq_dist" if has_liq else "liquidation_distance"
             cur.execute(
-                """
-                SELECT asset, MIN(ABS(liquidation_distance)) AS min_dist
-                  FROM sonic_positions
-                 WHERE cycle_id = ?
-                GROUP BY asset
-                """,
+                f"SELECT asset, MIN(ABS({col})) AS min_dist FROM sonic_positions WHERE cycle_id = ? GROUP BY asset",
                 (cycle_id,),
             )
         else:
-            cur.execute(
-                """
-                SELECT asset_type, MIN(ABS(liquidation_distance)) AS min_dist
-                  FROM positions
-                 WHERE status='ACTIVE'
-                GROUP BY asset_type
-                """
-            )
+            try:
+                cur.execute(
+                    """
+                    SELECT asset_type, MIN(ABS(liquidation_distance)) AS min_dist
+                      FROM positions
+                     WHERE status='ACTIVE'
+                    GROUP BY asset_type
+                    """
+                )
+            except Exception:
+                cur.execute(
+                    """
+                    SELECT asset_type, MIN(ABS(liq_dist)) AS min_dist
+                      FROM positions
+                     WHERE status='ACTIVE'
+                    GROUP BY asset_type
+                    """
+                )
         rows = cur.fetchall() or []
-        out = {}
         for r in rows:
             asset = (
                 r["asset"] if hasattr(r, "keys") and "asset" in r.keys()
                 else (r["asset_type"] if hasattr(r, "keys") and "asset_type" in r.keys() else r[0])
             ) or ""
-            val   = (r["min_dist"]   if "min_dist"   in getattr(r, "keys", lambda: [])() else r[1])
+            val = (r["min_dist"] if "min_dist" in getattr(r, "keys", lambda: [])() else r[1])
             out[str(asset).upper()] = _num(val, None)
         return out
     except Exception:
-        return {}
+        return out
 
 
 def _profit_actuals_from_db(dl) -> Tuple[float, float]:
@@ -387,6 +398,7 @@ def _read_positions_compact(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
         cur = db.get_cursor() if db else None
         if not cur:
             return out
+        pnl_field = "pnl_after_fees_usd"
         if cycle_id:
             cur.execute("SELECT COUNT(*) FROM sonic_positions WHERE cycle_id = ?", (cycle_id,))
             row = cur.fetchone()
@@ -395,10 +407,14 @@ def _read_positions_compact(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
                     out["count"] = int(row[0])
                 except Exception:
                     out["count"] = int(_row_get(row, 0, 0) or 0)
-            cur.execute(
-                "SELECT pnl_after_fees_usd FROM sonic_positions WHERE cycle_id = ?",
-                (cycle_id,),
-            )
+            try:
+                cur.execute("SELECT pnl FROM sonic_positions WHERE cycle_id = ?", (cycle_id,))
+                pnl_field = "pnl"
+            except Exception:
+                cur.execute(
+                    "SELECT pnl_after_fees_usd FROM sonic_positions WHERE cycle_id = ?",
+                    (cycle_id,),
+                )
         else:
             cur.execute("SELECT COUNT(*) FROM positions WHERE status='ACTIVE'")
             row = cur.fetchone()
@@ -407,12 +423,16 @@ def _read_positions_compact(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
                     out["count"] = int(row[0])
                 except Exception:
                     out["count"] = int(_row_get(row, 0, 0) or 0)
-            cur.execute(
-                "SELECT pnl_after_fees_usd FROM positions WHERE status='ACTIVE'"
-            )
+            try:
+                cur.execute(
+                    "SELECT pnl_after_fees_usd FROM positions WHERE status='ACTIVE'"
+                )
+            except Exception:
+                cur.execute("SELECT pnl FROM positions WHERE status='ACTIVE'")
+                pnl_field = "pnl"
         vals: List[float] = []
         for rec in cur.fetchall() or []:
-            val = _row_get(rec, "pnl_after_fees_usd", _row_get(rec, 0))
+            val = _row_get(rec, pnl_field, _row_get(rec, 0))
             try:
                 num = float(val)
             except Exception:
@@ -572,15 +592,19 @@ def _resolve_liquid_sources(
     db_map: Dict[str, Optional[float]] = {"BTC": None, "ETH": None, "SOL": None}
     env_map: Dict[str, Optional[float]] = _scan_env_liquid()
 
-    # FILE (prefer explicit JSON if provided; fall back to loader global_config)
-    if isinstance(file_json, dict) and "liquid_monitor" in file_json:
-        lm_file = _as_dict(file_json.get("liquid_monitor"))
-    else:
-        lm_file = _as_dict(gconf.get("liquid_monitor") if hasattr(gconf, "get") else {})
-    if (not lm_file) and isinstance(file_json, dict) and "liquidation_monitor" in file_json:
-        lm_file = _as_dict(file_json.get("liquidation_monitor"))
+    lm_file: Dict[str, Any] = {}
+    if isinstance(file_json, dict):
+        lm_file = _as_dict(
+            file_json.get("liquid_monitor")
+            or file_json.get("liquidation_monitor")
+            or file_json.get("liquid")
+            or {}
+        )
+    if (not lm_file) and gconf and hasattr(gconf, "get"):
+        lm_file = _as_dict(gconf.get("liquid_monitor") or gconf.get("liquid") or {})
+
     thr_map = _as_dict(lm_file.get("thresholds") or {})
-    glob = _num(lm_file.get("threshold_percent"))
+    glob = _num(lm_file.get("threshold_percent") or lm_file.get("percent"))
     for sym in ("BTC", "ETH", "SOL"):
         file_map[sym] = _num(thr_map.get(sym), glob)
 
@@ -606,7 +630,10 @@ def _resolve_liquid_sources(
 
 
 def _resolve_profit_sources(dl) -> tuple[Dict[str, Optional[float]], str]:
-    """Return profit thresholds (pos/pf) and the provenance label."""
+    """
+    Returns ({'pos': x, 'pf': y}, chosen_source).
+    Profit thresholds live in DB system vars; accept modern and legacy shapes.
+    """
 
     try:
         sysvars = getattr(dl, "system", None)
@@ -618,9 +645,60 @@ def _resolve_profit_sources(dl) -> tuple[Dict[str, Optional[float]], str]:
     except Exception:
         pm = {}
 
-    pos_thr, pf_thr = _resolve_profit_thresholds(pm)
-    src = "db" if any(v is not None for v in (pos_thr, pf_thr)) else "unknown"
-    return {"pos": pos_thr, "pf": pf_thr}, src
+    pos = _num(pm.get("position_profit_usd") or pm.get("single_usd") or pm.get("pos"))
+    pf = _num(pm.get("portfolio_profit_usd") or pm.get("total_usd") or pm.get("pf"))
+
+    if (pos is None and pf is None) and sysvars:
+        try:
+            mc = _as_dict(sysvars.get_var("monitor_config") or {})
+        except Exception:
+            mc = {}
+        pm2 = _as_dict(mc.get("profit_monitor") or {})
+        if pos is None:
+            pos = _num(pm2.get("position_profit_usd"))
+        if pf is None:
+            pf = _num(pm2.get("portfolio_profit_usd"))
+
+    src = "db" if (pos is not None or pf is not None) else "unknown"
+    return {"pos": pos, "pf": pf}, src
+
+
+def resolve_effective_thresholds(dl, csum: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Produce a single map of the exact thresholds the monitor should use this cycle.
+    {'liquid': {'BTC':..., 'ETH':..., 'SOL':...}, 'profit': {'single':..., 'portfolio':...}, 'src': {...}}
+    """
+
+    json_path = os.getenv("SONIC_MONITOR_JSON", "")
+    parsed = None
+    if json_path:
+        parsed, _ = _safe_json_load(json_path)
+
+    file_map, db_map, env_map, _ = _resolve_liquid_sources(
+        dl,
+        parsed if isinstance(parsed, dict) else None,
+    )
+
+    liq: Dict[str, Optional[float]] = {}
+    liq_src: Dict[str, str] = {}
+    for sym in ("BTC", "ETH", "SOL"):
+        if file_map.get(sym) is not None:
+            liq[sym] = file_map[sym]
+            liq_src[sym] = "FILE"
+        elif db_map.get(sym) is not None:
+            liq[sym] = db_map[sym]
+            liq_src[sym] = "DB"
+        elif env_map.get(sym) is not None:
+            liq[sym] = env_map[sym]
+            liq_src[sym] = "ENV"
+        else:
+            liq[sym] = None
+            liq_src[sym] = "—"
+
+    prof_map, prof_src = _resolve_profit_sources(dl)
+    prof = {"single": prof_map.get("pos"), "portfolio": prof_map.get("pf")}
+
+    return {"liquid": liq, "profit": prof, "src": {"liquid": liq_src, "profit": prof_src}}
 
 
 def emit_thresholds_sync_step(dl) -> None:
@@ -887,38 +965,19 @@ def emit_thresholds_trace(dl) -> None:
         )
 
 
-def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str, str]:
-    # Use the same resolution logic as the Sync step with per-asset provenance for the table.
-    json_path = os.getenv("SONIC_MONITOR_JSON", "").strip()
-    file_json, _ = (_safe_json_load(json_path) if json_path else (None, None))
-    file_map, db_map, env_map, liq_src_hint = _resolve_liquid_sources(
-        dl, file_json if isinstance(file_json, dict) else None
-    )
+def _build_eval_rows(dl, csum: Dict[str, Any], eff: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str, str]:
+    liq_thr_map: Dict[str, Optional[float]] = eff.get("liquid", {})
+    liq_src_per_asset: Dict[str, str] = eff.get("src", {}).get("liquid", {})
 
-    liq_thr_map: Dict[str, Optional[float]] = {}
-    liq_src_per_asset: Dict[str, str] = {}
-    liq_src_type = liq_src_hint
+    liq_src_type = "unknown"
     for sym in ("BTC", "ETH", "SOL"):
-        if file_map.get(sym) is not None:
-            liq_thr_map[sym] = file_map[sym]
-            liq_src_per_asset[sym] = "file"
-        elif db_map.get(sym) is not None:
-            liq_thr_map[sym] = db_map[sym]
-            liq_src_per_asset[sym] = "db"
-        elif env_map.get(sym) is not None:
-            liq_thr_map[sym] = env_map[sym]
-            liq_src_per_asset[sym] = "env"
-        else:
-            liq_thr_map[sym] = None
-            liq_src_per_asset[sym] = "unknown"
-        if liq_src_type == "unknown" and liq_src_per_asset[sym] != "unknown":
-            liq_src_type = liq_src_per_asset[sym]
-    if liq_src_type == "unknown" and liq_src_hint != "unknown":
-        liq_src_type = liq_src_hint
+        sym_src = str(liq_src_per_asset.get(sym, "unknown"))
+        if liq_src_type == "unknown" and sym_src.lower() not in {"unknown", "—"}:
+            liq_src_type = sym_src.lower()
 
-    prof_map, prof_src_type = _resolve_profit_sources(dl)
-    prof_single_thr = prof_map.get("pos")
-    prof_port_thr = prof_map.get("pf")
+    prof_src_type = str(eff.get("src", {}).get("profit", "unknown"))
+    prof_single_thr = eff.get("profit", {}).get("single")
+    prof_port_thr = eff.get("profit", {}).get("portfolio")
 
     # Value source: snapshot table for this cycle if present, otherwise legacy positions.
     cycle_id = csum.get("cycle_id")
@@ -935,7 +994,10 @@ def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], st
                 "rule": "≤",
                 "threshold": liq_thr_map.get(sym),
                 # per-asset threshold source + value source (SNAP if we have cycle snapshot)
-                "src": _src_label("snap" if cycle_id else "db", liq_src_per_asset.get(sym, "unknown")),
+                "src": _src_label(
+                    "snap" if cycle_id else "db",
+                    str(liq_src_per_asset.get(sym, "unknown")).lower(),
+                ),
             }
         )
 
@@ -946,7 +1008,7 @@ def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], st
             "value": single_act,
             "rule": "≥",
             "threshold": prof_single_thr,
-            "src": _src_label("db", prof_src_type),
+            "src": _src_label("db", str(prof_src_type).lower()),
         }
     )
     rows.append(
@@ -956,13 +1018,19 @@ def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], st
             "value": port_act,
             "rule": "≥",
             "threshold": prof_port_thr,
-            "src": _src_label("db", prof_src_type),
+            "src": _src_label("db", str(prof_src_type).lower()),
         }
     )
-    return rows, liq_src_type, prof_src_type
+    return rows, liq_src_type, str(prof_src_type)
 
 
-def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = None) -> None:
+def emit_evaluations_table(
+    dl,
+    csum: Dict[str, Any],
+    ts_label: Optional[str] = None,
+    *,
+    effective: Optional[Dict[str, Any]] = None,
+) -> None:
     if os.getenv("SONIC_SHOW_THRESHOLDS", "1") == "0":
         return
 
@@ -976,7 +1044,10 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
     _info(title)
     print(title, flush=True)
 
-    rows, _, _ = _build_eval_rows(dl, csum)
+    if effective is None:
+        effective = resolve_effective_thresholds(dl, csum)
+
+    rows, _, _ = _build_eval_rows(dl, csum, effective)
     emit_thresholds_trace(dl)
 
     try:
@@ -1198,6 +1269,7 @@ __all__ = [
     "silence_legacy_console_loggers",
     "emit_compact_cycle",
     "emit_evaluations_table",
+    "resolve_effective_thresholds",
     "emit_sources_line",
     "emit_json_summary",
     "emit_thresholds_panel",
