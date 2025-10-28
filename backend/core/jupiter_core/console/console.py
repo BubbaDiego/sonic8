@@ -18,6 +18,8 @@ def _menu(svc: JupiterService) -> None:
         "6": ("Trigger: Create", lambda: menus.menu_trigger_create(svc)),
         "7": ("Trigger: Cancel", lambda: menus.menu_trigger_cancel(svc)),
         "8": ("Wallet: Load signer.txt & Show Address", menus.menu_wallet_show),
+        "9": ("Balances: SOL, WSOL, WETH, WBTC, USDC", menus.menu_wallet_balances),
+        "10": ("Positions: Jupiter Perps (probe API)", menus.menu_positions_probe),
         "0": ("Exit", lambda: sys.exit(0)),
     }
     while True:

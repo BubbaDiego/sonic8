@@ -37,16 +37,28 @@ class JupiterConfig:
     solana_derivation_path: str = os.getenv("SOLANA_DERIVATION_PATH", "m/44'/501'/0'/0'")
     solana_rpc_url: str = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
 
-    # Default mints (mainnet)
-    # WSOL and USDC are common for smoke tests.
-    default_input_mint: str = os.getenv(
-        "JUP_DEFAULT_INPUT_MINT",
+    # Default mints (mainnet) — override with env if you prefer alternates.
+    # WSOL & USDC are canonical; WETH/WBTC reflect Wormhole/Portal bridges.
+    wsol_mint: str = os.getenv(
+        "JUP_WSOLUMINT",
         "So11111111111111111111111111111111111111112",
     )
-    default_output_mint: str = os.getenv(
-        "JUP_DEFAULT_OUTPUT_MINT",
-        "EPjFWdd5AufqSSqeM2qN1xzybapC8SPMQGRDkXhCLvVe",
+    usdc_mint: str = os.getenv(
+        "JUP_USDCMINT",
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     )
+    weth_mint: str = os.getenv(
+        "JUP_WETHMINT",
+        "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+    )
+    wbtc_mint: str = os.getenv(
+        "JUP_WBTCMINT",
+        "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
+    )
+
+    # Legacy defaults used elsewhere (quote/order examples)
+    default_input_mint: str = os.getenv("JUP_DEFAULT_INPUT_MINT", wsol_mint)
+    default_output_mint: str = os.getenv("JUP_DEFAULT_OUTPUT_MINT", usdc_mint)
 
 
 def get_config() -> JupiterConfig:

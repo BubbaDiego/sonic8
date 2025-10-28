@@ -38,7 +38,7 @@ class WalletService:
         }
 
     def fetch_sol_balance(self, public_key: str) -> Dict[str, object]:
-        """Return {"lamports": int, "sol": float} using JSON-RPC getBalance."""
+        """Return ``{"lamports": int, "sol": float}`` using ``getBalance``."""
 
         try:
             payload = {
@@ -54,6 +54,63 @@ class WalletService:
             return {"lamports": lamports, "sol": lamports / 1_000_000_000}
         except Exception as exc:  # pragma: no cover - network failure
             return {"error": f"{type(exc).__name__}: {exc}"}
+
+    def fetch_spl_balance(self, public_key: str, mint: str) -> Dict[str, object]:
+        """
+        Fetch SPL token accounts for ``public_key`` filtered by ``mint`` and
+        sum their balances. The result mirrors the common JSON-RPC response
+        fields so the console can display UI amounts.
+        """
+
+        try:
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getTokenAccountsByOwner",
+                "params": [
+                    public_key,
+                    {"mint": mint},
+                    {"encoding": "jsonParsed", "commitment": "processed"},
+                ],
+            }
+            resp = requests.post(self.cfg.solana_rpc_url, json=payload, timeout=20)
+            resp.raise_for_status()
+            data = resp.json()
+            total_amount = 0
+            decimals: Optional[int] = None
+            for item in data.get("result", {}).get("value", []):
+                info = item.get("account", {}).get("data", {}).get("parsed", {}).get(
+                    "info", {}
+                )
+                token_amount = info.get("tokenAmount", {})
+                amount = int(token_amount.get("amount", "0"))
+                dec = int(token_amount.get("decimals", 0))
+                total_amount += amount
+                decimals = dec
+
+            if decimals is None:
+                decimals = 0
+
+            ui_amount = total_amount / (10 ** decimals) if decimals else float(total_amount)
+            return {
+                "mint": mint,
+                "amount": total_amount,
+                "decimals": decimals,
+                "uiAmount": ui_amount,
+            }
+        except Exception as exc:  # pragma: no cover - network failure
+            return {"mint": mint, "error": f"{type(exc).__name__}: {exc}"}
+
+    def fetch_standard_balances(self, public_key: str) -> Dict[str, object]:
+        """Fetch SOL plus a default basket of SPL tokens for convenience."""
+
+        return {
+            "SOL": self.fetch_sol_balance(public_key),
+            "WSOL": self.fetch_spl_balance(public_key, self.cfg.wsol_mint),
+            "WETH": self.fetch_spl_balance(public_key, self.cfg.weth_mint),
+            "WBTC": self.fetch_spl_balance(public_key, self.cfg.wbtc_mint),
+            "USDC": self.fetch_spl_balance(public_key, self.cfg.usdc_mint),
+        }
 
     # ---------- internals ----------
     def _resolve_signer_path(self) -> Path:
