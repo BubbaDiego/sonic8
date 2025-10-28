@@ -759,30 +759,102 @@ def emit_thresholds_sync_step(dl) -> None:
     _info(line)
     print(line, flush=True)
 
-    # ── Step C: quick schema check to aid operators
+    # ── Step C: quick schema check (accept modern + legacy shapes)
     if isinstance(parsed, dict):
-        flags: List[str] = []
-        flags.append(
-            "liquid_monitor ✓" if "liquid_monitor" in parsed or "liquidation_monitor" in parsed else "liquid_monitor ✗"
+        lm = (
+            parsed.get("liquid_monitor")
+            or parsed.get("liquidation_monitor")
+            or parsed.get("liquid")
+            or {}
         )
-        lm = parsed.get("liquid_monitor") or parsed.get("liquidation_monitor") or {}
         if not isinstance(lm, dict):
             lm = {}
-        flags.append(
-            "thresholds ✓" if ("thresholds" in lm or "threshold_percent" in lm) else "thresholds ✗"
+        thr_map = (
+            lm.get("thresholds")
+            or lm.get("thr")
+            or {}
         )
-        tm = lm.get("thresholds", {}) if isinstance(lm, dict) else {}
-        for sym in ("BTC", "ETH", "SOL"):
-            flags.append(f"{sym} {'✓' if (sym in tm if isinstance(tm, dict) else False) or 'threshold_percent' in lm else '✗'}")
-        pm = parsed.get("profit_monitor", {})
+        if not isinstance(thr_map, dict):
+            thr_map = {}
+        glob = lm.get("threshold_percent") or lm.get("percent")
+
+        pm = parsed.get("profit_monitor") or parsed.get("profit") or {}
         if not isinstance(pm, dict):
             pm = {}
-        flags.append("profit_monitor ✓" if "profit_monitor" in parsed else "profit_monitor ✗")
-        flags.append("pos ✓" if "position_profit_usd" in pm else "pos ✗")
-        flags.append("pf ✓" if "portfolio_profit_usd" in pm else "pf ✗")
+        pos = (
+            pm.get("position_profit_usd")
+            or pm.get("single_usd")
+            or pm.get("pos")
+        )
+        pf = (
+            pm.get("portfolio_profit_usd")
+            or pm.get("total_usd")
+            or pm.get("pf")
+        )
+
+        flags: List[str] = []
+        flags.append(
+            "liquid_monitor ✓"
+            if (
+                parsed.get("liquid_monitor")
+                or parsed.get("liquidation_monitor")
+                or parsed.get("liquid")
+            )
+            else "liquid_monitor ✗"
+        )
+        flags.append(
+            "thresholds ✓"
+            if (thr_map and isinstance(thr_map, dict)) or (glob is not None)
+            else "thresholds ✗"
+        )
+        for sym in ("BTC", "ETH", "SOL"):
+            has_sym = (sym in thr_map) or (glob is not None)
+            flags.append(f"{sym} {'✓' if has_sym else '✗'}")
+
+        flags.append(
+            "profit_monitor ✓"
+            if parsed.get("profit_monitor") or parsed.get("profit")
+            else "profit_monitor ✗"
+        )
+        flags.append("pos ✓" if pos is not None else "pos ✗")
+        flags.append("pf ✓" if pf is not None else "pf ✗")
+
         line = "  🔎 Schema check      : " + ", ".join(flags)
         _info(line)
         print(line, flush=True)
+
+        try:
+            def _norm(v: Any) -> str:
+                if v is None:
+                    return "—"
+                try:
+                    return f"{float(v):.2f}".rstrip("0").rstrip(".")
+                except Exception:
+                    return str(v)
+
+            btc_v = thr_map.get("BTC") if thr_map else None
+            eth_v = thr_map.get("ETH") if thr_map else None
+            sol_v = thr_map.get("SOL") if thr_map else None
+            norm_liq = "BTC {btc} • ETH {eth} • SOL {sol}".format(
+                btc=_norm(btc_v if btc_v is not None else glob),
+                eth=_norm(eth_v if eth_v is not None else glob),
+                sol=_norm(sol_v if sol_v is not None else glob),
+            )
+            norm_prof = "Single {single} • Portfolio {portfolio}".format(
+                single=(f"${int(float(pos))}" if pos is not None else "—"),
+                portfolio=(f"${int(float(pf))}" if pf is not None else "—"),
+            )
+            line2 = (
+                "  ↳ Normalized as     : "
+                "liquid_monitor.thresholds → {liq} ; profit_monitor → {prof}".format(
+                    liq=norm_liq,
+                    prof=norm_prof,
+                )
+            )
+            _info(line2)
+            print(line2, flush=True)
+        except Exception:
+            pass
 
     # ── Step D: resolve sources using parsed JSON (so FILE wins when present)
     file_map, db_map, env_map, _liq_src_overall = _resolve_liquid_sources(
