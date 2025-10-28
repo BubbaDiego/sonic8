@@ -4,7 +4,7 @@ import json
 from typing import Optional
 
 from ..config import get_config
-from ..services import JupiterService
+from ..services import JupiterService, WalletService
 from .views import kv_table, panel, rows_table
 
 
@@ -16,7 +16,35 @@ def _prompt(msg: str, default: Optional[str] = None) -> str:
 
 def show_preflight(svc: JupiterService) -> None:
     cfg = svc.describe()
+    # Try to show signer info if available; otherwise just config.
+    try:
+        wallet_info = WalletService().read_signer_info()
+    except Exception:
+        wallet_info = None
+    if wallet_info:
+        cfg = {
+            **cfg,
+            "owner_pubkey": wallet_info["public_key"],
+            "signer_path": wallet_info["signer_path"],
+        }
     kv_table("🧭 Jupiter Config", cfg)
+
+
+def menu_wallet_show() -> None:
+    try:
+        info = WalletService().read_signer_info()
+    except Exception as exc:
+        panel("Wallet Error", f"{type(exc).__name__}: {exc}")
+        return
+    kv_table(
+        "👛 Wallet (signer.txt)",
+        {
+            "signer_path": info["signer_path"],
+            "derivation_path": info["derivation_path"],
+            "public_key": info["public_key"],
+            "mnemonic_words": info["mnemonic_words"],
+        },
+    )
 
 
 def menu_quote(svc: JupiterService) -> None:

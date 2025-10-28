@@ -2,5 +2,6 @@
 
 from .audit_service import AuditService
 from .jupiter_service import JupiterService
+from .wallet_service import WalletService
 
-__all__ = ["AuditService", "JupiterService"]
+__all__ = ["AuditService", "JupiterService", "WalletService"]

@@ -32,6 +32,11 @@ class JupiterConfig:
     # DB path (for audit log fallback when DataLocker is unavailable)
     mother_db_path: str = os.getenv("MOTHER_DB_PATH", "backend/mother.db")
 
+    # Wallet discovery & derivation
+    signer_path: Optional[str] = os.getenv("SIGNER_PATH")
+    solana_derivation_path: str = os.getenv("SOLANA_DERIVATION_PATH", "m/44'/501'/0'/0'")
+    solana_rpc_url: str = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+
     # Default mints (mainnet)
     # WSOL and USDC are common for smoke tests.
     default_input_mint: str = os.getenv(
