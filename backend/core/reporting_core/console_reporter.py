@@ -1571,7 +1571,7 @@ def emit_compact_cycle(
     print("   📊 Positions: " + pos_line, flush=True)
     print("   🛡 Hedges   : " + hed_line, flush=True)
 
-    # (UX) Sources line removed — provenance now shown in Sync step + Evaluations
+    # (UX) Sources line removed — Sync Data & Evaluations show provenance
 
     # (Alerts block removed — Evaluations table covers breach state)
     notif_line = csum.get("notifications_brief", "NONE (no_breach)")
@@ -1585,7 +1585,7 @@ def emit_compact_cycle(
 
 def emit_sources_line(sources: Dict[str, Any], label: str = "") -> None:
     """Legacy no-op retained for compatibility with older monitor builds."""
-    # (UX) Sources line removed — provenance now shown in Sync step + Evaluations
+    # (UX) Sources line removed — Sync Data & Evaluations show provenance
     return
 
 def emit_json_summary(csum: Dict[str, Any], cyc_ms: int, loop_counter: int, total_elapsed: float, sleep_time: float) -> None:
