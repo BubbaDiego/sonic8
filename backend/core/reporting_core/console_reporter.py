@@ -528,6 +528,100 @@ def _resolve_profit_sources(dl) -> tuple[Dict[str, Optional[float]], str]:
     return {"pos": pos_thr, "pf": pf_thr}, src
 
 
+def emit_thresholds_sync_step(dl) -> None:
+    """Emit the always-on Sync Data thresholds snapshot."""
+
+    logger = logging.getLogger("SonicMonitor")
+    _info = logger.info
+
+    t0 = time.perf_counter()
+
+    file_map, db_map, env_map, _liq_src_overall = _resolve_liquid_sources(dl)
+    prof_map, prof_src = _resolve_profit_sources(dl)
+
+    used_liq: Dict[str, Optional[float]] = {}
+    used_srcs: Dict[str, str] = {}
+    for sym in ("BTC", "ETH", "SOL"):
+        if file_map.get(sym) is not None:
+            used_liq[sym] = file_map.get(sym)
+            used_srcs[sym] = "FILE"
+        elif db_map.get(sym) is not None:
+            used_liq[sym] = db_map.get(sym)
+            used_srcs[sym] = "DB"
+        elif env_map.get(sym) is not None:
+            used_liq[sym] = env_map.get(sym)
+            used_srcs[sym] = "ENV"
+        else:
+            used_liq[sym] = None
+            used_srcs[sym] = "—"
+
+    dt = time.perf_counter() - t0
+    header = f"  🧭 Read monitor thresholds  ✅ ({dt:.2f}s)"
+    _info(header)
+    print(header, flush=True)
+
+    def _fmt_map(data: Dict[str, Optional[float]]) -> str:
+        def _fmt(v: Optional[float]) -> str:
+            if v is None:
+                return "—"
+            try:
+                return f"{float(v):.2f}".rstrip("0").rstrip(".")
+            except Exception:
+                return str(v)
+
+        return "BTC {btc} • ETH {eth} • SOL {sol}".format(
+            btc=_fmt(data.get("BTC")),
+            eth=_fmt(data.get("ETH")),
+            sol=_fmt(data.get("SOL")),
+        )
+
+    src_tokens = [used_srcs.get(sym, "—") for sym in ("BTC", "ETH", "SOL")]
+    if len(set(src_tokens)) == 1:
+        src_label = src_tokens[0]
+    else:
+        src_label = "MIXED(" + ", ".join(
+            f"{sym}={used_srcs.get(sym, '—')}" for sym in ("BTC", "ETH", "SOL")
+        ) + ")"
+    liquid_line = f"  💧 Liquid thresholds : {_fmt_map(used_liq)}   [{src_label}]"
+    _info(liquid_line)
+    print(liquid_line, flush=True)
+
+    missing = [sym for sym in ("BTC", "ETH", "SOL") if file_map.get(sym) is None]
+    if all(file_map.get(sym) is None for sym in ("BTC", "ETH", "SOL")):
+        hint = (
+            "  ↳ JSON config missing: liquid_monitor.thresholds not found; "
+            "using DB/ENV fallbacks."
+        )
+        _info(hint)
+        print(hint, flush=True)
+    elif missing:
+        hint = (
+            "  ↳ JSON config partial: missing in FILE → "
+            + ", ".join(missing)
+            + ". Mixed with DB/ENV."
+        )
+        _info(hint)
+        print(hint, flush=True)
+
+    def _fmt_usd(value: Optional[float]) -> str:
+        if value is None:
+            return "—"
+        try:
+            return f"${float(value):.0f}"
+        except Exception:
+            return str(value)
+
+    profit_line = (
+        "  💹 Profit thresholds : Single {single} • Portfolio {portfolio}   [{src}]".format(
+            single=_fmt_usd(prof_map.get("pos")),
+            portfolio=_fmt_usd(prof_map.get("pf")),
+            src=(prof_src or "unknown").upper(),
+        )
+    )
+    _info(profit_line)
+    print(profit_line, flush=True)
+
+
 def emit_thresholds_trace(dl) -> None:
     """Emit FILE/DB/ENV provenance table when SONIC_THRESH_TRACE=1."""
 

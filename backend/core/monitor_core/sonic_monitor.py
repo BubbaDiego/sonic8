@@ -306,6 +306,7 @@ from backend.core.reporting_core.console_reporter import (
     silence_legacy_console_loggers,
     emit_evaluations_table,
     emit_json_summary,
+    emit_thresholds_sync_step,
 )
 # Use the 4-arg compact printer from console_lines to match our call site
 from backend.core.reporting_core import console_lines as cl
@@ -903,6 +904,9 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
 
     # Full Cyclone pipeline
     await cyclone.run_cycle()
+
+    # thresholds are critical inputs; read and announce them as part of Sync Data
+    emit_thresholds_sync_step(dl)
 
     # ----- Monitors section header (centered) -----
     print()
