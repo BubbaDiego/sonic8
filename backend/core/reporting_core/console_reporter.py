@@ -386,6 +386,78 @@ def _profit_actuals_from_db(dl) -> Tuple[float, float]:
         return (0.0, 0.0)
 
 
+# ---------- Positions rows (snapshot-first) ----------
+def _probing_table_cols(cur, table: str) -> set:
+    try:
+        cur.execute(f"PRAGMA table_info({table})")
+        return {str(r[1]) for r in (cur.fetchall() or [])}
+    except Exception:
+        return set()
+
+
+def _fetch_positions_rows(dl, cycle_id: Optional[str]) -> List[Dict[str, Any]]:
+    """
+    Return a list of normalized position dicts for the current cycle, snapshot-first.
+    Unified fields: asset, side, value, pnl, lev, liq, travel
+    """
+
+    rows: List[Dict[str, Any]] = []
+    try:
+        cur = dl.db.get_cursor()
+        if not cur:
+            return rows
+
+        def _pick(cols: set, choices: List[str]) -> str:
+            for choice in choices:
+                if choice in cols:
+                    return choice
+            return "NULL"
+
+        def _query_for(table: str, where_sql: str, where_args: tuple) -> None:
+            cols = _probing_table_cols(cur, table)
+            asset = _pick(cols, ["asset", "asset_type", "symbol"]) + " AS asset"
+            side = _pick(cols, ["side", "position_type"]) + " AS side"
+            value = _pick(cols, ["value_usd", "exposure_usd", "position_value_usd"]) + " AS value"
+            pnl = _pick(cols, ["pnl", "pnl_after_fees_usd", "pnl_usd"]) + " AS pnl"
+            lev = _pick(cols, ["leverage"]) + " AS lev"
+            liq = _pick(cols, ["liq_dist", "liquidation_distance"]) + " AS liq"
+            travel = _pick(cols, ["travel_pct", "travel_percent"]) + " AS travel"
+            sql = (
+                f"SELECT {asset}, {side}, {value}, {pnl}, {lev}, {liq}, {travel}"
+                f" FROM {table} {where_sql}"
+            )
+            cur.execute(sql, where_args)
+            for record in (cur.fetchall() or []):
+                asset_val, side_val, value_val, pnl_val, lev_val, liq_val, travel_val = record
+
+                def _f(x):
+                    try:
+                        return float(x)
+                    except Exception:
+                        return None
+
+                rows.append(
+                    {
+                        "asset": str(asset_val).upper() if asset_val is not None else "?",
+                        "side": str(side_val).upper() if side_val is not None else "?",
+                        "value": _f(value_val) or 0.0,
+                        "pnl": _f(pnl_val) or 0.0,
+                        "lev": _f(lev_val),
+                        "liq": _f(liq_val),
+                        "travel": _f(travel_val),
+                    }
+                )
+
+        if cycle_id:
+            _query_for("sonic_positions", "WHERE cycle_id = ?", (cycle_id,))
+        else:
+            _query_for("positions", "WHERE status='ACTIVE'", ())
+
+        return rows
+    except Exception:
+        return rows
+
+
 # ---------- Positions & Hedges compact helpers ----------
 def _read_positions_compact(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
     """Return {count, pnl_single_max, pnl_portfolio_sum} using snapshot first."""
@@ -644,10 +716,46 @@ def _resolve_profit_sources(dl) -> tuple[Dict[str, Optional[float]], str]:
     except Exception:
         pm = {}
 
-    pos = _num(pm.get("position_profit_usd") or pm.get("single_usd") or pm.get("pos"))
-    pf = _num(pm.get("portfolio_profit_usd") or pm.get("total_usd") or pm.get("pf"))
+    pos: Optional[float] = None
+    pf: Optional[float] = None
 
-    if (pos is None and pf is None) and sysvars:
+    if pm:
+        pos = _num(pm.get("position_profit_usd") or pm.get("single_usd") or pm.get("pos"))
+        pf = _num(pm.get("portfolio_profit_usd") or pm.get("total_usd") or pm.get("pf"))
+
+    if sysvars:
+        if pos is None:
+            try:
+                pos = _num(sysvars.get_var("profit_position_threshold"))
+            except Exception:
+                pass
+        if pos is None:
+            try:
+                pos = _num(sysvars.get_var("profit_threshold"))
+            except Exception:
+                pass
+        if pos is None:
+            try:
+                pos = _num(sysvars.get_var("profit_badge_value"))
+            except Exception:
+                pass
+        if pf is None:
+            try:
+                pf = _num(sysvars.get_var("profit_portfolio_threshold"))
+            except Exception:
+                pass
+        if pf is None:
+            try:
+                pf = _num(sysvars.get_var("profit_total_threshold"))
+            except Exception:
+                pass
+        if pf is None:
+            try:
+                pf = _num(sysvars.get_var("profit_total"))
+            except Exception:
+                pass
+
+    if (pos is None or pf is None) and sysvars:
         try:
             mc = _as_dict(sysvars.get_var("monitor_config") or {})
         except Exception:
@@ -694,10 +802,169 @@ def resolve_effective_thresholds(dl, csum: Optional[Dict[str, Any]] = None) -> D
             liq[sym] = None
             liq_src[sym] = "—"
 
-    prof_map, prof_src = _resolve_profit_sources(dl)
+    prof_map, prof_src = _resolve_profit_sources(dl)  # includes legacy banner fallbacks
     prof = {"single": prof_map.get("pos"), "portfolio": prof_map.get("pf")}
 
     return {"liquid": liq, "profit": prof, "src": {"liquid": liq_src, "profit": prof_src}}
+
+
+def emit_positions_table(
+    dl,
+    csum: Dict[str, Any],
+    ts_label: Optional[str] = None,
+    *,
+    indent: str = "  ",
+) -> None:
+    logger = logging.getLogger("SonicMonitor")
+    _info = logger.info
+
+    cycle_id: Optional[str] = None
+    if isinstance(csum, dict):
+        candidates: List[Any] = [csum.get("cycle_id")]
+        positions_meta = csum.get("positions") if isinstance(csum.get("positions"), dict) else None
+        if isinstance(positions_meta, dict):
+            candidates.extend(
+                [
+                    positions_meta.get("cycle_id"),
+                    positions_meta.get("snapshot_id"),
+                ]
+            )
+        for candidate in candidates:
+            if candidate not in (None, ""):
+                cycle_id = str(candidate)
+                break
+
+    rows = _fetch_positions_rows(dl, cycle_id)
+    if not rows:
+        return
+
+    def _liq_key(r: Dict[str, Any]) -> tuple:
+        liq_val = r.get("liq")
+        return (1, 0.0) if liq_val is None else (0, liq_val)
+
+    def _value_for_sort(r: Dict[str, Any]) -> float:
+        try:
+            return float(r.get("value") or 0.0)
+        except Exception:
+            return 0.0
+
+    rows.sort(key=lambda r: (_liq_key(r), -_value_for_sort(r)))
+
+    def pnl_style(value: Optional[float]) -> str:
+        if value is None:
+            return ""
+        return "green" if value > 0 else ("red" if value < 0 else "")
+
+    def _fmt_lev(value: Optional[float]) -> str:
+        if value is None:
+            return "—"
+        try:
+            mag = abs(float(value))
+            if mag >= 100:
+                return f"{value:.0f}×"
+            if mag >= 10:
+                return f"{value:.1f}×"
+            return f"{value:.2f}×"
+        except Exception:
+            return str(value)
+
+    title = indent + "📋 Positions Snapshot"
+    if ts_label:
+        title += f" — {ts_label}"
+    _info(title)
+    print(title, flush=True)
+
+    try:
+        rich_console = importlib.import_module("rich.console")
+        rich_table = importlib.import_module("rich.table")
+        rich_box = importlib.import_module("rich.box")
+        rich_padding = importlib.import_module("rich.padding")
+        rich_text = importlib.import_module("rich.text")
+
+        Console = getattr(rich_console, "Console")
+        Table = getattr(rich_table, "Table")
+        Padding = getattr(rich_padding, "Padding")
+        box = getattr(rich_box, "SIMPLE_HEAVY")
+        Text = getattr(rich_text, "Text")
+
+        tbl = Table(show_header=True, show_edge=True, box=box, pad_edge=False)
+        tbl.add_column("Asset", justify="left", no_wrap=True)
+        tbl.add_column("Side", justify="left", no_wrap=True)
+        tbl.add_column("Value", justify="right")
+        tbl.add_column("PnL", justify="right")
+        tbl.add_column("Lev", justify="right", no_wrap=True)
+        tbl.add_column("Liq", justify="right", no_wrap=True)
+        tbl.add_column("Travel", justify="right", no_wrap=True)
+
+        for row in rows:
+            pnl = row.get("pnl")
+            tbl.add_row(
+                str(row.get("asset", "?")),
+                str(row.get("side", "?")),
+                _fmt_usd(row.get("value")),
+                Text(_fmt_usd(pnl), style=pnl_style(pnl)),
+                _fmt_lev(row.get("lev")),
+                _fmt_pct(row.get("liq")),
+                _fmt_pct(row.get("travel")),
+            )
+
+        Console().print(Padding(tbl, (0, 0, 0, len(indent))))
+        return
+    except Exception:
+        pass
+
+    headers = ["Asset", "Side", "Value", "PnL", "Lev", "Liq", "Travel"]
+    align = ["<", "<", ">", ">", ">", ">", ">"]
+    data: List[List[str]] = []
+    for row in rows:
+        data.append(
+            [
+                str(row.get("asset", "?")),
+                str(row.get("side", "?")),
+                _fmt_usd(row.get("value")),
+                _fmt_usd(row.get("pnl")),
+                _fmt_lev(row.get("lev")),
+                _fmt_pct(row.get("liq")),
+                _fmt_pct(row.get("travel")),
+            ]
+        )
+
+    widths = [len(h) for h in headers]
+    for row in data:
+        for idx, cell in enumerate(row):
+            widths[idx] = max(widths[idx], len(cell))
+
+    def _format_row(parts: List[str]) -> str:
+        formatted = []
+        for idx, cell in enumerate(parts):
+            width = widths[idx]
+            align_mode = align[idx]
+            formatted.append(f"{cell:{align_mode}{width}}")
+        return indent + "│ " + " │ ".join(formatted) + " │"
+
+    def _hline(left: str, mid: str, right: str) -> str:
+        segments = ["─" * (w + 2) for w in widths]
+        return indent + left + mid.join(segments) + right
+
+    top = _hline("┌", "┬", "┐")
+    sep = _hline("├", "┼", "┤")
+    bottom = _hline("└", "┴", "┘")
+
+    header_line = _format_row(headers)
+    _info(top)
+    print(top)
+    _info(header_line)
+    print(header_line)
+    _info(sep)
+    print(sep)
+
+    for row in data:
+        line = _format_row(row)
+        _info(line)
+        print(line)
+
+    _info(bottom)
+    print(bottom, flush=True)
 
 
 def emit_thresholds_sync_step(dl) -> None:
@@ -1340,6 +1607,7 @@ __all__ = [
     "silence_legacy_console_loggers",
     "emit_compact_cycle",
     "emit_evaluations_table",
+    "emit_positions_table",
     "resolve_effective_thresholds",
     "emit_sources_line",
     "emit_json_summary",

@@ -315,6 +315,7 @@ from backend.core.reporting_core.console_reporter import (
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
     emit_evaluations_table,
+    emit_positions_table,
     emit_json_summary,
     emit_thresholds_sync_step,
     resolve_effective_thresholds,
@@ -1253,8 +1254,11 @@ def run_monitor(
                         except Exception:
                             ts_label = None
                     emit_evaluations_table(dl, summary, ts_label, effective=eff)
-                except Exception:
-                    logging.debug("Failed to emit evaluations table", exc_info=True)
+                    emit_positions_table(dl, summary, ts_label)
+                except Exception as e:
+                    logging.getLogger("SonicMonitor").error(
+                        f"Positions/Evals print error: {e}", exc_info=True
+                    )
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
                 summary,
