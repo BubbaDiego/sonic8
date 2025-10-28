@@ -316,6 +316,7 @@ from backend.core.reporting_core.console_reporter import (
     emit_evaluations_table,
     emit_json_summary,
     emit_thresholds_sync_step,
+    resolve_effective_thresholds,
 )
 # Use the 4-arg compact printer from console_lines to match our call site
 from backend.core.reporting_core import console_lines as cl
@@ -1222,30 +1223,34 @@ def run_monitor(
             except Exception as _e:
                 # don't fail the cycle on cosmetics; console will show ✓ for missing detail
                 pass
-            # 3) Emit evaluation table + (optional) threshold trace FIRST,
+            # 3) Resolve thresholds ONCE (same values the banner used) and print evaluations FIRST
             # so it's shown above the end-of-cycle banner.
             if dl is not None:
                 try:
+                    eff = resolve_effective_thresholds(dl, summary)
+                    ts = None
+                    try:
+                        ts = summary.get("positions", {}).get("ts") or summary.get("prices", {}).get("ts")
+                    except Exception:
+                        ts = None
                     ts_label = None
-                    ts_value = (
-                        summary.get("positions_updated_at")
-                        or summary.get("prices_updated_at")
-                    )
-                    if ts_value:
+                    if ts:
                         try:
-                            if isinstance(ts_value, (int, float)):
-                                ts_dt = datetime.fromtimestamp(float(ts_value), timezone.utc)
+                            import datetime as _dt
+
+                            if isinstance(ts, (int, float)):
+                                t = _dt.datetime.utcfromtimestamp(float(ts))
                             else:
-                                ts_str = str(ts_value)
-                                if ts_str.endswith("Z"):
-                                    ts_str = ts_str[:-1] + "+00:00"
-                                ts_dt = datetime.fromisoformat(ts_str)
-                            if ts_dt.tzinfo is None:
-                                ts_dt = ts_dt.replace(tzinfo=timezone.utc)
-                            ts_label = ts_dt.strftime("%H:%M:%S")
+                                raw = str(ts)
+                                if raw.endswith("Z"):
+                                    raw = raw[:-1] + "+00:00"
+                                if "." in raw:
+                                    raw = raw.split(".")[0]
+                                t = _dt.datetime.fromisoformat(raw)
+                            ts_label = f"{t.hour:02d}:{t.minute:02d}:{t.second:02d}"
                         except Exception:
                             ts_label = None
-                    emit_evaluations_table(dl, summary, ts_label)
+                    emit_evaluations_table(dl, summary, ts_label, effective=eff)
                 except Exception:
                     logging.debug("Failed to emit evaluations table", exc_info=True)
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
