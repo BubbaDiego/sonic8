@@ -1444,20 +1444,20 @@ def emit_evaluations_table(
     *,
     effective: Optional[Dict[str, Any]] = None,
 ) -> None:
+    """
+    Console table: (Row 1) Title • (Row 2) Column headers • (Rows 3+) Data
+    Uses rich.Table when available; falls back to ASCII.
+    Liquid values/thresholds are numeric distances (no %); Profit uses $.
+    """
     if os.getenv("SONIC_SHOW_THRESHOLDS", "1") == "0":
         return
 
     logger = logging.getLogger("SonicMonitor")
-    _info = logger.info
 
     INDENT = "  "
-    if not _printed_once("evaluations_header", csum):
-        header_text = "🧭  Monitor  Evaluations"
-        if ts_label:
-            header_text += f" — last cycle {ts_label}"
-        header = _section_banner(header_text)
-        _info(header)
-        print(header, flush=True)
+    title_text = "🧭 Monitor Evaluations"
+    if ts_label:
+        title_text += f" — last cycle {ts_label}"
 
     if effective is None:
         effective = resolve_effective_thresholds(dl, csum)
@@ -1469,19 +1469,32 @@ def emit_evaluations_table(
         rich_console = importlib.import_module("rich.console")
         rich_table = importlib.import_module("rich.table")
         rich_box = importlib.import_module("rich.box")
+        rich_text = importlib.import_module("rich.text")
         rich_padding = importlib.import_module("rich.padding")
         Console = getattr(rich_console, "Console")
         Table = getattr(rich_table, "Table")
         box = getattr(rich_box, "SIMPLE_HEAVY")
+        Text = getattr(rich_text, "Text")
         Padding = getattr(rich_padding, "Padding")
 
-        tbl = Table(show_header=True, show_edge=True, box=box, pad_edge=False)
+        tbl = Table(show_header=False, show_edge=True, box=box, pad_edge=False)
         tbl.add_column("Metric", justify="left", no_wrap=True)
         tbl.add_column("Value", justify="right")
         tbl.add_column("Rule", justify="center")
         tbl.add_column("Threshold", justify="right")
         tbl.add_column("Result", justify="left", no_wrap=True)
         tbl.add_column("Source (V / T)", justify="left", no_wrap=True)
+
+        tbl.add_row(Text(title_text, style="bold"), "", "", "", "", "", end_section=True)
+        tbl.add_row(
+            Text("Metric", style="bold"),
+            Text("Value", style="bold"),
+            Text("Rule", style="bold"),
+            Text("Threshold", style="bold"),
+            Text("Result", style="bold"),
+            Text("Source (V / T)", style="bold"),
+            end_section=True,
+        )
 
         for r in rows:
             if r["kind"] == "liquid":
@@ -1506,14 +1519,25 @@ def emit_evaluations_table(
     SRC_W = 18
     pad = INDENT
     top = pad + "┌" + "─" * METRIC_W + "┬" + "─" * VAL_W + "┬" + "─" * RULE_W + "┬" + "─" * THR_W + "┬" + "─" * RES_W + "┬" + "─" * SRC_W + "┐"
-    header = pad + f"│ {'Metric':<{METRIC_W}}│ {'Value':>{VAL_W}}│{'Rule':^{RULE_W}}│ {'Threshold':>{THR_W-1}}│ {'Result':<{RES_W-1}}│ {'Source (V / T)':<{SRC_W-1}}│"
+    title = (
+        pad
+        + f"│ {title_text:<{METRIC_W-1}}"
+        + " "
+        + f"│{'' :>{VAL_W}}│{'' :^{RULE_W}}│{'' :>{THR_W}}│{'' :<{RES_W}}│ {'' :<{SRC_W-1}}│"
+    )
     sep = pad + "├" + "─" * METRIC_W + "┼" + "─" * VAL_W + "┼" + "─" * RULE_W + "┼" + "─" * THR_W + "┼" + "─" * RES_W + "┼" + "─" * SRC_W + "┤"
+    header = pad + f"│ {'Metric':<{METRIC_W}}│ {'Value':>{VAL_W}}│{'Rule':^{RULE_W}}│ {'Threshold':>{THR_W-1}}│ {'Result':<{RES_W-1}}│ {'Source (V / T)':<{SRC_W-1}}│"
     bot = pad + "└" + "─" * METRIC_W + "┴" + "─" * VAL_W + "┴" + "─" * RULE_W + "┴" + "─" * THR_W + "┴" + "─" * RES_W + "┴" + "─" * SRC_W + "┘"
-    _info(top)
+
+    logger.info(top)
     print(top)
-    _info(header)
+    logger.info(title)
+    print(title)
+    logger.info(sep)
+    print(sep)
+    logger.info(header)
     print(header)
-    _info(sep)
+    logger.info(sep)
     print(sep)
 
     def _row(metric_label: str, actual_s: str, rule: str, thr_s: str, result: str, src_label: str) -> str:
@@ -1528,10 +1552,10 @@ def emit_evaluations_table(
             thr = _fmt_usd(r["threshold"])
         res = _classify_result(r["kind"], r["value"], r["threshold"])
         line = _row(r["metric"], val, r["rule"], thr, res, r["src"])
-        _info(line)
+        logger.info(line)
         print(line)
 
-    _info(bot)
+    logger.info(bot)
     print(bot, flush=True)
 
 # ───────────────────────── main compact renderer ─────────────────
