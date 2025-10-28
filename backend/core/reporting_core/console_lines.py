@@ -198,6 +198,7 @@ def emit_compact_cycle(
     loop_counter: Optional[int] = None,
     total_elapsed: Optional[float] = None,
     sleep_time: Optional[float] = None,
+    dl: Any | None = None,
 ) -> None:
     """
     Wrapper that keeps legacy 4-arg callers working by deriving
@@ -279,6 +280,7 @@ def emit_compact_cycle(
         int(lc),
         float(tot),
         float(slp),
+        dl=dl,
         enable_color=enable_color,
     )
 
@@ -290,7 +292,7 @@ def emit_compact_cycle(
 # -------------------------------------------------------------------
 def emit_sources_line(sources: Dict[str, Any], label: str = "") -> None:
     """Legacy no-op retained for back-compat with older monitor builds."""
-    # (UX) Sources line removed — Sync Data + Evaluations now show provenance
+    # (UX) Sources line removed
     return
 
 def emit_json_summary(

@@ -248,6 +248,59 @@ def _fmt_usd(v: Optional[float]) -> str:
         return f"${v}"
 
 
+def _fmt_usd_signed(v: Optional[float]) -> str:
+    base = _fmt_usd(v)
+    if base == "—":
+        return base
+    try:
+        val = float(v) if v is not None else None
+    except Exception:
+        val = None
+    if val is not None and val > 0 and base.startswith("$"):
+        return "$+" + base[1:]
+    return base
+
+
+def _row_get(row: Any, key: str, default: Any = None) -> Any:
+    if isinstance(row, dict):
+        return row.get(key, default)
+    getter = getattr(row, "get", None)
+    if getter:
+        try:
+            return getter(key, default)
+        except Exception:
+            pass
+    keys = getattr(row, "keys", None)
+    if callable(keys):
+        try:
+            if key in keys():
+                return row[key]
+        except Exception:
+            pass
+    try:
+        return row[key]  # type: ignore[index]
+    except Exception:
+        return default
+
+
+def _normalize_rows(container: Any) -> List[Any]:
+    if not container:
+        return []
+    data = container
+    if isinstance(container, dict):
+        data = container.get("rows") or container.get("data") or []
+    if isinstance(data, list):
+        return data
+    if isinstance(data, tuple):
+        return list(data)
+    if isinstance(data, (str, bytes)):
+        return []
+    try:
+        return list(data)
+    except Exception:
+        return []
+
+
 def _bar(util: Optional[float], width: int = 10) -> Tuple[str, str]:
     """Return (bar, label) where util is 0..1 (None => n/a)."""
     if util is None or util < 0 or not (util == util):  # NaN guard
@@ -321,6 +374,93 @@ def _profit_actuals_from_db(dl) -> Tuple[float, float]:
         return (single, portfolio)
     except Exception:
         return (0.0, 0.0)
+
+
+# ---------- Positions & Hedges compact helpers ----------
+def _read_positions_compact(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
+    """Return {count, pnl_single_max, pnl_portfolio_sum} using snapshot first."""
+    out = {"count": 0, "pnl_single_max": 0.0, "pnl_portfolio_sum": 0.0}
+    if dl is None:
+        return out
+    try:
+        db = getattr(dl, "db", None)
+        cur = db.get_cursor() if db else None
+        if not cur:
+            return out
+        if cycle_id:
+            cur.execute("SELECT COUNT(*) FROM sonic_positions WHERE cycle_id = ?", (cycle_id,))
+            row = cur.fetchone()
+            if row is not None:
+                try:
+                    out["count"] = int(row[0])
+                except Exception:
+                    out["count"] = int(_row_get(row, 0, 0) or 0)
+            cur.execute(
+                "SELECT pnl_after_fees_usd FROM sonic_positions WHERE cycle_id = ?",
+                (cycle_id,),
+            )
+        else:
+            cur.execute("SELECT COUNT(*) FROM positions WHERE status='ACTIVE'")
+            row = cur.fetchone()
+            if row is not None:
+                try:
+                    out["count"] = int(row[0])
+                except Exception:
+                    out["count"] = int(_row_get(row, 0, 0) or 0)
+            cur.execute(
+                "SELECT pnl_after_fees_usd FROM positions WHERE status='ACTIVE'"
+            )
+        vals: List[float] = []
+        for rec in cur.fetchall() or []:
+            val = _row_get(rec, "pnl_after_fees_usd", _row_get(rec, 0))
+            try:
+                num = float(val)
+            except Exception:
+                continue
+            if num > 0:
+                vals.append(num)
+        out["pnl_single_max"] = max(vals) if vals else 0.0
+        out["pnl_portfolio_sum"] = sum(vals) if vals else 0.0
+    except Exception:
+        return out
+    return out
+
+
+def _read_hedges_compact(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
+    """Return {planned, active, errors, strategy?} using sonic_hedges snapshot if present."""
+    out = {"planned": 0, "active": 0, "errors": 0, "strategy": None}
+    if dl is None:
+        return out
+    try:
+        db = getattr(dl, "db", None)
+        cur = db.get_cursor() if db else None
+        if not cur:
+            return out
+        if cycle_id:
+            cur.execute(
+                "SELECT status, COUNT(1) FROM sonic_hedges WHERE cycle_id = ? GROUP BY status",
+                (cycle_id,),
+            )
+        else:
+            cur.execute("SELECT status, COUNT(1) FROM hedges GROUP BY status")
+        for status, cnt in cur.fetchall() or []:
+            s = str(status).lower()
+            if "plan" in s:
+                out["planned"] = int(cnt or 0)
+            elif "active" in s:
+                out["active"] = int(cnt or 0)
+            elif "err" in s or "fail" in s:
+                out["errors"] = int(cnt or 0)
+        try:
+            sysvars = getattr(dl, "system", None)
+            cfg = sysvars.get_var("market_monitor") if sysvars else {}
+            if cfg:
+                out["strategy"] = cfg.get("rearm") or cfg.get("strategy") or out["strategy"]
+        except Exception:
+            pass
+    except Exception:
+        return out
+    return out
 
 
 def _resolve_liq_thresholds(liq_cfg: Dict[str, Any]) -> Dict[str, Optional[float]]:
@@ -917,6 +1057,7 @@ def emit_compact_cycle(
     loop_counter: int,
     total_elapsed: float,
     sleep_time: float,
+    dl: Any | None = None,
     *,
     enable_color: bool = False,
 ) -> None:
@@ -935,8 +1076,85 @@ def emit_compact_cycle(
         )
     else:
         print("   💰 Prices   : –", flush=True)
-    print(f"   📊 Positions: {positions.get('sync_line', '–')}")
-    print(f"   🛡 Hedges   : {'🦔' if int(hedges.get('groups', 0) or 0) > 0 else '–'}")
+    cycle_id: Optional[str] = None
+    if isinstance(csum, dict):
+        cid = csum.get("cycle_id")
+        if cid not in (None, ""):
+            cycle_id = str(cid)
+
+    pos_summary = _read_positions_compact(dl, cycle_id)
+    pos_rows = _normalize_rows(positions)
+    if (
+        pos_rows
+        and pos_summary.get("count", 0) == 0
+        and float(pos_summary.get("pnl_single_max", 0.0) or 0.0) == 0.0
+        and float(pos_summary.get("pnl_portfolio_sum", 0.0) or 0.0) == 0.0
+    ):
+        active_rows = [
+            row
+            for row in pos_rows
+            if str((_row_get(row, "status", "ACTIVE") or "ACTIVE")).upper() in {"", "ACTIVE"}
+        ]
+        considered = active_rows or pos_rows
+        positives: List[float] = []
+        for row in considered:
+            val = _row_get(row, "pnl_after_fees_usd", 0.0)
+            try:
+                num = float(val)
+            except Exception:
+                continue
+            if num > 0:
+                positives.append(num)
+        pos_summary["count"] = len(considered)
+        pos_summary["pnl_single_max"] = max(positives) if positives else 0.0
+        pos_summary["pnl_portfolio_sum"] = sum(positives) if positives else 0.0
+
+    hed_summary = _read_hedges_compact(dl, cycle_id)
+    hed_rows = _normalize_rows(hedges)
+    if (
+        hed_rows
+        and hed_summary.get("planned", 0) == 0
+        and hed_summary.get("active", 0) == 0
+        and hed_summary.get("errors", 0) == 0
+    ):
+        planned = active = errors = 0
+        for row in hed_rows:
+            status = str(_row_get(row, "status", "")).lower()
+            if "plan" in status:
+                planned += 1
+            elif "active" in status:
+                active += 1
+            elif "err" in status or "fail" in status:
+                errors += 1
+        hed_summary["planned"] = planned
+        hed_summary["active"] = active
+        hed_summary["errors"] = errors
+        if hed_summary.get("strategy") is None and isinstance(hedges, dict):
+            strategy_hint = (
+                hedges.get("strategy")
+                or hedges.get("strategy_hint")
+                or hedges.get("tag")
+            )
+            if strategy_hint:
+                hed_summary["strategy"] = strategy_hint
+
+    pf_total = float(pos_summary.get("pnl_portfolio_sum", 0.0) or 0.0)
+    pos_line = (
+        f"{int(pos_summary.get('count', 0) or 0)} active • PnL {_fmt_usd_signed(pf_total)} "
+        f"(pos max {_fmt_usd_signed(pos_summary.get('pnl_single_max'))} / pf {_fmt_usd_signed(pf_total)})"
+    )
+    hed_line = (
+        f"{int(hed_summary.get('planned', 0) or 0)} planned • "
+        f"{int(hed_summary.get('active', 0) or 0)} active • "
+        f"{int(hed_summary.get('errors', 0) or 0)} errors"
+    )
+    strategy_hint = hed_summary.get("strategy")
+    if strategy_hint:
+        hed_line += f"  (strategy={strategy_hint})"
+    print("   📊 Positions: " + pos_line, flush=True)
+    print("   🛡 Hedges   : " + hed_line, flush=True)
+
+    # (UX) Sources line removed — provenance now shown in Sync step + Evaluations
 
     # (Alerts block removed — Evaluations table covers breach state)
     notif_line = csum.get("notifications_brief", "NONE (no_breach)")
@@ -949,14 +1167,9 @@ def emit_compact_cycle(
 # ───────────────────── optional sources/jsonl ───────────────────
 
 def emit_sources_line(sources: Dict[str, Any], label: str = "") -> None:
-    if not sources: return
-    blocks: List[str] = []
-    prof = sources.get("profit") or {}
-    liq  = sources.get("liquid") or {}
-    blocks.append("profit:{pos="+str(prof.get("pos","–"))+",pf="+str(prof.get("pf","–"))+"}")
-    blocks.append("liquid:{btc="+str(liq.get("btc","–"))+",eth="+str(liq.get("eth","–"))+",sol="+str(liq.get("sol","–"))+"}")
-    line = "   🧭 Sources  : " + " ".join(blocks) + (f" ← {label}" if label else "")
-    _i(line); print(line, flush=True)
+    """Legacy no-op retained for compatibility with older monitor builds."""
+    # (UX) Sources line removed — provenance now shown in Sync step + Evaluations
+    return
 
 def emit_json_summary(csum: Dict[str, Any], cyc_ms: int, loop_counter: int, total_elapsed: float, sleep_time: float) -> None:
     out = {
