@@ -1249,7 +1249,13 @@ def run_monitor(
                 except Exception:
                     logging.debug("Failed to emit evaluations table", exc_info=True)
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
-            cl.emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            cl.emit_compact_cycle(
+                summary,
+                cfg_for_endcap,
+                interval,
+                enable_color=True,
+                dl=dl,
+            )
             cyc_ms = int((summary.get("durations", {}) or {}).get("cyclone_ms") or 0)
             elapsed_for_emit = float(summary.get("elapsed_s") or 0.0)
             if elapsed_for_emit <= 0 and cyc_ms > 0:
