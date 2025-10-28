@@ -28,11 +28,6 @@ except Exception:  # pragma: no cover - fallback when colorama is absent
     _CYAN = "\033[96m"  # bright cyan ANSI
     _RST = "\033[0m"
 
-
-def _center_banner(text: str, width: int = 78) -> str:
-    pad = max(0, (width - len(text)) // 2)
-    return " " * pad + text
-
 # ── ensure absolute imports resolve when launching this file directly ─────────
 if __package__ in (None, ""):
     _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -319,6 +314,7 @@ from backend.core.reporting_core.console_reporter import (
     emit_json_summary,
     emit_thresholds_sync_step,
     resolve_effective_thresholds,
+    _section_banner,
 )
 # Use the 4-arg compact printer from console_lines to match our call site
 from backend.core.reporting_core import console_lines as cl
@@ -908,11 +904,9 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
         heartbeat(loop_counter)
         return
 
-    # ----- Sync section header (centered) -----
-    print(_center_banner(" 🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️ "))
+    # ----- Sync section header -----
+    print(_section_banner("🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️"))
     print(f"DEBUG[XCOM] file={get_xcom_live()}")
-
-    print()
 
     # Full Cyclone pipeline
     await cyclone.run_cycle()
@@ -920,10 +914,8 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     # thresholds are critical inputs; read and announce them as part of Sync Data
     emit_thresholds_sync_step(dl)
 
-    # ----- Monitors section header (centered) -----
-    print()
-    print(_center_banner(" 🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️ "))
-    print()
+    # ----- Monitors section header -----
+    print(_section_banner("🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️"))
 
     # Run monitors (each will call XCom inline if needed)
     if price_enabled:
