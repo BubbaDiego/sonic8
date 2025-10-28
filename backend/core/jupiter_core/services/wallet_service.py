@@ -133,6 +133,74 @@ class WalletService:
             "USDC": self.fetch_spl_balance(public_key, self.cfg.usdc_mint),
         }
 
+    # --- signing & submission -----------------------------------------------
+    def sign_tx_base64(self, unsigned_b64: str) -> str:
+        """
+        Best-effort transaction signer.
+
+        Attempts to use ``solders`` (``VersionedTransaction``) first and falls back to
+        ``solana-py`` legacy transactions. If neither library is available a helpful
+        error is raised so the console can prompt for manual signing.
+        """
+
+        mnemonic, bip39_pass = self._read_signer_text(self._resolve_signer_path())
+        seed = self._bip39_seed(mnemonic, bip39_pass)
+        priv_key, _chain = self._slip10_ed25519_derive(
+            seed, self._parse_path(self.cfg.solana_derivation_path)
+        )
+
+        # solders (preferred)
+        try:
+            import base64 as _b64
+            from solders.keypair import Keypair  # type: ignore
+            from solders.transaction import VersionedTransaction  # type: ignore
+
+            keypair = Keypair.from_seed(priv_key)
+            raw = _b64.b64decode(unsigned_b64)
+            tx = VersionedTransaction.from_bytes(raw)
+            signed = tx.sign([keypair])
+            return _b64.b64encode(bytes(signed)).decode("ascii")
+        except Exception:
+            pass
+
+        # solana-py legacy transaction fallback
+        try:
+            import base64 as _b64
+            from solana.keypair import Keypair as SolanaKeypair  # type: ignore
+            from solana.transaction import Transaction  # type: ignore
+
+            secret = priv_key + SigningKey(priv_key).verify_key.encode()
+            keypair = SolanaKeypair.from_secret_key(secret)
+            raw = _b64.b64decode(unsigned_b64)
+            tx = Transaction.deserialize(raw)
+            tx.sign(keypair)
+            return _b64.b64encode(bytes(tx)).decode("ascii")
+        except Exception as exc:  # pragma: no cover - depends on optional deps
+            raise RuntimeError(
+                "Signing not available. Install 'solders' (preferred) or 'solana'. "
+                f"Details: {type(exc).__name__}: {exc}"
+            ) from exc
+
+    def submit_signed_tx(self, signed_b64: str) -> str:
+        """
+        Submit a signed transaction (base64) via JSON-RPC ``sendTransaction``.
+
+        Returns the transaction signature string when successful.
+        """
+
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "sendTransaction",
+            "params": [signed_b64, {"encoding": "base64", "skipPreflight": False}],
+        }
+        resp = requests.post(self.cfg.solana_rpc_url, json=payload, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        if "result" in data:
+            return data["result"]
+        raise RuntimeError(f"RPC sendTransaction error: {data}")
+
     # ---------- internals ----------
     def _resolve_signer_path(self) -> Path:
         # 1) explicit env override

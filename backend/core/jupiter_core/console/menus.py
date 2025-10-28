@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import List, Optional
 
 from ..config import get_config
 from ..services import JupiterService, PositionsService, WalletService
+from ..services.perps_manage_service import PerpsManageService, TPSLRequest
 from ..services.positions_bridge import PositionsBridge
 from .views import kv_table, panel, rows_table
 
@@ -143,6 +144,151 @@ def menu_positions_core() -> None:
         rows,
     )
     kv_table("Source", {"filtered_by_wallet": filtered_by, "synced_now": synced})
+
+
+def _list_positions_for_picker() -> List[dict]:
+    try:
+        wallet_service = WalletService()
+        signer_info = wallet_service.read_signer_info()
+        owner_pubkey: Optional[str] = signer_info["public_key"]
+    except Exception:
+        owner_pubkey = None
+
+    bridge = PositionsBridge()
+    out = bridge.list_active_positions(owner_pubkey=owner_pubkey, sync_if_empty=True)
+    return out.get("positions", [])
+
+
+def _pick_position(positions: List[dict]) -> Optional[dict]:
+    if not positions:
+        panel("Positions", "No ACTIVE positions found.")
+        return None
+
+    rows = []
+    for idx, pos in enumerate(positions, start=1):
+        rows.append(
+            [
+                idx,
+                pos.get("wallet_name") or pos.get("wallet") or "?",
+                pos.get("asset_type")
+                or pos.get("asset")
+                or pos.get("market")
+                or "?",
+                pos.get("position_type") or pos.get("side") or "?",
+                pos.get("size") or pos.get("contracts") or pos.get("positionSize") or "?",
+                pos.get("entry_price")
+                or pos.get("avg_entry")
+                or pos.get("avg_price")
+                or "?",
+                pos.get("liquidation_price")
+                or pos.get("liqPrice")
+                or pos.get("liquidation")
+                or "?",
+            ]
+        )
+
+    rows_table("📈 Select Position", ["#", "wallet", "asset", "side", "size", "entry", "liq"], rows)
+    raw = _prompt("Pick #", "1")
+    try:
+        idx = int(raw)
+        return positions[idx - 1]
+    except Exception:
+        panel("Pick Error", f"Invalid selection: {raw}")
+        return None
+
+
+def _parse_target_price(entry_price: float, kind: str) -> float:
+    """Parse an absolute price or +/- percentage target."""
+
+    user_input = _prompt(f"Target price for {kind.upper()} (abs or +/-%)", "").strip()
+    user_input = user_input.replace(" ", "")
+    if not user_input:
+        raise ValueError("No target provided")
+    if user_input.endswith("%"):
+        pct = float(user_input[:-1])
+        return entry_price * (1.0 + pct / 100.0)
+    return float(user_input)
+
+
+def menu_positions_manage_tpsl() -> None:
+    positions = _list_positions_for_picker()
+    pos = _pick_position(positions)
+    if not pos:
+        return
+
+    side = (pos.get("position_type") or pos.get("side") or "?").lower()
+    is_long = side.startswith("l")
+    market_symbol = str(
+        pos.get("asset_type") or pos.get("asset") or pos.get("market") or "UNKNOWN"
+    )
+    try:
+        entry_price = float(
+            pos.get("entry_price") or pos.get("avg_entry") or pos.get("avg_price")
+        )
+    except Exception:
+        entry_price = 0.0
+
+    action = _prompt("Action: (1) Take-Profit  (2) Stop-Loss", "1").strip()
+    kind = "tp" if action == "1" else "sl"
+
+    try:
+        target_price = _parse_target_price(entry_price, kind)
+    except Exception as exc:
+        panel("Input Error", f"{type(exc).__name__}: {exc}")
+        return
+
+    entire_position = _prompt("Entire position? (y/n)", "y").lower().startswith("y")
+    size_delta_usd: Optional[int] = None
+    if not entire_position:
+        ui_value = _prompt("Partial close size (USD, UI)", "")
+        try:
+            size_delta_usd = int(round(float(ui_value) * 1_000_000))
+        except Exception:
+            panel("Input Error", "Invalid USD amount")
+            return
+
+    trigger_price_atomic = int(round(float(target_price) * 1_000_000))
+
+    svc = PerpsManageService()
+    try:
+        owner_pubkey = WalletService().read_signer_info()["public_key"]
+        result = svc.attach_tp_or_sl(
+            TPSLRequest(
+                owner_pubkey=owner_pubkey,
+                market_symbol=market_symbol,
+                is_long=is_long,
+                trigger_price_usd=trigger_price_atomic,
+                entire_position=entire_position,
+                size_usd_delta=size_delta_usd,
+                kind=kind,
+            )
+        )
+    except Exception as exc:
+        panel("Build Error", f"{type(exc).__name__}: {exc}")
+        return
+
+    if result.get("needsSigning"):
+        unsigned_b64 = result["unsignedTxBase64"]
+        preview = unsigned_b64[:2400] + "..." if len(unsigned_b64) > 2400 else unsigned_b64
+        panel("Unsigned Transaction (base64)", preview)
+        signed = _prompt("Paste SIGNED base64 to submit (or leave blank to cancel)", "")
+        if not signed:
+            panel("Cancelled", "No submission; request not sent.")
+            return
+        try:
+            signature = WalletService().submit_signed_tx(signed)
+            kv_table(
+                "🚀 Submitted",
+                {"signature": signature, "requestPda": result.get("requestPda") or "—"},
+            )
+        except Exception as exc:
+            panel("Submit Error", f"{type(exc).__name__}: {exc}")
+        return
+
+    kv_table(
+        "🚀 Submitted",
+        {"signature": result.get("signature"), "requestPda": result.get("requestPda") or "—"},
+    )
 
 
 def menu_quote(svc: JupiterService) -> None:
