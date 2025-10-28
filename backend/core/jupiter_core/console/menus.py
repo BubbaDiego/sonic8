@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+import json
+from typing import Optional
+
+from ..config import get_config
+from ..services import JupiterService
+from .views import kv_table, panel, rows_table
+
+
+def _prompt(msg: str, default: Optional[str] = None) -> str:
+    hint = f" [{default}]" if default is not None else ""
+    val = input(f"{msg}{hint}: ").strip()
+    return val or (default or "")
+
+
+def show_preflight(svc: JupiterService) -> None:
+    cfg = svc.describe()
+    kv_table("🧭 Jupiter Config", cfg)
+
+
+def menu_quote(svc: JupiterService) -> None:
+    cfg = get_config()
+    input_mint = _prompt("Input mint", cfg.default_input_mint)
+    output_mint = _prompt("Output mint", cfg.default_output_mint)
+    amount = int(_prompt("Amount (atomic units)", "1000000"))
+    slippage = int(_prompt("Slippage (bps)", "50"))
+    res = svc.quote(input_mint=input_mint, output_mint=output_mint, amount=amount, slippage_bps=slippage)
+    summary = {
+        "in": res.input_mint,
+        "out": res.output_mint,
+        "amount": res.amount,
+        "outAmount": res.raw.get("outAmount"),
+        "priceImpactPct": res.raw.get("priceImpactPct") or res.raw.get("priceImpact"),
+        "routePlanLen": len(res.raw.get("routePlan", []) or res.raw.get("routes", [])),
+    }
+    kv_table("🧮 Quote Result", summary)
+    panel("Quote (raw)", json.dumps(res.raw, indent=2)[:4000])
+
+
+def menu_ultra_order(svc: JupiterService) -> None:
+    cfg = get_config()
+    input_mint = _prompt("Input mint", cfg.default_input_mint)
+    output_mint = _prompt("Output mint", cfg.default_output_mint)
+    amount = int(_prompt("Amount (atomic units)", "1000000"))
+    slippage = int(_prompt("Slippage (bps)", "50"))
+    owner = _prompt("Owner public key (optional)", "")
+    res = svc.ultra_order(
+        input_mint=input_mint,
+        output_mint=output_mint,
+        amount=amount,
+        slippage_bps=slippage,
+        user_public_key=owner or None,
+    )
+    tx_b64 = res.get_serialized_tx_b64()
+    kv_table(
+        "🧱 Ultra Order Built",
+        {
+            "tx_base64_present": bool(tx_b64),
+            "input_mint": res.input_mint,
+            "output_mint": res.output_mint,
+            "amount": res.amount,
+            "slippage_bps": res.slippage_bps,
+        },
+    )
+    if tx_b64:
+        panel(
+            "Serialized Transaction (base64)",
+            (tx_b64[:2400] + "...") if len(tx_b64) > 2400 else tx_b64,
+        )
+
+
+def menu_ultra_execute(svc: JupiterService) -> None:
+    tx_b64 = _prompt("Paste SIGNED transaction (base64)", "")
+    if not tx_b64:
+        panel("Error", "No signed transaction provided.")
+        return
+    res = svc.ultra_execute(signed_tx_base64=tx_b64)
+    kv_table(
+        "🚀 Execute Result",
+        {
+            "signature": res.signature,
+            "ok": bool(res.signature),
+        },
+    )
+    panel("Execute (raw)", json.dumps(res.raw, indent=2)[:4000])
+
+
+def menu_trigger_list(svc: JupiterService) -> None:
+    owner = _prompt("Owner public key", "")
+    raw = svc.trigger_list(owner=owner)
+    orders = raw.get("orders") or raw.get("data") or []
+    rows = []
+    for o in orders:
+        rows.append(
+            [
+                o.get("id") or o.get("orderId") or "?",
+                o.get("market") or o.get("pair") or "?",
+                o.get("side") or "?",
+                o.get("price") or o.get("triggerPrice") or "?",
+                o.get("remaining") or o.get("remainingAmount") or "?",
+                o.get("status") or "?",
+            ]
+        )
+    rows_table("⏱ Trigger Orders", ["id", "market", "side", "price", "remaining", "status"], rows)
+    panel("Orders (raw)", json.dumps(raw, indent=2)[:4000])
+
+
+def menu_trigger_cancel(svc: JupiterService) -> None:
+    payload_raw = _prompt("Cancel payload JSON (id + owner + ...)", "")
+    try:
+        payload = json.loads(payload_raw)
+    except Exception as exc:
+        panel("Error", f"Invalid JSON: {exc}")
+        return
+    raw = svc.trigger_cancel(payload)
+    panel("Cancel (raw)", json.dumps(raw, indent=2)[:4000])
+
+
+def menu_trigger_create(svc: JupiterService) -> None:
+    payload_raw = _prompt("Create payload JSON", "")
+    try:
+        payload = json.loads(payload_raw)
+    except Exception as exc:
+        panel("Error", f"Invalid JSON: {exc}")
+        return
+    raw = svc.trigger_create(payload)
+    panel("Create (raw)", json.dumps(raw, indent=2)[:4000])
