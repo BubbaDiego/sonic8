@@ -4,6 +4,7 @@ import importlib
 import json as _json
 import logging
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -60,29 +61,27 @@ def install_compact_console_filter(enable_color: bool = True) -> None:
     for name in ("ConsoleLogger", "console_logger", "LoggerControl", "werkzeug", "uvicorn.access", "fuzzy_wuzzy", "asyncio"):
         logging.getLogger(name).setLevel(logging.ERROR)
 
-    # --- Drop all XCOM debug chatter (both logger and stray prints) ---
-    class _DropXCOMFilter(logging.Filter):
+    # --- Drop ALL legacy DEBUG[...] chatter (logger + stray prints) ---
+    _dbg_re = re.compile(r"\bDEBUG\s*(?:\[|:)", re.IGNORECASE)
+
+    class _DropDebugFilter(logging.Filter):
         def filter(self, record: logging.LogRecord) -> bool:
-            name = (record.name or "").lower()
-            msg = ""
             try:
                 msg = record.getMessage() or ""
+                if _dbg_re.search(msg):
+                    return False
             except Exception:
-                pass
-            if "xcom" in name and record.levelno <= logging.INFO:
-                return False
-            if msg.startswith("DEBUG[XCOM]"):
-                return False
+                return True
             return True
 
-    logger.addFilter(_DropXCOMFilter())
+    logger.addFilter(_DropDebugFilter())
 
-    class _StdoutFilterXCOM:
+    class _StdoutDropDebug:
         def __init__(self, stream):
             self._s = stream
 
         def write(self, s):
-            if "DEBUG[XCOM]" in str(s):
+            if _dbg_re.search(str(s) or ""):
                 return
             self._s.write(s)
 
@@ -95,10 +94,10 @@ def install_compact_console_filter(enable_color: bool = True) -> None:
         def isatty(self):
             return getattr(self._s, "isatty", lambda: False)()
 
-    if not isinstance(sys.stdout, _StdoutFilterXCOM):
-        sys.stdout = _StdoutFilterXCOM(sys.stdout)
-    if not isinstance(sys.stderr, _StdoutFilterXCOM):
-        sys.stderr = _StdoutFilterXCOM(sys.stderr)
+    if not isinstance(sys.stdout, _StdoutDropDebug):
+        sys.stdout = _StdoutDropDebug(sys.stdout)
+    if not isinstance(sys.stderr, _StdoutDropDebug):
+        sys.stderr = _StdoutDropDebug(sys.stderr)
 
 def neuter_legacy_console_logger(
     names: List[str] | None = None, *, level: int = logging.ERROR

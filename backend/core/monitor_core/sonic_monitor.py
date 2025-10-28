@@ -310,6 +310,7 @@ from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.positions_icons import compute_positions_icon_line, compute_from_list
 from backend.core.reporting_core.console_reporter import (
+    install_compact_console_filter,
     install_strict_console_filter,
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
@@ -942,6 +943,7 @@ def run_monitor(
     poll_interval_s: Optional[int] = None,
     cycles: Optional[int] = None,
 ) -> None:
+    install_compact_console_filter(enable_color=True)
     install_strict_console_filter()
     silence_legacy_console_loggers()
 
@@ -984,7 +986,7 @@ def run_monitor(
         pass
     env_path = str((Path(__file__).resolve().parents[3] / ".env"))
     db_path_hint = "mother.db"
-    emit_config_banner(env_path, db_path_hint)
+    emit_config_banner(env_path, db_path_hint, dl)
     print(f"DEBUG[XCOM] live={get_xcom_live()} (FILE)")
 
     monitor_core = MonitorCore()
