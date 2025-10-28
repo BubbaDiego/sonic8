@@ -413,6 +413,14 @@ def _as_dict(v: Any) -> Dict[str, Any]:
     return {}
 
 
+def _safe_json_load(path: str) -> tuple[Optional[dict], Optional[str]]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return _json.load(f), None
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
+
+
 def _fmt_num(v: Optional[float]) -> str:
     if v is None:
         return "—"
@@ -462,6 +470,7 @@ def _scan_env_liquid() -> Dict[str, Optional[float]]:
 
 def _resolve_liquid_sources(
     dl,
+    file_json: Optional[dict] = None,
 ) -> tuple[Dict[str, Optional[float]], Dict[str, Optional[float]], Dict[str, Optional[float]], str]:
     """Return candidate liquidation thresholds from FILE, DB, ENV and winning label."""
 
@@ -478,16 +487,17 @@ def _resolve_liquid_sources(
     db_map: Dict[str, Optional[float]] = {"BTC": None, "ETH": None, "SOL": None}
     env_map: Dict[str, Optional[float]] = _scan_env_liquid()
 
-    # FILE (json config)
-    try:
+    # FILE (prefer explicit JSON if provided; fall back to loader global_config)
+    if isinstance(file_json, dict) and "liquid_monitor" in file_json:
+        lm_file = _as_dict(file_json.get("liquid_monitor"))
+    else:
         lm_file = _as_dict(gconf.get("liquid_monitor") if hasattr(gconf, "get") else {})
-    except Exception:
-        lm_file = {}
-    if lm_file:
-        thr_map = _as_dict(lm_file.get("thresholds") or {})
-        glob = _num(lm_file.get("threshold_percent"))
-        for sym in ("BTC", "ETH", "SOL"):
-            file_map[sym] = _num(thr_map.get(sym), glob)
+    if (not lm_file) and isinstance(file_json, dict) and "liquidation_monitor" in file_json:
+        lm_file = _as_dict(file_json.get("liquidation_monitor"))
+    thr_map = _as_dict(lm_file.get("thresholds") or {})
+    glob = _num(lm_file.get("threshold_percent"))
+    for sym in ("BTC", "ETH", "SOL"):
+        file_map[sym] = _num(thr_map.get(sym), glob)
 
     # DB (system vars)
     try:
@@ -536,9 +546,6 @@ def emit_thresholds_sync_step(dl) -> None:
 
     t0 = time.perf_counter()
 
-    file_map, db_map, env_map, _liq_src_overall = _resolve_liquid_sources(dl)
-    prof_map, prof_src = _resolve_profit_sources(dl)
-
     def _discover_json_path() -> str:
         path = os.getenv("SONIC_MONITOR_JSON", "").strip()
         if path:
@@ -559,19 +566,66 @@ def emit_thresholds_sync_step(dl) -> None:
         return str(modern if modern.exists() else legacy)
 
     json_path = _discover_json_path()
+    jp = Path(json_path)
     try:
-        json_path_obj = Path(json_path)
-        exists = json_path_obj.exists()
-        size = json_path_obj.stat().st_size if exists else 0
+        exists = jp.exists()
+        size = jp.stat().st_size if exists else 0
         mtime = (
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(json_path_obj.stat().st_mtime))
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(jp.stat().st_mtime))
             if exists
             else "-"
         )
     except Exception:
-        exists = False
-        size = 0
-        mtime = "-"
+        exists, size, mtime = False, 0, "-"
+
+    # ── Step A: print path/existence
+    json_line = (
+        f"  📄 Config JSON path  : {json_path}  "
+        + (f"[exists ✓, {size} bytes, mtime {mtime}]" if exists else "[missing ✗]")
+    )
+    _info(json_line)
+    print(json_line, flush=True)
+
+    # ── Step B: parse JSON for diagnostics
+    parsed, parse_err = (_safe_json_load(json_path) if exists else (None, "missing"))
+    if parse_err:
+        line = f"  📥 Parse JSON        : ❌ {parse_err}"
+    else:
+        keys = ", ".join(sorted(parsed.keys())) if isinstance(parsed, dict) else "—"
+        line = f"  📥 Parse JSON        : ✅ keys=({keys})"
+    _info(line)
+    print(line, flush=True)
+
+    # ── Step C: quick schema check to aid operators
+    if isinstance(parsed, dict):
+        flags: List[str] = []
+        flags.append(
+            "liquid_monitor ✓" if "liquid_monitor" in parsed or "liquidation_monitor" in parsed else "liquid_monitor ✗"
+        )
+        lm = parsed.get("liquid_monitor") or parsed.get("liquidation_monitor") or {}
+        if not isinstance(lm, dict):
+            lm = {}
+        flags.append(
+            "thresholds ✓" if ("thresholds" in lm or "threshold_percent" in lm) else "thresholds ✗"
+        )
+        tm = lm.get("thresholds", {}) if isinstance(lm, dict) else {}
+        for sym in ("BTC", "ETH", "SOL"):
+            flags.append(f"{sym} {'✓' if (sym in tm if isinstance(tm, dict) else False) or 'threshold_percent' in lm else '✗'}")
+        pm = parsed.get("profit_monitor", {})
+        if not isinstance(pm, dict):
+            pm = {}
+        flags.append("profit_monitor ✓" if "profit_monitor" in parsed else "profit_monitor ✗")
+        flags.append("pos ✓" if "position_profit_usd" in pm else "pos ✗")
+        flags.append("pf ✓" if "portfolio_profit_usd" in pm else "pf ✗")
+        line = "  🔎 Schema check      : " + ", ".join(flags)
+        _info(line)
+        print(line, flush=True)
+
+    # ── Step D: resolve sources using parsed JSON (so FILE wins when present)
+    file_map, db_map, env_map, _liq_src_overall = _resolve_liquid_sources(
+        dl, parsed if isinstance(parsed, dict) else None
+    )
+    prof_map, prof_src = _resolve_profit_sources(dl)
 
     used_liq: Dict[str, Optional[float]] = {}
     used_srcs: Dict[str, str] = {}
@@ -590,11 +644,8 @@ def emit_thresholds_sync_step(dl) -> None:
             used_srcs[sym] = "—"
 
     dt = time.perf_counter() - t0
-    path_note = f"[exists ✓, {size} bytes, mtime {mtime}]" if exists else "[missing ✗]"
-    json_line = f"  📄 Config JSON path  : {json_path}  {path_note}"
-    _info(json_line)
-    print(json_line, flush=True)
 
+    # ── Step E: final output lines
     header = f"  🧭 Read monitor thresholds  ✅ ({dt:.2f}s)"
     _info(header)
     print(header, flush=True)
@@ -752,26 +803,31 @@ def emit_thresholds_trace(dl) -> None:
 
 
 def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str, str]:
-    file_map, db_map, env_map, liq_src_hint = _resolve_liquid_sources(dl)
-
-    def _pick_thr(sym: str) -> tuple[Optional[float], str]:
-        if file_map.get(sym) is not None:
-            return file_map[sym], "file"
-        if db_map.get(sym) is not None:
-            return db_map[sym], "db"
-        if env_map.get(sym) is not None:
-            return env_map[sym], "env"
-        return None, "unknown"
+    # Use the same resolution logic as the Sync step with per-asset provenance for the table.
+    json_path = os.getenv("SONIC_MONITOR_JSON", "").strip()
+    file_json, _ = (_safe_json_load(json_path) if json_path else (None, None))
+    file_map, db_map, env_map, liq_src_hint = _resolve_liquid_sources(
+        dl, file_json if isinstance(file_json, dict) else None
+    )
 
     liq_thr_map: Dict[str, Optional[float]] = {}
-    liq_src_per_sym: Dict[str, str] = {}
+    liq_src_per_asset: Dict[str, str] = {}
     liq_src_type = liq_src_hint
     for sym in ("BTC", "ETH", "SOL"):
-        thr, src = _pick_thr(sym)
-        liq_thr_map[sym] = thr
-        liq_src_per_sym[sym] = src
-        if liq_src_type == "unknown" and src != "unknown":
-            liq_src_type = src
+        if file_map.get(sym) is not None:
+            liq_thr_map[sym] = file_map[sym]
+            liq_src_per_asset[sym] = "file"
+        elif db_map.get(sym) is not None:
+            liq_thr_map[sym] = db_map[sym]
+            liq_src_per_asset[sym] = "db"
+        elif env_map.get(sym) is not None:
+            liq_thr_map[sym] = env_map[sym]
+            liq_src_per_asset[sym] = "env"
+        else:
+            liq_thr_map[sym] = None
+            liq_src_per_asset[sym] = "unknown"
+        if liq_src_type == "unknown" and liq_src_per_asset[sym] != "unknown":
+            liq_src_type = liq_src_per_asset[sym]
     if liq_src_type == "unknown" and liq_src_hint != "unknown":
         liq_src_type = liq_src_hint
 
@@ -793,7 +849,8 @@ def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], st
                 "value": nearest.get(sym),
                 "rule": "≤",
                 "threshold": liq_thr_map.get(sym),
-                "src": _src_label("snap" if cycle_id else "db", liq_src_per_sym.get(sym, liq_src_type)),
+                # per-asset threshold source + value source (SNAP if we have cycle snapshot)
+                "src": _src_label("snap" if cycle_id else "db", liq_src_per_asset.get(sym, "unknown")),
             }
         )
 
