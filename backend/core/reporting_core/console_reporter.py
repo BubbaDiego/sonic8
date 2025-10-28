@@ -40,6 +40,66 @@ def install_strict_console_filter() -> None:
                 h.addFilter(StrictWhitelistFilter())
     except Exception: pass
 
+
+def install_compact_console_filter(enable_color: bool = True) -> None:
+    """Install concise logging style and mute noisy modules."""
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    fmt = "%(message)s" if enable_color else "%(message)s"
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            handler.setFormatter(logging.Formatter(fmt))
+
+    if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(fmt))
+        logger.addHandler(handler)
+
+    for name in ("ConsoleLogger", "console_logger", "LoggerControl", "werkzeug", "uvicorn.access", "fuzzy_wuzzy", "asyncio"):
+        logging.getLogger(name).setLevel(logging.ERROR)
+
+    # --- Drop all XCOM debug chatter (both logger and stray prints) ---
+    class _DropXCOMFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            name = (record.name or "").lower()
+            msg = ""
+            try:
+                msg = record.getMessage() or ""
+            except Exception:
+                pass
+            if "xcom" in name and record.levelno <= logging.INFO:
+                return False
+            if msg.startswith("DEBUG[XCOM]"):
+                return False
+            return True
+
+    logger.addFilter(_DropXCOMFilter())
+
+    class _StdoutFilterXCOM:
+        def __init__(self, stream):
+            self._s = stream
+
+        def write(self, s):
+            if "DEBUG[XCOM]" in str(s):
+                return
+            self._s.write(s)
+
+        def flush(self):
+            try:
+                self._s.flush()
+            except Exception:
+                pass
+
+        def isatty(self):
+            return getattr(self._s, "isatty", lambda: False)()
+
+    if not isinstance(sys.stdout, _StdoutFilterXCOM):
+        sys.stdout = _StdoutFilterXCOM(sys.stdout)
+    if not isinstance(sys.stderr, _StdoutFilterXCOM):
+        sys.stderr = _StdoutFilterXCOM(sys.stderr)
+
 def neuter_legacy_console_logger(
     names: List[str] | None = None, *, level: int = logging.ERROR
 ) -> None:
@@ -159,121 +219,6 @@ def _fmt_monitors(mon: Dict[str, Any] | None) -> str:
         if k in en:
             parts.append(f"{k} ({'🛠️' if en.get(k) else '✖'})")
     return "  ".join(parts) if parts else "–"
-
-# ───────────────────── Alerts detail formatters ─────────────────
-
-def _fmt_liquid(rows: List[Dict[str, Any]] | None) -> List[str]:
-    if not rows: return ["✓"]
-    out: List[str] = []
-    for r in rows:
-        if not isinstance(r, dict): continue
-        a = str(r.get("asset") or r.get("symbol") or "—")
-        d = r.get("distance"); t = r.get("threshold")
-        if d is None or t is None: continue
-        sev = str(r.get("severity") or "").lower()
-        tag = "breach" if sev == "breach" else ("near" if sev == "near" else "ok")
-        out.append(f"{a} {float(d):.1f}% / thr {float(t):.1f}%  ({tag})")
-    return out or ["✓"]
-
-def _fmt_profit(rows: List[Dict[str, Any]] | None) -> List[str]:
-    if not rows: return ["✓"]
-    out: List[str] = []
-    for r in rows:
-        if not isinstance(r, dict): continue
-        metric = str(r.get("metric") or "pf").lower()
-        label  = "portfolio" if metric in ("pf", "portfolio") else "position"
-        v = r.get("value"); t = r.get("threshold")
-        if v is None or t is None: continue
-        sev = str(r.get("severity") or "").lower()
-        tag = "breach" if sev == "breach" else ("near" if sev == "near" else "ok")
-        out.append(f"{label} {float(v):.1f} / thr {float(t):.1f}  ({tag})")
-    return out or ["✓"]
-
-def _ensure_detail_and_sources(csum: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Tolerant enrichment: if the cycle did NOT include alerts.detail or sources,
-    synthesize minimal structures so the console can render multi-line Alerts.
-    """
-    alerts = csum.setdefault("alerts", {})
-    detail = alerts.get("detail")
-    # quick 'sources' snapshot if missing (best-effort)
-    if not isinstance(csum.get("sources"), dict):
-        src: Dict[str, Any] = {}
-        # profit pos/pf if present anywhere in summary
-        pos = csum.get("profit", {}).get("settings", {}).get("pos")
-        pf  = csum.get("profit", {}).get("settings", {}).get("pf")
-        src["profit"] = {"pos": pos, "pf": pf}
-        # liquid per-asset
-        thr = (csum.get("liquid", {}) or {}).get("thresholds") or {}
-        src["liquid"] = {
-            "btc": thr.get("BTC") if isinstance(thr, dict) else None,
-            "eth": thr.get("ETH") if isinstance(thr, dict) else None,
-            "sol": thr.get("SOL") if isinstance(thr, dict) else None,
-        }
-        csum["sources"] = src
-
-    if isinstance(detail, dict):
-        return csum  # already provided by monitors
-
-    # synthesize very small detail from whatever metrics exist
-    out: Dict[str, List[Dict[str, Any]]] = {}
-    prof_cur = (csum.get("profit") or {}).get("metrics") or {}
-    pf_val  = prof_cur.get("pf_current")
-    pos_val = prof_cur.get("pos_current")
-    pf_thr  = csum.get("sources", {}).get("profit", {}).get("pf")
-    pos_thr = csum.get("sources", {}).get("profit", {}).get("pos")
-    rows: List[Dict[str, Any]] = []
-    try:
-        if pf_val is not None and pf_thr is not None:
-            rows.append({"metric": "pf", "value": float(pf_val), "threshold": float(pf_thr),
-                         "severity": "breach" if float(pf_val) >= float(pf_thr) else "ok"})
-        if pos_val is not None and pos_thr is not None:
-            rows.append({"metric": "pos", "value": float(pos_val), "threshold": float(pos_thr),
-                         "severity": "breach" if float(pos_val) >= float(pos_thr) else "ok"})
-    except Exception:
-        rows = rows  # keep whatever we could parse
-    if rows: out["profit"] = rows
-
-    liq_assets = (csum.get("liquid") or {}).get("assets") or {}
-    liq_thr    = csum.get("sources", {}).get("liquid", {}) or {}
-    lrows: List[Dict[str, Any]] = []
-    for a, cur in (liq_assets.items() if isinstance(liq_assets, dict) else []):
-        dist = (cur or {}).get("distance")
-        thr  = liq_thr.get(a.upper())
-        try:
-            if dist is None or thr is None: continue
-            d = float(str(dist).replace("%",""))
-            t = float(str(thr).replace("%",""))
-            sev = "breach" if d <= t else "ok"
-            lrows.append({"asset": a.upper(), "distance": d, "threshold": t, "severity": sev})
-        except Exception:
-            continue
-    if lrows: out["liquid"] = lrows
-
-    alerts["detail"] = out
-    return csum
-
-def _emit_alerts_block(csum: Dict[str, Any]) -> None:
-    """Blue header aligned with top-level rows; then one line per monitor."""
-    _ensure_detail_and_sources(csum)
-    detail = (csum.get("alerts") or {}).get("detail") or {}
-
-    print(_c("   🔔 Alerts   :", 94))  # bright blue, aligned with Notifications
-    for key, title, fn in (
-        ("profit", "Profit", _fmt_profit),
-        ("liquid", "Liquid", _fmt_liquid),
-        ("market", "Market", lambda _:[ "✓"]),
-        ("price",  "Price",  lambda _:[ "✓"]),
-    ):
-        rows  = detail.get(key) if isinstance(detail, dict) else None
-        lines = fn(rows)
-        print(f"      {title:<7}: ", end="")
-        if lines == ["✓"]:
-            print("✓")
-        else:
-            print(lines[0])
-            for more in lines[1:]:
-                print(f"                 {more}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Thresholds panel (Option 3A rendered in console)
@@ -884,7 +829,8 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
     logger = logging.getLogger("SonicMonitor")
     _info = logger.info
 
-    title = "🧭  Monitor Evaluations"
+    INDENT = "  "
+    title = INDENT + "🧭  Monitor Evaluations"
     if ts_label:
         title += f" — last cycle {ts_label}"
     _info(title)
@@ -897,9 +843,11 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
         rich_console = importlib.import_module("rich.console")
         rich_table = importlib.import_module("rich.table")
         rich_box = importlib.import_module("rich.box")
+        rich_padding = importlib.import_module("rich.padding")
         Console = getattr(rich_console, "Console")
         Table = getattr(rich_table, "Table")
         box = getattr(rich_box, "SIMPLE_HEAVY")
+        Padding = getattr(rich_padding, "Padding")
 
         tbl = Table(show_header=True, show_edge=True, box=box, pad_edge=False)
         tbl.add_column("Metric", justify="left", no_wrap=True)
@@ -919,7 +867,7 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
             res = _classify_result(r["kind"], r["value"], r["threshold"])
             tbl.add_row(r["metric"], val, r["rule"], thr, res, r["src"])
 
-        Console().print(tbl)
+        Console().print(Padding(tbl, (0, 0, 0, len(INDENT))))
         return
     except Exception:
         pass
@@ -930,12 +878,11 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
     THR_W = 12
     RES_W = 13
     SRC_W = 18
-    top = "┌" + "─" * METRIC_W + "┬" + "─" * VAL_W + "┬" + "─" * RULE_W + "┬" + "─" * THR_W + "┬" + "─" * RES_W + "┬" + "─" * SRC_W + "┐"
-    header = (
-        f"│ {'Metric':<{METRIC_W}}│ {'Value':>{VAL_W}}│{'Rule':^{RULE_W}}│ {'Threshold':>{THR_W-1}}│ {'Result':<{RES_W-1}}│ {'Source (V / T)':<{SRC_W-1}}│"
-    )
-    sep = "├" + "─" * METRIC_W + "┼" + "─" * VAL_W + "┼" + "─" * RULE_W + "┼" + "─" * THR_W + "┼" + "─" * RES_W + "┼" + "─" * SRC_W + "┤"
-    bot = "└" + "─" * METRIC_W + "┴" + "─" * VAL_W + "┴" + "─" * RULE_W + "┴" + "─" * THR_W + "┴" + "─" * RES_W + "┴" + "─" * SRC_W + "┘"
+    pad = INDENT
+    top = pad + "┌" + "─" * METRIC_W + "┬" + "─" * VAL_W + "┬" + "─" * RULE_W + "┬" + "─" * THR_W + "┬" + "─" * RES_W + "┬" + "─" * SRC_W + "┐"
+    header = pad + f"│ {'Metric':<{METRIC_W}}│ {'Value':>{VAL_W}}│{'Rule':^{RULE_W}}│ {'Threshold':>{THR_W-1}}│ {'Result':<{RES_W-1}}│ {'Source (V / T)':<{SRC_W-1}}│"
+    sep = pad + "├" + "─" * METRIC_W + "┼" + "─" * VAL_W + "┼" + "─" * RULE_W + "┼" + "─" * THR_W + "┼" + "─" * RES_W + "┼" + "─" * SRC_W + "┤"
+    bot = pad + "└" + "─" * METRIC_W + "┴" + "─" * VAL_W + "┴" + "─" * RULE_W + "┴" + "─" * THR_W + "┴" + "─" * RES_W + "┴" + "─" * SRC_W + "┘"
     _info(top)
     print(top)
     _info(header)
@@ -944,7 +891,7 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
     print(sep)
 
     def _row(metric_label: str, actual_s: str, rule: str, thr_s: str, result: str, src_label: str) -> str:
-        return f"│ {metric_label:<{METRIC_W-1}}│{actual_s:>{VAL_W}}│{rule:^{RULE_W}}│{thr_s:>{THR_W}}│ {result:<{RES_W-1}}│ {src_label:<{SRC_W-1}}│"
+        return pad + f"│ {metric_label:<{METRIC_W-1}}│{actual_s:>{VAL_W}}│{rule:^{RULE_W}}│{thr_s:>{THR_W}}│ {result:<{RES_W-1}}│ {src_label:<{SRC_W-1}}│"
 
     for r in rows:
         if r["kind"] == "liquid":
@@ -992,8 +939,7 @@ def emit_compact_cycle(
     print(f"   📊 Positions: {positions.get('sync_line', '–')}")
     print(f"   🛡 Hedges   : {'🦔' if int(hedges.get('groups', 0) or 0) > 0 else '–'}")
 
-    _emit_alerts_block(csum)
-
+    # (Alerts block removed — Evaluations table covers breach state)
     notif_line = csum.get("notifications_brief", "NONE (no_breach)")
     print(f"   📨 Notifications : {notif_line}")
 
@@ -1036,6 +982,7 @@ def emit_json_summary(csum: Dict[str, Any], cyc_ms: int, loop_counter: int, tota
 __all__ = [
     "StrictWhitelistFilter",
     "install_strict_console_filter",
+    "install_compact_console_filter",
     "neuter_legacy_console_logger",
     "silence_legacy_console_loggers",
     "emit_compact_cycle",
