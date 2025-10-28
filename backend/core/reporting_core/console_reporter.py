@@ -312,28 +312,43 @@ def _bar(util: Optional[float], width: int = 10) -> Tuple[str, str]:
     return "█" * fill + "░" * (width - fill), f"{int(round(util * 100))}%"
 
 
-def _nearest_liq_from_db(dl) -> Dict[str, Optional[float]]:
+def _nearest_liq_from_db(dl, cycle_id: Optional[str] = None) -> Dict[str, Optional[float]]:
     """
-    Return minimum absolute liquidation distance per asset from positions.
+    Return minimum absolute liquidation distance per asset.
+    Prefer current cycle snapshot (sonic_positions) when cycle_id is provided;
+    fall back to legacy positions table.
     We keep this intentionally lenient: if the table/column isn’t there, we return {}.
     """
     try:
         cur = dl.db.get_cursor()
         if not cur:
             return {}
-        cur.execute(
-            """
-            SELECT asset_type, MIN(ABS(liquidation_distance)) AS min_dist
-              FROM positions
-             WHERE status='ACTIVE'
-            GROUP BY asset_type
-            """
-        )
+        if cycle_id:
+            cur.execute(
+                """
+                SELECT asset, MIN(ABS(liquidation_distance)) AS min_dist
+                  FROM sonic_positions
+                 WHERE cycle_id = ?
+                GROUP BY asset
+                """,
+                (cycle_id,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT asset_type, MIN(ABS(liquidation_distance)) AS min_dist
+                  FROM positions
+                 WHERE status='ACTIVE'
+                GROUP BY asset_type
+                """
+            )
         rows = cur.fetchall() or []
         out = {}
         for r in rows:
-            # tolerate both mapping and tuple rows
-            asset = (r["asset_type"] if "asset_type" in r.keys() else r[0]) if hasattr(r, "keys") else r[0]
+            asset = (
+                r["asset"] if hasattr(r, "keys") and "asset" in r.keys()
+                else (r["asset_type"] if hasattr(r, "keys") and "asset_type" in r.keys() else r[0])
+            ) or ""
             val   = (r["min_dist"]   if "min_dist"   in getattr(r, "keys", lambda: [])() else r[1])
             out[str(asset).upper()] = _num(val, None)
         return out
@@ -429,7 +444,7 @@ def _classify_result(kind: str, actual: Optional[float], thr: Optional[float]) -
     return "· not met"
 
 
-def _build_eval_rows(dl) -> Tuple[List[Dict[str, Any]], str, str]:
+def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str, str]:
     try:
         sysvars = getattr(dl, "system", None)
         gconf = getattr(dl, "global_config", None)
@@ -437,32 +452,63 @@ def _build_eval_rows(dl) -> Tuple[List[Dict[str, Any]], str, str]:
         sysvars = None
         gconf = None
 
+    # Reuse the JSON-aware threshold resolver from sonic_monitor to respect FILE configs.
+    # Import lazily to avoid circular imports.
+    liq_cfg = {}
+    prof_single_thr = prof_port_thr = None
+    liq_src_type = "unknown"
+    prof_src_type = "unknown"
     try:
-        liq_cfg_file_raw = gconf.get("liquid_monitor") if gconf is not None and hasattr(gconf, "get") else {}
+        from backend.core.monitor_core.sonic_monitor import _read_monitor_threshold_sources  # type: ignore
+        src_map, label = _read_monitor_threshold_sources(dl)
+        # Liquid thresholds: map uses lowercase keys
+        liq_cfg = {"thresholds": {
+            "BTC": _num((src_map.get("liquid", {}) or {}).get("btc")),
+            "ETH": _num((src_map.get("liquid", {}) or {}).get("eth")),
+            "SOL": _num((src_map.get("liquid", {}) or {}).get("sol")),
+        }}
+        liq_src_type = "file" if "global_config" in label else ("db" if "DL.system_vars" in label else ("env" if "env" in label else "unknown"))
+        # Profit thresholds (USD)
+        prof = src_map.get("profit", {}) or {}
+        prof_single_thr = _num(prof.get("pos"))
+        prof_port_thr   = _num(prof.get("pf"))
+        prof_src_type = "db" if "DL.system_vars" in label else ("file" if "global_config" in label else "unknown")
     except Exception:
-        liq_cfg_file_raw = {}
-    liq_cfg_file = _as_dict(liq_cfg_file_raw or {})
+        # Fallback to local logic if that helper isn't present
+        try:
+            liq_cfg_file_raw = gconf.get("liquid_monitor") if gconf is not None and hasattr(gconf, "get") else {}
+        except Exception:
+            liq_cfg_file_raw = {}
+        liq_cfg_file = _as_dict(liq_cfg_file_raw or {})
 
-    try:
-        liq_cfg_db_raw = sysvars.get_var("liquid_monitor") if sysvars else {}
-    except Exception:
-        liq_cfg_db_raw = {}
-    liq_cfg_db = _as_dict(liq_cfg_db_raw or {})
-    liq_cfg = liq_cfg_file or liq_cfg_db
-    liq_src_type = "file" if liq_cfg_file else ("db" if liq_cfg_db else "unknown")
+        try:
+            liq_cfg_db_raw = sysvars.get_var("liquid_monitor") if sysvars else {}
+        except Exception:
+            liq_cfg_db_raw = {}
+        liq_cfg_db = _as_dict(liq_cfg_db_raw or {})
+        liq_cfg = liq_cfg_file or liq_cfg_db
+        liq_src_type = "file" if liq_cfg_file else ("db" if liq_cfg_db else "unknown")
 
-    try:
-        prof_cfg_db_raw = sysvars.get_var("profit_monitor") if sysvars else {}
-    except Exception:
-        prof_cfg_db_raw = {}
-    prof_cfg_db = _as_dict(prof_cfg_db_raw or {})
-    prof_cfg = prof_cfg_db
-    prof_src_type = "db" if prof_cfg_db else "unknown"
+        try:
+            prof_cfg_db_raw = sysvars.get_var("profit_monitor") if sysvars else {}
+        except Exception:
+            prof_cfg_db_raw = {}
+        prof_cfg_db = _as_dict(prof_cfg_db_raw or {})
+        prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg_db)
+        prof_src_type = "db" if prof_cfg_db else "unknown"
 
     liq_thr = _resolve_liq_thresholds(liq_cfg)
-    prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg)
+    if prof_single_thr is None or prof_port_thr is None:
+        try:
+            prof_cfg_db_raw = sysvars.get_var("profit_monitor") if sysvars else {}
+        except Exception:
+            prof_cfg_db_raw = {}
+        prof_cfg_db = _as_dict(prof_cfg_db_raw or {})
+        prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg_db)
+        if prof_src_type == "unknown":
+            prof_src_type = "db" if prof_cfg_db else "unknown"
 
-    nearest = _nearest_liq_from_db(dl)
+    nearest = _nearest_liq_from_db(dl, csum.get("cycle_id"))
     single_act, port_act = _profit_actuals_from_db(dl)
 
     rows: List[Dict[str, Any]] = []
@@ -474,7 +520,7 @@ def _build_eval_rows(dl) -> Tuple[List[Dict[str, Any]], str, str]:
                 "value": nearest.get(sym),
                 "rule": "≤",
                 "threshold": liq_thr.get(sym),
-                "src": _src_label("db", liq_src_type),
+                "src": _src_label("snap", liq_src_type),
             }
         )
 
@@ -514,7 +560,7 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
     _info(title)
     print(title, flush=True)
 
-    rows, _, _ = _build_eval_rows(dl)
+    rows, _, _ = _build_eval_rows(dl, csum)
 
     try:
         rich_console = importlib.import_module("rich.console")

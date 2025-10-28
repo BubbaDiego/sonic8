@@ -305,6 +305,7 @@ from backend.core.reporting_core.console_reporter import (
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
     emit_evaluations_table,
+    emit_json_summary,
 )
 # Use the 4-arg compact printer from console_lines to match our call site
 from backend.core.reporting_core import console_lines as cl
@@ -1208,7 +1209,8 @@ def run_monitor(
             except Exception as _e:
                 # don't fail the cycle on cosmetics; console will show ✓ for missing detail
                 pass
-            cl.emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            # 3) Emit evaluation table (Value/Rule/Threshold/Result/Source) FIRST,
+            # so it's shown above the end-of-cycle banner.
             if dl is not None:
                 try:
                     ts_label = None
@@ -1233,6 +1235,15 @@ def run_monitor(
                     emit_evaluations_table(dl, summary, ts_label)
                 except Exception:
                     logging.debug("Failed to emit evaluations table", exc_info=True)
+            # 4) Then emit compact & JSON summary (end-of-cycle line)
+            cl.emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            emit_json_summary(
+                summary,
+                int((summary.get("durations", {}) or {}).get("cyclone_ms") or 0),
+                loop_counter,
+                total_elapsed,
+                sleep_time,
+            )
             # ---- Sources line (compact) + optional deep trace ----
             try:
                 from backend.core.reporting_core.console_reporter import emit_sources_line
