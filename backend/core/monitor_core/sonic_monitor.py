@@ -899,6 +899,8 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     _MON_STATE.clear()
     _ALERTS_STATE.clear()
 
+    cycle_summary_hint: dict[str, Any] = {"cycle_id": loop_counter, "cycle_num": loop_counter}
+
     if not sonic_enabled:
         logging.info("Sonic loop disabled via config")
         heartbeat(loop_counter)
@@ -912,7 +914,7 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     await cyclone.run_cycle()
 
     # thresholds are critical inputs; read and announce them as part of Sync Data
-    emit_thresholds_sync_step(dl)
+    emit_thresholds_sync_step(dl, cycle_summary_hint)
 
     # ----- Monitors section header -----
     print(_section_banner("🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️"))
