@@ -1235,13 +1235,20 @@ def run_monitor(
                     emit_evaluations_table(dl, summary, ts_label)
                 except Exception:
                     logging.debug("Failed to emit evaluations table", exc_info=True)
-            # 4) Then emit compact & JSON summary (end-of-cycle line)
+            # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            cyc_ms = int((summary.get("durations", {}) or {}).get("cyclone_ms") or 0)
+            elapsed_for_emit = float(summary.get("elapsed_s") or 0.0)
+            if elapsed_for_emit <= 0 and cyc_ms > 0:
+                elapsed_for_emit = cyc_ms / 1000.0
+            if elapsed_for_emit <= 0:
+                elapsed_for_emit = float(elapsed)
+            sleep_time = max(0.0, float(interval) - float(elapsed_for_emit or 0.0))
             emit_json_summary(
                 summary,
-                int((summary.get("durations", {}) or {}).get("cyclone_ms") or 0),
+                cyc_ms,
                 loop_counter,
-                total_elapsed,
+                elapsed_for_emit,
                 sleep_time,
             )
             # ---- Sources line (compact) + optional deep trace ----
@@ -1272,7 +1279,7 @@ def run_monitor(
             # sleep until next cycle based on JSON-only interval
             sleep_time = max(
                 0.0,
-                float(interval) - float(summary.get("elapsed_s", elapsed)),
+                float(interval) - float(summary.get("elapsed_s", elapsed_for_emit)),
             )
             if sleep_time > 0:
                 spin_progress(
