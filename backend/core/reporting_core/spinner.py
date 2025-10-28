@@ -6,7 +6,7 @@ import shutil
 import sys
 import threading
 import time
-from typing import Dict, Iterable, Iterator, List, Optional
+from typing import Callable, Dict, Iterable, Iterator, List, Optional
 
 from .config import MIN_SPINNER_SECONDS, SPINNER_INTERVAL, SPINNERS
 
@@ -101,7 +101,13 @@ def _write_line(msg: str, *, last_len: int) -> int:
     return len(msg)
 
 
-def spin_progress(seconds: float, *, style: str = "line", label: str = "sleep") -> None:
+def spin_progress(
+    seconds: float,
+    *,
+    style: str = "line",
+    label: str = "sleep",
+    bar_colorizer: Optional[Callable[[str], str]] = None,
+) -> None:
     """
     Spinner + progress bar during sleep (single-line, in-place).
     - Clears the line each tick so output never wraps.
@@ -135,11 +141,24 @@ def spin_progress(seconds: float, *, style: str = "line", label: str = "sleep") 
                 # update on fill change or every ~0.5s to keep the spinner lively
                 if fill != last_fill or int((seconds - remaining) * 2) != int((seconds - remaining - tick) * 2):
                     bar   = "█" * fill + "░" * (width - fill)
+                    if bar_colorizer is not None:
+                        try:
+                            bar_display = bar_colorizer(bar)
+                        except Exception:
+                            bar_display = bar
+                        else:
+                            if not isinstance(bar_display, str):
+                                bar_display = str(bar_display)
+                    else:
+                        bar_display = bar
                     frame = next(frames)
                     elapsed = int(seconds - remaining)
                     rem     = int(remaining + 0.999)
                     mins, secs_i = divmod(rem, 60)
-                    msg = f"{frame} {label} [{bar}] {elapsed:>2}s/{int(seconds):<2}s (eta {mins:02d}:{secs_i:02d})"
+                    msg = (
+                        f"{frame} {label} [{bar_display}] "
+                        f"{elapsed:>2}s/{int(seconds):<2}s (eta {mins:02d}:{secs_i:02d})"
+                    )
                     # Truncate to terminal width minus 1 to avoid accidental wrap
                     termw = _term_width()
                     if len(msg) > termw - 1:

@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple, Optional
 
+from .console_reporter import emit_compact_cycle as _emit_compact_cycle7
+
 # -------------------------------------------------------------------
 # Logging helpers
 # -------------------------------------------------------------------
@@ -185,84 +187,111 @@ def _emit_alerts_block(csum: Dict[str, Any]) -> None:
                 print(f"                 {more}", flush=True)
 
 # -------------------------------------------------------------------
-# Compact cycle renderer (new signature)
+# Compact cycle renderer (legacy shim -> new signature)
 # -------------------------------------------------------------------
 def emit_compact_cycle(
-    csum: Dict[str, Any],
-    cyc_ms: int,
-    interval: int,
-    loop_counter: int,
-    total_elapsed: float,
-    sleep_time: float,
+    summary: Dict[str, Any],
+    cfg: Dict[str, Any],
+    poll_interval_s: int,
     *,
     enable_color: bool = False,
+    loop_counter: Optional[int] = None,
+    total_elapsed: Optional[float] = None,
+    sleep_time: Optional[float] = None,
 ) -> None:
     """
-    New reporter signature used by the console_lines shim (which adapts
-    legacy callers to provide cyc_ms/loop_counter/total_elapsed/sleep_time).
+    Wrapper that keeps legacy 4-arg callers working by deriving
+    timing fields expected by the newer 7-arg compact printer.
     """
-    prices = csum.get("prices") or {}
-    positions = csum.get("positions") or {}
-    hedges = csum.get("hedges") or {}
-    monitors = csum.get("monitors") or {}
+    summary = summary or {}
+    cfg = cfg or {}
 
-    # Top rows
-    print("   💰 Prices   : " + _fmt_prices_line(
-        csum.get("prices_top3", []),
-        csum.get("price_ages", {}),
-        enable_color  # accept positional 3rd arg, safe even if ignored
-    ))
-    print(f"   📊 Positions: {positions.get('sync_line', '–')}")
-    # Keep Hedges aligned with Alerts/Notifications column
-    print(f"   🛡 Hedges   : {'🦔' if int(hedges.get('groups', 0) or 0) > 0 else '–'}")
+    durations = summary.get("durations")
+    if not isinstance(durations, dict):
+        durations = {}
 
-    # Multi-line Alerts
-    _emit_alerts_block(csum)
+    elapsed_s = summary.get("elapsed_s") or 0.0
+    try:
+        elapsed_s = float(elapsed_s)
+    except Exception:
+        elapsed_s = 0.0
 
-    # Notifications (actual dispatch outcomes only)
-    notif_line = csum.get("notifications_brief", "NONE (no_breach)")
-    print(f"   📨 Notifications : {notif_line}")
+    cyc_ms = durations.get("cyclone_ms") or durations.get("cycle_ms")
+    try:
+        cyc_ms = int(cyc_ms)
+    except Exception:
+        cyc_ms = 0
 
-    # Monitors summary
-    print(f"   📡 Monitors : {_fmt_monitors(monitors)}")
+    if cyc_ms <= 0 and elapsed_s:
+        cyc_ms = max(1, int(round(elapsed_s * 1000.0)))
+    if cyc_ms <= 0:
+        cyc_ms = 1
 
-    # Tail
-    tail = f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)"
-    _i(tail)
-    print(tail, flush=True)
+    if loop_counter is not None:
+        lc = loop_counter
+    else:
+        lc = (
+            summary.get("cycle_num")
+            or summary.get("loop_counter")
+            or (summary.get("loop") or {}).get("n")
+            or -1
+        )
+    try:
+        lc = int(lc)
+    except Exception:
+        lc = -1
+
+    if total_elapsed is not None:
+        tot = total_elapsed
+    else:
+        tot = elapsed_s if elapsed_s else (cyc_ms / 1000.0)
+    try:
+        tot = float(tot)
+    except Exception:
+        tot = float(cyc_ms) / 1000.0
+
+    try:
+        poll_interval_f = float(poll_interval_s)
+    except Exception:
+        poll_interval_f = 0.0
+
+    if poll_interval_f < 0:
+        poll_interval_f = 0.0
+
+    if sleep_time is not None:
+        slp = sleep_time
+    else:
+        slp = max(0.0, poll_interval_f - float(tot or 0.0))
+    try:
+        slp = float(slp)
+    except Exception:
+        slp = 0.0
+
+    try:
+        interval_int = int(poll_interval_f)
+    except Exception:
+        interval_int = 0
+
+    _emit_compact_cycle7(
+        summary,
+        cyc_ms,
+        interval_int,
+        int(lc),
+        float(tot),
+        float(slp),
+        enable_color=enable_color,
+    )
+
+    # Back-compat: cfg is currently unused but retained for signature parity
+    _ = cfg
 
 # -------------------------------------------------------------------
 # Optional “Sources” line (threshold provenance) and JSONL
 # -------------------------------------------------------------------
 def emit_sources_line(sources: Dict[str, Any], label: str = "") -> None:
-    if not sources:
-        return
-    blocks: List[str] = []
-
-    profit = sources.get("profit") or {}
-    if profit:
-        pos = profit.get("pos"); pf = profit.get("pf")
-        blocks.append("profit:{"
-                      + ",".join([f"pos={pos if pos not in (None, '') else '–'}",
-                                  f"pf={pf if pf not in (None, '') else '–'}"])
-                      + "}")
-
-    liquid = sources.get("liquid") or {}
-    if liquid:
-        btc = liquid.get("btc"); eth = liquid.get("eth"); sol = liquid.get("sol")
-        blocks.append("liquid:{"
-                      + ",".join([f"btc={btc if btc not in (None, '') else '–'}",
-                                  f"eth={eth if eth not in (None, '') else '–'}",
-                                  f"sol={sol if sol not in (None, '') else '–'}"])
-                      + "}")
-
-    if not blocks:
-        return
-
-    suffix = f" ← {label}" if label else ""
-    line = "   🧭 Sources  : " + " ".join(blocks) + suffix
-    _i(line)
-    print(line, flush=True)
+    """Legacy no-op retained for back-compat with older monitor builds."""
+    # (UX) Sources line removed — Sync Data + Evaluations now show provenance
+    return
 
 def emit_json_summary(
     csum: Dict[str, Any],

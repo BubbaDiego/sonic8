@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import socket
+
 from backend.core.common.path_utils import resolve_mother_db_path, is_under_repo
 from backend.core.config_core import sonic_config_bridge as C
 
@@ -24,6 +26,29 @@ def emit_config_banner(env_path: str, db_path_hint: str) -> None:
     print("   🦔 Sonic Monitor Configuration")
     print("══════════════════════════════════════════════════════════════")
     print("🌐 Sonic Dashboard: http://127.0.0.1:5001/dashboard")
+
+    def _lan_ip() -> str:
+        """Best-effort detection of a LAN-reachable IP address."""
+
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+                if ip.startswith("127."):
+                    raise RuntimeError("loopback address")
+                return ip
+        except Exception:
+            try:
+                ip = socket.gethostbyname(socket.gethostname())
+                if ip and not ip.startswith("127."):
+                    return ip
+            except Exception:
+                pass
+        return "127.0.0.1"
+
+    lan_ip = _lan_ip()
+    print(f"🌐 LAN Dashboard : http://{lan_ip}:5001/dashboard")
+    print(f"🔌 LAN API      : http://{lan_ip}:5000")
     print("🔒 Muted Modules:      ConsoleLogger, console_logger, LoggerControl, werkzeug, uvicorn.access, fuzzy_wuzzy, asyncio")
     print(f"🧭 Configuration: JSON ONLY — {C._CFG_PATH}")            # CONFIG from FILE
     print(f"📦 .env (ignored for config) : {env_path}")             # ENV ignored for CONFIG

@@ -19,6 +19,15 @@ from typing import Any, Dict, Optional, Callable
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
 
+try:
+    from colorama import Fore, Style  # optional dependency
+
+    _CYAN = Style.BRIGHT + Fore.CYAN
+    _RST = Style.RESET_ALL
+except Exception:  # pragma: no cover - fallback when colorama is absent
+    _CYAN = "\033[96m"  # bright cyan ANSI
+    _RST = "\033[0m"
+
 
 def _center_banner(text: str, width: int = 78) -> str:
     pad = max(0, (width - len(text)) // 2)
@@ -304,7 +313,9 @@ from backend.core.reporting_core.console_reporter import (
     install_strict_console_filter,
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
-    emit_thresholds_panel,
+    emit_evaluations_table,
+    emit_json_summary,
+    emit_thresholds_sync_step,
 )
 # Use the 4-arg compact printer from console_lines to match our call site
 from backend.core.reporting_core import console_lines as cl
@@ -903,6 +914,9 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     # Full Cyclone pipeline
     await cyclone.run_cycle()
 
+    # thresholds are critical inputs; read and announce them as part of Sync Data
+    emit_thresholds_sync_step(dl)
+
     # ----- Monitors section header (centered) -----
     print()
     print(_center_banner(" 🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️ "))
@@ -1208,7 +1222,8 @@ def run_monitor(
             except Exception as _e:
                 # don't fail the cycle on cosmetics; console will show ✓ for missing detail
                 pass
-            cl.emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            # 3) Emit evaluation table + (optional) threshold trace FIRST,
+            # so it's shown above the end-of-cycle banner.
             if dl is not None:
                 try:
                     ts_label = None
@@ -1230,9 +1245,25 @@ def run_monitor(
                             ts_label = ts_dt.strftime("%H:%M:%S")
                         except Exception:
                             ts_label = None
-                    emit_thresholds_panel(dl, summary, ts_label)
+                    emit_evaluations_table(dl, summary, ts_label)
                 except Exception:
-                    logging.debug("Failed to emit thresholds panel", exc_info=True)
+                    logging.debug("Failed to emit evaluations table", exc_info=True)
+            # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
+            cl.emit_compact_cycle(summary, cfg_for_endcap, interval, enable_color=True)
+            cyc_ms = int((summary.get("durations", {}) or {}).get("cyclone_ms") or 0)
+            elapsed_for_emit = float(summary.get("elapsed_s") or 0.0)
+            if elapsed_for_emit <= 0 and cyc_ms > 0:
+                elapsed_for_emit = cyc_ms / 1000.0
+            if elapsed_for_emit <= 0:
+                elapsed_for_emit = float(elapsed)
+            sleep_time = max(0.0, float(interval) - float(elapsed_for_emit or 0.0))
+            emit_json_summary(
+                summary,
+                cyc_ms,
+                loop_counter,
+                elapsed_for_emit,
+                sleep_time,
+            )
             # ---- Sources line (compact) + optional deep trace ----
             try:
                 from backend.core.reporting_core.console_reporter import emit_sources_line
@@ -1261,13 +1292,14 @@ def run_monitor(
             # sleep until next cycle based on JSON-only interval
             sleep_time = max(
                 0.0,
-                float(interval) - float(summary.get("elapsed_s", elapsed)),
+                float(interval) - float(summary.get("elapsed_s", elapsed_for_emit)),
             )
             if sleep_time > 0:
                 spin_progress(
                     sleep_time,
                     style=style_for_cycle(loop_counter),
                     label=f"sleep {int(round(sleep_time))}s",
+                    bar_colorizer=lambda bar: f"{_CYAN}{bar}{_RST}",
                 )
 
     except KeyboardInterrupt:
