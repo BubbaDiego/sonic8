@@ -539,23 +539,62 @@ def emit_thresholds_sync_step(dl) -> None:
     file_map, db_map, env_map, _liq_src_overall = _resolve_liquid_sources(dl)
     prof_map, prof_src = _resolve_profit_sources(dl)
 
+    def _discover_json_path() -> str:
+        path = os.getenv("SONIC_MONITOR_JSON", "").strip()
+        if path:
+            return path
+
+        try:
+            from backend.core.monitor_core.config_store import DEFAULT_JSON_PATH  # type: ignore
+
+            if DEFAULT_JSON_PATH:
+                return DEFAULT_JSON_PATH
+        except Exception:
+            pass
+
+        here = Path(__file__).resolve()
+        backend_dir = here.parents[2]
+        modern = backend_dir / "config" / "monitor_config.json"
+        legacy = backend_dir / "config" / "sonic_monitor_config.json"
+        return str(modern if modern.exists() else legacy)
+
+    json_path = _discover_json_path()
+    try:
+        json_path_obj = Path(json_path)
+        exists = json_path_obj.exists()
+        size = json_path_obj.stat().st_size if exists else 0
+        mtime = (
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(json_path_obj.stat().st_mtime))
+            if exists
+            else "-"
+        )
+    except Exception:
+        exists = False
+        size = 0
+        mtime = "-"
+
     used_liq: Dict[str, Optional[float]] = {}
     used_srcs: Dict[str, str] = {}
     for sym in ("BTC", "ETH", "SOL"):
         if file_map.get(sym) is not None:
-            used_liq[sym] = file_map.get(sym)
+            used_liq[sym] = file_map[sym]
             used_srcs[sym] = "FILE"
         elif db_map.get(sym) is not None:
-            used_liq[sym] = db_map.get(sym)
+            used_liq[sym] = db_map[sym]
             used_srcs[sym] = "DB"
         elif env_map.get(sym) is not None:
-            used_liq[sym] = env_map.get(sym)
+            used_liq[sym] = env_map[sym]
             used_srcs[sym] = "ENV"
         else:
             used_liq[sym] = None
             used_srcs[sym] = "—"
 
     dt = time.perf_counter() - t0
+    path_note = f"[exists ✓, {size} bytes, mtime {mtime}]" if exists else "[missing ✗]"
+    json_line = f"  📄 Config JSON path  : {json_path}  {path_note}"
+    _info(json_line)
+    print(json_line, flush=True)
+
     header = f"  🧭 Read monitor thresholds  ✅ ({dt:.2f}s)"
     _info(header)
     print(header, flush=True)
@@ -587,19 +626,12 @@ def emit_thresholds_sync_step(dl) -> None:
     print(liquid_line, flush=True)
 
     missing = [sym for sym in ("BTC", "ETH", "SOL") if file_map.get(sym) is None]
-    if all(file_map.get(sym) is None for sym in ("BTC", "ETH", "SOL")):
-        hint = (
-            "  ↳ JSON config missing: liquid_monitor.thresholds not found; "
-            "using DB/ENV fallbacks."
-        )
+    if all(v is None for v in file_map.values()):
+        hint = "  ↳ JSON thresholds not found in file; using DB/ENV fallbacks."
         _info(hint)
         print(hint, flush=True)
     elif missing:
-        hint = (
-            "  ↳ JSON config partial: missing in FILE → "
-            + ", ".join(missing)
-            + ". Mixed with DB/ENV."
-        )
+        hint = "  ↳ JSON partial: missing → " + ", ".join(missing) + " (mixed with DB/ENV)."
         _info(hint)
         print(hint, flush=True)
 
