@@ -32,19 +32,27 @@ def show_preflight(svc: JupiterService) -> None:
 
 def menu_wallet_show() -> None:
     try:
-        info = WalletService().read_signer_info()
+        svc = WalletService()
+        info = svc.read_signer_info()
+        balance = svc.fetch_sol_balance(info["public_key"])
     except Exception as exc:
         panel("Wallet Error", f"{type(exc).__name__}: {exc}")
         return
-    kv_table(
-        "👛 Wallet (signer.txt)",
-        {
-            "signer_path": info["signer_path"],
-            "derivation_path": info["derivation_path"],
-            "public_key": info["public_key"],
-            "mnemonic_words": info["mnemonic_words"],
-        },
-    )
+
+    rows = {
+        "signer_path": info["signer_path"],
+        "derivation_path": info["derivation_path"],
+        "public_key": info["public_key"],
+        "mnemonic_words": info["mnemonic_words"],
+        "bip39_passphrase": info["bip39_passphrase"],
+    }
+    if "error" in balance:
+        rows["sol_balance_error"] = balance["error"]
+    else:
+        rows["lamports"] = balance["lamports"]
+        rows["SOL"] = balance["sol"]
+
+    kv_table("👛 Wallet (signer.txt)", rows)
 
 
 def menu_quote(svc: JupiterService) -> None:
