@@ -4,7 +4,7 @@ import json
 from typing import Optional
 
 from ..config import get_config
-from ..services import JupiterService, WalletService
+from ..services import JupiterService, PositionsService, WalletService
 from .views import kv_table, panel, rows_table
 
 
@@ -53,6 +53,29 @@ def menu_wallet_show() -> None:
         rows["SOL"] = balance["sol"]
 
     kv_table("👛 Wallet (signer.txt)", rows)
+
+
+def menu_wallet_balances() -> None:
+    try:
+        svc = WalletService()
+        info = svc.read_signer_info()
+    except Exception as exc:
+        panel("Balances Error", f"{type(exc).__name__}: {exc}")
+        return
+
+    balances = svc.fetch_standard_balances(info["public_key"])
+
+    def _fmt(value: object) -> object:
+        if isinstance(value, dict):
+            if "uiAmount" in value:
+                return value["uiAmount"]
+            if "sol" in value:
+                return value["sol"]
+        return value
+
+    rows = [[token, _fmt(result)] for token, result in balances.items()]
+    rows_table("💰 Wallet Balances (SOL + SPL)", ["Token", "Amount (UI)"], rows)
+    panel("Balances (raw)", json.dumps(balances, indent=2)[:4000])
 
 
 def menu_quote(svc: JupiterService) -> None:
@@ -162,3 +185,45 @@ def menu_trigger_create(svc: JupiterService) -> None:
         return
     raw = svc.trigger_create(payload)
     panel("Create (raw)", json.dumps(raw, indent=2)[:4000])
+
+
+def menu_positions_probe() -> None:
+    try:
+        svc = WalletService()
+        info = svc.read_signer_info()
+    except Exception as exc:
+        panel("Positions Error", f"{type(exc).__name__}: {exc}")
+        return
+
+    positions_service = PositionsService()
+    result = positions_service.probe_positions(owner_pubkey=info["public_key"])
+    if "error" in result:
+        panel("Positions", result["error"])
+        return
+
+    positions = result.get("positions", [])
+    if not isinstance(positions, list):
+        positions = [positions]
+    rows = []
+    for pos in positions:
+        rows.append(
+            [
+                pos.get("market") or pos.get("symbol") or "?",
+                pos.get("side") or "?",
+                pos.get("size")
+                or pos.get("contracts")
+                or pos.get("positionSize")
+                or "?",
+                pos.get("entryPrice") or pos.get("avgEntry") or "?",
+                pos.get("liqPrice") or pos.get("liquidation") or "?",
+                pos.get("pnl") or pos.get("unrealizedPnl") or "?",
+                pos.get("updatedAt") or pos.get("ts") or "?",
+            ]
+        )
+
+    rows_table(
+        "📈 Open Perps Positions (Probe)",
+        ["market", "side", "size", "entry", "liq", "pnl", "updated"],
+        rows,
+    )
+    kv_table("Source", {"endpoint": result.get("endpoint", "?"), "owner": info["public_key"]})
