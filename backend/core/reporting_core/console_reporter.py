@@ -122,6 +122,12 @@ def silence_legacy_console_loggers(
 
 # ───────────────────────── style helpers ───────────────────────
 
+def _section_banner(text: str, *, indent: str = "", left: int = 22, right: int = 22) -> str:
+    """Return a single-line hyphen banner like:
+       ----------------------  <text>  ----------------------"""
+    return f"{indent}{'-'*left} {text} {'-'*right}"
+
+
 def _c(s: str, code: int) -> str:
     """ANSI color if TTY."""
     if sys.stdout.isatty():
@@ -813,7 +819,7 @@ def emit_positions_table(
     csum: Dict[str, Any],
     ts_label: Optional[str] = None,
     *,
-    indent: str = "  ",
+    indent: str = "",
 ) -> None:
     logger = logging.getLogger("SonicMonitor")
     _info = logger.info
@@ -868,9 +874,10 @@ def emit_positions_table(
         except Exception:
             return str(value)
 
-    title = indent + "📋 Positions Snapshot"
+    title_text = "📊  Positions  Snapshot"
     if ts_label:
-        title += f" — {ts_label}"
+        title_text += f" — {ts_label}"
+    title = _section_banner(title_text, indent=indent)
     _info(title)
     print(title, flush=True)
 
@@ -1376,11 +1383,12 @@ def emit_evaluations_table(
     _info = logger.info
 
     INDENT = "  "
-    title = INDENT + "🧭  Monitor Evaluations"
+    header_text = "🧭  Monitor  Evaluations"
     if ts_label:
-        title += f" — last cycle {ts_label}"
-    _info(title)
-    print(title, flush=True)
+        header_text += f" — last cycle {ts_label}"
+    header = _section_banner(header_text)
+    _info(header)
+    print(header, flush=True)
 
     if effective is None:
         effective = resolve_effective_thresholds(dl, csum)
@@ -1606,6 +1614,7 @@ __all__ = [
     "neuter_legacy_console_logger",
     "silence_legacy_console_loggers",
     "emit_compact_cycle",
+    "_section_banner",
     "emit_evaluations_table",
     "emit_positions_table",
     "resolve_effective_thresholds",
