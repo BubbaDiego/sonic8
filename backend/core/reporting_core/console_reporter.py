@@ -8,7 +8,71 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+# ---------------------------------------------------------------------------
+# Per-cycle print memo: ensures we print certain blocks only once per cycle
+# ---------------------------------------------------------------------------
+_PRINT_MEMO: dict[str, Set[str]] = {}
+
+
+def _cycle_key(csum: dict | None) -> str:
+    """Best-effort cycle key: use cycle/summary identifiers when available."""
+
+    if isinstance(csum, dict):
+        for field in ("cycle_id", "cycle_num"):
+            value = csum.get(field)
+            if value not in (None, ""):
+                return str(value)
+
+        tokens: list[str] = []
+        try:
+            positions_meta = csum.get("positions") if isinstance(csum.get("positions"), dict) else None
+            if isinstance(positions_meta, dict):
+                ts = positions_meta.get("ts")
+                if ts not in (None, ""):
+                    tokens.append(str(ts))
+                size = positions_meta.get("size")
+                if size is None and isinstance(positions_meta.get("rows"), list):
+                    size = len(positions_meta.get("rows") or [])
+                if size not in (None, ""):
+                    tokens.append(f"pos#{size}")
+
+            prices_meta = csum.get("prices") if isinstance(csum.get("prices"), dict) else None
+            if isinstance(prices_meta, dict):
+                ts = prices_meta.get("ts")
+                if ts not in (None, ""):
+                    tokens.append(str(ts))
+                size = prices_meta.get("size")
+                if size is None and isinstance(prices_meta.get("rows"), list):
+                    size = len(prices_meta.get("rows") or [])
+                if size not in (None, ""):
+                    tokens.append(f"px#{size}")
+        except Exception:
+            tokens = []
+
+        if tokens:
+            return "fallback:" + "/".join(tokens)
+
+    return f"fallback:{id(csum)}"
+
+
+def _printed_once(flag: str, csum: dict | None) -> bool:
+    """Return True if flag already printed for this cycle; mark it otherwise."""
+
+    key = _cycle_key(csum)
+    flags = _PRINT_MEMO.get(key)
+    if flags is None:
+        if len(_PRINT_MEMO) > 4:
+            for stale_key in list(_PRINT_MEMO.keys())[:-2]:
+                _PRINT_MEMO.pop(stale_key, None)
+        flags = _PRINT_MEMO.setdefault(key, set())
+
+    if flag in flags:
+        return True
+
+    flags.add(flag)
+    return False
 
 # ───────────────────────── logger utils ─────────────────────────
 
@@ -874,12 +938,13 @@ def emit_positions_table(
         except Exception:
             return str(value)
 
-    title_text = "📊  Positions  Snapshot"
-    if ts_label:
-        title_text += f" — {ts_label}"
-    title = _section_banner(title_text, indent=indent)
-    _info(title)
-    print(title, flush=True)
+    if not _printed_once("positions_header", csum):
+        title_text = "📊  Positions  Snapshot"
+        if ts_label:
+            title_text += f" — {ts_label}"
+        title = _section_banner(title_text, indent=indent)
+        _info(title)
+        print(title, flush=True)
 
     try:
         rich_console = importlib.import_module("rich.console")
@@ -974,8 +1039,11 @@ def emit_positions_table(
     print(bottom, flush=True)
 
 
-def emit_thresholds_sync_step(dl) -> None:
+def emit_thresholds_sync_step(dl, csum: dict | None = None) -> None:
     """Emit the always-on Sync Data thresholds snapshot."""
+
+    if _printed_once("sync_thresholds", csum):
+        return
 
     logger = logging.getLogger("SonicMonitor")
     _info = logger.info
@@ -1383,12 +1451,13 @@ def emit_evaluations_table(
     _info = logger.info
 
     INDENT = "  "
-    header_text = "🧭  Monitor  Evaluations"
-    if ts_label:
-        header_text += f" — last cycle {ts_label}"
-    header = _section_banner(header_text)
-    _info(header)
-    print(header, flush=True)
+    if not _printed_once("evaluations_header", csum):
+        header_text = "🧭  Monitor  Evaluations"
+        if ts_label:
+            header_text += f" — last cycle {ts_label}"
+        header = _section_banner(header_text)
+        _info(header)
+        print(header, flush=True)
 
     if effective is None:
         effective = resolve_effective_thresholds(dl, csum)
