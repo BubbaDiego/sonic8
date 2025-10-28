@@ -235,34 +235,9 @@ def emit_compact_cycle(
 # Optional “Sources” line (threshold provenance) and JSONL
 # -------------------------------------------------------------------
 def emit_sources_line(sources: Dict[str, Any], label: str = "") -> None:
-    if not sources:
-        return
-    blocks: List[str] = []
-
-    profit = sources.get("profit") or {}
-    if profit:
-        pos = profit.get("pos"); pf = profit.get("pf")
-        blocks.append("profit:{"
-                      + ",".join([f"pos={pos if pos not in (None, '') else '–'}",
-                                  f"pf={pf if pf not in (None, '') else '–'}"])
-                      + "}")
-
-    liquid = sources.get("liquid") or {}
-    if liquid:
-        btc = liquid.get("btc"); eth = liquid.get("eth"); sol = liquid.get("sol")
-        blocks.append("liquid:{"
-                      + ",".join([f"btc={btc if btc not in (None, '') else '–'}",
-                                  f"eth={eth if eth not in (None, '') else '–'}",
-                                  f"sol={sol if sol not in (None, '') else '–'}"])
-                      + "}")
-
-    if not blocks:
-        return
-
-    suffix = f" ← {label}" if label else ""
-    line = "   🧭 Sources  : " + " ".join(blocks) + suffix
-    _i(line)
-    print(line, flush=True)
+    """Legacy no-op retained for back-compat with older monitor builds."""
+    # (UX) Sources line removed — Sync Data + Evaluations now show provenance
+    return
 
 def emit_json_summary(
     csum: Dict[str, Any],

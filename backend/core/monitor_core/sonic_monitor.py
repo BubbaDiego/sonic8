@@ -19,6 +19,15 @@ from typing import Any, Dict, Optional, Callable
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
 
+try:
+    from colorama import Fore, Style  # optional dependency
+
+    _CYAN = Style.BRIGHT + Fore.CYAN
+    _RST = Style.RESET_ALL
+except Exception:  # pragma: no cover - fallback when colorama is absent
+    _CYAN = "\033[96m"  # bright cyan ANSI
+    _RST = "\033[0m"
+
 
 def _center_banner(text: str, width: int = 78) -> str:
     pad = max(0, (width - len(text)) // 2)
@@ -1290,6 +1299,7 @@ def run_monitor(
                     sleep_time,
                     style=style_for_cycle(loop_counter),
                     label=f"sleep {int(round(sleep_time))}s",
+                    bar_colorizer=lambda bar: f"{_CYAN}{bar}{_RST}",
                 )
 
     except KeyboardInterrupt:
