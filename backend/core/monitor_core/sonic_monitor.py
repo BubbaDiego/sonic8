@@ -1209,7 +1209,7 @@ def run_monitor(
             except Exception as _e:
                 # don't fail the cycle on cosmetics; console will show ✓ for missing detail
                 pass
-            # 3) Emit evaluation table (Value/Rule/Threshold/Result/Source) FIRST,
+            # 3) Emit evaluation table + (optional) threshold trace FIRST,
             # so it's shown above the end-of-cycle banner.
             if dl is not None:
                 try:

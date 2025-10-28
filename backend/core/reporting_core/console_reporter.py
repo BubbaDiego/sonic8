@@ -444,48 +444,214 @@ def _classify_result(kind: str, actual: Optional[float], thr: Optional[float]) -
     return "· not met"
 
 
-def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str, str]:
+# ---------- THRESHOLD TRACE (why we ended up with these numbers) ----------
+def _scan_env_liquid() -> Dict[str, Optional[float]]:
+    env: Dict[str, Optional[float]] = {
+        "BTC": _num(os.getenv("LIQUID_THRESHOLD_BTC")),
+        "ETH": _num(os.getenv("LIQUID_THRESHOLD_ETH")),
+        "SOL": _num(os.getenv("LIQUID_THRESHOLD_SOL")),
+    }
+    glob = _num(os.getenv("LIQUID_THRESHOLD"))
+    if glob is None:
+        return env
+    for sym in ("BTC", "ETH", "SOL"):
+        if env.get(sym) is None:
+            env[sym] = glob
+    return env
+
+
+def _resolve_liquid_sources(
+    dl,
+) -> tuple[Dict[str, Optional[float]], Dict[str, Optional[float]], Dict[str, Optional[float]], str]:
+    """Return candidate liquidation thresholds from FILE, DB, ENV and winning label."""
+
     try:
         sysvars = getattr(dl, "system", None)
-        gconf = getattr(dl, "global_config", None)
     except Exception:
         sysvars = None
+    try:
+        gconf = getattr(dl, "global_config", None)
+    except Exception:
         gconf = None
 
-    # Prefer FILE JSON configuration for liquidation thresholds, fall back to DB system vars.
-    liq_thr_map: Dict[str, Optional[float]] = {"BTC": None, "ETH": None, "SOL": None}
-    liq_src_type = "unknown"
-    if gconf:
-        try:
-            lm_file = _as_dict(gconf.get("liquid_monitor") or {})
-        except Exception:
-            lm_file = {}
-        if lm_file:
-            thr_map = _as_dict(lm_file.get("thresholds") or {})
-            glob = _num(lm_file.get("threshold_percent"))
-            for sym in ("BTC", "ETH", "SOL"):
-                liq_thr_map[sym] = _num(thr_map.get(sym), glob)
-            if any(v is not None for v in liq_thr_map.values()):
-                liq_src_type = "file"
-    if liq_src_type == "unknown":
-        try:
-            lm_db = _as_dict(sysvars.get_var("liquid_monitor") if sysvars else {})
-        except Exception:
-            lm_db = {}
-        thr_map = _as_dict((lm_db.get("thresholds") if isinstance(lm_db, dict) else {}) or {})
-        glob = _num(lm_db.get("threshold_percent") if isinstance(lm_db, dict) else None)
-        for sym in ("BTC", "ETH", "SOL"):
-            liq_thr_map[sym] = _num(thr_map.get(sym), glob)
-        if any(v is not None for v in liq_thr_map.values()):
-            liq_src_type = "db"
+    file_map: Dict[str, Optional[float]] = {"BTC": None, "ETH": None, "SOL": None}
+    db_map: Dict[str, Optional[float]] = {"BTC": None, "ETH": None, "SOL": None}
+    env_map: Dict[str, Optional[float]] = _scan_env_liquid()
 
-    # Profit thresholds are runtime (DB) values.
+    # FILE (json config)
     try:
-        prof_cfg_db = _as_dict(sysvars.get_var("profit_monitor") if sysvars else {})
+        lm_file = _as_dict(gconf.get("liquid_monitor") if hasattr(gconf, "get") else {})
     except Exception:
-        prof_cfg_db = {}
-    prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg_db)
-    prof_src_type = "db" if prof_cfg_db else "unknown"
+        lm_file = {}
+    if lm_file:
+        thr_map = _as_dict(lm_file.get("thresholds") or {})
+        glob = _num(lm_file.get("threshold_percent"))
+        for sym in ("BTC", "ETH", "SOL"):
+            file_map[sym] = _num(thr_map.get(sym), glob)
+
+    # DB (system vars)
+    try:
+        lm_db_raw = sysvars.get_var("liquid_monitor") if sysvars else {}
+    except Exception:
+        lm_db_raw = {}
+    lm_db = _as_dict(lm_db_raw)
+    if lm_db:
+        thr_map = _as_dict(lm_db.get("thresholds") or {})
+        glob = _num(lm_db.get("threshold_percent"))
+        for sym in ("BTC", "ETH", "SOL"):
+            db_map[sym] = _num(thr_map.get(sym), glob)
+
+    chosen_src = "file" if any(v is not None for v in file_map.values()) else (
+        "db" if any(v is not None for v in db_map.values()) else (
+            "env" if any(v is not None for v in env_map.values()) else "unknown"
+        )
+    )
+
+    return file_map, db_map, env_map, chosen_src
+
+
+def _resolve_profit_sources(dl) -> tuple[Dict[str, Optional[float]], str]:
+    """Return profit thresholds (pos/pf) and the provenance label."""
+
+    try:
+        sysvars = getattr(dl, "system", None)
+    except Exception:
+        sysvars = None
+
+    try:
+        pm = _as_dict(sysvars.get_var("profit_monitor") if sysvars else {})
+    except Exception:
+        pm = {}
+
+    pos_thr, pf_thr = _resolve_profit_thresholds(pm)
+    src = "db" if any(v is not None for v in (pos_thr, pf_thr)) else "unknown"
+    return {"pos": pos_thr, "pf": pf_thr}, src
+
+
+def emit_thresholds_trace(dl) -> None:
+    """Emit FILE/DB/ENV provenance table when SONIC_THRESH_TRACE=1."""
+
+    if os.getenv("SONIC_THRESH_TRACE", "0") != "1":
+        return
+
+    logger = logging.getLogger("SonicMonitor")
+    _info = logger.info
+
+    file_map, db_map, env_map, _liq_src = _resolve_liquid_sources(dl)
+    prof_map, _prof_src = _resolve_profit_sources(dl)
+
+    def _pick(sym: str) -> tuple[Optional[float], str]:
+        if file_map.get(sym) is not None:
+            return file_map[sym], "FILE"
+        if db_map.get(sym) is not None:
+            return db_map[sym], "DB"
+        if env_map.get(sym) is not None:
+            return env_map[sym], "ENV"
+        return None, "—"
+
+    rows: List[Dict[str, str]] = []
+    for sym, label in (
+        ("BTC", "₿ BTC • 💧 Liquid"),
+        ("ETH", "Ξ ETH • 💧 Liquid"),
+        ("SOL", "◎ SOL • 💧 Liquid"),
+    ):
+        chosen, src = _pick(sym)
+        rows.append(
+            {
+                "metric": label,
+                "file": _fmt_num(file_map.get(sym)),
+                "db": _fmt_num(db_map.get(sym)),
+                "env": _fmt_num(env_map.get(sym)),
+                "used": _fmt_num(chosen),
+                "src": src,
+            }
+        )
+
+    rows.append(
+        {
+            "metric": "👤 Single • 💹 Profit",
+            "file": "—",
+            "db": _fmt_usd(prof_map.get("pos")),
+            "env": "—",
+            "used": _fmt_usd(prof_map.get("pos")),
+            "src": "DB" if prof_map.get("pos") is not None else "—",
+        }
+    )
+    rows.append(
+        {
+            "metric": "🧺 Portfolio • 💹 Profit",
+            "file": "—",
+            "db": _fmt_usd(prof_map.get("pf")),
+            "env": "—",
+            "used": _fmt_usd(prof_map.get("pf")),
+            "src": "DB" if prof_map.get("pf") is not None else "—",
+        }
+    )
+
+    title = "🔎 Threshold Resolution (why these numbers)"
+    _info(title)
+    print(title, flush=True)
+
+    try:
+        rich_console = importlib.import_module("rich.console")
+        rich_table = importlib.import_module("rich.table")
+        rich_box = importlib.import_module("rich.box")
+        Console = getattr(rich_console, "Console")
+        Table = getattr(rich_table, "Table")
+        box = getattr(rich_box, "SIMPLE_HEAVY")
+
+        tbl = Table(show_header=True, show_edge=True, box=box, pad_edge=False)
+        tbl.add_column("Metric", justify="left", no_wrap=True)
+        tbl.add_column("FILE", justify="right")
+        tbl.add_column("DB", justify="right")
+        tbl.add_column("ENV", justify="right")
+        tbl.add_column("→ Used", justify="right")
+        tbl.add_column("Source", justify="left")
+
+        for row in rows:
+            tbl.add_row(row["metric"], row["file"], row["db"], row["env"], row["used"], row["src"])
+
+        Console().print(tbl)
+        return
+    except Exception:
+        pass
+
+    hdr = "Metric                          FILE        DB        ENV        → Used     Source"
+    print(hdr)
+    print("—" * len(hdr))
+    for row in rows:
+        print(
+            f"{row['metric']:<30} {row['file']:>10} {row['db']:>10} {row['env']:>10}   {row['used']:>10}   {row['src']}"
+        )
+
+
+def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str, str]:
+    file_map, db_map, env_map, liq_src_hint = _resolve_liquid_sources(dl)
+
+    def _pick_thr(sym: str) -> tuple[Optional[float], str]:
+        if file_map.get(sym) is not None:
+            return file_map[sym], "file"
+        if db_map.get(sym) is not None:
+            return db_map[sym], "db"
+        if env_map.get(sym) is not None:
+            return env_map[sym], "env"
+        return None, "unknown"
+
+    liq_thr_map: Dict[str, Optional[float]] = {}
+    liq_src_per_sym: Dict[str, str] = {}
+    liq_src_type = liq_src_hint
+    for sym in ("BTC", "ETH", "SOL"):
+        thr, src = _pick_thr(sym)
+        liq_thr_map[sym] = thr
+        liq_src_per_sym[sym] = src
+        if liq_src_type == "unknown" and src != "unknown":
+            liq_src_type = src
+    if liq_src_type == "unknown" and liq_src_hint != "unknown":
+        liq_src_type = liq_src_hint
+
+    prof_map, prof_src_type = _resolve_profit_sources(dl)
+    prof_single_thr = prof_map.get("pos")
+    prof_port_thr = prof_map.get("pf")
 
     # Value source: snapshot table for this cycle if present, otherwise legacy positions.
     cycle_id = csum.get("cycle_id")
@@ -501,7 +667,7 @@ def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], st
                 "value": nearest.get(sym),
                 "rule": "≤",
                 "threshold": liq_thr_map.get(sym),
-                "src": _src_label("snap" if cycle_id else "db", liq_src_type),
+                "src": _src_label("snap" if cycle_id else "db", liq_src_per_sym.get(sym, liq_src_type)),
             }
         )
 
@@ -542,6 +708,7 @@ def emit_evaluations_table(dl, csum: Dict[str, Any], ts_label: Optional[str] = N
     print(title, flush=True)
 
     rows, _, _ = _build_eval_rows(dl, csum)
+    emit_thresholds_trace(dl)
 
     try:
         rich_console = importlib.import_module("rich.console")
