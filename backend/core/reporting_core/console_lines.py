@@ -280,7 +280,6 @@ def emit_compact_cycle(
         int(lc),
         float(tot),
         float(slp),
-        dl=dl,
         enable_color=enable_color,
     )
 
