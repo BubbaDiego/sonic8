@@ -5,6 +5,7 @@ from typing import Optional
 
 from ..config import get_config
 from ..services import JupiterService, PositionsService, WalletService
+from ..services.positions_bridge import PositionsBridge
 from .views import kv_table, panel, rows_table
 
 
@@ -76,6 +77,72 @@ def menu_wallet_balances() -> None:
     rows = [[token, _fmt(result)] for token, result in balances.items()]
     rows_table("💰 Wallet Balances (SOL + SPL)", ["Token", "Amount (UI)"], rows)
     panel("Balances (raw)", json.dumps(balances, indent=2)[:4000])
+
+
+def menu_positions_core() -> None:
+    """Show ACTIVE PositionCore rows, syncing once if empty."""
+
+    try:
+        wallet_service = WalletService()
+        signer_info = wallet_service.read_signer_info()
+        owner_pubkey = signer_info["public_key"]
+    except Exception:
+        owner_pubkey = None
+
+    bridge = PositionsBridge()
+    out = bridge.list_active_positions(owner_pubkey=owner_pubkey, sync_if_empty=True)
+    positions = out.get("positions") or []
+    filtered_by = out.get("filtered_by") or "—"
+    synced = bool(out.get("synced"))
+
+    if not positions:
+        kv_table(
+            "📈 Open Perps Positions (PositionCore)",
+            {
+                "filtered_by_wallet": filtered_by,
+                "synced_now": synced,
+                "count": 0,
+            },
+        )
+        panel("Positions", "No ACTIVE positions found.")
+        return
+
+    rows = []
+    for pos in positions:
+        rows.append(
+            [
+                pos.get("wallet_name") or pos.get("wallet") or "?",
+                pos.get("asset_type")
+                or pos.get("asset")
+                or pos.get("market")
+                or "?",
+                pos.get("position_type") or pos.get("side") or "?",
+                pos.get("size")
+                or pos.get("contracts")
+                or pos.get("positionSize")
+                or "?",
+                pos.get("entry_price")
+                or pos.get("avg_entry")
+                or pos.get("avg_price")
+                or "?",
+                pos.get("liquidation_price")
+                or pos.get("liqPrice")
+                or pos.get("liquidation")
+                or "?",
+                pos.get("pnl_after_fees_usd")
+                or pos.get("pnl")
+                or pos.get("unrealizedPnl")
+                or "?",
+                pos.get("last_updated") or pos.get("updatedAt") or pos.get("ts") or "—",
+            ]
+        )
+
+    rows_table(
+        "📈 Open Perps Positions (PositionCore)",
+        ["wallet", "asset", "side", "size", "entry", "liq", "pnl", "updated"],
+        rows,
+    )
+    kv_table("Source", {"filtered_by_wallet": filtered_by, "synced_now": synced})
 
 
 def menu_quote(svc: JupiterService) -> None:
