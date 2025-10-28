@@ -923,7 +923,6 @@ def emit_compact_cycle(
     prices    = csum.get("prices", {}) or {}
     positions = csum.get("positions", {}) or {}
     hedges    = csum.get("hedges", {}) or {}
-    monitors  = csum.get("monitors", {}) or {}
 
     prices_top3 = csum.get("prices_top3", [])
     price_ages = csum.get("price_ages")
@@ -943,10 +942,9 @@ def emit_compact_cycle(
     notif_line = csum.get("notifications_brief", "NONE (no_breach)")
     print(f"   📨 Notifications : {notif_line}")
 
-    print(f"   📡 Monitors : {_fmt_monitors(monitors)}")
+    # (UX) Monitors rollup line removed — the Evaluations table supersedes it
 
-    tail = f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)"
-    _i(tail); print(tail, flush=True)
+    # (UX) End-of-cycle status line removed — keep only the other cycle header elsewhere
 
 # ───────────────────── optional sources/jsonl ───────────────────
 
