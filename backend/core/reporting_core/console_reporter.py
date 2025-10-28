@@ -452,63 +452,44 @@ def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], st
         sysvars = None
         gconf = None
 
-    # Reuse the JSON-aware threshold resolver from sonic_monitor to respect FILE configs.
-    # Import lazily to avoid circular imports.
-    liq_cfg = {}
-    prof_single_thr = prof_port_thr = None
+    # Prefer FILE JSON configuration for liquidation thresholds, fall back to DB system vars.
+    liq_thr_map: Dict[str, Optional[float]] = {"BTC": None, "ETH": None, "SOL": None}
     liq_src_type = "unknown"
-    prof_src_type = "unknown"
+    if gconf:
+        try:
+            lm_file = _as_dict(gconf.get("liquid_monitor") or {})
+        except Exception:
+            lm_file = {}
+        if lm_file:
+            thr_map = _as_dict(lm_file.get("thresholds") or {})
+            glob = _num(lm_file.get("threshold_percent"))
+            for sym in ("BTC", "ETH", "SOL"):
+                liq_thr_map[sym] = _num(thr_map.get(sym), glob)
+            if any(v is not None for v in liq_thr_map.values()):
+                liq_src_type = "file"
+    if liq_src_type == "unknown":
+        try:
+            lm_db = _as_dict(sysvars.get_var("liquid_monitor") if sysvars else {})
+        except Exception:
+            lm_db = {}
+        thr_map = _as_dict((lm_db.get("thresholds") if isinstance(lm_db, dict) else {}) or {})
+        glob = _num(lm_db.get("threshold_percent") if isinstance(lm_db, dict) else None)
+        for sym in ("BTC", "ETH", "SOL"):
+            liq_thr_map[sym] = _num(thr_map.get(sym), glob)
+        if any(v is not None for v in liq_thr_map.values()):
+            liq_src_type = "db"
+
+    # Profit thresholds are runtime (DB) values.
     try:
-        from backend.core.monitor_core.sonic_monitor import _read_monitor_threshold_sources  # type: ignore
-        src_map, label = _read_monitor_threshold_sources(dl)
-        # Liquid thresholds: map uses lowercase keys
-        liq_cfg = {"thresholds": {
-            "BTC": _num((src_map.get("liquid", {}) or {}).get("btc")),
-            "ETH": _num((src_map.get("liquid", {}) or {}).get("eth")),
-            "SOL": _num((src_map.get("liquid", {}) or {}).get("sol")),
-        }}
-        liq_src_type = "file" if "global_config" in label else ("db" if "DL.system_vars" in label else ("env" if "env" in label else "unknown"))
-        # Profit thresholds (USD)
-        prof = src_map.get("profit", {}) or {}
-        prof_single_thr = _num(prof.get("pos"))
-        prof_port_thr   = _num(prof.get("pf"))
-        prof_src_type = "db" if "DL.system_vars" in label else ("file" if "global_config" in label else "unknown")
+        prof_cfg_db = _as_dict(sysvars.get_var("profit_monitor") if sysvars else {})
     except Exception:
-        # Fallback to local logic if that helper isn't present
-        try:
-            liq_cfg_file_raw = gconf.get("liquid_monitor") if gconf is not None and hasattr(gconf, "get") else {}
-        except Exception:
-            liq_cfg_file_raw = {}
-        liq_cfg_file = _as_dict(liq_cfg_file_raw or {})
+        prof_cfg_db = {}
+    prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg_db)
+    prof_src_type = "db" if prof_cfg_db else "unknown"
 
-        try:
-            liq_cfg_db_raw = sysvars.get_var("liquid_monitor") if sysvars else {}
-        except Exception:
-            liq_cfg_db_raw = {}
-        liq_cfg_db = _as_dict(liq_cfg_db_raw or {})
-        liq_cfg = liq_cfg_file or liq_cfg_db
-        liq_src_type = "file" if liq_cfg_file else ("db" if liq_cfg_db else "unknown")
-
-        try:
-            prof_cfg_db_raw = sysvars.get_var("profit_monitor") if sysvars else {}
-        except Exception:
-            prof_cfg_db_raw = {}
-        prof_cfg_db = _as_dict(prof_cfg_db_raw or {})
-        prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg_db)
-        prof_src_type = "db" if prof_cfg_db else "unknown"
-
-    liq_thr = _resolve_liq_thresholds(liq_cfg)
-    if prof_single_thr is None or prof_port_thr is None:
-        try:
-            prof_cfg_db_raw = sysvars.get_var("profit_monitor") if sysvars else {}
-        except Exception:
-            prof_cfg_db_raw = {}
-        prof_cfg_db = _as_dict(prof_cfg_db_raw or {})
-        prof_single_thr, prof_port_thr = _resolve_profit_thresholds(prof_cfg_db)
-        if prof_src_type == "unknown":
-            prof_src_type = "db" if prof_cfg_db else "unknown"
-
-    nearest = _nearest_liq_from_db(dl, csum.get("cycle_id"))
+    # Value source: snapshot table for this cycle if present, otherwise legacy positions.
+    cycle_id = csum.get("cycle_id")
+    nearest = _nearest_liq_from_db(dl, cycle_id)
     single_act, port_act = _profit_actuals_from_db(dl)
 
     rows: List[Dict[str, Any]] = []
@@ -519,8 +500,8 @@ def _build_eval_rows(dl, csum: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], st
                 "kind": "liquid",
                 "value": nearest.get(sym),
                 "rule": "≤",
-                "threshold": liq_thr.get(sym),
-                "src": _src_label("snap", liq_src_type),
+                "threshold": liq_thr_map.get(sym),
+                "src": _src_label("snap" if cycle_id else "db", liq_src_type),
             }
         )
 
