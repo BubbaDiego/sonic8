@@ -198,11 +198,12 @@ def emit_compact_cycle(
     loop_counter: Optional[int] = None,
     total_elapsed: Optional[float] = None,
     sleep_time: Optional[float] = None,
-    dl: Any | None = None,
 ) -> None:
     """
     Wrapper that keeps legacy 4-arg callers working by deriving
     timing fields expected by the newer 7-arg compact printer.
+    DataLocker access is handled upstream; this shim no longer
+    accepts or forwards a ``dl`` parameter.
     """
     summary = summary or {}
     cfg = cfg or {}
@@ -280,7 +281,6 @@ def emit_compact_cycle(
         int(lc),
         float(tot),
         float(slp),
-        dl=dl,
         enable_color=enable_color,
     )
 

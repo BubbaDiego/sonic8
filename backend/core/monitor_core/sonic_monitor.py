@@ -1257,7 +1257,6 @@ def run_monitor(
                 cfg_for_endcap,
                 interval,
                 enable_color=True,
-                dl=dl,
             )
             cyc_ms = int((summary.get("durations", {}) or {}).get("cyclone_ms") or 0)
             elapsed_for_emit = float(summary.get("elapsed_s") or 0.0)
