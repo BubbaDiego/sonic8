@@ -174,7 +174,7 @@ class WalletService:
             raw = _b64.b64decode(unsigned_b64)
             tx = Transaction.deserialize(raw)
             tx.sign(keypair)
-            return _b64.b64encode(bytes(tx)).decode("ascii")
+            return _b64.b64encode(tx.serialize()).decode("ascii")
         except Exception as exc:  # pragma: no cover - depends on optional deps
             raise RuntimeError(
                 "Signing not available. Install 'solders' (preferred) or 'solana'. "
