@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 import socket
+from pathlib import Path
 from .writer import write_line
-from .styles import ICON_CFG, ICON_DASH, ICON_API, ICON_TOGGLE
+from .styles import ICON_CFG, ICON_DASH, ICON_API, ICON_LOCKS, ICON_TOGGLE
 
 def _lan_ip() -> str:
     try:
@@ -26,9 +27,45 @@ def render_banner(dl, json_path: str) -> None:
     write_line(f"{ICON_DASH} Sonic Dashboard: http://127.0.0.1:5001/dashboard")
     write_line(f"{ICON_DASH} LAN Dashboard : http://{lan}:5001/dashboard")
     write_line(f"{ICON_API} LAN API      : http://{lan}:5000")
+    # XCOM toggle
     try:
         xcom_active = (dl.global_config.get("xcom") or {}).get("active", False)  # type: ignore
         xcom_src    = "FILE"
     except Exception:
         xcom_active, xcom_src = False, "—"
     write_line(f"{ICON_TOGGLE} XCOM Active  : {'ON' if xcom_active else 'OFF'}   [{xcom_src}]")
+
+    # Muted modules list (matches existing suppression set)
+    write_line(f"{ICON_LOCKS} Muted Modules:      ConsoleLogger, console_logger, LoggerControl, werkzeug, uvicorn.access, fuzzy_wuzzy, asyncio")
+
+    # Configuration mode and paths
+    write_line(f"🧭 Configuration: JSON ONLY — {json_path}")
+    try:
+        repo_root = Path(__file__).resolve().parents[5]
+        env_path = str(repo_root / ".env")
+    except Exception:
+        env_path = ".env"
+    write_line(f"📦 .env (ignored for config) : {env_path}")
+
+    # Database path information
+    db_path = None
+    for attr in ("db_path", "path", "database_path", "filename"):
+        try:
+            val = getattr(getattr(dl, "db", None), attr, None)
+            if val:
+                db_path = str(val)
+                break
+        except Exception:
+            pass
+    if not db_path:
+        db_path = "mother.db"
+    try:
+        db_exists = Path(db_path).exists()
+        repo_root = Path(__file__).resolve().parents[4]
+        inside_repo = str(Path(db_path)).startswith(str(repo_root))
+    except Exception:
+        db_exists = True
+        inside_repo = True
+    write_line(
+        f"🔌 Database       : {db_path}  (ACTIVE for runtime data, provenance=DEFAULT, {'exists' if db_exists else 'missing'}, {'inside repo' if inside_repo else 'outside repo'})"
+    )

@@ -8,9 +8,9 @@ from .config_probe import discover_json_path, parse_json, schema_summary
 from .thresholds_line import liquid_line, profit_line
 
 def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
-    # banner-like divider handled by caller
-    if not once("sync_header", csum):
-        pass  # header printed by loop (optional)
+    # Ensure the sync details print only once per cycle
+    if not once("sync_block", csum):
+        return
 
     # JSON probe
     json_path = discover_json_path(default_json_path)

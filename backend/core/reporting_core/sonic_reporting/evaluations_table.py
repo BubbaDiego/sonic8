@@ -88,6 +88,6 @@ def build_rows(dl, csum: Dict[str, Any]) -> Tuple[list[list[str]], Optional[str]
 
 def render(dl, csum: Dict[str, Any]) -> None:
     rows, title_ts = build_rows(dl, csum)
-    title = ICON_EVAL + " Monitor Evaluations" + (f" — last cycle {title_ts}" if title_ts else "")
+    # Keep only the column headers (per request to drop the standalone title row)
     headers = ["Metric", "Value", "Rule", "Threshold", "Result", "Source (V / T)"]
-    write_table(title, headers, rows)
+    write_table(None, headers, rows)
