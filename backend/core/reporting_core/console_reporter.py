@@ -95,3 +95,31 @@ def emit_json_summary(
         (logs_dir / "sonic_summary.jsonl").open("a", encoding="utf-8").write(json.dumps(out) + "\n")
     except Exception:
         pass
+
+# ---------------------------------------------------------------------------
+# Back-compat shims for older callers
+# ---------------------------------------------------------------------------
+def install_strict_console_filter(enable_color: bool = True) -> None:
+    """
+    Older code calls this; delegate to the new compact filter.
+    """
+    install_compact_console_filter(enable_color=enable_color)
+
+def neuter_legacy_console_logger(level: int = logging.CRITICAL) -> None:
+    """
+    Older code calls this to silence the old console loggers.
+    We aggressively mute the legacy loggers and common noisy modules.
+    """
+    for name in ("ConsoleLogger", "console_logger", "LoggerControl"):
+        try:
+            lg = logging.getLogger(name)
+            lg.handlers[:] = []
+            lg.propagate = False
+            lg.setLevel(level)
+        except Exception:
+            pass
+    # keep access logs quiet too (matches your banner's muted modules)
+    try:
+        logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
+    except Exception:
+        pass
