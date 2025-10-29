@@ -36,6 +36,9 @@ def show_preflight(svc: JupiterService) -> None:
         **cfg,
         "native_perps_exec": os.getenv("NATIVE_PERPS_EXEC", "node"),
         "native_perps_script": os.getenv("NATIVE_PERPS_SCRIPT", "<auto>"),
+        "perps_program_id/env": os.getenv("JUP_PERPS_PROGRAM_ID", ""),
+        "perps_idl/env": os.getenv("JUP_PERPS_IDL", ""),
+        "perps_method/env": os.getenv("JUP_PERPS_METHOD_TRIGGER", ""),
     }
     kv_table("🧭 Jupiter Config", cfg)
 
