@@ -1,33 +1,37 @@
 {
   "monitor": {
     "loop_seconds": 60,
-    "xcom_live": false,
-    "log_success": true,
-    "cycle_limit": null,
     "enabled": {
       "sonic": true,
       "liquid": true,
       "profit": true,
       "market": true,
       "price": true
+    },
+    "xcom_live": false
+  },
+  "liquid": {
+    "thresholds": {
+      "BTC": 5.3,
+      "ETH": 111.0,
+      "SOL": 8.0
+    },
+    "blast": {
+      "BTC": 5,
+      "ETH": 5,
+      "SOL": 5
     }
   },
   "channels": {
-    "global": {
-      "system": true,
-      "voice": true,
-      "sms": true,
-      "tts": true
-    },
     "liquid": {
       "system": true,
-      "voice": true,
+      "voice": false,
       "sms": false,
       "tts": false
     },
     "profit": {
       "system": true,
-      "voice": true,
+      "voice": false,
       "sms": false,
       "tts": false
     },
@@ -44,31 +48,11 @@
       "tts": false
     }
   },
-  "liquid": {
-    "thresholds": {
-      "BTC": 5.0,
-      "ETH": 6.0,
-      "SOL": 14.1
-    },
-    "blast": {
-      "BTC": 10,
-      "ETH": 110,
-      "SOL": 110
-    }
-  },
   "profit": {
-    "snooze_seconds": 600,
+    "snooze_seconds": 1200,
     "position_usd": 10,
-    "portfolio_usd": 50
+    "portfolio_usd": 40
   },
-  "market": {
-    "rearm_mode": "ladder"
-  },
-  "price": {
-    "assets": [
-      "BTC",
-      "ETH",
-      "SOL"
-    ]
-  }
+  "market": {},
+  "price": {}
 }

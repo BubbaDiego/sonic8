@@ -972,6 +972,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/xcom/textbelt/reply:
+    post:
+      tags:
+      - xcom-textbelt
+      summary: Textbelt Reply
+      operationId: textbelt_reply_post_api_xcom_textbelt_reply_42
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/TextbeltReply'
+              - type: 'null'
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Textbelt Reply Post Api Xcom Textbelt Reply 42
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /session/:
     get:
       tags:
@@ -1217,7 +1246,7 @@ paths:
       tags:
       - monitor_settings
       summary: Reset Market Anchors
-      operationId: reset_market_anchors_post_api_monitor-settings_market_reset-anchors_157
+      operationId: reset_market_anchors_post_api_monitor-settings_market_reset-anchors_202
       responses:
         '200':
           description: Successful Response
@@ -1230,7 +1259,7 @@ paths:
       - monitor_settings
       summary: Get Sonic Settings
       description: Return current Sonic monitor settings.
-      operationId: get_sonic_settings_get_api_monitor-settings_sonic_192
+      operationId: get_sonic_settings_get_api_monitor-settings_sonic_237
       responses:
         '200':
           description: Successful Response
@@ -1242,7 +1271,7 @@ paths:
       - monitor_settings
       summary: Update Sonic Settings
       description: Update Sonic monitor settings.
-      operationId: update_sonic_settings_post_api_monitor-settings_sonic_208
+      operationId: update_sonic_settings_post_api_monitor-settings_sonic_253
       requestBody:
         content:
           application/json:
@@ -1274,7 +1303,7 @@ paths:
         \ description of source(s) such as\n                      'DL.system_vars\
         \ (...path)', 'global_config (...path)',\n                      'env (...file)',\
         \ or 'mixed: A + B'"
-      operationId: get_provenance_get_api_monitor-settings_provenance_292
+      operationId: get_provenance_get_api_monitor-settings_provenance_336
       responses:
         '200':
           description: Successful Response
@@ -1322,7 +1351,7 @@ paths:
       tags:
       - monitor_settings
       summary: Get Market Settings
-      operationId: get_market_settings_get_api_monitor-settings_market_522
+      operationId: get_market_settings_get_api_monitor-settings_market_584
       responses:
         '200':
           description: Successful Response
@@ -1334,7 +1363,7 @@ paths:
       tags:
       - monitor_settings
       summary: Post Market Settings
-      operationId: post_market_settings_post_api_monitor-settings_market_539
+      operationId: post_market_settings_post_api_monitor-settings_market_601
       requestBody:
         content:
           application/json:
@@ -1381,6 +1410,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/monitor-settings/bootstrap:
+    get:
+      tags:
+      - monitor-settings
+      summary: Get Bootstrap
+      operationId: get_bootstrap_get_api_monitor-settings_bootstrap_87
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Get Bootstrap Get Api Monitor-Settings Bootstrap 87
   /debug/market/state:
     get:
       tags:
@@ -2668,7 +2712,7 @@ paths:
       - monitor-config
       summary: Get Monitor Config
       description: Return the merged monitor configuration.
-      operationId: get_monitor_config_get_api_monitor_config_101
+      operationId: get_monitor_config_get_api_monitor_config_115
       responses:
         '200':
           description: Successful Response
@@ -2677,13 +2721,13 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response Get Monitor Config Get Api Monitor Config 101
+                title: Response Get Monitor Config Get Api Monitor Config 115
     post:
       tags:
       - monitor-config
       summary: Save Monitor Config
       description: Persist the provided monitor configuration to DB and JSON.
-      operationId: save_monitor_config_post_api_monitor_config_222
+      operationId: save_monitor_config_post_api_monitor_config_239
       requestBody:
         content:
           application/json:
@@ -2700,7 +2744,7 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-                title: Response Save Monitor Config Post Api Monitor Config 222
+                title: Response Save Monitor Config Post Api Monitor Config 239
         '422':
           description: Validation Error
           content:
@@ -3000,7 +3044,7 @@ paths:
   /api/status:
     get:
       summary: Status
-      operationId: status_get_api_status_200
+      operationId: status_get_api_status_240
       responses:
         '200':
           description: Successful Response
@@ -3246,23 +3290,19 @@ components:
     LiquidationSettings:
       properties:
         thresholds:
-          additionalProperties: true
+          additionalProperties:
+            type: number
           type: object
           title: Thresholds
         blast_radius:
-          additionalProperties: true
+          additionalProperties:
+            type: integer
           type: object
           title: Blast Radius
-        notifications:
-          additionalProperties:
-            type: boolean
-          type: object
-          title: Notifications
-        enabled_liquid:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Enabled Liquid
+        snooze_seconds:
+          type: integer
+          title: Snooze Seconds
+          default: 0
       type: object
       title: LiquidationSettings
     MarketSettings:
@@ -4129,6 +4169,19 @@ components:
       - success
       title: TestMessageResult
       description: Slim wrapper around XComCore result.
+    TextbeltReply:
+      properties:
+        fromNumber:
+          type: string
+          title: Fromnumber
+        text:
+          type: string
+          title: Text
+      type: object
+      required:
+      - fromNumber
+      - text
+      title: TextbeltReply
     Trader:
       properties:
         name:
