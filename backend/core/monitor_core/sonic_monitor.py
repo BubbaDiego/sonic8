@@ -300,7 +300,6 @@ _ENABLED_OVERRIDES: dict[str, Optional[bool]] = {k: (None if v is None else bool
 # ── imports that depend on paths already set ─────────────────────────────────
 from backend.core.monitor_core.utils.console_title import set_console_title
 from backend.core.cyclone_core.cyclone_engine import Cyclone
-from backend.core.monitor_core.utils.banner import emit_config_banner
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.positions_icons import compute_positions_icon_line, compute_from_list
@@ -309,15 +308,15 @@ from backend.core.reporting_core.console_reporter import (
     install_strict_console_filter,
     neuter_legacy_console_logger,
     silence_legacy_console_loggers,
-    emit_evaluations_table,
-    emit_positions_table,
     emit_json_summary,
-    emit_thresholds_sync_step,
-    resolve_effective_thresholds,
-    _section_banner,
 )
 # Use the 4-arg compact printer from console_lines to match our call site
 from backend.core.reporting_core import console_lines as cl
+from backend.core.reporting_core.sonic_reporting.sequencer import (
+    render_startup_banner,
+    render_cycle,
+)
+from backend.core.monitor_core.config_store import DEFAULT_JSON_PATH
 from backend.core.monitor_core.summary_helpers import (
     load_monitor_config_snapshot,
     build_sources_snapshot,
@@ -899,25 +898,13 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     _MON_STATE.clear()
     _ALERTS_STATE.clear()
 
-    cycle_summary_hint: dict[str, Any] = {"cycle_id": loop_counter, "cycle_num": loop_counter}
-
     if not sonic_enabled:
         logging.info("Sonic loop disabled via config")
         heartbeat(loop_counter)
         return
 
-    # ----- Sync section header -----
-    print(_section_banner("🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️"))
-    print(f"DEBUG[XCOM] file={get_xcom_live()}")
-
     # Full Cyclone pipeline
     await cyclone.run_cycle()
-
-    # thresholds are critical inputs; read and announce them as part of Sync Data
-    emit_thresholds_sync_step(dl, cycle_summary_hint)
-
-    # ----- Monitors section header -----
-    print(_section_banner("🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️"))
 
     # Run monitors (each will call XCom inline if needed)
     if price_enabled:
@@ -979,9 +966,7 @@ def run_monitor(
                 print(f"DEBUG[CFG] DB loop={db_loop} overwritten by JSON ({poll_interval_s})")
     except Exception:
         pass
-    env_path = str((Path(__file__).resolve().parents[3] / ".env"))
-    db_path_hint = "mother.db"
-    emit_config_banner(env_path, db_path_hint, dl)
+    render_startup_banner(dl, DEFAULT_JSON_PATH)
     print(f"DEBUG[XCOM] live={get_xcom_live()} (FILE)")
 
     monitor_core = MonitorCore()
@@ -1220,39 +1205,9 @@ def run_monitor(
             except Exception as _e:
                 # don't fail the cycle on cosmetics; console will show ✓ for missing detail
                 pass
-            # 3) Resolve thresholds ONCE (same values the banner used) and print evaluations FIRST
-            # so it's shown above the end-of-cycle banner.
+            # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
             if dl is not None:
-                try:
-                    eff = resolve_effective_thresholds(dl, summary)
-                    ts = None
-                    try:
-                        ts = summary.get("positions", {}).get("ts") or summary.get("prices", {}).get("ts")
-                    except Exception:
-                        ts = None
-                    ts_label = None
-                    if ts:
-                        try:
-                            import datetime as _dt
-
-                            if isinstance(ts, (int, float)):
-                                t = _dt.datetime.utcfromtimestamp(float(ts))
-                            else:
-                                raw = str(ts)
-                                if raw.endswith("Z"):
-                                    raw = raw[:-1] + "+00:00"
-                                if "." in raw:
-                                    raw = raw.split(".")[0]
-                                t = _dt.datetime.fromisoformat(raw)
-                            ts_label = f"{t.hour:02d}:{t.minute:02d}:{t.second:02d}"
-                        except Exception:
-                            ts_label = None
-                    emit_evaluations_table(dl, summary, ts_label, effective=eff)
-                    emit_positions_table(dl, summary, ts_label)
-                except Exception as e:
-                    logging.getLogger("SonicMonitor").error(
-                        f"Positions/Evals print error: {e}", exc_info=True
-                    )
+                render_cycle(dl, summary, default_json_path=DEFAULT_JSON_PATH)
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
                 summary,
