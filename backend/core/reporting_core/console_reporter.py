@@ -123,3 +123,62 @@ def neuter_legacy_console_logger(level: int = logging.CRITICAL) -> None:
         logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
     except Exception:
         pass
+
+# ---------------------------------------------------------------------------
+# Back-compat shims for older callers
+# ---------------------------------------------------------------------------
+import logging
+import os
+
+def install_strict_console_filter(enable_color: bool = True) -> None:
+    """
+    Older code calls this; delegate to the new compact filter.
+    """
+    install_compact_console_filter(enable_color=enable_color)
+
+def neuter_legacy_console_logger(level: int = logging.CRITICAL) -> None:
+    """
+    Older code calls this to silence the old console loggers.
+    We aggressively mute the legacy loggers and common noisy modules.
+    """
+    for name in ("ConsoleLogger", "console_logger", "LoggerControl"):
+        try:
+            lg = logging.getLogger(name)
+            lg.handlers[:] = []
+            lg.propagate = False
+            lg.setLevel(level)
+        except Exception:
+            pass
+    try:
+        logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
+    except Exception:
+        pass
+
+def silence_legacy_console_loggers() -> None:
+    """
+    Sonic6-era helper: block legacy/noisy loggers globally.
+    Behavior parity with prior version:
+      - remove handlers
+      - stop propagation
+      - set level to ERROR
+    """
+    if os.getenv("SONIC_FILTER_OFF", "0") == "1":
+        return
+    for src in (
+        "ConsoleLogger",
+        "console_logger",
+        "LoggerControl",
+        "werkzeug",
+        "uvicorn.access",
+        "fuzzy_wuzzy",
+        "asyncio",
+    ):
+        try:
+            lg = logging.getLogger(src)
+            lg.propagate = False
+            for h in list(lg.handlers):
+                lg.removeHandler(h)
+            lg.handlers.clear()
+            lg.setLevel(logging.ERROR)
+        except Exception:
+            pass
