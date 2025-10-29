@@ -1,0 +1,17 @@
+{
+  "programId": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+  "idlPath": "./idl/perps.json",
+  "methodTrigger": "<THE IDL METHOD THAT CREATES A Trigger PositionRequest>",
+  "computeUnitPriceMicrolamports": 0,
+  "markets": {
+    "SOL": {
+      "symbol": "SOL-PERP",
+      "pool": "5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq",
+      "group": "",                 // leave blank if PositionCore row supplies it
+      "custody": "",               // leave blank if PositionCore row supplies it
+      "collateralCustody": "",     // leave blank if PositionCore row supplies it
+      "oracle": "",
+      "usdDecimals": 6
+    }
+  }
+}
