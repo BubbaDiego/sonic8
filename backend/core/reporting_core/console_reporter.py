@@ -45,6 +45,13 @@ def install_compact_console_filter(enable_color: bool = True) -> None:
     if not isinstance(sys.stderr, _StdoutFilter):
         sys.stderr = _StdoutFilter(sys.stderr)
 
+# --- backward-compat alias (older callers expect this name) -------------------
+def install_strict_console_filter(enable_color: bool = True) -> None:
+    """
+    Alias for historical name. Delegates to install_compact_console_filter.
+    """
+    install_compact_console_filter(enable_color=enable_color)
+
 
 # ----------------- no-op banner (your new banner lives elsewhere) -----------------
 def emit_config_banner(dl, interval: Optional[int] = None) -> None:
