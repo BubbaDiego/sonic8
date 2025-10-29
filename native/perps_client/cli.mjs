@@ -23,6 +23,7 @@ import { derivePath as ed25519DerivePath } from "ed25519-hd-key";
 import nacl from "tweetnacl";
 
 const DEBUG = process.env.DEBUG_NATIVE === "1";
+const FORCE_MANUAL = process.env.JUP_FORCE_MANUAL === "1";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -547,6 +548,16 @@ function maybeNativeSign(tx) {
   return { signedTxBase64, signature };
 }
 
+function finalizeAndWrite(out) {
+  const signed = maybeNativeSign(out.tx);
+  delete out.tx;
+  if (signed) {
+    out.signedTxBase64 = signed.signedTxBase64;
+    if (signed.signature) out.signature = signed.signature;
+  }
+  process.stdout.write(JSON.stringify(out));
+}
+
 async function main() {
   const raw = await readAllStdin();
   const body = JSON.parse(raw || "{}");
@@ -568,7 +579,25 @@ async function main() {
   const owner = params.owner;
   if (!owner) throw new Error("params.owner required");
 
-  const methodName = process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
+  const methodName =
+    process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
+  if (DEBUG) console.error("[DEBUG] using method", methodName);
+
+  if (FORCE_MANUAL) {
+    if (methodName !== "createDecreasePositionRequest2") {
+      throw new Error("JUP_FORCE_MANUAL=1 only supported for createDecreasePositionRequest2");
+    }
+    if (DEBUG) console.error("[DEBUG] FORCE_MANUAL=1 -> using BorshCoder path only");
+    const out = await buildDecreaseTriggerTx_manual({
+      cfg,
+      idl,
+      owner,
+      params,
+      context: body.context || {},
+    });
+    finalizeAndWrite(out);
+    return;
+  }
 
   let out;
   try {
@@ -606,13 +635,7 @@ async function main() {
     });
   }
 
-  const signed = maybeNativeSign(out.tx);
-  delete out.tx;
-  if (signed) {
-    out.signedTxBase64 = signed.signedTxBase64;
-    if (signed.signature) out.signature = signed.signature;
-  }
-  process.stdout.write(JSON.stringify(out));
+  finalizeAndWrite(out);
 }
 
 main().catch((err) => {
