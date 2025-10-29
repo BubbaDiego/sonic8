@@ -6,6 +6,7 @@ import {
   Connection,
   PublicKey,
   Transaction,
+  TransactionInstruction,
   ComputeBudgetProgram,
   Keypair,
   SystemProgram,
@@ -132,6 +133,34 @@ function okPublicKey(s, label) {
     console.error(`[DEBUG] PublicKey FAIL: ${label} :: value=${JSON.stringify(s)} :: ${e}`);
     return { ok: false, error: String(e) };
   }
+}
+
+// --- helper: build keys array in IDL order, from a map of PublicKeys ---
+function keysFromIdl(idl, methodName, accountsMap) {
+  const ix = (idl.instructions || []).find((i) => i.name === methodName);
+  if (!ix) throw new Error(`IDL has no instruction '${methodName}'`);
+  const keys = [];
+  const missing = [];
+  for (const acc of ix.accounts) {
+    const name = acc.name;
+    const pk = accountsMap[name];
+    if (!pk) {
+      missing.push(name);
+      continue;
+    }
+    keys.push({
+      pubkey: pk instanceof PublicKey ? pk : new PublicKey(pk),
+      isSigner: !!acc.isSigner,
+      isWritable: !!acc.isMut,
+    });
+  }
+  if (missing.length) {
+    throw new Error(
+      `Missing required Perps accounts for ${methodName}: ${missing.join(", ")}. ` +
+        "Provide via PositionCore row or config.markets.<SYMBOL>",
+    );
+  }
+  return keys;
 }
 
 // --- new helper: normalize IDL metadata to match cfg.programId ---
@@ -356,6 +385,108 @@ async function buildDecreaseTriggerTx({ cfg, idl, owner, params, context }) {
   };
 }
 
+// --- Manual builder using BorshCoder (no new anchor.Program) ---
+async function buildDecreaseTriggerTx_manual({ cfg, idl, owner, params, context }) {
+  const connection = new Connection(
+    process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+    "confirmed",
+  );
+  const programId = new PublicKey(cfg.programId);
+  const payerPubkey = new PublicKey(owner);
+  const coder = new anchor.BorshCoder(idl);
+
+  const accounts = resolveAccounts(
+    context,
+    cfg,
+    mapMarketSymbol(params.marketSymbol),
+    programId,
+    payerPubkey,
+  );
+
+  const isLong = !!params.isLong;
+  const above = composeTriggerAbove(isLong, params.kind);
+  const entire = !!params.entirePosition;
+  const triggerPrice = params.triggerPriceUsdAtomic
+    ? new anchor.BN(String(params.triggerPriceUsdAtomic))
+    : null;
+  const sizeUsdDelta = entire
+    ? new anchor.BN("0")
+    : new anchor.BN(String(params.sizeUsdDelta || 0));
+  const paramsArg = {
+    collateralUsdDelta: new anchor.BN("0"),
+    sizeUsdDelta,
+    requestType: { trigger: {} },
+    priceSlippage: null,
+    jupiterMinimumOut: null,
+    triggerPrice,
+    triggerAboveThreshold: above,
+    entirePosition: entire ? true : null,
+    counter: new anchor.BN(String(Date.now() % 2147483647)),
+  };
+
+  const methodName =
+    process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
+  if (DEBUG) {
+    console.error("[DEBUG] MANUAL path using BorshCoder");
+    console.error("[DEBUG] method", methodName);
+  }
+
+  let data;
+  try {
+    data = coder.instruction.encode(methodName, paramsArg);
+  } catch (e) {
+    console.error(
+      "[DEBUG] coder.encode failed; method/params mismatch. method=",
+      methodName,
+      " params keys=",
+      Object.keys(paramsArg),
+    );
+    throw e;
+  }
+
+  const keys = keysFromIdl(idl, methodName, {
+    owner: accounts.owner,
+    receivingAccount: accounts.receivingAccount,
+    perpetuals: accounts.perpetuals,
+    pool: accounts.pool,
+    position: accounts.position,
+    positionRequest: accounts.positionRequest,
+    positionRequestAta: accounts.positionRequestAta,
+    custody: accounts.custody,
+    custodyDovesPriceAccount: accounts.custodyDovesPriceAccount,
+    custodyPythnetPriceAccount: accounts.custodyPythnetPriceAccount,
+    collateralCustody: accounts.collateralCustody,
+    desiredMint: accounts.desiredMint,
+    referral: accounts.referral,
+    tokenProgram: accounts.tokenProgram,
+    associatedTokenProgram: accounts.associatedTokenProgram,
+    systemProgram: accounts.systemProgram,
+    eventAuthority: accounts.eventAuthority,
+    program: accounts.program,
+  });
+
+  const ixs = [];
+  const cuPrice = Number(cfg.computeUnitPriceMicrolamports || 0);
+  if (cuPrice > 0)
+    ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
+
+  const ix = new TransactionInstruction({ programId, keys, data });
+  ixs.push(ix);
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("finalized");
+  const tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
+  const unsignedTxBase64 = Buffer.from(
+    tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+  ).toString("base64");
+  return {
+    unsignedTxBase64,
+    requestPda: accounts.positionRequest.toBase58(),
+    blockhash,
+    lastValidBlockHeight,
+    tx,
+  };
+}
+
 // existing helpers (memo/ultra) kept; route by method
 async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   const connection = new Connection(
@@ -425,11 +556,13 @@ async function main() {
   }
 
   const cfg = loadConfig();
-  const idl = JSON.parse(fs.readFileSync(cfg._idlFull, "utf8"));
-  if (!idl || !Array.isArray(idl.instructions) || idl.instructions.length === 0) {
+  const idlRaw = JSON.parse(fs.readFileSync(cfg._idlFull, "utf8"));
+  if (!idlRaw || !Array.isArray(idlRaw.instructions) || idlRaw.instructions.length === 0) {
     throw new Error(`IDL at ${cfg._idlFull} does not look like an Anchor IDL (no instructions).`);
   }
-  if (DEBUG) console.error("[DEBUG] idl.instructions", idl.instructions.length);
+  if (DEBUG) console.error("[DEBUG] idl.instructions", idlRaw.instructions.length);
+
+  const idl = normalizeIdl(idlRaw, cfg.programId);
 
   const params = body.params || {};
   const owner = params.owner;
@@ -438,10 +571,39 @@ async function main() {
   const methodName = process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
 
   let out;
-  if (methodName === "createDecreasePositionRequest2") {
-    out = await buildDecreaseTriggerTx({ cfg, idl, owner, params, context: body.context || {} });
-  } else {
-    out = await buildPerpsTriggerTx({ cfg, idl, owner, params, context: body.context || {} });
+  try {
+    if (methodName === "createDecreasePositionRequest2") {
+      out = await buildDecreaseTriggerTx({
+        cfg,
+        idl,
+        owner,
+        params,
+        context: body.context || {},
+      });
+    } else {
+      out = await buildPerpsTriggerTx({
+        cfg,
+        idl,
+        owner,
+        params,
+        context: body.context || {},
+      });
+    }
+  } catch (e) {
+    if (methodName !== "createDecreasePositionRequest2") throw e;
+    if (DEBUG) {
+      console.error(
+        "[DEBUG] Program path failed, falling back to manual coder path:",
+        e.stack || String(e),
+      );
+    }
+    out = await buildDecreaseTriggerTx_manual({
+      cfg,
+      idl,
+      owner,
+      params,
+      context: body.context || {},
+    });
   }
 
   const signed = maybeNativeSign(out.tx);
