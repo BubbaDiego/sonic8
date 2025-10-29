@@ -8,6 +8,7 @@ from ..config import get_config
 from ..services import JupiterService, PositionsService, WalletService
 from ..services.perps_manage_service import PerpsManageService, TPSLRequest
 from ..services.positions_bridge import PositionsBridge
+from ..services.tx_service import TxService
 from .views import kv_table, panel, rows_table
 
 
@@ -274,6 +275,8 @@ def menu_positions_manage_tpsl() -> None:
         panel("Build Error", f"{type(exc).__name__}: {exc}")
         return
 
+    signature: Optional[str] = None
+
     if result.get("needsSigning"):
         unsigned_b64 = result["unsignedTxBase64"]
         preview = unsigned_b64[:2400] + "..." if len(unsigned_b64) > 2400 else unsigned_b64
@@ -290,12 +293,71 @@ def menu_positions_manage_tpsl() -> None:
             )
         except Exception as exc:
             panel("Submit Error", f"{type(exc).__name__}: {exc}")
+            return
+    else:
+        signature = result.get("signature")
+        kv_table(
+            "🚀 Submitted",
+            {"signature": signature, "requestPda": result.get("requestPda") or "—"},
+        )
+
+    wait = _prompt("Wait for confirmation? (y/n)", "y").lower().startswith("y")
+    tx_service: Optional[TxService] = None
+    if wait and signature:
+        tx_service = TxService()
+        status = tx_service.wait_for_confirmation(
+            signature, desired="confirmed", timeout_s=75, poll_ms=800
+        )
+        kv_table(
+            "🛰  Confirmation Status",
+            {
+                "signature": signature,
+                "ok": status.get("ok"),
+                "status": status.get("confirmationStatus"),
+                "slot": status.get("slot"),
+                "confirmations": status.get("confirmations"),
+                "err": status.get("err"),
+            },
+        )
+        if not status.get("ok"):
+            logs = tx_service.get_transaction_logs(signature)
+            if logs.get("found"):
+                panel(
+                    "RPC Logs",
+                    "\n".join(logs.get("logMessages", [])[:40]) or "<no logs>",
+                )
+
+    if signature:
+        tx_service = tx_service or TxService()
+        kv_table("Explorer", {"url": tx_service.explorer_url(signature)})
+
+
+def menu_tx_inspect() -> None:
+    """Inspect a transaction signature and optionally fetch logs."""
+
+    tx_service = TxService()
+    default_sig = tx_service.last_logged_signature()
+    signature = _prompt("Signature to inspect", default_sig or "")
+    if not signature:
+        panel("Tx Inspect", "No signature provided.")
         return
 
+    status = tx_service.get_signature_status(signature)
     kv_table(
-        "🚀 Submitted",
-        {"signature": result.get("signature"), "requestPda": result.get("requestPda") or "—"},
+        "🛰 Signature Status",
+        {
+            "signature": signature,
+            "found": status.get("found"),
+            "status": status.get("confirmationStatus"),
+            "slot": status.get("slot"),
+            "confirmations": status.get("confirmations"),
+            "err": status.get("err"),
+        },
     )
+    logs = tx_service.get_transaction_logs(signature)
+    if logs.get("found"):
+        panel("RPC Logs", "\n".join(logs.get("logMessages", [])[:60]) or "<no logs>")
+    kv_table("Explorer", {"url": tx_service.explorer_url(signature)})
 
 
 def menu_quote(svc: JupiterService) -> None:
