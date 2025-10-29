@@ -226,31 +226,27 @@ def menu_positions_manage_tpsl() -> None:
 
     side = (pos.get("position_type") or pos.get("side") or "?").lower()
     is_long = side.startswith("l")
-    market_symbol = str(
-        pos.get("asset_type") or pos.get("asset") or pos.get("market") or "UNKNOWN"
-    )
+    market_symbol = str(pos.get("asset_type") or pos.get("asset") or pos.get("market") or "UNKNOWN")
     try:
-        entry_price = float(
-            pos.get("entry_price") or pos.get("avg_entry") or pos.get("avg_price")
-        )
+        entry = float(pos.get("entry_price") or pos.get("avg_entry") or pos.get("avg_price"))
     except Exception:
-        entry_price = 0.0
+        entry = 0.0
 
     action = _prompt("Action: (1) Take-Profit  (2) Stop-Loss", "1").strip()
     kind = "tp" if action == "1" else "sl"
 
     try:
-        target_price = _parse_target_price(entry_price, kind)
-    except Exception as exc:
-        panel("Input Error", f"{type(exc).__name__}: {exc}")
+        target_price = _parse_target_price(entry, kind)
+    except Exception as e:
+        panel("Input Error", f"{type(e).__name__}: {e}")
         return
 
-    entire_position = _prompt("Entire position? (y/n)", "y").lower().startswith("y")
-    size_delta_usd: Optional[int] = None
-    if not entire_position:
-        ui_value = _prompt("Partial close size (USD, UI)", "")
+    entire = _prompt("Entire position? (y/n)", "y").lower().startswith("y")
+    size_delta_usd = None
+    if not entire:
+        ui = _prompt("Partial close size (USD, UI)", "")
         try:
-            size_delta_usd = int(round(float(ui_value) * 1_000_000))
+            size_delta_usd = int(round(float(ui) * 1_000_000))
         except Exception:
             panel("Input Error", "Invalid USD amount")
             return
@@ -259,47 +255,42 @@ def menu_positions_manage_tpsl() -> None:
 
     svc = PerpsManageService()
     try:
-        owner_pubkey = WalletService().read_signer_info()["public_key"]
-        result = svc.attach_tp_or_sl(
+        res = svc.attach_tp_or_sl(
             TPSLRequest(
-                owner_pubkey=owner_pubkey,
+                owner_pubkey=WalletService().read_signer_info()["public_key"],
                 market_symbol=market_symbol,
                 is_long=is_long,
                 trigger_price_usd=trigger_price_atomic,
-                entire_position=entire_position,
+                entire_position=entire,
                 size_usd_delta=size_delta_usd,
                 kind=kind,
+                context={"positionRow": pos},   # <-- pass the whole row (PDAs, etc.)
             )
         )
-    except Exception as exc:
-        panel("Build Error", f"{type(exc).__name__}: {exc}")
+    except Exception as e:
+        panel("Build Error", f"{type(e).__name__}: {e}")
         return
 
-    signature: Optional[str] = None
+    signature: Optional[str] = res.get("signature")
 
-    if result.get("needsSigning"):
-        unsigned_b64 = result["unsignedTxBase64"]
-        preview = unsigned_b64[:2400] + "..." if len(unsigned_b64) > 2400 else unsigned_b64
-        panel("Unsigned Transaction (base64)", preview)
-        signed = _prompt("Paste SIGNED base64 to submit (or leave blank to cancel)", "")
-        if not signed:
+    if res.get("needsSigning"):
+        panel(
+            "Unsigned Transaction (base64)",
+            (res["unsignedTxBase64"][:2400] + "...") if len(res["unsignedTxBase64"]) > 2400 else res["unsignedTxBase64"],
+        )
+        s = _prompt("Paste SIGNED base64 to submit (or leave blank to cancel)", "")
+        if not s:
             panel("Cancelled", "No submission; request not sent.")
             return
         try:
-            signature = WalletService().submit_signed_tx(signed)
-            kv_table(
-                "🚀 Submitted",
-                {"signature": signature, "requestPda": result.get("requestPda") or "—"},
-            )
-        except Exception as exc:
-            panel("Submit Error", f"{type(exc).__name__}: {exc}")
+            sig = WalletService().submit_signed_tx(s)
+            signature = sig
+            kv_table("🚀 Submitted", {"signature": sig, "requestPda": res.get("requestPda") or "—"})
+        except Exception as e:
+            panel("Submit Error", f"{type(e).__name__}: {e}")
             return
     else:
-        signature = result.get("signature")
-        kv_table(
-            "🚀 Submitted",
-            {"signature": signature, "requestPda": result.get("requestPda") or "—"},
-        )
+        kv_table("🚀 Submitted", {"signature": res.get("signature"), "requestPda": res.get("requestPda") or "—"})
 
     wait = _prompt("Wait for confirmation? (y/n)", "y").lower().startswith("y")
     tx_service: Optional[TxService] = None
