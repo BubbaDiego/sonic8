@@ -301,6 +301,7 @@ _ENABLED_OVERRIDES: dict[str, Optional[bool]] = {k: (None if v is None else bool
 from backend.core.monitor_core.utils.console_title import set_console_title
 from backend.core.cyclone_core.cyclone_engine import Cyclone
 from backend.core.monitor_core.sonic_events import notify_listeners
+from backend.core.monitor_core.inputs.position_monitor import collect_positions
 from backend.core.reporting_core.task_events import task_start, task_end
 from backend.core.reporting_core.positions_icons import compute_positions_icon_line, compute_from_list
 from backend.core.reporting_core.console_reporter import (
@@ -1095,16 +1096,42 @@ def run_monitor(
                 set_prices_reason("error")
 
             try:
-                positions_mgr = getattr(dl, "positions", None)
-                if positions_mgr:
-                    positions = positions_mgr.get_all_positions() or []
-                    latest_iso: Optional[str] = None
-                    for pos in positions:
-                        iso = _to_iso(getattr(pos, "last_updated", None))
+                pos_rows, pos_error, pos_meta = collect_positions(dl)
+                latest_iso: Optional[str] = None
+                positions_block: Optional[Dict[str, Any]] = None
+                if pos_meta.get("provider") or pos_meta.get("source") or pos_rows:
+                    positions_block = summary.setdefault("positions", {})
+                    if pos_meta.get("provider"):
+                        positions_block["provider"] = pos_meta["provider"]
+                    if pos_meta.get("source"):
+                        positions_block["source"] = pos_meta["source"]
+                if pos_rows:
+                    if positions_block is None:
+                        positions_block = summary.setdefault("positions", {})
+                    positions_block["rows"] = pos_rows
+                    try:
+                        setattr(dl, "last_positions_fetch", pos_rows)
+                    except Exception:
+                        pass
+                    for pos in pos_rows:
+                        iso = _to_iso(pos.get("ts") or pos.get("last_updated"))
                         if iso and (latest_iso is None or iso > latest_iso):
                             latest_iso = iso
-                    if latest_iso and not summary.get("positions_updated_at"):
-                        summary["positions_updated_at"] = latest_iso
+                else:
+                    positions_mgr = getattr(dl, "positions", None)
+                    if positions_mgr:
+                        try:
+                            fallback_rows = positions_mgr.get_all_positions() or []
+                        except Exception:
+                            fallback_rows = []
+                        for pos in fallback_rows:
+                            iso = _to_iso(getattr(pos, "last_updated", None))
+                            if iso and (latest_iso is None or iso > latest_iso):
+                                latest_iso = iso
+                if latest_iso and not summary.get("positions_updated_at"):
+                    summary["positions_updated_at"] = latest_iso
+                if pos_error:
+                    summary["positions_error"] = pos_error
                 set_positions_icon_line(
                     line=icon_line if icon_line else None,
                     updated_iso=summary.get("positions_updated_at") or latest_iso,
@@ -1112,6 +1139,7 @@ def run_monitor(
                 )
             except Exception:
                 logging.debug("Failed to populate position summary", exc_info=True)
+                summary.setdefault("positions_error", "positions summary failure")
                 set_positions_icon_line(line=None, updated_iso=None, reason="error")
 
             try:
