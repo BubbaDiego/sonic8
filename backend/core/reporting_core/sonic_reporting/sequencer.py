@@ -8,20 +8,23 @@ from .positions_snapshot import render as render_positions
 from .prices_tape import render as render_prices
 from .writer import write_line
 
+
 def render_startup_banner(dl, default_json_path: str) -> None:
     render_banner(dl, default_json_path)
 
+
 def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
-    write_line(f"")  # spacing
+    # Sync block
     write_line("---------------------- 🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️ ----------------------")
     render_sync(dl, csum, default_json_path)
+
+    # Monitors + Evaluations (no spacer between divider and headers)
     write_line("---------------------- 🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️ ----------------------")
-    # No spacer here; go straight to the headers
     render_evals(dl, csum)
-    # Exactly one spacer between sections
-    write_line("")
+
+    # Positions Snapshot
     write_line("---------------------- 📊  Positions  Snapshot ----------------------")
     render_positions(dl, csum)
-    write_line("")
-    # Prices tape at bottom
+
+    # Prices line (single source of truth; footer is suppressed)
     render_prices(csum)
