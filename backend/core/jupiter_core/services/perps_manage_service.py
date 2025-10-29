@@ -89,6 +89,19 @@ class PerpsManageService:
 
     def _call_native(self, body: Dict[str, Any]) -> Dict[str, Any]:
         argv = self._resolve_native()
+        # Merge current process env + explicit perps hints from config
+        env = os.environ.copy()
+        cfg = self.cfg
+        if cfg.perps_program_id:
+            env["JUP_PERPS_PROGRAM_ID"] = cfg.perps_program_id
+        if cfg.perps_idl_path:
+            env["JUP_PERPS_IDL"] = cfg.perps_idl_path
+        if cfg.perps_method_trigger:
+            env["JUP_PERPS_METHOD_TRIGGER"] = cfg.perps_method_trigger
+        # Also forward RPC if set
+        if cfg.solana_rpc_url:
+            env["SOLANA_RPC_URL"] = cfg.solana_rpc_url
+
         proc = subprocess.run(
             argv,
             input=json.dumps(body).encode("utf-8"),
@@ -96,6 +109,7 @@ class PerpsManageService:
             stderr=subprocess.PIPE,
             timeout=180,
             shell=False,
+            env=env,  # <-- ensure Node sees the values
         )
         if proc.returncode != 0:
             raise RuntimeError(f"Native client failed: {proc.stderr.decode('utf-8', errors='ignore')}")

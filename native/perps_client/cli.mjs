@@ -21,6 +21,8 @@ import * as bip39 from "bip39";
 import { derivePath as ed25519DerivePath } from "ed25519-hd-key";
 import nacl from "tweetnacl";
 
+const DEBUG = process.env.DEBUG_NATIVE === "1";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -66,9 +68,23 @@ function loadConfig() {
     j.computeUnitPriceMicrolamports = Number(process.env.JUP_PERPS_MICROLAMPORTS);
   }
 
-  if (!j.programId || !j.idlPath) throw new Error("config.programId and idlPath are required");
+  if (!j.idlPath) throw new Error("config.idlPath is required");
   j._idlFull = path.isAbsolute(j.idlPath) ? j.idlPath : path.join(__dirname, j.idlPath);
   if (!fs.existsSync(j._idlFull)) throw new Error(`IDL not found at ${j._idlFull}`);
+  if (!j.programId) {
+    // Fallback to IDL metadata address if present
+    const idlProbe = JSON.parse(fs.readFileSync(j._idlFull, "utf8"));
+    const metaAddr = idlProbe?.metadata?.address;
+    if (metaAddr && typeof metaAddr === "string") j.programId = metaAddr;
+  }
+  if (!j.programId)
+    throw new Error("config.programId is empty and IDL has no metadata.address");
+
+  if (DEBUG) {
+    console.error("[DEBUG] programId", j.programId);
+    console.error("[DEBUG] idlPath", j._idlFull);
+    console.error("[DEBUG] methodTrigger", j.methodTrigger || process.env.JUP_PERPS_METHOD_TRIGGER);
+  }
   return j;
 }
 
@@ -228,7 +244,8 @@ async function buildDecreaseTriggerTx({ cfg, idl, owner, params, context }) {
     process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
     "confirmed",
   );
-  const programId = new PublicKey(cfg.programId);
+  const programId = new PublicKey(cfg.programId); // if this line still fails, cfg.programId is actually undefined or bad
+  if (DEBUG) console.error("[DEBUG] PublicKey(programId) ok");
   const payerPubkey = new PublicKey(owner);
 
   const dummyWallet = {
@@ -268,7 +285,7 @@ async function buildDecreaseTriggerTx({ cfg, idl, owner, params, context }) {
   }
 
   const methodName = process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
-  if (process.env.DEBUG_NATIVE === "1") {
+  if (DEBUG) {
     console.error("[DEBUG] method", methodName);
     console.error("[DEBUG] args keys", Object.keys(paramsArg));
     console.error("[DEBUG] accounts", Object.keys(accounts));
@@ -371,6 +388,7 @@ async function main() {
   if (!idl || !Array.isArray(idl.instructions) || idl.instructions.length === 0) {
     throw new Error(`IDL at ${cfg._idlFull} does not look like an Anchor IDL (no instructions).`);
   }
+  if (DEBUG) console.error("[DEBUG] idl.instructions", idl.instructions.length);
 
   const params = body.params || {};
   const owner = params.owner;
