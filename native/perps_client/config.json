@@ -1,7 +1,7 @@
 {
   "programId": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
   "idlPath": "./idl/perps.json",
-  "methodTrigger": "createPositionRequest",
+  "methodTrigger": "instantCreateTpsl",
   "computeUnitPriceMicrolamports": 0,
   "markets": {
     "SOL": {
