@@ -1,0 +1,91 @@
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+import os, json, time
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+def discover_json_path(default_path: str) -> str:
+    p = os.getenv("SONIC_MONITOR_JSON", "").strip()
+    if p: return p
+    return default_path
+
+def parse_json(path: str) -> tuple[Optional[dict], Optional[str], dict]:
+    """Return (obj | None, err | None, meta) meta: {exists,size,mtime}"""
+    jp = Path(path); meta = {"exists": jp.exists(), "size": 0, "mtime": "-"}
+    if meta["exists"]:
+        try:
+            meta["size"] = jp.stat().st_size
+            meta["mtime"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(jp.stat().st_mtime))
+        except Exception:
+            pass
+    if not meta["exists"]:
+        return None, "missing", meta
+    try:
+        with jp.open("r", encoding="utf-8") as f:
+            return json.load(f), None, meta
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}", meta
+
+def _num(v, d=None):
+    try:
+        if v is None: return d
+        if isinstance(v, (int,float)): return float(v)
+        s = str(v).replace("%"," ").strip()
+        return float(s)
+    except Exception:
+        return d
+
+def normalize_legacy(obj: dict) -> dict:
+    """Accept legacy keys and convert to modern {liquid_monitor, profit_monitor} shape."""
+    o = obj or {}
+    modern: Dict[str, Any] = {}
+    lm = o.get("liquid_monitor") or o.get("liquid") or o.get("liquidation_monitor") or {}
+    thr = lm.get("thresholds") or lm.get("thr") or {}
+    glob= lm.get("threshold_percent") or lm.get("percent")
+    modern["liquid_monitor"] = {"thresholds": {}, **({"threshold_percent": _num(glob)} if glob is not None else {})}
+    for s in ("BTC","ETH","SOL"):
+        val = thr.get(s)
+        if val is not None:
+            modern["liquid_monitor"]["thresholds"][s] = _num(val)
+    pm = o.get("profit_monitor") or o.get("profit") or {}
+    pos = pm.get("position_profit_usd") or pm.get("single_usd") or pm.get("pos")
+    pf  = pm.get("portfolio_profit_usd") or pm.get("total_usd")  or pm.get("pf")
+    modern["profit_monitor"] = {}
+    if pos is not None: modern["profit_monitor"]["position_profit_usd"] = _num(pos)
+    if pf  is not None: modern["profit_monitor"]["portfolio_profit_usd"] = _num(pf)
+    return modern
+
+def schema_summary(file_obj: Optional[dict], dl) -> dict:
+    """
+    Return normalized view and sources:
+      { liquid: {BTC,ETH,SOL, source}, profit:{pos,pf, source}, json_keys:[...] }
+    """
+    # FILE
+    f = normalize_legacy(file_obj or {})
+    file_liq = f.get("liquid_monitor", {})
+    file_thr = (file_liq.get("thresholds") or {})
+    # DB
+    try:
+        pm_db = dl.system.get_var("profit_monitor") if getattr(dl, "system", None) else {}
+    except Exception:
+        pm_db = {}
+    pos_db = _num((pm_db or {}).get("position_profit_usd"))
+    pf_db  = _num((pm_db or {}).get("portfolio_profit_usd"))
+
+    # choose per-asset (FILE > DB > ENV)
+    def choose_liq(sym: str):
+        v = _num(file_thr.get(sym))
+        src = "FILE" if v is not None else "DB"
+        return v, src
+
+    liq = {s: choose_liq(s)[0] for s in ("BTC","ETH","SOL")}
+    liq_srcs = {s: choose_liq(s)[1] for s in ("BTC","ETH","SOL")}
+    profit = {"pos": pos_db, "pf": pf_db}
+    profit_src = "DB" if (pos_db is not None or pf_db is not None) else "—"
+
+    return {
+        "json_keys": sorted(list((file_obj or {}).keys())),
+        "liquid":   {"BTC": liq["BTC"], "ETH": liq["ETH"], "SOL": liq["SOL"], "source": liq_srcs},
+        "profit":   {"pos": profit["pos"], "pf": profit["pf"], "source": profit_src},
+        "normalized": f
+    }
