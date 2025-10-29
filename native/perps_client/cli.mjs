@@ -178,6 +178,46 @@ function normalizeIdl(idl, programIdStr) {
   return out;
 }
 
+function buildInstructionBuilder(program, idl, methodName, accounts, knownArgs) {
+  const methodFactory = program.methods[methodName];
+  if (typeof methodFactory !== "function") {
+    const names = (idl.instructions || []).map((i) => i.name);
+    throw new Error(
+      `IDL method '${methodName}' not found. Available: ${names.join(", ")}`,
+    );
+  }
+
+  const instr = (idl.instructions || []).find((i) => i.name === methodName);
+  const idlArgs = (instr && Array.isArray(instr.args) ? instr.args : []) || [];
+
+  const positionalArgs = idlArgs.map((arg) => {
+    const name = arg?.name;
+    if (Object.prototype.hasOwnProperty.call(knownArgs, name)) {
+      return knownArgs[name];
+    }
+
+    const isOptional =
+      arg &&
+      arg.type &&
+      typeof arg.type === "object" &&
+      arg.type !== null &&
+      Object.prototype.hasOwnProperty.call(arg.type, "option");
+
+    if (isOptional) return null;
+
+    const knownList = Object.keys(knownArgs).sort().join(", ") || "<none>";
+    throw new Error(
+      `Missing required arg '${name}' for ${methodName}. Provide mapping (known: ${knownList}).`,
+    );
+  });
+
+  const builder = positionalArgs.length
+    ? methodFactory(...positionalArgs)
+    : methodFactory();
+
+  return builder.accounts(accounts);
+}
+
 function pickDesiredMint(context, cfg, marketKey) {
   const row = (context && context.positionRow) || {};
   return (
@@ -200,6 +240,87 @@ function bnU64(x) {
 function randomCounter() {
   const n = BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000));
   return new anchor.BN(n.toString());
+}
+
+function buildTriggerKnownArgs(params, overrides = {}) {
+  const isLong = !!params.isLong;
+  const kindRaw = String(params.kind || "tp");
+  const kindLower = kindRaw.toLowerCase();
+  const above = composeTriggerAbove(isLong, params.kind);
+  const entire = !!params.entirePosition;
+  const triggerPrice =
+    params.triggerPriceUsdAtomic !== undefined && params.triggerPriceUsdAtomic !== null
+      ? bnU64(params.triggerPriceUsdAtomic)
+      : null;
+  const sizeUsdDelta = entire ? bnU64(0) : bnU64(params.sizeUsdDelta || 0);
+  const requestType = { trigger: {} };
+  const counter = randomCounter();
+  const paramsArg = {
+    collateralUsdDelta: bnU64(0),
+    sizeUsdDelta,
+    requestType,
+    priceSlippage: null,
+    jupiterMinimumOut: null,
+    triggerPrice,
+    triggerAboveThreshold: above,
+    entirePosition: entire ? true : null,
+    counter,
+  };
+
+  const isTp = kindLower === "tp";
+  const side = isLong ? { long: {} } : { short: {} };
+
+  const knownArgs = {
+    params: paramsArg,
+    paramsArg,
+    request: paramsArg,
+    requestParams: paramsArg,
+    args: paramsArg,
+    trigger: requestType,
+    requestType,
+    triggerPrice,
+    price: triggerPrice,
+    triggerAboveThreshold: above,
+    above,
+    triggerAbove: above,
+    entirePosition: entire,
+    entire,
+    closeAll: entire,
+    reduceOnly: entire,
+    sizeUsdDelta,
+    sizeUsd: sizeUsdDelta,
+    sizeDelta: sizeUsdDelta,
+    usdDelta: sizeUsdDelta,
+    collateralUsdDelta: paramsArg.collateralUsdDelta,
+    counter,
+    priceSlippage: paramsArg.priceSlippage,
+    jupiterMinimumOut: paramsArg.jupiterMinimumOut,
+    isLong,
+    side,
+    isTp,
+    tp: isTp,
+    sl: !isTp,
+    kind: kindRaw,
+  };
+
+  if (!triggerPrice) {
+    knownArgs.triggerPrice = null;
+    knownArgs.price = null;
+  }
+
+  Object.assign(knownArgs, overrides || {});
+
+  return {
+    knownArgs,
+    paramsArg,
+    requestType,
+    triggerPrice,
+    sizeUsdDelta,
+    above,
+    entire,
+    isLong,
+    isTp,
+  };
 }
 
 function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
@@ -330,24 +451,24 @@ async function buildDecreaseTriggerTx({ cfg, idl, owner, params, context }) {
   const marketKey = mapMarketSymbol(params.marketSymbol);
   const accounts = resolveAccounts(context, cfg, marketKey, programIdPk, payerPubkey);
 
-  const isLong = !!params.isLong;
-  const above = composeTriggerAbove(isLong, params.kind);
-  const entire = !!params.entirePosition;
-  const triggerPrice = params.triggerPriceUsdAtomic ? bnU64(params.triggerPriceUsdAtomic) : null;
-  const sizeUsdDelta = entire ? bnU64(0) : bnU64(params.sizeUsdDelta || 0);
-  const requestType = { trigger: {} };
-
-  const paramsArg = {
-    collateralUsdDelta: bnU64(0),
-    sizeUsdDelta,
-    requestType,
-    priceSlippage: null,
-    jupiterMinimumOut: null,
-    triggerPrice,
-    triggerAboveThreshold: above,
-    entirePosition: entire ? true : null,
-    counter: randomCounter(),
+  const overrides = {
+    market: marketKey,
+    marketKey,
+    marketSymbol: params.marketSymbol,
+    symbol: params.marketSymbol,
+    owner,
+    ownerPubkey: payerPubkey,
+    ownerPublicKey: payerPubkey,
+    payer: payerPubkey,
+    payerPubkey: payerPubkey,
+    payerPublicKey: payerPubkey,
   };
+  const { knownArgs, paramsArg } = buildTriggerKnownArgs(params, overrides);
+
+  // The canonical struct used for Anchor call defaults to the `params` argument
+  // if the IDL expects it.
+  knownArgs.params = paramsArg;
+  knownArgs.paramsArg = paramsArg;
 
   const ixs = [];
   const cuPrice = Number(cfg.computeUnitPriceMicrolamports || 0);
@@ -358,18 +479,12 @@ async function buildDecreaseTriggerTx({ cfg, idl, owner, params, context }) {
   const methodName = process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
   if (DEBUG) {
     console.error("[DEBUG] method", methodName);
-    console.error("[DEBUG] args keys", Object.keys(paramsArg));
+    console.error("[DEBUG] args keys", Object.keys(knownArgs));
     console.error("[DEBUG] accounts", Object.keys(accounts));
   }
 
-  const methodFactory = program.methods[methodName];
-  if (typeof methodFactory !== "function") {
-    throw new Error(
-      `IDL method '${methodName}' not found. Set config.methodTrigger or JUP_PERPS_METHOD_TRIGGER.`,
-    );
-  }
-  const ixBuilder = paramsArg ? methodFactory(paramsArg) : methodFactory();
-  const ix = await ixBuilder.accounts(accounts).instruction();
+  const ixBuilder = buildInstructionBuilder(program, idl, methodName, accounts, knownArgs);
+  const ix = await ixBuilder.instruction();
   ixs.push(ix);
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("finalized");
@@ -396,13 +511,8 @@ async function buildDecreaseTriggerTx_manual({ cfg, idl, owner, params, context 
   const payerPubkey = new PublicKey(owner);
   const coder = new anchor.BorshCoder(idl);
 
-  const accounts = resolveAccounts(
-    context,
-    cfg,
-    mapMarketSymbol(params.marketSymbol),
-    programId,
-    payerPubkey,
-  );
+  const marketKey = mapMarketSymbol(params.marketSymbol);
+  const accounts = resolveAccounts(context, cfg, marketKey, programId, payerPubkey);
 
   const isLong = !!params.isLong;
   const above = composeTriggerAbove(isLong, params.kind);
@@ -506,12 +616,46 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   const program = new anchor.Program(idl, programId, provider);
 
   const methodName = process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger;
-  if (typeof program.methods[methodName] !== "function") {
-    throw new Error(`IDL method '${methodName}' not found in fallback path.`);
+  const overrides = {
+    market: marketKey,
+    marketKey,
+    marketSymbol: params.marketSymbol,
+    symbol: params.marketSymbol,
+    owner,
+    ownerPubkey: payerPubkey,
+    ownerPublicKey: payerPubkey,
+    payer: payerPubkey,
+    payerPubkey: payerPubkey,
+    payerPublicKey: payerPubkey,
+  };
+  const { knownArgs } = buildTriggerKnownArgs(params, overrides);
+  if (DEBUG) {
+    console.error("[DEBUG] fallback builder for", methodName);
+    console.error("[DEBUG] known args", Object.keys(knownArgs));
   }
-  throw new Error(
-    `Instruction '${methodName}' requires specialized mapping. Use createDecreasePositionRequest2 for Trigger TP/SL.`,
-  );
+
+  const ixBuilder = buildInstructionBuilder(program, idl, methodName, accounts, knownArgs);
+  const ix = await ixBuilder.instruction();
+
+  const ixs = [];
+  const cuPrice = Number(cfg.computeUnitPriceMicrolamports || 0);
+  if (cuPrice > 0) {
+    ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
+  }
+  ixs.push(ix);
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("finalized");
+  const tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
+  const unsignedTxBase64 = Buffer.from(
+    tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+  ).toString("base64");
+  return {
+    unsignedTxBase64,
+    requestPda: accounts.positionRequest.toBase58(),
+    blockhash,
+    lastValidBlockHeight,
+    tx,
+  };
 }
 
 function findSignerTxt() {
