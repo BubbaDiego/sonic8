@@ -56,7 +56,7 @@ def _read_any_positions(cur, cycle_id: Optional[str]) -> Tuple[List[dict], List[
             cur.execute("SELECT * FROM sonic_positions ORDER BY rowid DESC LIMIT 50")
         rows = _fetchall(cur); cols = _columns(cur)
         if rows: return _rows_as_dicts(rows, cols), cols
-    # 3) runtime positions
+    # 3) runtime positions (no status gate)
     if _table_exists(cur, "positions"):
         cur.execute("SELECT * FROM positions ORDER BY rowid DESC LIMIT 50")
         rows = _fetchall(cur); cols = _columns(cur)
@@ -69,16 +69,54 @@ def _read_any_positions(cur, cycle_id: Optional[str]) -> Tuple[List[dict], List[
         if rows: return _rows_as_dicts(rows, cols), cols
     return [], []
 
-def read_positions(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
+def read_positions(dl, cycle_id: Optional[str], *, csum: Optional[dict] = None) -> Dict[str, Any]:
     """
-    Snapshot first (sonic_positions), then latest snapshots, then runtime positions.
-    Tolerates schema drift by mapping common column aliases.
+    Source order:
+      A) csum['positions']['rows'] if present (fastest & current),
+      B) sonic_positions (this cycle → latest),
+      C) positions (no status filter), or any table that looks like positions.
     """
     out = {"count": 0, "pnl_single_max": 0.0, "pnl_portfolio_sum": 0.0, "rows": []}
+
+    # A) From summary (preferred if available)
+    try:
+        if isinstance(csum, dict):
+            rows_csum = (csum.get("positions") or {}).get("rows") or []
+            if rows_csum:
+                # normalize tuples→dict-ish (best effort)
+                norm = []
+                for r in rows_csum:
+                    if isinstance(r, dict) or hasattr(r, "keys"):
+                        norm.append(r)
+                    elif isinstance(r, (list, tuple)):
+                        # guess order: asset, side, value, pnl, lev, liq, travel
+                        asset, side, val, pnl, lev, liq, trav = (r + (None,)*7)[:7]
+                        norm.append({
+                            "asset": asset, "side": side,
+                            "value_usd": val, "pnl_after_fees_usd": pnl,
+                            "leverage": lev, "liquidation_distance": liq,
+                            "travel_percent": trav
+                        })
+                vals = []
+                for r in norm:
+                    try:
+                        v = r.get("pnl_after_fees_usd") or r.get("pnl_usd") or r.get("pnl")
+                        vals.append(float(v) if v is not None else 0.0)
+                    except Exception:
+                        vals.append(0.0)
+                pos = [v for v in vals if v > 0]
+                out["pnl_single_max"]    = max(pos) if pos else 0.0
+                out["pnl_portfolio_sum"] = sum(pos) if pos else 0.0
+                out["count"]             = len(norm)
+                out["rows"]              = norm
+                return out
+    except Exception:
+        pass
+
+    # B/C) DB lookups
     try:
         cur = dl.db.get_cursor()
         if not cur: return out
-
         rows, cols = _read_any_positions(cur, cycle_id)
         out["count"] = len(rows)
 

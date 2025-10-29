@@ -19,7 +19,7 @@ def _pct(v):
 
 def render(dl, csum: Dict[str, Any]) -> None:
     cycle_id = csum.get("cycle_id")
-    data = read_positions(dl, cycle_id)
+    data = read_positions(dl, cycle_id, csum=csum)
     title = ICON_POS + " Positions Snapshot"
     headers = ["Asset", "Side", "Value", "PnL", "Lev", "Liq", "Travel"]
     rows = []

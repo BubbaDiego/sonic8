@@ -50,7 +50,7 @@ def install_compact_console_filter(enable_color: bool = True) -> None:
         sys.stderr = _StdoutFilter(sys.stderr)
 
 def emit_config_banner(dl, interval: Optional[int] = None) -> None:
-    # Banner has moved to sonic_reporting.banner_config
+    # Banner moved to sonic_reporting.banner_config
     return
 
 # ----------------- compact cycle (end-of-cycle line only) -----------------
@@ -65,7 +65,7 @@ def emit_compact_cycle(
 ) -> None:
     """
     Prints only the succinct end-of-cycle line.
-    All detailed sections (prices, positions, hedges, notifications, sources) are rendered
+    All details (prices, positions, hedges, notifications, sources) are rendered
     by sonic_reporting.* modules. We do not print them here.
     """
     print(f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)", flush=True)
@@ -121,3 +121,8 @@ def silence_legacy_console_loggers() -> None:
             lg.setLevel(logging.ERROR)
         except Exception:
             pass
+
+# --- legacy 'sources' printer (no-op) -----------------------------------------
+def emit_sources_line(*args, **kwargs) -> None:
+    """Back-compat: some old code calls this. We intentionally print nothing."""
+    return
