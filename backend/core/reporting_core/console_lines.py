@@ -17,8 +17,10 @@ def emit_compact_cycle(
     sleep_time: Optional[float] = None,
 ) -> None:
     """Compatibility wrapper: 4-arg call used across Sonic6/7 → 7-arg reporter."""
+    summary = summary or {}
+
     # derive timing safely
-    durs = (summary or {}).get("durations", {}) or {}
+    durs = summary.get("durations", {}) or {}
     elapsed_s = float(summary.get("elapsed_s", 0.0) or 0.0)
     cyc_ms = int(durs.get("cyclone_ms") or durs.get("cycle_ms") or round(elapsed_s * 1000.0))
     if cyc_ms <= 0 and elapsed_s > 0:
