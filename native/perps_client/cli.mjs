@@ -116,6 +116,34 @@ function mapMarketSymbol(sym) {
   return s;
 }
 
+// ---------- PDA helpers (ported from sonic6 patterns) ----------
+const USDC_DEFAULT = new PublicKey(
+  process.env.JUP_COLLATERAL_MINT || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+);
+const TOKEN_PROGRAM = TOKEN_PROGRAM_ID;
+const ATOKEN_PROGRAM = ASSOCIATED_TOKEN_PROGRAM_ID;
+
+function derivePda(programId, seeds) {
+  return PublicKey.findProgramAddressSync(seeds, programId)[0];
+}
+
+function derivePositionPda(programId, owner, pool) {
+  return derivePda(programId, [Buffer.from("position"), owner.toBuffer(), pool.toBuffer()]);
+}
+
+function derivePositionRequestPda(programId, position, uniqueU32) {
+  const counterBuf = Buffer.alloc(8);
+  counterBuf.writeUInt32LE(uniqueU32 >>> 0, 0);
+  return derivePda(programId, [Buffer.from("position_request"), position.toBuffer(), counterBuf]);
+}
+
+function deriveAta(mint, owner) {
+  return PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), TOKEN_PROGRAM.toBuffer(), mint.toBuffer()],
+    ATOKEN_PROGRAM,
+  )[0];
+}
+
 function deriveEventAuthority(programId) {
   return PublicKey.findProgramAddressSync([Buffer.from("__event_authority")], programId)[0];
 }
@@ -346,6 +374,19 @@ function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
   a.custodyDovesPriceAccount = row.custodyDovesPriceAccount || marketCfg.custodyDovesPriceAccount || null;
   a.custodyPythnetPriceAccount = row.custodyPythnetPriceAccount || marketCfg.custodyPythnetPriceAccount || null;
 
+  const poolPk = a.pool ? ensurePubkey(a.pool, "pool") : null;
+  if (!a.position && poolPk) {
+    const derivedPosition = derivePositionPda(programId, payerPubkey, poolPk);
+    a.position = derivedPosition.toBase58();
+  }
+
+  const positionPk = a.position ? ensurePubkey(a.position, "position") : null;
+  if (!a.positionRequest && positionPk) {
+    const unique = Math.floor(Date.now() / 1000);
+    const derivedRequest = derivePositionRequestPda(programId, positionPk, unique);
+    a.positionRequest = derivedRequest.toBase58();
+  }
+
   a.desiredMint = pickDesiredMint(context, cfg, marketKey);
   const desiredMintPk = ensurePubkey(a.desiredMint, "desiredMint");
   a.receivingAccount = getAssociatedTokenAddressSync(
@@ -484,13 +525,14 @@ async function buildDecreaseTriggerTx({ cfg, idl, owner, params, context }) {
   knownArgs.params = paramsArg;
   knownArgs.paramsArg = paramsArg;
 
-  const ixs = [];
+  const computeIxs = [];
   const cuPrice = Number(cfg.computeUnitPriceMicrolamports || 0);
   if (cuPrice > 0) {
-    ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
+    computeIxs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
   }
 
-  const methodName = process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
+  const methodName =
+    process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
   if (DEBUG) {
     console.error("[DEBUG] method", methodName);
     console.error("[DEBUG] args keys", Object.keys(knownArgs));
@@ -499,16 +541,44 @@ async function buildDecreaseTriggerTx({ cfg, idl, owner, params, context }) {
 
   const ixBuilder = buildInstructionBuilder(program, idl, methodName, accounts, knownArgs);
   const ix = await ixBuilder.instruction();
-  ixs.push(ix);
 
+  const ixs = [...computeIxs, ix];
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("finalized");
-  const tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
-  const unsignedTxBase64 = Buffer.from(
+  let tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
+
+  let requestPda = accounts.positionRequest.toBase58();
+  let unsignedTxBase64 = Buffer.from(
     tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
   ).toString("base64");
+
+  const sim = await connection.simulateTransaction(tx, {
+    sigVerify: false,
+    replaceRecentBlockhash: true,
+  });
+  const logs = sim?.value?.logs || [];
+  if (sim?.value?.err) {
+    const rightLog = logs.find((l) => l.includes("Right:"));
+    const adopted = rightLog ? rightLog.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/)?.[0] : null;
+    if (adopted) {
+      const expectPr = new PublicKey(adopted);
+      accounts.positionRequest = expectPr;
+      const mintCandidate = accounts.inputMint || accounts.desiredMint || USDC_DEFAULT;
+      const mintPk = mintCandidate instanceof PublicKey ? mintCandidate : new PublicKey(mintCandidate);
+      accounts.positionRequestAta = deriveAta(mintPk, expectPr);
+      const rebuiltBuilder = buildInstructionBuilder(program, idl, methodName, accounts, knownArgs);
+      const rebuiltIx = await rebuiltBuilder.instruction();
+      const rebuiltIxs = [...computeIxs, rebuiltIx];
+      tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...rebuiltIxs);
+      requestPda = expectPr.toBase58();
+      unsignedTxBase64 = Buffer.from(
+        tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+      ).toString("base64");
+    }
+  }
+
   return {
     unsignedTxBase64,
-    requestPda: accounts.positionRequest.toBase58(),
+    requestPda,
     blockhash,
     lastValidBlockHeight,
     tx,
@@ -569,43 +639,71 @@ async function buildDecreaseTriggerTx_manual({ cfg, idl, owner, params, context 
     throw e;
   }
 
-  const keys = keysFromIdl(idl, methodName, {
-    owner: accounts.owner,
-    receivingAccount: accounts.receivingAccount,
-    perpetuals: accounts.perpetuals,
-    pool: accounts.pool,
-    position: accounts.position,
-    positionRequest: accounts.positionRequest,
-    positionRequestAta: accounts.positionRequestAta,
-    custody: accounts.custody,
-    custodyDovesPriceAccount: accounts.custodyDovesPriceAccount,
-    custodyPythnetPriceAccount: accounts.custodyPythnetPriceAccount,
-    collateralCustody: accounts.collateralCustody,
-    desiredMint: accounts.desiredMint,
-    referral: accounts.referral,
-    tokenProgram: accounts.tokenProgram,
-    associatedTokenProgram: accounts.associatedTokenProgram,
-    systemProgram: accounts.systemProgram,
-    eventAuthority: accounts.eventAuthority,
-    program: accounts.program,
-  });
-
-  const ixs = [];
+  const computeIxs = [];
   const cuPrice = Number(cfg.computeUnitPriceMicrolamports || 0);
   if (cuPrice > 0)
-    ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
+    computeIxs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
 
-  const ix = new TransactionInstruction({ programId, keys, data });
-  ixs.push(ix);
+  const buildKeys = () =>
+    keysFromIdl(idl, methodName, {
+      owner: accounts.owner,
+      receivingAccount: accounts.receivingAccount,
+      perpetuals: accounts.perpetuals,
+      pool: accounts.pool,
+      position: accounts.position,
+      positionRequest: accounts.positionRequest,
+      positionRequestAta: accounts.positionRequestAta,
+      custody: accounts.custody,
+      custodyDovesPriceAccount: accounts.custodyDovesPriceAccount,
+      custodyPythnetPriceAccount: accounts.custodyPythnetPriceAccount,
+      collateralCustody: accounts.collateralCustody,
+      desiredMint: accounts.desiredMint,
+      referral: accounts.referral,
+      tokenProgram: accounts.tokenProgram,
+      associatedTokenProgram: accounts.associatedTokenProgram,
+      systemProgram: accounts.systemProgram,
+      eventAuthority: accounts.eventAuthority,
+      program: accounts.program,
+    });
 
+  let keys = buildKeys();
+  let ix = new TransactionInstruction({ programId, keys, data });
+  let ixs = [...computeIxs, ix];
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("finalized");
-  const tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
-  const unsignedTxBase64 = Buffer.from(
+  let tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
+  let requestPda = accounts.positionRequest.toBase58();
+  let unsignedTxBase64 = Buffer.from(
     tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
   ).toString("base64");
+
+  const sim = await connection.simulateTransaction(tx, {
+    sigVerify: false,
+    replaceRecentBlockhash: true,
+  });
+  const logs = sim?.value?.logs || [];
+  if (sim?.value?.err) {
+    const rightLog = logs.find((l) => l.includes("Right:"));
+    const adopted = rightLog ? rightLog.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/)?.[0] : null;
+    if (adopted) {
+      const expectPr = new PublicKey(adopted);
+      accounts.positionRequest = expectPr;
+      const mintCandidate = accounts.inputMint || accounts.desiredMint || USDC_DEFAULT;
+      const mintPk = mintCandidate instanceof PublicKey ? mintCandidate : new PublicKey(mintCandidate);
+      accounts.positionRequestAta = deriveAta(mintPk, expectPr);
+      keys = buildKeys();
+      ix = new TransactionInstruction({ programId, keys, data });
+      ixs = [...computeIxs, ix];
+      tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
+      requestPda = expectPr.toBase58();
+      unsignedTxBase64 = Buffer.from(
+        tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+      ).toString("base64");
+    }
+  }
+
   return {
     unsignedTxBase64,
-    requestPda: accounts.positionRequest.toBase58(),
+    requestPda,
     blockhash,
     lastValidBlockHeight,
     tx,
@@ -662,21 +760,47 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   const ixBuilder = buildInstructionBuilder(program, idl, methodName, accounts, knownArgs);
   const ix = await ixBuilder.instruction();
 
-  const ixs = [];
+  const computeIxs = [];
   const cuPrice = Number(cfg.computeUnitPriceMicrolamports || 0);
   if (cuPrice > 0) {
-    ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
+    computeIxs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
   }
-  ixs.push(ix);
-
+  let ixs = [...computeIxs, ix];
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("finalized");
-  const tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
-  const unsignedTxBase64 = Buffer.from(
+  let tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
+  let requestPda = accounts.positionRequest.toBase58();
+  let unsignedTxBase64 = Buffer.from(
     tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
   ).toString("base64");
+
+  const sim = await connection.simulateTransaction(tx, {
+    sigVerify: false,
+    replaceRecentBlockhash: true,
+  });
+  const logs = sim?.value?.logs || [];
+  if (sim?.value?.err) {
+    const rightLog = logs.find((l) => l.includes("Right:"));
+    const adopted = rightLog ? rightLog.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/)?.[0] : null;
+    if (adopted) {
+      const expectPr = new PublicKey(adopted);
+      accounts.positionRequest = expectPr;
+      const mintCandidate = accounts.inputMint || accounts.desiredMint || USDC_DEFAULT;
+      const mintPk = mintCandidate instanceof PublicKey ? mintCandidate : new PublicKey(mintCandidate);
+      accounts.positionRequestAta = deriveAta(mintPk, expectPr);
+      const rebuiltBuilder = buildInstructionBuilder(program, idl, methodName, accounts, knownArgs);
+      const rebuiltIx = await rebuiltBuilder.instruction();
+      ixs = [...computeIxs, rebuiltIx];
+      tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
+      requestPda = expectPr.toBase58();
+      unsignedTxBase64 = Buffer.from(
+        tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+      ).toString("base64");
+    }
+  }
+
   return {
     unsignedTxBase64,
-    requestPda: accounts.positionRequest.toBase58(),
+    requestPda,
     blockhash,
     lastValidBlockHeight,
     tx,
