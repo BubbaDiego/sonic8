@@ -1,0 +1,53 @@
+{
+  "CONFIG_VERSION": "2025-10-14",
+  "SONIC_XCOM_LIVE": 1,
+
+  "LOCAL_API_BASE": "http://127.0.0.1:5000",
+  "XCOM_REPLY_PORT": 5000,
+
+  "TWILIO_ACCOUNT_SID": "ACb606788ada5dccbfeeebed0f440099b3",
+  "TWILIO_AUTH_TOKEN": "05a424538435f00cb2e39a1917087d85",
+  "TWILIO_FROM_PHONE": "+18336913467",
+  "TWILIO_TO_PHONE": "+16199804758",
+  "MY_PHONE_NUMBER": "+16199804758",
+  "TWILIO_FLOW_SID": "FWbc0ac9a340985c39b6e0d0fa578c52c7",
+  "TWILIO_MESSAGING_SERVICE_SID": "",
+
+  "TEXTBELT_KEY": "78a8920a873978139b2bb8220f1135bafcfe1f7ern54jyGZ9zKqMiviZU6EDJWg7",
+  "TEXTBELT_ENDPOINT": "https://textbelt.com",
+  "TEXTBELT_DEFAULT_TO": "+16199804758",
+
+  "PUBLIC_BASE_URL": "",
+  "TEXTBELT_REPLY_WEBHOOK_URL": "",
+  "TEXTBELT_WEBHOOK_SECRET": "change_me_strong_secret",
+  "XCOM_INBOUND_LOG": "backend/logs/xcom_inbound_sms.jsonl",
+
+  "NGROK_AUTHTOKEN": "2qE6eFmbHygeyBDhbwygMsYnM4v_5DSVV5ZeJeouvpbk5JZFf",
+
+  "ALERT_ROOM": "Room 55",
+  "ALERT_PATIENT": "Mr Rogers",
+  "ALERT_DEVICE_SN": "SN:12345678",
+  "ALERT_DRUG": "Epinephrine"
+}
+
+{
+  "SONIC_XCOM_LIVE": 1,
+  "LOCAL_API_BASE": "http://127.0.0.1:5000",
+
+  "TWILIO_ACCOUNT_SID": "ACb606788ada5dccbfeeebed0f440099b3",
+  "TWILIO_AUTH_TOKEN": "05a424538435f00cb2e39a1917087d85",
+  "TWILIO_FLOW_SID": "FWbc0ac9a340985c39b6e0d0fa578c52c7",
+  "TWILIO_FROM_PHONE": "+18336913467",
+  "TWILIO_TO_PHONE": "+16199804758",
+
+  "TEXTBELT_KEY": "78a8920a873978139b2bb8220f1135bafcfe1f7ern54jyGZ9zKqMiviZU6EDJWg7",
+  "TEXTBELT_ENDPOINT": "https://textbelt.com",
+  "TEXTBELT_DEFAULT_TO": "+16199804758",
+
+  "PUBLIC_BASE_URL": "https://a0331c609e6e.ngrok-free.app",
+  "TEXTBELT_REPLY_WEBHOOK_URL": "https://a0331c609e6e.ngrok-free.app/api/xcom/textbelt/reply",
+  "TEXTBELT_WEBHOOK_SECRET": "2b0e2d5b2a6c4d639c9a4e7a1a0c3f41",
+
+  "XCOM_INBOUND_LOG": "backend/core/xcom_core/logs/xcom_inbound_sms.jsonl"
+}
+
