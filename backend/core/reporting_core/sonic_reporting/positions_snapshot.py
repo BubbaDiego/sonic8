@@ -5,20 +5,17 @@ from .writer import write_table
 from .styles import ICON_POS
 from .data_access import read_positions
 
-
 def _usd(v):
     try:
         return f"${float(v):.2f}".rstrip("0").rstrip(".")
     except Exception:
         return "—"
 
-
 def _pct(v):
     try:
         return f"{float(v):.2f}%".rstrip("0").rstrip(".")
     except Exception:
         return "—"
-
 
 def render(dl, csum: Dict[str, Any]) -> None:
     cycle_id = csum.get("cycle_id")

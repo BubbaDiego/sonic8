@@ -1,8 +1,5 @@
-"""Console reporting helpers for Sonic compact mode."""
-
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-
 import json
 import logging
 import os
@@ -10,21 +7,13 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-
 # ----------------- logging filter & stdout wrapper -----------------
 def install_compact_console_filter(enable_color: bool = True) -> None:
     root = logging.getLogger()
     root.setLevel(logging.INFO)
 
-    for name in (
-        "ConsoleLogger",
-        "console_logger",
-        "LoggerControl",
-        "werkzeug",
-        "uvicorn.access",
-        "fuzzy_wuzzy",
-        "asyncio",
-    ):
+    for name in ("ConsoleLogger", "console_logger", "LoggerControl", "werkzeug",
+                 "uvicorn.access", "fuzzy_wuzzy", "asyncio"):
         logging.getLogger(name).setLevel(logging.ERROR)
 
     class _DropXCOM(logging.Filter):
@@ -45,18 +34,13 @@ def install_compact_console_filter(enable_color: bool = True) -> None:
     class _StdoutFilter:
         def __init__(self, stream):
             self._s = stream
-
         def write(self, s):
             if "DEBUG[XCOM]" in str(s):
                 return
             self._s.write(s)
-
         def flush(self):
-            try:
-                self._s.flush()
-            except Exception:
-                pass
-
+            try: self._s.flush()
+            except Exception: pass
         def isatty(self):
             return getattr(self._s, "isatty", lambda: False)()
 
@@ -65,11 +49,9 @@ def install_compact_console_filter(enable_color: bool = True) -> None:
     if not isinstance(sys.stderr, _StdoutFilter):
         sys.stderr = _StdoutFilter(sys.stderr)
 
-
 def emit_config_banner(dl, interval: Optional[int] = None) -> None:
-    # Banner moved to sonic_reporting.banner_config
+    # Banner has moved to sonic_reporting.banner_config
     return
-
 
 # ----------------- compact cycle (end-of-cycle line only) -----------------
 def emit_compact_cycle(
@@ -86,12 +68,7 @@ def emit_compact_cycle(
     All detailed sections (prices, positions, hedges, notifications, sources) are rendered
     by sonic_reporting.* modules. We do not print them here.
     """
-
-    print(
-        f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)",
-        flush=True,
-    )
-
+    print(f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)", flush=True)
 
 # ----------------- JSONL summary (keep if used; safe to leave) -----------------
 def emit_json_summary(
@@ -113,11 +90,9 @@ def emit_json_summary(
     except Exception:
         pass
 
-
 # ----------------- back-compat shims for legacy imports -----------------
 def install_strict_console_filter(enable_color: bool = True) -> None:
     install_compact_console_filter(enable_color=enable_color)
-
 
 def neuter_legacy_console_logger(level: int = logging.CRITICAL) -> None:
     for name in ("ConsoleLogger", "console_logger", "LoggerControl"):
@@ -133,19 +108,10 @@ def neuter_legacy_console_logger(level: int = logging.CRITICAL) -> None:
     except Exception:
         pass
 
-
 def silence_legacy_console_loggers() -> None:
     if os.getenv("SONIC_FILTER_OFF", "0") == "1":
         return
-    for src in (
-        "ConsoleLogger",
-        "console_logger",
-        "LoggerControl",
-        "werkzeug",
-        "uvicorn.access",
-        "fuzzy_wuzzy",
-        "asyncio",
-    ):
+    for src in ("ConsoleLogger","console_logger","LoggerControl","werkzeug","uvicorn.access","fuzzy_wuzzy","asyncio"):
         try:
             lg = logging.getLogger(src)
             lg.propagate = False
