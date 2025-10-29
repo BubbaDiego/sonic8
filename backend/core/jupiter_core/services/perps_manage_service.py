@@ -53,18 +53,48 @@ class PerpsManageService:
                 "kind": req.kind,
             },
         }
-        unsigned_b64, request_pda = self._call_native(payload)
-        self.audit.log(
-            kind=f"perps_{req.kind}_create",
-            status="built",
-            request=payload,
-            response={"requestPda": request_pda},
+        native = self._call_native(payload)
+        unsigned_b64 = (
+            native.get("unsignedTxBase64")
+            or native.get("transaction")
+            or native.get("tx")
         )
+        request_pda = native.get("requestPda")
+
+        # If the native client already signed, submit that directly.
+        signed_b64 = native.get("signedTxBase64")
+        if signed_b64:
+            sig = self.wallet.submit_signed_tx(signed_b64)
+            self.audit.log(
+                kind=f"perps_{req.kind}_create",
+                status="built",
+                request=payload,
+                response={"requestPda": request_pda},
+            )
+            self.audit.log(
+                kind="perps_submit",
+                status="ok",
+                response={"signature": sig, "requestPda": request_pda},
+            )
+            return {
+                "signature": sig,
+                "requestPda": request_pda,
+                "needsSigning": False,
+            }
+
+        if not unsigned_b64:
+            raise RuntimeError("Native client did not return 'unsignedTxBase64'")
 
         # Try to sign in Python
         try:
             signed_b64 = self.wallet.sign_tx_base64(unsigned_b64)
         except Exception as exc:
+            self.audit.log(
+                kind=f"perps_{req.kind}_create",
+                status="built",
+                request=payload,
+                response={"requestPda": request_pda},
+            )
             return {
                 "unsignedTxBase64": unsigned_b64,
                 "requestPda": request_pda,
@@ -73,6 +103,12 @@ class PerpsManageService:
             }
 
         signature = self.wallet.submit_signed_tx(signed_b64)
+        self.audit.log(
+            kind=f"perps_{req.kind}_create",
+            status="built",
+            request=payload,
+            response={"requestPda": request_pda},
+        )
         self.audit.log(
             kind="perps_submit",
             status="ok",
@@ -122,7 +158,7 @@ class PerpsManageService:
 
         return argv
 
-    def _call_native(self, body: Dict[str, Any]) -> tuple[str, Optional[str]]:
+    def _call_native(self, body: Dict[str, Any]) -> Dict[str, Any]:
         argv = self._resolve_native()
         try:
             proc = subprocess.run(  # noqa: S603,S607 - intentional exec of trusted script
@@ -142,17 +178,6 @@ class PerpsManageService:
             raise RuntimeError(f"Native client failed: {stderr}")
 
         try:
-            payload = json.loads(proc.stdout.decode("utf-8"))
+            return json.loads(proc.stdout.decode("utf-8"))
         except Exception as exc:
             raise RuntimeError(f"Native client returned non-JSON: {exc}") from exc
-
-        unsigned_b64 = (
-            payload.get("unsignedTxBase64")
-            or payload.get("transaction")
-            or payload.get("tx")
-        )
-        if not unsigned_b64:
-            raise RuntimeError("Native client did not return 'unsignedTxBase64'")
-
-        request_pda = payload.get("requestPda")
-        return unsigned_b64, request_pda
