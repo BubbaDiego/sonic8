@@ -25,15 +25,15 @@ def render(dl, csum: Dict[str, Any]) -> None:
     rows = []
     for r in data["rows"]:
         if isinstance(r, dict) or hasattr(r, "keys"):
-            rows.append([
-                str(r.get("asset") or r.get("asset_type") or "—"),
-                str(r.get("side")  or r.get("position_type") or "—"),
-                _usd(r.get("value_usd")),
-                _usd(r.get("pnl_after_fees_usd")),
-                f"{r.get('leverage','—')}×" if r.get("leverage") else "—",
-                _pct(r.get("liquidation_distance")),
-                _pct(r.get("travel_percent"))
-            ])
+            asset = r.get("asset") or r.get("asset_type") or "—"
+            side  = r.get("side") or r.get("position_type") or "—"
+            val   = r.get("value_usd") or r.get("value") or r.get("position_value_usd")
+            pnl   = r.get("pnl_after_fees_usd") or r.get("pnl_usd") or r.get("pnl")
+            lev   = r.get("leverage") or r.get("lev") or r.get("leverage_x")
+            liq   = r.get("liquidation_distance") or r.get("liq_dist") or r.get("liq_percent")
+            trav  = r.get("travel_percent") or r.get("travel") or r.get("movement_percent")
+            rows.append([str(asset), str(side), _usd(val), _usd(pnl),
+                         (f"{lev}×" if lev is not None else "—"), _pct(liq), _pct(trav)])
         else:
             # tuple fallback indices
             asset, side, val, pnl, lev, liq, trav = (r + (None,)*7)[:7]
