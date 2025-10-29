@@ -9,23 +9,39 @@ def _fetchall(cur):
         return []
 
 def read_positions(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
-    """Snapshot first (sonic_positions), fallback to positions. Robust to column name variants."""
+    """Snapshot first (sonic_positions), fallback to positions; tolerate schema drift."""
     out = {"count": 0, "pnl_single_max": 0.0, "pnl_portfolio_sum": 0.0, "rows": []}
     try:
         cur = dl.db.get_cursor()
         if not cur: return out
+        rows = []
+        cols = None
         if cycle_id:
-            cur.execute("SELECT * FROM sonic_positions WHERE cycle_id = ?", (cycle_id,))
-        else:
+            try:
+                cur.execute("SELECT * FROM sonic_positions WHERE cycle_id = ?", (cycle_id,))
+                rows = _fetchall(cur)
+                cols = [d[0] for d in (cur.description or [])]
+            except Exception:
+                rows = []
+        if not rows and cycle_id:
+            try:
+                cur.execute("SELECT * FROM sonic_positions ORDER BY rowid DESC LIMIT 100")
+                rows = _fetchall(cur)
+                cols = [d[0] for d in (cur.description or [])]
+            except Exception:
+                rows = []
+        if not rows:
             cur.execute("SELECT * FROM positions WHERE status='ACTIVE'")
-        rows = _fetchall(cur)
+            rows = _fetchall(cur)
+            cols = [d[0] for d in (cur.description or [])]
+        if rows and cols and not (isinstance(rows[0], dict) or hasattr(rows[0], "keys")):
+            rows = [{cols[i]: r[i] for i in range(min(len(cols), len(r)))} for r in rows]
         out["count"] = len(rows)
         vals = []
         for r in rows:
+            pnl = None
             if isinstance(r, dict) or hasattr(r, "keys"):
-                pnl = r.get("pnl_after_fees_usd")
-                if pnl is None: pnl = r.get("pnl_usd")
-                if pnl is None: pnl = r.get("pnl")
+                pnl = r.get("pnl_after_fees_usd") or r.get("pnl_usd") or r.get("pnl")
             else:
                 pnl = r[3] if len(r) > 3 else 0.0
             try:
