@@ -25,13 +25,27 @@ def render(dl, csum: Dict[str, Any]) -> None:
     rows = []
     for r in data["rows"]:
         if isinstance(r, dict) or hasattr(r, "keys"):
-            asset = r.get("asset") or r.get("asset_type") or "—"
-            side  = r.get("side") or r.get("position_type") or "—"
-            val   = r.get("value_usd") or r.get("value") or r.get("position_value_usd")
+            asset = r.get("asset") or r.get("asset_type") or r.get("symbol") or "—"
+            side  = r.get("side") or r.get("position_type") or r.get("dir") or "—"
+            val   = (
+                r.get("size_usd")
+                or r.get("value_usd")
+                or r.get("position_value_usd")
+                or r.get("value")
+            )
             pnl   = r.get("pnl_after_fees_usd") or r.get("pnl_usd") or r.get("pnl")
             lev   = r.get("leverage") or r.get("lev") or r.get("leverage_x")
-            liq   = r.get("liquidation_distance") or r.get("liq_dist") or r.get("liq_percent")
-            trav  = r.get("travel_percent") or r.get("travel") or r.get("movement_percent")
+            liq   = (
+                r.get("liq_dist")
+                or r.get("liquidation_distance")
+                or r.get("liq_percent")
+                or r.get("liq_distance")
+            )
+            trav  = (
+                r.get("travel_percent")
+                or r.get("movement_percent")
+                or r.get("travel")
+            )
             rows.append([str(asset), str(side), _usd(val), _usd(pnl),
                          (f"{lev}×" if lev is not None else "—"), _pct(liq), _pct(trav)])
         else:

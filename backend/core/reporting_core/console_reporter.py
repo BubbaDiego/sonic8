@@ -1648,27 +1648,10 @@ def emit_compact_cycle(
             if strategy_hint:
                 hed_summary["strategy"] = strategy_hint
 
-    pf_total = float(pos_summary.get("pnl_portfolio_sum", 0.0) or 0.0)
-    pos_line = (
-        f"{int(pos_summary.get('count', 0) or 0)} active • PnL {_fmt_usd_signed(pf_total)} "
-        f"(pos max {_fmt_usd_signed(pos_summary.get('pnl_single_max'))} / pf {_fmt_usd_signed(pf_total)})"
-    )
-    hed_line = (
-        f"{int(hed_summary.get('planned', 0) or 0)} planned • "
-        f"{int(hed_summary.get('active', 0) or 0)} active • "
-        f"{int(hed_summary.get('errors', 0) or 0)} errors"
-    )
-    strategy_hint = hed_summary.get("strategy")
-    if strategy_hint:
-        hed_line += f"  (strategy={strategy_hint})"
-    print("   📊 Positions: " + pos_line, flush=True)
-    print("   🛡 Hedges   : " + hed_line, flush=True)
+    # (UX) Footer detail lines suppressed — new sonic_reporting modules render these once:
+    # Prices tape, Positions snapshot, Hedges, and Notifications are handled upstream.
 
     # (UX) Sources line removed — Sync Data & Evaluations show provenance
-
-    # (Alerts block removed — Evaluations table covers breach state)
-    notif_line = csum.get("notifications_brief", "NONE (no_breach)")
-    print(f"   📨 Notifications : {notif_line}")
 
     # (UX) Monitors rollup line removed — the Evaluations table supersedes it
 
