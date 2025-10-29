@@ -1,26 +1,16 @@
 #!/usr/bin/env node
-/**
- * Real Perps builder (TP/SL via Anchor).
- * Reads stdin JSON with:
- *  { op:"attach_tpsl", params:{ owner, marketSymbol, isLong, triggerPriceUsdAtomic, entirePosition, sizeUsdDelta, kind }, context:{ positionRow? } }
- *
- * Requires:
- *  - native/perps_client/config.json (copy from config.example.json and fill)
- *  - native/perps_client/idl/perps.json (Jupiter Perps IDL)
- *
- * Outputs JSON:
- *  { unsignedTxBase64, requestPda?: string, signedTxBase64?: string, signature?: string }
- *
- * If NATIVE_SIGNER=1 and signer.txt is present, signs the tx natively and includes signedTxBase64.
- */
 import fs from "fs";
-import { Connection, PublicKey, Transaction, TransactionInstruction, ComputeBudgetProgram, Keypair } from "@solana/web3.js";
+import path from "path";
+import { fileURLToPath } from "url";
+import { Connection, PublicKey, Transaction, ComputeBudgetProgram, Keypair } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import bs58 from "bs58";
 import * as bip39 from "bip39";
 import { derivePath as ed25519DerivePath } from "ed25519-hd-key";
 import nacl from "tweetnacl";
-import path from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function readAllStdin() {
   return new Promise((resolve, reject) => {
@@ -32,17 +22,36 @@ function readAllStdin() {
   });
 }
 
+function ensureConfigPath() {
+  const cfg = path.join(__dirname, "config.json");
+  const ex = path.join(__dirname, "config.example.json");
+  if (!fs.existsSync(cfg) && fs.existsSync(ex)) {
+    try {
+      fs.copyFileSync(ex, cfg);
+    } catch {}
+  }
+  return cfg;
+}
+
 function loadConfig() {
-  const here = path.resolve(path.dirname(new URL(import.meta.url).pathname));
-  const cfgPath = path.resolve(here, "config.json");
+  const cfgPath = ensureConfigPath();
   if (!fs.existsSync(cfgPath)) {
     throw new Error(`Missing ${cfgPath}. Copy config.example.json to config.json and fill values.`);
   }
   const j = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+
+  if (process.env.JUP_PERPS_PROGRAM_ID) j.programId = process.env.JUP_PERPS_PROGRAM_ID;
+  if (process.env.JUP_PERPS_IDL) j.idlPath = process.env.JUP_PERPS_IDL;
+  if (process.env.JUP_PERPS_METHOD_TRIGGER) j.methodTrigger = process.env.JUP_PERPS_METHOD_TRIGGER;
+  if (process.env.JUP_PERPS_MICROLAMPORTS) {
+    j.computeUnitPriceMicrolamports = Number(process.env.JUP_PERPS_MICROLAMPORTS);
+  }
+
   if (!j.programId || !j.idlPath || !j.methodTrigger) {
     throw new Error("config.json must set programId, idlPath, methodTrigger");
   }
-  const idlFull = path.resolve(here, j.idlPath);
+
+  const idlFull = path.isAbsolute(j.idlPath) ? path.normalize(j.idlPath) : path.join(__dirname, j.idlPath);
   if (!fs.existsSync(idlFull)) {
     throw new Error(`IDL not found at ${idlFull}`);
   }
@@ -53,8 +62,7 @@ function loadConfig() {
 function findSignerTxt() {
   const envPath = process.env.SIGNER_PATH;
   if (envPath && fs.existsSync(envPath)) return envPath;
-  const repo = process.cwd();
-  const candidate = path.resolve(repo, "signer.txt");
+  const candidate = path.join(process.cwd(), "signer.txt");
   if (fs.existsSync(candidate)) return candidate;
   return null;
 }
@@ -62,9 +70,9 @@ function findSignerTxt() {
 function parseSignerFile(p) {
   const txt = fs.readFileSync(p, "utf8").trim();
   const m = /(?:passphrase|mnemonic)\s*[:=]\s*(.+)/i.exec(txt);
-  const phrase = (m ? m[1] : txt.split("\n").find((l) => l.trim()) || "").trim().replace(/^['"]|['"]$/g, "");
+  const phrase = (m ? m[1] : txt.split("\n").find((l) => l.trim()) || "").trim().replace(/^["']|["']$/g, "");
   const m2 = /(?:bip39_passphrase|seed_passphrase)\s*[:=]\s*(.+)/i.exec(txt);
-  const pass = (m2 ? m2[1] : "").trim().replace(/^['"]|['"]$/g, "");
+  const pass = (m2 ? m2[1] : "").trim().replace(/^["']|["']$/g, "");
   const words = phrase.split(/\s+/);
   if (words.length < 12) throw new Error("signer.txt does not contain a valid mnemonic");
   return { mnemonic: words.join(" "), bip39Passphrase: pass };
@@ -85,15 +93,12 @@ function mapMarketSymbol(sym) {
   return s;
 }
 
-// Build accounts from (a) positionRow context or (b) config.markets
 function resolveAccounts(context, cfg, marketKey) {
   const row = (context && context.positionRow) || {};
   const a = {};
   const tryRow = (k) => row[k] || row[`${k}_pda`] || row[`${k}Pda`] || row[`${k}Pubkey`];
 
   a.owner = row.owner || row.owner_pubkey || row.public_key || null;
-
-  // Prefer PDAs present in the row:
   a.position = tryRow("position") || tryRow("position_account") || null;
   a.group = tryRow("group") || null;
   a.pool = tryRow("pool") || null;
@@ -101,7 +106,6 @@ function resolveAccounts(context, cfg, marketKey) {
   a.collateralCustody = tryRow("collateral_custody") || tryRow("collateralCustody") || null;
   a.oracle = tryRow("oracle") || null;
 
-  // Fill missing from config.markets[marketKey]
   const mk = (cfg.markets && cfg.markets[marketKey]) || {};
   a.group = a.group || mk.group || null;
   a.pool = a.pool || mk.pool || null;
@@ -109,27 +113,21 @@ function resolveAccounts(context, cfg, marketKey) {
   a.collateralCustody = a.collateralCustody || mk.collateralCustody || null;
   a.oracle = a.oracle || mk.oracle || null;
 
-  // Validate minimum required
   const required = ["group", "pool", "custody", "collateralCustody"];
   const missing = required.filter((k) => !a[k]);
   if (missing.length) {
-    throw new Error(`Missing required Perps accounts: ${missing.join(", ")}. Provide them in PositionCore rows or config.json:markets`);
+    throw new Error(`Missing required Perps accounts: ${missing.join(", ")}.`);
   }
   return a;
 }
 
-// Build Trigger request args & flags
 function composeTriggerArgs(params, isLong) {
-  // triggerAboveThreshold rule:
-  //  Long: TP (above)  SL (below)
-  // Short: TP (below)  SL (above)
   const kind = (params.kind || "tp").toLowerCase();
   let above;
-  if (isLong) above = (kind === "tp");
-  else above = (kind === "sl");
-
+  if (isLong) above = kind === "tp";
+  else above = kind === "sl";
   const sizeUsdDelta = params.sizeUsdDelta ? BigInt(params.sizeUsdDelta) : null;
-  const triggerPrice = BigInt(params.triggerPriceUsdAtomic); // USD atomic (usually 6dp)
+  const triggerPrice = BigInt(params.triggerPriceUsdAtomic);
   return { triggerPrice, triggerAboveThreshold: above, entirePosition: !!params.entirePosition, sizeUsdDelta };
 }
 
@@ -138,7 +136,6 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   const programId = new PublicKey(cfg.programId);
   const payerPubkey = new PublicKey(owner);
 
-  // Anchor provider with a dummy wallet (we only need to build instructions)
   const dummyWallet = {
     publicKey: payerPubkey,
     signTransaction: async (tx) => tx,
@@ -151,49 +148,42 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   const accs = resolveAccounts(context, cfg, marketKey);
   const trigger = composeTriggerArgs(params, !!params.isLong);
 
-  // Method + args come from config (IDL method name is program-specific).
   const methodName = cfg.methodTrigger;
-  if (typeof program.methods[methodName] !== "function") {
-    throw new Error(`IDL method '${methodName}' not found. Update config.methodTrigger to match your IDL.`);
+  const methodFn = program.methods[methodName];
+  if (typeof methodFn !== "function") {
+    throw new Error(`IDL method '${methodName}' not found — set config.methodTrigger to match your IDL.`);
   }
 
-  // Common account mapping guess; override by editing below if your IDL differs:
   const accounts = {
     owner: payerPubkey,
     group: new PublicKey(accs.group),
     pool: new PublicKey(accs.pool),
     custody: new PublicKey(accs.custody),
     collateralCustody: new PublicKey(accs.collateralCustody),
-    // If your IDL requires position/request PDAs explicitly, add them:
     ...(accs.position ? { position: new PublicKey(accs.position) } : {}),
-    // add more as your IDL requires (e.g., systemProgram, tokenProgram, eventAuthority, etc.)
   };
 
-  // Encode args — adapt names if your method differs.
-  // Example arg order (typical): request_type(u8=Trigger), trigger_price(u64), above(bool), entire(bool), size_usd_delta(optional u64)
-  // We pass as a JS object; Anchor will map to method’s arg struct.
   const args = {
-    requestType: { trigger: {} },      // <-- adjust to your IDL enum if needed
+    requestType: { trigger: {} },
     triggerPrice: new anchor.BN(trigger.triggerPrice.toString()),
     triggerAboveThreshold: trigger.triggerAboveThreshold,
     entirePosition: trigger.entirePosition,
     sizeUsdDelta: trigger.sizeUsdDelta !== null ? new anchor.BN(trigger.sizeUsdDelta.toString()) : null,
   };
 
-  // Build instruction
-  const ix = await program.methods[methodName](args).accounts(accounts).instruction();
+  const ixBuilder = methodFn(args);
+  if (!ixBuilder || typeof ixBuilder.accounts !== "function") {
+    throw new Error(`IDL method '${methodName}' does not accept the provided arguments.`);
+  }
+  const ix = await ixBuilder.accounts(accounts).instruction();
 
-  // Priority fee (optional)
   const cuPrice = Number(cfg.computeUnitPriceMicrolamports || 0);
   const ixs = [];
-  if (cuPrice > 0) {
-    ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
-  }
+  if (cuPrice > 0) ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cuPrice }));
   ixs.push(ix);
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("finalized");
-  const tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash });
-  tx.add(...ixs);
+  const tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash }).add(...ixs);
   const unsignedTxBase64 = Buffer.from(tx.serialize({ requireAllSignatures: false, verifySignatures: false })).toString("base64");
   return { unsignedTxBase64, requestPda: null, blockhash, lastValidBlockHeight, tx };
 }
@@ -225,22 +215,19 @@ async function main() {
   const owner = params.owner;
   if (!owner) throw new Error("params.owner required");
 
-  // Build real Perps PositionRequest(Trigger)
   const out = await buildPerpsTriggerTx({ cfg, idl, owner, params, context: body.context || {} });
 
-  // Optional native signing
   const signed = maybeNativeSign(out.tx);
   delete out.tx;
-
   if (signed) {
     out.signedTxBase64 = signed.signedTxBase64;
     if (signed.signature) out.signature = signed.signature;
   }
-
   process.stdout.write(JSON.stringify(out));
 }
 
 main().catch((err) => {
-  console.error(err.stack || String(err));
+  const msg = err && err.stack ? err.stack : String(err);
+  console.error(msg);
   process.exit(1);
 });
