@@ -2,20 +2,16 @@
   "programId": "<PUT_JUPITER_PERPS_PROGRAM_ID>",
   "idlPath": "./idl/perps.json",
   "methodTrigger": "<IDL_METHOD_FOR_TRIGGER_REQUEST>",
-
   "computeUnitPriceMicrolamports": 0,
-
   "markets": {
     "SOL": {
       "symbol": "SOL-PERP",
-      "group": "<GROUP_PDA>",
-      "pool": "<POOL_PDA>",
-      "custody": "<CUSTODY_PDA>",
-      "collateralCustody": "<COLLATERAL_CUSTODY_PDA>",
-      "oracle": "<ORACLE_PUBKEY>",
+      "group": "<GROUP_PDA_OR_EMPTY>",
+      "pool": "<POOL_PDA_OR_EMPTY>",
+      "custody": "<CUSTODY_PDA_OR_EMPTY>",
+      "collateralCustody": "<COLLATERAL_CUSTODY_PDA_OR_EMPTY>",
+      "oracle": "<ORACLE_PUBKEY_OR_EMPTY>",
       "usdDecimals": 6
-    },
-    "ETH": { "symbol": "ETH-PERP" },
-    "BTC": { "symbol": "BTC-PERP" }
+    }
   }
 }
