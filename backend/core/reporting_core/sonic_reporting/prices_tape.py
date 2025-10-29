@@ -37,4 +37,8 @@ def render(csum: Dict[str, Any]) -> None:
         else:
             continue
         parts.append(f"{sym} {_abbr(price)} {_age(ages.get(str(sym))) }")
-    write_line(f"{ICON_PRICE} Prices   : " + " • ".join(parts))
+    line = f"{ICON_PRICE} Prices   : " + " • ".join(parts)
+    err = csum.get("positions_error")
+    if err:
+        line += f"   |   📊 Positions: {err}"
+    write_line(line)
