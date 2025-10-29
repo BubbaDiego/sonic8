@@ -56,6 +56,16 @@ function loadConfig() {
     throw new Error(`IDL not found at ${idlFull}`);
   }
   j._idlFull = idlFull;
+  if (process.env.DEBUG_NATIVE === "1") {
+    console.error("[DEBUG] programId", j.programId);
+    console.error("[DEBUG] idlPath", j._idlFull);
+    console.error("[DEBUG] methodTrigger", j.methodTrigger);
+  }
+  try {
+    new PublicKey(j.programId);
+  } catch (e) {
+    throw new Error(`config.programId is invalid or empty: '${j.programId}'. Set programId or JUP_PERPS_PROGRAM_ID.`);
+  }
   return j;
 }
 
@@ -210,6 +220,12 @@ async function main() {
 
   const cfg = loadConfig();
   const idl = JSON.parse(fs.readFileSync(cfg._idlFull, "utf8"));
+  if (!idl || !Array.isArray(idl.instructions) || idl.instructions.length === 0) {
+    throw new Error(`IDL at ${cfg._idlFull} does not look like an Anchor IDL (no instructions).`);
+  }
+  if (process.env.DEBUG_NATIVE === "1") {
+    console.error("[DEBUG] idl.instructions", idl.instructions.length);
+  }
 
   const params = body.params || {};
   const owner = params.owner;
