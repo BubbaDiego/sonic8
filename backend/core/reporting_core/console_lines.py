@@ -17,7 +17,7 @@ def emit_compact_cycle(
 ) -> None:
     """
     Compatibility wrapper (Sonic6/7): 4-arg call → 7-arg reporter.
-    Does NOT print any extra lines (no Sources, no Prices, etc).
+    Does NOT print any extra lines (no Sources, no Prices, no Positions, etc).
     """
     durs = (summary or {}).get("durations", {}) or {}
     elapsed_s = float(summary.get("elapsed_s", 0.0) or 0.0)

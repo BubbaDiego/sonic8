@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import Any, Dict, Optional, List, Tuple
-from .positions_core_adapter import get_positions_from_core
+from typing import Any, Dict, Optional, List
 
 def _fetchall(cur):
     try:
@@ -21,22 +20,6 @@ def _table_exists(cur, name: str) -> bool:
         return bool(cur.fetchone())
     except Exception:
         return False
-
-def _first_table_with(cur, required: List[str]) -> Optional[str]:
-    try:
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        names = [r[0] for r in _fetchall(cur)]
-    except Exception:
-        return None
-    for t in names:
-        try:
-            cur.execute(f"PRAGMA table_info({t})")
-            cols = {r[1] for r in _fetchall(cur)}
-            if all(c in cols for c in required):
-                return t
-        except Exception:
-            continue
-    return None
 
 def _rows_as_dicts(rows, cols):
     if rows and cols and not (isinstance(rows[0], dict) or hasattr(rows[0], "keys")):
@@ -70,76 +53,67 @@ def _normalize_row(r: Any) -> Dict[str, Any]:
         "travel_percent": trav, "ts": ts
     }
 
-def _read_any_positions(cur, cycle_id: Optional[str]) -> List[dict]:
-    # 1) snapshot for this cycle
-    if _table_exists(cur, "sonic_positions") and cycle_id:
-        cur.execute("SELECT * FROM sonic_positions WHERE cycle_id = ?", (cycle_id,))
-        rows = _rows_as_dicts(_fetchall(cur), _columns(cur))
-        if rows: return rows
-    # 2) latest snapshots (any cycle)
-    if _table_exists(cur, "sonic_positions"):
-        try:
-            cur.execute("SELECT * FROM sonic_positions ORDER BY ts DESC, rowid DESC LIMIT 50")
-        except Exception:
-            cur.execute("SELECT * FROM sonic_positions ORDER BY rowid DESC LIMIT 50")
-        rows = _rows_as_dicts(_fetchall(cur), _columns(cur))
-        if rows: return rows
-    # 3) runtime positions (no status gate)
-    if _table_exists(cur, "positions"):
-        cur.execute("SELECT * FROM positions ORDER BY rowid DESC LIMIT 50")
-        rows = _rows_as_dicts(_fetchall(cur), _columns(cur))
-        if rows: return rows
-    # 4) last resort: any table that looks like positions
-    candidate = _first_table_with(cur, ["asset"]) or _first_table_with(cur, ["asset_type"])
-    if candidate:
-        cur.execute(f"SELECT * FROM {candidate} ORDER BY rowid DESC LIMIT 50")
-        rows = _rows_as_dicts(_fetchall(cur), _columns(cur))
-        if rows: return rows
-    return []
-
-def read_positions(dl, cycle_id: Optional[str], *, csum: Optional[dict] = None) -> Dict[str, Any]:
+def read_positions_db(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
     """
-    Source order:
-      A) Positions Core feed (normalized)
-      B) csum['positions']['rows'] (runtime summary)
-      C) sonic_positions (this cycle → latest)
-      D) positions (no status filter), or any table that looks like positions.
+    DB/snapshot-only reader: sonic_positions (this cycle → latest) → positions → last-resort table.
+    Returns normalized rows + basic stats.
     """
     out = {"count": 0, "pnl_single_max": 0.0, "pnl_portfolio_sum": 0.0, "rows": []}
+    try:
+        cur = dl.db.get_cursor()
+        if not cur:
+            return out
 
-    # A) Positions Core feed
-    core_rows = get_positions_from_core(cycle_id)
-    if core_rows:
-        rows = core_rows
-    else:
-        # B) From cycle summary
         rows = []
-        if isinstance(csum, dict):
-            rows_csum = (csum.get("positions") or {}).get("rows") or []
-            if rows_csum:
-                rows = [_normalize_row(r) for r in rows_csum]
+        # snapshot for this cycle
+        if _table_exists(cur, "sonic_positions") and cycle_id:
+            cur.execute("SELECT * FROM sonic_positions WHERE cycle_id = ?", (cycle_id,))
+            rows = _rows_as_dicts(_fetchall(cur), _columns(cur))
 
-        # C/D) DB lookups if still empty
-        if not rows:
+        # latest snapshot
+        if not rows and _table_exists(cur, "sonic_positions"):
             try:
-                cur = dl.db.get_cursor()
-                if cur:
-                    rows = [_normalize_row(r) for r in _read_any_positions(cur, cycle_id)]
+                cur.execute("SELECT * FROM sonic_positions ORDER BY ts DESC, rowid DESC LIMIT 50")
             except Exception:
-                rows = []
+                cur.execute("SELECT * FROM sonic_positions ORDER BY rowid DESC LIMIT 50")
+            rows = _rows_as_dicts(_fetchall(cur), _columns(cur))
 
-    # Compute stats
-    vals: List[float] = []
-    for r in rows:
-        try:
-            v = r.get("pnl_after_fees_usd") or r.get("pnl_usd") or r.get("pnl")
-            vals.append(float(v) if v is not None else 0.0)
-        except Exception:
-            vals.append(0.0)
-    pos = [v for v in vals if v > 0]
-    out["pnl_single_max"]    = max(pos) if pos else 0.0
-    out["pnl_portfolio_sum"] = sum(pos) if pos else 0.0
+        # runtime positions (no status filter)
+        if not rows and _table_exists(cur, "positions"):
+            cur.execute("SELECT * FROM positions ORDER BY rowid DESC LIMIT 50")
+            rows = _rows_as_dicts(_fetchall(cur), _columns(cur))
 
-    out["count"] = len(rows)
-    out["rows"]  = rows
-    return out
+        # last resort: any table with an 'asset' column
+        if not rows:
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            names = [r[0] for r in _fetchall(cur)]
+            for t in names:
+                try:
+                    cur.execute(f"PRAGMA table_info({t})")
+                    cset = {r[1] for r in _fetchall(cur)}
+                    if {"asset"} <= cset or {"asset_type"} <= cset:
+                        cur.execute(f"SELECT * FROM {t} ORDER BY rowid DESC LIMIT 50")
+                        rows = _rows_as_dicts(_fetchall(cur), _columns(cur))
+                        if rows:
+                            break
+                except Exception:
+                    continue
+
+        rows = [_normalize_row(r) for r in rows]
+
+        vals: List[float] = []
+        for r in rows:
+            try:
+                v = r.get("pnl_after_fees_usd") or r.get("pnl_usd") or r.get("pnl")
+                vals.append(float(v) if v is not None else 0.0)
+            except Exception:
+                vals.append(0.0)
+        pos = [v for v in vals if v > 0]
+        out["pnl_single_max"]    = max(pos) if pos else 0.0
+        out["pnl_portfolio_sum"] = sum(pos) if pos else 0.0
+
+        out["count"] = len(rows)
+        out["rows"]  = rows
+        return out
+    except Exception:
+        return out
