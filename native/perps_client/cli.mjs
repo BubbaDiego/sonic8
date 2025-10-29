@@ -607,6 +607,15 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   const programId = new PublicKey(cfg.programId);
   const payerPubkey = new PublicKey(owner);
 
+  const marketKey = mapMarketSymbol(
+    params.marketSymbol ||
+      context?.positionRow?.asset ||
+      context?.positionRow?.asset_type ||
+      context?.positionRow?.market ||
+      "SOL",
+  );
+  const accounts = resolveAccounts(context, cfg, marketKey, programId, payerPubkey);
+
   const dummyWallet = {
     publicKey: payerPubkey,
     signTransaction: async (tx) => tx,
@@ -615,12 +624,13 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   const provider = new anchor.AnchorProvider(connection, dummyWallet, { commitment: "confirmed" });
   const program = new anchor.Program(idl, programId, provider);
 
-  const methodName = process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger;
+  const methodName =
+    process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
   const overrides = {
     market: marketKey,
     marketKey,
-    marketSymbol: params.marketSymbol,
-    symbol: params.marketSymbol,
+    marketSymbol: params.marketSymbol || marketKey,
+    symbol: params.marketSymbol || marketKey,
     owner,
     ownerPubkey: payerPubkey,
     ownerPublicKey: payerPubkey,
@@ -631,6 +641,7 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   const { knownArgs } = buildTriggerKnownArgs(params, overrides);
   if (DEBUG) {
     console.error("[DEBUG] fallback builder for", methodName);
+    console.error("[DEBUG] marketKey", marketKey);
     console.error("[DEBUG] known args", Object.keys(knownArgs));
   }
 
