@@ -21,6 +21,7 @@ def _menu(svc: JupiterService) -> None:
         "9": ("Balances: SOL, WSOL, WETH, WBTC, USDC", menus.menu_wallet_balances),
         "10": ("Positions: From PositionCore (sync if empty)", menus.menu_positions_core),
         "11": ("Positions: Manage TP/SL (attach & submit)", menus.menu_positions_manage_tpsl),
+        "12": ("Tx: Inspect / Wait for Confirmation", menus.menu_tx_inspect),
         "0": ("Exit", lambda: sys.exit(0)),
     }
     while True:
