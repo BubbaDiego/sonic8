@@ -123,6 +123,31 @@ function ensurePubkey(v, name) {
   return v instanceof PublicKey ? v : new PublicKey(v);
 }
 
+function okPublicKey(s, label) {
+  try {
+    const pk = new PublicKey(s);
+    if (DEBUG) console.error("[DEBUG] PublicKey OK:", label, pk.toBase58());
+    return { ok: true, pk };
+  } catch (e) {
+    console.error(`[DEBUG] PublicKey FAIL: ${label} :: value=${JSON.stringify(s)} :: ${e}`);
+    return { ok: false, error: String(e) };
+  }
+}
+
+// --- new helper: normalize IDL metadata to match cfg.programId ---
+function normalizeIdl(idl, programIdStr) {
+  const out = { ...idl, metadata: { ...(idl?.metadata || {}) } };
+  const metaAddr = out.metadata.address;
+  if (DEBUG) console.error("[DEBUG] idl.metadata.address (raw):", metaAddr);
+  const pkMeta = okPublicKey(metaAddr, "idl.metadata.address");
+  // If metadata.address missing/invalid/mismatch, force it to programId
+  if (!pkMeta.ok || (programIdStr && metaAddr !== programIdStr)) {
+    out.metadata.address = programIdStr;
+    if (DEBUG) console.error("[DEBUG] forced idl.metadata.address ->", programIdStr);
+  }
+  return out;
+}
+
 function pickDesiredMint(context, cfg, marketKey) {
   const row = (context && context.positionRow) || {};
   return (
@@ -244,20 +269,36 @@ async function buildDecreaseTriggerTx({ cfg, idl, owner, params, context }) {
     process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
     "confirmed",
   );
-  const programId = new PublicKey(cfg.programId); // if this line still fails, cfg.programId is actually undefined or bad
-  if (DEBUG) console.error("[DEBUG] PublicKey(programId) ok");
-  const payerPubkey = new PublicKey(owner);
+  const programIdStr = cfg.programId;
+  const programIdPk = new PublicKey(programIdStr); // will throw if bad
+  if (DEBUG) console.error("[DEBUG] Program init — about to normalize IDL");
 
+  const idlNorm = normalizeIdl(idl, programIdStr);
+
+  const payerPubkey = new PublicKey(owner);
   const dummyWallet = {
     publicKey: payerPubkey,
     signTransaction: async (tx) => tx,
     signAllTransactions: async (txs) => txs,
   };
   const provider = new anchor.AnchorProvider(connection, dummyWallet, { commitment: "confirmed" });
-  const program = new anchor.Program(idl, programId, provider);
+
+  // Try creating Program with normalized IDL; on failure, dump context
+  let program;
+  try {
+    program = new anchor.Program(idlNorm, programIdPk, provider);
+  } catch (e) {
+    console.error("[DEBUG] Program ctor failed.");
+    console.error("[DEBUG] programIdPk:", programIdPk.toBase58());
+    console.error("[DEBUG] idlNorm.metadata.address:", idlNorm?.metadata?.address);
+    console.error("[DEBUG] idlNorm.name/version:", idlNorm?.name, idlNorm?.version);
+    throw e;
+  }
+
+  if (DEBUG) console.error("[DEBUG] Program ctor OK");
 
   const marketKey = mapMarketSymbol(params.marketSymbol);
-  const accounts = resolveAccounts(context, cfg, marketKey, programId, payerPubkey);
+  const accounts = resolveAccounts(context, cfg, marketKey, programIdPk, payerPubkey);
 
   const isLong = !!params.isLong;
   const above = composeTriggerAbove(isLong, params.kind);
