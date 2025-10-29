@@ -26,7 +26,7 @@ def render(dl, csum: Dict[str, Any]) -> None:
     for r in data["rows"]:
         if isinstance(r, dict) or hasattr(r, "keys"):
             asset = r.get("asset") or r.get("asset_type") or r.get("symbol") or "—"
-            side  = r.get("side") or r.get("position_type") or r.get("dir") or "—"
+            side  = r.get("side")  or r.get("position_type") or r.get("dir") or "—"
             val   = (
                 r.get("size_usd")
                 or r.get("value_usd")
