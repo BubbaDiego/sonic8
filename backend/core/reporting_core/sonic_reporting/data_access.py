@@ -9,7 +9,7 @@ def _fetchall(cur):
         return []
 
 def read_positions(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
-    """Snapshot first (sonic_positions), fallback to positions; tolerate schema drift."""
+    """Snapshot first (sonic_positions), then latest snapshot, then runtime positions (no status filter)."""
     out = {"count": 0, "pnl_single_max": 0.0, "pnl_portfolio_sum": 0.0, "rows": []}
     try:
         cur = dl.db.get_cursor()
@@ -23,15 +23,19 @@ def read_positions(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
                 cols = [d[0] for d in (cur.description or [])]
             except Exception:
                 rows = []
-        if not rows and cycle_id:
+        if not rows:
             try:
-                cur.execute("SELECT * FROM sonic_positions ORDER BY rowid DESC LIMIT 100")
+                cur.execute(
+                    "SELECT * FROM sonic_positions ORDER BY ts DESC, rowid DESC LIMIT 50"
+                )
                 rows = _fetchall(cur)
                 cols = [d[0] for d in (cur.description or [])]
             except Exception:
                 rows = []
         if not rows:
-            cur.execute("SELECT * FROM positions WHERE status='ACTIVE'")
+            cur.execute(
+                "SELECT * FROM positions ORDER BY last_update_time DESC, rowid DESC LIMIT 50"
+            )
             rows = _fetchall(cur)
             cols = [d[0] for d in (cur.description or [])]
         if rows and cols and not (isinstance(rows[0], dict) or hasattr(rows[0], "keys")):
