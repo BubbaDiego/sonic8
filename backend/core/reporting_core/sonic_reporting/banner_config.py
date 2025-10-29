@@ -40,9 +40,16 @@ def render_banner(dl, json_path: str) -> None:
 
     # Configuration mode and paths
     write_line(f"🧭 Configuration: JSON ONLY — {json_path}")
+    # best-effort upward search for .env starting from backend/
     try:
-        repo_root = Path(__file__).resolve().parents[5]
-        env_path = str(repo_root / ".env")
+        backend_dir = Path(__file__).resolve().parents[4]
+        candidates = [
+            backend_dir / ".env",
+            backend_dir.parent / ".env",
+            backend_dir.parent.parent / ".env",
+        ]
+        found = next((c for c in candidates if c.exists()), None)
+        env_path = str(found or (backend_dir / ".env"))
     except Exception:
         env_path = ".env"
     write_line(f"📦 .env (ignored for config) : {env_path}")

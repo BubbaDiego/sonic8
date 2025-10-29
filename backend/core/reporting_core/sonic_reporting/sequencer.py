@@ -15,13 +15,10 @@ def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
     write_line(f"")  # spacing
     write_line("---------------------- 🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️ ----------------------")
     render_sync(dl, csum, default_json_path)
-    write_line("")
     write_line("---------------------- 🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️ ----------------------")
-    # (optional) lightweight legacy monitor ticks can be re-added here if desired
-    write_line("")
-    # Evaluations table and Positions snapshot
+    # Evaluations table and Positions snapshot (no spacer above the headers)
     render_evals(dl, csum)
-    write_line("")
+    write_line("")  # one spacer between sections
     write_line("---------------------- 📊  Positions  Snapshot ----------------------")
     render_positions(dl, csum)
     write_line("")
