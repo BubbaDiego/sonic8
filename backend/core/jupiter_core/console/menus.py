@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import List, Optional
 
 from ..config import get_config
@@ -29,6 +30,12 @@ def show_preflight(svc: JupiterService) -> None:
             "owner_pubkey": wallet_info["public_key"],
             "signer_path": wallet_info["signer_path"],
         }
+    # Show wiring for the native perps builder so operators can sanity check envs.
+    cfg = {
+        **cfg,
+        "native_perps_exec": os.getenv("NATIVE_PERPS_EXEC", "node"),
+        "native_perps_script": os.getenv("NATIVE_PERPS_SCRIPT", "<auto>"),
+    }
     kv_table("🧭 Jupiter Config", cfg)
 
 
