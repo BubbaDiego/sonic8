@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import shlex
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -22,14 +22,13 @@ class TPSLRequest:
     entire_position: bool
     size_usd_delta: Optional[int] = None
     kind: str = "tp"  # "tp" | "sl"
-    context: Optional[Dict[str, Any]] = None   # <-- position row, PDAs, etc.
+    context: Optional[Dict[str, Any]] = None
 
 
 class PerpsManageService:
     """
-    TP/SL orchestrator:
-      - calls native builder (Anchor) to build real PositionRequest (Trigger)
-      - signs in Python if possible, else accepts native-signed or manual paste
+    TP/SL orchestrator: calls native perps client (Node/Anchor), tries to sign & submit,
+    and emits rich debug if anything fails.
     """
 
     def __init__(self, locker: Any = None) -> None:
@@ -51,24 +50,29 @@ class PerpsManageService:
             },
             "context": req.context or {},   # pass position row
         }
-        native_out = self._call_native(body)
-        unsigned_b64 = native_out.get("unsignedTxBase64")
-        request_pda = native_out.get("requestPda")
+        native = self._call_native(body)
+        unsigned_b64 = native.get("unsignedTxBase64")
+        request_pda = native.get("requestPda")
 
-        # If native already signed, submit immediately
-        signed_b64 = native_out.get("signedTxBase64")
+        # If native already signed, submit that directly.
+        signed_b64 = native.get("signedTxBase64")
         if signed_b64:
             sig = self.wallet.submit_signed_tx(signed_b64)
             self.audit.log(kind=f"perps_{req.kind}_create", status="built", request=body, response={"requestPda": request_pda})
             self.audit.log(kind="perps_submit", status="ok", response={"signature": sig, "requestPda": request_pda})
             return {"signature": sig, "requestPda": request_pda, "needsSigning": False}
 
-        # Try to sign in Python
+        # Otherwise try to sign in Python
         try:
             signed_b64 = self.wallet.sign_tx_base64(unsigned_b64)
         except Exception as e:
             self.audit.log(kind=f"perps_{req.kind}_create", status="built", request=body, response={"requestPda": request_pda})
-            return {"unsignedTxBase64": unsigned_b64, "requestPda": request_pda, "needsSigning": True, "why": f"{type(e).__name__}: {e}"}
+            return {
+                "unsignedTxBase64": unsigned_b64,
+                "requestPda": request_pda,
+                "needsSigning": True,
+                "why": f"{type(e).__name__}: {e}",
+            }
 
         sig = self.wallet.submit_signed_tx(signed_b64)
         self.audit.log(kind="perps_submit", status="ok", response={"signature": sig, "requestPda": request_pda})
@@ -89,31 +93,63 @@ class PerpsManageService:
 
     def _call_native(self, body: Dict[str, Any]) -> Dict[str, Any]:
         argv = self._resolve_native()
-        # Merge current process env + explicit perps hints from config
+
+        # Merge env and forward perps hints explicitly so Node ALWAYS sees them.
         env = os.environ.copy()
         cfg = self.cfg
-        if cfg.perps_program_id:
-            env["JUP_PERPS_PROGRAM_ID"] = cfg.perps_program_id
-        if cfg.perps_idl_path:
-            env["JUP_PERPS_IDL"] = cfg.perps_idl_path
-        if cfg.perps_method_trigger:
-            env["JUP_PERPS_METHOD_TRIGGER"] = cfg.perps_method_trigger
-        # Also forward RPC if set
-        if cfg.solana_rpc_url:
-            env["SOLANA_RPC_URL"] = cfg.solana_rpc_url
 
-        proc = subprocess.run(
-            argv,
-            input=json.dumps(body).encode("utf-8"),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=180,
-            shell=False,
-            env=env,  # <-- ensure Node sees the values
-        )
+        def _cfg(attr: str) -> Optional[str]:
+            # Safe getattr, even if config lacks the field.
+            try:
+                return getattr(cfg, attr)
+            except Exception:
+                return None
+
+        # Prefer config values if present; otherwise keep existing env.
+        env["JUP_PERPS_PROGRAM_ID"] = _cfg("perps_program_id") or env.get("JUP_PERPS_PROGRAM_ID", "")
+        env["JUP_PERPS_IDL"] = _cfg("perps_idl_path") or env.get("JUP_PERPS_IDL", "")
+        env["JUP_PERPS_METHOD_TRIGGER"] = _cfg("perps_method_trigger") or env.get("JUP_PERPS_METHOD_TRIGGER", "")
+        env["SOLANA_RPC_URL"] = getattr(cfg, "solana_rpc_url", None) or env.get("SOLANA_RPC_URL", "")
+
+        # Bubble full debug when DEBUG_NATIVE=1
+        if os.getenv("DEBUG_NATIVE", "") == "1":
+            env["DEBUG_NATIVE"] = "1"
+
+        try:
+            proc = subprocess.run(
+                argv,
+                input=json.dumps(body).encode("utf-8"),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=None,
+                timeout=240,
+                shell=False,
+                env=env,
+            )
+        except FileNotFoundError as e:
+            raise RuntimeError(f"Native exec not found. ARGV={argv} :: {e}")
+
         if proc.returncode != 0:
-            raise RuntimeError(f"Native client failed: {proc.stderr.decode('utf-8', errors='ignore')}")
+            stderr = proc.stderr.decode("utf-8", errors="ignore")
+            stdout = proc.stdout.decode("utf-8", errors="ignore")
+            # Surface EVERYTHING so we stop guessing
+            raise RuntimeError(
+                "Native client failed\n"
+                f"ARGV: {argv}\n"
+                f"ENV(perps): program_id={env.get('JUP_PERPS_PROGRAM_ID')!r} "
+                f"idl={env.get('JUP_PERPS_IDL')!r} method={env.get('JUP_PERPS_METHOD_TRIGGER')!r} "
+                f"rpc={env.get('SOLANA_RPC_URL')!r}\n"
+                f"STDERR:\n{stderr}\n"
+                f"STDOUT:\n{stdout}\n"
+            )
+
         try:
             return json.loads(proc.stdout.decode("utf-8"))
         except Exception as e:
-            raise RuntimeError(f"Native client returned non-JSON: {e}")
+            raise RuntimeError(
+                f"Native client returned non-JSON. ARGV={argv}\n"
+                f"ENV(perps): program_id={env.get('JUP_PERPS_PROGRAM_ID')!r} idl={env.get('JUP_PERPS_IDL')!r} "
+                f"method={env.get('JUP_PERPS_METHOD_TRIGGER')!r}\n"
+                f"STDOUT(raw)={proc.stdout[:4000]!r}\n"
+                f"{type(e).__name__}: {e}"
+            )
