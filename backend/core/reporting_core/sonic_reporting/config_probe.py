@@ -89,3 +89,88 @@ def schema_summary(file_obj: Optional[dict], dl) -> dict:
         "profit":   {"pos": profit["pos"], "pf": profit["pf"], "source": profit_src},
         "normalized": f
     }
+
+
+def _num_env(var: str):
+    try:
+        v = os.getenv(var)
+        return _num(v)
+    except Exception:
+        return None
+
+
+def resolve_effective(file_obj: Optional[dict], dl) -> dict:
+    """
+    JSON → DB → ENV precedence for both Liquid and Profit.
+    Returns:
+      {
+        'liquid': {'BTC':val,'ETH':val,'SOL':val},
+        'liquid_src': {'BTC':'FILE|DB|ENV|—', ...},
+        'profit': {'pos':val,'pf':val},
+        'profit_src': {'pos':'FILE|DB|ENV|—','pf':'FILE|DB|ENV|—'}
+      }
+    """
+    modern = normalize_legacy(file_obj or {})
+    # file maps
+    f_liq = (modern.get("liquid_monitor") or {}).get("thresholds") or {}
+    f_pos = _num((modern.get("profit_monitor") or {}).get("position_profit_usd"))
+    f_pf  = _num((modern.get("profit_monitor") or {}).get("portfolio_profit_usd"))
+    # db maps
+    try:
+        lm_db = (dl.system.get_var("liquid_monitor") if getattr(dl, "system", None) else {}) or {}
+    except Exception:
+        lm_db = {}
+    d_thr = (lm_db.get("thresholds") or {})
+    d_glob = _num(lm_db.get("threshold_percent"))
+    try:
+        pm_db = (dl.system.get_var("profit_monitor") if getattr(dl, "system", None) else {}) or {}
+    except Exception:
+        pm_db = {}
+    d_pos = _num(pm_db.get("position_profit_usd"))
+    d_pf = _num(pm_db.get("portfolio_profit_usd"))
+    # env (last)
+    e_map = {
+        "BTC": _num_env("LIQUID_THRESHOLD_BTC"),
+        "ETH": _num_env("LIQUID_THRESHOLD_ETH"),
+        "SOL": _num_env("LIQUID_THRESHOLD_SOL"),
+    }
+    e_glob = _num_env("LIQUID_THRESHOLD")
+
+    liquid: Dict[str, Optional[float]] = {}
+    liquid_src: Dict[str, str] = {}
+    for s in ("BTC", "ETH", "SOL"):
+        v = _num(f_liq.get(s))
+        src = "FILE" if v is not None else None
+        if v is None:
+            v = _num(d_thr.get(s), d_glob)
+            src = "DB" if v is not None else None
+        if v is None:
+            v = _num(e_map.get(s), e_glob)
+            src = "ENV" if v is not None else None
+        if v is None:
+            src = "—"
+        liquid[s] = v
+        liquid_src[s] = src or "—"
+
+    # Profit JSON→DB→ENV
+    e_pos = _num_env("PROFIT_POSITION_USD")
+    e_pf = _num_env("PROFIT_PORTFOLIO_USD")
+
+    def pick(pri, sec, env):
+        if pri is not None:
+            return pri, "FILE"
+        if sec is not None:
+            return sec, "DB"
+        if env is not None:
+            return env, "ENV"
+        return None, "—"
+
+    pos_val, pos_src = pick(f_pos, d_pos, e_pos)
+    pf_val, pf_src = pick(f_pf, d_pf, e_pf)
+
+    return {
+        "liquid": liquid,
+        "liquid_src": liquid_src,
+        "profit": {"pos": pos_val, "pf": pf_val},
+        "profit_src": {"pos": pos_src, "pf": pf_src},
+    }
