@@ -3,7 +3,14 @@ from __future__ import annotations
 from typing import Dict, Any, List
 from .writer import write_table
 from .styles import ICON_POS
-from .positions_core_adapter import get_positions_from_core
+# NOTE:
+#   Importing the adapter has been flaky on some deployments where the
+#   helper is missing (older builds / partial installs).  We make the import
+#   defensive so the UI still renders using the other data sources.
+try:  # pragma: no cover - import-time guard only
+    from .positions_core_adapter import get_positions_from_core as _get_positions_from_core
+except ImportError:  # pragma: no cover - adapter unavailable
+    _get_positions_from_core = None
 from .data_access import read_positions_db
 
 def _usd(v):
@@ -63,7 +70,10 @@ def render(dl, csum: Dict[str, Any]) -> None:
     cycle_id = csum.get("cycle_id")
 
     # A) Positions Core feed (same source as the web UI)
-    rows = get_positions_from_core(cycle_id) or []
+    if _get_positions_from_core is not None:
+        rows = _get_positions_from_core(cycle_id) or []
+    else:
+        rows = []
 
     # B) Summary feed
     if not rows and isinstance(csum, dict):
