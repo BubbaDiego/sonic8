@@ -325,16 +325,26 @@ function buildTriggerKnownArgs(params, overrides = {}) {
 
 function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
   const row = (context && context.positionRow) || {};
+  const marketCfg = (cfg && cfg.markets && cfg.markets[marketKey]) || {};
   const a = {};
 
-  a.perpetuals = row.perpetuals || row.group || null;
-  a.pool = row.pool || (cfg.markets?.[marketKey]?.pool || null);
-  a.position = row.position || row.position_account || null;
-  a.positionRequest = row.positionRequest || null;
-  a.custody = row.custody || null;
-  a.collateralCustody = row.collateralCustody || row.collateral_custody || null;
-  a.custodyDovesPriceAccount = row.custodyDovesPriceAccount || null;
-  a.custodyPythnetPriceAccount = row.custodyPythnetPriceAccount || null;
+  a.perpetuals =
+    row.perpetuals ||
+    row.group ||
+    marketCfg.perpetuals ||
+    marketCfg.group ||
+    null;
+  a.pool = row.pool || marketCfg.pool || null;
+  a.position = row.position || row.position_account || marketCfg.position || null;
+  a.positionRequest = row.positionRequest || marketCfg.positionRequest || null;
+  a.custody = row.custody || marketCfg.custody || null;
+  a.collateralCustody =
+    row.collateralCustody ||
+    row.collateral_custody ||
+    marketCfg.collateralCustody ||
+    null;
+  a.custodyDovesPriceAccount = row.custodyDovesPriceAccount || marketCfg.custodyDovesPriceAccount || null;
+  a.custodyPythnetPriceAccount = row.custodyPythnetPriceAccount || marketCfg.custodyPythnetPriceAccount || null;
 
   a.desiredMint = pickDesiredMint(context, cfg, marketKey);
   const desiredMintPk = ensurePubkey(a.desiredMint, "desiredMint");
@@ -347,10 +357,14 @@ function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
   );
 
   if (!a.positionRequest) {
-    a.positionRequest = cfg.markets?.[marketKey]?.positionRequest || null;
+    a.positionRequest = marketCfg.positionRequest || null;
   }
 
-  if (a.positionRequest) {
+  if (!a.positionRequestAta) {
+    a.positionRequestAta = row.positionRequestAta || marketCfg.positionRequestAta || null;
+  }
+
+  if (a.positionRequest && !a.positionRequestAta) {
     const posReqPk = ensurePubkey(a.positionRequest, "positionRequest");
     a.positionRequestAta = getAssociatedTokenAddressSync(
       desiredMintPk,
