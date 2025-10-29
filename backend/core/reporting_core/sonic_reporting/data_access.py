@@ -32,9 +32,11 @@ def read_positions(dl, cycle_id: Optional[str]) -> Dict[str, Any]:
                 cols = [d[0] for d in (cur.description or [])]
             except Exception:
                 rows = []
+        # 3) runtime table (NO status filter; some sync paths don't set ACTIVE).
+        #    Use rowid for ordering — portable and present in SQLite.
         if not rows:
             cur.execute(
-                "SELECT * FROM positions ORDER BY last_update_time DESC, rowid DESC LIMIT 50"
+                "SELECT * FROM positions ORDER BY rowid DESC LIMIT 50"
             )
             rows = _fetchall(cur)
             cols = [d[0] for d in (cur.description or [])]

@@ -16,9 +16,10 @@ def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
     write_line("---------------------- 🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️ ----------------------")
     render_sync(dl, csum, default_json_path)
     write_line("---------------------- 🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️ ----------------------")
-    # Evaluations table and Positions snapshot (no spacer above the headers)
+    # No spacer here; go straight to the headers
     render_evals(dl, csum)
-    write_line("")  # one spacer between sections
+    # Exactly one spacer between sections
+    write_line("")
     write_line("---------------------- 📊  Positions  Snapshot ----------------------")
     render_positions(dl, csum)
     write_line("")
