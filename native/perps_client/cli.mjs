@@ -273,6 +273,25 @@ async function discoverCustodies(program, poolPk, wsolMint, usdcMint) {
   return out;
 }
 
+async function discoverPerpetuals(program) {
+  if (!program?.account?.perpetuals?.all) return null;
+
+  const all = await program.account.perpetuals.all().catch(() => []);
+  if (!Array.isArray(all) || all.length === 0) return null;
+
+  const first = all[0] || {};
+  const pkCandidate = first.publicKey || first.pubkey || first.key || null;
+  if (!pkCandidate) return null;
+
+  try {
+    return pkCandidate instanceof PublicKey
+      ? pkCandidate
+      : new PublicKey(pkCandidate);
+  } catch {}
+
+  return null;
+}
+
 async function discoverCustodiesViaAll(program, poolPk, wsolMint, usdcMint) {
   const out = { custody: null, collateralCustody: null, oracle: null };
   if (!program?.account?.custody?.all) return out;
@@ -562,6 +581,11 @@ async function resolveAccounts(program, context, cfg, marketKey, programId, paye
         if (needOracle && discoveredAll.oracle) a.oracle = discoveredAll.oracle;
       }
     }
+  }
+
+  if (!a.perpetuals && program) {
+    const discoveredPerpetuals = await discoverPerpetuals(program);
+    if (discoveredPerpetuals) a.perpetuals = discoveredPerpetuals;
   }
 
   if (!a.position && poolPk) {
