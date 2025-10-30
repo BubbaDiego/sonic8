@@ -132,6 +132,9 @@ function loadOverrides(marketKey) {
 }
 
 // ---------- PDA helpers (ported from sonic6 patterns) ----------
+const WSOL_MINT = new PublicKey(
+  process.env.JUP_BASE_ASSET_MINT || "So11111111111111111111111111111111111111112",
+);
 const USDC_DEFAULT = new PublicKey(
   process.env.JUP_COLLATERAL_MINT || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 );
@@ -205,6 +208,116 @@ function keysFromIdl(idl, methodName, accountsMap) {
     );
   }
   return keys;
+}
+
+async function discoverCustodies(program, poolPk, wsolMint, usdcMint) {
+  const out = { perpetuals: null, custody: null, collateralCustody: null, oracle: null };
+  if (!program?.account?.pool?.fetch || !program?.account?.custody?.fetch) {
+    return out;
+  }
+
+  const pool = await program.account.pool.fetch(poolPk).catch(() => null);
+  if (!pool) return out;
+
+  try {
+    const perpsStr = pool.perpetuals?.toBase58?.() || pool.perpetuals || "";
+    if (perpsStr) out.perpetuals = new PublicKey(perpsStr);
+  } catch {}
+
+  const candList = pool?.custodies || pool?.custodyList || pool?.custodyAccounts || [];
+  const custodyPks = [];
+  for (const entry of candList) {
+    if (!entry) continue;
+    let pk = null;
+    try {
+      pk = entry instanceof PublicKey ? entry : new PublicKey(entry);
+    } catch (e) {
+      const candidate = entry?.publicKey || entry?.pubkey || entry?.key;
+      if (candidate) {
+        try {
+          pk = candidate instanceof PublicKey ? candidate : new PublicKey(candidate);
+        } catch {}
+      }
+    }
+    if (pk) custodyPks.push(pk);
+  }
+
+  for (const pk of custodyPks) {
+    const custodyAcc = await program.account.custody.fetch(pk).catch(() => null);
+    if (!custodyAcc) continue;
+    const mintStr =
+      custodyAcc.mint?.toBase58?.() ||
+      custodyAcc.mint ||
+      custodyAcc.baseMint ||
+      custodyAcc.tokenMint ||
+      "";
+    let mintPk = null;
+    try {
+      mintPk = new PublicKey(mintStr);
+    } catch {}
+    if (!mintPk) continue;
+
+    if (!out.custody && mintPk.equals(wsolMint)) out.custody = pk;
+    if (!out.collateralCustody && mintPk.equals(usdcMint)) out.collateralCustody = pk;
+
+    if (!out.oracle) {
+      const oraStr = custodyAcc.oracle?.toBase58?.() || custodyAcc.oracle || "";
+      if (oraStr) {
+        try {
+          out.oracle = new PublicKey(oraStr);
+        } catch {}
+      }
+    }
+  }
+
+  return out;
+}
+
+async function discoverCustodiesViaAll(program, poolPk, wsolMint, usdcMint) {
+  const out = { custody: null, collateralCustody: null, oracle: null };
+  if (!program?.account?.custody?.all) return out;
+
+  const allCustodies = await program.account.custody.all().catch(() => []);
+  for (const item of allCustodies) {
+    const acc = item?.account || {};
+    const poolStr = acc.pool?.toBase58?.() || acc.pool || "";
+    let accPoolPk = null;
+    try {
+      accPoolPk = new PublicKey(poolStr);
+    } catch {}
+    if (!accPoolPk || !accPoolPk.equals(poolPk)) continue;
+
+    const mintStr =
+      acc.mint?.toBase58?.() || acc.mint || acc.baseMint || acc.tokenMint || "";
+    let mintPk = null;
+    try {
+      mintPk = new PublicKey(mintStr);
+    } catch {}
+    if (!mintPk) continue;
+
+    const pkCandidate = item?.publicKey || item?.pubkey || item?.key || null;
+    let custodyPk = null;
+    if (pkCandidate) {
+      try {
+        custodyPk = pkCandidate instanceof PublicKey ? pkCandidate : new PublicKey(pkCandidate);
+      } catch {}
+    }
+
+    if (!out.custody && mintPk.equals(wsolMint) && custodyPk) out.custody = custodyPk;
+    if (!out.collateralCustody && mintPk.equals(usdcMint) && custodyPk)
+      out.collateralCustody = custodyPk;
+
+    if (!out.oracle) {
+      const oraStr = acc.oracle?.toBase58?.() || acc.oracle || "";
+      if (oraStr) {
+        try {
+          out.oracle = new PublicKey(oraStr);
+        } catch {}
+      }
+    }
+  }
+
+  return out;
 }
 
 // --- new helper: normalize IDL metadata to match cfg.programId ---
@@ -368,7 +481,7 @@ function buildTriggerKnownArgs(params, overrides = {}) {
   };
 }
 
-function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
+async function resolveAccounts(program, context, cfg, marketKey, programId, payerPubkey) {
   const row = (context && context.positionRow) || {};
   const marketCfg = (cfg && cfg.markets && cfg.markets[marketKey]) || {};
   const overrides = loadOverrides(marketKey) || {};
@@ -422,6 +535,35 @@ function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
   a.oracle = row.oracle || marketCfg.oracle || overrides.oracle || null;
 
   const poolPk = a.pool ? ensurePubkey(a.pool, "pool") : null;
+  if (poolPk && program) {
+    const needPerpetuals = !a.perpetuals;
+    const needCustody = !a.custody;
+    const needCollateral = !a.collateralCustody;
+    const needOracle = !a.oracle;
+
+    if (needPerpetuals || needCustody || needCollateral || needOracle) {
+      const discovered = await discoverCustodies(program, poolPk, WSOL_MINT, USDC_DEFAULT);
+      if (needPerpetuals && discovered.perpetuals) a.perpetuals = discovered.perpetuals;
+      if (needCustody && discovered.custody) a.custody = discovered.custody;
+      if (needCollateral && discovered.collateralCustody)
+        a.collateralCustody = discovered.collateralCustody;
+      if (needOracle && discovered.oracle) a.oracle = discovered.oracle;
+
+      if ((needCustody || needCollateral) && program?.account?.custody?.all) {
+        const discoveredAll = await discoverCustodiesViaAll(
+          program,
+          poolPk,
+          WSOL_MINT,
+          USDC_DEFAULT,
+        );
+        if (needCustody && discoveredAll.custody) a.custody = discoveredAll.custody;
+        if (needCollateral && discoveredAll.collateralCustody)
+          a.collateralCustody = discoveredAll.collateralCustody;
+        if (needOracle && discoveredAll.oracle) a.oracle = discoveredAll.oracle;
+      }
+    }
+  }
+
   if (!a.position && poolPk) {
     const derivedPosition = derivePositionPda(programId, payerPubkey, poolPk);
     a.position = derivedPosition.toBase58();
@@ -557,7 +699,14 @@ async function buildDecreaseTriggerTx({ cfg, idl, owner, params, context }) {
   if (DEBUG) console.error("[DEBUG] Program ctor OK");
 
   const marketKey = mapMarketSymbol(params.marketSymbol);
-  const accounts = resolveAccounts(context, cfg, marketKey, programIdPk, payerPubkey);
+  const accounts = await resolveAccounts(
+    program,
+    context,
+    cfg,
+    marketKey,
+    programIdPk,
+    payerPubkey,
+  );
 
   const overrides = {
     market: marketKey,
@@ -649,7 +798,14 @@ async function buildDecreaseTriggerTx_manual({ cfg, idl, owner, params, context 
   const coder = new anchor.BorshCoder(idl);
 
   const marketKey = mapMarketSymbol(params.marketSymbol);
-  const accounts = resolveAccounts(context, cfg, marketKey, programId, payerPubkey);
+  const accounts = await resolveAccounts(
+    null,
+    context,
+    cfg,
+    marketKey,
+    programId,
+    payerPubkey,
+  );
 
   const isLong = !!params.isLong;
   const above = composeTriggerAbove(isLong, params.kind);
@@ -772,15 +928,6 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   const programId = new PublicKey(cfg.programId);
   const payerPubkey = new PublicKey(owner);
 
-  const marketKey = mapMarketSymbol(
-    params.marketSymbol ||
-      context?.positionRow?.asset ||
-      context?.positionRow?.asset_type ||
-      context?.positionRow?.market ||
-      "SOL",
-  );
-  const accounts = resolveAccounts(context, cfg, marketKey, programId, payerPubkey);
-
   const dummyWallet = {
     publicKey: payerPubkey,
     signTransaction: async (tx) => tx,
@@ -788,6 +935,22 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
   };
   const provider = new anchor.AnchorProvider(connection, dummyWallet, { commitment: "confirmed" });
   const program = new anchor.Program(idl, programId, provider);
+
+  const marketKey = mapMarketSymbol(
+    params.marketSymbol ||
+      context?.positionRow?.asset ||
+      context?.positionRow?.asset_type ||
+      context?.positionRow?.market ||
+      "SOL",
+  );
+  const accounts = await resolveAccounts(
+    program,
+    context,
+    cfg,
+    marketKey,
+    programId,
+    payerPubkey,
+  );
 
   const methodName =
     process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
