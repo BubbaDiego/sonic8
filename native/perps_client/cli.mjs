@@ -24,6 +24,7 @@ import { derivePath as ed25519DerivePath } from "ed25519-hd-key";
 import nacl from "tweetnacl";
 
 const DEBUG = process.env.DEBUG_NATIVE === "1";
+const DEBUG_PERPS = process.env.DEBUG_PERPS === "1";
 const FORCE_MANUAL = process.env.JUP_FORCE_MANUAL === "1";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -989,6 +990,31 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
     payerPubkey,
   );
 
+  if (DEBUG_PERPS) {
+    const maybeBase58 = (pk) =>
+      pk && typeof pk.toBase58 === "function" ? pk.toBase58() : pk ? String(pk) : null;
+    console.error(
+      "ACCOUNTS:",
+      JSON.stringify(
+        {
+          owner: payerPubkey.toBase58(),
+          perpetuals: maybeBase58(accounts.perpetuals),
+          pool: maybeBase58(accounts.pool),
+          custody: maybeBase58(accounts.custody),
+          collateralCustody: maybeBase58(accounts.collateralCustody),
+          position: maybeBase58(accounts.position),
+          positionRequest: maybeBase58(accounts.positionRequest),
+          positionRequestAta: maybeBase58(accounts.positionRequestAta),
+          desiredMint: maybeBase58(accounts.desiredMint),
+          receivingAccount: maybeBase58(accounts.receivingAccount),
+          marketKey,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+
   const methodName =
     process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || "createDecreasePositionRequest2";
   const overrides = {
@@ -1026,10 +1052,36 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
     tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
   ).toString("base64");
 
-  const sim = await connection.simulateTransaction(tx, {
-    sigVerify: false,
-    replaceRecentBlockhash: true,
-  });
+  async function simulateSafe() {
+    try {
+      return await connection.simulateTransaction(tx, {
+        commitment: "processed",
+        sigVerify: false,
+        replaceRecentBlockhash: true,
+      });
+    } catch (_) {
+      try {
+        return await connection.simulateTransaction(tx, {
+          sigVerify: false,
+          replaceRecentBlockhash: true,
+        });
+      } catch (_) {
+        try {
+          return await connection.simulateTransaction(tx);
+        } catch (e) {
+          if (DEBUG_PERPS) {
+            console.error(
+              "simulateTransaction failed in all modes:",
+              e?.message || String(e),
+            );
+          }
+          return null;
+        }
+      }
+    }
+  }
+
+  const sim = await simulateSafe();
   const logs = sim?.value?.logs || [];
   if (sim?.value?.err) {
     const rightLog = logs.find((l) => l.includes("Right:"));
