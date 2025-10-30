@@ -1,0 +1,6 @@
+{
+  "group": "H4ND9aYttUVLFmNypZqLjZ52FYiGvdEB45GmwNoKEjTj",
+  "pool":  "5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq",
+  "custody": "<WSOL_CUSTODY_PDA>",
+  "collateralCustody": "<USDC_CUSTODY_PDA>"
+}
