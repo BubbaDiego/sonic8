@@ -46,5 +46,5 @@ def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
     write_line("---------------------- 🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️ ----------------------")
     render_evals(dl, csum)
 
-    write_line("---------------------- 💰  Positions  ----------------------")
+    write_line("---------------------- 📈 📈 📈  Positions  📉 📉 📉  ----------------------")
     render_positions(dl, csum)
