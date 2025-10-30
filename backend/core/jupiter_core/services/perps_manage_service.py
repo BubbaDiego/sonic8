@@ -27,8 +27,10 @@ class TPSLRequest:
 
 class PerpsManageService:
     """
-    TP/SL orchestrator: calls native perps client (Node/Anchor), tries to sign & submit,
-    and emits rich debug if anything fails.
+    TP/SL orchestrator:
+    - calls native perps client to build (and optionally sign) a tx
+    - tries Python signing; if that fails, automatically retries with native signing
+    - submits on success; only asks user to paste as a last resort
     """
 
     def __init__(self, locker: Any = None) -> None:
@@ -48,35 +50,47 @@ class PerpsManageService:
                 "sizeUsdDelta": str(req.size_usd_delta) if req.size_usd_delta is not None else None,
                 "kind": req.kind,
             },
-            "context": req.context or {},   # pass position row
+            "context": req.context or {},
         }
-        native = self._call_native(body)
-        unsigned_b64 = native.get("unsignedTxBase64")
-        request_pda = native.get("requestPda")
 
-        # If native already signed, submit that directly.
-        signed_b64 = native.get("signedTxBase64")
-        if signed_b64:
-            sig = self.wallet.submit_signed_tx(signed_b64)
+        # 1) First native call (may already be signed if NATIVE_SIGNER=1 in env)
+        native_out = self._call_native(body)
+        unsigned_b64 = native_out.get("unsignedTxBase64")
+        request_pda = native_out.get("requestPda")
+
+        # If native already signed, submit directly
+        if native_out.get("signedTxBase64"):
+            sig = self.wallet.submit_signed_tx(native_out["signedTxBase64"])
             self.audit.log(kind=f"perps_{req.kind}_create", status="built", request=body, response={"requestPda": request_pda})
             self.audit.log(kind="perps_submit", status="ok", response={"signature": sig, "requestPda": request_pda})
             return {"signature": sig, "requestPda": request_pda, "needsSigning": False}
 
-        # Otherwise try to sign in Python
+        # 2) Try Python signer
         try:
             signed_b64 = self.wallet.sign_tx_base64(unsigned_b64)
-        except Exception as e:
+            sig = self.wallet.submit_signed_tx(signed_b64)
+            self.audit.log(kind=f"perps_{req.kind}_create", status="built", request=body, response={"requestPda": request_pda})
+            self.audit.log(kind="perps_submit", status="ok", response={"signature": sig, "requestPda": request_pda})
+            return {"signature": sig, "requestPda": request_pda, "needsSigning": False}
+        except Exception as py_err:
+            # 3) Python signer failed → automatically retry with native signing
+            signer_path = self._resolve_signer_path_for_native()
+            try_native = self._call_native(body, env_override={"NATIVE_SIGNER": "1", "SIGNER_PATH": signer_path})
+            if try_native.get("signedTxBase64"):
+                sig = self.wallet.submit_signed_tx(try_native["signedTxBase64"])
+                resolved_request_pda = try_native.get("requestPda") or request_pda
+                self.audit.log(kind=f"perps_{req.kind}_create", status="built", request=body, response={"requestPda": resolved_request_pda})
+                self.audit.log(kind="perps_submit", status="ok", response={"signature": sig, "requestPda": resolved_request_pda})
+                return {"signature": sig, "requestPda": resolved_request_pda, "needsSigning": False}
+
+            # 4) Last resort: return unsigned for manual paste
             self.audit.log(kind=f"perps_{req.kind}_create", status="built", request=body, response={"requestPda": request_pda})
             return {
                 "unsignedTxBase64": unsigned_b64,
                 "requestPda": request_pda,
                 "needsSigning": True,
-                "why": f"{type(e).__name__}: {e}",
+                "why": f"Python signing failed ({type(py_err).__name__}); native signing unavailable",
             }
-
-        sig = self.wallet.submit_signed_tx(signed_b64)
-        self.audit.log(kind="perps_submit", status="ok", response={"signature": sig, "requestPda": request_pda})
-        return {"signature": sig, "requestPda": request_pda, "needsSigning": False}
 
     # ---------------- helpers ----------------
     def _resolve_native(self) -> list[str]:
@@ -91,7 +105,7 @@ class PerpsManageService:
             argv.extend(shlex.split(extra, posix=(os.name != "nt")))
         return argv
 
-    def _call_native(self, body: Dict[str, Any]) -> Dict[str, Any]:
+    def _call_native(self, body: Dict[str, Any], env_override: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         argv = self._resolve_native()
 
         # Merge env and forward perps hints explicitly so Node ALWAYS sees them.
@@ -114,6 +128,9 @@ class PerpsManageService:
         # Bubble full debug when DEBUG_NATIVE=1
         if os.getenv("DEBUG_NATIVE", "") == "1":
             env["DEBUG_NATIVE"] = "1"
+
+        if env_override:
+            env.update(env_override)
 
         try:
             proc = subprocess.run(
@@ -153,3 +170,11 @@ class PerpsManageService:
                 f"STDOUT(raw)={proc.stdout[:4000]!r}\n"
                 f"{type(e).__name__}: {e}"
             )
+
+    def _resolve_signer_path_for_native(self) -> str:
+        # Reuse WalletService path resolution via read_signer_info
+        try:
+            info = self.wallet.read_signer_info()
+            return info.get("signer_path") or "signer.txt"
+        except Exception:
+            return os.getenv("SIGNER_PATH", "signer.txt")
