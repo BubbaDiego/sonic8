@@ -6,8 +6,9 @@ from .writer import write_table, HAS_RICH
 
 ICON_BY_ASSET = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
 
-HDR_BLUE = "\x1b[94m"
-RESET = "\x1b[0m"
+# ANSI color for column headers (bright cyan)
+HDR = "\x1b[96m"
+RST = "\x1b[0m"
 
 
 # ---------- format helpers ----------
@@ -80,7 +81,7 @@ def render(dl, csum: Dict[str, Any]) -> None:
         rows_src = []
 
     headers = ["Asset", "Side", "Value", "PnL", "Lev", "Liq", "Travel"]
-    render_headers = [f"{HDR_BLUE}{h}{RESET}" for h in headers] if not HAS_RICH else headers
+    render_headers = [f"{HDR}{h}{RST}" for h in headers] if not HAS_RICH else headers
     out_rows: list[list[str]] = []
 
     for p in _coerce_iter(rows_src):
