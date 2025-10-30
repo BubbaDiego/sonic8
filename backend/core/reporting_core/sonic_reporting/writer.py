@@ -17,6 +17,9 @@ except Exception:
 
 _console = Console() if _HAS_RICH else None
 
+# Expose Rich availability for callers that need to adjust ANSI formatting.
+HAS_RICH = _HAS_RICH
+
 def write_line(text: str) -> None:
     print(f"{INDENT}{text}", flush=True)
 

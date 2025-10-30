@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 from typing import Dict, Any, List, Tuple
-from .writer import write_table
+from .writer import write_table, HAS_RICH
 
 ICON_BY_ASSET = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
+
+# Console colors for header emphasis (light blue)
+HDR_BLUE = "\x1b[94m"
+RESET = "\x1b[0m"
 
 
 def _abbr(n):
@@ -58,6 +62,7 @@ def render(csum: Dict[str, Any]) -> None:
     is printed by the sequencer.
     """
     headers = ["Asset", "Current", "Previous", "Δ", "A%", "Checked"]
+    render_headers = [f"{HDR_BLUE}{h}{RESET}" for h in headers] if not HAS_RICH else headers
 
     current = _top3(csum)
     prev_map = csum.get("prices_prev") or {}   # e.g., {"BTC": 110500, ...}
@@ -78,4 +83,4 @@ def render(csum: Dict[str, Any]) -> None:
             rows.append([f"{icon} {sym}", "—", "—", "—", "—", "(—)"])
 
     # No title row → pass None so only headers + rows render.
-    write_table(None, headers, rows)
+    write_table(None, render_headers, rows)
