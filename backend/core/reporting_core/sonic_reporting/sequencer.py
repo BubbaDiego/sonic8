@@ -42,10 +42,9 @@ def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
     write_line("---------------------- 💰  Prices  ----------------------")
     render_prices_table(csum)
 
-    # 2) Monitors header
+
     write_line("---------------------- 🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️ ----------------------")
-    # 5) Evaluations
     render_evals(dl, csum)
 
-    # 6) Positions Snapshot (no divider/title; renderer prints only headers + rows)
+    write_line("---------------------- 💰  Positions  ----------------------")
     render_positions(dl, csum)
