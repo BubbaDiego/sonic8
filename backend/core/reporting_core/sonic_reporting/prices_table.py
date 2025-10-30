@@ -5,9 +5,9 @@ from .writer import write_table, HAS_RICH
 
 ICON_BY_ASSET = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
 
-# Console colors for header emphasis (light blue)
-HDR_BLUE = "\x1b[94m"
-RESET = "\x1b[0m"
+# ANSI color for column headers (bright cyan)
+HDR = "\x1b[96m"
+RST = "\x1b[0m"
 
 
 def _abbr(n):
@@ -62,7 +62,7 @@ def render(csum: Dict[str, Any]) -> None:
     is printed by the sequencer.
     """
     headers = ["Asset", "Current", "Previous", "Δ", "A%", "Checked"]
-    render_headers = [f"{HDR_BLUE}{h}{RESET}" for h in headers] if not HAS_RICH else headers
+    render_headers = [f"{HDR}{h}{RST}" for h in headers] if not HAS_RICH else headers
 
     current = _top3(csum)
     prev_map = csum.get("prices_prev") or {}   # e.g., {"BTC": 110500, ...}
