@@ -12,6 +12,7 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
+import BN from "bn.js";
 import {
   getAssociatedTokenAddressSync,
   TOKEN_PROGRAM_ID,
@@ -410,13 +411,29 @@ function composeTriggerAbove(isLong, kind) {
   return isLong ? k === "tp" : k !== "tp";
 }
 
+const AnchorBN =
+  anchor.BN ||
+  anchor.default?.BN ||
+  anchor.web3?.BN ||
+  anchor.default?.web3?.BN ||
+  BN;
+
+function ensureAnchorBN() {
+  if (!AnchorBN) {
+    throw new Error("Anchor BN implementation not available");
+  }
+  return AnchorBN;
+}
+
 function bnU64(x) {
-  return new anchor.BN(String(x ?? 0));
+  const BNImpl = ensureAnchorBN();
+  return new BNImpl(String(x ?? 0));
 }
 
 function randomCounter() {
+  const BNImpl = ensureAnchorBN();
   const n = BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000));
-  return new anchor.BN(n.toString());
+  return new BNImpl(n.toString());
 }
 
 function buildTriggerKnownArgs(params, overrides = {}) {
@@ -834,14 +851,10 @@ async function buildDecreaseTriggerTx_manual({ cfg, idl, owner, params, context 
   const isLong = !!params.isLong;
   const above = composeTriggerAbove(isLong, params.kind);
   const entire = !!params.entirePosition;
-  const triggerPrice = params.triggerPriceUsdAtomic
-    ? new anchor.BN(String(params.triggerPriceUsdAtomic))
-    : null;
-  const sizeUsdDelta = entire
-    ? new anchor.BN("0")
-    : new anchor.BN(String(params.sizeUsdDelta || 0));
+  const triggerPrice = params.triggerPriceUsdAtomic ? bnU64(params.triggerPriceUsdAtomic) : null;
+  const sizeUsdDelta = entire ? bnU64(0) : bnU64(params.sizeUsdDelta || 0);
   const paramsArg = {
-    collateralUsdDelta: new anchor.BN("0"),
+    collateralUsdDelta: bnU64(0),
     sizeUsdDelta,
     requestType: { trigger: {} },
     priceSlippage: null,
@@ -849,7 +862,7 @@ async function buildDecreaseTriggerTx_manual({ cfg, idl, owner, params, context 
     triggerPrice,
     triggerAboveThreshold: above,
     entirePosition: entire ? true : null,
-    counter: new anchor.BN(String(Date.now() % 2147483647)),
+    counter: bnU64(Date.now() % 2147483647),
   };
 
   const methodName =
