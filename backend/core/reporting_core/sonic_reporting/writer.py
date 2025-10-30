@@ -25,21 +25,24 @@ def write_line(text: str) -> None:
 
 def write_table(title: Optional[str], headers: Optional[List[str]], rows: List[List[str]]) -> None:
     if _HAS_RICH:
-        tbl = Table(show_header=False, show_edge=True, box=BOX, pad_edge=False)
+        # No outer border and no section separators -> eliminates “blank line” feel
+        tbl = Table(show_header=False, show_edge=False, box=BOX, pad_edge=False)
         ncols = max(len(headers or []), max((len(r) for r in rows), default=0))
         for _ in range(ncols):
             tbl.add_column(justify="left", no_wrap=False)
         if title:
-            tbl.add_row(Text(title, style=TITLE_STYLE), *[""]*(ncols-1), end_section=True)
+            # No end_section here; we want title immediately followed by headers/rows
+            tbl.add_row(Text(title, style=TITLE_STYLE), *[""]*(ncols-1))
         if headers:
-            tbl.add_row(*[Text(h, style=TITLE_STYLE) for h in headers], end_section=True)
+            # No end_section; keep headers tight to the first data row
+            tbl.add_row(*[Text(h, style=TITLE_STYLE) for h in headers])
         for r in rows:
             pad = r + [""]*(ncols-len(r))
             tbl.add_row(*pad)
         _console.print(tbl, justify="left")
         return
 
-    # ASCII fallback
+    # ASCII fallback (draw top/bottom borders but no header separator lines)
     cols = headers or (rows[0] if rows else [])
     ncols = max(len(cols), max((len(r) for r in rows), default=0))
     width = [0]*ncols
@@ -58,16 +61,16 @@ def write_table(title: Optional[str], headers: Optional[List[str]], rows: List[L
 
     top = line_left_mid_right(TL, TJ, TR)
     bot = line_left_mid_right(BL, BJ, BR)
-    sep = line_left_mid_right("├", VJ, "┤")
+    # sep = line_left_mid_right("├", VJ, "┤")  # not used: we removed header separators
 
     print(top)
     if title:
         t = (title + " " * (sum(width) + (ncols-1) - len(title))) if (sum(width)+(ncols-1)) > len(title) else title
         print(INDENT + V + t + V)
-        print(sep)
+        # no separator here
     if headers:
         hdr = INDENT + V + V.join(fit(h).ljust(width[i]) for i, h in enumerate(headers)) + V
-        print(hdr); print(sep)
+        print(hdr)  # no separator after headers
     for r in rows:
         row = INDENT + V + V.join(fit(r[i]).ljust(width[i]) if i < len(r) else " "*width[i] for i in range(ncols)) + V
         print(row)

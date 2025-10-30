@@ -22,6 +22,8 @@ ICON_WARN   = "🟡"
 ICON_BAD    = "🔴"
 
 # Table defaults
-TITLE_STYLE = "bold"
+# Color the column headers in Rich mode (renderers already ANSI-color headers when Rich is absent)
+TITLE_STYLE = "bold cyan"
+
 # ASCII fallback box drawing
 H = "─"; V = "│"; TL = "┌"; TR = "┐"; BL = "└"; BR = "┘"; TJ = "┬"; BJ = "┴"; VJ = "┼"

@@ -35,20 +35,24 @@ def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
       - We intentionally do NOT print the old “Positions Debug …” line.
     """
     # 1) Sync Data
+    write_line("")
     write_line(f"{HDR_BLUE}---------------------- 🛠️ 🛠️ 🛠️  Sync  Data  🛠️ 🛠️ 🛠️ ----------------------{RESET}")
     render_sync(dl, csum, default_json_path)
 
     # 2) Prices
+    write_line("")
     write_line("")
     write_line(f"{HDR_BLUE}---------------------- 💰 💰 💰  Prices  💰 💰 💰 ----------------------{RESET}")
     render_prices_table(csum)
 
     # 3) Monitors + Evaluations
     write_line("")
+    write_line("")
     write_line(f"{HDR_BLUE}---------------------- 🖥️ 🖥️ 🖥️  Monitors  🖥️ 🖥️ 🖥️ ----------------------{RESET}")
     render_evals(dl, csum)
 
     # 4) Positions Snapshot
+    write_line("")
     write_line("")
     write_line(f"{HDR_BLUE}---------------------- 📈 📈 📈  Positions 📈 📈 📈 ----------------------{RESET}")
     render_positions(dl, csum)
