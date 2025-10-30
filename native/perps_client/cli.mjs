@@ -72,17 +72,17 @@ function loadConfig() {
     j.computeUnitPriceMicrolamports = Number(process.env.JUP_PERPS_MICROLAMPORTS);
   }
 
-  if (!j.idlPath) throw new Error("config.idlPath is required");
+  if (!j.idlPath) throw new Error("config.json: missing idlPath");
   j._idlFull = path.isAbsolute(j.idlPath) ? j.idlPath : path.join(__dirname, j.idlPath);
-  if (!fs.existsSync(j._idlFull)) throw new Error(`IDL not found at ${j._idlFull}`);
+  if (!fs.existsSync(j._idlFull)) throw new Error(`IDL file not found at ${j._idlFull}`);
   if (!j.programId) {
     // Fallback to IDL metadata address if present
     const idlProbe = JSON.parse(fs.readFileSync(j._idlFull, "utf8"));
     const metaAddr = idlProbe?.metadata?.address;
     if (metaAddr && typeof metaAddr === "string") j.programId = metaAddr;
   }
-  if (!j.programId)
-    throw new Error("config.programId is empty and IDL has no metadata.address");
+  if (!j.programId) throw new Error("config.json: missing programId");
+  if (!j.methodTrigger) throw new Error("config.json: missing methodTrigger");
 
   if (DEBUG) {
     console.error("[DEBUG] programId", j.programId);
@@ -963,7 +963,28 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
     process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
     "confirmed",
   );
-  const programId = new PublicKey(cfg.programId);
+  if (DEBUG_PERPS) {
+    console.error(
+      "CFG_RESOLVED:",
+      JSON.stringify(
+        {
+          programId: String(cfg.programId || ""),
+          idlPath: String(cfg._idlFull || cfg.idlPath || ""),
+          method: String(
+            process.env.JUP_PERPS_METHOD_TRIGGER || cfg.methodTrigger || ""
+          ),
+        },
+        null,
+        2,
+      ),
+    );
+  }
+  let programId;
+  try {
+    programId = new PublicKey(String(cfg.programId));
+  } catch (e) {
+    throw new Error(`Invalid programId in config.json: ${cfg.programId}`);
+  }
   const payerPubkey = new PublicKey(owner);
 
   const dummyWallet = {
@@ -994,11 +1015,11 @@ async function buildPerpsTriggerTx({ cfg, idl, owner, params, context }) {
     const maybeBase58 = (pk) =>
       pk && typeof pk.toBase58 === "function" ? pk.toBase58() : pk ? String(pk) : null;
     console.error(
-      "ACCOUNTS:",
+      "ACCOUNTS_RESOLVED:",
       JSON.stringify(
         {
           owner: payerPubkey.toBase58(),
-          perpetuals: maybeBase58(accounts.perpetuals),
+          group: maybeBase58(accounts.perpetuals),
           pool: maybeBase58(accounts.pool),
           custody: maybeBase58(accounts.custody),
           collateralCustody: maybeBase58(accounts.collateralCustody),
