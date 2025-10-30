@@ -7,10 +7,6 @@
     "SOL": {
       "symbol": "SOL-PERP",
       "pool": "5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq",
-      "group": "",
-      "custody": "",
-      "collateralCustody": "",
-      "oracle": "",
       "usdDecimals": 6
     }
   }

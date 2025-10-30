@@ -1,170 +1,272 @@
-import sys
-from pathlib import Path
-from datetime import datetime, timezone
-from typing import Optional, Tuple
+# -*- coding: utf-8 -*-
+"""
+PositionMonitor — instrumented positions collector & snapshot writer (self-contained).
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-from backend.core.monitor_core.base_monitor import BaseMonitor
-from backend.data.data_locker import DataLocker
-from backend.core.positions_core.position_core import PositionCore
-from backend.core.core_constants import MOTHER_DB_PATH
-from backend.core.logging import log
-from backend.core.reporting_core.config import POSITIONS_TTL_SECONDS
-from backend.core.config_core import sonic_config_bridge as C
+What this does:
+- Locates a positions provider on the DataLocker (e.g., positions_core_adapter).
+- Calls a supported method (prefers list_* over get_*), with clear fallback order.
+- Normalizes results (model objects → dicts), maps common fields.
+- Writes the per-cycle snapshot rows into `sonic_positions` directly (no external DAL).
+- Returns a summary dict so the loop can surface adapter issues in the console:
+    ret = PositionMonitor.write(ctx)
+    summary["positions_error"]    = ret.get("error")
+    summary["positions_count"]    = ret.get("count", 0)
+    summary["positions_provider"] = ret.get("provider")
+    summary["positions_source"]   = ret.get("source")
+"""
 
-class PositionMonitor(BaseMonitor):
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+import traceback
+
+# Type-only import to avoid runtime ModuleNotFoundError if your CycleCtx lives elsewhere.
+if TYPE_CHECKING:
+    try:
+        from backend.core.monitor_core.base import CycleCtx  # preferred
+    except Exception:  # pragma: no cover
+        CycleCtx = Any  # type: ignore[misc]
+else:
+    CycleCtx = Any  # runtime-safe
+
+
+# ─────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────
+def _now_iso() -> str:
+    import datetime as _dt
+    return _dt.datetime.utcnow().isoformat()
+
+
+def _provider_from_dl(dl: Any) -> Any:
     """
-    Actively syncs positions from Jupiter and logs summary.
+    Try common attributes on the DataLocker to find a positions provider.
+    Extend this list if your provider lives under a different name.
     """
-    def __init__(self):
-        super().__init__(name="position_monitor", ledger_filename="position_ledger.json")
-        self.dl = DataLocker(str(MOTHER_DB_PATH))
-        self.core = PositionCore(self.dl)
-        self._last_cycle_sync: Optional[datetime] = None
-        self._sync_in_progress = False
+    for attr in (
+        "positions_core_adapter",
+        "positions_core",
+        "positions",     # thin facade in some repos
+        "market",        # last resort: market may proxy positions
+    ):
+        p = getattr(dl, attr, None)
+        if p:
+            return p
+    return None
 
-    @staticmethod
-    def _utcnow() -> datetime:
-        return datetime.now(timezone.utc)
 
-    @staticmethod
-    def _force_sync_requested() -> bool:
-        return C.should_force_position_sync()
-
-    def mark_cycle_synced(self, when: Optional[datetime] = None) -> None:
-        """Record that positions were refreshed during the current Sonic cycle."""
-        self._last_cycle_sync = when or self._utcnow()
-
-    def _parse_timestamp(self, raw_ts: object) -> Optional[datetime]:
-        if raw_ts in (None, "", 0):
-            return None
-        if isinstance(raw_ts, datetime):
-            return raw_ts if raw_ts.tzinfo else raw_ts.replace(tzinfo=timezone.utc)
-        if isinstance(raw_ts, (int, float)):
+def _map_obj(obj: Any) -> Dict[str, Any]:
+    """Convert model objects to dicts, tolerating pydantic/dataclasses/custom."""
+    if isinstance(obj, dict):
+        return obj
+    for m in ("model_dump", "dict", "to_dict", "__json__"):
+        fn = getattr(obj, m, None)
+        if callable(fn):
             try:
-                return datetime.fromtimestamp(float(raw_ts), timezone.utc)
+                return fn()
             except Exception:
-                return None
-        if isinstance(raw_ts, str):
-            text = raw_ts.strip()
-            if not text:
-                return None
-            try:
-                dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            except ValueError:
+                pass
+    d = getattr(obj, "__dict__", None)
+    return dict(d) if isinstance(d, dict) else {}
+
+
+def _get_conn(ctx: "CycleCtx"):
+    """
+    Obtain a sqlite3.Connection from ctx or ctx.dl.
+    Tries:
+      - ctx.conn
+      - ctx.dl.db.get_connection()
+      - ctx.dl.db.conn
+      - ctx.dl.db.get_cursor().connection
+    """
+    c = getattr(ctx, "conn", None)
+    if c:
+        return c
+    dl = getattr(ctx, "dl", None)
+    if dl:
+        db = getattr(dl, "db", None)
+        if db:
+            if hasattr(db, "get_connection"):
                 try:
-                    return datetime.fromtimestamp(float(text), timezone.utc)
+                    return db.get_connection()
                 except Exception:
-                    return None
-            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-        return None
-
-    def _latest_position_timestamp(self) -> Optional[datetime]:
-        try:
-            updates = self.dl.get_last_update_times()
-            ts = updates.get("last_update_time_positions") if isinstance(updates, dict) else None
-            parsed = self._parse_timestamp(ts)
-            if parsed:
-                return parsed
-        except Exception as exc:
-            log.debug(f"Failed to read system_vars timestamp: {exc}", source=self.name)
-
-        # Fallback: inspect positions table for the newest "last_updated" column
-        try:
-            cursor = self.dl.db.get_cursor()
-            if cursor is None:
-                return None
-            cursor.execute("SELECT last_updated FROM positions ORDER BY last_updated DESC LIMIT 1")
-            row = cursor.fetchone()
-            cursor.close()
-            if not row:
-                return None
-            if isinstance(row, dict):
-                value = row.get("last_updated")
-            else:
+                    pass
+            if hasattr(db, "conn"):
                 try:
-                    value = row[0]
+                    return db.conn
                 except Exception:
-                    value = None
-            return self._parse_timestamp(value)
-        except Exception as exc:
-            log.debug(f"Failed to read latest position timestamp: {exc}", source=self.name)
-            return None
+                    pass
+            if hasattr(db, "get_cursor"):
+                try:
+                    cur = db.get_cursor()
+                    conn = getattr(cur, "connection", None)
+                    if conn:
+                        return conn
+                except Exception:
+                    pass
+    raise RuntimeError("PositionMonitor: no database connection available on ctx/dl")
 
-    def _is_fresh(self, ts: Optional[datetime]) -> bool:
-        if ts is None or POSITIONS_TTL_SECONDS <= 0:
-            return False
+
+def _ensure_snapshot_schema(conn) -> None:
+    """
+    Create `sonic_positions` table if missing (minimal schema for snapshot rendering).
+    """
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sonic_positions (
+            id              TEXT,
+            cycle_id        TEXT,
+            asset           TEXT,
+            side            TEXT,
+            size_usd        REAL,
+            entry_price     REAL,
+            avg_price       REAL,
+            liq_dist        REAL,
+            pnl             REAL,
+            ts              TEXT
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_sonic_positions_cycle ON sonic_positions(cycle_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_sonic_positions_asset ON sonic_positions(asset)")
+
+
+def _write_snapshot(conn, cycle_id: str, rows: List[Dict[str, Any]]) -> None:
+    """
+    Insert snapshot rows. Replaces existing rows for the same (cycle_id, asset, side, id) if any.
+    """
+    _ensure_snapshot_schema(conn)
+    # best-effort cleanup of same-cycle duplicates (optional)
+    # conn.execute("DELETE FROM sonic_positions WHERE cycle_id = ?", (cycle_id,))
+    payload = []
+    for r in rows:
+        payload.append(
+            (
+                r.get("id"),
+                cycle_id,
+                r.get("asset"),
+                r.get("side"),
+                r.get("size_usd"),
+                r.get("entry_price"),
+                r.get("avg_price"),
+                r.get("liq_dist"),
+                r.get("pnl"),
+                r.get("ts"),
+            )
+        )
+    conn.executemany(
+        """
+        INSERT INTO sonic_positions
+            (id, cycle_id, asset, side, size_usd, entry_price, avg_price, liq_dist, pnl, ts)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        payload,
+    )
+    conn.commit()
+
+
+def _collect_positions(ctx: "CycleCtx") -> Tuple[List[Dict[str, Any]], Optional[str], str, str]:
+    """
+    Returns: (rows, error, provider_name, source_method)
+    - rows: list of normalized dicts
+    - error: None if ok; a short string if provider absent, returned 0 rows, or crashed
+    - provider_name: class name discovered on DL
+    - source_method: method name used (e.g., list_positions_sync)
+    """
+    prov = _provider_from_dl(ctx.dl)
+    if not prov:
+        return [], "no positions provider found on DataLocker", "None", "None"
+
+    prov_name = getattr(prov, "__class__", type("X", (), {})).__name__
+
+    # Choose best available method (batch/list preferred)
+    method_order = (
+        "list_positions_sync",
+        "list_positions",
+        "get_positions",
+        "get_all_positions",
+    )
+    source = "None"
+    fn = None
+    for name in method_order:
+        cand = getattr(prov, name, None)
+        if callable(cand):
+            fn = cand
+            source = name
+            break
+
+    if not fn:
+        return [], f"provider {prov_name} has no list/get methods", prov_name, "None"
+
+    try:
+        result = fn()
+        raw_rows: List[Any] = list(result or [])
+        rows: List[Dict[str, Any]] = [_map_obj(p) for p in raw_rows]
+
+        # Normalize and map to snapshot fields
+        ts = _now_iso()
+        out: List[Dict[str, Any]] = []
+        for p in rows:
+            sym = (p.get("asset") or p.get("asset_type") or p.get("symbol") or "").upper()
+            side = (p.get("side") or p.get("position_type") or p.get("dir") or "").upper()
+            out.append(
+                {
+                    "id": p.get("id") or p.get("position_id") or p.get("pos_id"),
+                    "asset": sym,
+                    "side": side,
+                    "size_usd": (
+                        p.get("size_usd")
+                        or p.get("value_usd")
+                        or p.get("position_value_usd")
+                        or p.get("value")
+                    ),
+                    "entry_price": p.get("entry_price") or p.get("avg_entry") or p.get("avg_price"),
+                    "avg_price": p.get("avg_price"),
+                    "liq_dist": (
+                        p.get("liq_dist")
+                        or p.get("liquidation_distance")
+                        or p.get("liq_percent")
+                    ),
+                    "pnl": (
+                        p.get("pnl_after_fees_usd")
+                        or p.get("pnl_usd")
+                        or p.get("pnl")
+                    ),
+                    "ts": ts,
+                }
+            )
+
+        if not out:
+            return [], f"provider {prov_name}.{source} returned 0 rows", prov_name, source
+
+        return out, None, prov_name, source
+
+    except Exception as e:
+        tb = traceback.format_exc(limit=2)
+        return [], f"provider {prov_name}.{source} crashed: {type(e).__name__}: {e} | {tb.splitlines()[-1]}", prov_name, source
+
+
+# ─────────────────────────────────────────────────────────────
+# Public API expected by MonitorCore
+# ─────────────────────────────────────────────────────────────
+class PositionMonitor:
+    """
+    Class form expected by MonitorCore: PositionMonitor.write(ctx) -> dict
+    """
+
+    @staticmethod
+    def write(ctx: "CycleCtx") -> Dict[str, Any]:
+        """
+        Collect positions, write snapshot rows when present, return a summary:
+          { 'count': int, 'error': str|None, 'provider': str, 'source': str }
+        The caller (loop) should stash 'error' in the cycle summary so the console
+        can print it inline with the prices tape.
+        """
+        rows, err, provider, source = _collect_positions(ctx)
         try:
-            age = (self._utcnow() - ts).total_seconds()
-        except Exception:
-            return False
-        return age < POSITIONS_TTL_SECONDS
-
-    def _should_skip_sync(self) -> Tuple[bool, str]:
-        if self._force_sync_requested():
-            return False, ""
-        if self._sync_in_progress:
-            return True, "in-progress"
-        if self._is_fresh(self._last_cycle_sync):
-            return True, "cycle"
-        if self._is_fresh(self._latest_position_timestamp()):
-            return True, "fresh"
-        return False, ""
-
-    def _do_work(self):
-        skip, reason = self._should_skip_sync()
-        if skip:
-            if reason == "cycle":
-                note = "cycle"
-            elif reason:
-                note = reason
-            else:
-                note = "fresh"
-            log.info(f"⏭ Position data {note}; skipping sync", source=self.name)
-            return {"skipped": True, "reason": note}
-
-        if self._sync_in_progress:
-            return {"skipped": True, "reason": "in-progress"}
-
-        log.info("🔄 Starting position sync", source="PositionMonitor")
-        self._sync_in_progress = True
-        try:
-            sync_result = self.core.update_positions_from_jupiter(source="position_monitor")
-        finally:
-            self._sync_in_progress = False
-
-        payload = {
-            "imported": 0,
-            "skipped": False,
-            "errors": 0,
-            "hedges": 0,
-            "timestamp": self._utcnow().isoformat(),
-        }
-
-        if isinstance(sync_result, dict):
-            payload.update(sync_result)
-            if "timestamp" not in sync_result:
-                payload["timestamp"] = self._utcnow().isoformat()
-            payload.setdefault("skipped", False)
-
-            success = sync_result.get("success")
-            if success is None:
-                errors = sync_result.get("errors")
-                success = errors == 0 if errors is not None else True
-        else:
-            success = True
-
-        if success:
-            self.mark_cycle_synced()
-
-        return payload
-
-# ✅ Self-execute entrypoint
-if __name__ == "__main__":
-    log.banner("🚀 SELF-RUN: PositionMonitor")
-    monitor = PositionMonitor()
-    result = monitor.run_cycle()
-    log.success("🧾 PositionMonitor Run Complete", source="SelfTest", payload=result)
-    log.banner("✅ Position Sync Finished")
+            if rows:
+                conn = _get_conn(ctx)
+                _write_snapshot(conn, ctx.cycle_id, rows)
+        except Exception as e:
+            # escalate write errors distinctly
+            err = err or f"snapshot write failed: {type(e).__name__}: {e}"
+        return {"count": len(rows), "error": err, "provider": provider, "source": source}
