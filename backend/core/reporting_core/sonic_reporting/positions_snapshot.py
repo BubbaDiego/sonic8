@@ -4,9 +4,10 @@ from typing import Dict, Any, Iterable, Optional
 
 from .writer import write_table
 
-# ─────────────────────────────────────────────────────────────
-# format helpers
-# ─────────────────────────────────────────────────────────────
+ICON_BY_ASSET = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
+
+
+# ---------- format helpers ----------
 def _usd(v):
     try:
         return f"${float(v):.2f}".rstrip("0").rstrip(".")
@@ -30,31 +31,27 @@ def _coerce_iter(x: Any) -> Iterable:
     except Exception:
         return [x]
 
-# ─────────────────────────────────────────────────────────────
-# value derivation using your DataLocker.get_latest_price(asset)
-# ─────────────────────────────────────────────────────────────
+
+# ---------- derivations (used only when fields are missing) ----------
 def _latest_price(dl, asset: str) -> Optional[float]:
     try:
-        rec = dl.get_latest_price(asset)  # your DataLocker utility
-        # returns dict with current_price (or previous) when available
-        p = rec.get("current_price")
+        data = dl.get_latest_price(asset)  # your DataLocker helper
+        p = data.get("current_price")
         return float(p) if p is not None else None
     except Exception:
         return None
 
-def _derive_value_if_missing(dl, asset: str, size, value):
-    """If 'value' is missing/None and we have size, compute abs(size) * price."""
-    try:
-        if value is None and size not in (None, "", "—"):
+def _derive_value(dl, asset, size, value):
+    if value is None and size not in (None, "", "—"):
+        try:
             price = _latest_price(dl, str(asset).upper())
             if price is not None:
                 return abs(float(size)) * price
-    except Exception:
-        pass
+        except Exception:
+            pass
     return value
 
-def _derive_leverage_if_missing(value, collateral, lev):
-    """If lev is None but value and collateral exist, approximate lev = value / collateral."""
+def _derive_lev(value, collateral, lev):
     try:
         if (lev is None or lev == "—") and value not in (None, 0) and collateral not in (None, 0):
             return float(value) / float(collateral)
@@ -62,27 +59,20 @@ def _derive_leverage_if_missing(value, collateral, lev):
         pass
     return lev
 
-# ─────────────────────────────────────────────────────────────
-# renderer (DB-first via DataLocker.DLPositionManager)
-# ─────────────────────────────────────────────────────────────
+
+# ---------- renderer (DB-first via DataLocker.DLPositionManager) ----------
 def render(dl, csum: Dict[str, Any]) -> None:
     """
-    Render the Positions Snapshot **directly from the DB** using your DLPositionManager.
-    No title row, no spacer: headers + rows only.
-
-    Sources:
-      - dl.positions.get_all_positions()  (DLPositionManager → positions table)
-      - dl.get_latest_price(asset) to compute Value fallback when missing
+    Render the Positions Snapshot directly from DLPositionManager / DataLocker.
+    No title, no spacer: headers + rows only.
     """
-    # Pull runtime rows from your DL manager (no snapshot dependency)
+    # 1) fetch rows from DB through your DataLocker/DLPositionManager
     rows_src = []
     try:
         if hasattr(dl, "positions") and hasattr(dl.positions, "get_all_positions"):
             rows_src = dl.positions.get_all_positions()  # list[PositionDB] or list[dict]
         elif hasattr(dl, "read_positions"):
             rows_src = dl.read_positions()
-        else:
-            rows_src = []
     except Exception:
         rows_src = []
 
@@ -90,7 +80,6 @@ def render(dl, csum: Dict[str, Any]) -> None:
     out_rows: list[list[str]] = []
 
     for p in _coerce_iter(rows_src):
-        # accept both dict and PositionDB model (your DL layer returns PositionDB)  # :contentReference[oaicite:3]{index=3}
         if isinstance(p, dict) or hasattr(p, "keys"):
             g = p.get  # type: ignore[attr-defined]
             asset = g("asset_type") or g("asset") or g("symbol") or "—"
@@ -113,12 +102,14 @@ def render(dl, csum: Dict[str, Any]) -> None:
             trav  = getattr(p, "travel_percent", None) or getattr(p, "movement_percent", None) or getattr(p, "travel", None)
             coll  = getattr(p, "collateral", None)
 
-        # derive value / leverage when missing
-        value = _derive_value_if_missing(dl, asset, size, value)
-        lev   = _derive_leverage_if_missing(value, coll, lev)
+        # derive missing values
+        value = _derive_value(dl, asset, size, value)
+        lev   = _derive_lev(value, coll, lev)
 
+        sym = str(asset or "—").upper()
+        icon = ICON_BY_ASSET.get(sym, "◻️")
         out_rows.append([
-            str(asset or "—"),
+            f"{icon} {sym}",
             str(side or "—"),
             _usd(value),
             _usd(pnl),
@@ -127,5 +118,5 @@ def render(dl, csum: Dict[str, Any]) -> None:
             _pct(trav),
         ])
 
-    # No title row → pass None so the table starts directly with headers.
+    # No title row → pass None; writer prints only headers + rows.
     write_table(None, headers, out_rows if out_rows else [["—","—","—","—","—","—","—"]])
