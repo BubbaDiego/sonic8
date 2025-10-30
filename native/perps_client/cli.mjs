@@ -116,6 +116,21 @@ function mapMarketSymbol(sym) {
   return s;
 }
 
+function loadOverrides(marketKey) {
+  if (!marketKey) return null;
+  const overridesPath = path.join(__dirname, `overrides.${marketKey}.json`);
+  if (!fs.existsSync(overridesPath)) return null;
+  try {
+    const raw = fs.readFileSync(overridesPath, "utf8");
+    return JSON.parse(raw);
+  } catch (e) {
+    if (DEBUG) {
+      console.error("[DEBUG] Failed parsing overrides", overridesPath, e.stack || String(e));
+    }
+    return null;
+  }
+}
+
 // ---------- PDA helpers (ported from sonic6 patterns) ----------
 const USDC_DEFAULT = new PublicKey(
   process.env.JUP_COLLATERAL_MINT || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -246,10 +261,12 @@ function buildInstructionBuilder(program, idl, methodName, accounts, knownArgs) 
   return builder.accounts(accounts);
 }
 
-function pickDesiredMint(context, cfg, marketKey) {
+function pickDesiredMint(context, cfg, marketKey, overrides = {}) {
   const row = (context && context.positionRow) || {};
   return (
     row.desiredMint ||
+    overrides.desiredMint ||
+    overrides.collateralMint ||
     (cfg.markets && cfg.markets[marketKey] && cfg.markets[marketKey].desiredMint) ||
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
   );
@@ -354,6 +371,7 @@ function buildTriggerKnownArgs(params, overrides = {}) {
 function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
   const row = (context && context.positionRow) || {};
   const marketCfg = (cfg && cfg.markets && cfg.markets[marketKey]) || {};
+  const overrides = loadOverrides(marketKey) || {};
   const a = {};
 
   a.perpetuals =
@@ -361,18 +379,47 @@ function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
     row.group ||
     marketCfg.perpetuals ||
     marketCfg.group ||
+    overrides.perpetuals ||
+    overrides.group ||
     null;
-  a.pool = row.pool || marketCfg.pool || null;
-  a.position = row.position || row.position_account || marketCfg.position || null;
-  a.positionRequest = row.positionRequest || marketCfg.positionRequest || null;
-  a.custody = row.custody || marketCfg.custody || null;
+  a.pool = row.pool || marketCfg.pool || overrides.pool || null;
+  a.position =
+    row.position ||
+    row.position_account ||
+    marketCfg.position ||
+    overrides.position ||
+    overrides.positionAccount ||
+    null;
+  a.positionRequest =
+    row.positionRequest ||
+    marketCfg.positionRequest ||
+    overrides.positionRequest ||
+    overrides.request ||
+    null;
+  a.custody =
+    row.custody ||
+    marketCfg.custody ||
+    overrides.custody ||
+    overrides.assetCustody ||
+    null;
   a.collateralCustody =
     row.collateralCustody ||
     row.collateral_custody ||
     marketCfg.collateralCustody ||
+    overrides.collateralCustody ||
+    overrides.collateral_custody ||
     null;
-  a.custodyDovesPriceAccount = row.custodyDovesPriceAccount || marketCfg.custodyDovesPriceAccount || null;
-  a.custodyPythnetPriceAccount = row.custodyPythnetPriceAccount || marketCfg.custodyPythnetPriceAccount || null;
+  a.custodyDovesPriceAccount =
+    row.custodyDovesPriceAccount ||
+    marketCfg.custodyDovesPriceAccount ||
+    overrides.custodyDovesPriceAccount ||
+    null;
+  a.custodyPythnetPriceAccount =
+    row.custodyPythnetPriceAccount ||
+    marketCfg.custodyPythnetPriceAccount ||
+    overrides.custodyPythnetPriceAccount ||
+    null;
+  a.oracle = row.oracle || marketCfg.oracle || overrides.oracle || null;
 
   const poolPk = a.pool ? ensurePubkey(a.pool, "pool") : null;
   if (!a.position && poolPk) {
@@ -387,7 +434,7 @@ function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
     a.positionRequest = derivedRequest.toBase58();
   }
 
-  a.desiredMint = pickDesiredMint(context, cfg, marketKey);
+  a.desiredMint = pickDesiredMint(context, cfg, marketKey, overrides);
   const desiredMintPk = ensurePubkey(a.desiredMint, "desiredMint");
   a.receivingAccount = getAssociatedTokenAddressSync(
     desiredMintPk,
@@ -402,7 +449,12 @@ function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
   }
 
   if (!a.positionRequestAta) {
-    a.positionRequestAta = row.positionRequestAta || marketCfg.positionRequestAta || null;
+    a.positionRequestAta =
+      row.positionRequestAta ||
+      marketCfg.positionRequestAta ||
+      overrides.positionRequestAta ||
+      overrides.requestAta ||
+      null;
   }
 
   if (a.positionRequest && !a.positionRequestAta) {
@@ -460,6 +512,7 @@ function resolveAccounts(context, cfg, marketKey, programId, payerPubkey) {
       ? ensurePubkey(a.custodyPythnetPriceAccount, "custodyPythnetPriceAccount")
       : ensurePubkey(a.custody, "custody"),
     collateralCustody: ensurePubkey(a.collateralCustody, "collateralCustody"),
+    oracle: a.oracle ? ensurePubkey(a.oracle, "oracle") : null,
     desiredMint: desiredMintPk,
     referral: new PublicKey("11111111111111111111111111111111"),
     tokenProgram: TOKEN_PROGRAM_ID,
