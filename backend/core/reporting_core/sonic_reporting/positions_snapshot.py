@@ -2,9 +2,12 @@
 from __future__ import annotations
 from typing import Dict, Any, Iterable, Optional
 
-from .writer import write_table
+from .writer import write_table, HAS_RICH
 
 ICON_BY_ASSET = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
+
+HDR_BLUE = "\x1b[94m"
+RESET = "\x1b[0m"
 
 
 # ---------- format helpers ----------
@@ -77,6 +80,7 @@ def render(dl, csum: Dict[str, Any]) -> None:
         rows_src = []
 
     headers = ["Asset", "Side", "Value", "PnL", "Lev", "Liq", "Travel"]
+    render_headers = [f"{HDR_BLUE}{h}{RESET}" for h in headers] if not HAS_RICH else headers
     out_rows: list[list[str]] = []
 
     for p in _coerce_iter(rows_src):
@@ -119,4 +123,4 @@ def render(dl, csum: Dict[str, Any]) -> None:
         ])
 
     # No title row → pass None; writer prints only headers + rows.
-    write_table(None, headers, out_rows if out_rows else [["—","—","—","—","—","—","—"]])
+    write_table(None, render_headers, out_rows if out_rows else [["—","—","—","—","—","—","—"]])

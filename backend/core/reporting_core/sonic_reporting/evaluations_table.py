@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 from typing import Dict, Any, Tuple, Optional
-from .writer import write_table
+from .writer import write_table, HAS_RICH
 from .state import get_resolved
+
+HDR_BLUE = "\x1b[94m"
+RESET = "\x1b[0m"
 
 def _num(v, d=None):
     try:
@@ -98,4 +101,5 @@ def render(dl, csum: Dict[str, Any]) -> None:
     rows, title_ts = build_rows(dl, csum)
     # Keep only the column headers (per request to drop the standalone title row)
     headers = ["Metric", "Value", "Rule", "Threshold", "Result", "Source (V / T)"]
-    write_table(None, headers, rows)
+    render_headers = [f"{HDR_BLUE}{h}{RESET}" for h in headers] if not HAS_RICH else headers
+    write_table(None, render_headers, rows)
