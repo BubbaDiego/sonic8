@@ -32,10 +32,14 @@ def show_preflight(svc: JupiterService) -> None:
             "signer_path": wallet_info["signer_path"],
         }
     # Show wiring for the native perps builder so operators can sanity check envs.
+    try:
+        native_path = PerpsManageService().resolved_native_script()
+    except Exception:
+        native_path = os.getenv("NATIVE_PERPS_SCRIPT", "<auto>")
     cfg = {
         **cfg,
         "native_perps_exec": os.getenv("NATIVE_PERPS_EXEC", "node"),
-        "native_perps_script": os.getenv("NATIVE_PERPS_SCRIPT", "<auto>"),
+        "native_perps_script": native_path,
         "perps_program_id/env": os.getenv("JUP_PERPS_PROGRAM_ID", ""),
         "perps_idl/env": os.getenv("JUP_PERPS_IDL", ""),
         "perps_method/env": os.getenv("JUP_PERPS_METHOD_TRIGGER", ""),

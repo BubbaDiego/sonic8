@@ -95,15 +95,32 @@ class PerpsManageService:
     # ---------------- helpers ----------------
     def _resolve_native(self) -> list[str]:
         exec_cmd = os.getenv("NATIVE_PERPS_EXEC", "node").strip()
-        script = os.getenv("NATIVE_PERPS_SCRIPT", "").strip()
-        if not script:
-            here = Path(__file__).resolve()
-            script = str(here.parents[3] / "native" / "perps_client" / "cli.mjs")
+        # prefer explicit env
+        script_env = os.getenv("NATIVE_PERPS_SCRIPT", "").strip()
+        candidates: list[Path] = []
+        if script_env:
+            candidates.append(Path(script_env))
+        # try <repo>\native\perps_client\cli.mjs
+        repo = Path(os.environ.get("REPO_ROOT") or os.getcwd())
+        candidates.append(repo / "native" / "perps_client" / "cli.mjs")
+        # also try <repo>\backend\native\perps_client\cli.mjs
+        candidates.append(repo / "backend" / "native" / "perps_client" / "cli.mjs")
+        # pick first that exists
+        script_path = next((p for p in candidates if p.exists()), None)
+        if not script_path:
+            tried = " | ".join(str(p) for p in candidates)
+            raise RuntimeError(f"Native perps script not found. Tried: {tried}")
         extra = os.getenv("NATIVE_PERPS_ARGS", "").strip()
-        argv = [exec_cmd, script]
+        argv = [exec_cmd, str(script_path)]
         if extra:
             argv.extend(shlex.split(extra, posix=(os.name != "nt")))
         return argv
+
+    def resolved_native_script(self) -> str:
+        try:
+            return self._resolve_native()[1]
+        except Exception as e:
+            return f"<auto-not-found: {e}>"
 
     def _call_native(self, body: Dict[str, Any], env_override: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         argv = self._resolve_native()
