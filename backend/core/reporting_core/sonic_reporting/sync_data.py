@@ -74,7 +74,7 @@ def _probe_obj_bool(obj, names: List[str]) -> Optional[bool]:
                 pass
     return None
 
-def _xcom_live_status(dl) -> Tuple[bool, str]:
+def _xcom_live_status(dl, cfg: Optional[dict] = None) -> Tuple[bool, str]:
     """
     True/False and the source used: RUNTIME | FILE | DB | ENV | —
     """
@@ -97,7 +97,25 @@ def _xcom_live_status(dl) -> Tuple[bool, str]:
     except Exception:
         pass
 
-    # 2) FILE (global_config)
+    # 2) FILE (explicit JSON cfg first)
+    try:
+        if isinstance(cfg, dict):
+            mon = (cfg.get("monitor") or {})
+            if "xcom_live" in mon:
+                ok, b = _as_bool(mon.get("xcom_live"))
+                if ok:
+                    return b, "FILE"
+            ch = (cfg.get("channels") or {})
+            voice = ch.get("voice") or ch.get("xcom") or {}
+            for key in ("enabled","active","live","is_live","is_enabled"):
+                if key in voice:
+                    ok, b = _as_bool(voice.get(key))
+                    if ok:
+                        return b, "FILE"
+    except Exception:
+        pass
+
+    # 2b) FILE (legacy global_config on DataLocker)
     try:
         gc = getattr(dl, "global_config", None) or {}
         channels = gc.get("channels") or {}
@@ -153,7 +171,7 @@ def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
     rows: List[List[str]] = []
 
     # XCOM Live — runtime-first, with colored word via emoji
-    live, src = _xcom_live_status(dl)
+    live, src = _xcom_live_status(dl, obj if isinstance(obj, dict) else None)
     rows.append([
         "🛰 XCOM Live",
         "🟢 ON" if live else "🔴 OFF",
