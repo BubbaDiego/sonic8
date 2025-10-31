@@ -134,6 +134,7 @@ def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
     """
     Sync Data table:
       - XCOM Live row (🟢 ON / 🔴 OFF) with origin in brackets.
+      - Loop interval + Alert snooze rows directly under XCOM Live.
       - Config/Parse rows
       - Compact Schema check
       - JSON→DB→ENV line
@@ -158,6 +159,44 @@ def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
         "🟢 ON" if live else "🔴 OFF",
         f"[{src}]"
     ])
+
+    # ── NEW: two lines directly under XCOM Live ────────────────────────────────
+   # from .sonic_reporting import get_sonic_interval, read_snooze_remaining  # local import to avoid early import cycles
+    from .xcom_extras import get_sonic_interval, read_snooze_remaining
+    from datetime import datetime, timezone
+
+    # ⏱ Loop interval
+    iv = get_sonic_interval(dl)
+    rows.append([
+        "  ⏱  Loop interval",
+        f"✅ {iv}s",
+        "Runtime · live loop"
+    ])
+
+    # 🔕 Alert snooze
+    def _fmt_hms(seconds: int) -> str:
+        s = max(0, int(seconds))
+        h, r = divmod(s, 3600); m, s = divmod(r, 60)
+        return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+    rem, eta = read_snooze_remaining(dl)
+    if rem > 0:
+        try:
+            dt = datetime.fromtimestamp(eta, tz=timezone.utc).astimezone() if eta else None
+            eta_s = (dt.strftime("%I:%M%p").lstrip("0").lower()) if dt else ""
+        except Exception:
+            eta_s = ""
+        rows.append([
+            "  🔕 Alert snooze",
+            f"🟡 {_fmt_hms(rem)}",
+            f"until {eta_s}" if eta_s else "—"
+        ])
+    else:
+        rows.append([
+            "  🔕 Alert snooze",
+            "✅ disabled",
+            "—"
+        ])
 
     # Config JSON path
     rows.append([

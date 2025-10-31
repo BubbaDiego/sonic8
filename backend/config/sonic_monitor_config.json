@@ -1,6 +1,6 @@
 {
   "monitor": {
-    "loop_seconds": 60,
+    "loop_seconds": 30,
     "enabled": {
       "sonic": true,
       "liquid": true,
@@ -8,7 +8,7 @@
       "market": true,
       "price": true
     },
-    "xcom_live": false
+    "xcom_live": true
   },
   "channels": {
     "voice": {
