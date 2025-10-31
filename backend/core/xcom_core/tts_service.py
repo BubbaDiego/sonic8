@@ -1,5 +1,4 @@
 
-import os
 import sys
 
 try:
@@ -14,11 +13,7 @@ from backend.core.reporting_core.xcom_reporter import (
     twilio_start,
     twilio_success,
 )
-from backend.core.config_core import sonic_config_bridge as C
-
-
-def _xcom_live() -> bool:
-    return C.get_xcom_live()
+from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
 
 class TTSService:
     def __init__(self, voice_name: str | None = None, speed: int | None = None):
@@ -51,12 +46,17 @@ class TTSService:
                     f"⚠️ Failed to set TTS speed: {e}", source="TTSService"
                 )
 
-    def send(self, recipient: str, body: str) -> bool:
-        twilio_start("tts")
-        if not _xcom_live():
-            log.info("SONIC_XCOM_LIVE disabled – skipping TTS", source="TTSService")
-            twilio_skip("tts", "disabled")
+    def _xcom_allowed(self, dl=None) -> bool:
+        cfg = getattr(dl, "global_config", None) if dl else None
+        ok, why = xcom_ready(dl, cfg=cfg)
+        if not ok:
+            log.debug("TTSService suppressed: %s", why, source="TTSService")
+        return ok
+
+    def send(self, recipient: str, body: str, dl=None) -> bool:
+        if not self._xcom_allowed(dl):
             return False
+        twilio_start("tts")
         if not self.engine:
             log.warning("pyttsx3 not available", source="TTSService")
             twilio_fail("tts", RuntimeError("pyttsx3 engine unavailable"))

@@ -18,6 +18,7 @@ from backend.data.dl_positions import DLPositionManager  # type: ignore
 from backend.core.xcom_core.xcom_core import XComCore  # type: ignore
 from backend.core.logging import log  # type: ignore
 from backend.utils.env_utils import _resolve_env  # type: ignore
+from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_guard
 
 # --- Rising-edge + cooldown helpers -------------------------
 _LIQ_LAST_HIT: dict[str, bool] = {}
@@ -257,18 +258,30 @@ class LiquidationMonitor(BaseMonitor):
                 if _rising_edge(asset_key, True) and _cooldown_ok(asset_key, now_ts):
                     _mark_notified(asset_key, now_ts)
                     if notif.get("voice") and not self._snoozed(cfg):
-                        log.info(
-                            "Voice alert dispatched",
-                            source="LiquidationMonitor",
-                            payload={"asset": asset_key},
+                        ok, why = xcom_guard(
+                            self.dl,
+                            triggered=True,
+                            cfg=getattr(self.dl, "global_config", None),
                         )
-                        self.xcom.send_notification(
-                            cfg["level"],
-                            f"⚠️ {asset_key} near liquidation",
-                            line,
-                            initiator="liquid_monitor",
-                            mode="voice",
-                        )
+                        if not ok:
+                            log.debug(
+                                "LiquidationMonitor notify suppressed: %s",
+                                why,
+                                source="LiquidationMonitor",
+                            )
+                        else:
+                            log.info(
+                                "Voice alert dispatched",
+                                source="LiquidationMonitor",
+                                payload={"asset": asset_key},
+                            )
+                            self.xcom.send_notification(
+                                cfg["level"],
+                                f"⚠️ {asset_key} near liquidation",
+                                line,
+                                initiator="liquid_monitor",
+                                mode="voice",
+                            )
             else:
                 if _LIQ_LAST_HIT.get(asset_key, False):
                     _LIQ_LAST_HIT[asset_key] = False
@@ -294,6 +307,19 @@ class LiquidationMonitor(BaseMonitor):
         }
 
         if not in_danger or self._snoozed(cfg):
+            return {**summary, "status": "Success", "alert_sent": False}
+
+        ok, why = xcom_guard(
+            self.dl,
+            triggered=bool(in_danger),
+            cfg=getattr(self.dl, "global_config", None),
+        )
+        if not ok:
+            log.debug(
+                "LiquidationMonitor notify suppressed: %s",
+                why,
+                source="LiquidationMonitor",
+            )
             return {**summary, "status": "Success", "alert_sent": False}
 
         # Build alert payload

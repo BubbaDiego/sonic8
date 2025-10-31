@@ -16,6 +16,7 @@ from backend.core.reporting_core.xcom_reporter import (
     twilio_success,
 )
 from backend.core.config_core import sonic_config_bridge as C
+from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from backend.core.xcom_core.xcom_config_service import XComConfigService
@@ -40,6 +41,7 @@ class VoiceService:
     def __init__(self, config: dict | None):
         self.config = config or {}
         self.logger = logging.getLogger("xcom.voice")
+        self.dl = None
 
         account_sid = self.config.get("account_sid") or os.getenv("TWILIO_ACCOUNT_SID")
         auth_token = self.config.get("auth_token") or os.getenv("TWILIO_AUTH_TOKEN")
@@ -77,6 +79,17 @@ class VoiceService:
             raise ValueError(f"{label} must be E.164 like +14155552671 (got {number!r})")
         return number
 
+    def _xcom_allowed(self, dl=None) -> bool:
+        _dl = dl or getattr(self, "dl", None)
+        cfg = getattr(_dl, "global_config", None) if _dl else None
+        ok, why = xcom_ready(_dl, cfg=cfg)
+        if not ok:
+            try:
+                self.logger.debug("VoiceService suppressed: %s", why)
+            except Exception:
+                pass
+        return ok
+
     def call(
         self,
         to_number: Optional[str],
@@ -86,6 +99,7 @@ class VoiceService:
         monitor_name: str | None = None,
         xcom_config_service: "XComConfigService" | None = None,
         channels: Optional[dict] = None,
+        dl=None,
     ) -> Tuple[bool, str, str, str]:
         """Initiate a voice notification via Twilio.
 
@@ -93,6 +107,9 @@ class VoiceService:
         a Studio Flow SID is configured we prefer that, otherwise a simple TwiML
         call is used.
         """
+
+        if not self._xcom_allowed(dl):
+            return False, "xcom_guard", "", ""
 
         if not self.config.get("enabled", False):
             self.logger.warning("VoiceService: provider disabled → skipping call")
