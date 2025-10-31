@@ -10,6 +10,54 @@
     },
     "xcom_live": false
   },
+  "channels": {
+    "voice": {
+      "enabled": true
+    },
+    "liquid": {
+      "system": false,
+      "voice": true,
+      "sms": false,
+      "tts": false
+    },
+    "profit": {
+      "system": false,
+      "voice": false,
+      "sms": false,
+      "tts": false
+    },
+    "market": {
+      "system": false,
+      "voice": false,
+      "sms": false,
+      "tts": false
+    },
+    "price": {
+      "system": false,
+      "voice": false,
+      "sms": false,
+      "tts": false
+    }
+  },
+  "liquid_monitor": {
+    "thresholds": {
+      "BTC": 5.3,
+      "ETH": 111.0,
+      "SOL": 1.5
+    },
+    "blast": {
+      "BTC": 5,
+      "ETH": 5,
+      "SOL": 5
+    }
+  },
+  "profit_monitor": {
+    "snooze_seconds": 1200,
+    "position_profit_usd": 10,
+    "portfolio_profit_usd": 40
+  },
+  "market": {},
+  "price": {},
   "liquid": {
     "thresholds": {
       "BTC": 5.3,
@@ -22,37 +70,9 @@
       "SOL": 5
     }
   },
-  "channels": {
-    "liquid": {
-      "system": true,
-      "voice": false,
-      "sms": false,
-      "tts": false
-    },
-    "profit": {
-      "system": true,
-      "voice": false,
-      "sms": false,
-      "tts": false
-    },
-    "market": {
-      "system": true,
-      "voice": false,
-      "sms": false,
-      "tts": false
-    },
-    "price": {
-      "system": true,
-      "voice": false,
-      "sms": false,
-      "tts": false
-    }
-  },
   "profit": {
     "snooze_seconds": 1200,
     "position_usd": 10,
     "portfolio_usd": 40
-  },
-  "market": {},
-  "price": {}
+  }
 }
