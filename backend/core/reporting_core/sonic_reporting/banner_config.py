@@ -33,7 +33,16 @@ def render_banner(dl, json_path: str) -> None:
         xcom_src    = "FILE"
     except Exception:
         xcom_active, xcom_src = False, "—"
-    write_line(f"{ICON_TOGGLE} XCOM Active  : {'ON' if xcom_active else 'OFF'}   [{xcom_src}]")
+
+    # XCOM line (add space after icon; color OFF red)
+    RED = "\x1b[31m"
+    RESET = "\x1b[0m"
+    xcom_status = "ON" if xcom_active else "OFF"
+    status_txt = xcom_status
+    if xcom_status == "OFF":
+        status_txt = f"{RED}{status_txt}{RESET}"
+    # two leading spaces to align with other banner rows; two spaces after the icon
+    write_line(f"  {ICON_TOGGLE}  XCOM Active  : {status_txt}  [{xcom_src}]")
 
     # Muted modules list (matches existing suppression set)
     write_line(f"{ICON_LOCKS} Muted Modules:      ConsoleLogger, console_logger, LoggerControl, werkzeug, uvicorn.access, fuzzy_wuzzy, asyncio")
