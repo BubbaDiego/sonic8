@@ -1,0 +1,40 @@
+# GMX Core chain configuration (Phase 1 placeholders)
+# Phase 2+ will validate and load these values for live calls.
+
+arbitrum:
+  chain_id: 42161
+  rpc:
+    http: "ENV:ARB_HTTP_RPC"   # e.g., https://arb-mainnet.g.alchemy.com/v2/<key>
+    ws:   "ENV:ARB_WS_RPC"     # e.g., wss://arb-mainnet.g.alchemy.com/v2/<key>
+  rest_hosts:
+    - "https://arbitrum-api.gmxinfra.io"
+    - "https://arbitrum-api.gmxinfra.net"      # fallback example
+  subsquid_url: "https://squid-arb.gmxinfra.io/graphql"  # placeholder
+  contracts:
+    exchange_router: "0xEXCHANGE_ROUTER"    # fill at Phase 2
+    reader:          "0xREADER"
+    datastore:       "0xDATASTORE"
+    order_vault:     "0xORDER_VAULT"
+    event_emitter:   "0xEVENT_EMITTER"
+  tokens:
+    weth: "0xWETH"
+    usdc: "0xUSDC"
+
+avalanche:
+  chain_id: 43114
+  rpc:
+    http: "ENV:AVAX_HTTP_RPC"
+    ws:   "ENV:AVAX_WS_RPC"
+  rest_hosts:
+    - "https://avalanche-api.gmxinfra.io"
+    - "https://avalanche-api.gmxinfra.net"
+  subsquid_url: "https://squid-avax.gmxinfra.io/graphql" # placeholder
+  contracts:
+    exchange_router: "0xEXCHANGE_ROUTER"
+    reader:          "0xREADER"
+    datastore:       "0xDATASTORE"
+    order_vault:     "0xORDER_VAULT"
+    event_emitter:   "0xEVENT_EMITTER"
+  tokens:
+    wavax: "0xWAVAX"
+    usdc:  "0xUSDC"
