@@ -5,6 +5,7 @@ from backend.core.xcom_core.xcom_core import XComCore
 from backend.core.core_constants import MOTHER_DB_PATH
 from backend.core.logging import log
 from backend.core.alert_core.threshold_service import ThresholdService
+from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_guard
 from datetime import datetime, timezone
 import json
 from collections.abc import Mapping
@@ -131,6 +132,23 @@ class ProfitMonitor(BaseMonitor):
 
         if single_hit or portfolio_hit:
             alert_msg = f"💰 Total profit is ${total_profit:.2f}."
+            ok, why = xcom_guard(
+                self.dl,
+                triggered=True,
+                cfg=getattr(self.dl, "global_config", None),
+            )
+            if not ok:
+                log.debug(
+                    "ProfitMonitor notify suppressed: %s",
+                    why,
+                    source="ProfitMonitor",
+                )
+                self._set_silenced(True)
+                return {
+                    "alert_triggered": True,
+                    "total_profit": total_profit,
+                    "notification_result": notification_result,
+                }
             if self.should_notify():
                 notif = cfg["notifications"]
                 if notif.get("system"):

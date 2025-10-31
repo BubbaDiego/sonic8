@@ -72,6 +72,8 @@ class XComCore:
                 {mode.lower()} if isinstance(mode, str) else {m.lower() for m in mode}
             )
 
+        dl_instance = None
+
         try:
             system_mgr = self.config_service.dl_sys
             relax_seconds = 0
@@ -125,10 +127,16 @@ class XComCore:
                             f"Details: {body}."
                         )
                     )
+                    if dl_instance is None:
+                        try:
+                            dl_instance = DataLocker.get_instance()
+                        except Exception:
+                            dl_instance = None
                     ok, sid, to_num, from_num = VoiceService(voice_cfg).call(
                         recipient,
                         subject,
                         voice_message,
+                        dl=dl_instance,
                     )
                     results["voice"] = bool(ok)
                     if ok and sid:
@@ -162,10 +170,15 @@ class XComCore:
 
             # ---------------- TTS  ----------------------------------------------------
             if "tts" in requested and tts_cfg.get("enabled", False):
+                if dl_instance is None:
+                    try:
+                        dl_instance = DataLocker.get_instance()
+                    except Exception:
+                        dl_instance = None
                 results["tts"] = TTSService(
                     tts_cfg.get("voice"),
                     tts_cfg.get("speed"),
-                ).send(recipient, body)
+                ).send(recipient, body, dl=dl_instance)
 
             if "alexa" in requested:
                 alexa_message = f"{subject}. {body}"
