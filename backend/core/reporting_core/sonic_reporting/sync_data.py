@@ -19,9 +19,15 @@ ICON_LIQ = "💧"
 ICON_PROF = "💹"
 ICON_SINGLE = "👤"
 ICON_PF = "🧺"
+ICON_XCOM = "🛰"
 
 # Nudge the whole table a bit to the right of the title line
 LEFT_PAD = "  "  # two spaces
+
+# ANSI colors
+RED   = "\x1b[31m"
+YELHI = "\x1b[93m"  # bright yellow/greenish on dark themes
+RESET = "\x1b[0m"
 
 def _ok(b: bool) -> str:
     return "✅" if b else "❌"
@@ -45,9 +51,46 @@ def _indent_block(text: str, indent: str = "  ") -> str:
         return ""
     return "\n".join([lines[0]] + [indent + line for line in lines[1:]])
 
+def _coalesce_xcom(csum: Dict[str, Any]) -> tuple[Optional[bool], str]:
+    """
+    Try hard to read XCOM state/mode from the cycle summary.
+    Supports: xcom_active | xcom.live | xcom.live_active | xcom.enabled | xcom_on
+              xcom_mode | xcom.mode
+    """
+    x = csum.get("xcom") if isinstance(csum.get("xcom"), dict) else {}
+    candidates = [
+        csum.get("xcom_active"),
+        csum.get("xcom_live"),
+        csum.get("xcom_on"),
+        csum.get("xcom_enabled"),
+        x.get("active") if isinstance(x, dict) else None,
+        x.get("live_active") if isinstance(x, dict) else None,
+        x.get("enabled") if isinstance(x, dict) else None,
+    ]
+    active: Optional[bool] = None
+    for v in candidates:
+        if isinstance(v, bool):
+            active = v
+            break
+        if isinstance(v, str):
+            vv = v.strip().lower()
+            if vv in ("on", "true", "yes", "1", "live"):
+                active = True
+                break
+            if vv in ("off", "false", "no", "0"):
+                active = False
+                break
+    mode = (
+        csum.get("xcom_mode")
+        or (x.get("mode") if isinstance(x, dict) else None)
+        or "—"
+    )
+    return active, str(mode)
+
 def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
     """
     Print ONLY the Sync Data table (no dashed title, no extra spacers).
+    - Adds 'XCOM Live' at the top with bright colored status text.
     - No blank line after 'Schema check'
     - Table content shifted slightly right via LEFT_PAD
     """
@@ -67,6 +110,17 @@ def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
 
     # Build the table rows (Activity column is padded)
     rows: List[List[str]] = []
+
+    # XCOM Live (FIRST ROW)
+    x_active, x_mode = _coalesce_xcom(csum)
+    x_ok = bool(x_active) if x_active is not None else False
+    # color the details text: LIVE (bright yellow) or OFF (red)
+    detail_text = f"{YELHI}LIVE{RESET}" if x_ok else f"{RED}OFF{RESET}"
+    rows.append([
+        f"{LEFT_PAD}{ICON_XCOM} XCOM Live",
+        _ok(x_ok),
+        f"{detail_text}  [{x_mode}]",
+    ])
 
     # Config JSON path (no mtime) — path only (no keys here)
     rows.append([

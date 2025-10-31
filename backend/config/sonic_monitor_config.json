@@ -8,7 +8,7 @@
       "market": true,
       "price": true
     },
-    "xcom_live": false
+    "xcom_live": true
   },
   "liquid": {
     "thresholds": {
