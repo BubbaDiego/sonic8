@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os, json, time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 def discover_json_path(default_path: str) -> str:
     p = os.getenv("SONIC_MONITOR_JSON", "").strip()
@@ -35,6 +35,38 @@ def _num(v, d=None):
     except Exception:
         return d
 
+def _coalesce_profit_keys(p: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
+    """Return normalized (position_usd, portfolio_usd) from varied legacy keys."""
+
+    if not isinstance(p, dict):
+        return None, None
+
+    def _pick(keys) -> Optional[float]:
+        for key in keys:
+            if key in p:
+                val = p.get(key)
+                if val is not None and val != "":
+                    return _num(val)
+        return None
+
+    pos_keys = [
+        "position_profit_usd",
+        "position_usd",
+        "single",
+        "single_usd",
+        "pos",
+    ]
+    pf_keys = [
+        "portfolio_profit_usd",
+        "portfolio_usd",
+        "portfolio",
+        "portfolio_total_usd",
+        "total_usd",
+        "pf",
+    ]
+
+    return _pick(pos_keys), _pick(pf_keys)
+
 def normalize_legacy(obj: dict) -> dict:
     """Accept legacy keys and convert to modern {liquid_monitor, profit_monitor} shape."""
     o = obj or {}
@@ -48,11 +80,10 @@ def normalize_legacy(obj: dict) -> dict:
         if val is not None:
             modern["liquid_monitor"]["thresholds"][s] = _num(val)
     pm = o.get("profit_monitor") or o.get("profit") or {}
-    pos = pm.get("position_profit_usd") or pm.get("single_usd") or pm.get("pos")
-    pf  = pm.get("portfolio_profit_usd") or pm.get("total_usd")  or pm.get("pf")
+    pos, pf = _coalesce_profit_keys(pm)
     modern["profit_monitor"] = {}
-    if pos is not None: modern["profit_monitor"]["position_profit_usd"] = _num(pos)
-    if pf  is not None: modern["profit_monitor"]["portfolio_profit_usd"] = _num(pf)
+    if pos is not None: modern["profit_monitor"]["position_profit_usd"] = pos
+    if pf  is not None: modern["profit_monitor"]["portfolio_profit_usd"] = pf
     return modern
 
 def schema_summary(file_obj: Optional[dict], dl) -> dict:
