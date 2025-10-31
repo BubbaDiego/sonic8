@@ -2,7 +2,7 @@
   "source": "db",
   "thresholds": [
     {
-      "id": "919471fd-e681-4e55-8fe0-a1ad9e2d497c",
+      "id": "207e1f72-c939-4f5e-8a75-d58203096c11",
       "alert_type": "TravelPercent",
       "alert_class": "Position",
       "metric_key": "travel_percent",
@@ -11,7 +11,7 @@
       "medium": 70.0,
       "high": 90.0,
       "enabled": 1,
-      "last_modified": "2025-10-29T23:00:16.616315+00:00",
+      "last_modified": "2025-10-30T23:34:29.079445+00:00",
       "low_notify": null,
       "medium_notify": null,
       "high_notify": null
