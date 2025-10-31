@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Dict, Any
 
 from .banner_config import render_banner
-from .sync_activities import render as render_sync_activities   # table ONLY (no internal title/spacers)
 from .sync_data import render as render_sync_data               # table ONLY (no internal title/spacers)
 from .prices_table import render as render_prices_table         # expects csum (table ONLY, no title/spacers)
 from .evaluations_table import render as render_evals           # expects (dl, csum) (table ONLY)
@@ -16,11 +15,10 @@ def _title_line(text: str, icons: str) -> str:
     return f"{dash} {icons}  {text}  {icons} {dash}"
 
 
-TITLE_SYNC_ACTIVITIES = _title_line("Sync  Activities", "🛠️ 🛠️ 🛠️")
-TITLE_SYNC_DATA       = _title_line("Sync  Data",       "🛠️ 🛠️ 🛠️")
-TITLE_PRICES          = _title_line("Prices",           "💰 💰 💰")
-TITLE_MONITORS        = _title_line("Monitors",         "🖥️ 🖥️ 🖥️")
-TITLE_POSITIONS       = _title_line("Positions",        "📈 📈 📈")
+TITLE_SYNC_DATA = _title_line("Sync  Data", "🛠️ 🛠️ 🛠️")
+TITLE_PRICES    = _title_line("Prices",     "💰 💰 💰")
+TITLE_MONITORS  = _title_line("Monitors",   "🖥️ 🖥️ 🖥️")
+TITLE_POSITIONS = _title_line("Positions",  "📈 📈 📈")
 
 
 def render_startup_banner(dl, default_json_path: str) -> None:
@@ -35,36 +33,30 @@ def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
     """
     One full console cycle with sequencer-owned titles & spacing (Option A):
 
-      1) Sync Activities  (title here) + table (sync_activities.render)
-      2) Sync Data        (title here) + table (sync_data.render)
-      3) Prices           (title here) + table (prices_table.render)
-      4) Monitors         (title here) + table (evaluations_table.render)
-      5) Positions        (title here) + table (positions_snapshot.render)
+      1) Sync Data        (title here) + table (sync_data.render)
+      2) Prices           (title here) + table (prices_table.render)
+      3) Monitors         (title here) + table (evaluations_table.render)
+      4) Positions        (title here) + table (positions_snapshot.render)
 
     Each renderer prints only its table (no internal dashed title or extra spacers).
     """
 
-    # 1) Sync Activities
+    # 1) Sync Data
     write_line("")  # single spacer from previous block
-    write_line(TITLE_SYNC_ACTIVITIES)
-    render_sync_activities(dl, csum)
-
-    # 2) Sync Data
-    write_line("")
     write_line(TITLE_SYNC_DATA)
     render_sync_data(dl, csum, default_json_path)
 
-    # 3) Prices (expects: csum)
+    # 2) Prices (expects: csum)
     write_line("")
     write_line(TITLE_PRICES)
     render_prices_table(csum)
 
-    # 4) Monitors (expects: dl, csum)
+    # 3) Monitors (expects: dl, csum)
     write_line("")
     write_line(TITLE_MONITORS)
     render_evals(dl, csum)
 
-    # 5) Positions (expects: dl, positions list)
+    # 4) Positions (expects: dl, positions list)
     positions = csum.get("positions") or []
     write_line("")
     write_line(TITLE_POSITIONS)
