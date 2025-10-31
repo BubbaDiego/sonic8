@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+
 from typing import List, Optional
 
 from .styles import INDENT, TITLE_STYLE, H, V, TL, TR, BL, BR, TJ, BJ
@@ -9,18 +10,30 @@ try:
     from rich.console import Console
     from rich.table import Table
     from rich.text import Text
+    from rich.padding import Padding
+
     _HAS_RICH = True
 except Exception:
-    Console = Table = Text = None  # type: ignore
+    Console = Table = Text = Padding = None  # type: ignore
     _HAS_RICH = False
 
-_console = Console() if _HAS_RICH else None
 HAS_RICH = _HAS_RICH
+_console = Console() if HAS_RICH else None
+
+TABLE_INDENT = INDENT + "  "
+HEADER_STYLE = "bold bright_cyan"
 
 
 def write_line(text: str) -> None:
     """Print one line with the standard left indent."""
     print(f"{INDENT}{text}", flush=True)
+
+
+def _rich_with_indent(renderable):
+    if not HAS_RICH or _console is None:
+        return renderable
+    pad_left = len(TABLE_INDENT)
+    return Padding(renderable, (0, 0, 0, pad_left)) if Padding else renderable
 
 
 def write_table(
@@ -42,9 +55,7 @@ def write_table(
     al = [a if a in ("left", "center", "right") else "left" for a in al]
 
     # ---------------------------- Rich mode ----------------------------
-    if HAS_RICH:
-        # Build a table with NO borders or rules.
-        # (box=None removes lines; show_edge/show_lines are false by default)
+    if HAS_RICH and _console is not None and Table is not None:
         tbl = Table(
             show_header=False,
             show_edge=False,
@@ -58,24 +69,26 @@ def write_table(
             tbl.add_column(justify=al[i], no_wrap=False)
 
         if title:
-            # If ever used, title prints as a normal row (no blank spacer)
             tbl.add_row(Text(title, style=TITLE_STYLE), *[""] * (ncols - 1))
 
         if headers:
-            hdr = [Text(h, style=TITLE_STYLE) for h in headers] + [""] * (ncols - len(headers))
-            tbl.add_row(*hdr[:ncols])
+            hdr_cells: List[Text] = []
+            for i in range(ncols):
+                text = headers[i] if i < len(headers) else ""
+                hdr_cells.append(Text(text, style=HEADER_STYLE, justify="center"))
+            tbl.add_row(*hdr_cells)
 
         for r in rows:
-            pad = r + [""] * (ncols - len(r))
-            tbl.add_row(*pad[:ncols])
+            pad_row = r + [""] * (ncols - len(r))
+            tbl.add_row(*pad_row[:ncols])
 
-        _console.print(tbl, justify="left")
+        _console.print(_rich_with_indent(tbl), justify="left")
         return
 
     # ------------------------- ASCII fallback --------------------------
-    def fit(s): return "" if s is None else str(s)
+    def fit(s):
+        return "" if s is None else str(s)
 
-    # Compute column widths
     width = [0] * ncols
     if headers:
         for i, h in enumerate(headers):
@@ -85,7 +98,7 @@ def write_table(
             width[i] = max(width[i], len(fit(r[i])))
 
     def line(left: str, mid: str, right: str) -> str:
-        return INDENT + left + mid.join(H * w for w in width) + right
+        return TABLE_INDENT + left + mid.join(H * w for w in width) + right
 
     top = line(TL, TJ, TR)
     bot = line(BL, BJ, BR)
@@ -94,20 +107,15 @@ def write_table(
     if title:
         total = sum(width) + (len(width) - 1)
         t = title if len(title) >= total else title + " " * (total - len(title))
-        print(INDENT + V + t + V)
+        print(TABLE_INDENT + V + t + V)
 
     if headers:
         cells = []
         for i, h in enumerate(headers):
-            txt, w, a = fit(h), width[i], al[i]
-            if a == "center":
-                txt = txt.center(w)
-            elif a == "right":
-                txt = txt.rjust(w)
-            else:
-                txt = txt.ljust(w)
+            txt, w = fit(h), width[i]
+            txt = txt.center(w)
             cells.append(txt)
-        print(INDENT + V + V.join(cells) + V)
+        print(TABLE_INDENT + V + V.join(cells) + V)
 
     for r in rows:
         cells = []
@@ -121,6 +129,6 @@ def write_table(
             else:
                 txt = txt.ljust(w)
             cells.append(txt)
-        print(INDENT + V + V.join(cells) + V)
+        print(TABLE_INDENT + V + V.join(cells) + V)
 
     print(bot, flush=True)

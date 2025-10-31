@@ -9,6 +9,8 @@ from datetime import datetime, timezone, timedelta
 from collections.abc import Mapping
 import json
 import os
+import time
+from typing import Optional
 
 from backend.core.monitor_core.base_monitor import BaseMonitor  # type: ignore
 from backend.data.data_locker import DataLocker  # type: ignore
@@ -16,6 +18,39 @@ from backend.data.dl_positions import DLPositionManager  # type: ignore
 from backend.core.xcom_core.xcom_core import XComCore  # type: ignore
 from backend.core.logging import log  # type: ignore
 from backend.utils.env_utils import _resolve_env  # type: ignore
+
+# --- Rising-edge + cooldown helpers -------------------------
+_LIQ_LAST_HIT: dict[str, bool] = {}
+_LIQ_LAST_NOTIFY_AT: dict[str, float] = {}
+_LIQ_NOTIFY_COOLDOWN_S = int(os.getenv("LIQUID_NOTIFY_COOLDOWN_S", "180"))
+
+
+def _rising_edge(asset: str, hit: bool) -> bool:
+    prev = _LIQ_LAST_HIT.get(asset, False)
+    _LIQ_LAST_HIT[asset] = hit
+    return hit and not prev
+
+
+def _cooldown_ok(asset: str, now: float) -> bool:
+    last = _LIQ_LAST_NOTIFY_AT.get(asset, 0.0)
+    return (now - last) >= _LIQ_NOTIFY_COOLDOWN_S
+
+
+def _mark_notified(asset: str, when: Optional[float] = None) -> None:
+    _LIQ_LAST_NOTIFY_AT[asset] = float(when or time.time())
+
+
+def _maybe_clear_queue_on_safe(ctx, asset: str) -> None:
+    svc = getattr(ctx.dl, "voice_service", None) or getattr(ctx.dl, "xcom_voice", None) \
+          or getattr(ctx.dl, "xcom", None) or getattr(ctx.dl, "voice", None)
+    try:
+        if svc and hasattr(svc, "clear"):
+            try:
+                svc.clear("liquid", asset)
+            except TypeError:
+                svc.clear({"monitor": "liquid", "asset": asset})
+    except Exception:
+        pass
 
 class LiquidationMonitor(BaseMonitor):
     """Check active positions: emit alerts when liquidation distance breaches thresholds.
@@ -193,6 +228,8 @@ class LiquidationMonitor(BaseMonitor):
         details = []
         in_danger = []
         thresholds = cfg.get("thresholds", {})
+        notif = cfg.get("notifications") or {}
+        alert_lines: list[str] = []
         for p in positions:
             if p.liquidation_distance is None or p.liquidation_distance == "":
                 continue
@@ -201,9 +238,41 @@ class LiquidationMonitor(BaseMonitor):
             except Exception:
                 continue
             threshold = self._resolve_threshold(getattr(p, "asset_type", None), thresholds)
+            asset_key = str(getattr(p, "asset_type", "") or "UNKNOWN").upper()
+            now_ts = time.time()
             breach = dist <= threshold
             if breach:
                 in_danger.append(p)
+                try:
+                    line = (
+                        f"{p.asset_type} {p.position_type} at {p.current_price:.2f} – "
+                        f"liq {p.liquidation_price:.2f} ({p.liquidation_distance:.2f}% away)"
+                    )
+                except Exception:
+                    line = (
+                        f"{asset_key} {getattr(p, 'position_type', '—')} ≤ {threshold:.2f}% "
+                        f"(distance {dist:.2f}%)"
+                    )
+                alert_lines.append(line)
+                if _rising_edge(asset_key, True) and _cooldown_ok(asset_key, now_ts):
+                    _mark_notified(asset_key, now_ts)
+                    if notif.get("voice") and not self._snoozed(cfg):
+                        log.info(
+                            "Voice alert dispatched",
+                            source="LiquidationMonitor",
+                            payload={"asset": asset_key},
+                        )
+                        self.xcom.send_notification(
+                            cfg["level"],
+                            f"⚠️ {asset_key} near liquidation",
+                            line,
+                            initiator="liquid_monitor",
+                            mode="voice",
+                        )
+            else:
+                if _LIQ_LAST_HIT.get(asset_key, False):
+                    _LIQ_LAST_HIT[asset_key] = False
+                    _maybe_clear_queue_on_safe(self, asset_key)
             log.info(
                 f"Asset: {p.asset_type}  Current Liquid Distance: {dist:.2f}  "
                 f"Threshold: {threshold:.2f}  Result: {'BREACH' if breach else 'NO BREACH'}",
@@ -228,15 +297,11 @@ class LiquidationMonitor(BaseMonitor):
             return {**summary, "status": "Success", "alert_sent": False}
 
         # Build alert payload
-        lines = [
-            f"{p.asset_type} {p.position_type} at {p.current_price:.2f} – liq {p.liquidation_price:.2f} ({p.liquidation_distance:.2f}% away)"
-            for p in in_danger
-        ]
-        subject = f"⚠️ {len(in_danger)} position(s) near liquidation"
+        lines = alert_lines
+        subject = f"⚠️ {len(lines)} position(s) near liquidation"
         body = "\n".join(lines)
 
         # Notification routing
-        notif = cfg["notifications"]
         # Local system sound / toast
         if notif.get("system"):
             log.info("System sound alert dispatched", source="LiquidationMonitor")
@@ -249,13 +314,6 @@ class LiquidationMonitor(BaseMonitor):
         if notif.get("tts", True):
             self.xcom.send_notification(
                 cfg["level"], subject, "Liquidation is a concern", initiator="liquid_monitor", mode="tts"
-            )
-
-        # Voice call
-        if notif.get("voice"):
-            log.info("Voice alert dispatched", source="LiquidationMonitor")
-            self.xcom.send_notification(
-                cfg["level"], subject, body, initiator="liquid_monitor", mode="voice"
             )
 
         # SMS (stub – mode recognised but might no‑op until provider wired)

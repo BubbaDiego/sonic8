@@ -1097,6 +1097,10 @@ def run_monitor(
 
             try:
                 pos_rows, pos_error, pos_meta = collect_positions(dl)
+                summary["positions_error"] = pos_error
+                summary["positions_count"] = len(pos_rows)
+                summary["positions_provider"] = pos_meta.get("provider") if pos_meta else None
+                summary["positions_source"] = pos_meta.get("source") if pos_meta else None
                 latest_iso: Optional[str] = None
                 positions_block: Optional[Dict[str, Any]] = None
                 if pos_meta.get("provider") or pos_meta.get("source") or pos_rows:

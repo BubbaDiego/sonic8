@@ -118,7 +118,8 @@ def render_banner(dl, json_path: str) -> None:
 
     # XCOM Live (runtime-first)
     live, src = _xcom_live_status(dl)
-    write_line(f"🛰 XCOM Live   : {'ON' if live else 'OFF'}  [{src}]")
+    status = "🟢 ON" if live else "🔴 OFF"
+    write_line(f"🛰 XCOM Live : {status} [{src}]")
 
     # Muted modules
     write_line("🔒 Muted Modules:      ConsoleLogger, console_logger, LoggerControl, "
