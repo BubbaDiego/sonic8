@@ -171,7 +171,8 @@ def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
     rows: List[List[str]] = []
 
     # XCOM Live — runtime-first, with colored word via emoji
-    live, src = _xcom_live_status(dl, obj if isinstance(obj, dict) else None)
+    from .xcom_extras import xcom_live_status
+    live, src = xcom_live_status(dl, obj if isinstance(obj, dict) else None)
     rows.append([
         "🛰 XCOM Live",
         "🟢 ON" if live else "🔴 OFF",

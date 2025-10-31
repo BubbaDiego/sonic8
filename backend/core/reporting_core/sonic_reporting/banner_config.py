@@ -117,7 +117,9 @@ def render_banner(dl, json_path: str) -> None:
     write_line(f"🔌 LAN API      : http://{lan}:5000")
 
     # XCOM Live (runtime-first)
-    live, src = _xcom_live_status(dl)
+    from .xcom_extras import xcom_live_status
+    cfg_for_probe = getattr(dl, "global_config", None)
+    live, src = xcom_live_status(dl, cfg_for_probe)
     status = "🟢 ON" if live else "🔴 OFF"
     write_line(f"🛰 XCOM Live : {status} [{src}]")
 
