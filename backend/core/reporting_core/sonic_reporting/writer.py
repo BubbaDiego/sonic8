@@ -1,116 +1,126 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-from .writer import write_table  # ← no HAS_RICH import
+from .styles import INDENT, TITLE_STYLE, H, V, TL, TR, BL, BR, TJ, BJ
 
-# Indent to match Sync Data / Monitors
-LEFT_PAD = "  "  # two spaces
+# Optional Rich console (when present, we render with ZERO borders/lines)
+try:
+    from rich.console import Console
+    from rich.table import Table
+    from rich.text import Text
+    _HAS_RICH = True
+except Exception:
+    Console = Table = Text = None  # type: ignore
+    _HAS_RICH = False
 
-# Asset icons (same set everywhere)
-ICON_BTC = "🟡"
-ICON_ETH = "🔷"
-ICON_SOL = "🟣"
-_ICON_MAP = {"BTC": ICON_BTC, "ETH": ICON_ETH, "SOL": ICON_SOL}
+_console = Console() if _HAS_RICH else None
+HAS_RICH = _HAS_RICH
 
-def _icon_for(sym: str) -> str:
-    return _ICON_MAP.get(str(sym).upper(), "")
 
-def _fmt_price(v: Any) -> str:
-    try:
-        if v is None or v == "":
-            return "—"
-        f = float(v)
-        af = abs(f)
-        if af >= 1000:
-            s = f"{af/1000.0:.1f}".rstrip("0").rstrip(".") + "k"
-            return s
-        s = f"{f:.2f}".rstrip("0").rstrip(".")
-        return s if s else "0"
-    except Exception:
-        return "—"
+def write_line(text: str) -> None:
+    """Print one line with the standard left indent."""
+    print(f"{INDENT}{text}", flush=True)
 
-def _fmt_delta(cur: Any, prev: Any) -> str:
-    try:
-        if cur is None or prev is None:
-            return "—"
-        d = float(cur) - float(prev)
-        s = f"{abs(d):.2f}".rstrip("0").rstrip(".")
-        if s == "0": s = "0"
-        return s if d >= 0 else f"−{s}"
-    except Exception:
-        return "—"
 
-def _fmt_pct(cur: Any, prev: Any) -> str:
-    try:
-        if cur is None or prev is None or float(prev) == 0.0:
-            return "—"
-        p = (float(cur) - float(prev)) / float(prev) * 100.0
-        s = f"{p:.2f}".rstrip("0").rstrip(".")
-        if s == "0": s = "0"
-        return f"{s}%"
-    except Exception:
-        return "—"
-
-def _fmt_checked(rec: Dict[str, Any], now_ts: Optional[float]) -> str:
-    try:
-        if "age_s" in rec and isinstance(rec["age_s"], (int, float)):
-            return f"({int(rec['age_s'])}s)"
-        if "checked_s" in rec and isinstance(rec["checked_s"], (int, float)):
-            return f"({int(rec['checked_s'])}s)"
-        if "age" in rec and isinstance(rec["age"], (int, float)):
-            return f"({int(rec['age'])}s)"
-        if "checked_at" in rec and isinstance(rec["checked_at"], (int, float)) and isinstance(now_ts, (int, float)):
-            return f"({max(0, int(now_ts - float(rec['checked_at'])))}s)"
-    except Exception:
-        pass
-    return "(0s)"
-
-def render(dl, prices: Any, now_ts: Optional[float] = None) -> None:
+def write_table(
+    title: Optional[str],
+    headers: Optional[List[str]],
+    rows: List[List[str]],
+    align: Optional[List[str]] = None,  # "left" | "center" | "right" per column
+) -> None:
     """
-    Prices table ONLY (no dashed title). Signature unchanged.
+    Render a simple table. Sequencer prints section titles; this prints only rows.
+    Rich mode: no borders/rules; just a colored header row and data rows.
+    ASCII fallback: minimal box top/bottom only (no header spacer).
     """
-    # Normalize to list of {"symbol":..., "current":..., "previous":...}
-    recs: List[Dict[str, Any]] = []
-    if isinstance(prices, dict):
-        for sym, rec in prices.items():
-            if isinstance(rec, dict):
-                recs.append({"symbol": sym, **rec})
-    elif isinstance(prices, list):
-        for rec in prices:
-            if isinstance(rec, dict) and "symbol" in rec:
-                recs.append(rec)
+    # Column count + alignment vector
+    ncols = max(len(headers or []), max((len(r) for r in rows), default=0))
+    al = list(align or [])
+    if len(al) < ncols:
+        al += ["left"] * (ncols - len(al))
+    al = [a if a in ("left", "center", "right") else "left" for a in al]
 
-    # Preferred order
-    order = ["SOL", "ETH", "BTC"]
-    seen = set()
-    ordered: List[Dict[str, Any]] = []
-    for s in order:
-        for r in recs:
-            if str(r.get("symbol", "")).upper() == s:
-                ordered.append(r); seen.add(id(r))
-    for r in sorted([x for x in recs if id(x) not in seen], key=lambda x: str(x.get("symbol","")).upper()):
-        ordered.append(r)
+    # ---------------------------- Rich mode ----------------------------
+    if HAS_RICH:
+        # Build a table with NO borders or rules.
+        # (box=None removes lines; show_edge/show_lines are false by default)
+        tbl = Table(
+            show_header=False,
+            show_edge=False,
+            show_lines=False,
+            box=None,
+            pad_edge=False,
+            expand=False,
+            padding=(0, 1),  # compact rows, small cell pad
+        )
+        for i in range(ncols):
+            tbl.add_column(justify=al[i], no_wrap=False)
 
-    headers = [f"{LEFT_PAD}Asset", "Current", "Previous", "Δ", "A%", "Checked"]
-    rows: List[List[str]] = []
+        if title:
+            # If ever used, title prints as a normal row (no blank spacer)
+            tbl.add_row(Text(title, style=TITLE_STYLE), *[""] * (ncols - 1))
 
-    for r in ordered:
-        sym = str(r.get("symbol", "")).upper()
-        icon = _icon_for(sym)
-        asset = f"{LEFT_PAD}{icon} {sym}" if icon else f"{LEFT_PAD}{sym}"
-        cur   = r.get("current")
-        prev  = r.get("previous")
-        rows.append([
-            asset,
-            _fmt_price(cur),
-            _fmt_price(prev) if prev is not None else "—",
-            _fmt_delta(cur, prev),
-            _fmt_pct(cur, prev),
-            _fmt_checked(r, now_ts),
-        ])
+        if headers:
+            hdr = [Text(h, style=TITLE_STYLE) for h in headers] + [""] * (ncols - len(headers))
+            tbl.add_row(*hdr[:ncols])
 
-    if not rows:
-        rows.append([f"{LEFT_PAD}—", "—", "—", "—", "—", "—"])
+        for r in rows:
+            pad = r + [""] * (ncols - len(r))
+            tbl.add_row(*pad[:ncols])
 
-    write_table(title=None, headers=headers, rows=rows)
+        _console.print(tbl, justify="left")
+        return
+
+    # ------------------------- ASCII fallback --------------------------
+    def fit(s): return "" if s is None else str(s)
+
+    # Compute column widths
+    width = [0] * ncols
+    if headers:
+        for i, h in enumerate(headers):
+            width[i] = max(width[i], len(fit(h)))
+    for r in rows:
+        for i in range(min(len(r), ncols)):
+            width[i] = max(width[i], len(fit(r[i])))
+
+    def line(left: str, mid: str, right: str) -> str:
+        return INDENT + left + mid.join(H * w for w in width) + right
+
+    top = line(TL, TJ, TR)
+    bot = line(BL, BJ, BR)
+
+    print(top)
+    if title:
+        total = sum(width) + (len(width) - 1)
+        t = title if len(title) >= total else title + " " * (total - len(title))
+        print(INDENT + V + t + V)
+
+    if headers:
+        cells = []
+        for i, h in enumerate(headers):
+            txt, w, a = fit(h), width[i], al[i]
+            if a == "center":
+                txt = txt.center(w)
+            elif a == "right":
+                txt = txt.rjust(w)
+            else:
+                txt = txt.ljust(w)
+            cells.append(txt)
+        print(INDENT + V + V.join(cells) + V)
+
+    for r in rows:
+        cells = []
+        for i in range(ncols):
+            txt = fit(r[i]) if i < len(r) else ""
+            w, a = width[i], al[i]
+            if a == "center":
+                txt = txt.center(w)
+            elif a == "right":
+                txt = txt.rjust(w)
+            else:
+                txt = txt.ljust(w)
+            cells.append(txt)
+        print(INDENT + V + V.join(cells) + V)
+
+    print(bot, flush=True)

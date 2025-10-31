@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 import socket
+import os
 from pathlib import Path
 from .writer import write_line
-from .styles import ICON_CFG, ICON_DASH, ICON_API, ICON_LOCKS, ICON_TOGGLE
 
 def _lan_ip() -> str:
     try:
@@ -11,7 +11,8 @@ def _lan_ip() -> str:
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
-        if ip.startswith("127."): raise RuntimeError()
+        if ip.startswith("127."):
+            raise RuntimeError("loopback")
         return ip
     except Exception:
         try:
@@ -19,69 +20,141 @@ def _lan_ip() -> str:
         except Exception:
             return "127.0.0.1"
 
-def render_banner(dl, json_path: str) -> None:
-    print("══════════════════════════════════════════════════════════════")
-    write_line(f"{ICON_CFG} Sonic Monitor Configuration")
-    print("══════════════════════════════════════════════════════════════")
-    lan = _lan_ip()
-    write_line(f"{ICON_DASH} Sonic Dashboard: http://127.0.0.1:5001/dashboard")
-    write_line(f"{ICON_DASH} LAN Dashboard : http://{lan}:5001/dashboard")
-    write_line(f"{ICON_API} LAN API      : http://{lan}:5000")
-    # XCOM toggle
+def _as_bool(val) -> tuple[bool, bool]:
+    """
+    Return (is_bool, value). Accepts real bool or common string/int truthy values.
+    """
+    if isinstance(val, bool):
+        return True, val
+    if isinstance(val, (int, float)):
+        return True, bool(val)
+    if isinstance(val, str):
+        v = val.strip().lower()
+        if v in ("1", "true", "on", "yes", "y"):
+            return True, True
+        if v in ("0", "false", "off", "no", "n"):
+            return True, False
+    return False, False
+
+def _xcom_live_status(dl) -> tuple[bool, str]:
+    """
+    Report whether XCOM is live (ON/OFF) and the source: RUNTIME | FILE | DB | ENV | —.
+    Preference order: RUNTIME → FILE → DB → ENV.
+    """
+    # 1) RUNTIME: check common service hooks on DataLocker
     try:
-        xcom_active = (dl.global_config.get("xcom") or {}).get("active", False)  # type: ignore
-        xcom_src    = "FILE"
+        for name in ("voice_service", "xcom_voice", "xcom", "voice"):
+            svc = getattr(dl, name, None)
+            if svc is None:
+                continue
+            # properties on the object
+            for flag in ("is_live", "live", "enabled", "is_enabled", "active"):
+                try:
+                    val = getattr(svc, flag, None)
+                except Exception:
+                    val = None
+                ok, b = _as_bool(val)
+                if ok:
+                    return b, "RUNTIME"
+            # dict-like
+            if isinstance(svc, dict):
+                for flag in ("enabled", "is_enabled", "active", "live", "is_live"):
+                    if flag in svc:
+                        ok, b = _as_bool(svc.get(flag))
+                        if ok:
+                            return b, "RUNTIME"
     except Exception:
-        xcom_active, xcom_src = False, "—"
+        pass
 
-    # XCOM line (add space after icon; color OFF red)
-    RED = "\x1b[31m"
-    RESET = "\x1b[0m"
-    xcom_status = "ON" if xcom_active else "OFF"
-    status_txt = xcom_status
-    if xcom_status == "OFF":
-        status_txt = f"{RED}{status_txt}{RESET}"
-    # two leading spaces to align with other banner rows; two spaces after the icon
-    write_line(f"  {ICON_TOGGLE}  XCOM Active  : {status_txt}  [{xcom_src}]")
-
-    # Muted modules list (matches existing suppression set)
-    write_line(f"{ICON_LOCKS} Muted Modules:      ConsoleLogger, console_logger, LoggerControl, werkzeug, uvicorn.access, fuzzy_wuzzy, asyncio")
-
-    # Configuration mode and paths
-    write_line(f"🧭 Configuration: JSON ONLY — {json_path}")
-    # best-effort upward search for .env starting from backend/
+    # 2) FILE: global_config
     try:
-        backend_dir = Path(__file__).resolve().parents[4]
-        candidates = [
-            backend_dir / ".env",
-            backend_dir.parent / ".env",
-            backend_dir.parent.parent / ".env",
-        ]
+        gc = getattr(dl, "global_config", None) or {}
+        channels = gc.get("channels") or {}
+        voice = channels.get("voice") or gc.get("xcom") or {}
+        ok, b = _as_bool(voice.get("enabled"))
+        if ok:
+            return b, "FILE"
+        ok, b = _as_bool(voice.get("active"))
+        if ok:
+            return b, "FILE"
+    except Exception:
+        pass
+
+    # 3) DB: system vars
+    try:
+        sysvars = getattr(dl, "system", None)
+        if sysvars:
+            x = (sysvars.get_var("xcom") or {})
+            ok, b = _as_bool(x.get("active"))
+            if ok:
+                return b, "DB"
+            ok, b = _as_bool(x.get("enabled"))
+            if ok:
+                return b, "DB"
+            ok, b = _as_bool(x.get("live"))
+            if ok:
+                return b, "DB"
+    except Exception:
+        pass
+
+    # 4) ENV
+    env = os.getenv("XCOM_LIVE", os.getenv("XCOM_ACTIVE", ""))
+    ok, b = _as_bool(env)
+    if ok:
+        return b, "ENV"
+
+    return False, "—"
+
+def render_banner(dl, json_path: str) -> None:
+    # Framed header
+    print("══════════════════════════════════════════════════════════════")
+    write_line("🦔 Sonic Monitor Configuration")
+    print("══════════════════════════════════════════════════════════════")
+
+    lan = _lan_ip()
+    write_line(f"🌐 Sonic Dashboard: http://127.0.0.1:5001/dashboard")
+    write_line(f"🌐 LAN Dashboard : http://{lan}:5001/dashboard")
+    write_line(f"🔌 LAN API      : http://{lan}:5000")
+
+    # XCOM Live (runtime-first)
+    live, src = _xcom_live_status(dl)
+    write_line(f"🛰 XCOM Live   : {'ON' if live else 'OFF'}  [{src}]")
+
+    # Muted modules
+    write_line("🔒 Muted Modules:      ConsoleLogger, console_logger, LoggerControl, "
+               "werkzeug, uvicorn.access, fuzzy_wuzzy, asyncio")
+
+    # Configuration path
+    write_line(f"🧭 Configuration: JSON ONLY — {json_path}")
+
+    # .env path (search up from backend/)
+    try:
+        backend_dir = Path(__file__).resolve().parents[4]   # …/backend
+        candidates = [backend_dir / ".env",
+                      backend_dir.parent / ".env",
+                      backend_dir.parent.parent / ".env"]
         found = next((c for c in candidates if c.exists()), None)
         env_path = str(found or (backend_dir / ".env"))
     except Exception:
         env_path = ".env"
     write_line(f"📦 .env (ignored for config) : {env_path}")
 
-    # Database path information
+    # Database path & hints
     db_path = None
-    for attr in ("db_path", "path", "database_path", "filename"):
-        try:
-            val = getattr(getattr(dl, "db", None), attr, None)
-            if val:
-                db_path = str(val)
-                break
-        except Exception:
-            pass
-    if not db_path:
-        db_path = "mother.db"
     try:
-        db_exists = Path(db_path).exists()
-        repo_root = Path(__file__).resolve().parents[4]
-        inside_repo = str(Path(db_path)).startswith(str(repo_root))
+        db = getattr(dl, "db", None)
+        for attr in ("db_path", "path", "database_path", "filename"):
+            val = getattr(db, attr, None)
+            if val:
+                db_path = str(val); break
     except Exception:
-        db_exists = True
-        inside_repo = True
-    write_line(
-        f"🔌 Database       : {db_path}  (ACTIVE for runtime data, provenance=DEFAULT, {'exists' if db_exists else 'missing'}, {'inside repo' if inside_repo else 'outside repo'})"
-    )
+        pass
+    db_path = db_path or "mother.db"
+    try:
+        backend_dir = Path(__file__).resolve().parents[4]
+        exists = Path(db_path).exists()
+        inside_repo = str(db_path).startswith(str(backend_dir))
+    except Exception:
+        exists, inside_repo = True, True
+    write_line(f"🔌 Database       : {db_path}  (ACTIVE for runtime data, provenance=DEFAULT, "
+               f"{'exists' if exists else 'missing'}, {'inside repo' if inside_repo else 'outside repo'})")

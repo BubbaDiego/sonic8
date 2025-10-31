@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
+import os
 
 from .writer import write_table
 from .state import set_resolved
@@ -11,23 +12,13 @@ from .config_probe import (
     resolve_effective,
 )
 
-# Asset / monitor icons
+# Icons
 ICON_BTC = "🟡"
 ICON_ETH = "🔷"
 ICON_SOL = "🟣"
-ICON_LIQ = "💧"
-ICON_PROF = "💹"
-ICON_SINGLE = "👤"
-ICON_PF = "🧺"
-ICON_XCOM = "🛰"
-
-# Nudge the whole table a bit to the right of the title line
-LEFT_PAD = "  "  # two spaces
-
-# ANSI colors
-RED   = "\x1b[31m"
-YELHI = "\x1b[93m"  # bright yellow/greenish on dark themes
-RESET = "\x1b[0m"
+ICON_MON = "🖥️"   # section marker requested earlier
+ICON_PROF_ROW = "💵"
+ICON_LIQ_ROW  = "💧"
 
 def _ok(b: bool) -> str:
     return "✅" if b else "❌"
@@ -44,99 +35,145 @@ def _fmt_num(v: Optional[float]) -> str:
     except Exception:
         return "—"
 
-def _indent_block(text: str, indent: str = "  ") -> str:
-    """Indent every line of a multi-line string except the first; no trailing blank line."""
-    lines = text.splitlines()
-    if not lines:
-        return ""
-    return "\n".join([lines[0]] + [indent + line for line in lines[1:]])
+def _indent_block(s: str, spaces: int = 2) -> str:
+    pad = " " * spaces
+    s = "\n".join(line.rstrip() for line in s.splitlines())
+    s = s.replace("\n\n", "\n").strip()
+    return "\n".join(pad + line for line in s.splitlines())
 
-def _coalesce_xcom(csum: Dict[str, Any]) -> tuple[Optional[bool], str]:
-    """
-    Try hard to read XCOM state/mode from the cycle summary.
-    Supports: xcom_active | xcom.live | xcom.live_active | xcom.enabled | xcom_on
-              xcom_mode | xcom.mode
-    """
-    x = csum.get("xcom") if isinstance(csum.get("xcom"), dict) else {}
-    candidates = [
-        csum.get("xcom_active"),
-        csum.get("xcom_live"),
-        csum.get("xcom_on"),
-        csum.get("xcom_enabled"),
-        x.get("active") if isinstance(x, dict) else None,
-        x.get("live_active") if isinstance(x, dict) else None,
-        x.get("enabled") if isinstance(x, dict) else None,
-    ]
-    active: Optional[bool] = None
-    for v in candidates:
-        if isinstance(v, bool):
-            active = v
-            break
-        if isinstance(v, str):
-            vv = v.strip().lower()
-            if vv in ("on", "true", "yes", "1", "live"):
-                active = True
-                break
-            if vv in ("off", "false", "no", "0"):
-                active = False
-                break
-    mode = (
-        csum.get("xcom_mode")
-        or (x.get("mode") if isinstance(x, dict) else None)
-        or "—"
-    )
-    return active, str(mode)
+# ------------ XCOM Live probe (runtime → file → db → env) ------------
+def _as_bool(val) -> Tuple[bool, bool]:
+    if isinstance(val, bool):
+        return True, val
+    if isinstance(val, (int, float)):
+        return True, bool(val)
+    if isinstance(val, str):
+        v = val.strip().lower()
+        if v in ("1","true","on","yes","y"):  return True, True
+        if v in ("0","false","off","no","n"): return True, False
+    return False, False
 
+def _probe_obj_bool(obj, names: List[str]) -> Optional[bool]:
+    for n in names:
+        try:
+            attr = getattr(obj, n, None)
+        except Exception:
+            attr = None
+        # attribute
+        ok, b = _as_bool(attr)
+        if ok:
+            return b
+        # method
+        if callable(attr):
+            try:
+                rv = attr()
+                ok2, b2 = _as_bool(rv)
+                if ok2:
+                    return b2
+            except Exception:
+                pass
+    return None
+
+def _xcom_live_status(dl) -> Tuple[bool, str]:
+    """
+    True/False and the source used: RUNTIME | FILE | DB | ENV | —
+    """
+    # 1) RUNTIME (DataLocker services)
+    try:
+        for name in ("voice_service", "xcom_voice", "xcom", "voice"):
+            svc = getattr(dl, name, None)
+            if not svc:
+                continue
+            # object/properties/methods
+            val = _probe_obj_bool(svc, ["is_live","live","enabled","is_enabled","active","is_active"])
+            if val is not None:
+                return bool(val), "RUNTIME"
+            # dict-like values
+            if isinstance(svc, dict):
+                for key in ("is_live","live","enabled","is_enabled","active","is_active"):
+                    if key in svc:
+                        ok, b = _as_bool(svc.get(key))
+                        if ok: return b, "RUNTIME"
+    except Exception:
+        pass
+
+    # 2) FILE (global_config)
+    try:
+        gc = getattr(dl, "global_config", None) or {}
+        channels = gc.get("channels") or {}
+        voice = channels.get("voice") or gc.get("xcom") or {}
+        for key in ("enabled","active","live","is_live","is_enabled"):
+            if key in voice:
+                ok, b = _as_bool(voice.get(key))
+                if ok: return b, "FILE"
+    except Exception:
+        pass
+
+    # 3) DB (system vars)
+    try:
+        sysvars = getattr(dl, "system", None)
+        if sysvars:
+            var = (sysvars.get_var("xcom") or {})
+            for key in ("live","is_live","enabled","is_enabled","active"):
+                if key in var:
+                    ok, b = _as_bool(var.get(key))
+                    if ok: return b, "DB"
+    except Exception:
+        pass
+
+    # 4) ENV
+    env = os.getenv("XCOM_LIVE", os.getenv("XCOM_ACTIVE", ""))
+    ok, b = _as_bool(env)
+    if ok:
+        return b, "ENV"
+
+    return False, "—"
+
+# ------------------------------ RENDER ------------------------------
 def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
     """
-    Print ONLY the Sync Data table (no dashed title, no extra spacers).
-    - Adds 'XCOM Live' at the top with bright colored status text.
-    - No blank line after 'Schema check'
-    - Table content shifted slightly right via LEFT_PAD
+    Sync Data table:
+      - XCOM Live row (🟢 ON / 🔴 OFF) with origin in brackets.
+      - Config/Parse rows
+      - Compact Schema check
+      - JSON→DB→ENV line
+      - Multi-line Liquid/Profit thresholds with per-item origin
     """
 
-    # 1) Discover + parse JSON (no mtime shown)
     json_path = discover_json_path(default_json_path)
     obj, err, meta = parse_json(json_path)
     exists = bool(meta.get("exists"))
     size = meta.get("size", "—")
 
-    # 2) Schema summary for the compact row
     summ = schema_summary(obj if isinstance(obj, dict) else None, dl)
-
-    # 3) JSON-first effective thresholds (and cache for this cycle)
     resolved = resolve_effective(obj if isinstance(obj, dict) else None, dl)
     set_resolved(csum, resolved)
 
-    # Build the table rows (Activity column is padded)
     rows: List[List[str]] = []
 
-    # XCOM Live (FIRST ROW)
-    x_active, x_mode = _coalesce_xcom(csum)
-    x_ok = bool(x_active) if x_active is not None else False
-    # color the details text: LIVE (bright yellow) or OFF (red)
-    detail_text = f"{YELHI}LIVE{RESET}" if x_ok else f"{RED}OFF{RESET}"
+    # XCOM Live — runtime-first, with colored word via emoji
+    live, src = _xcom_live_status(dl)
     rows.append([
-        f"{LEFT_PAD}{ICON_XCOM} XCOM Live",
-        _ok(x_ok),
-        f"{detail_text}  [{x_mode}]",
+        "🛰 XCOM Live",
+        "🟢 ON" if live else "🔴 OFF",
+        f"[{src}]"
     ])
 
-    # Config JSON path (no mtime) — path only (no keys here)
+    # Config JSON path
     rows.append([
-        f"{LEFT_PAD}📦 Config JSON path",
+        "📦 Config JSON path",
         _ok(exists),
-        f"{json_path}"
+        f"{json_path}  [exists {_chk(exists)}, {size} bytes]"
     ])
 
-    # Parse JSON — include keys listing here (single place)
+    # Parse JSON
     if err:
-        rows.append([f"{LEFT_PAD}🧪 Parse JSON", _ok(False), f"error: {err}"])
+        rows.append(["🧪 Parse JSON", _ok(False), f"error: {err}"])
     else:
         keys = ", ".join((obj or {}).keys()) if isinstance(obj, dict) else "—"
-        rows.append([f"{LEFT_PAD}🧪 Parse JSON", _ok(True), f"keys=({keys})"])
+        rows.append(["🧪 Parse JSON", _ok(True), f"keys=({keys})"])
 
-    # Schema check — split across two lines, no blank spacer afterwards
+    # Schema check — compact with icons
     lm = summ["normalized"].get("liquid_monitor", {}) or {}
     tm = (lm.get("thresholds") or {}) if isinstance(lm, dict) else {}
     btc_ok = "BTC" in tm
@@ -147,54 +184,46 @@ def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
     pf_ok  = "portfolio_profit_usd" in pm
 
     schema_all_ok = bool(lm) and bool(tm) and btc_ok and eth_ok and sol_ok and bool(pm) and pos_ok and pf_ok
-    schema_line1 = f"{ICON_LIQ}mon {_chk(bool(lm))} · thr {_chk(bool(tm))}"
-    schema_line2 = (
-        f"{ICON_BTC}BTC {_chk(btc_ok)} · {ICON_ETH}ETH {_chk(eth_ok)} · "
-        f"{ICON_SOL}SOL {_chk(sol_ok)} · {ICON_PROF}mon {_chk(bool(pm))} · "
-        f"pos {_chk(pos_ok)} · pf {_chk(pf_ok)}"
+    schema_details = (
+        f"{ICON_MON}mon {_chk(bool(lm))} · thr {_chk(bool(tm))} · "
+        f"{ICON_BTC}BTC {_chk(btc_ok)} · {ICON_ETH}ETH {_chk(eth_ok)} · {ICON_SOL}SOL {_chk(sol_ok)} · "
+        f"{ICON_MON}mon {_chk(bool(pm))} · pos {_chk(pos_ok)} · pf {_chk(pf_ok)}"
     )
-    schema_details = _indent_block(f"{schema_line1}\n{schema_line2}", indent="  ")
-    rows.append([f"{LEFT_PAD}🔎 Schema check", _ok(schema_all_ok), schema_details])
+    rows.append(["🔎 Schema check", _ok(schema_all_ok), schema_details])
 
-    # Resolved (JSON→DB→ENV) summary (single line)
-    rows.append([f"{LEFT_PAD}🧭 Read monitor thresholds", _ok(True), "JSON→DB→ENV"])
+    # Resolved summary
+    rows.append(["🧭 Read monitor thresholds", _ok(True), "JSON→DB→ENV"])
 
-    # Liquid thresholds — multi-line, indented under Details
+    # Liquid thresholds (compact multi-line with per-asset origin)
     lmap = resolved.get("liquid", {}) or {}
     lsrc = resolved.get("liquid_src", {}) or {}
     btc_r = _fmt_num(lmap.get("BTC"))
     eth_r = _fmt_num(lmap.get("ETH"))
     sol_r = _fmt_num(lmap.get("SOL"))
-    liquid_block = _indent_block(
-        "Monitor:\n"
+
+    liquid_status = _ok(all(x != "—" for x in (btc_r, eth_r, sol_r)))
+    liquid_block = (
         f"{ICON_BTC} BTC {btc_r} ({lsrc.get('BTC','—')})\n"
         f"{ICON_ETH} ETH {eth_r} ({lsrc.get('ETH','—')})\n"
-        f"{ICON_SOL} SOL {sol_r} ({lsrc.get('SOL','—')})",
-        indent="  "
+        f"{ICON_SOL} SOL {sol_r} ({lsrc.get('SOL','—')})"
     )
-    rows.append([
-        f"{LEFT_PAD}{ICON_LIQ} Liquid thresholds",
-        _ok(all(x != "—" for x in (btc_r, eth_r, sol_r))),
-        liquid_block
-    ])
+    rows.append([f"{ICON_LIQ_ROW} Liquid thresholds", liquid_status, _indent_block(liquid_block, 2)])
 
-    # Profit thresholds — multi-line, indented under Details
+    # Profit thresholds (compact multi-line with per-field origin)
     pmap = resolved.get("profit", {}) or {}
     psrc = resolved.get("profit_src", {}) or {}
     pos_r = pmap.get("pos")
     pf_r  = pmap.get("pf")
-    profit_block = _indent_block(
-        "Monitor:\n"
-        f"{ICON_SINGLE} Single ${int(pos_r) if pos_r is not None else '—'} ({psrc.get('pos','—')})\n"
-        f"{ICON_PF} Portfolio ${int(pf_r) if pf_r is not None else '—'} ({psrc.get('pf','—')})",
-        indent="  "
-    )
-    rows.append([
-        f"{LEFT_PAD}{ICON_PROF} Profit thresholds",
-        _ok(pos_r is not None and pf_r is not None),
-        profit_block
-    ])
 
-    # Render table (sequencer prints the dashed title)
-    headers = [f"{LEFT_PAD}Activity", "Status", "Details"]
-    write_table(title=None, headers=headers, rows=rows)
+    profit_status = _ok(pos_r is not None and pf_r is not None)
+    pos_str = f"${int(pos_r)}" if isinstance(pos_r, (int, float)) else ("—" if pos_r is None else f"${pos_r}")
+    pf_str  = f"${int(pf_r)}"  if isinstance(pf_r,  (int, float)) else ("—" if pf_r  is None else f"${pf_r}")
+
+    profit_block = (
+        f"👤 Single {pos_str} ({psrc.get('pos','—')})\n"
+        f"🧺 Portfolio {pf_str} ({psrc.get('pf','—')})"
+    )
+    rows.append([f"{ICON_PROF_ROW} Profit thresholds", profit_status, _indent_block(profit_block, 2)])
+
+    # Render table (sequencer prints the dashed section header)
+    write_table(title=None, headers=["Activity", "Status", "Details"], rows=rows)

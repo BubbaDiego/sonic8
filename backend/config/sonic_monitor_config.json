@@ -8,13 +8,13 @@
       "market": true,
       "price": true
     },
-    "xcom_live": true
+    "xcom_live": false
   },
   "liquid": {
     "thresholds": {
       "BTC": 5.3,
       "ETH": 111.0,
-      "SOL": 8.0
+      "SOL": 1.5
     },
     "blast": {
       "BTC": 5,
