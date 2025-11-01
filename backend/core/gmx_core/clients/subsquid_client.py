@@ -59,7 +59,3 @@ query PositionsByAccount($account: String!, $limit: Int!) {
   }
 }
 """
-
-
-Subsquid v2 endpoints (Arbitrum, Avalanche, Botanix) per docs; the precise schema is stable for core entities but GMX has changed names in the past — we’ll update quickly if fields differ. 
-docs.gmx.io
