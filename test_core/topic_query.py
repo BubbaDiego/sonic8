@@ -6,6 +6,17 @@ try:
 except Exception:  # pragma: no cover
     fuzz = None
 
+# Heuristics for heavy API tests (we skip these unless topic says otherwise)
+HEAVY_MARKERS = (
+    "import fastapi",
+    "from fastapi",
+    "import starlette",
+    "from starlette",
+    "import pydantic",
+    "from pydantic",
+)
+API_INTENT_TOKENS = {"api", "fastapi", "openapi", "route", "routes", "bp", "blueprint"}
+
 
 def _fuzzy_hit(text: str, query: str, threshold: int) -> bool:
     if not fuzz:
@@ -55,29 +66,47 @@ def expand_with_synonyms(topics: List[str], synonyms: Dict[str, List[str]]) -> L
         expanded.add(t)
         for syn in synonyms.get(t, []):
             expanded.add(syn)
+    # Quality of life: add a couple common variants
+    if "launch" in expanded:
+        expanded.update({"launch_pad", "launchpad", "lp"})
     return sorted(expanded)
 
 
-def plan(topic_words: List[str], fuzzy: int, topics_meta: Dict, extra_paths: List[str]) -> Tuple[List[str], str, List[str]]:
+def plan(
+    topic_words: List[str],
+    fuzzy: int,
+    topics_meta: Dict,
+    extra_paths: List[str],
+) -> Tuple[List[str], str, List[str]]:
     """
     File-system scan:
       - Gather test files under extra_paths (or test_core/tests by default)
       - Pick files whose filename/content match any topic term (fuzzy or substring)
-      - Return file paths (strict discovery), a helpful -k expression, and the hit list
+      - Skip heavy API tests unless topic clearly intends API work
+      - Return file paths (strict discovery), a helpful -k expression, and the file hit list
     """
     topic_terms = expand_with_synonyms(topic_words, topics_meta.get("synonyms", {}))
     test_files = _iter_test_files(extra_paths)
+    include_api = any(tok.lower() in API_INTENT_TOKENS for tok in topic_terms)
 
     hits: List[str] = []
     for f in test_files:
-        hay = f.name + "\n" + _read_text_safe(f)
+        text = _read_text_safe(f)
+        # default: skip heavy tests unless user intent says API
+        if not include_api:
+            lower = text.lower()
+            if any(hint in lower for hint in HEAVY_MARKERS):
+                continue
+        hay = f.name + "\n" + text
         for t in topic_terms:
             if _fuzzy_hit(hay, t, threshold=fuzzy):
                 hits.append(str(f))
                 break
 
-    # If nothing matched, fall back to default discovery root to be helpful.
-    paths = hits if hits else ["test_core/tests"]
+    # If nothing matched: return empty to let caller show a friendly message.
+    if not hits:
+        return [], _build_k_expr(topic_terms), []
+
     tokens = set(topic_terms) | {Path(p).stem for p in hits}
     k_expr = _build_k_expr(tokens)
-    return paths, k_expr, hits
+    return hits, k_expr, hits
