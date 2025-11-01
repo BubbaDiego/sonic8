@@ -81,6 +81,32 @@ def _as_channel_map(
     return explicit
 
 
+def _resolve_voice_provider(dl: DataLocker, cfg: XComConfigService) -> dict[str, Any]:
+    """
+    Prefer 'twilio' provider. If JSON returns {}, fall back to system var 'xcom_providers.twilio.enabled'.
+    Default to enabled=True so STUB/lab runs aren't blocked.
+    """
+    # Prefer Twilio explicitly (we're doing voice calls)
+    prov = cfg.get_provider("twilio")
+
+    # If JSON has nothing, consult system var
+    if not isinstance(prov, dict) or not prov:
+        try:
+            sysvars = getattr(dl, "system", None)
+            xpv = (sysvars.get_var("xcom_providers") or {}) if sysvars else {}
+            tw = xpv.get("twilio") or {}
+            if isinstance(tw, dict) and "enabled" in tw:
+                prov = {"enabled": bool(tw.get("enabled"))}
+        except Exception:
+            prov = prov or {}
+
+    # If still nothing, assume enabled (VoiceService can still decide based on creds)
+    if not isinstance(prov, dict) or not prov:
+        prov = {"enabled": True}
+
+    return prov
+
+
 def dispatch_notifications(
     *,
     monitor_name: str,
@@ -100,7 +126,7 @@ def dispatch_notifications(
           "voice": {"ok": bool, "sid": "...", "to": "...", "from": "..."} | {"ok": False, "skip": "..."},
           "system": {"ok": bool}, "sms": {...}, "tts": {...}
         },
-        "success": bool,  # True if any requested-and-permitted channel succeeded
+        "success": bool,
         "context": {...}, "result": {...}
       }
     """
@@ -155,8 +181,15 @@ def dispatch_notifications(
             summary["channels"]["voice"] = {"ok": False, "skip": str(reason or "xcom-not-ready")}
         else:
             try:
-                # Prefer "api" provider; fallback to "twilio" (both patterns exist in some configs)
-                provider_cfg = cfg.get_provider("api") or cfg.get_provider("twilio") or {}
+                provider_cfg = _resolve_voice_provider(dl, cfg)
+
+                # Log the resolved provider gate (enabled flag) to kill ambiguity
+                log.debug(
+                    "XCOM voice provider resolved",
+                    source="dispatch_notifications",
+                    payload={"provider": provider_cfg},
+                )
+
                 if isinstance(provider_cfg, dict) and (provider_cfg.get("enabled", True) is False):
                     summary["channels"]["voice"] = {"ok": False, "skip": "provider-disabled"}
                 else:

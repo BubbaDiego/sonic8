@@ -1,261 +1,192 @@
-"""Twilio voice calling utilities for XCom notifications."""
-
 from __future__ import annotations
 
-import logging
 import os
+import html
 import re
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, Optional, Tuple
 
-from twilio.rest import Client
-
-from backend.core.reporting_core.xcom_reporter import (
-    twilio_fail,
-    twilio_skip,
-    twilio_start,
-    twilio_success,
-)
-from backend.core.config_core import sonic_config_bridge as C
-from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
-
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from backend.core.xcom_core.xcom_config_service import XComConfigService
-
-E164 = re.compile(r"^\+[1-9]\d{6,14}$")
+from backend.core.logging import log
 
 
-def _xcom_live() -> bool:
-    """Return the XCom live/dry-run toggle from JSON config."""
-    return C.get_xcom_live()
+# --- tiny dotenv (no deps) ----------------------------------------------------
+
+def _parse_dotenv_guess(root_hint: Optional[str] = None) -> Dict[str, str]:
+    """
+    Minimal .env reader (KEY=VALUE only). No quoting/escaping. Ignores comments.
+    Tries a few likely locations if root_hint not given.
+    """
+    candidates = []
+    if root_hint and os.path.isfile(root_hint):
+        candidates.append(root_hint)
+    else:
+        for p in (".env", "backend/.env", "C:/sonic7/.env", "C:\\sonic7\\.env"):
+            if os.path.isfile(p):
+                candidates.append(p)
+    env: Dict[str, str] = {}
+    for path in candidates:
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    s = line.strip()
+                    if not s or s.startswith("#") or "=" not in s:
+                        continue
+                    k, v = s.split("=", 1)
+                    env[k.strip()] = v.strip()
+            if env:
+                return env
+        except Exception:
+            pass
+    return {}
 
 
-def _as_bool(value):
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return bool(value)
+def _expand_placeholder(val: Optional[str], dot: Dict[str, str]) -> Optional[str]:
+    """
+    Expand ${NAME} or $NAME from os.environ or .env dict. If not resolvable, return original.
+    """
+    if not val:
+        return val
+    # ${NAME}
+    m = re.fullmatch(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", val)
+    if m:
+        key = m.group(1)
+        return os.environ.get(key) or dot.get(key) or val
+    # $NAME
+    m = re.fullmatch(r"\$([A-Za-z_][A-Za-z0-9_]*)", val)
+    if m:
+        key = m.group(1)
+        return os.environ.get(key) or dot.get(key) or val
+    return val
 
+
+def _get_env_synonyms(dot: Dict[str, str], names: Tuple[str, ...]) -> Optional[str]:
+    """
+    Return the first non-empty value among the provided name tuple.
+    Expands ${VAR}/$VAR placeholders if encountered.
+    """
+    for n in names:
+        v = os.environ.get(n)
+        if v is None and dot:
+            v = dot.get(n)
+        v = _expand_placeholder(v, dot)
+        if v is not None and str(v).strip():
+            return v.strip()
+    return None
+
+
+# --- service ------------------------------------------------------------------
 
 class VoiceService:
-    """Thin wrapper around the Twilio SDK with Studio Flow support."""
+    """
+    Minimal voice dialer over Twilio.
 
-    def __init__(self, config: dict | None):
-        self.config = config or {}
-        self.logger = logging.getLogger("xcom.voice")
-        self.dl = None
+    provider_cfg: dict with provider options. This implementation cares about:
+      - 'enabled': bool  (if False -> skip immediately)
+      - optional overrides for sid/token/from/to/flow if you ever want to put them in JSON
 
-        account_sid = self.config.get("account_sid") or os.getenv("TWILIO_ACCOUNT_SID")
-        auth_token = self.config.get("auth_token") or os.getenv("TWILIO_AUTH_TOKEN")
-        if not account_sid or not auth_token:
-            raise RuntimeError("Twilio creds missing (ACCOUNT_SID / AUTH_TOKEN).")
+    Credentials & numbers are resolved with precedence:
+      1) provider_cfg overrides if present
+      2) os.environ (supports TWILIO_SID/TWILIO_ACCOUNT_SID, TWILIO_FROM/TWILIO_PHONE_NUMBER, TWILIO_TO/MY_PHONE_NUMBER)
+      3) minimal .env parser fallback (same shell, no extra deps)
 
-        self.client = Client(account_sid, auth_token)
+    Returns from call():
+      (ok: bool, sid: Optional[str], to_number: Optional[str], from_number: Optional[str])
+    """
 
-    @staticmethod
-    def _pick(*values: Optional[str]) -> str:
-        for value in values:
-            if value is not None and str(value).strip():
-                return str(value).strip()
-        return ""
+    def __init__(self, provider_cfg: Optional[Dict[str, Any]] = None) -> None:
+        self.cfg: Dict[str, Any] = dict(provider_cfg or {})
 
-    def _normalize_e164(self, raw: str, default_country: str = "+1") -> str:
-        """Best-effort cleanup of common North American number formats."""
+    def _resolve_enabled(self, dl) -> bool:
+        # provider flag wins if present
+        if "enabled" in self.cfg:
+            return bool(self.cfg.get("enabled"))
+        # else try system var
+        try:
+            sysvars = getattr(dl, "system", None)
+            if sysvars:
+                xpv = (sysvars.get_var("xcom_providers") or {})
+                tw = xpv.get("twilio") or {}
+                if "enabled" in tw:
+                    return bool(tw.get("enabled"))
+        except Exception:
+            pass
+        # default to True so STUB/lab runs aren't blocked
+        return True
 
-        number = str(raw or "").strip()
-        if E164.match(number):
-            return number
-
-        digits = re.sub(r"\D", "", number)
-        if len(digits) == 10:
-            return f"{default_country}{digits}"
-        if len(digits) == 11 and digits.startswith("1"):
-            return f"+{digits}"
-        if number.startswith("+6") and digits.startswith("619") and len(digits) == 10:
-            return f"{default_country}{digits}"
-
-        return number
-
-    def _validate_e164(self, label: str, number: str) -> str:
-        if not number or not E164.match(number):
-            raise ValueError(f"{label} must be E.164 like +14155552671 (got {number!r})")
-        return number
-
-    def _xcom_allowed(self, dl=None) -> bool:
-        _dl = dl or getattr(self, "dl", None)
-        cfg = getattr(_dl, "global_config", None) if _dl else None
-        ok, why = xcom_ready(_dl, cfg=cfg)
-        if not ok:
-            try:
-                self.logger.debug("VoiceService suppressed: %s", why)
-            except Exception:
-                pass
-        return ok
-
-    def call(
-        self,
-        to_number: Optional[str],
-        subject: str,
-        body: str,
-        *,
-        monitor_name: str | None = None,
-        xcom_config_service: "XComConfigService" | None = None,
-        channels: Optional[dict] = None,
-        dl=None,
-    ) -> Tuple[bool, str, str, str]:
-        """Initiate a voice notification via Twilio.
-
-        Returns a tuple of ``(success, sid_or_error, to_number, from_number)``. When
-        a Studio Flow SID is configured we prefer that, otherwise a simple TwiML
-        call is used.
-        """
-
-        if not self._xcom_allowed(dl):
-            return False, "xcom_guard", "", ""
-
-        if not self.config.get("enabled", False):
-            self.logger.warning("VoiceService: provider disabled → skipping call")
-            return False, "provider-disabled", "", ""
-
-        effective_channels = channels
-        if effective_channels is None and monitor_name and xcom_config_service:
-            try:
-                effective_channels = xcom_config_service.channels_for(monitor_name)
-            except Exception:
-                effective_channels = None
-
-        if effective_channels is not None:
-            live = bool(effective_channels.get("live", True))
-            voice_enabled = bool(effective_channels.get("voice", True))
-        else:
-            live = _xcom_live()
-            voice_enabled = True
-
-        if not live or not voice_enabled:
-            self.logger.warning("VoiceService: provider disabled -> skipping call")
-            return False, "disabled", "", ""
-
-        from backend.core.reporting_core.sonic_reporting.xcom_extras import read_voice_cooldown_remaining
-        rem, _ = read_voice_cooldown_remaining(locals().get("dl"))
-        if rem > 0:
-            # quiet skip; cooldown is active
-            return False, "voice-cooldown", "", ""
-
-        from_number = self._pick(
-            self.config.get("default_from_phone"),
-            os.getenv("TWILIO_FROM_PHONE"),
-            os.getenv("TWILIO_PHONE_NUMBER"),
+    def _collect_creds_and_numbers(self, dl) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]:
+        dot = _parse_dotenv_guess()
+        # Prefer canonical keys first, then Twilio's legacy names
+        sid = (
+            self.cfg.get("account_sid")
+            or _get_env_synonyms(dot, ("TWILIO_SID", "TWILIO_ACCOUNT_SID"))
         )
-        to_resolved = self._pick(
-            to_number,
-            self.config.get("default_to_phone"),
-            os.getenv("TWILIO_TO_PHONE"),
-            os.getenv("MY_PHONE_NUMBER"),
+        tok = (
+            self.cfg.get("auth_token")
+            or _get_env_synonyms(dot, ("TWILIO_AUTH_TOKEN",))
         )
-        flow_sid = self._pick(self.config.get("flow_sid"), os.getenv("TWILIO_FLOW_SID"))
-        use_studio = _as_bool(self.config.get("use_studio", False))
-
-        raw_from, raw_to = from_number, to_resolved
-        from_number = self._normalize_e164(from_number)
-        to_resolved = self._normalize_e164(to_resolved)
-        self.logger.info(
-            "VoiceService: dialing (to=%s → %s, from=%s → %s)",
-            raw_to,
-            to_resolved,
-            raw_from,
-            from_number,
+        from_num = (
+            self.cfg.get("from")
+            or _get_env_synonyms(dot, ("TWILIO_FROM", "TWILIO_PHONE_NUMBER"))
         )
+        to_num = (
+            self.cfg.get("to")
+            or _get_env_synonyms(dot, ("TWILIO_TO", "MY_PHONE_NUMBER"))
+        )
+        flow_sid = (
+            self.cfg.get("flow_sid")
+            or _get_env_synonyms(dot, ("TWILIO_FLOW_SID",))
+        )
+        return sid, tok, from_num, to_num, flow_sid
 
-        from_number = self._validate_e164("TWILIO_FROM_PHONE", from_number)
-        to_resolved = self._validate_e164("Recipient", to_resolved)
+    def call(self, template: Any, subject: str, body: str, *, dl=None) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
+        # Gate on provider enabled
+        if not self._resolve_enabled(dl):
+            log.debug("VoiceService: provider disabled -> skipping call", source="voice")
+            return False, None, None, None
 
-        twilio_start("voice")
+        sid, tok, from_num, to_num, flow_sid = self._collect_creds_and_numbers(dl)
 
-        voice_name = (self.config.get("voice_name") or "Polly.Amy").strip()
-        if not voice_name:
-            voice_name = "Polly.Amy"
+        # Hard requirements
+        if not sid or not tok:
+            log.debug(
+                "VoiceService: creds missing -> skip",
+                source="voice",
+                payload={"need": "TWILIO_SID/TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN"},
+            )
+            return False, None, None, None
+
+        if not to_num or not from_num:
+            log.debug(
+                "VoiceService: numbers missing -> skip",
+                source="voice",
+                payload={"need": "TWILIO_TO/MY_PHONE_NUMBER and TWILIO_FROM/TWILIO_PHONE_NUMBER"},
+            )
+            return False, None, None, None
+
+        # Build simple TwiML from subject/body
+        msg = (subject or "").strip()
+        if body and body.strip():
+            if msg:
+                msg += ". "
+            msg += body.strip()
+        twiml = f"<Response><Say>{html.escape(msg) or 'Alert'}</Say></Response>"
 
         try:
-            if not live:
-                twilio_skip("voice", "disabled")
-                return False, "xcom-disabled", to_resolved, from_number
-            if use_studio and flow_sid and not re.search(r"your_flow_sid_here", flow_sid, re.IGNORECASE):
-                execution = self.client.studio.v2.flows(flow_sid).executions.create(
-                    to=to_resolved,
-                    from_=from_number,
-                    parameters={
-                        "subject": subject or "Sonic Alert",
-                        "body": body or "",
-                        "voice": voice_name,
-                    },
-                )
-                sid = getattr(execution, "sid", "")
-                self.logger.info(
-                    "Twilio Studio execution created: sid=%s to=%s from=%s flow=%s",
-                    sid,
-                    to_resolved,
-                    from_number,
-                    flow_sid,
-                )
-                from backend.core.reporting_core.sonic_reporting.xcom_extras import get_default_voice_cooldown, set_voice_cooldown
-                cfg = getattr(locals().get("dl"), "global_config", None)
-                set_voice_cooldown(locals().get("dl"), get_default_voice_cooldown(cfg))
-                twilio_success("voice", note="studio execution")
-                return True, sid, to_resolved, from_number
+            # import inside so tests can stub sys.modules cleanly
+            from twilio.rest import Client  # type: ignore
 
-            # If speak_plain is enabled, say exactly the body (or subject); otherwise keep a small prefix
-            speak_plain = _as_bool(self.config.get("speak_plain", False))
+            client = Client(sid, tok)
+            call = client.calls.create(to=to_num, from_=from_num, twiml=twiml)
 
-            # Tunables (ms) — small intro/outro cushions to avoid clip at start/end
-            start_delay_ms = int(self.config.get("start_delay_ms", 400))  # 0.4s before speaking
-            end_delay_ms = int(self.config.get("end_delay_ms", 250))  # 0.25s after speaking
-            # Smooth pace (percentage of normal). 90–98 feels natural for most messages.
-            prosody_rate_pct = int(self.config.get("prosody_rate_pct", 94))
-
-            text = (body or subject or "")
-            if not text:
-                text = "Alert"
-            if not speak_plain:
-                text = f"Sonic says: {text}"
-
-            # Basic escaping to keep TwiML/SSML safe
-            def _esc(s: str) -> str:
-                return s.replace("&", "and").replace("<", " ").replace(">", " ")
-
-            # If we’re on a Polly voice, leverage SSML <break/> and <prosody>.
-            # Otherwise, fall back to a TwiML <Pause/> prefix to create the intro cushion.
-            is_polly = voice_name.lower().startswith("polly.")
-            if is_polly:
-                ssml = (
-                    f"<prosody rate='{prosody_rate_pct}%'>"
-                    f"<break time='{start_delay_ms}ms'/>"
-                    f"{_esc(text)}"
-                    f"<break time='{end_delay_ms}ms'/>"
-                    f"</prosody>"
-                )
-                twiml = f"<Response><Say voice='{voice_name}'>{ssml}</Say></Response>"
-            else:
-                # TwiML-level pause first, then speak (no SSML available for non-Polly voices)
-                pause_secs = max(0, round(start_delay_ms / 1000, 1))
-                twiml = (
-                    f"<Response>"
-                    f"<Pause length='{pause_secs}'/>"
-                    f"<Say voice='{voice_name}'>{_esc(text)}</Say>"
-                    f"</Response>"
-                )
-            call = self.client.calls.create(to=to_resolved, from_=from_number, twiml=twiml)
-            sid = getattr(call, "sid", "")
-            self.logger.info(
-                "Twilio call created: sid=%s to=%s from=%s",
-                sid,
-                to_resolved,
-                from_number,
+            log.debug(
+                "VoiceService: call placed",
+                source="voice",
+                payload={"sid": getattr(call, "sid", None), "to": to_num, "from": from_num},
             )
-            from backend.core.reporting_core.sonic_reporting.xcom_extras import get_default_voice_cooldown, set_voice_cooldown
-            cfg = getattr(locals().get("dl"), "global_config", None)
-            set_voice_cooldown(locals().get("dl"), get_default_voice_cooldown(cfg))
-            twilio_success("voice", note="call created")
-            return True, sid, to_resolved, from_number
-        except Exception as exc:  # pragma: no cover - Twilio network errors
-            # Let the reporter surface the concise failure; avoid duplicate logging here.
-            twilio_fail("voice", exc)
-            # Do not re-raise; the failure is reported upstream and we return a tuple.
-            return False, str(exc), to_resolved, from_number
+            return True, getattr(call, "sid", None), to_num, from_num
+
+        except ModuleNotFoundError as e:
+            log.warning("VoiceService import error", source="voice", payload={"error": str(e)})
+            return False, None, None, None
+        except Exception as e:
+            log.warning("VoiceService Twilio error", source="voice", payload={"error": str(e)})
+            return False, None, None, None
