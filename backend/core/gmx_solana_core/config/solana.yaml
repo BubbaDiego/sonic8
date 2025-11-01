@@ -1,0 +1,10 @@
+# Solana config for GMX-Solana Core (Phase S-1)
+solana:
+  # cluster: mainnet | devnet | testnet
+  cluster: "mainnet"
+  # RPC endpoint to use. Can be an ENV token "ENV:SOL_RPC"
+  rpc_http: "ENV:SOL_RPC"
+  # Optional program IDs (fill in Phase S-2 if desired)
+  # programs:
+  #   store: "ENV:GMSOL_STORE"
+  #   treasury: "ENV:GMSOL_TREASURY"
