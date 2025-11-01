@@ -1,0 +1,11 @@
+synonyms:
+  launch: [lp, launchpad, mission-control]
+  recover: [restore, rescue, resume]
+  goals: [objective, target, kpi]
+  web: [browser, site, page]
+
+bundles:
+  launch-suite:
+    - launch
+    - goals
+    - web
