@@ -80,7 +80,7 @@ def plan(
 ) -> Tuple[List[str], str, List[str]]:
     """
     File-system scan:
-      - Gather test files under extra_paths (or test_core/tests by default)
+      - Gather test files under extra_paths (or test_core/tests and tests by default)
       - Pick files whose filename/content match any topic term (fuzzy or substring)
       - Skip heavy API tests unless topic clearly intends API work
       - Return file paths (strict discovery), a helpful -k expression, and the file hit list
