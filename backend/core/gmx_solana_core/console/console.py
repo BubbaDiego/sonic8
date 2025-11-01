@@ -102,7 +102,7 @@ def cmd_markets(args):
         return 2
     try:
         _ensure_base58(store_pid, "Store program id")
-        info = ms.list_markets_basic(store_pid)
+        info = ms.list_markets_basic(store_pid, limit=args.limit, page=args.page)
         print(pretty(info)); return 0
     except (ValueError, RpcError) as e:
         print(f"error: {e}"); return 2
@@ -142,8 +142,10 @@ def build_parser():
     sub.add_parser("smoke").set_defaults(func=cmd_smoke)
     sub.add_parser("rpc-ping").set_defaults(func=cmd_rpc_ping)
 
-    s = sub.add_parser("markets", help="enumerate Store accounts (light)")
+    s = sub.add_parser("markets", help="enumerate Store accounts (paged)")
     s.add_argument("--store", help="GMX-Solana Store program id (overrides env/config)")
+    s.add_argument("--limit", type=int, default=100)
+    s.add_argument("--page", type=int, default=1)
     s.set_defaults(func=cmd_markets)
 
     s = sub.add_parser("positions", help="list wallet positions via memcmp (S-2.1)")

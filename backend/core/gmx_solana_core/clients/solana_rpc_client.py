@@ -32,15 +32,14 @@ class SolanaRpcClient:
             raise RpcError(f"RPC {method} returned error: {data['error']}")
         return data["result"]
 
-    # --- Diagnostics
+    # Diagnostics
     def get_health(self) -> str:
-        # returns "ok" on healthy nodes
         return self._call("getHealth")
 
     def get_slot(self, commitment: str = "confirmed") -> int:
         return self._call("getSlot", [{"commitment": commitment}])
 
-    # --- Data
+    # Standard GPA (may be blocked/too big on public nodes)
     def get_program_accounts(
         self,
         program_id: str,
@@ -55,3 +54,26 @@ class SolanaRpcClient:
         if memcmp:
             cfg["filters"] = [{"memcmp": m} for m in memcmp]
         return self._call("getProgramAccounts", [program_id, cfg])
+
+    # Helius GPA-v2 with pagination (limit/page)
+    def get_program_accounts_v2(
+        self,
+        program_id: str,
+        limit: int = 100,
+        page: int = 1,
+        encoding: str = "base64",
+        data_slice: Optional[Dict[str, int]] = None,
+        memcmp: Optional[List[Dict[str, str]]] = None,
+        commitment: str = "confirmed",
+    ) -> List[Json]:
+        cfg: Dict[str, Any] = {
+            "encoding": encoding,
+            "commitment": commitment,
+            "limit": limit,
+            "page": page,
+        }
+        if data_slice:
+            cfg["dataSlice"] = data_slice
+        if memcmp:
+            cfg["filters"] = [{"memcmp": m} for m in memcmp]
+        return self._call("getProgramAccountsV2", [program_id, cfg])
