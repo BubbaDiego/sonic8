@@ -133,6 +133,12 @@ class VoiceService:
             self.logger.warning("VoiceService: provider disabled -> skipping call")
             return False, "disabled", "", ""
 
+        from backend.core.reporting_core.sonic_reporting.xcom_extras import read_voice_cooldown_remaining
+        rem, _ = read_voice_cooldown_remaining(locals().get("dl"))
+        if rem > 0:
+            # quiet skip; cooldown is active
+            return False, "voice-cooldown", "", ""
+
         from_number = self._pick(
             self.config.get("default_from_phone"),
             os.getenv("TWILIO_FROM_PHONE"),
@@ -189,6 +195,9 @@ class VoiceService:
                     from_number,
                     flow_sid,
                 )
+                from backend.core.reporting_core.sonic_reporting.xcom_extras import get_default_voice_cooldown, set_voice_cooldown
+                cfg = getattr(locals().get("dl"), "global_config", None)
+                set_voice_cooldown(locals().get("dl"), get_default_voice_cooldown(cfg))
                 twilio_success("voice", note="studio execution")
                 return True, sid, to_resolved, from_number
 
@@ -240,6 +249,9 @@ class VoiceService:
                 to_resolved,
                 from_number,
             )
+            from backend.core.reporting_core.sonic_reporting.xcom_extras import get_default_voice_cooldown, set_voice_cooldown
+            cfg = getattr(locals().get("dl"), "global_config", None)
+            set_voice_cooldown(locals().get("dl"), get_default_voice_cooldown(cfg))
             twilio_success("voice", note="call created")
             return True, sid, to_resolved, from_number
         except Exception as exc:  # pragma: no cover - Twilio network errors
