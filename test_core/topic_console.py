@@ -134,8 +134,9 @@ def main(argv: List[str] = None) -> int:
 
     paths, k_expr, hits = plan(args.topic, args.fuzzy, topics_meta, args.path)
 
+    selected_paths = paths if paths else (args.path or ["test_core/tests"])
     if args.show or args.dry_run:
-        print(f"Selected tests: {len(hits)}")
+        print(f"Selected tests: {len(hits)} | Files: {len(selected_paths)}")
         for h in hits:
             print("  ", h)
         if args.dry_run:
@@ -147,9 +148,9 @@ def main(argv: List[str] = None) -> int:
     junit_path = reports_dir / f"{stamp}_{args.junit_prefix}.xml"
 
     cmd = ["pytest"]
-    # Forward discovery paths (default includes test_core/tests)
-    if args.path:
-        cmd += sorted(set(args.path))
+    # STRICT discovery: only the matched files if we found any
+    if selected_paths:
+        cmd += sorted(set(selected_paths))
 
     if k_expr:
         if args.exclude:
