@@ -1,185 +1,118 @@
-import json
-import sys
-import os
-from copy import deepcopy
+from __future__ import annotations
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-try:
-    from flask import current_app, has_app_context
-except Exception:  # pragma: no cover - optional dependency
-    current_app = type("obj", (), {})()
+from typing import Any, Mapping
 
-    def has_app_context():  # pragma: no cover - simple stub
-        return False
-from core.logging import log
-from backend.utils.env_utils import _resolve_env
-from backend.core.config_core import sonic_config_bridge as C
 
-ENV_MAP = {
-    "email": {
-        "smtp": {
-            "server": "SMTP_SERVER",
-            "port": "SMTP_PORT",
-            "username": "SMTP_USERNAME",
-            "password": "SMTP_PASSWORD",
-            "default_recipient": "SMTP_DEFAULT_RECIPIENT",
-        }
-    },
-    "twilio": {
-        "account_sid": "TWILIO_ACCOUNT_SID",
-        "auth_token": "TWILIO_AUTH_TOKEN",
-        "flow_sid": ["TWILIO_FLOW_SID", "TWILIO_STUDIO_FLOW_SID"],
-        "default_to_phone": [
-            "MY_PHONE_NUMBER",
-            "TWILIO_TO_PHONE",
-            "TWILIO_DEFAULT_TO_PHONE",
-        ],
-        "default_from_phone": [
-            "TWILIO_PHONE_NUMBER",
-            "TWILIO_FROM_PHONE",
-            "TWILIO_DEFAULT_FROM_PHONE",
-        ],
-        "use_studio": None,
-        "speak_plain": "TWILIO_SPEAK_PLAIN",
-    },
-    "sms": {
-        "sid": "TWILIO_ACCOUNT_SID",
-        "token": "TWILIO_AUTH_TOKEN",
-        "from_number": ["TWILIO_FROM_PHONE", "TWILIO_PHONE_NUMBER"],
-        "default_recipient": ["TWILIO_TO_PHONE", "MY_PHONE_NUMBER"],
-        "carrier_gateway": "SMS_CARRIER_GATEWAY",
-    },
-    "alexa": {
-        "enabled": "ALEXA_ENABLED",
-        "access_code": "ALEXA_ACCESS_CODE",
-    },
-}
+def _ensure_bool_map(m: Mapping[str, Any] | None) -> dict[str, bool]:
+    out = {"voice": False, "system": False, "sms": False, "tts": False}
+    if not isinstance(m, Mapping):
+        return out
+    for k in ("voice", "system", "sms", "tts"):
+        v = m.get(k)
+        out[k] = bool(v)
+    return out
+
 
 class XComConfigService:
-    def __init__(self, dl_sys):
-        # dl_sys may be either a DataLocker or its DLSystemDataManager.
-        # It is stored for use when a Flask ``current_app`` context is not
-        # available.
-        self.dl_sys = dl_sys
+    """
+    Resolve effective XCOM settings from loaded JSON config with user rule:
 
-    def _resolve_system_manager(self):
-        locker = None
-        if has_app_context():
-            locker = getattr(current_app, "data_locker", None)
+        • If a per-monitor mapping exists (channels.<monitor> or <monitor>.notifications),
+          IGNORE the global channels.voice toggle completely.
+        • Only when there is NO per-monitor mapping do we consider channels.voice.enabled.
 
-        if locker and hasattr(locker, "system"):
-            return locker.system
+    Also exposes get_provider(name) to retrieve provider configuration. VoiceService
+    will still respect environment variables, so returning {} is acceptable.
+    """
 
-        if hasattr(self.dl_sys, "get_var"):
-            return self.dl_sys
+    def __init__(self, system: Any | None = None, *, config: Mapping[str, Any] | None = None) -> None:
+        self.system = system
+        self.config: Mapping[str, Any] = (
+            config if isinstance(config, Mapping) else self._extract_cfg_from_system(system)
+        ) or {}
 
-        if hasattr(self.dl_sys, "system") and hasattr(self.dl_sys.system, "get_var"):
-            return self.dl_sys.system
+    # ---------------- internal ----------------
 
-        raise Exception("data_locker.system not available")
+    @staticmethod
+    def _extract_cfg_from_system(system: Any | None) -> Mapping[str, Any] | None:
+        if system is None:
+            return None
+        # common places to find the loaded JSON
+        for attr in ("global_config", "config"):
+            cfg = getattr(system, attr, None)
+            if isinstance(cfg, Mapping):
+                return cfg
+        # try to walk to DataLocker
+        for dl_attr in ("dl", "locker", "data_locker"):
+            dl = getattr(system, dl_attr, None)
+            if dl is None:
+                continue
+            cfg = getattr(dl, "global_config", None)
+            if isinstance(cfg, Mapping):
+                return cfg
+        return None
 
-    def _load_providers(self) -> dict:
-        try:
-            system_mgr = self._resolve_system_manager()
-            config = system_mgr.get_var("xcom_providers") or {}
-            if isinstance(config, str):
-                try:
-                    config = json.loads(config)
-                except Exception:
-                    config = {}
-            return config if isinstance(config, dict) else {}
-        except Exception as exc:
-            log.error(
-                f"Failed to load xcom providers: {exc}",
-                source="XComConfigService",
-            )
-            return {}
+    # ---------------- public ----------------
 
-    def get_provider(self, name: str) -> dict:
-        try:
-            config = self._load_providers()
-            provider_name = "twilio" if name == "api" else name
-            provider = config.get(provider_name) or {}
-
-            # Explicitly fallback to environment vars for Twilio ("api")
-            if provider_name == "twilio" and (not provider or not provider.get("account_sid")):
-                def _env_first(keys):
-                    if isinstance(keys, str):
-                        return os.getenv(keys)
-                    for key in keys or []:
-                        if not key:
-                            continue
-                        value = os.getenv(key)
-                        if value:
-                            return value
-                    return None
-
-                provider = {
-                    "enabled": True,
-                    "account_sid": os.getenv("TWILIO_ACCOUNT_SID"),
-                    "auth_token": os.getenv("TWILIO_AUTH_TOKEN"),
-                    "flow_sid": _env_first(["TWILIO_FLOW_SID", "TWILIO_STUDIO_FLOW_SID"]),
-                    "default_to_phone": _env_first(
-                        ["MY_PHONE_NUMBER", "TWILIO_TO_PHONE", "TWILIO_DEFAULT_TO_PHONE"]
-                    ),
-                    "default_from_phone": _env_first(
-                        ["TWILIO_PHONE_NUMBER", "TWILIO_FROM_PHONE", "TWILIO_DEFAULT_FROM_PHONE"]
-                    ),
-                    "use_studio": False,
-                    "speak_plain": os.getenv("TWILIO_SPEAK_PLAIN"),
-                }
-
-            # Fallback to Twilio environment vars for SMS provider
-            if provider_name == "sms" and (not provider or not provider.get("sid")):
-                provider = {
-                    "enabled": True,
-                    "sid": os.getenv("TWILIO_ACCOUNT_SID"),
-                    "token": os.getenv("TWILIO_AUTH_TOKEN"),
-                    "from_number": os.getenv("TWILIO_FROM_PHONE") or os.getenv("TWILIO_PHONE_NUMBER"),
-                    "default_recipient": os.getenv("TWILIO_TO_PHONE") or os.getenv("MY_PHONE_NUMBER"),
-                    "carrier_gateway": os.getenv("SMS_CARRIER_GATEWAY"),
-                }
-
-            def apply_env(data: dict, mapping: dict) -> dict:
-                for k, v in list(data.items()):
-                    sub_map = mapping.get(k, {}) if isinstance(mapping, dict) else {}
-                    if isinstance(v, dict):
-                        data[k] = apply_env(v, sub_map if isinstance(sub_map, dict) else {})
-                    else:
-                        env_key = None
-                        if isinstance(sub_map, str):
-                            env_key = sub_map
-                        elif isinstance(sub_map, (list, tuple)):
-                            for cand in sub_map:
-                                cand = str(cand or "")
-                                if cand and os.getenv(cand):
-                                    env_key = cand
-                                    break
-                        data[k] = _resolve_env(v, env_key)
-                return data
-
-            env_map = ENV_MAP.get(provider_name, {})
-            if isinstance(provider, dict):
-                provider = apply_env(deepcopy(provider), env_map)
-
-            return provider
-        except Exception as e:
-            log.error(f"Failed to load provider config for '{name}': {e}", source="XComConfigService")
-            return {}
-
-    def channels_for(self, monitor: str) -> dict:
+    def channels_for(self, monitor_name: str) -> dict[str, bool]:
         """
-        Build effective channel flags for the given monitor.
-        LIVE/DRY-RUN now follows the JSON bridge; 'voice' ignores global and defaults True.
-        """
+        Return effective per-monitor channel booleans with keys:
+            {"voice": bool, "system": bool, "sms": bool, "tts": bool}
 
-        cfg = self._load_providers() or {}
-        m = cfg.get(monitor) or {}
-        live = C.get_xcom_live()
-        return {
-            "live": live,
-            "system": bool(m.get("system", True)),
-            "voice": bool(m.get("voice", False)),
-            "sms": bool(m.get("sms", False)),
-            "tts": bool(m.get("tts", False)),
-        }
+        Priority (highest to lowest):
+          1) <monitor>.notifications (e.g., config["liquid"]["notifications"])
+          2) channels.<monitor> (e.g., config["channels"]["liquid"])
+          3) channels.voice.enabled — ONLY IF 1) and 2) are both absent
+          4) default all False
+        """
+        cfg = self.config or {}
+        mkey = str(monitor_name).strip()
+
+        # 1) <monitor>.notifications
+        sect = cfg.get(mkey)
+        if isinstance(sect, Mapping):
+            notif = sect.get("notifications")
+            if isinstance(notif, Mapping):
+                return _ensure_bool_map(notif)
+
+        # 2) channels.<monitor>
+        channels = cfg.get("channels")
+        if isinstance(channels, Mapping):
+            per = channels.get(mkey)
+            if isinstance(per, Mapping):
+                return _ensure_bool_map(per)
+
+            # Only if there is NO per-monitor mapping do we consider global channels.voice
+            v = channels.get("voice")
+            if isinstance(v, Mapping) and ("enabled" in v):
+                return _ensure_bool_map({"voice": bool(v.get("enabled"))})
+
+        # 3) fall back: nothing configured -> all False
+        return {"voice": False, "system": False, "sms": False, "tts": False}
+
+    def get_provider(self, name: str) -> dict[str, Any]:
+        """
+        Return provider config for 'twilio' or 'api' if present in config.
+        VoiceService will still respect environment variables, so {} is acceptable here.
+        """
+        cfg = self.config or {}
+
+        # Prefer explicit providers section
+        providers = cfg.get("providers")
+        if isinstance(providers, Mapping):
+            p = providers.get(name)
+            if isinstance(p, Mapping):
+                return dict(p)
+
+        # Legacy: some configs tuck the voice provider under channels.voice.provider
+        ch = cfg.get("channels")
+        if isinstance(ch, Mapping):
+            voice = ch.get("voice")
+            if isinstance(voice, Mapping):
+                if str(voice.get("provider", "")).strip().lower() == name.lower():
+                    # merge any 'config' dict under voice into provider data
+                    data = dict(voice.get("config") or {})
+                    data["enabled"] = bool(voice.get("enabled", True))
+                    return data
+
+        return {}
