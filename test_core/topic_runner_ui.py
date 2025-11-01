@@ -82,6 +82,13 @@ def run_ui() -> None:
         print(" 3) Recent Topics…")
         print(" 0) Exit")
         choice = input("Select > ").strip()
+        # Quick-run: if you type a topic here (not a number), we just run it.
+        if choice and not choice.isdigit():
+            topic = choice
+            if topic.lower() in {"exit", "quit"}:
+                return
+            _run_topics([topic])
+            continue
 
         if choice == "1":
             topic = input("Topic word/phrase > ").strip()
@@ -109,4 +116,3 @@ def run_ui() -> None:
             return
         else:
             print("Invalid selection.")
-
