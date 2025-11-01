@@ -109,7 +109,12 @@ def main(argv: List[str] = None) -> int:
     p.add_argument("--topic", action="append", help="Topic keyword; repeatable.")
     p.add_argument("--bundle", action="append", default=[], help="Bundle name from topics.yaml; repeatable.")
     # default discovery stays inside test_core/tests to avoid repo-wide import bombs
-    p.add_argument("--path", action="append", default=["test_core/tests"], help="Discovery roots; default=test_core/tests")
+    p.add_argument(
+        "--path",
+        action="append",
+        default=["test_core/tests", "tests"],
+        help="Discovery roots; default=test_core/tests, tests",
+    )
     p.add_argument("--fuzzy", type=int, default=75, help="Fuzzy threshold (0-100). 0 = substring only.")
     p.add_argument("--exclude", action="append", default=[], help="Exclude keywords joined with 'or' in a NOT clause.")
     p.add_argument("--parallel", type=int, default=0, help="pytest-xdist workers; 0 disables.")

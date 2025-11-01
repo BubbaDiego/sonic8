@@ -1023,7 +1023,12 @@ def cli_entry(argv: Optional[Sequence[str]] | None = None) -> None:
     t = sub.add_parser('test', help='Run tests by topic/bundle with reports')
     t.add_argument('--topic', action='append', help='Topic keyword; repeatable.')
     t.add_argument('--bundle', action='append', default=[], help='Bundle from test_core/topics.yaml; repeatable.')
-    t.add_argument('--path', action='append', default=['test_core/tests'], help='Discovery roots; default=test_core/tests')
+    t.add_argument(
+        '--path',
+        action='append',
+        default=['test_core/tests', 'tests'],
+        help='Discovery roots; default=test_core/tests, tests',
+    )
     t.add_argument('--fuzzy', type=int, default=75, help='Fuzzy threshold (0-100).')
     t.add_argument('--exclude', action='append', default=[], help='Exclude keywords joined in a NOT clause.')
     t.add_argument('--parallel', type=int, default=0, help='pytest-xdist workers; 0 disables.')
