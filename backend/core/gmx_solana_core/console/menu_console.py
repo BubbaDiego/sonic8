@@ -37,8 +37,11 @@ def ensure_base58(s: str, label: str) -> None:
         raise ValueError(f"{label} must be base58 (no 0,O,I,l or symbols).")
 
 def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
-    """Try signer_loader → mnemonic (m/44'/501'/0'/0') → base58 in file."""
-    # project loader
+    """
+    Try signer_loader → mnemonic → base58 in file.
+    Mnemonic parser is tolerant: strips punctuation, lowercases, collapses whitespace.
+    """
+    # 1) project loader (as-is)
     try:
         from importlib import import_module
         sl = import_module("backend.services.signer_loader")
@@ -57,41 +60,49 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
                         pk = obj.pubkey()
                         return str(pk) if pk is not None else None
                     if isinstance(obj, str) and len(obj.split()) >= 12:
-                        txt = obj
+                        raw_mn = obj
                     else:
-                        txt = None
+                        raw_mn = None
                 except Exception:
-                    txt = None
+                    raw_mn = None
             else:
-                txt = None
+                raw_mn = None
     except Exception:
-        txt = None
+        raw_mn = None
 
-    # from file
-    if signer_path.exists() and not txt:
-        txt = signer_path.read_text(encoding="utf-8").strip()
+    # 2) read file if needed
+    if signer_path.exists() and not raw_mn:
+        raw_mn = signer_path.read_text(encoding="utf-8", errors="ignore")
 
-    if txt:
-        words = txt.split()
-        if len(words) in (12, 15, 18, 21, 24):
-            try:
-                from bip_utils import Bip39MnemonicValidator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
-                Bip39MnemonicValidator(txt).Validate()
-                seed = Bip39SeedGenerator(txt).Generate()
-                ctx = Bip44.FromSeed(seed, Bip44Coins.SOLANA)
-                acct = ctx.Purpose().Coin().Account(0).Change(Bip44Changes.CHAIN_EXT).AddressIndex(0)
-                return acct.PublicKey().ToAddress()
-            except Exception:
-                pass
-        # scan for base58 pubkey
+    # 3) try tolerant mnemonic cleanup first
+    if raw_mn:
         import re
-        tokens = re.findall(r"[1-9A-HJ-NP-Za-km-z]{32,}", txt)
+        # keep letters/spaces only, lowercase, collapse spaces
+        cleaned = re.sub(r"[^A-Za-z\s]", " ", raw_mn).lower()
+        words = [w for w in cleaned.split() if w]
+        # try common lengths in descending order
+        for n in (24, 21, 18, 15, 12):
+            if len(words) >= n:
+                cand = " ".join(words[:n])
+                try:
+                    from bip_utils import Bip39MnemonicValidator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
+                    Bip39MnemonicValidator(cand).Validate()
+                    seed = Bip39SeedGenerator(cand).Generate()
+                    ctx = Bip44.FromSeed(seed, Bip44Coins.SOLANA)
+                    acct = ctx.Purpose().Coin().Account(0).Change(Bip44Changes.CHAIN_EXT).AddressIndex(0)
+                    return acct.PublicKey().ToAddress()
+                except Exception:
+                    continue  # try shorter length or fallback below
+
+        # 4) scan for any base58 pubkey in the text
+        tokens = re.findall(r"[1-9A-HJ-NP-Za-km-z]{32,}", raw_mn)
         for t in tokens:
             try:
                 ensure_base58(t, "Wallet pubkey in signer file")
                 return t
             except Exception:
                 continue
+
     return None
 
 def find_default_signer() -> Path:
