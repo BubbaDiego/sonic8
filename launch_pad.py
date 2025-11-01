@@ -90,6 +90,7 @@ ICON = {
     "rocket": "🚀",
     "verify_db": "🗄️",
     "tests": "🧪",
+    "topic": "🔎",
     "wallet": "💼",
     "cyclone": "🌀",
     "test_ui": "🧪🖥️",
@@ -440,6 +441,17 @@ def run_tests():
     except Exception as exc:
         console.print(f"[yellow]No test runner available ({exc}).[/]")
 
+
+
+
+def run_topic_test_runner() -> None:
+    console.log("🔎 Launching Topic Test Runner…")
+    try:
+        from test_core.topic_runner_ui import run_ui as run_topic_ui
+    except Exception as exc:
+        console.print(f"[yellow]Topic runner unavailable ({exc}).[/]")
+        return
+    run_topic_ui()
 
 def run_test_console():
     try:
@@ -948,6 +960,7 @@ def main() -> None:
                 f"13. {ICON['cyclone']} Launch Cyclone App",
                 f"14. {ICON['goals']} Session / Goals",
                 f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
+                f"16. {ICON['topic']} Topic Test Runner",
                 f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window)",
             ]
         )
@@ -985,6 +998,8 @@ def main() -> None:
             run_menu_action("Session / Goals", goals_menu)
         elif choice == "15":
             run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
+        elif choice == "16":
+            run_menu_action("Topic Test Runner", run_topic_test_runner)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
         elif choice in {"0", "q", "quit", "exit"}:
