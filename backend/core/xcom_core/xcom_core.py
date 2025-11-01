@@ -3,6 +3,7 @@ import sys
 import os
 import json
 from datetime import datetime, timezone
+from typing import Any, Mapping, Sequence
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from backend.core.xcom_core.xcom_config_service import XComConfigService
 from backend.core.xcom_core.email_service import EmailService
@@ -22,12 +23,179 @@ def _as_bool(value):
         return value.strip().lower() in {"1", "true", "yes", "on"}
     return bool(value)
 
+
+def _normalize_mode(mode: Mapping[str, Any] | Sequence[str] | str | None) -> dict[str, bool]:
+    """Normalise ``mode`` inputs into a consistent channel map."""
+
+    normalized = {"voice": False, "system": False, "sms": False, "tts": False}
+    if mode is None:
+        return normalized
+
+    if isinstance(mode, Mapping):
+        for key, value in mode.items():
+            key_lower = str(key).lower()
+            if key_lower in normalized:
+                normalized[key_lower] = bool(value)
+        return normalized
+
+    if isinstance(mode, str):
+        items = [part.strip().lower() for part in mode.split(",") if part.strip()]
+    else:
+        items = [str(part).strip().lower() for part in mode if str(part).strip()]
+
+    for name in normalized:
+        normalized[name] = name in items
+    return normalized
+
+
+def _derive_level(explicit_level: str | None, requested_channels: Sequence[str]) -> str:
+    if explicit_level:
+        level = explicit_level.strip().upper()
+        if level in {"LOW", "MEDIUM", "HIGH"}:
+            return level
+
+    requested = {channel.lower() for channel in requested_channels}
+    if "voice" in requested:
+        return "HIGH"
+    if "sms" in requested:
+        return "MEDIUM"
+    return "LOW"
+
+
+def _mode_sequence(channel_map: Mapping[str, bool]) -> list[str] | None:
+    order = ("voice", "sms", "tts", "system")
+    sequence = [name for name in order if channel_map.get(name, False)]
+    return sequence or None
+
+
+def _build_channel_summary(
+    channel_map: Mapping[str, bool],
+    results: Mapping[str, Any],
+    voice_block_reason: str | None,
+) -> dict[str, dict[str, Any]]:
+    summary: dict[str, dict[str, Any]] = {}
+
+    voice_enabled = channel_map.get("voice", False)
+    if voice_block_reason and not voice_enabled:
+        summary["voice"] = {"ok": False, "skip": voice_block_reason}
+    elif voice_enabled:
+        ok = bool(results.get("voice")) or bool(results.get("voice_ok", False))
+        entry: dict[str, Any] = {"ok": ok}
+        if not ok:
+            suppressed = results.get("voice_suppressed")
+            if isinstance(suppressed, Mapping):
+                entry["skip"] = suppressed.get("reason", "suppressed")
+            elif suppressed:
+                entry["skip"] = "suppressed"
+            elif results.get("twilio_error"):
+                entry["skip"] = "twilio_error"
+        summary["voice"] = entry
+    else:
+        summary["voice"] = {"ok": False, "skip": "disabled"}
+
+    system_enabled = channel_map.get("system", False)
+    summary["system"] = {"ok": True} if system_enabled else {"ok": False, "skip": "disabled"}
+
+    for name in ("sms", "tts"):
+        if channel_map.get(name, False):
+            summary[name] = {"ok": bool(results.get(name))}
+        else:
+            summary[name] = {"ok": False, "skip": "disabled"}
+
+    return summary
+
+
+def _requested_channels(channel_map: Mapping[str, bool]) -> list[str]:
+    return [name for name, enabled in channel_map.items() if enabled]
+
+
+def dispatch_notifications(
+    *,
+    monitor_name: str,
+    result: Mapping[str, Any] | None = None,
+    channels: Mapping[str, Any] | Sequence[str] | str | None = None,
+    context: Mapping[str, Any] | None = None,
+    db_path: str | None = None,
+    core: "XComCore" | None = None,
+) -> dict[str, Any]:
+    """Consolidated dispatcher shared by the console and legacy core."""
+
+    context = dict(context or {})
+    result = dict(result or {})
+
+    channel_map = _normalize_mode(channels)
+    breach = bool(result.get("breach", False))
+    voice_requested = channel_map.get("voice", False)
+    voice_block_reason = None
+    if voice_requested and not breach:
+        channel_map["voice"] = False
+        voice_block_reason = "breach_gate"
+
+    requested = _requested_channels(channel_map)
+    level = _derive_level(result.get("level") or context.get("level"), requested)
+
+    subject = context.get("subject") or f"[{monitor_name}] {level.title()} alert"
+    body = context.get("body") or result.get("message") or ""
+    recipient = context.get("recipient") or ""
+    initiator = context.get("initiator") or monitor_name
+    ignore_cooldown = bool(context.get("ignore_cooldown", False))
+
+    locker = DataLocker.get_instance(str(db_path or MOTHER_DB_PATH))
+    xcom = core if core is not None else XComCore(locker.system)
+
+    log.debug(
+        "Dispatching XCom notification",
+        source="dispatch_notifications",
+        payload={
+            "monitor": monitor_name,
+            "level": level,
+            "channels": requested or ["auto"],
+            "breach": breach,
+        },
+    )
+
+    mode = _mode_sequence(channel_map)
+    results = xcom._legacy_send_notification(
+        level=level,
+        subject=subject,
+        body=body,
+        recipient=recipient,
+        initiator=initiator,
+        mode=mode,
+        ignore_cooldown=ignore_cooldown,
+        breach=breach,
+    )
+
+    if voice_block_reason and voice_requested:
+        results.setdefault("voice_suppressed", {"reason": voice_block_reason})
+
+    summary = {
+        "monitor": monitor_name,
+        "breach": breach,
+        "requested_channels": requested,
+        "level": level,
+        "subject": subject,
+        "success": bool(results.get("success")),
+        "results": results,
+        "context": context,
+        "result": result,
+    }
+    summary["channels"] = _build_channel_summary(channel_map, results, voice_block_reason)
+
+    log.debug(
+        "XCom dispatch completed",
+        source="dispatch_notifications",
+        payload={"monitor": monitor_name, "success": summary["success"]},
+    )
+
+    return summary
+
 class XComCore:
     def __init__(self, dl_sys_data_manager):
         self.config_service = XComConfigService(dl_sys_data_manager)
         self.log = []
 
-    def send_notification(
+    def _legacy_send_notification(
         self,
         level: str,
         subject: str,
@@ -250,6 +418,40 @@ class XComCore:
 
         results["success"] = success
         return results
+
+    def send_notification(
+        self,
+        level: str,
+        subject: str,
+        body: str,
+        recipient: str = "",
+        initiator: str = "system",
+        mode: str | list[str] | None = None,
+        ignore_cooldown: bool = False,
+        **kwargs,
+    ):
+        channels = _normalize_mode(mode)
+        breach = bool(kwargs.get("breach", channels.get("voice", False)))
+        monitor_name = str(kwargs.get("monitor", "console"))
+
+        context = dict(kwargs.get("context") or {})
+        context.setdefault("subject", subject)
+        context.setdefault("body", body)
+        context.setdefault("initiator", initiator)
+        context.setdefault("recipient", recipient)
+        if ignore_cooldown:
+            context.setdefault("ignore_cooldown", True)
+
+        summary = dispatch_notifications(
+            monitor_name=monitor_name,
+            result={"breach": breach, "level": level, "message": body},
+            channels=channels,
+            context=context,
+            db_path=kwargs.get("db_path"),
+            core=self,
+        )
+
+        return summary.get("results", {})
 
 def get_latest_xcom_monitor_entry(data_locker):
     ledger_mgr = data_locker.monitor_ledger if hasattr(data_locker, "monitor_ledger") else data_locker.ledger
