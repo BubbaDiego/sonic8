@@ -93,7 +93,7 @@ def _compute_travel_pct(side: str,
 def _row_from_position(p: Any) -> Dict[str, Any]:
     """
     Normalize a position into the row contract required by both UIs.
-    We prefer precomputed fields from the Data Locker and only compute Travel% if missing.
+    Prefer precomputed fields from the Data Locker; compute Travel% only if missing.
     """
     asset = _get(p, "asset", "symbol", "name", default=None)
     side = str(_get(p, "side", default="")).upper() or "LONG"
@@ -119,6 +119,7 @@ def _row_from_position(p: Any) -> Dict[str, Any]:
         "lev": lev,
         "liq": liq_pct,
         "travel": travel,
+        # raw inputs in case you want to debug downstream
         "_entry": _as_float(_get(p, "entry", "entry_price")),
         "_mark": _as_float(_get(p, "mark", "mark_price", "price")),
         "_liq_price": liq_price,
@@ -146,29 +147,29 @@ def _totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     short_val = 0.0
 
     for r in rows:
-        v = r.get("value")
-        if isinstance(v, (int, float)):
-            fv = float(v)
-            total_value += fv
+        v = _as_float(r.get("value"))
+        pnl = _as_float(r.get("pnl"))
+        lev = _as_float(r.get("lev"))
+        trv = _as_float(r.get("travel"))
 
-            lev = r.get("lev")
-            if isinstance(lev, (int, float)):
-                w_lev_num += abs(fv) * float(lev)
-                w_lev_den += abs(fv)
+        if isinstance(v, float):
+            total_value += v
 
-            trv = r.get("travel")
-            if isinstance(trv, (int, float)):
-                w_trv_num += abs(fv) * float(trv)
-                w_trv_den += abs(fv)
+            if isinstance(lev, float):
+                w_lev_num += abs(v) * lev
+                w_lev_den += abs(v)
+
+            if isinstance(trv, float):
+                w_trv_num += abs(v) * trv
+                w_trv_den += abs(v)
 
             if (r.get("side") or "").upper() == "SHORT":
-                short_val += fv
+                short_val += v
             else:
-                long_val += fv
+                long_val += v
 
-        pnl = r.get("pnl")
-        if isinstance(pnl, (int, float)):
-            total_pnl += float(pnl)
+        if isinstance(pnl, float):
+            total_pnl += pnl
 
     avg_lev_weighted = (w_lev_num / w_lev_den) if w_lev_den > 0 else None
     avg_travel_weighted = (w_trv_num / w_trv_den) if w_trv_den > 0 else None
