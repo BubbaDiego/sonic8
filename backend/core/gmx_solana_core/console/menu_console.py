@@ -1,17 +1,17 @@
 """
 GMX-Solana Interactive Console (menu-based)
-- No tedious flags. Numbered options.
-- Keeps session state (RPC, Store PID, signer path, owner offset).
-- Minimal network deps (stdlib + bip-utils for mnemonic derivation).
+- Numbered options; session state (RPC, Store PID, signer path, owner offset).
+- Derives signer pubkey from a 12-word mnemonic (m/44'/501'/0'/0') or any base58 in the file.
+- Uses SolanaRpcClient (GPA-v2), MarketService (paged), SolanaPositionSource (memcmp).
 
-Hotkeys:
+Menu:
   [1] RPC health
   [2] Set Store Program ID
-  [3] Set Signer file path
+  [3] Set Signer file path  (re-derive pubkey)
   [4] Markets (paged)
   [5] Positions (from signer)
   [6] Positions (enter pubkey)
-  [7] Set paging (limit/page)
+  [7] Set paging (limit/page/owner-offset)
   [0] Exit
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from ..config_loader import load_solana_config
+from ..config_loader import load_solana_config, pretty
 from ..clients.solana_rpc_client import SolanaRpcClient, RpcError
 from ..services.market_service import MarketService
 from ..services.position_source_solana import SolanaPositionSource
@@ -35,9 +35,7 @@ def ensure_base58(s: str, label: str) -> None:
         raise ValueError(f"{label} must be base58 (no 0,O,I,l or symbols).")
 
 def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
-    """
-    Try: backend.services.signer_loader → BIP39 mnemonic (m/44'/501'/0'/0') → base58 in file.
-    """
+    """Try signer_loader → mnemonic (m/44'/501'/0'/0') → base58 in file."""
     # 1) project loader
     try:
         from importlib import import_module
@@ -46,16 +44,13 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
             if hasattr(sl, attr):
                 try:
                     val = getattr(sl, attr)(str(signer_path))
-                    if isinstance(val, str):
-                        return val
-                except Exception:
-                    pass
+                    if isinstance(val, str): return val
+                except Exception: pass
         for attr in ("load_signer","get_signer","load_mnemonic","load_wallet"):
             if hasattr(sl, attr):
                 try:
                     obj = getattr(sl, attr)(str(signer_path))
-                    if hasattr(obj, "public_key"):
-                        return str(getattr(obj,"public_key"))
+                    if hasattr(obj, "public_key"): return str(getattr(obj,"public_key"))
                     if hasattr(obj, "pubkey"):
                         pk = obj.pubkey()
                         return str(pk) if pk is not None else None
@@ -87,7 +82,6 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
                 return acct.PublicKey().ToAddress()
             except Exception:
                 pass
-
         # 4) scan for base58 pubkey
         import re
         tokens = re.findall(r"[1-9A-HJ-NP-Za-km-z]{32,}", txt)
@@ -97,12 +91,10 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
                 return t
             except Exception:
                 continue
-
     return None
 
 class Session:
     def __init__(self):
-        # cfg
         try:
             cfg = load_solana_config(str(DEFAULT_CFG))
         except Exception as e:
@@ -110,7 +102,6 @@ class Session:
             cfg = {}
         self.rpc_http = cfg.get("rpc_http") or os.environ.get("SOL_RPC") or ""
         self.store_pid = (cfg.get("programs") or {}).get("store") or os.environ.get("GMSOL_STORE") or ""
-        # defaults
         self.signer_file = (Path.cwd() / "signer.txt")
         if not self.signer_file.exists():
             alt = Path.cwd() / "signer"
@@ -119,7 +110,10 @@ class Session:
         self.owner_offset = 8
         self.limit = 100
         self.page = 1
-        self.verbose = False
+        self.signer_pubkey: Optional[str] = derive_pubkey_from_signer(self.signer_file)
+
+    def refresh_signer_pubkey(self):
+        self.signer_pubkey = derive_pubkey_from_signer(self.signer_file)
 
     def rpc(self) -> SolanaRpcClient:
         return SolanaRpcClient(self.rpc_http)
@@ -128,10 +122,11 @@ class Session:
         print("="*72)
         print(" GMX-Solana Interactive Console ".center(72, " "))
         print("="*72)
-        print(f" RPC      : {self.rpc_http or '(not set)'}")
-        print(f" Store PID: {self.store_pid or '(not set)'}")
-        print(f" Signer   : {self.signer_file}")
-        print(f" OwnerOff : {self.owner_offset}   Paging: limit={self.limit} page={self.page}")
+        print(f" RPC        : {self.rpc_http or '(not set)'}")
+        print(f" Store PID  : {self.store_pid or '(not set)'}")
+        print(f" Signer File: {self.signer_file}")
+        print(f" Signer Pub : {self.signer_pubkey or '(not derived)'}")
+        print(f" OwnerOff   : {self.owner_offset}   Paging: limit={self.limit} page={self.page}")
         print("-"*72)
 
     def input_b58(self, prompt: str, default: Optional[str]="") -> str:
@@ -145,25 +140,21 @@ def menu_loop(sess: Session):
         sess.header()
         print("  [1] RPC health")
         print("  [2] Set Store Program ID")
-        print("  [3] Set Signer file path")
+        print("  [3] Set Signer file path (re-derive pubkey)")
         print("  [4] Markets (paged)")
         print("  [5] Positions (from signer)")
         print("  [6] Positions (enter pubkey)")
-        print("  [7] Set paging (limit/page)")
+        print("  [7] Set paging (limit/page/owner-offset)")
         print("  [0] Exit")
         choice = input("Select: ").strip()
 
         try:
             if choice == "1":
                 rpc = sess.rpc()
-                try:
-                    print(" health:", rpc.get_health())
-                except RpcError as e:
-                    print(" getHealth error:", e)
-                try:
-                    print(" slot  :", rpc.get_slot())
-                except RpcError as e:
-                    print(" getSlot error:", e)
+                try:  print(" health:", rpc.get_health())
+                except RpcError as e: print(" getHealth error:", e)
+                try:  print(" slot  :", rpc.get_slot())
+                except RpcError as e: print(" getSlot error:", e)
                 input("\n<enter>")
 
             elif choice == "2":
@@ -173,6 +164,12 @@ def menu_loop(sess: Session):
                 p = input(f"Signer file path [{sess.signer_file}]: ").strip()
                 if p:
                     sess.signer_file = Path(p)
+                sess.refresh_signer_pubkey()
+                if sess.signer_pubkey:
+                    print("Derived signer pubkey:", sess.signer_pubkey)
+                else:
+                    print("⚠️  Could not derive signer pubkey from file.")
+                input("\n<enter>")
 
             elif choice == "4":
                 if not sess.store_pid:
@@ -181,7 +178,6 @@ def menu_loop(sess: Session):
                     ms = MarketService(sess.rpc())
                     try:
                         out = ms.list_markets_basic(sess.store_pid, limit=sess.limit, page=sess.page)
-                        from ..config_loader import pretty
                         print(pretty(out))
                     except Exception as e:
                         print("error:", e)
@@ -191,7 +187,7 @@ def menu_loop(sess: Session):
                 if not sess.store_pid:
                     print("⚠️  Set Store Program ID first (menu [2]).")
                 else:
-                    pub = derive_pubkey_from_signer(sess.signer_file)
+                    pub = sess.signer_pubkey or derive_pubkey_from_signer(sess.signer_file)
                     if not pub:
                         print(f"⚠️  Could not derive wallet from signer: {sess.signer_file}")
                     else:
@@ -203,7 +199,6 @@ def menu_loop(sess: Session):
                                 wallet_b58=pub,
                                 owner_offset=sess.owner_offset
                             )
-                            from ..config_loader import pretty
                             print(pretty(out))
                         except Exception as e:
                             print("error:", e)
@@ -213,7 +208,7 @@ def menu_loop(sess: Session):
                 if not sess.store_pid:
                     print("⚠️  Set Store Program ID first (menu [2]).")
                 else:
-                    pub = sess.input_b58("Wallet pubkey")
+                    pub = sess.input_b58("Wallet pubkey", sess.signer_pubkey or "")
                     src = SolanaPositionSource(sess.rpc())
                     try:
                         out = src.list_open_positions_basic(
@@ -221,7 +216,6 @@ def menu_loop(sess: Session):
                             wallet_b58=pub,
                             owner_offset=sess.owner_offset
                         )
-                        from ..config_loader import pretty
                         print(pretty(out))
                     except Exception as e:
                         print("error:", e)
@@ -246,7 +240,6 @@ def menu_loop(sess: Session):
             input("\n<enter>")
 
 def main():
-    # wire RPC from ENV or config
     if not os.environ.get("SOL_RPC"):
         print("ℹ️  SOL_RPC not set; using value from config if present.")
     sess = Session()

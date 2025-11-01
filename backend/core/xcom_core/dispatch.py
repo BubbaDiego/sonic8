@@ -14,7 +14,8 @@ Behavior:
   • Channels are taken from explicit call or JSON defaults via XComConfigService.channels_for(monitor).
   • A voice call is attempted only when result['breach'] is True AND xcom_ready(...) gates are satisfied.
   • Blast radius is display-only (never gates dispatch).
-  • Global 'channels.voice' is IGNORED if a per-monitor mapping exists (channels.<monitor> or <monitor>.notifications).
+  • If a per-monitor mapping exists (channels.<monitor> or <monitor>.notifications), the global channels.voice is ignored.
+  • Logs resolved defaults and effective channels each call to ease diagnostics.
 """
 
 from __future__ import annotations
@@ -113,9 +114,27 @@ def dispatch_notifications(
 
     # DataLocker + consolidated config view
     dl = DataLocker.get_instance(str(db_path or MOTHER_DB_PATH))
-    cfg = XComConfigService(getattr(dl, "system", None))
 
+    # IMPORTANT: Pass both system and the loaded JSON so per-monitor channels are honored.
+    cfg = XComConfigService(getattr(dl, "system", None), config=getattr(dl, "global_config", None))
+
+    # For diagnostics: show JSON-resolved defaults for the monitor
+    resolved_defaults = cfg.channels_for(monitor_name)
+
+    # Merge caller-provided channels with defaults
     chan = _as_channel_map(channels, cfg, monitor_name)
+
+    # Log the channels we resolved (once per dispatch) to make any config mismatch obvious
+    log.debug(
+        "XCOM channels resolved",
+        source="dispatch_notifications",
+        payload={
+            "monitor": monitor_name,
+            "defaults": resolved_defaults,
+            "effective": {k: bool(chan.get(k)) for k in ("voice", "system", "sms", "tts")},
+        },
+    )
+
     summary: dict[str, Any] = {
         "monitor": monitor_name,
         "breach": breach,
