@@ -350,3 +350,33 @@ def xcom_live_status(dl=None, cfg: dict | None = None) -> tuple[bool, str]:
         return b, "ENV"
 
     return False, "—"
+
+
+def xcom_ready(dl=None, *, cfg: dict | None = None) -> tuple[bool, str]:
+    """
+    True when outbound alerts are allowed **right now**:
+      - XCOM Live is ON (file/db/env)
+      - global snooze is not active
+      - voice cooldown is not active (so providers can use one gate)
+    """
+    live, src = xcom_live_status(dl, cfg)
+    if not live:
+        return False, f"xcom_off[{src}]"
+    rem, _ = read_snooze_remaining(dl)
+    if rem > 0:
+        return False, f"snoozed({rem}s)"
+    vrem, _ = read_voice_cooldown_remaining(dl)
+    if vrem > 0:
+        return False, f"voice_cooldown({vrem}s)"
+    return True, "ok"
+
+
+def xcom_guard(dl, *, triggered: bool, cfg: dict | None = None) -> tuple[bool, str]:
+    """
+    Full notify gate for monitors:
+      - requires a real breach (triggered=True), and
+      - passes xcom_ready() checks.
+    """
+    if not triggered:
+        return False, "not_triggered"
+    return xcom_ready(dl, cfg=cfg)
