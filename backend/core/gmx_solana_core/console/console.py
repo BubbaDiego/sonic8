@@ -58,15 +58,23 @@ def _wallet_from_signer_file(signer_path: Path) -> Optional[str]:
                     if hasattr(obj, "public_key"): return str(getattr(obj,"public_key"))
                     if isinstance(obj, str) and len(obj.split()) >= 12:
                         print("ℹ️  Found mnemonic; expose a pubkey function in signer_loader or pass --wallet directly.")
-                        return None
+                        # fall through to scan file
                 except Exception: pass
-    except Exception: pass
+    except Exception:
+        pass
+
+    # Fallback: scan file for something that looks like a base58 pubkey
     if signer_path.exists():
-        txt = signer_path.read_text(encoding="utf-8").strip().split()
-        if len(txt)==1:
+        import re
+        txt = signer_path.read_text(encoding="utf-8")
+        # pick the first base58-ish token 32+ chars
+        tokens = re.findall(r"[1-9A-HJ-NP-Za-km-z]{32,}", txt)
+        for t in tokens:
             try:
-                _ensure_base58(txt[0], "Wallet pubkey in signer file"); return txt[0]
-            except Exception: pass
+                _ensure_base58(t, "Wallet pubkey in signer file")
+                return t
+            except Exception:
+                continue
     return None
 
 # ---- commands
