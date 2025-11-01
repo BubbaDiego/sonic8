@@ -4,6 +4,7 @@ import socket
 import os
 from pathlib import Path
 from .writer import write_line
+from .config_probe import discover_json_path, parse_json
 
 def _lan_ip() -> str:
     try:
@@ -116,8 +117,17 @@ def render_banner(dl, json_path: str) -> None:
     write_line(f"🌐 LAN Dashboard : http://{lan}:5001/dashboard")
     write_line(f"🔌 LAN API      : http://{lan}:5000")
 
-    # XCOM Live (runtime-first)
+    # unified JSON-aware probe (FILE > DB > ENV), same as Sync Data
+    try:
+        _path = discover_json_path(default_json_path)
+        _cfg_obj, _err, _meta = parse_json(_path)
+        _cfg_for_probe = _cfg_obj if isinstance(_cfg_obj, dict) else getattr(dl, 'global_config', None)
+    except Exception:
+        _cfg_for_probe = getattr(dl, 'global_config', None)
+    _live, _src = xcom_live_status(dl, _cfg_for_probe)
+    print(f"  🛰 XCOM Live : {'🟢 ON' if _live else '🔴 OFF'} [{_src}]")    # XCOM Live (runtime-first)
     from .xcom_extras import xcom_live_status
+from .config_probe import discover_json_path, parse_json
     cfg_for_probe = getattr(dl, "global_config", None)
     live, src = xcom_live_status(dl, cfg_for_probe)
     status = "🟢 ON" if live else "🔴 OFF"
@@ -161,3 +171,4 @@ def render_banner(dl, json_path: str) -> None:
         exists, inside_repo = True, True
     write_line(f"🔌 Database       : {db_path}  (ACTIVE for runtime data, provenance=DEFAULT, "
                f"{'exists' if exists else 'missing'}, {'inside repo' if inside_repo else 'outside repo'})")
+
