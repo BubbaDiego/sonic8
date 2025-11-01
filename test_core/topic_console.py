@@ -1,13 +1,13 @@
 import argparse
 import json
+import os
+import shlex
+import subprocess
+import sys
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, Any, List
-import subprocess
-import sys
-import shlex
-import os
+from typing import Any, Dict, List
 
 from .topic_query import plan
 
@@ -105,10 +105,10 @@ def _write_md(md_path: Path, topic_args: List[str], k_expr: str, results: Dict[s
 
 def main(argv: List[str] = None) -> int:
     p = argparse.ArgumentParser(prog="topic-console", description="Run pytest by topic keywords with nifty reports.")
-    # make --topic optional (works if --bundle is supplied)
+    # --topic optional (works if --bundle supplied)
     p.add_argument("--topic", action="append", help="Topic keyword; repeatable.")
     p.add_argument("--bundle", action="append", default=[], help="Bundle name from topics.yaml; repeatable.")
-    # default discovery to test_core/tests
+    # default discovery stays inside test_core/tests to avoid repo-wide import bombs
     p.add_argument("--path", action="append", default=["test_core/tests"], help="Discovery roots; default=test_core/tests")
     p.add_argument("--fuzzy", type=int, default=75, help="Fuzzy threshold (0-100). 0 = substring only.")
     p.add_argument("--exclude", action="append", default=[], help="Exclude keywords joined with 'or' in a NOT clause.")
@@ -129,11 +129,9 @@ def main(argv: List[str] = None) -> int:
         for b in args.bundle:
             args.topic.extend(topics_meta["bundles"].get(b, []))
 
-    # Validate: at least one topic (possibly via bundle)
     if not args.topic:
         p.error("Provide at least one --topic or --bundle")
 
-    # Plan selection
     paths, k_expr, hits = plan(args.topic, args.fuzzy, topics_meta, args.path)
 
     if args.show or args.dry_run:
@@ -143,7 +141,6 @@ def main(argv: List[str] = None) -> int:
         if args.dry_run:
             return 0
 
-    # Build pytest command
     reports_dir = Path("test_core/reports")
     reports_dir.mkdir(parents=True, exist_ok=True)
     stamp = _stamp()
@@ -172,10 +169,9 @@ def main(argv: List[str] = None) -> int:
     env = os.environ.copy()
     repo_root = str(Path(__file__).resolve().parents[1])  # .../sonic7
     backend = str(Path(repo_root) / "backend")
-    if env.get("PYTHONPATH"):
-        env["PYTHONPATH"] = os.pathsep.join([repo_root, backend, env["PYTHONPATH"]])
-    else:
-        env["PYTHONPATH"] = os.pathsep.join([repo_root, backend])
+    env["PYTHONPATH"] = os.pathsep.join(
+        [repo_root, backend, env.get("PYTHONPATH", "")]
+    ).strip(os.pathsep)
 
     print("Running:", " ".join(shlex.quote(c) for c in cmd))
     rc = subprocess.call(cmd, env=env)
@@ -200,7 +196,6 @@ def main(argv: List[str] = None) -> int:
           f"{s.get('failures',0)} failed, {s.get('errors',0)} errors, "
           f"{s.get('skipped',0)} skipped in {s.get('time_s',0.0):.2f}s")
     print(f"Artifacts: {json_path}  |  {md_path}  |  {junit_path}")
-
     return rc
 
 
