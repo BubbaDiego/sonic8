@@ -181,7 +181,12 @@ def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
 
     # ── NEW: two lines directly under XCOM Live ────────────────────────────────
    # from .sonic_reporting import get_sonic_interval, read_snooze_remaining  # local import to avoid early import cycles
-    from .xcom_extras import get_sonic_interval, read_snooze_remaining
+    from .xcom_extras import (
+        get_sonic_interval,
+        read_snooze_remaining,
+        read_voice_cooldown_remaining,
+        get_default_voice_cooldown,
+    )
     from datetime import datetime, timezone
 
     # ⏱ Loop interval
@@ -215,6 +220,34 @@ def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
             "  🔕 Alert snooze",
             "✅ disabled",
             "—"
+        ])
+
+    # 🔔 Voice cooldown
+    vrem, veta = read_voice_cooldown_remaining(dl)
+    def _fmt_hms(seconds: int) -> str:
+        s = max(0, int(seconds)); h, r = divmod(s, 3600); m, s = divmod(r, 60)
+        return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+    if vrem > 0:
+        try:
+            from datetime import datetime, timezone
+            dt2 = datetime.fromtimestamp(veta, tz=timezone.utc).astimezone() if veta else None
+            eta2 = (dt2.strftime("%I:%M%p").lstrip("0").lower()) if dt2 else ""
+        except Exception:
+            eta2 = ""
+        rows.append([
+            "  🔔 Voice cooldown",
+            f"🟡 {_fmt_hms(vrem)}",
+            f"until {eta2}" if eta2 else "—"
+        ])
+    else:
+        # show idle + default seconds for clarity
+        cfg = getattr(getattr(dl, "global_config", None), "copy", lambda: None)()
+        default_cd = get_default_voice_cooldown(getattr(dl, "global_config", None))
+        rows.append([
+            "  🔔 Voice cooldown",
+            "✅ idle",
+            f"default {default_cd}s"
         ])
 
     # Config JSON path

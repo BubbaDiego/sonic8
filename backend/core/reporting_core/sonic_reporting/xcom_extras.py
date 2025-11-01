@@ -1,304 +1,352 @@
-# -*- coding: utf-8 -*-
-"""Shared helpers for Sonic/XCom status checks used by reporting and monitors."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Callable, Iterable, Optional
-import math
 import os
+import time
+from datetime import datetime, timezone
+from typing import Any, Callable, Optional, Tuple
+
+# Optional: repo-local DataLocker. Keep guarded to avoid hard import failures.
+try:
+    from backend.data.data_locker import DataLocker  # type: ignore
+except Exception:  # pragma: no cover
+    DataLocker = None  # type: ignore
+
+MONITOR_NAME = os.getenv("SONIC_MONITOR_NAME", "sonic_monitor")
+DEFAULT_INTERVAL = 60  # fallback if nothing else resolves
 
 
-_BOOL_TRUE = {"1", "true", "yes", "on", "y", "enabled", "active"}
-_BOOL_FALSE = {"0", "false", "no", "off", "n", "disabled", "inactive"}
+# ------------------------------- utils ----------------------------------------
 
+def _dl_or_singleton(dl: Any | None) -> Any | None:
+    if dl is not None:
+        return dl
+    if DataLocker:
+        try:
+            return DataLocker.get_instance()
+        except Exception:
+            return None
+    return None
 
-def _as_bool(value: Any) -> tuple[bool, bool]:
-    """Return ``(is_boolean_like, value)`` for loose truthy / falsy inputs."""
+def _fmt_hms(seconds: int) -> str:
+    s = max(0, int(seconds))
+    h, r = divmod(s, 3600)
+    m, s = divmod(r, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
-    if isinstance(value, bool):
-        return True, value
-    if isinstance(value, (int, float)):
-        return True, bool(value)
-    if isinstance(value, str):
-        text = value.strip().lower()
-        if text in _BOOL_TRUE:
-            return True, True
-        if text in _BOOL_FALSE:
-            return True, False
+def _parse_epoch_or_iso(val: Any) -> Optional[float]:
+    """Accept epoch number/str or ISO8601 (Z/offset). Return epoch seconds."""
+    try:
+        if val is None:
+            return None
+        if isinstance(val, (int, float)):
+            return float(val)
+        s = str(val).strip()
+        if s.replace(".", "", 1).isdigit():
+            return float(s)
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp()
+    except Exception:
+        return None
+
+def _as_bool(val) -> tuple[bool, bool]:
+    if isinstance(val, bool): return True, val
+    if isinstance(val, (int, float)): return True, bool(val)
+    if isinstance(val, str):
+        v = val.strip().lower()
+        if v in ("1","true","on","yes","y"):  return True, True
+        if v in ("0","false","off","no","n"): return True, False
     return False, False
 
 
-def _probe_obj_bool(obj: Any, names: Iterable[str]) -> Optional[bool]:
-    for name in names:
-        try:
-            attr = getattr(obj, name)
-        except Exception:  # pragma: no cover - defensive
-            attr = None
-        ok, value = _as_bool(attr)
-        if ok:
-            return value
-        if callable(attr):
+# ------------------------ config helpers (FILE) -------------------------------
+
+def _loop_seconds_from_cfg(cfg: dict | None) -> Optional[int]:
+    if not isinstance(cfg, dict):
+        return None
+    mon = (cfg.get("monitor") or {})
+    for key in ("loop_seconds", "interval_seconds"):
+        if key in mon:
             try:
-                result = attr()
-            except Exception:  # pragma: no cover - defensive
-                result = None
-            ok_call, value_call = _as_bool(result)
-            if ok_call:
-                return value_call
+                iv = int(mon.get(key))
+                if iv > 0:
+                    return iv
+            except Exception:
+                pass
     return None
 
+def _xcom_from_cfg(cfg: dict | None) -> tuple[Optional[bool], str]:
+    """Return (bool or None, src_label) from explicit config dict."""
+    if not isinstance(cfg, dict):
+        return None, "—"
+    mon = (cfg.get("monitor") or {})
+    if "xcom_live" in mon:
+        ok, b = _as_bool(mon.get("xcom_live"))
+        if ok: return b, "FILE"
+    ch = (cfg.get("channels") or {})
+    voice = ch.get("voice") or ch.get("xcom") or {}
+    if "enabled" in voice:
+        ok, b = _as_bool(voice.get("enabled"))
+        if ok: return b, "FILE"
+    return None, "—"
 
-def _coerce_dt(value: Any) -> Optional[datetime]:
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        dt = value
-    elif isinstance(value, (int, float)):
+def get_default_voice_cooldown(cfg: dict | None = None) -> int:
+    """default seconds for voice call cooldown (UI shows this when idle)."""
+    # 1) JSON: channels.voice.cooldown_seconds
+    try:
+        if isinstance(cfg, dict):
+            ch = cfg.get("channels") or {}
+            v = ch.get("voice") or {}
+            val = v.get("cooldown_seconds")
+            if val is not None:
+                n = int(val)
+                if n >= 0:
+                    return n
+    except Exception:
+        pass
+    # 2) ENV override
+    try:
+        env = os.getenv("VOICE_COOLDOWN_SECONDS", "").strip()
+        if env.isdigit():
+            n2 = int(env)
+            if n2 >= 0:
+                return n2
+    except Exception:
+        pass
+    # 3) fallback
+    return 180
+
+
+# ------------------------------ public API ------------------------------------
+
+def get_sonic_interval(dl: Any | None = None) -> int:
+    """
+    Poll interval (seconds) precedence:
+      1) FILE: cfg.monitor.loop_seconds (JSON-only friendly)
+      2) DB: monitor_heartbeat.interval_seconds for MONITOR_NAME
+      3) ENV: SONIC_MONITOR_INTERVAL or MONITOR_LOOP_SECONDS
+      4) DEFAULT: 60
+    """
+    locker = _dl_or_singleton(dl)
+
+    # 1) FILE (JSON)
+    try:
+        cfg = getattr(locker, "global_config", None)
+        iv = _loop_seconds_from_cfg(cfg)
+        if iv:
+            return iv
+    except Exception:
+        pass
+
+    # 2) DB (monitor_heartbeat)
+    try:
+        cur = getattr(getattr(locker, "db", None), "get_cursor", lambda: None)()
+        if cur is not None:
+            cur.execute(
+                "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name=?",
+                (MONITOR_NAME,),
+            )
+            row = cur.fetchone()
+            if row and row[0] is not None:
+                iv2 = int(row[0])
+                if iv2 > 0:
+                    return iv2
+    except Exception:
+        pass
+
+    # 3) ENV
+    for env_name in ("SONIC_MONITOR_INTERVAL", "MONITOR_LOOP_SECONDS"):
         try:
-            dt = datetime.fromtimestamp(float(value), tz=timezone.utc)
+            val = os.getenv(env_name, "").strip()
+            if val.isdigit():
+                iv3 = int(val)
+                if iv3 > 0:
+                    return iv3
         except Exception:
-            return None
-    elif isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return None
-        try:
-            dt = datetime.fromisoformat(text)
-        except Exception:
-            return None
-    else:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
-
-
-def xcom_live_status(dl=None, cfg: dict | None = None) -> tuple[bool, str]:
-    """Return ``(is_live, origin)`` probing runtime, config, DB, env in that order."""
-
-    # 1) Runtime hooks on the DataLocker instance
-    if dl is not None:
-        try:
-            for name in ("voice_service", "xcom_voice", "xcom", "voice"):
-                svc = getattr(dl, name, None)
-                if not svc:
-                    continue
-                value = _probe_obj_bool(
-                    svc,
-                    ("is_live", "live", "enabled", "is_enabled", "active", "is_active"),
-                )
-                if value is not None:
-                    return bool(value), "RUNTIME"
-                if isinstance(svc, dict):
-                    for key in ("enabled", "is_enabled", "active", "live", "is_live"):
-                        if key in svc:
-                            ok, b = _as_bool(svc.get(key))
-                            if ok:
-                                return b, "RUNTIME"
-        except Exception:  # pragma: no cover - defensive
             pass
 
-    # 2) Explicit config (passed in or hanging off the DataLocker)
-    cfg_obj: dict[str, Any] | None = cfg if isinstance(cfg, dict) else None
-    if cfg_obj is None and dl is not None:
-        maybe_cfg = getattr(dl, "global_config", None)
-        if isinstance(maybe_cfg, dict):
-            cfg_obj = maybe_cfg
-    if cfg_obj:
-        try:
-            monitor_section = cfg_obj.get("monitor") if isinstance(cfg_obj, dict) else None
-            if isinstance(monitor_section, dict):
-                ok, value = _as_bool(monitor_section.get("xcom_live"))
-                if ok:
-                    return value, "FILE"
-            # voice channel overrides in the same config blob
-            channels = cfg_obj.get("channels") if isinstance(cfg_obj, dict) else None
-            voice = {}
-            if isinstance(channels, dict):
-                voice = channels.get("voice") or channels.get("xcom") or {}
-            if isinstance(voice, dict):
-                for key in ("enabled", "active", "live", "is_live", "is_enabled"):
-                    if key in voice:
-                        ok, value = _as_bool(voice.get(key))
-                        if ok:
-                            return value, "FILE"
-        except Exception:  # pragma: no cover - defensive
-            pass
+    # 4) DEFAULT
+    return int(DEFAULT_INTERVAL)
 
-    # 3) System vars / DB backing store
-    if dl is not None:
-        try:
-            sysvars = getattr(dl, "system", None)
-            if sysvars:
-                var = sysvars.get_var("xcom") or {}
-                if isinstance(var, dict):
-                    for key in ("live", "is_live", "enabled", "is_enabled", "active"):
-                        if key in var:
-                            ok, value = _as_bool(var.get(key))
-                            if ok:
-                                return value, "DB"
-        except Exception:  # pragma: no cover - defensive
-            pass
 
-    # 4) Environment fallbacks
-    for env_key in ("SONIC_XCOM_LIVE", "XCOM_LIVE", "XCOM_ACTIVE"):
-        ok, value = _as_bool(os.getenv(env_key))
-        if ok:
-            return value, "ENV"
+def read_snooze_remaining(dl: Any | None = None) -> Tuple[int, Optional[float]]:
+    """
+    Remaining snooze seconds and ETA epoch.
 
-    return False, "—"
+    Priority:
+      1) system.liquid_snooze_until / system.global_snooze_until (epoch/ISO)
+      2) last alert + configured 'snooze_seconds' in system['liquid_monitor']
+    """
+    now = time.time()
+    try:
+        locker = _dl_or_singleton(dl)
+        sysvars = getattr(locker, "system", None)
+        if not sysvars:
+            return 0, None
+
+        until = sysvars.get_var("liquid_snooze_until") or sysvars.get_var("global_snooze_until")
+        ts = _parse_epoch_or_iso(until)
+        if ts:
+            rem = int(ts - now)
+            return (rem if rem > 0 else 0), (ts if rem > 0 else None)
+
+        liq_cfg = sysvars.get_var("liquid_monitor") or {}
+        last = liq_cfg.get("_last_alert_ts")
+        snooze = int(liq_cfg.get("snooze_seconds", 0) or 0)
+        if last and snooze > 0:
+            ts2 = float(last) + float(snooze)
+            rem2 = int(ts2 - now)
+            return (rem2 if rem2 > 0 else 0), (ts2 if rem2 > 0 else None)
+    except Exception:
+        pass
+    return 0, None
+
+
+def read_voice_cooldown_remaining(dl: Any | None = None) -> Tuple[int, Optional[float]]:
+    """
+    Remaining voice-call cooldown seconds and ETA epoch.
+    Based on system.voice_cooldown_until (epoch/ISO); returns (0, None) if idle.
+    """
+    now = time.time()
+    try:
+        locker = _dl_or_singleton(dl)
+        sysvars = getattr(locker, "system", None)
+        if not sysvars:
+            return 0, None
+        until = sysvars.get_var("voice_cooldown_until")
+        ts = _parse_epoch_or_iso(until)
+        if ts:
+            rem = int(ts - now)
+            return (rem if rem > 0 else 0), (ts if rem > 0 else None)
+    except Exception:
+        pass
+    return 0, None
+
+
+def set_voice_cooldown(dl: Any | None, seconds: int) -> None:
+    """Start (or clear with seconds<=0) the voice-call cooldown window."""
+    try:
+        locker = _dl_or_singleton(dl)
+        sysvars = getattr(locker, "system", None)
+        if not sysvars:
+            return
+        if seconds and seconds > 0:
+            sysvars.set_var("voice_cooldown_until", time.time() + float(seconds))
+        else:
+            sysvars.set_var("voice_cooldown_until", None)
+    except Exception:
+        pass
 
 
 def render_under_xcom_live(
-    dl,
-    renderer: Callable[[bool, str], Any],
+    dl: Any | None = None,
     *,
-    cfg: dict | None = None,
-) -> Any:
-    """Invoke ``renderer`` with ``(is_live, origin)`` information."""
+    emit: Callable[[str], None] = print,
+) -> None:
+    """
+    Print the rows under '📡 XCOM Live' in the Sync Data table:
 
-    live, src = xcom_live_status(dl, cfg=cfg)
-    return renderer(live, src)
+        ⏱  Loop interval     ✅ 30s            Runtime · live loop
+        🔕 Alert snooze      🟡 3:14           until 10:43am
+        🔔 Voice cooldown    🟡 2:05           until 10:44am   |  or ✅ idle  default 180s
+    """
+    ACT_W = 24
+    STAT_W = 11  # a tad wider to keep columns aligned
 
+    def row(activity: str, status: str, details: str) -> str:
+        a = activity.ljust(ACT_W)
+        s = status.ljust(STAT_W)
+        return f"  {a} {s} {details}"
 
-def get_sonic_interval(dl=None) -> int:
-    """Best-effort fetch of the active Sonic loop interval in seconds."""
+    # ⏱ Loop interval
+    iv = get_sonic_interval(dl)
+    emit(row("⏱  Loop interval", f"✅ {iv}s", "Runtime · live loop"))
 
-    # 1) Runtime system override (most accurate)
-    if dl is not None:
+    # 🔕 Alert snooze
+    rem, eta = read_snooze_remaining(dl)
+    if rem > 0:
         try:
-            sysvars = getattr(dl, "system", None)
-            if sysvars:
-                raw = sysvars.get_var("sonic_monitor_loop_time")
-                if raw:
-                    seconds = int(float(raw))
-                    if seconds > 0:
-                        return seconds
-        except Exception:  # pragma: no cover - defensive
-            pass
-        try:
-            cfg_obj = getattr(dl, "global_config", None)
-            if isinstance(cfg_obj, dict):
-                monitor_section = cfg_obj.get("monitor") or {}
-                seconds = monitor_section.get("loop_seconds")
-                if seconds is not None:
-                    seconds = int(float(seconds))
-                    if seconds > 0:
-                        return seconds
+            dt = datetime.fromtimestamp(eta, tz=timezone.utc).astimezone() if eta else None
+            eta_s = (dt.strftime("%I:%M%p").lstrip("0").lower()) if dt else ""
         except Exception:
-            pass
+            eta_s = ""
+        emit(row("🔕 Alert snooze", f"🟡 {_fmt_hms(rem)}", f"until {eta_s}" if eta_s else "—"))
+    else:
+        emit(row("🔕 Alert snooze", "✅ disabled", "—"))
+
+    # 🔔 Voice cooldown
+    vrem, veta = read_voice_cooldown_remaining(dl)
+    if vrem > 0:
         try:
-            db = getattr(dl, "db", None)
-            cursor = db.get_cursor() if db else None
-            if cursor:
-                cursor.execute(
-                    "SELECT interval_seconds FROM monitor_heartbeat WHERE monitor_name = ?",
-                    ("sonic_monitor",),
-                )
-                row = cursor.fetchone()
-                if row and row[0] is not None:
-                    seconds = int(float(row[0]))
-                    if seconds > 0:
-                        return seconds
-        except Exception:  # pragma: no cover - defensive
-            pass
+            dt2 = datetime.fromtimestamp(veta, tz=timezone.utc).astimezone() if veta else None
+            eta2 = (dt2.strftime("%I:%M%p").lstrip("0").lower()) if dt2 else ""
+        except Exception:
+            eta2 = ""
+        emit(row("🔔 Voice cooldown", f"🟡 {_fmt_hms(vrem)}", f"until {eta2}" if eta2 else "—"))
+    else:
+        cfg = getattr(_dl_or_singleton(dl), "global_config", None)
+        default_cd = get_default_voice_cooldown(cfg)
+        emit(row("🔔 Voice cooldown", "✅ idle", f"default {default_cd}s"))
 
-    # 2) JSON config on disk
+
+def xcom_live_status(dl=None, cfg: dict | None = None) -> tuple[bool, str]:
+    """
+    Unified XCOM status probe:
+      1) RUNTIME (voice/xcom services on DataLocker)
+      2) FILE (explicit cfg dict if given)
+      3) FILE (dl.global_config)
+      4) DB    (system vars)
+      5) ENV   (XCOM_LIVE / XCOM_ACTIVE)
+    """
+    # 1) RUNTIME
     try:
-        from backend.core.config.json_config import load_config as _load_json_cfg  # type: ignore
-
-        cfg = _load_json_cfg()
-        seconds = int(float(cfg.get("system_config", {}).get("sonic_monitor_loop_time", 0) or 0))
-        if seconds > 0:
-            return seconds
+        for name in ("voice_service","xcom_voice","xcom","voice"):
+            svc = getattr(dl, name, None)
+            if svc is None:
+                continue
+            for key in ("is_live","live","enabled","is_enabled","active","is_active"):
+                try:
+                    v = getattr(svc, key) if not isinstance(svc, dict) else svc.get(key)
+                    if callable(v): v = v()
+                    ok, b = _as_bool(v)
+                    if ok: return b, "RUNTIME"
+                except Exception:
+                    pass
     except Exception:
         pass
 
-    # 3) Environment override
-    env_raw = os.getenv("SONIC_MONITOR_LOOP_SECONDS")
-    if env_raw:
-        try:
-            seconds = int(float(env_raw))
-            if seconds > 0:
-                return seconds
-        except Exception:
-            pass
+    # 2) FILE (explicit)
+    b, src = _xcom_from_cfg(cfg)
+    if b is not None:
+        return bool(b), src
 
-    # 4) Sonic monitor defaults
+    # 3) FILE (dl.global_config)
     try:
-        from backend.core.monitor_core.sonic_monitor import DEFAULT_INTERVAL, LOOP_SECONDS  # type: ignore
-
-        seconds = int(float(LOOP_SECONDS or DEFAULT_INTERVAL))
-        if seconds > 0:
-            return seconds
+        b2, src2 = _xcom_from_cfg(getattr(dl, "global_config", None) or {})
+        if b2 is not None:
+            return bool(b2), src2
     except Exception:
         pass
 
-    return 60
+    # 4) DB
+    try:
+        sysvars = getattr(dl, "system", None)
+        if sysvars:
+            var = (sysvars.get_var("xcom") or {})
+            for key in ("live","is_live","enabled","is_enabled","active"):
+                if key in var:
+                    ok, b = _as_bool(var.get(key))
+                    if ok: return b, "DB"
+    except Exception:
+        pass
 
+    # 5) ENV
+    env = os.getenv("XCOM_LIVE", os.getenv("XCOM_ACTIVE", ""))
+    ok, b = _as_bool(env)
+    if ok:
+        return b, "ENV"
 
-def read_snooze_remaining(dl=None) -> tuple[int, Optional[int]]:
-    """Return ``(seconds_remaining, eta_epoch)`` for the global snooze timer."""
-
-    now = datetime.now(timezone.utc)
-    until: Optional[datetime] = None
-
-    if dl is not None:
-        try:
-            sysvars = getattr(dl, "system", None)
-            if sysvars:
-                raw = sysvars.get_var("snooze_until")
-                until = _coerce_dt(raw)
-        except Exception:  # pragma: no cover - defensive
-            until = until or None
-
-    if until is None and dl is not None:
-        until = _coerce_dt(getattr(dl, "snooze_until", None))
-
-    if until is None:
-        raw_env = os.getenv("SONIC_SNOOZE_UNTIL")
-        if raw_env:
-            until = _coerce_dt(raw_env)
-
-    if until and until < now:
-        until = None
-
-    if not until:
-        return 0, None
-
-    remaining = max(0, int(math.ceil((until - now).total_seconds())))
-    eta = int(until.timestamp()) if remaining > 0 else None
-    return remaining, eta
-
-
-def xcom_ready(dl=None, *, cfg: dict | None = None) -> tuple[bool, str]:
-    """True when XCom can notify right now (live & not snoozed)."""
-
-    live, src = xcom_live_status(dl, cfg)
-    if not live:
-        return False, f"xcom_off[{src}]"
-    remaining, _ = read_snooze_remaining(dl)
-    if remaining > 0:
-        return False, f"snoozed({remaining}s)"
-    return True, "ok"
-
-
-def xcom_guard(dl, *, triggered: bool, cfg: dict | None = None) -> tuple[bool, str]:
-    """Require a trigger and XCom readiness before sending notifications."""
-
-    if not triggered:
-        return False, "not_triggered"
-    ok, why = xcom_ready(dl, cfg=cfg)
-    if not ok:
-        return False, why
-    return True, "ok"
-
-
-__all__ = [
-    "render_under_xcom_live",
-    "get_sonic_interval",
-    "read_snooze_remaining",
-    "xcom_live_status",
-    "xcom_ready",
-    "xcom_guard",
-]
+    return False, "—"
