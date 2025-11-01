@@ -43,7 +43,7 @@
     "thresholds": {
       "BTC": 5.3,
       "ETH": 111.0,
-      "SOL": 1.5
+      "SOL": 21.5
     },
     "blast": {
       "BTC": 5,
@@ -62,7 +62,7 @@
     "thresholds": {
       "BTC": 5.3,
       "ETH": 111.0,
-      "SOL": 1.5
+      "SOL": 21.5
     },
     "blast": {
       "BTC": 5,
