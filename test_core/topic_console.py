@@ -134,11 +134,18 @@ def main(argv: List[str] = None) -> int:
 
     paths, k_expr, hits = plan(args.topic, args.fuzzy, topics_meta, args.path)
 
-    selected_paths = paths if paths else (args.path or ["test_core/tests"])
+    # Hard guard: if no matching files, don't fall back to broad discovery.
+    if not paths:
+        print("No matching test files for topics:", ", ".join(args.topic))
+        print(
+            "Tip: try a broader term, check topics.yaml synonyms, or include 'api' if you want API tests."
+        )
+        return 2
+
     if args.show or args.dry_run:
-        print(f"Selected tests: {len(hits)} | Files: {len(selected_paths)}")
-        for h in hits:
-            print("  ", h)
+        print(f"Selected files: {len(paths)}")
+        for p in paths:
+            print("  ", p)
         if args.dry_run:
             return 0
 
@@ -148,9 +155,8 @@ def main(argv: List[str] = None) -> int:
     junit_path = reports_dir / f"{stamp}_{args.junit_prefix}.xml"
 
     cmd = ["pytest"]
-    # STRICT discovery: only the matched files if we found any
-    if selected_paths:
-        cmd += sorted(set(selected_paths))
+    # STRICT discovery: only matched files
+    cmd += sorted(set(paths))
 
     if k_expr:
         if args.exclude:

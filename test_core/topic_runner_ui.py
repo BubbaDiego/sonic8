@@ -61,7 +61,7 @@ def _pick(prompt: str, items: List[str]) -> str | None:
 
 
 def _run_topics(topics: List[str]) -> None:
-    argv: List[str] = []
+    argv: List[str] = ["--show"]
     for topic in topics:
         argv += ["--topic", topic]
     argv.append("--quiet")
@@ -77,12 +77,12 @@ def run_ui() -> None:
         print("\n==============================")
         print(" 🔎 Topic Test Runner")
         print("==============================")
-        print(" 1) Run by Topic…")
+        print(" 1) Run by Topic…   (hint: you can also just type your topic at the prompt)")
         print(" 2) Run Bundle…")
         print(" 3) Recent Topics…")
         print(" 0) Exit")
         choice = input("Select > ").strip()
-        # Quick-run: if you type a topic here (not a number), we just run it.
+        # Quick-run: if you type a topic here (not a number), run immediately
         if choice and not choice.isdigit():
             topic = choice
             if topic.lower() in {"exit", "quit"}:
