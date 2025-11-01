@@ -24,6 +24,13 @@ def _pct(v):
     except Exception:
         return "—"
 
+
+def _num(v):
+    try:
+        return f"{float(v):.2f}".rstrip("0").rstrip(".")
+    except Exception:
+        return "—"
+
 def _coerce_iter(x: Any) -> Iterable:
     if x is None:
         return []
@@ -119,7 +126,7 @@ def render(dl, csum: Dict[str, Any]) -> None:
             _usd(value),
             _usd(pnl),
             f"{float(lev):.2f}×".rstrip("0").rstrip(".×") + "×" if lev not in (None, "", "—") else "—",
-            _pct(liq),
+            _num(liq),
             _pct(trav),
         ])
 
