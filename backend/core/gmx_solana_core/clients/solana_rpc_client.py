@@ -1,10 +1,9 @@
 """
-Thin Solana JSON-RPC client (stdlib only) for Phase S-2.
+Thin Solana JSON-RPC client (stdlib only) for Phase S-2.1.
 
-We avoid extra deps to keep 'markets' runnable with zero install.
+We avoid extra deps to keep 'markets' and 'positions' runnable with zero install.
 """
 import json
-import time
 from typing import Any, Dict, List, Optional
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
@@ -14,7 +13,7 @@ Json = Dict[str, Any]
 class RpcError(RuntimeError): ...
 
 class SolanaRpcClient:
-    def __init__(self, rpc_http: str, timeout: float = 12.0, ua: str = "sonic7-gmx-sol/phase2"):
+    def __init__(self, rpc_http: str, timeout: float = 12.0, ua: str = "sonic7-gmx-sol/phase2.1"):
         if not rpc_http:
             raise ValueError("rpc_http is required")
         self.url = rpc_http
@@ -35,10 +34,10 @@ class SolanaRpcClient:
             raise RpcError(f"RPC {method} returned error: {data['error']}")
         return data["result"]
 
-    def get_program_accounts(self, program_id: str, encoding: str = "base64", data_slice: Optional[Dict[str,int]] = None, memcmp: Optional[List[Dict[str,str]]] = None, commitment: str = "confirmed") -> List[Json]:
-        """
-        Minimal wrapper for getProgramAccounts.
-        """
+    def get_program_accounts(self, program_id: str, encoding: str = "base64",
+                             data_slice: Optional[Dict[str,int]] = None,
+                             memcmp: Optional[List[Dict[str, str]]] = None,
+                             commitment: str = "confirmed") -> List[Json]:
         cfg: Dict[str, Any] = {"encoding": encoding, "commitment": commitment}
         if data_slice:
             cfg["dataSlice"] = data_slice
