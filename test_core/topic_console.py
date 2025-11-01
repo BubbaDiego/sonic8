@@ -7,6 +7,7 @@ from typing import Dict, Any, List
 import subprocess
 import sys
 import shlex
+import os
 
 from .topic_query import plan
 
@@ -21,7 +22,6 @@ def _load_topics_yaml() -> Dict[str, Any]:
     if not yml.exists() or yaml is None:
         return {}
     data = yaml.safe_load(yml.read_text()) or {}
-    # normalize
     data.setdefault("synonyms", {})
     data.setdefault("bundles", {})
     return data
@@ -38,17 +38,10 @@ def _parse_junit(junit_path: Path) -> Dict[str, Any]:
     tree = ET.parse(junit_path)
     root = tree.getroot()
 
-    # Pytest may emit <testsuite> or <testsuites> -> gather all suites
-    suites = []
-    if root.tag == "testsuite":
-        suites = [root]
-    else:
-        suites = [s for s in root.findall("testsuite")]
-
+    # Handle <testsuite> or <testsuites>
+    suites = [root] if root.tag == "testsuite" else root.findall("testsuite")
     stats = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0, "time_s": 0.0, "passed": 0}
-
-    failures = []
-    slow = []
+    failures, slow = [], []
 
     for s in suites:
         tests = int(s.attrib.get("tests", 0))
@@ -69,7 +62,6 @@ def _parse_junit(junit_path: Path) -> Dict[str, Any]:
             nodeid = f"{cls}::{name}" if cls else name
             slow.append({"nodeid": nodeid, "duration_s": dur})
 
-            # capture failure/error text
             for tag in ("failure", "error"):
                 el = tc.find(tag)
                 if el is not None:
@@ -84,7 +76,7 @@ def _parse_junit(junit_path: Path) -> Dict[str, Any]:
 def _write_md(md_path: Path, topic_args: List[str], k_expr: str, results: Dict[str, Any], cmd: List[str]) -> None:
     md = []
     md.append(f"# Topic Test Run\n")
-    md.append(f"- **Topics:** {', '.join(topic_args)}")
+    md.append(f"- **Topics:** {', '.join(topic_args) if topic_args else '(none)'}")
     md.append(f"- **-k:** `{k_expr}`")
     md.append(f"- **Command:** `{shlex.join(cmd)}`\n")
 
@@ -99,8 +91,8 @@ def _write_md(md_path: Path, topic_args: List[str], k_expr: str, results: Dict[s
     if fails:
         md.append("## Failures\n")
         for f in fails:
-            msg = (f.get("message") or "").splitlines()[0]
-            md.append(f"- `{f['nodeid']}` — {msg}")
+            first = (f.get("message") or "").splitlines()[0]
+            md.append(f"- `{f['nodeid']}` — {first}")
 
     slow = results.get("slow", [])
     if slow:
@@ -113,9 +105,11 @@ def _write_md(md_path: Path, topic_args: List[str], k_expr: str, results: Dict[s
 
 def main(argv: List[str] = None) -> int:
     p = argparse.ArgumentParser(prog="topic-console", description="Run pytest by topic keywords with nifty reports.")
-    p.add_argument("--topic", action="append", required=True, help="Topic keyword; repeatable.")
+    # make --topic optional (works if --bundle is supplied)
+    p.add_argument("--topic", action="append", help="Topic keyword; repeatable.")
     p.add_argument("--bundle", action="append", default=[], help="Bundle name from topics.yaml; repeatable.")
-    p.add_argument("--path", action="append", default=[], help="Optional paths to narrow discovery.")
+    # default discovery to test_core/tests
+    p.add_argument("--path", action="append", default=["test_core/tests"], help="Discovery roots; default=test_core/tests")
     p.add_argument("--fuzzy", type=int, default=75, help="Fuzzy threshold (0-100). 0 = substring only.")
     p.add_argument("--exclude", action="append", default=[], help="Exclude keywords joined with 'or' in a NOT clause.")
     p.add_argument("--parallel", type=int, default=0, help="pytest-xdist workers; 0 disables.")
@@ -128,10 +122,16 @@ def main(argv: List[str] = None) -> int:
 
     topics_meta = _load_topics_yaml()
 
-    # Merge in bundles -> topics
+    # Merge bundles into topics, even if --topic wasn't provided
     if topics_meta.get("bundles") and args.bundle:
+        if args.topic is None:
+            args.topic = []
         for b in args.bundle:
             args.topic.extend(topics_meta["bundles"].get(b, []))
+
+    # Validate: at least one topic (possibly via bundle)
+    if not args.topic:
+        p.error("Provide at least one --topic or --bundle")
 
     # Plan selection
     paths, k_expr, hits = plan(args.topic, args.fuzzy, topics_meta, args.path)
@@ -150,8 +150,10 @@ def main(argv: List[str] = None) -> int:
     junit_path = reports_dir / f"{stamp}_{args.junit_prefix}.xml"
 
     cmd = ["pytest"]
-    if paths:
-        cmd += sorted(set(paths))
+    # Forward discovery paths (default includes test_core/tests)
+    if args.path:
+        cmd += sorted(set(args.path))
+
     if k_expr:
         if args.exclude:
             not_expr = " or ".join(args.exclude)
@@ -166,8 +168,17 @@ def main(argv: List[str] = None) -> int:
     if args.quiet:
         cmd += ["-q"]
 
+    # Inject clean PYTHONPATH for imports (repo root + backend)
+    env = os.environ.copy()
+    repo_root = str(Path(__file__).resolve().parents[1])  # .../sonic7
+    backend = str(Path(repo_root) / "backend")
+    if env.get("PYTHONPATH"):
+        env["PYTHONPATH"] = os.pathsep.join([repo_root, backend, env["PYTHONPATH"]])
+    else:
+        env["PYTHONPATH"] = os.pathsep.join([repo_root, backend])
+
     print("Running:", " ".join(shlex.quote(c) for c in cmd))
-    rc = subprocess.call(cmd)
+    rc = subprocess.call(cmd, env=env)
 
     # Parse junit -> json + md
     results = _parse_junit(junit_path)
@@ -184,7 +195,6 @@ def main(argv: List[str] = None) -> int:
     md_path = reports_dir / f"{stamp}_topic={'_'.join(args.topic)}.md"
     _write_md(md_path, args.topic, k_expr, results, cmd)
 
-    # Pretty one-liner summary
     s = results.get("stats", {})
     print(f"\nSummary: {s.get('passed',0)}/{s.get('tests',0)} passed, "
           f"{s.get('failures',0)} failed, {s.get('errors',0)} errors, "

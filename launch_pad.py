@@ -7,6 +7,7 @@ and optional integrations (Perps, Cyclone, Fun Console, Wallet UI).
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import io
 import os
@@ -994,5 +995,58 @@ def main() -> None:
             time.sleep(1.0)
 
 
+
+def cli_entry(argv: Optional[Sequence[str]] | None = None) -> None:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv:
+        main()
+        return
+
+    parser = argparse.ArgumentParser(prog='launch-pad', description='Sonic Launch Pad utilities')
+    sub = parser.add_subparsers(dest='cmd')
+
+    t = sub.add_parser('test', help='Run tests by topic/bundle with reports')
+    t.add_argument('--topic', action='append', help='Topic keyword; repeatable.')
+    t.add_argument('--bundle', action='append', default=[], help='Bundle from test_core/topics.yaml; repeatable.')
+    t.add_argument('--path', action='append', default=['test_core/tests'], help='Discovery roots; default=test_core/tests')
+    t.add_argument('--fuzzy', type=int, default=75, help='Fuzzy threshold (0-100).')
+    t.add_argument('--exclude', action='append', default=[], help='Exclude keywords joined in a NOT clause.')
+    t.add_argument('--parallel', type=int, default=0, help='pytest-xdist workers; 0 disables.')
+    t.add_argument('--maxfail', type=int, default=1, help='Abort after N failures.')
+    t.add_argument('--show', action='store_true', help='Show selected nodeids before running.')
+    t.add_argument('--dry-run', action='store_true', help='Collect and show selection, then exit.')
+    t.add_argument('--quiet', action='store_true', help='Pass -q to pytest.')
+    t.add_argument('--junit-prefix', default='topic', help='Prefix for JUnit filename.')
+
+    args = parser.parse_args(argv)
+
+    if args.cmd == 'test':
+        from test_core.topic_console import main as topic_main
+        topic_argv: list[str] = []
+        for value in args.topic or []:
+            topic_argv += ['--topic', value]
+        for value in args.bundle or []:
+            topic_argv += ['--bundle', value]
+        for value in args.path or []:
+            topic_argv += ['--path', value]
+        for value in args.exclude:
+            topic_argv += ['--exclude', value]
+        topic_argv += [
+            '--fuzzy', str(args.fuzzy),
+            '--parallel', str(args.parallel),
+            '--maxfail', str(args.maxfail),
+            '--junit-prefix', args.junit_prefix,
+        ]
+        if args.show:
+            topic_argv.append('--show')
+        if args.dry_run:
+            topic_argv.append('--dry-run')
+        if args.quiet:
+            topic_argv.append('--quiet')
+        raise SystemExit(topic_main(topic_argv))
+
+    parser.print_help()
+
+
 if __name__ == "__main__":
-    main()
+    cli_entry()
