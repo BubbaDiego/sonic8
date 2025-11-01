@@ -53,29 +53,70 @@ def _iter_test_files(roots: Iterable[Path] | None = None) -> list[Path]:
     return out
 
 
+def _has_import_of(text_lower: str, needle: str) -> bool:
+    for line in text_lower.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("from ") or stripped.startswith("import "):
+            if needle in stripped:
+                return True
+    return False
+
+
 def _match_files_by_topic(topic: str) -> list[str]:
-    topic = topic.strip()
-    if not topic:
+    query = topic.strip()
+    if not query:
         return []
-    terms = [word.strip() for word in topic.split() if word.strip()]
+    terms = [word for word in (part.strip() for part in query.split()) if word]
     if not terms:
         return []
 
-    include_api = any(word.lower() in API_HINTS for word in terms)
-    files = _iter_test_files()
+    terms_lower = [word.lower() for word in terms]
+    include_api = any(word in API_HINTS for word in terms_lower)
+    has_xcom = any(word == "xcom" for word in terms_lower)
+
     picks: list[str] = []
-    for file_path in files:
-        name = file_path.name.lower()
-        if any(word.lower() in name for word in terms):
+    for file_path in _iter_test_files():
+        name_lower = file_path.name.lower()
+        path_lower = str(file_path).lower()
+        text_lower: str | None = None
+
+        if not include_api:
+            if text_lower is None:
+                text_lower = _read_text(file_path).lower()
+            if any(marker in text_lower for marker in HEAVY_MARKERS):
+                continue
+
+        matched = False
+        if any(term in name_lower for term in terms_lower) or any(
+            term in path_lower for term in terms_lower
+        ):
+            matched = True
+
+        if not matched and has_xcom:
+            if text_lower is None:
+                text_lower = _read_text(file_path).lower()
+            if (
+                _has_import_of(text_lower, "xcom")
+                or "xcom_" in text_lower
+                or "xcom." in text_lower
+            ):
+                matched = True
+
+        if not matched:
+            for term in terms_lower:
+                if len(term) <= 4 and not has_xcom:
+                    if text_lower is None:
+                        text_lower = _read_text(file_path).lower()
+                    if (
+                        f"{term}_" in text_lower
+                        or f"{term}." in text_lower
+                        or _has_import_of(text_lower, term)
+                    ):
+                        matched = True
+                        break
+
+        if matched:
             picks.append(str(file_path))
-            continue
-        if any(len(word) <= 4 for word in terms) or include_api:
-            text = _read_text(file_path)[:8192].lower()
-            if not include_api and any(marker in text for marker in HEAVY_MARKERS):
-                continue
-            if any(word.lower() in text for word in terms if len(word) <= 4):
-                picks.append(str(file_path))
-                continue
     return picks
 
 
@@ -126,8 +167,8 @@ def _run_topic_direct(topic: str) -> int:
     picks = _match_files_by_topic(topic)
     if not picks:
         print(f"No matching test files for topic: {topic}")
-        print("Tip: add 'api' to include FastAPI/Starlette tests, or try a broader term.")
-        input("\nPress Enter to return to the Topic Test Runner…")
+        print("Tip: include 'api' to allow FastAPI tests, or try a broader term.")
+        input("\nPress Enter to return to menu...")
         return 2
 
     print(f"Selected files ({len(picks)}):")
@@ -154,11 +195,10 @@ def _run_topic_direct(topic: str) -> int:
         env.get("PYTHONPATH", ""),
     ]).strip(os.pathsep)
     print("Running:", " ".join(shlex.quote(arg) for arg in cmd))
-    try:
-        return subprocess.call(cmd, env=env)
-    finally:
-        _save_recent(topic)
-        input("\nPress Enter to return to the Topic Test Runner…")
+    rc = subprocess.call(cmd, env=env)
+    _save_recent(topic)
+    input("\nPress Enter to return to menu...")
+    return rc
 
 
 def run_ui() -> None:
@@ -185,8 +225,8 @@ def run_ui() -> None:
         elif choice == "2":
             bundles = _load_bundles()
             if not bundles:
-                print("No bundles found. Create test_core/topics.yaml with a bundles section.")
-                input("Press Enter to return…")
+                print("No bundles found. Create test_core/topics.yaml.")
+                input("Press Enter…")
                 continue
             selection = _pick("Pick a bundle:", list(bundles.keys()))
             if selection:
