@@ -1,7 +1,5 @@
 """
-Thin Solana JSON-RPC client (stdlib only) for Phase S-2.1.
-
-We avoid extra deps to keep 'markets' and 'positions' runnable with zero install.
+Thin Solana JSON-RPC client (stdlib) – Phase S-2.1+
 """
 import json
 from typing import Any, Dict, List, Optional
@@ -34,10 +32,23 @@ class SolanaRpcClient:
             raise RpcError(f"RPC {method} returned error: {data['error']}")
         return data["result"]
 
-    def get_program_accounts(self, program_id: str, encoding: str = "base64",
-                             data_slice: Optional[Dict[str,int]] = None,
-                             memcmp: Optional[List[Dict[str, str]]] = None,
-                             commitment: str = "confirmed") -> List[Json]:
+    # --- Diagnostics
+    def get_health(self) -> str:
+        # returns "ok" on healthy nodes
+        return self._call("getHealth")
+
+    def get_slot(self, commitment: str = "confirmed") -> int:
+        return self._call("getSlot", [{"commitment": commitment}])
+
+    # --- Data
+    def get_program_accounts(
+        self,
+        program_id: str,
+        encoding: str = "base64",
+        data_slice: Optional[Dict[str, int]] = None,
+        memcmp: Optional[List[Dict[str, str]]] = None,
+        commitment: str = "confirmed",
+    ) -> List[Json]:
         cfg: Dict[str, Any] = {"encoding": encoding, "commitment": commitment}
         if data_slice:
             cfg["dataSlice"] = data_slice
