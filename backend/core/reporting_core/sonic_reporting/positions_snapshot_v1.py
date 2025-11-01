@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
-# Prefer Locker helpers if available; safe-import so this file never blocks startup.
+# Prefer Locker helpers if available; guard so this file never blocks startup.
 try:
     from backend.data.dl_positions import get_positions as dl_get_positions  # type: ignore
 except Exception:
@@ -70,10 +70,9 @@ def _compute_travel_pct(side: str,
       - 0%  at entry
       - >0% when profitable
       - -100% at liquidation
-    Implementation:
-      LONG : (mark - entry) / entry * 100
-      SHORT: (entry - mark) / entry * 100
-    If liq_price is provided and price has crossed liquidation boundary, clamp to -100.
+    LONG : (mark - entry) / entry * 100
+    SHORT: (entry - mark) / entry * 100
+    If liq_price is provided and price crosses the liq boundary, clamp to -100.
     """
     if entry_price is None or mark_price is None:
         return None
@@ -131,12 +130,18 @@ def _totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     Footer totals:
       - Sum(value), Sum(pnl)
       - Weighted avg leverage by |value|
+      - Weighted avg travel% by |value|   (NEW)
       - Split long/short exposure for clarity
     """
     total_value = 0.0
     total_pnl = 0.0
+
     w_lev_num = 0.0
     w_lev_den = 0.0
+
+    w_trv_num = 0.0
+    w_trv_den = 0.0
+
     long_val = 0.0
     short_val = 0.0
 
@@ -145,18 +150,28 @@ def _totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         if isinstance(v, (int, float)):
             fv = float(v)
             total_value += fv
-            if isinstance(r.get("lev"), (int, float)):
-                w_lev_num += abs(fv) * float(r["lev"])
+
+            lev = r.get("lev")
+            if isinstance(lev, (int, float)):
+                w_lev_num += abs(fv) * float(lev)
                 w_lev_den += abs(fv)
-            if ((r.get("side") or "").upper()) == "SHORT":
+
+            trv = r.get("travel")
+            if isinstance(trv, (int, float)):
+                w_trv_num += abs(fv) * float(trv)
+                w_trv_den += abs(fv)
+
+            if (r.get("side") or "").upper() == "SHORT":
                 short_val += fv
             else:
                 long_val += fv
+
         pnl = r.get("pnl")
         if isinstance(pnl, (int, float)):
             total_pnl += float(pnl)
 
     avg_lev_weighted = (w_lev_num / w_lev_den) if w_lev_den > 0 else None
+    avg_travel_weighted = (w_trv_num / w_trv_den) if w_trv_den > 0 else None
 
     return {
         "count": len(rows),
@@ -165,6 +180,7 @@ def _totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "value_long": long_val,
         "value_short": short_val,
         "avg_lev_weighted": avg_lev_weighted,
+        "avg_travel_weighted": avg_travel_weighted,  # NEW
     }
 
 

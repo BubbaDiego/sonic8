@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Callable
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
+from backend.core.monitor_core.monitor_snapshot_bridge import get_positions_rows_and_totals
+from backend.core.monitor_core.positions_totals_printer import print_positions_totals_line
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
 
 try:
@@ -1249,30 +1251,14 @@ def run_monitor(
                     logging.debug("positions snapshot bridge failure", exc_info=True)
                     snap_data = {"rows": [], "totals": {}}
 
+                rows = snap_data.get("rows", [])
                 totals = snap_data.get("totals", {})
 
-                # === Totals line (add this AFTER the rows are printed) ===
-                def _fmt_money(v):
-                    return f"${v:,.2f}" if isinstance(v, (int, float)) else "-"
-
-                def _fmt_lev(v):
-                    return f"{v:.2f}x" if isinstance(v, (int, float)) else "-"
-
-                total_value = totals.get("value", 0.0)
-                total_pnl = totals.get("pnl", 0.0)
-                avg_lev = totals.get("avg_lev_weighted")
-
-                line = [
-                    "",
-                    "",
-                    _fmt_money(total_value),
-                    _fmt_money(total_pnl),
-                    _fmt_lev(avg_lev),
-                    "",
-                    "",
-                ]
-
-                print(f"{'':<5} {'':<6} {line[2]:>10} {line[3]:>10} {line[4]:>8} {'':>8} {'':>8}")
+                # === Colored totals line (weighted averages for Lev & Travel) ===
+                print_positions_totals_line(
+                    totals,
+                    width_map={"asset": 5, "side": 6, "value": 10, "pnl": 10, "lev": 8, "liq": 8, "travel": 8},
+                )
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
                 summary,
