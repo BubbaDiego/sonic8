@@ -357,7 +357,7 @@ def xcom_ready(dl=None, *, cfg: dict | None = None) -> tuple[bool, str]:
     True when outbound alerts are allowed **right now**:
       - XCOM Live is ON (file/db/env)
       - global snooze is not active
-      - voice cooldown is not active (so providers can use one gate)
+      - voice cooldown is not active
     """
     live, src = xcom_live_status(dl, cfg)
     if not live:
