@@ -42,6 +42,13 @@ def _resolve_signer_file(args) -> Path:
     return Path.cwd() / "signer"
 
 def _wallet_from_signer_file(signer_path: Path) -> Optional[str]:
+    """
+    Try to derive a Solana pubkey from:
+      1) backend.services.signer_loader (if it exposes a pubkey loader)
+      2) a BIP-39 mnemonic in the file (derive m/44'/501'/0'/0')
+      3) a base58 pubkey found anywhere in the file
+    """
+    # 1) Your project loader (keep trying common names)
     try:
         from importlib import import_module
         sl = import_module("backend.services.signer_loader")
@@ -49,25 +56,55 @@ def _wallet_from_signer_file(signer_path: Path) -> Optional[str]:
             if hasattr(sl, attr):
                 try:
                     val = getattr(sl, attr)(str(signer_path))
-                    if isinstance(val, str): return val
-                except Exception: pass
-        for attr in ("load_signer","get_signer","load_mnemonic"):
+                    if isinstance(val, str):
+                        return val
+                except Exception:
+                    pass
+        for attr in ("load_signer","get_signer","load_mnemonic","load_wallet"):
             if hasattr(sl, attr):
                 try:
                     obj = getattr(sl, attr)(str(signer_path))
-                    if hasattr(obj, "public_key"): return str(getattr(obj,"public_key"))
+                    # object with .public_key / .pubkey()
+                    if hasattr(obj, "public_key"):
+                        return str(getattr(obj, "public_key"))
+                    if hasattr(obj, "pubkey"):
+                        pk = obj.pubkey()  # method returning a PublicKey object
+                        return str(pk) if pk is not None else None
+                    # mnemonic string?
                     if isinstance(obj, str) and len(obj.split()) >= 12:
-                        print("ℹ️  Found mnemonic; expose a pubkey function in signer_loader or pass --wallet directly.")
-                        # fall through to scan file
-                except Exception: pass
+                        mnemonic = obj
+                        # fall through to our BIP-39 derivation below
+                        txt = mnemonic
+                    else:
+                        txt = None
+                except Exception:
+                    txt = None
+            else:
+                txt = None
     except Exception:
-        pass
+        txt = None
 
-    # Fallback: scan file for something that looks like a base58 pubkey
-    if signer_path.exists():
+    # 2) If we didn't get a mnemonic from loader, read file
+    if signer_path.exists() and not txt:
+        txt = signer_path.read_text(encoding="utf-8").strip()
+
+    if txt:
+        words = txt.split()
+        if len(words) in (12, 15, 18, 21, 24):
+            # BIP-39 mnemonic → derive Solana pubkey m/44'/501'/0'/0'
+            try:
+                from bip_utils import Bip39MnemonicValidator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
+                Bip39MnemonicValidator(txt).Validate()  # raise if invalid
+                seed = Bip39SeedGenerator(txt).Generate()
+                ctx = Bip44.FromSeed(seed, Bip44Coins.SOLANA)
+                acct = ctx.Purpose().Coin().Account(0).Change(Bip44Changes.CHAIN_EXT).AddressIndex(0)
+                return acct.PublicKey().ToAddress()  # base58 pubkey
+            except Exception:
+                # continue to base58 scan below if derivation fails
+                pass
+
+        # 3) Scan for an existing base58 pubkey anywhere in the file
         import re
-        txt = signer_path.read_text(encoding="utf-8")
-        # pick the first base58-ish token 32+ chars
         tokens = re.findall(r"[1-9A-HJ-NP-Za-km-z]{32,}", txt)
         for t in tokens:
             try:
@@ -75,6 +112,7 @@ def _wallet_from_signer_file(signer_path: Path) -> Optional[str]:
                 return t
             except Exception:
                 continue
+
     return None
 
 # ---- commands
