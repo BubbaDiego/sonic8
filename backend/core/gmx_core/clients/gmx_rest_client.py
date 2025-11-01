@@ -61,8 +61,3 @@ class GmxRestClient:
     def get_markets_info(self) -> Json:
         # Detailed market info (liquidity, open interest, rates, etc.)
         return self._get_json("/markets/info")
-
-
-Endpoints per GMX docs (Oracle, Markets, Info). 
-docs.gmx.io
-+1
