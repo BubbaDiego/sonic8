@@ -1,13 +1,14 @@
 """
-GMX-Solana Interactive Console (menu-based)
-- Numbered options; session state (RPC, Store PID, signer path, owner offset).
-- Derives signer pubkey from a 12-word mnemonic (m/44'/501'/0'/0') or any base58 in the file.
-- Uses SolanaRpcClient (GPA-v2), MarketService (paged), SolanaPositionSource (memcmp).
+GMX-Solana Interactive Console (menu-based, JSON-configured)
+
+- Uses gmx_solana_console.json in repo root (no env required)
+- Shows signer pubkey in the header (derived from 12-word mnemonic or base58 in file)
+- Saves changes to JSON automatically
 
 Menu:
   [1] RPC health
   [2] Set Store Program ID
-  [3] Set Signer file path  (re-derive pubkey)
+  [3] Set Signer file path (re-derive pubkey)
   [4] Markets (paged)
   [5] Positions (from signer)
   [6] Positions (enter pubkey)
@@ -18,12 +19,13 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from ..config_loader import load_solana_config, pretty
 from ..clients.solana_rpc_client import SolanaRpcClient, RpcError
 from ..services.market_service import MarketService
 from ..services.position_source_solana import SolanaPositionSource
+from .config_io import load_json, save_json, DEFAULT_JSON
 
 DEFAULT_CFG = Path(__file__).resolve().parent.parent / "config" / "solana.yaml"
 
@@ -36,7 +38,7 @@ def ensure_base58(s: str, label: str) -> None:
 
 def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
     """Try signer_loader → mnemonic (m/44'/501'/0'/0') → base58 in file."""
-    # 1) project loader
+    # project loader
     try:
         from importlib import import_module
         sl = import_module("backend.services.signer_loader")
@@ -65,11 +67,10 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
     except Exception:
         txt = None
 
-    # 2) read file if needed
+    # from file
     if signer_path.exists() and not txt:
         txt = signer_path.read_text(encoding="utf-8").strip()
 
-    # 3) mnemonic?
     if txt:
         words = txt.split()
         if len(words) in (12, 15, 18, 21, 24):
@@ -82,7 +83,7 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
                 return acct.PublicKey().ToAddress()
             except Exception:
                 pass
-        # 4) scan for base58 pubkey
+        # scan for base58 pubkey
         import re
         tokens = re.findall(r"[1-9A-HJ-NP-Za-km-z]{32,}", txt)
         for t in tokens:
@@ -93,27 +94,51 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
                 continue
     return None
 
+def find_default_signer() -> Path:
+    candidates = [
+        Path.cwd() / "signer.txt",
+        Path.cwd() / "signer",
+        Path("C:/sonic7/signer"),
+        Path.home() / "signer",
+        Path.home() / "signer.txt",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[0]
+
 class Session:
     def __init__(self):
+        # precedence: JSON → YAML → env (we minimize env)
+        j = load_json(DEFAULT_JSON)
         try:
-            cfg = load_solana_config(str(DEFAULT_CFG))
-        except Exception as e:
-            print(f"⚠️  Config load failed: {e}")
-            cfg = {}
-        self.rpc_http = cfg.get("rpc_http") or os.environ.get("SOL_RPC") or ""
-        self.store_pid = (cfg.get("programs") or {}).get("store") or os.environ.get("GMSOL_STORE") or ""
-        self.signer_file = (Path.cwd() / "signer.txt")
-        if not self.signer_file.exists():
-            alt = Path.cwd() / "signer"
-            if alt.exists():
-                self.signer_file = alt
-        self.owner_offset = 8
-        self.limit = 100
-        self.page = 1
+            y = load_solana_config(str(DEFAULT_CFG))
+        except Exception:
+            y = {}
+
+        self.rpc_http  = j.get("sol_rpc") or y.get("rpc_http") or os.environ.get("SOL_RPC") or ""
+        self.store_pid = j.get("store_program_id") or (y.get("programs") or {}).get("store") or os.environ.get("GMSOL_STORE") or ""
+        # signer file
+        j_signer = j.get("signer_file")
+        self.signer_file = Path(j_signer) if j_signer else find_default_signer()
+        # options
+        self.owner_offset = int(j.get("owner_offset") or 8)
+        self.limit        = int(j.get("limit") or 100)
+        self.page         = int(j.get("page") or 1)
+        # derived
         self.signer_pubkey: Optional[str] = derive_pubkey_from_signer(self.signer_file)
 
-    def refresh_signer_pubkey(self):
-        self.signer_pubkey = derive_pubkey_from_signer(self.signer_file)
+    # persist all current session fields to JSON
+    def persist(self):
+        data: Dict[str, Any] = {
+            "sol_rpc":         self.rpc_http,
+            "store_program_id":self.store_pid,
+            "signer_file":     str(self.signer_file),
+            "owner_offset":    self.owner_offset,
+            "limit":           self.limit,
+            "page":            self.page,
+        }
+        save_json(data, DEFAULT_JSON)
 
     def rpc(self) -> SolanaRpcClient:
         return SolanaRpcClient(self.rpc_http)
@@ -127,6 +152,7 @@ class Session:
         print(f" Signer File: {self.signer_file}")
         print(f" Signer Pub : {self.signer_pubkey or '(not derived)'}")
         print(f" OwnerOff   : {self.owner_offset}   Paging: limit={self.limit} page={self.page}")
+        print(f" Config JSON: {DEFAULT_JSON}")
         print("-"*72)
 
     def input_b58(self, prompt: str, default: Optional[str]="") -> str:
@@ -159,16 +185,18 @@ def menu_loop(sess: Session):
 
             elif choice == "2":
                 sess.store_pid = sess.input_b58("Store Program ID", sess.store_pid)
+                sess.persist()
 
             elif choice == "3":
                 p = input(f"Signer file path [{sess.signer_file}]: ").strip()
                 if p:
                     sess.signer_file = Path(p)
-                sess.refresh_signer_pubkey()
+                sess.signer_pubkey = derive_pubkey_from_signer(sess.signer_file)
                 if sess.signer_pubkey:
                     print("Derived signer pubkey:", sess.signer_pubkey)
                 else:
                     print("⚠️  Could not derive signer pubkey from file.")
+                sess.persist()
                 input("\n<enter>")
 
             elif choice == "4":
@@ -223,9 +251,10 @@ def menu_loop(sess: Session):
 
             elif choice == "7":
                 try:
-                    sess.limit = int(input(f"limit [{sess.limit}]: ").strip() or sess.limit)
-                    sess.page  = int(input(f"page  [{sess.page }]: ").strip() or sess.page)
+                    sess.limit        = int(input(f"limit [{sess.limit}]: ").strip() or sess.limit)
+                    sess.page         = int(input(f"page  [{sess.page }]: ").strip() or sess.page)
                     sess.owner_offset = int(input(f"owner offset [{sess.owner_offset}]: ").strip() or sess.owner_offset)
+                    sess.persist()
                 except Exception as e:
                     print("bad input:", e)
                 input("\n<enter>")
@@ -240,11 +269,9 @@ def menu_loop(sess: Session):
             input("\n<enter>")
 
 def main():
-    if not os.environ.get("SOL_RPC"):
-        print("ℹ️  SOL_RPC not set; using value from config if present.")
     sess = Session()
     if not sess.rpc_http:
-        print("⚠️  No RPC endpoint configured. Set $env:SOL_RPC and restart.")
+        print("⚠️  No RPC endpoint configured. Set sol_rpc in gmx_solana_console.json and restart.")
         return 2
     menu_loop(sess)
     return 0
