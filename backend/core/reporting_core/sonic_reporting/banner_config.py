@@ -1,4 +1,14 @@
-# -*- coding: utf-8 -*-
+
+    # XCOM Live (unified JSON-aware probe: FILE > DB > ENV)
+    try:
+        _path = discover_json_path(default_json_path)
+        _cfg_obj, _err, _meta = parse_json(_path)
+        _cfg_for_probe = _cfg_obj if isinstance(_cfg_obj, dict) else getattr(dl, 'global_config', None)
+    except Exception:
+        _cfg_for_probe = getattr(dl, 'global_config', None)
+    _live, _src = xcom_live_status(dl, _cfg_for_probe)
+    print(f"  🛰 XCOM Live : {'🟢 ON' if _live else '🔴 OFF'} [{_src}]")
+def render_banner(# -*- coding: utf-8 -*-
 from __future__ import annotations
 import socket
 import os
@@ -171,4 +181,6 @@ from .config_probe import discover_json_path, parse_json
         exists, inside_repo = True, True
     write_line(f"🔌 Database       : {db_path}  (ACTIVE for runtime data, provenance=DEFAULT, "
                f"{'exists' if exists else 'missing'}, {'inside repo' if inside_repo else 'outside repo'})")
+
+
 
