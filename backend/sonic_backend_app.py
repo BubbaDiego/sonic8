@@ -147,6 +147,7 @@ from backend.api.routes_perps import router as perps_cli_router
 from backend.api.debug_market_api import router as debug_market_router
 from backend.api.liquid_settings_api import router as liquid_settings_router
 from backend.middleware.response_validator import install_response_validator, schema_map_router
+from backend.routes import positions_snapshot_api
 
 # Optional prewarm
 try:
@@ -213,6 +214,7 @@ app.add_api_route("/api/jupiter/wallet/preflight-send", _wallet_preflight_send, 
 app.include_router(jupiter_router)
 app.include_router(perps_router)
 app.include_router(perps_cli_router)
+app.include_router(positions_snapshot_api.router)
 
 # Jupiter legacy API stays under /api for compatibility
 app.include_router(jupiter.router, prefix="/api")
