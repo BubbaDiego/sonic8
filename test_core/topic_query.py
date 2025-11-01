@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, List, Dict, Tuple, Set
+from typing import Dict, Iterable, List, Set, Tuple
 import subprocess
 try:
     from rapidfuzz import fuzz, process  # optional but recommended
