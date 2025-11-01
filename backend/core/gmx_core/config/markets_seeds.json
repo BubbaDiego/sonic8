@@ -1,9 +1,0 @@
-{
-  "arbitrum": [
-    { "symbol": "ETH-USD", "market": "0xETH_USD_MARKET" },
-    { "symbol": "BTC-USD", "market": "0xBTC_USD_MARKET" }
-  ],
-  "avalanche": [
-    { "symbol": "AVAX-USD", "market": "0xAVAX_USD_MARKET" }
-  ]
-}
