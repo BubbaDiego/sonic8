@@ -17,10 +17,10 @@
 
   "liquid": {
     "notifications": {
-      "system": false,
+      "system": true,
       "voice": true,
-      "sms": false,
-      "tts": false
+      "sms": true,
+      "tts": true
     },
     "thresholds": {
       "BTC": 5.3,
@@ -36,10 +36,10 @@
 
   "profit": {
     "notifications": {
-      "system": false,
-      "voice": false,
+      "system": true,
+      "voice": true,
       "sms": false,
-      "tts": false
+      "tts": true
     },
     "snooze_seconds": 1200,
     "position_usd": 10,
@@ -68,7 +68,7 @@
     "thresholds": {
       "BTC": 1.3,
       "ETH": 1.0,
-      "SOL": 1.5
+      "SOL": 11.5
     },
     "blast": {
       "BTC": 5,
