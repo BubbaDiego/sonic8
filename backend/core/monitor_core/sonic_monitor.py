@@ -323,6 +323,7 @@ from backend.core.monitor_core.summary_helpers import (
     build_sources_snapshot,
     build_alerts_detail,
 )
+from backend.core.monitor_core.monitor_snapshot_bridge import get_positions_rows_and_totals
 from backend.core.reporting_core.summary_cache import (
     snapshot_into,
     set_hedges,
@@ -1240,6 +1241,38 @@ def run_monitor(
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
             if dl is not None:
                 render_cycle(dl, summary, default_json_path=DEFAULT_JSON_PATH)
+
+                # === Unified Positions data (rows + totals) ===
+                try:
+                    snap_data = get_positions_rows_and_totals()
+                except Exception:
+                    logging.debug("positions snapshot bridge failure", exc_info=True)
+                    snap_data = {"rows": [], "totals": {}}
+
+                totals = snap_data.get("totals", {})
+
+                # === Totals line (add this AFTER the rows are printed) ===
+                def _fmt_money(v):
+                    return f"${v:,.2f}" if isinstance(v, (int, float)) else "-"
+
+                def _fmt_lev(v):
+                    return f"{v:.2f}x" if isinstance(v, (int, float)) else "-"
+
+                total_value = totals.get("value", 0.0)
+                total_pnl = totals.get("pnl", 0.0)
+                avg_lev = totals.get("avg_lev_weighted")
+
+                line = [
+                    "",
+                    "",
+                    _fmt_money(total_value),
+                    _fmt_money(total_pnl),
+                    _fmt_lev(avg_lev),
+                    "",
+                    "",
+                ]
+
+                print(f"{'':<5} {'':<6} {line[2]:>10} {line[3]:>10} {line[4]:>8} {'':>8} {'':>8}")
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
                 summary,
