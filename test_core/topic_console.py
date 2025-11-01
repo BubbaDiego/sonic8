@@ -108,7 +108,7 @@ def main(argv: List[str] = None) -> int:
     # --topic optional (works if --bundle supplied)
     p.add_argument("--topic", action="append", help="Topic keyword; repeatable.")
     p.add_argument("--bundle", action="append", default=[], help="Bundle name from topics.yaml; repeatable.")
-    # default discovery stays inside test_core/tests to avoid repo-wide import bombs
+    # default discovery stays inside test_core/tests and tests to avoid repo-wide import bombs
     p.add_argument(
         "--path",
         action="append",
