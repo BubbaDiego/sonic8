@@ -39,7 +39,7 @@ def _iter_test_files(extra_paths: List[str]) -> List[Path]:
     candidates: List[Path] = []
     roots = [Path(p) for p in (extra_paths or [])]
     if not roots:
-        roots = [Path("test_core/tests")]
+        roots = [Path("test_core/tests"), Path("tests")]
     for root in roots:
         if root.is_file() and root.suffix == ".py":
             candidates.append(root)
