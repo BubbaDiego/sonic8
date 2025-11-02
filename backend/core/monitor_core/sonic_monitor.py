@@ -326,7 +326,7 @@ from backend.core.monitor_core.summary_helpers import (
 from backend.core.monitor_core.monitor_snapshot_bridge import get_positions_rows_and_totals
 from backend.core.monitor_core.positions_totals_printer import (
     compute_weighted_totals,
-    print_positions_totals_line,
+    print_positions_totals_block,
 )
 from backend.core.reporting_core.summary_cache import (
     snapshot_into,
@@ -1255,12 +1255,12 @@ def run_monitor(
 
                 # We fetched pos_rows earlier via collect_positions(dl); use them if snapshot is empty.
                 fallback_rows = pos_rows if isinstance(locals().get("pos_rows"), list) else []
+                # rows_for_footer MUST be the same structure you just rendered.
                 rows_for_footer = snap_data.get("rows") or fallback_rows
-                # Use the exact list rendered in the table body to compute weighted totals.
                 totals = compute_weighted_totals(rows_for_footer)
 
-                # Colored footer under: Asset | Side | Value | PnL | Lev | Liq | Travel
-                print_positions_totals_line(
+                # Align to the Positions table columns: Asset | Side | Value | PnL | Lev | Liq | Travel
+                print_positions_totals_block(
                     totals,
                     width_map={"asset": 5, "side": 6, "value": 10, "pnl": 10, "lev": 8, "liq": 8, "travel": 8},
                 )
