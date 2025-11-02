@@ -1,20 +1,21 @@
 from __future__ import annotations
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict
 
-DEFAULT_JSON = Path.cwd() / "gmx_solana_console.json"
+DEFAULT_JSON = Path(os.environ.get("GMSOL_CONSOLE_JSON", r"C:\\sonic7\\gmx_solana_console.json"))
 
-def load_json(path: Path = DEFAULT_JSON) -> Dict[str, Any]:
-    if not path.exists():
+
+def load_json(p: Path = DEFAULT_JSON) -> Dict[str, Any]:
+    if not p.exists():
         return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return {}
 
-def save_json(data: Dict[str, Any], path: Path = DEFAULT_JSON) -> None:
-    try:
-        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    except Exception as e:
-        print(f"⚠️  Failed to write config JSON {path}: {e}")
+
+def save_json(obj: Dict[str, Any], p: Path = DEFAULT_JSON) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(obj, indent=2), encoding="utf-8")
