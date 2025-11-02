@@ -17,8 +17,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Callable
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
-from backend.core.monitor_core.monitor_snapshot_bridge import get_positions_rows_and_totals
-from backend.core.monitor_core.positions_totals_printer import print_positions_totals_line
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
 
 try:
@@ -326,6 +324,10 @@ from backend.core.monitor_core.summary_helpers import (
     build_alerts_detail,
 )
 from backend.core.monitor_core.monitor_snapshot_bridge import get_positions_rows_and_totals
+from backend.core.monitor_core.positions_totals_printer import (
+    compute_weighted_totals,
+    print_positions_totals_line,
+)
 from backend.core.reporting_core.summary_cache import (
     snapshot_into,
     set_hedges,
@@ -1253,6 +1255,9 @@ def run_monitor(
 
                 rows = snap_data.get("rows", [])
                 totals = snap_data.get("totals", {})
+
+                if not totals or "value" not in totals:
+                    totals = compute_weighted_totals(rows)
 
                 # === Colored totals line (weighted averages for Lev & Travel) ===
                 print_positions_totals_line(

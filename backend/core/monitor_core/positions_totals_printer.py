@@ -8,6 +8,7 @@ RESET = "\x1b[0m"
 BOLD = "\x1b[1m"
 TOT_COLOR = "\x1b[38;5;45m"  # cyan-ish; change to "\x1b[97m" for bright white, etc.
 
+
 def _as_float(x: Any) -> Optional[float]:
     """Robust coercion: handles numbers, '$1,234.56', '12.34%', '10.5x', etc."""
     if isinstance(x, (int, float)):
@@ -26,6 +27,7 @@ def _as_float(x: Any) -> Optional[float]:
         except Exception:
             # Last resort: extract first numeric token (handles things like 'PnL: -12.3 USD')
             import re
+
             m = re.search(r"[-+]?\d+(?:\.\d+)?", s)
             if m:
                 try:
@@ -34,6 +36,7 @@ def _as_float(x: Any) -> Optional[float]:
                     return None
     return None
 
+
 def _get_ci(d: Dict[str, Any], key: str) -> Any:
     """Case-insensitive dict access for keys like value/Value/VALUE."""
     lk = key.lower()
@@ -41,6 +44,7 @@ def _get_ci(d: Dict[str, Any], key: str) -> Any:
         if isinstance(k, str) and k.lower() == lk:
             return v
     return None
+
 
 def compute_weighted_totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -60,6 +64,9 @@ def compute_weighted_totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     w_trv_num = 0.0
     w_trv_den = 0.0
 
+    long_val = 0.0
+    short_val = 0.0
+
     for r in rows:
         v = _as_float(_get_ci(r, "value"))
         pnl = _as_float(_get_ci(r, "pnl"))
@@ -75,6 +82,12 @@ def compute_weighted_totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
                 w_trv_num += abs(v) * trv
                 w_trv_den += abs(v)
 
+            side = _get_ci(r, "side")
+            if isinstance(side, str) and side.strip().upper() == "SHORT":
+                short_val += v
+            else:
+                long_val += v
+
         if pnl is not None:
             total_pnl += pnl
 
@@ -82,27 +95,36 @@ def compute_weighted_totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     avg_travel_weighted = (w_trv_num / w_trv_den) if w_trv_den > 0 else None
 
     return {
+        "count": len(rows),
         "value": total_value,
         "pnl": total_pnl,
+        "value_long": long_val,
+        "value_short": short_val,
         "avg_lev_weighted": avg_lev_weighted,
-        "avg_travel_weighted": avg_travel_weighted
+        "avg_travel_weighted": avg_travel_weighted,
     }
+
 
 def _fmt_money(v: Optional[float]) -> str:
     return f"${v:,.2f}" if isinstance(v, float) else "-"
 
+
 def _fmt_lev(v: Optional[float]) -> str:
     return f"{v:.2f}x" if isinstance(v, float) else "-"
+
 
 def _fmt_pct(v: Optional[float]) -> str:
     return f"{v:.2f}%" if isinstance(v, float) else "-"
 
-def print_positions_totals_line(totals: Dict[str, Any], width_map: Dict[str, int] | None = None) -> None:
+
+def print_positions_totals_line(
+    totals: Dict[str, Any], width_map: Dict[str, int] | None = None
+) -> None:
     """
     Print a colored totals row aligned under: Asset | Side | Value | PnL | Lev | Liq | Travel
     Only aggregable columns are populated.
     """
-    widths = (width_map or {
+    widths = width_map or {
         "asset": 5,
         "side": 6,
         "value": 10,
@@ -110,7 +132,7 @@ def print_positions_totals_line(totals: Dict[str, Any], width_map: Dict[str, int
         "lev": 8,
         "liq": 8,
         "travel": 8,
-    })
+    }
 
     val = _fmt_money(_as_float(totals.get("value")))
     pnl = _fmt_money(_as_float(totals.get("pnl")))
