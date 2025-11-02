@@ -1,37 +1,67 @@
 from __future__ import annotations
+
 import json
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 from urllib.request import Request, urlopen
 
-class MemcmpError(RuntimeError): ...
 
-def _rpc_call(rpc_url: str, method: str, params: list, user_agent: str = "sonic7-gmsol-memcmp") -> Any:
-    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode("utf-8")
-    req  = Request(rpc_url, data=body, headers={"Content-Type":"application/json","User-Agent":user_agent})
-    with urlopen(req, timeout=25) as resp:
+class MemcmpError(RuntimeError):
+    """Raised when the memcmp RPC path fails."""
+
+
+def _rpc_call(
+    rpc_url: str,
+    method: str,
+    params: list,
+    user_agent: str = "sonic7-gmsol",
+    timeout: float = 25.0,
+) -> Any:
+    body = json.dumps(
+        {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
+    ).encode("utf-8")
+    req = Request(
+        rpc_url,
+        data=body,
+        headers={"Content-Type": "application/json", "User-Agent": user_agent},
+    )
+    with urlopen(req, timeout=timeout) as resp:
         data = json.loads(resp.read().decode("utf-8"))
     if "error" in data:
         raise MemcmpError(f"{method} error: {data['error']}")
     return data["result"]
 
-def memcmp_count(
+
+def _is_helius(rpc_url: str) -> bool:
+    return "helius-rpc.com" in (rpc_url or "").lower()
+
+
+# -------------------------
+# v1 helpers (generic nodes)
+# -------------------------
+def memcmp_count_v1(
     rpc_url: str,
     program_id: str,
     wallet_b58: str,
     owner_offset: int = 24,
     limit: int = 200,
     page: int = 1,
+    data_size: Optional[int] = None,
+    commitment: str = "confirmed",
 ) -> Tuple[int, List[str]]:
     """
-    Returns (#matches_on_page, sample_pubkeys_up_to_10)
-    Uses getProgramAccounts with a single memcmp filter at owner_offset.
+    Returns (#matches_on_page, sample_pubkeys_up_to_10) using getProgramAccounts (provider-dependent pagination).
+    On Helius, 'page' and 'limit' work, but prefer V2 for reliability on large datasets.
     """
+    filters: List[Dict[str, Any]] = [{"memcmp": {"offset": owner_offset, "bytes": wallet_b58}}]
+    if isinstance(data_size, int) and data_size > 0:
+        filters.append({"dataSize": data_size})
+
     cfg = {
-        "encoding":"base64",
-        "commitment":"confirmed",
-        "limit": limit,
-        "page": page,
-        "filters": [{"memcmp":{"offset": owner_offset, "bytes": wallet_b58}}],
+        "encoding": "base64",
+        "commitment": commitment,
+        "limit": max(1, int(limit)),
+        "page": max(1, int(page)),
+        "filters": filters,
     }
     res = _rpc_call(rpc_url, "getProgramAccounts", [program_id, cfg])
     if not isinstance(res, list):
@@ -39,28 +69,143 @@ def memcmp_count(
     sample = [a.get("pubkey") for a in res[:10] if isinstance(a, dict)]
     return len(res), sample
 
-def memcmp_sweep(
+
+# -------------------------
+# v2 helpers (Helius)
+# -------------------------
+def memcmp_find_any_v2(
+    rpc_url: str,
+    program_id: str,
+    wallet_b58: str,
+    owner_offset: int = 24,
+    limit: int = 2000,
+    max_pages: int = 100,
+    data_size: Optional[int] = None,
+    commitment: str = "confirmed",
+) -> Tuple[int, List[str]]:
+    """
+    Cursor-based scan using Helius getProgramAccountsV2. Returns (total_count, up_to_10_samples).
+    """
+    filters: List[Dict[str, Any]] = [{"memcmp": {"offset": owner_offset, "bytes": wallet_b58}}]
+    if isinstance(data_size, int) and data_size > 0:
+        filters.append({"dataSize": data_size})
+
+    base_cfg: Dict[str, Any] = {
+        "encoding": "base64",
+        "commitment": commitment,
+        "limit": max(1, int(limit)),
+        "filters": filters,
+    }
+
+    total = 0
+    samples: List[str] = []
+    pagination_key: Optional[str] = None
+
+    for _ in range(max_pages):
+        cfg = dict(base_cfg)
+        if pagination_key:
+            cfg["paginationKey"] = pagination_key
+        res = _rpc_call(rpc_url, "getProgramAccountsV2", [program_id, cfg])
+
+        # Helius format: {"accounts":[...], "paginationKey":"..."} or {"items":[...]}
+        accts = []
+        if isinstance(res, dict):
+            accts = res.get("accounts") or res.get("items") or []
+        elif isinstance(res, list):
+            accts = res
+
+        if not isinstance(accts, list):
+            break
+
+        total += len(accts)
+        for a in accts:
+            if isinstance(a, dict):
+                pk = a.get("pubkey")
+                if pk and len(samples) < 10:
+                    samples.append(pk)
+
+        pagination_key = None
+        if isinstance(res, dict):
+            pagination_key = res.get("paginationKey")
+
+        if not pagination_key or len(samples) >= 10:
+            break
+
+    return total, samples
+
+
+def memcmp_sweep_v2(
     rpc_url: str,
     program_id: str,
     wallet_b58: str,
     offsets: List[int],
-    limit: int = 200,
+    limit: int = 2000,
+    data_size: Optional[int] = None,
 ) -> List[Tuple[int, int]]:
     """
-    Try multiple offsets; returns list of (offset, count_on_page1)
+    Quick diagnostic across multiple offsets using Helius V2. Returns [(offset, count_on_first_page), ...].
     """
-    out: List[Tuple[int,int]] = []
+    out: List[Tuple[int, int]] = []
     for off in offsets:
         try:
-            n, _ = memcmp_count(rpc_url, program_id, wallet_b58, owner_offset=off, limit=limit, page=1)
+            n, _ = memcmp_find_any_v2(
+                rpc_url,
+                program_id,
+                wallet_b58,
+                owner_offset=off,
+                limit=limit,
+                data_size=data_size,
+            )
             out.append((off, n))
         except Exception:
             out.append((off, -1))
     return out
 
+
+# -------------------------
+# Utilities shared by menu
+# -------------------------
 def fetch_account_base64(rpc_url: str, pubkey: str) -> Dict[str, Any]:
     """
-    getAccountInfo for pubkey; returns the RPC result 'value' dict (includes base64 data).
+    getAccountInfo for pubkey; returns the RPC 'value' payload (context + value).
     """
-    res = _rpc_call(rpc_url, "getAccountInfo", [pubkey, {"encoding":"base64"}])
-    return res  # includes context + value
+    return _rpc_call(rpc_url, "getAccountInfo", [pubkey, {"encoding": "base64"}])
+
+
+def memcmp_find(
+    rpc_url: str,
+    program_id: str,
+    wallet_b58: str,
+    owner_offset: int,
+    limit: int,
+    page: int,
+    data_size: Optional[int],
+    prefer_v2: bool,
+) -> Tuple[int, List[str], str]:
+    """
+    Unified entry for the console. Returns (count, samples, mode).
+    - If Helius endpoint and prefer_v2=True → V2
+    - Else → V1
+    """
+    if prefer_v2 and _is_helius(rpc_url):
+        n, sample = memcmp_find_any_v2(
+            rpc_url=rpc_url,
+            program_id=program_id,
+            wallet_b58=wallet_b58,
+            owner_offset=owner_offset,
+            limit=limit,
+            data_size=data_size,
+        )
+        return n, sample, "v2"
+
+    # fallback to V1
+    n, sample = memcmp_count_v1(
+        rpc_url=rpc_url,
+        program_id=program_id,
+        wallet_b58=wallet_b58,
+        owner_offset=owner_offset,
+        limit=limit,
+        page=page,
+        data_size=data_size,
+    )
+    return n, sample, "v1"
