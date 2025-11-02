@@ -1255,12 +1255,9 @@ def run_monitor(
 
                 # We fetched pos_rows earlier via collect_positions(dl); use them if snapshot is empty.
                 fallback_rows = pos_rows if isinstance(locals().get("pos_rows"), list) else []
-                rows = snap_data.get("rows") or fallback_rows
-                totals = snap_data.get("totals") or {}
-
-                # If no numeric totals from snapshot, compute from whatever rows we are actually displaying.
-                if not totals or "value" not in totals:
-                    totals = compute_weighted_totals(rows)
+                rows_for_footer = snap_data.get("rows") or fallback_rows
+                # Use the exact list rendered in the table body to compute weighted totals.
+                totals = compute_weighted_totals(rows_for_footer)
 
                 # Colored footer under: Asset | Side | Value | PnL | Lev | Liq | Travel
                 print_positions_totals_line(
