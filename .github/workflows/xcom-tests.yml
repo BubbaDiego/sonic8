@@ -1,0 +1,28 @@
+name: XCOM tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  xcom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest
+        run: |
+          python -m pip install -U pip pytest
+
+      - name: Run XCOM tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          pytest -q tests/xcom
