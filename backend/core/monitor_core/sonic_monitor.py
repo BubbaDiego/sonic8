@@ -14,7 +14,7 @@ import time
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Callable, List, Sequence
+from typing import Any, Dict, Optional, Callable
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
@@ -322,11 +322,6 @@ from backend.core.monitor_core.summary_helpers import (
     load_monitor_config_snapshot,
     build_sources_snapshot,
     build_alerts_detail,
-)
-from backend.core.monitor_core.monitor_snapshot_bridge import get_positions_rows_and_totals
-from backend.core.monitor_core.positions_totals_printer import (
-    compute_weighted_totals,
-    print_positions_totals_line,
 )
 from backend.core.reporting_core.summary_cache import (
     snapshot_into,
@@ -1244,120 +1239,13 @@ def run_monitor(
                 pass
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
             if dl is not None:
-                render_cycle(dl, summary, default_json_path=DEFAULT_JSON_PATH)
+                render_cycle(
+                    dl,
+                    summary,
+                    default_json_path=DEFAULT_JSON_PATH,
+                    show_monitors_summary=False,
+                )
 
-                # === Unified Positions data (rows + totals)
-                try:
-                    snap_data = get_positions_rows_and_totals()
-                except Exception:
-                    logging.debug("positions snapshot bridge failure", exc_info=True)
-                    snap_data = {"rows": [], "totals": {}}
-
-                # --- Positions Totals (single-line, directly under the table) ---
-                # Collect the exact cells we print, so totals reflect *what the user sees*.
-                _footer_rows: list[list[str]] = []
-
-                # If you want fixed widths, define them here (optional). Only include 'sz' if you *show* Size.
-                COLS = {"a": 5, "s": 6, "v": 10, "p": 10, "l": 7, "liq": 8, "t": 8}
-                # If/when you add a visible Size column between PnL and Lev, also set: COLS["sz"] = 10
-
-                rows_for_display_raw = snap_data.get("rows")
-                if not rows_for_display_raw:
-                    fallback_rows = locals().get("pos_rows")
-                    rows_for_display_raw = fallback_rows if isinstance(fallback_rows, list) else []
-
-                rows_for_display: List[Any] = list(rows_for_display_raw or [])
-
-                def _fmt_money(v: Any) -> str:
-                    try:
-                        return f"${float(v):,.2f}" if v is not None else ""
-                    except Exception:
-                        return str(v) if v not in (None, "") else ""
-
-                def _fmt_number(v: Any) -> str:
-                    try:
-                        return f"{float(v):,.2f}" if v is not None else ""
-                    except Exception:
-                        return str(v) if v not in (None, "") else ""
-
-                def _fmt_lev(v: Any) -> str:
-                    try:
-                        return f"{float(v):.2f}×" if v is not None else ""
-                    except Exception:
-                        return str(v) if v not in (None, "") else ""
-
-                def _fmt_pct(v: Any) -> str:
-                    try:
-                        return f"{float(v):.2f}%" if v is not None else ""
-                    except Exception:
-                        return str(v) if v not in (None, "") else ""
-
-                for row in rows_for_display:
-                    if isinstance(row, dict):
-                        asset_str = str(row.get("asset") or row.get("symbol") or row.get("name") or "")
-                        side_str = str(row.get("side") or row.get("position_type") or "")
-
-                        value_val = row.get("value") or row.get("notional") or row.get("size_usd")
-                        pnl_val = row.get("pnl") or row.get("unrealized_pnl") or row.get("pnl_usd")
-
-                        size_val = (
-                            row.get("size")
-                            or row.get("qty")
-                            or row.get("amount")
-                            or row.get("position_size")
-                            or row.get("size_usd")
-                        )
-
-                        lev_val = row.get("lev") or row.get("leverage")
-                        liq_val = row.get("liq") or row.get("liq_pct") or row.get("liquidation_distance")
-                        travel_val = row.get("travel") or row.get("travel_pct")
-
-                        asset_cell = asset_str
-                        side_cell = side_str
-                        value_cell = _fmt_money(value_val)
-                        pnl_cell = _fmt_money(pnl_val)
-                        size_cell = _fmt_number(size_val)
-                        lev_cell = _fmt_lev(lev_val)
-                        liq_cell = _fmt_number(liq_val)
-                        travel_cell = _fmt_pct(travel_val)
-
-                        _footer_rows.append(
-                            [
-                                asset_cell,
-                                side_cell,
-                                value_cell,
-                                pnl_cell,
-                                lev_cell,
-                                liq_cell,
-                                travel_cell,
-                            ]
-                        )
-                    elif isinstance(row, Sequence) and not isinstance(row, (str, bytes)):
-                        cells = list(row[:8])
-                        if len(cells) >= 8:
-                            _footer_rows.append([str(cells[i]) for i in (0, 1, 2, 3, 5, 6, 7)])
-                        else:
-                            _footer_rows.append([str(c) for c in cells[:7]])
-
-                totals_input: List[Any] = list(_footer_rows) if _footer_rows else rows_for_display
-
-                # Inline totals: sum from the rows we just printed (no snapshot dependency).
-                _totals = compute_weighted_totals(totals_input)
-
-                # Build a width map matching the header you printed above.
-                # (If you added a Size column, include 'sz': COLS['sz'])
-                width_map = {
-                    "a": COLS["a"],
-                    "s": COLS["s"],
-                    "v": COLS["v"],
-                    "p": COLS["p"],
-                    "l": COLS["l"],
-                    "liq": COLS["liq"],
-                    "t": COLS["t"],
-                    # "sz": COLS["sz"],  # leave commented out unless the header shows Size
-                }
-
-                print_positions_totals_line(_totals, width_map=width_map)
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
                 summary,
