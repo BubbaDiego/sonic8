@@ -156,7 +156,7 @@ except Exception:
     prewarm = None
 
 # --------------------------------------------------------------------------
-# Create app FIRST, then include routers
+# 1) Instantiate the FastAPI application before wiring any routers
 # --------------------------------------------------------------------------
 app = FastAPI(
     title="Sonic API",
@@ -168,6 +168,9 @@ if prewarm and os.getenv("FUN_CORE_MONITOR") == "1":
     loop = asyncio.get_event_loop()
     loop.create_task(prewarm())
 
+# --------------------------------------------------------------------------
+# 2) Configure middleware / lifecycle hooks (optional)
+# --------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -181,6 +184,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --------------------------------------------------------------------------
+# 3) Include routers only after the app has been created
+# --------------------------------------------------------------------------
 # Include all existing routers
 app.include_router(positions_router)
 app.include_router(portfolio_router)
@@ -245,4 +251,4 @@ async def status():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.sonic_backend_app:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run("backend.sonic_backend_app:app", host="127.0.0.1", port=5000, reload=True)
