@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from collections.abc import Mapping
+import pathlib
 import json
 import os
 import time
@@ -32,6 +33,7 @@ from backend.utils.env_utils import _resolve_env  # type: ignore
 from backend.core.xcom_core import dispatch_notifications
 from backend.core.xcom_core.xcom_config_service import XComConfigService
 from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
+from backend.core.reporting_core.sonic_reporting.config_probe import discover_json_path, parse_json
 
 # ── Local per-asset notify cooldown (provider cooldown still applies) ─────────
 _LIQ_LAST_NOTIFY_AT: dict[str, float] = {}
@@ -70,6 +72,65 @@ class LiquidationMonitor(BaseMonitor):
         self.dl = DataLocker.get_instance()
         self.pos_mgr = DLPositionManager(self.dl.db)
         self._last_alert_ts: Optional[datetime] = None
+
+        # loud announce of module + version
+        print(f"[LM] loaded LM/no-edge+pepper+filecfg v1")
+
+        # robust JSON load (announce success/failure explicitly)
+        self._file_cfg, self._cfg_path, self._cfg_src = self._load_file_cfg()
+        if self._file_cfg:
+            print(f"[LM][CFG] ✅ source={self._cfg_src} path={self._cfg_path} keys={len(self._file_cfg)}")
+        else:
+            print(f"[LM][CFG] ❌ no usable config (source={self._cfg_src} path={self._cfg_path}) — falling back to empty")
+
+    def _load_file_cfg(self) -> tuple[dict, str, str]:
+        """
+        Loud, robust config loader:
+          1) dl.global_config if present & non-empty (RUNTIME)
+          2) discover_json_path (FILE)
+          3) canonical backend/config/sonic_monitor_config.json (FILE)
+        Returns (cfg_dict, path_str, source_label). Never silent.
+        """
+        # 1) RUNTIME – dl.global_config
+        try:
+            gc = getattr(self.dl, "global_config", None)
+            if isinstance(gc, dict) and gc:
+                return gc, "dl.global_config", "RUNTIME"
+        except Exception as e:
+            print(f"[LM][CFG] RUNTIME load error: {e}")
+
+        # 2) FILE – discover_json_path
+        try:
+            default_guess = os.environ.get("SONIC_CONFIG_JSON", None) or None
+            cfg_path = discover_json_path(default_guess)
+            if cfg_path:
+                cfg_obj, err, meta = parse_json(cfg_path)
+                if isinstance(cfg_obj, dict) and cfg_obj:
+                    return cfg_obj, str(cfg_path), "FILE"
+                else:
+                    print(f"[LM][CFG] FILE parse returned empty (err={err}) path={cfg_path}")
+            else:
+                print("[LM][CFG] discover_json_path returned None")
+        except Exception as e:
+            print(f"[LM][CFG] FILE discover/parse error: {e}")
+
+        # 3) FILE – canonical fallback
+        try:
+            here = pathlib.Path(__file__).resolve()
+            fallback = (here.parent.parent.parent / "config" / "sonic_monitor_config.json").resolve()
+            if fallback.is_file():
+                cfg_obj, err, meta = parse_json(str(fallback))
+                if isinstance(cfg_obj, dict) and cfg_obj:
+                    return cfg_obj, str(fallback), "FILE"
+                else:
+                    print(f"[LM][CFG] canonical parse returned empty (err={err}) path={fallback}")
+            else:
+                print(f"[LM][CFG] canonical path not found: {fallback}")
+        except Exception as e:
+            print(f"[LM][CFG] canonical parse error: {e}")
+
+        # Nothing worked
+        return {}, "—", "NONE"
 
     # ------------------------------------------------------------------
     # Helpers
@@ -183,11 +244,14 @@ class LiquidationMonitor(BaseMonitor):
             log.info("LiquidationMonitor disabled; skipping cycle", source=self.name)
             return {"status": "Disabled", "success": True}
 
-        # Resolve per-monitor channels exactly like the dispatcher does
-        cfg_service = XComConfigService(self.dl.system, config=getattr(self.dl, "global_config", None))
-        channels_for_monitor = cfg_service.channels_for("liquid")
-        voice_enabled = bool(channels_for_monitor.get("voice", False))
-        log.debug("channels_for(liquid) => %s", channels_for_monitor, source="LiquidationMonitor")
+        # Use FILE cfg we loaded above for resolver so channels/liquid reflects JSON every cycle
+        cfg_service = XComConfigService(self.dl.system, config=self._file_cfg)
+        ch = cfg_service.channels_for("liquid")
+        voice_enabled = bool(ch.get("voice", False))
+        print(
+            f"[LM][CHAN] voice={ch.get('voice', False)} system={ch.get('system', False)} "
+            f"tts={ch.get('tts', False)} sms={ch.get('sms', False)} (cfg_src={self._cfg_src})"
+        )
 
         positions = self.pos_mgr.get_active_positions()
         thresholds = cfg.get("thresholds", {}) or {}
