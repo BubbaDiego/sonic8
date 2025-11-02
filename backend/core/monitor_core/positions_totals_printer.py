@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 # Simple ANSI styling for highlight; tweak or blank out if you don’t want color/bold
-RESET = "\n"
+RESET = "\x1b[0m"
 BOLD = "\x1b[1m"
 LINE_COLOR = "\x1b[38;5;45m"  # cyan-ish; change as desired, or set to "" for no color
 
@@ -124,13 +124,19 @@ def compute_weighted_totals(rows: List[Any]) -> Dict[str, Optional[float]]:
     }
 
 def _fmt_money(v: Optional[float]) -> str:
-    return f"${v:,.2f}" if isinstance(v, float) else "-"
+    if isinstance(v, (int, float)):
+        return f"${float(v):,.2f}"
+    return "-"
 
 def _fmt_lev(v: Optional[float]) -> str:
-    return f"{v:.2f}×" if isinstance(v, float) else "-"
+    if isinstance(v, (int, float)):
+        return f"{float(v):.2f}×"
+    return "-"
 
 def _fmt_pct(v: Optional[float]) -> str:
-    return f"{v:.2f}%" if isinstance(v, float) else "-"
+    if isinstance(v, (int, float)):
+        return f"{float(v):.2f}%"
+    return "-"
 
 def print_positions_totals_line(totals: Dict[str, Optional[float]], width_map: Dict[str, int]) -> None:
     """
@@ -155,4 +161,4 @@ def print_positions_totals_line(totals: Dict[str, Optional[float]], width_map: D
         f"{'':>{width_map['liq']}} "
         f"{trv:>{width_map['t']}}"
     )
-    print(f"{LINE_COLOR}{BOLD}{line}{RESET}", end="")
+    print(f"{LINE_COLOR}{BOLD}{line}{RESET}")

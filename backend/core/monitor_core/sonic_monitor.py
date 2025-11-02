@@ -1254,14 +1254,15 @@ def run_monitor(
                     snap_data = {"rows": [], "totals": {}}
 
                 # --- Positions Totals (single-line, directly under the table) ---
+                COLS = {"a": 5, "s": 6, "v": 10, "p": 10, "sz": 10, "l": 7, "liq": 8, "t": 8}
+                footer_rows: list[list[str]] = []
+
                 rows_for_display_raw = snap_data.get("rows")
                 if not rows_for_display_raw:
                     fallback_rows = locals().get("pos_rows")
                     rows_for_display_raw = fallback_rows if isinstance(fallback_rows, list) else []
 
                 rows_for_display: List[Any] = list(rows_for_display_raw or [])
-
-                COLS = {"a": 5, "s": 6, "v": 10, "p": 10, "sz": 10, "l": 7, "liq": 8, "t": 8}
 
                 def _fmt_money(v: Any) -> str:
                     try:
@@ -1287,7 +1288,6 @@ def run_monitor(
                     except Exception:
                         return str(v) if v not in (None, "") else ""
 
-                footer_rows: List[Sequence[str]] = []
                 for row in rows_for_display:
                     if isinstance(row, dict):
                         asset_str = str(row.get("asset") or row.get("symbol") or row.get("name") or "")
@@ -1308,32 +1308,49 @@ def run_monitor(
                         liq_val = row.get("liq") or row.get("liq_pct") or row.get("liquidation_distance")
                         travel_val = row.get("travel") or row.get("travel_pct")
 
+                        asset_cell = asset_str
+                        side_cell = side_str
+                        value_cell = _fmt_money(value_val)
+                        pnl_cell = _fmt_money(pnl_val)
+                        size_cell = _fmt_number(size_val)
+                        lev_cell = _fmt_lev(lev_val)
+                        liq_cell = _fmt_number(liq_val)
+                        travel_cell = _fmt_pct(travel_val)
+
                         footer_rows.append(
-                            (
-                                asset_str,
-                                side_str,
-                                _fmt_money(value_val),
-                                _fmt_money(pnl_val),
-                                _fmt_number(size_val),
-                                _fmt_lev(lev_val),
-                                _fmt_number(liq_val),
-                                _fmt_pct(travel_val),
-                            )
+                            [
+                                asset_cell,
+                                side_cell,
+                                value_cell,
+                                pnl_cell,
+                                size_cell,
+                                lev_cell,
+                                liq_cell,
+                                travel_cell,
+                            ]
                         )
                     elif isinstance(row, Sequence) and not isinstance(row, (str, bytes)):
                         cells = list(row[:8])
                         if len(cells) == 7:
                             cells.insert(4, "")
-                        footer_rows.append(tuple(str(c) for c in cells[:8]))
+                        footer_rows.append([str(c) for c in cells[:8]])
 
-                totals_input: List[Any]
-                if footer_rows:
-                    totals_input = list(footer_rows)
-                else:
-                    totals_input = rows_for_display
+                totals_input: List[Any] = list(footer_rows) if footer_rows else rows_for_display
 
                 totals = compute_weighted_totals(totals_input)
-                print_positions_totals_line(totals, width_map=COLS)
+                print_positions_totals_line(
+                    totals,
+                    width_map={
+                        "a": COLS["a"],
+                        "s": COLS["s"],
+                        "v": COLS["v"],
+                        "p": COLS["p"],
+                        "sz": COLS["sz"],
+                        "l": COLS["l"],
+                        "liq": COLS["liq"],
+                        "t": COLS["t"],
+                    },
+                )
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
                 summary,
