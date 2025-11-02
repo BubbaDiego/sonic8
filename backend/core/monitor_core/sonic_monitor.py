@@ -1354,7 +1354,7 @@ def run_monitor(
                     "l": COLS["l"],
                     "liq": COLS["liq"],
                     "t": COLS["t"],
-                    # "sz": COLS["sz"],  # uncomment if you *show* Size in the table
+                    # "sz": COLS["sz"],  # leave commented out unless the header shows Size
                 }
 
                 print_positions_totals_line(_totals, width_map=width_map)
