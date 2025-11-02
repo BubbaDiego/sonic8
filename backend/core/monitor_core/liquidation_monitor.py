@@ -83,6 +83,61 @@ class LiquidationMonitor(BaseMonitor):
         else:
             print(f"[LM][CFG] ❌ no usable config (source={self._cfg_src} path={self._cfg_path}) — falling back to empty")
 
+    def _read_positions_resilient(self):
+        """
+        1) Try active positions (normal path).
+        2) If none (e.g., importer failed), fall back to last-known rows in DB.
+           We pick the most recent per-asset where liquidation_distance is not NULL.
+        """
+        # 1) Normal path
+        try:
+            active = self.pos_mgr.get_active_positions()
+        except Exception:
+            active = []
+        if active:
+            print(f"[LM] positions: active={len(active)}  fallback=0  using=active")
+            return active
+
+        # 2) Fallback (stale/cached)
+        fallback = []
+        try:
+            cur = self.dl.db.get_cursor()
+            if cur:
+                # NOTE: Adjust table/column names if your schema differs.
+                # This query picks most recent per-asset by updated_at (or created_at if needed).
+                cur.execute(
+                    """
+                        SELECT p1.*
+                        FROM positions p1
+                        JOIN (
+                            SELECT asset_type, MAX(COALESCE(updated_at, created_at)) AS ts
+                            FROM positions
+                            WHERE liquidation_distance IS NOT NULL AND liquidation_distance != ''
+                            GROUP BY asset_type
+                        ) px
+                        ON p1.asset_type = px.asset_type
+                       AND COALESCE(p1.updated_at, p1.created_at) = px.ts
+                    """
+                )
+                cols = [d[0] for d in cur.description]
+                for row in cur.fetchall():
+                    rec = dict(zip(cols, row))
+
+                    class _Row:
+                        pass
+
+                    obj = _Row()
+                    for k, v in rec.items():
+                        setattr(obj, k, v)
+                    fallback.append(obj)
+        except Exception as e:
+            print(f"[LM] fallback query failed: {e}")
+
+        print(
+            f"[LM] positions: active=0  fallback={len(fallback)}  using={'fallback' if fallback else 'none'}"
+        )
+        return fallback
+
     def _load_file_cfg(self) -> tuple[dict, str, str]:
         """
         Loud, robust config loader:
@@ -253,7 +308,10 @@ class LiquidationMonitor(BaseMonitor):
             f"tts={ch.get('tts', False)} sms={ch.get('sms', False)} (cfg_src={self._cfg_src})"
         )
 
-        positions = self.pos_mgr.get_active_positions()
+        positions = self._read_positions_resilient()
+        if not positions:
+            print("[LM] no positions available this cycle (import errors or empty DB); skipping dial")
+            return {"status": "NoPositions", "success": True, "details": []}
         thresholds = cfg.get("thresholds", {}) or {}
         notif = cfg.get("notifications") or {}
 
