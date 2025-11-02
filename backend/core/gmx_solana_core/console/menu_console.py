@@ -13,6 +13,7 @@ Menu:
   [5] Positions (from signer)
   [6] Positions (enter pubkey)
   [7] Set paging (limit/page/owner-offset)
+  [8] Signer debug (peek file, try derive again)
   [0] Exit
 """
 from __future__ import annotations
@@ -41,7 +42,7 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
     Try signer_loader → mnemonic → base58 in file.
     Mnemonic parser is tolerant: strips punctuation, lowercases, collapses whitespace.
     """
-    # 1) project loader (as-is)
+    # 1) project loader
     try:
         from importlib import import_module
         sl = import_module("backend.services.signer_loader")
@@ -49,13 +50,16 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
             if hasattr(sl, attr):
                 try:
                     val = getattr(sl, attr)(str(signer_path))
-                    if isinstance(val, str): return val
-                except Exception: pass
+                    if isinstance(val, str):
+                        return val
+                except Exception:
+                    pass
         for attr in ("load_signer","get_signer","load_mnemonic","load_wallet"):
             if hasattr(sl, attr):
                 try:
                     obj = getattr(sl, attr)(str(signer_path))
-                    if hasattr(obj, "public_key"): return str(getattr(obj,"public_key"))
+                    if hasattr(obj, "public_key"):
+                        return str(getattr(obj,"public_key"))
                     if hasattr(obj, "pubkey"):
                         pk = obj.pubkey()
                         return str(pk) if pk is not None else None
@@ -74,13 +78,11 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
     if signer_path.exists() and not raw_mn:
         raw_mn = signer_path.read_text(encoding="utf-8", errors="ignore")
 
-    # 3) try tolerant mnemonic cleanup first
+    # 3) tolerant mnemonic cleanup first
     if raw_mn:
         import re
-        # keep letters/spaces only, lowercase, collapse spaces
         cleaned = re.sub(r"[^A-Za-z\s]", " ", raw_mn).lower()
         words = [w for w in cleaned.split() if w]
-        # try common lengths in descending order
         for n in (24, 21, 18, 15, 12):
             if len(words) >= n:
                 cand = " ".join(words[:n])
@@ -88,7 +90,7 @@ def derive_pubkey_from_signer(signer_path: Path) -> Optional[str]:
                     from bip_utils import Bip39MnemonicValidator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
                     Bip39MnemonicValidator(cand).Validate()
                     seed = Bip39SeedGenerator(cand).Generate()
-                    ctx = Bip44.FromSeed(seed, Bip44Coins.SOLANA)
+                    ctx  = Bip44.FromSeed(seed, Bip44Coins.SOLANA)
                     acct = ctx.Purpose().Coin().Account(0).Change(Bip44Changes.CHAIN_EXT).AddressIndex(0)
                     return acct.PublicKey().ToAddress()
                 except Exception:
@@ -120,7 +122,7 @@ def find_default_signer() -> Path:
 
 class Session:
     def __init__(self):
-        # precedence: JSON → YAML → env (we minimize env)
+        # precedence: JSON → YAML → env
         j = load_json(DEFAULT_JSON)
         try:
             y = load_solana_config(str(DEFAULT_CFG))
@@ -136,10 +138,9 @@ class Session:
         self.owner_offset = int(j.get("owner_offset") or 8)
         self.limit        = int(j.get("limit") or 100)
         self.page         = int(j.get("page") or 1)
-        # derived
+        # derived (header will show this)
         self.signer_pubkey: Optional[str] = derive_pubkey_from_signer(self.signer_file)
 
-    # persist all current session fields to JSON
     def persist(self):
         data: Dict[str, Any] = {
             "sol_rpc":         self.rpc_http,
@@ -182,6 +183,7 @@ def menu_loop(sess: Session):
         print("  [5] Positions (from signer)")
         print("  [6] Positions (enter pubkey)")
         print("  [7] Set paging (limit/page/owner-offset)")
+        print("  [8] Signer debug (peek file, try derive again)")
         print("  [0] Exit")
         choice = input("Select: ").strip()
 
@@ -268,6 +270,25 @@ def menu_loop(sess: Session):
                     sess.persist()
                 except Exception as e:
                     print("bad input:", e)
+                input("\n<enter>")
+
+            elif choice == "8":
+                # Peek signer file & try again
+                try:
+                    if not sess.signer_file.exists():
+                        print(f"Signer file not found: {sess.signer_file}")
+                    else:
+                        txt = sess.signer_file.read_text(encoding="utf-8", errors="ignore")
+                        print("First 200 chars:", repr(txt[:200]))
+                        pub = derive_pubkey_from_signer(sess.signer_file)
+                        if pub:
+                            sess.signer_pubkey = pub
+                            print("Derived pubkey:", pub)
+                        else:
+                            print("Could not derive pubkey.")
+                    sess.persist()
+                except Exception as e:
+                    print("debug error:", e)
                 input("\n<enter>")
 
             elif choice == "0":
