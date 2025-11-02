@@ -1,21 +1,23 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
-RESET = "\x1b[0m"
-BOLD = "\x1b[1m"
-TOT_COLOR = "\x1b[38;5;45m"  # cyan-ish; change to "\x1b[97m" for bright white
+RESET = "\n"
+BOLD = "\x00"
+ENDC = ""
+COLOR = ""
 
 
 def _as_float(x: Any) -> Optional[float]:
+    """Coerce numbers and strings like '$1,234.56', '12.3%', '10.5x', '9.90×' into floats."""
     if isinstance(x, (int, float)):
         return float(x)
     if isinstance(x, str):
         s = x.strip()
         if not s:
             return None
-        for ch in ("$", ",", "%", "x", "X"):
+        for ch in ("$", ",", "%", "x", "X", "×"):
             s = s.replace(ch, "")
-        s = s.replace("\u2013", "-")
+        s = s.replace("\u2013", "-")  # normalize en-dash
         try:
             return float(s)
         except Exception:
@@ -31,6 +33,7 @@ def _as_float(x: Any) -> Optional[float]:
 
 
 def _get_ci(d: Dict[str, Any], key: str) -> Any:
+    """Case-insensitive dict access."""
     lk = key.lower()
     for k, v in d.items():
         if isinstance(k, str) and k.lower() == lk:
@@ -41,8 +44,8 @@ def _get_ci(d: Dict[str, Any], key: str) -> Any:
 def _extract_fields(row: Any) -> Dict[str, Optional[float]]:
     """
     Accept either:
-      - dict-like with keys (CI): value, pnl, lev, travel, side
-      - sequence: [Asset, Side, Value, PnL, Lev, Liq, Travel]
+      - dict-like with keys (case-insensitive): value, pnl, lev, travel
+      - sequence of 7 columns: [asset, side, value, pnl, lev, liq, travel]
     """
     if isinstance(row, dict):
         return {
@@ -50,65 +53,48 @@ def _extract_fields(row: Any) -> Dict[str, Optional[float]]:
             "pnl": _as_float(_get_ci(row, "pnl")),
             "lev": _as_float(_get_ci(row, "lev")),
             "travel": _as_float(_get_ci(row, "travel")),
-            "side": str(_get_ci(row, "side") or "").upper(),
         }
     if isinstance(row, Sequence) and len(row) >= 7:
-        # 0 Asset, 1 Side, 2 Value, 3 PnL, 4 Lev, 5 Liq, 6 Travel
         return {
             "value": _as_float(row[2]),
             "pnl": _as_float(row[3]),
             "lev": _as_float(row[4]),
             "travel": _as_float(row[6]),
-            "side": str(row[1]).upper() if row[1] is not None else "",
         }
-    return {"value": None, "pnl": None, "lev": None, "travel": None, "side": ""}
+    return {"value": None, "pnl": None, "lev": None, "travel": None}
 
 
-def compute_weighted_totals(rows: List[Any]) -> Dict[str, Any]:
-    count = len(rows)
+def compute_weighted_totals(rows: List[Any]) -> Dict[str, Optional[float]]:
+    """Sum(Value), sum(PnL), |Value|-weighted averages for Lev and Travel."""
     total_value = 0.0
     total_pnl = 0.0
-    gross = 0.0
-    net = 0.0
-    long_val = 0.0
-    short_val = 0.0
-
     w_lev_num = w_lev_den = 0.0
     w_trv_num = w_trv_den = 0.0
 
     for r in rows:
         f = _extract_fields(r)
-        v, p, l, t, side = f["value"], f["pnl"], f["lev"], f["travel"], f["side"]
-
+        v, p, l, t = f["value"], f["pnl"], f["lev"], f["travel"]
         if v is not None:
             total_value += v
-            gross += abs(v)
-            net += v
-            if side == "SHORT":
-                short_val += v
-            else:
-                long_val += v
-
             if l is not None:
-                w_lev_num += abs(v) * l
+                w_l = abs(v) * l
+                w_lev_num += w_l
                 w_lev_den += abs(v)
             if t is not None:
-                w_trv_num += abs(v) * t
+                w_t = abs(v) * t
+                w_trv_num += w_t
                 w_trv_den += abs(v)
-
         if p is not None:
             total_pnl += p
 
+    lev_w = (w_lev_num / w_lev_den) if w_lev_den > 0 else None
+    trv_w = (w_trv_num / w_trv_den) if w_trv_den > 0 else None
+
     return {
-        "count": count,
         "value": total_value,
         "pnl": total_pnl,
-        "gross_exposure": gross,
-        "net_exposure": net,
-        "value_long": long_val,
-        "value_short": short_val,
-        "avg_lev_weighted": (w_lev_num / w_lev_den) if w_lev_den > 0 else None,
-        "avg_travel_weighted": (w_trv_num / w_trv_den) if w_trv_den > 0 else None,
+        "avg_lev_weighted": lev_w,
+        "avg_travel_weighted": trv_w,
     }
 
 
@@ -117,48 +103,28 @@ def _fmt_money(v: Optional[float]) -> str:
 
 
 def _fmt_lev(v: Optional[float]) -> str:
-    return f"{v:.2f}x" if isinstance(v, float) else "-"
+    return f"{v:.2f}×" if isinstance(v, float) else "-"
 
 
 def _fmt_pct(v: Optional[float]) -> str:
     return f"{v:.2f}%" if isinstance(v, float) else "-"
 
 
-def print_positions_totals_block(
-    totals: Dict[str, Any],
-    width_map: Dict[str, int] | None = None
+def print_positions_totals_line(
+    totals: Dict[str, Optional[float]],
+    width_map: Dict[str, int]
 ) -> None:
     """
-    Two-line totals block, aligned under columns (Asset|Side|Value|PnL|Lev|Liq|Travel):
-      line 1: labeled totals (Value, PnL, W-Avg Lev, W-Avg Travel)
-      line 2: extras (Count, Gross, Net, Long/Short)
+    Print ONE aligned totals line in the same block, under the last row.
+    Leave Asset/Side/Liq empty; fill Value/PnL/Lev/Travel.
     """
-    widths = width_map or {"asset": 5, "side": 6, "value": 10, "pnl": 10, "lev": 8, "liq": 8, "travel": 8}
-
-    # First line aligned to main columns
-    label = "Totals:"
-    val = _fmt_money(_as_float(totals.get("value")))
-    pnl = _fmt_money(_as_float(totals.get("pnl")))
-    lev = _fmt_lev(_as_float(totals.get("avg_lev_weighted")))
-    trv = _fmt_pct(_as_float(totals.get("avg_travel_weighted")))
-
-    line1 = (
-        f"{label:<{widths['asset']}} "
-        f"{'':<{widths['side']}} "
-        f"{val:>{widths['value']}} "
-        f"{pnl:>{widths['pnl']}} "
-        f"{lev:>{widths['lev']}} "
-        f"{'':>{widths['liq']}} "
-        f"{trv:>{widths['travel']}}"
+    line = (
+        f"{'':<{width_map['asset']}} "
+        f"{'':<{width_map['side']}} "
+        f"{_fmt_money(totals.get('value')):>{width_map['value']}} "
+        f"{_fmt_money(totals.get('pnl')):>{width_map['pnl']}} "
+        f"{_fmt_lev(tals := totals.get('avg_lev', totals.get('avg_lev_weighted'))):>{width_map['lev']}} "
+        f"{'':>{width_map['liq']}} "
+        f"{_fmt_pct(totals.get('avg_travel', totals.get('avg_travel_weighted'))):>{width_map['travel']}}"
     )
-    print(f"{BOLD}{TOT_COLOR}{line1}{RESET}")
-
-    # Second line: extras
-    cnt = totals.get("count", 0)
-    gross = _fmt_money(_as_float(totals.get("gross_exposure")))
-    net = _fmt_money(_as_float(totals.get("net_exposure")))
-    vlong = _fmt_money(_as_float(totals.get("value_long")))
-    vshort = _fmt_money(_as_float(totals.get("value_short")))
-
-    extras = f"Count {cnt}  Gross {gross}  Net {net}  Long {vlong} / Short {vshort}"
-    print(f"{BOLD}{TOT_COLOR}{extras}{RESET}")
+    print(f"{BOLD}{line}{ENDC}")

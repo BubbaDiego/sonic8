@@ -326,7 +326,7 @@ from backend.core.monitor_core.summary_helpers import (
 from backend.core.monitor_core.monitor_snapshot_bridge import get_positions_rows_and_totals
 from backend.core.monitor_core.positions_totals_printer import (
     compute_weighted_totals,
-    print_positions_totals_block,
+    print_positions_totals_line,
 )
 from backend.core.reporting_core.summary_cache import (
     snapshot_into,
@@ -1253,17 +1253,13 @@ def run_monitor(
                     logging.debug("positions snapshot bridge failure", exc_info=True)
                     snap_data = {"rows": [], "totals": {}}
 
-                # We fetched pos_rows earlier via collect_positions(dl); use them if snapshot is empty.
-                fallback_rows = pos_rows if isinstance(locals().get("pos_rows"), list) else []
-                # rows_for_footer MUST be the same structure you just rendered.
-                rows_for_footer = snap_data.get("rows") or fallback_rows
-                totals = compute_weighted_totals(rows_for_footer)
-
-                # Align to the Positions table columns: Asset | Side | Value | PnL | Lev | Liq | Travel
-                print_positions_totals_block(
-                    totals,
-                    width_map={"asset": 5, "side": 6, "value": 10, "pnl": 10, "lev": 8, "liq": 8, "travel": 8},
+                # --- Positions Totals (single-line, directly under the table) ---
+                rows_for_display = snap_data.get("rows") or (
+                    pos_rows if isinstance(locals().get("pos_rows"), list) else []
                 )
+                COLS = {"asset": 5, "side": 6, "value": 10, "pnl": 10, "lev": 6, "liq": 6, "travel": 7}
+                totals = compute_weighted_totals(rows_for_display)
+                print_positions_totals_line(totals, width_map=COLS)
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
                 summary,
