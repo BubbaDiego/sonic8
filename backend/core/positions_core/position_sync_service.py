@@ -14,6 +14,7 @@ from backend.core.logging import log
 from backend.core.core_constants import JUPITER_API_BASE
 from backend.data.data_locker import DataLocker
 from backend.core.positions_core.position_enrichment_service import PositionEnrichmentService
+from backend.data.dl_positions import DLPositionManager
 from backend.core.positions_core.position_core import PositionCore
 from backend.core.calc_core.calculation_core import CalculationCore
 from backend.core.hedge_core.hedge_core import HedgeCore
@@ -65,6 +66,11 @@ class PositionSyncService:
 
     def __init__(self, data_locker: "DataLocker"):
         self.dl = data_locker
+        # Ensure the 'positions' table exists and is up to date (fresh DB safety)
+        try:
+            DLPositionManager.ensure_schema(self.dl.db)
+        except Exception as e:
+            log.warning(f"Schema ensure skipped: {e}", source="PositionSyncService")
         self.enricher = PositionEnrichmentService(data_locker)
 
     # ------------------------------ HTTP helpers ------------------------------ #
@@ -279,6 +285,15 @@ class PositionSyncService:
         try:
             cur.execute("PRAGMA table_info(positions);")
             db_cols = {row[1] for row in cur.fetchall()}
+            if not db_cols:
+                # Fresh DB or table missing → create/repair schema and retry
+                try:
+                    DLPositionManager.ensure_schema(self.dl.db)
+                    cur.execute("PRAGMA table_info(positions);")
+                    db_cols = {row[1] for row in cur.fetchall()}
+                except Exception as e2:
+                    log.error(f"Positions schema creation failed: {e2}", source="SchemaProbe")
+                    db_cols = set()
         except Exception as e:
             log.warning(f"Failed to read positions schema: {e}", source="SchemaProbe")
             db_cols = set()
