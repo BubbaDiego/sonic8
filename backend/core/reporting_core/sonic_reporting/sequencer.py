@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 from typing import Dict, Any
+from importlib import import_module
 
 from .banner_config import render_banner
 from .sync_data import render as render_sync                  # prints table only
@@ -14,6 +15,18 @@ try:
     from backend.core.logging import log as _log  # type: ignore
 except Exception:  # pragma: no cover
     _log = None  # type: ignore
+
+
+def _try_render(name: str, **kwargs):
+    try:
+        mod = import_module(f"backend.core.reporting_core.sonic_reporting.{name}")
+        render = getattr(mod, "render", None)
+        if callable(render):
+            render(**kwargs)
+        else:
+            print(f"[sequencer] {name}.render() missing")
+    except Exception as e:
+        print(f"[sequencer] {name} failed: {e}")
 
 
 def render_startup_banner(dl, default_json_path: str) -> None:
@@ -47,6 +60,9 @@ def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
     write_line("")
     write_line("---------------------- 🖥️  Monitors  ----------------------")
     render_evals(dl, csum)
+
+    # 💳 Wallets panel (safe, optional)
+    _try_render("wallets_panel", dl=dl)
 
     # 4) Positions
     write_line("")
