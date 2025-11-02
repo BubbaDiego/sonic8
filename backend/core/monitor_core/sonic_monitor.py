@@ -14,7 +14,7 @@ import time
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Dict, Optional, Callable, List, Sequence
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
@@ -1254,11 +1254,85 @@ def run_monitor(
                     snap_data = {"rows": [], "totals": {}}
 
                 # --- Positions Totals (single-line, directly under the table) ---
-                rows_for_display = snap_data.get("rows") or (
-                    pos_rows if isinstance(locals().get("pos_rows"), list) else []
-                )
-                COLS = {"asset": 5, "side": 6, "value": 10, "pnl": 10, "lev": 6, "liq": 6, "travel": 7}
-                totals = compute_weighted_totals(rows_for_display)
+                rows_for_display_raw = snap_data.get("rows")
+                if not rows_for_display_raw:
+                    fallback_rows = locals().get("pos_rows")
+                    rows_for_display_raw = fallback_rows if isinstance(fallback_rows, list) else []
+
+                rows_for_display: List[Any] = list(rows_for_display_raw or [])
+
+                COLS = {"a": 5, "s": 6, "v": 10, "p": 10, "sz": 10, "l": 7, "liq": 8, "t": 8}
+
+                def _fmt_money(v: Any) -> str:
+                    try:
+                        return f"${float(v):,.2f}" if v is not None else ""
+                    except Exception:
+                        return str(v) if v not in (None, "") else ""
+
+                def _fmt_number(v: Any) -> str:
+                    try:
+                        return f"{float(v):,.2f}" if v is not None else ""
+                    except Exception:
+                        return str(v) if v not in (None, "") else ""
+
+                def _fmt_lev(v: Any) -> str:
+                    try:
+                        return f"{float(v):.2f}×" if v is not None else ""
+                    except Exception:
+                        return str(v) if v not in (None, "") else ""
+
+                def _fmt_pct(v: Any) -> str:
+                    try:
+                        return f"{float(v):.2f}%" if v is not None else ""
+                    except Exception:
+                        return str(v) if v not in (None, "") else ""
+
+                footer_rows: List[Sequence[str]] = []
+                for row in rows_for_display:
+                    if isinstance(row, dict):
+                        asset_str = str(row.get("asset") or row.get("symbol") or row.get("name") or "")
+                        side_str = str(row.get("side") or row.get("position_type") or "")
+
+                        value_val = row.get("value") or row.get("notional") or row.get("size_usd")
+                        pnl_val = row.get("pnl") or row.get("unrealized_pnl") or row.get("pnl_usd")
+
+                        size_val = (
+                            row.get("size")
+                            or row.get("qty")
+                            or row.get("amount")
+                            or row.get("position_size")
+                            or row.get("size_usd")
+                        )
+
+                        lev_val = row.get("lev") or row.get("leverage")
+                        liq_val = row.get("liq") or row.get("liq_pct") or row.get("liquidation_distance")
+                        travel_val = row.get("travel") or row.get("travel_pct")
+
+                        footer_rows.append(
+                            (
+                                asset_str,
+                                side_str,
+                                _fmt_money(value_val),
+                                _fmt_money(pnl_val),
+                                _fmt_number(size_val),
+                                _fmt_lev(lev_val),
+                                _fmt_number(liq_val),
+                                _fmt_pct(travel_val),
+                            )
+                        )
+                    elif isinstance(row, Sequence) and not isinstance(row, (str, bytes)):
+                        cells = list(row[:8])
+                        if len(cells) == 7:
+                            cells.insert(4, "")
+                        footer_rows.append(tuple(str(c) for c in cells[:8]))
+
+                totals_input: List[Any]
+                if footer_rows:
+                    totals_input = list(footer_rows)
+                else:
+                    totals_input = rows_for_display
+
+                totals = compute_weighted_totals(totals_input)
                 print_positions_totals_line(totals, width_map=COLS)
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
