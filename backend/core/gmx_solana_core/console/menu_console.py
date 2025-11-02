@@ -153,11 +153,15 @@ def _wait() -> None:
 
 # ---------- IDL helper ----------
 def _need_idl(sess: Session) -> Optional[Dict[str, Any]]:
-    idl = load_idl(DEFAULT_IDL_PATH, program_id=sess.store_pid, rpc_url=sess.rpc_http)
+    idl = load_idl(program_id=sess.store_pid, rpc_url=sess.rpc_http)
+    # determine the resolved path for user messaging
+    from ..actions.idl_loader import _json_idl_path_override, DEFAULT_IDL_PATH
+    resolved = _json_idl_path_override() or DEFAULT_IDL_PATH
     if not idl:
-        print("⚠️  IDL not found. Save it at:", DEFAULT_IDL_PATH)
+        print("⚠️  IDL not found. Save it at:")
+        print("    ", resolved)
         print("    Anchor CLI (if installed):")
-        print(f"      anchor idl fetch -o {DEFAULT_IDL_PATH} {sess.store_pid}")
+        print(f"      anchor idl fetch -o {resolved} {sess.store_pid}")
         print("    Or copy the official gmsol-store IDL JSON into that path.")
     return idl
 
