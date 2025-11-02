@@ -1254,8 +1254,12 @@ def run_monitor(
                     snap_data = {"rows": [], "totals": {}}
 
                 # --- Positions Totals (single-line, directly under the table) ---
-                COLS = {"a": 5, "s": 6, "v": 10, "p": 10, "sz": 10, "l": 7, "liq": 8, "t": 8}
-                footer_rows: list[list[str]] = []
+                # Collect the exact cells we print, so totals reflect *what the user sees*.
+                _footer_rows: list[list[str]] = []
+
+                # If you want fixed widths, define them here (optional). Only include 'sz' if you *show* Size.
+                COLS = {"a": 5, "s": 6, "v": 10, "p": 10, "l": 7, "liq": 8, "t": 8}
+                # If/when you add a visible Size column between PnL and Lev, also set: COLS["sz"] = 10
 
                 rows_for_display_raw = snap_data.get("rows")
                 if not rows_for_display_raw:
@@ -1317,13 +1321,12 @@ def run_monitor(
                         liq_cell = _fmt_number(liq_val)
                         travel_cell = _fmt_pct(travel_val)
 
-                        footer_rows.append(
+                        _footer_rows.append(
                             [
                                 asset_cell,
                                 side_cell,
                                 value_cell,
                                 pnl_cell,
-                                size_cell,
                                 lev_cell,
                                 liq_cell,
                                 travel_cell,
@@ -1331,26 +1334,30 @@ def run_monitor(
                         )
                     elif isinstance(row, Sequence) and not isinstance(row, (str, bytes)):
                         cells = list(row[:8])
-                        if len(cells) == 7:
-                            cells.insert(4, "")
-                        footer_rows.append([str(c) for c in cells[:8]])
+                        if len(cells) >= 8:
+                            _footer_rows.append([str(cells[i]) for i in (0, 1, 2, 3, 5, 6, 7)])
+                        else:
+                            _footer_rows.append([str(c) for c in cells[:7]])
 
-                totals_input: List[Any] = list(footer_rows) if footer_rows else rows_for_display
+                totals_input: List[Any] = list(_footer_rows) if _footer_rows else rows_for_display
 
-                totals = compute_weighted_totals(totals_input)
-                print_positions_totals_line(
-                    totals,
-                    width_map={
-                        "a": COLS["a"],
-                        "s": COLS["s"],
-                        "v": COLS["v"],
-                        "p": COLS["p"],
-                        "sz": COLS["sz"],
-                        "l": COLS["l"],
-                        "liq": COLS["liq"],
-                        "t": COLS["t"],
-                    },
-                )
+                # Inline totals: sum from the rows we just printed (no snapshot dependency).
+                _totals = compute_weighted_totals(totals_input)
+
+                # Build a width map matching the header you printed above.
+                # (If you added a Size column, include 'sz': COLS['sz'])
+                width_map = {
+                    "a": COLS["a"],
+                    "s": COLS["s"],
+                    "v": COLS["v"],
+                    "p": COLS["p"],
+                    "l": COLS["l"],
+                    "liq": COLS["liq"],
+                    "t": COLS["t"],
+                    # "sz": COLS["sz"],  # uncomment if you *show* Size in the table
+                }
+
+                print_positions_totals_line(_totals, width_map=width_map)
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
                 summary,
