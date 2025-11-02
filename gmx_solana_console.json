@@ -7,5 +7,6 @@
   "page": 1,
   "owner_offset": 56,
   "data_size": 0,
-  "prefer_v2": true
+  "prefer_v2": true,
+  "idl_path": "C:\\sonic7\\backend\\core\\gmx_solana_core\\idl\\gmsol-store.json"
 }
