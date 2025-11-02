@@ -1,5 +1,5 @@
-"""
-GMX-Solana Interactive Console (Option A hardened)
+r"""
+GMX-Solana Interactive Console (Option A: hardened)
 - JSON config only; no envs. Default: C:\sonic7\gmx_solana_console.json
 - Shows signer pubkey in header (derived or json override)
 - Positions via memcmp:
@@ -8,9 +8,9 @@ GMX-Solana Interactive Console (Option A hardened)
     * Optional dataSize filter
 - Extras:
     [8] Sweep offsets (diagnostic)
-    [9] Show first match (raw peek)
-   [10] Toggle V2 preference (on Helius)
-   [11] Set dataSize filter
+    [9] Show first match (raw)
+   [10] Toggle V2 preference (Helius)
+   [11] Set/clear dataSize filter
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 from ..clients.solana_rpc_client import SolanaRpcClient, RpcError
-from ..services.market_service import MarketService  # unchanged
-from ..config_loader import load_solana_config, pretty  # pretty() exists in your tree
+from ..services.market_service import MarketService
+from ..config_loader import load_solana_config, pretty
 from .config_io import load_json, save_json, DEFAULT_JSON
 from ..services.memcmp_service import (
     memcmp_find,
@@ -38,10 +38,13 @@ def _is_base58(s: str) -> bool:
     return isinstance(s, str) and len(s) >= 32 and re.fullmatch(r"[1-9A-HJ-NP-Za-km-z]+", s or "") is not None
 
 
+def _is_helius(rpc: str) -> bool:
+    return "helius-rpc.com" in (rpc or "").lower()
+
+
 def _derive_pub_from_signer(signer_path: Path) -> Optional[str]:
     """
     Prefer base58 pubkey anywhere in the file; else tolerant BIP-39 (12/15/18/21/24).
-    No third-party deps required for base58 path.
     """
     if not signer_path.exists():
         return None
@@ -51,15 +54,9 @@ def _derive_pub_from_signer(signer_path: Path) -> Optional[str]:
     if m:
         return m.group(0)
 
-    # Optional BIP-39: if bip_utils available in venv, use it
+    # Optional BIP-39: only if bip_utils present in the venv
     try:
-        from bip_utils import (
-            Bip39MnemonicValidator,
-            Bip39SeedGenerator,
-            Bip44,
-            Bip44Coins,
-            Bip44Changes,
-        )
+        from bip_utils import Bip39MnemonicValidator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
     except Exception:
         return None
 
@@ -72,21 +69,11 @@ def _derive_pub_from_signer(signer_path: Path) -> Optional[str]:
                 Bip39MnemonicValidator(cand).Validate()
                 seed = Bip39SeedGenerator(cand).Generate()
                 ctx = Bip44.FromSeed(seed, Bip44Coins.SOLANA)
-                acct = (
-                    ctx.Purpose()
-                    .Coin()
-                    .Account(0)
-                    .Change(Bip44Changes.CHAIN_EXT)
-                    .AddressIndex(0)
-                )
+                acct = ctx.Purpose().Coin().Account(0).Change(Bip44Changes.CHAIN_EXT).AddressIndex(0)
                 return acct.PublicKey().ToAddress()
             except Exception:
                 continue
     return None
-
-
-def _is_helius(rpc: str) -> bool:
-    return "helius-rpc.com" in (rpc or "").lower()
 
 
 class Session:
@@ -98,33 +85,23 @@ class Session:
             y = {}
 
         self.rpc_http: str = j.get("sol_rpc") or y.get("rpc_http") or ""
-        self.store_pid: str = (
-            j.get("store_program_id")
-            or (y.get("programs") or {}).get("store")
-            or ""
-        )
+        self.store_pid: str = j.get("store_program_id") or (y.get("programs") or {}).get("store") or ""
         self.signer_file: Path = Path(j.get("signer_file") or r"C:\sonic7\signer.txt")
         if not self.signer_file.exists():
-            # fallback probes
-            for p in [
-                Path.cwd() / "signer.txt",
-                Path.cwd() / "signer",
-                Path(r"C:\sonic7\signer"),
-            ]:
+            for p in [Path.cwd()/"signer.txt", Path.cwd()/"signer", Path(r"C:\sonic7\signer")]:
                 if p.exists():
                     self.signer_file = p
                     break
 
         self.signer_pubkey: Optional[str] = j.get("signer_pubkey") or _derive_pub_from_signer(self.signer_file)
 
-        # paging/config knobs
         self.limit: int = int(j.get("limit") or 100)
         self.page: int = int(j.get("page") or 1)
-        self.owner_offset: int = int(j.get("owner_offset") or 24)  # your sweep showed 24 hits
+        self.owner_offset: int = int(j.get("owner_offset") or 24)  # default 24 (your sweep hit here)
         self.data_size: Optional[int] = (
             int(j["data_size"]) if ("data_size" in j and str(j["data_size"]).isdigit()) else None
         )
-        self.prefer_v2: bool = bool(j.get("prefer_v2", True))  # use V2 if on Helius
+        self.prefer_v2: bool = bool(j.get("prefer_v2", True))  # use V2 on Helius by default
 
     def persist(self) -> None:
         out: Dict[str, Any] = {
@@ -232,7 +209,7 @@ def menu_loop(sess: Session) -> None:
                     print("⚠️  Derive or set signer pubkey (menu [3]).")
                 else:
                     try:
-                        n, sample, mode = memcmp_find(
+                        n, sample, mode, dbg = memcmp_find(
                             rpc_url=sess.rpc_http,
                             program_id=sess.store_pid,
                             wallet_b58=sess.signer_pubkey,
@@ -242,7 +219,7 @@ def menu_loop(sess: Session) -> None:
                             data_size=sess.data_size,
                             prefer_v2=sess.prefer_v2,
                         )
-                        print(pretty({"mode": mode, "matched_account_count": n, "sample_pubkeys": sample}))
+                        print(pretty({"mode": mode, "matched_account_count": n, "sample_pubkeys": sample, "debug": dbg}))
                     except Exception as e:
                         print("error:", e)
                 _wait()
@@ -256,7 +233,7 @@ def menu_loop(sess: Session) -> None:
                         print("Invalid or empty base58 pubkey.")
                     else:
                         try:
-                            n, sample, mode = memcmp_find(
+                            n, sample, mode, dbg = memcmp_find(
                                 rpc_url=sess.rpc_http,
                                 program_id=sess.store_pid,
                                 wallet_b58=pub,
@@ -266,7 +243,7 @@ def menu_loop(sess: Session) -> None:
                                 data_size=sess.data_size,
                                 prefer_v2=sess.prefer_v2,
                             )
-                            print(pretty({"mode": mode, "matched_account_count": n, "sample_pubkeys": sample}))
+                            print(pretty({"mode": mode, "matched_account_count": n, "sample_pubkeys": sample, "debug": dbg}))
                         except Exception as e:
                             print("error:", e)
                 _wait()
@@ -297,7 +274,6 @@ def menu_loop(sess: Session) -> None:
                         )
                         print(pretty({"mode": "v2", "sweep": sweep}))
                     else:
-                        # Fallback quick sweep using V1 (first page only)
                         out = []
                         for off in offsets:
                             try:
@@ -321,7 +297,7 @@ def menu_loop(sess: Session) -> None:
                     print("⚠️  Set Store PID [2] and Signer [3] first.")
                 else:
                     try:
-                        n, sample, mode = memcmp_find(
+                        n, sample, mode, dbg = memcmp_find(
                             rpc_url=sess.rpc_http,
                             program_id=sess.store_pid,
                             wallet_b58=sess.signer_pubkey,
@@ -345,7 +321,7 @@ def menu_loop(sess: Session) -> None:
                                 peek = data[0][:160] + "..."
                             else:
                                 peek = "(no data)"
-                            print(pretty({"mode": mode, "lamports": lamports, "space": space, "data_peek": peek}))
+                            print(pretty({"mode": mode, "lamports": lamports, "space": space, "data_peek": peek, "debug": dbg}))
                     except Exception as e:
                         print("error:", e)
                 _wait()
@@ -384,6 +360,9 @@ def main() -> int:
     if not sess.rpc_http:
         print("⚠️  No RPC endpoint configured. Set sol_rpc in", DEFAULT_JSON)
         return 2
+    # Helpful warning: many recent hits were at 24; if you're at 8 we'll hint.
+    if sess.owner_offset == 8:
+        print("ℹ️  Note: your earlier sweep showed hits at offset 24. If [5] returns 0, try [7] → set owner offset = 24.")
     menu_loop(sess)
     return 0
 

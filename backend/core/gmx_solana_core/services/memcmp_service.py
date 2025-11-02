@@ -50,7 +50,6 @@ def memcmp_count_v1(
 ) -> Tuple[int, List[str]]:
     """
     Returns (#matches_on_page, sample_pubkeys_up_to_10) using getProgramAccounts (provider-dependent pagination).
-    On Helius, 'page' and 'limit' work, but prefer V2 for reliability on large datasets.
     """
     filters: List[Dict[str, Any]] = [{"memcmp": {"offset": owner_offset, "bytes": wallet_b58}}]
     if isinstance(data_size, int) and data_size > 0:
@@ -82,9 +81,9 @@ def memcmp_find_any_v2(
     max_pages: int = 100,
     data_size: Optional[int] = None,
     commitment: str = "confirmed",
-) -> Tuple[int, List[str]]:
+) -> Tuple[int, List[str], Dict[str, Any]]:
     """
-    Cursor-based scan using Helius getProgramAccountsV2. Returns (total_count, up_to_10_samples).
+    Cursor-based scan using Helius getProgramAccountsV2. Returns (total_count, samples, debug).
     """
     filters: List[Dict[str, Any]] = [{"memcmp": {"offset": owner_offset, "bytes": wallet_b58}}]
     if isinstance(data_size, int) and data_size > 0:
@@ -101,7 +100,9 @@ def memcmp_find_any_v2(
     samples: List[str] = []
     pagination_key: Optional[str] = None
 
-    for _ in range(max_pages):
+    dbg_pages: List[Dict[str, Any]] = []
+
+    for page_idx in range(1, max_pages + 1):
         cfg = dict(base_cfg)
         if pagination_key:
             cfg["paginationKey"] = pagination_key
@@ -117,6 +118,14 @@ def memcmp_find_any_v2(
         if not isinstance(accts, list):
             break
 
+        # Debug page snapshot
+        dbg_pages.append({
+            "page_index": page_idx,
+            "returned": len(accts),
+            "paginationKey_in": pagination_key or "(none)",
+            "has_next": bool(isinstance(res, dict) and res.get("paginationKey")),
+        })
+
         total += len(accts)
         for a in accts:
             if isinstance(a, dict):
@@ -131,7 +140,13 @@ def memcmp_find_any_v2(
         if not pagination_key or len(samples) >= 10:
             break
 
-    return total, samples
+    return total, samples, {
+        "mode": "v2",
+        "filters": filters,
+        "limit": base_cfg["limit"],
+        "pages": dbg_pages,
+        "final_paginationKey": pagination_key or "(none)",
+    }
 
 
 def memcmp_sweep_v2(
@@ -142,13 +157,10 @@ def memcmp_sweep_v2(
     limit: int = 2000,
     data_size: Optional[int] = None,
 ) -> List[Tuple[int, int]]:
-    """
-    Quick diagnostic across multiple offsets using Helius V2. Returns [(offset, count_on_first_page), ...].
-    """
     out: List[Tuple[int, int]] = []
     for off in offsets:
         try:
-            n, _ = memcmp_find_any_v2(
+            n, _, _dbg = memcmp_find_any_v2(
                 rpc_url,
                 program_id,
                 wallet_b58,
@@ -181,14 +193,14 @@ def memcmp_find(
     page: int,
     data_size: Optional[int],
     prefer_v2: bool,
-) -> Tuple[int, List[str], str]:
+) -> Tuple[int, List[str], str, Dict[str, Any]]:
     """
-    Unified entry for the console. Returns (count, samples, mode).
-    - If Helius endpoint and prefer_v2=True → V2
+    Unified entry. Returns (count, samples, mode, debug).
+    - If Helius endpoint and prefer_v2=True → V2 (cursor-based)
     - Else → V1
     """
     if prefer_v2 and _is_helius(rpc_url):
-        n, sample = memcmp_find_any_v2(
+        n, sample, dbg = memcmp_find_any_v2(
             rpc_url=rpc_url,
             program_id=program_id,
             wallet_b58=wallet_b58,
@@ -196,9 +208,9 @@ def memcmp_find(
             limit=limit,
             data_size=data_size,
         )
-        return n, sample, "v2"
+        return n, sample, "v2", dbg
 
-    # fallback to V1
+    # fallback to V1 (page-limited)
     n, sample = memcmp_count_v1(
         rpc_url=rpc_url,
         program_id=program_id,
@@ -208,4 +220,12 @@ def memcmp_find(
         page=page,
         data_size=data_size,
     )
-    return n, sample, "v1"
+    return n, sample, "v1", {
+        "mode": "v1",
+        "filters": [
+            {"memcmp": {"offset": owner_offset, "bytes": wallet_b58}},
+            *([{"dataSize": data_size}] if data_size else []),
+        ],
+        "limit": limit,
+        "page": page,
+    }
