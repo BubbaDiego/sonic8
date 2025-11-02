@@ -59,3 +59,75 @@ class XComCore:
             context=ctx,
             db_path=None,
         )
+
+    @staticmethod
+    def get_latest_xcom_monitor_entry() -> dict | None:
+        """
+        Return the most recent XCOM monitor ledger entry as a dict (or None if not found).
+
+        This is intentionally defensive and tries several backends so it stays
+        compatible with different versions of the data layer.
+        """
+        # 1) Try a helper in the ledger module (various possible names)
+        try:
+            from backend.data.dl_monitor_ledger import (
+                get_latest_xcom_monitor_entry as _impl,
+            )  # type: ignore
+
+            return _impl()
+        except Exception:
+            pass
+        try:
+            from backend.data.dl_monitor_ledger import (
+                get_latest_monitor_entry as _impl,
+            )  # type: ignore
+
+            return _impl()
+        except Exception:
+            pass
+        try:
+            from backend.data.dl_monitor_ledger import (
+                load_latest_entry as _impl,
+            )  # type: ignore
+
+            return _impl()
+        except Exception:
+            pass
+        try:
+            from backend.data.dl_monitor_ledger import MonitorLedger  # type: ignore
+
+            try:
+                # prefer explicit XCOM channel if supported
+                return MonitorLedger(channel="xcom").latest()
+            except TypeError:
+                # older signature without channel
+                return MonitorLedger().latest()
+        except Exception:
+            pass
+
+        # 2) Fallback: DataLocker with a well-known key
+        try:
+            from backend.data.data_locker import DataLocker  # type: ignore
+
+            # common keys you’ve used elsewhere — try in order
+            for key in ("xcom_monitor", "monitor_ledger", "xcom"):
+                try:
+                    dl = DataLocker(key)
+                    latest = getattr(dl, "latest", None)
+                    if callable(latest):
+                        return latest()
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        return None
+
+
+def get_latest_xcom_monitor_entry() -> dict | None:
+    """
+    Backward-compatible free function so existing imports in routes keep working:
+    from backend.core.xcom_core.xcom_core import get_latest_xcom_monitor_entry
+    """
+
+    return XComCore.get_latest_xcom_monitor_entry()
