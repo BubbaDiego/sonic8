@@ -1,19 +1,15 @@
 r"""
-GMX-Solana Interactive Console (Option A: hardened)
-- JSON config only; no envs. Default: C:\sonic7\gmx_solana_console.json
+GMX-Solana Interactive Console (Option A: hardened + builders)
+- JSON config only; default: C:\\sonic7\\gmx_solana_console.json
 - Shows signer pubkey in header (derived or json override)
-- Positions via memcmp:
-    * Helius V2 cursor-based by default (reliable)
-    * V1 fallback for non-Helius RPCs
-    * Optional dataSize filter
-- Extras:
-    [8] Sweep offsets (diagnostic)
-    [9] Show first match (raw)
-   [10] Toggle V2 preference (Helius)
-   [11] Set/clear dataSize filter
-   [12] Auto-apply best offset from sweep
+- Positions via memcmp (Helius GPA-v2 / v1 fallback), optional dataSize filter
 
-All actions print full raw JSON first, then a compact summary with unicode icons.
+NEW (spec-aligned, IDL-driven):
+  ✳ prepare_position           → manifest
+  💰 create_deposit            → manifest
+  💸 create_withdrawal         → manifest
+  🧾 create_order_v2           → manifest
+Manifests saved to: C:\\sonic7\\outbox\\YYYYMMDD_HHMMSS_<action>.json
 """
 
 from __future__ import annotations
@@ -21,7 +17,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List
 
 from ..clients.solana_rpc_client import SolanaRpcClient, RpcError
 from ..services.market_service import MarketService
@@ -33,6 +29,11 @@ from ..services.memcmp_service import (
     memcmp_count_v1,
     fetch_account_base64,
 )
+
+# NEW: IDL + builders + outbox
+from ..actions.idl_loader import load_idl, DEFAULT_IDL_PATH
+from ..actions.builders import build_manifest
+from ..actions.outbox import write_manifest, DEFAULT_OUTBOX
 
 DEFAULT_CFG = Path(__file__).resolve().parent.parent / "config" / "solana.yaml"
 
@@ -80,80 +81,6 @@ def _summary_banner(title: str) -> None:
     print("─" * 72)
 
 
-def _summarize_memcmp(
-    *,
-    mode: str,
-    count: int,
-    samples: List[str],
-    filters: Any,
-    pages_dbg: Any,
-    pagination_key: str,
-    owner_offset: int,
-    data_size: Optional[int],
-    signer_pub: str,
-) -> None:
-    """Compact, icon-rich summary for memcmp results."""
-
-    # Icons
-    ic_ok = "✅"
-    ic_warn = "⚠️"
-    ic_info = "ℹ️"
-    ic_filter = "🔎"
-    ic_page = "📄"
-    ic_pin = "📌"
-    ic_key = "🔑"
-    ic_link = "🔗"
-    ic_box = "📦"
-    ic_gear = "⚙️"
-
-    # Basic line
-    print(f"{ic_info} Mode: {mode.upper()}   {ic_filter} Filters: owner_offset={owner_offset}"
-          + (f", dataSize={data_size}" if data_size else ", dataSize=(none)"))
-
-    # Pages snapshot
-    if isinstance(pages_dbg, list) and pages_dbg:
-        scanned = sum(p.get("returned", 0) for p in pages_dbg if isinstance(p, dict))
-        first_page = pages_dbg[0].get("page_index", 1) if isinstance(pages_dbg[0], dict) else 1
-        last_page = pages_dbg[-1].get("page_index", first_page) if isinstance(pages_dbg[-1], dict) else first_page
-        print(f"{ic_page} Pages scanned: {first_page}→{last_page}  • Returned={scanned}  • nextKey={pagination_key}")
-    else:
-        print(f"{ic_page} Pages: (n/a)")
-
-    # Count + first sample
-    status = ic_ok if count > 0 else ic_warn
-    print(f"{status} Matches: {count}  {ic_pin} First pubkey: {samples[0] if samples else '(none)'}")
-
-    # Hints
-    if count == 0 and owner_offset != 24:
-        print(f"{ic_info} Hint: Your last sweep showed hits at 24/56. Try owner_offset=24 via [7] or [12].")
-    if count > 0 and owner_offset != 24:
-        print(f"{ic_info} Note: This offset ({owner_offset}) hits. You can [12] auto-apply best offset from sweep.")
-
-    print("")  # spacing
-
-
-def _summarize_peek(
-    *,
-    lamports: Any,
-    space: Any,
-    peek: str,
-    signer_pub: str,
-    store_pid: str,
-    mode: str,
-) -> None:
-    """Summary for first-match peek."""
-    ic_box = "📦"
-    ic_key = "🔑"
-    ic_info = "ℹ️"
-    ic_ok = "✅"
-
-    print(f"{ic_ok} First match summary")
-    print(f"{ic_key} Owner (program): {store_pid}")
-    print(f"{ic_box} Space: {space}   Lamports: {lamports}")
-    print(f"{ic_info} Base64 peek: {peek[:120]}{'...' if len(peek) > 120 else ''}")
-    print("")  # spacing
-
-
 def _warn_offset8() -> None:
     print("ℹ️  Hint: your last sweep showed hits at offset 24/56. Use [12] to auto-apply best offset.")
 
@@ -168,10 +95,11 @@ class Session:
             y = {}
 
         self.rpc_http: str = j.get("sol_rpc") or y.get("rpc_http") or ""
+        # NOTE: this is the PROGRAM ID (Store program), not a data account
         self.store_pid: str = j.get("store_program_id") or (y.get("programs") or {}).get("store") or ""
-        self.signer_file: Path = Path(j.get("signer_file") or r"C:\sonic7\signer.txt")
+        self.signer_file: Path = Path(j.get("signer_file") or r"C:\\sonic7\\signer.txt")
         if not self.signer_file.exists():
-            for p in [Path.cwd()/"signer.txt", Path.cwd()/"signer", Path(r"C:\sonic7\signer")]:
+            for p in [Path.cwd()/"signer.txt", Path.cwd()/"signer", Path(r"C:\\sonic7\\signer")]:
                 if p.exists():
                     self.signer_file = p
                     break
@@ -204,17 +132,18 @@ class Session:
 
     def header(self) -> None:
         print("=" * 72)
-        print(" GMX-Solana Interactive Console (Option A: hardened) ".center(72, " "))
+        print("      🌊 GMX‑Solana Interactive Console (Option A + builders)      ".center(72, " "))
         print("=" * 72)
-        print(f" RPC        : {self.rpc_http or '(not set)'}")
-        print(f" Store PID  : {self.store_pid or '(not set)'}")
-        print(f" Signer File: {self.signer_file}")
-        print(f" Signer Pub : {self.signer_pubkey or '(not derived)'}")
+        print(f" 🚀 RPC        : {self.rpc_http or '(not set)'}")
+        print(f" 🏦 Store PID  : {self.store_pid or '(not set)'}")
+        print(f" 📝 Signer File: {self.signer_file}")
+        print(f" 👤 Signer Pub : {self.signer_pubkey or '(not derived)'}")
         ds = self.data_size if self.data_size else "(none)"
         v2 = "on" if (self.prefer_v2 and _is_helius(self.rpc_http)) else "off"
-        print(f" OwnerOff   : {self.owner_offset}   Paging: limit={self.limit} page={self.page}")
-        print(f" Filters    : dataSize={ds}  V2={v2}")
-        print(f" Config JSON: {DEFAULT_JSON}")
+        print(f" 🧭 OwnerOff   : {self.owner_offset}   📦 limit={self.limit}  🧺 page={self.page}")
+        print(f" 🔎 Filters    : dataSize={ds}  V2={v2}")
+        print(f" ⚙️  Config JSON: {DEFAULT_JSON}")
+        print(f" 📂 Outbox     : {DEFAULT_OUTBOX}")
         print("-" * 72)
 
 
@@ -222,23 +151,75 @@ def _wait() -> None:
     input("\n<enter>")
 
 
+# ---------- IDL helper ----------
+def _need_idl(sess: Session) -> Optional[Dict[str, Any]]:
+    idl = load_idl(DEFAULT_IDL_PATH, program_id=sess.store_pid, rpc_url=sess.rpc_http)
+    if not idl:
+        print("⚠️  IDL not found. Save it at:", DEFAULT_IDL_PATH)
+        print("    Anchor CLI (if installed):")
+        print(f"      anchor idl fetch -o {DEFAULT_IDL_PATH} {sess.store_pid}")
+        print("    Or copy the official gmsol-store IDL JSON into that path.")
+    return idl
+
+
+def _build_and_write(sess: Session, ix_name: str, action_tag: str) -> None:
+    if not sess.store_pid:
+        print("⚠️  Set Store Program ID first (menu [2])."); _wait(); return
+    if not sess.signer_pubkey:
+        print("⚠️  Derive or set signer pubkey (menu [3])."); _wait(); return
+
+    idl = _need_idl(sess)
+    if not idl:
+        _wait()
+        return
+
+    mf = build_manifest(
+        action_name=action_tag,
+        ix_name=ix_name,
+        program_id=sess.store_pid,
+        rpc_url=sess.rpc_http,
+        signer=sess.signer_pubkey,
+        idl=idl,
+        extra_meta={"note": "Fill any blank account pubkey and arg 'value' fields before encoding/sending."}
+    )
+    path = write_manifest(mf, suggested_name=action_tag)
+    missing = mf["meta"].get("missing_accounts") or []
+    filled = [a for a in mf["accounts"] if a.get("pubkey")]
+    blanks = [a for a in mf["accounts"] if not a.get("pubkey")]
+    print("✅ Manifest created:", path)
+    print("• 🧾 Instruction :", mf["instruction"])
+    print(f"• 🧩 Accounts    : {len(mf['accounts'])} total → {len(filled)} filled, {len(blanks)} pending")
+    if missing:
+        print("• ❗ Missing     :", ", ".join(missing))
+    print("• 🧷 Args        :", ", ".join([a['name'] for a in (mf['args'] or [])]) or "(none)")
+    print("• 🔑 Discriminator (hex):", mf["anchorDiscriminatorHex"])
+    print("• 📂 Outbox      :", DEFAULT_OUTBOX)
+    _wait()
+
+
 # ---------- main loop ----------
 def menu_loop(sess: Session) -> None:
     while True:
         sess.header()
-        print("  [1] RPC health")
-        print("  [2] Set Store Program ID")
-        print("  [3] Set Signer file path (re-derive pubkey)")
-        print("  [4] Markets (paged)")
-        print("  [5] Positions (from signer)")
-        print("  [6] Positions (enter pubkey)")
-        print("  [7] Set paging (limit/page/owner-offset)")
-        print("  [8] Sweep offsets (quick)")
-        print("  [9] Show first match (raw)")
-        print(" [10] Toggle V2 preference (Helius)")
-        print(" [11] Set/clear dataSize filter")
-        print(" [12] Auto-apply best offset from sweep")
-        print("  [0] Exit")
+        print("  [1]  🩺 RPC health")
+        print("  [2]  🏦 Set Store Program ID")
+        print("  [3]  ✍️  Set Signer file path (re-derive pubkey)")
+        print("  [4]  🧮 Markets (paged)")
+        print("  [5]  📌 Positions (from signer)")
+        print("  [6]  🔍 Positions (enter pubkey)")
+        print("  [7]  🧭 Set paging (limit/page/owner-offset)")
+        print("  [8]  🧪 Sweep offsets (quick)")
+        print("  [9]  🧬 Show first match (raw)")
+        print(" [10]  🔁 Toggle V2 preference (Helius)")
+        print(" [11]  🔧 Set/clear dataSize filter")
+        print(" [12]  🧠 Auto-apply best offset from sweep")
+        print(" ───────────────────────────────────────────────────────────────")
+        print(" [20]  ✳ Prepare Position  → manifest (prepare_position)")
+        print(" [21]  💰 Create Deposit    → manifest (create_deposit)")
+        print(" [22]  💸 Create Withdrawal → manifest (create_withdrawal)")
+        print(" [23]  🧾 Create Order      → manifest (create_order_v2)")
+        print(" [24]  📂 Show outbox path")
+        print("  [0]  🚪 Exit")
         choice = input("Select: ").strip()
 
         try:
@@ -303,7 +284,6 @@ def menu_loop(sess: Session) -> None:
                             data_size=sess.data_size,
                             prefer_v2=sess.prefer_v2,
                         )
-                        # Raw JSON
                         print(pretty({
                             "mode": mode,
                             "matched_account_count": n,
@@ -312,19 +292,11 @@ def menu_loop(sess: Session) -> None:
                             "pages": dbg.get("pages"),
                             "paginationKey": dbg.get("final_paginationKey", "(n/a)")
                         }))
-                        # Summary
                         _summary_banner("Summary")
-                        _summarize_memcmp(
-                            mode=mode,
-                            count=n,
-                            samples=sample,
-                            filters=dbg.get("filters"),
-                            pages_dbg=dbg.get("pages"),
-                            pagination_key=dbg.get("final_paginationKey", "(n/a)"),
-                            owner_offset=sess.owner_offset,
-                            data_size=sess.data_size,
-                            signer_pub=sess.signer_pubkey,
-                        )
+                        # quick emoji summary
+                        scanned = sum(p.get("returned", 0) for p in (dbg.get("pages") or []) if isinstance(p, dict))
+                        print(f" ✅ Matches: {n}   📌 First: {(sample or ['(none)'])[0]}   📄 Returned: {scanned}")
+                        print(f" 🔎 Filters: owner_offset={sess.owner_offset}, dataSize={sess.data_size or '(none)'}")
                         if sess.owner_offset == 8:
                             _warn_offset8()
                     except Exception as e:
@@ -359,17 +331,9 @@ def menu_loop(sess: Session) -> None:
                                 "paginationKey": dbg.get("final_paginationKey", "(n/a)")
                             }))
                             _summary_banner("Summary")
-                            _summarize_memcmp(
-                                mode=mode,
-                                count=n,
-                                samples=sample,
-                                filters=dbg.get("filters"),
-                                pages_dbg=dbg.get("pages"),
-                                pagination_key=dbg.get("final_paginationKey", "(n/a)"),
-                                owner_offset=sess.owner_offset,
-                                data_size=sess.data_size,
-                                signer_pub=pub,
-                            )
+                            scanned = sum(p.get("returned", 0) for p in (dbg.get("pages") or []) if isinstance(p, dict))
+                            print(f" ✅ Matches: {n}   📌 First: {(sample or ['(none)'])[0]}   📄 Returned: {scanned}")
+                            print(f" 🔎 Filters: owner_offset={sess.owner_offset}, dataSize={sess.data_size or '(none)'}")
                         except Exception as e:
                             print("error:", e)
                 _wait()
@@ -443,14 +407,8 @@ def menu_loop(sess: Session) -> None:
                                 "paginationKey": dbg.get("final_paginationKey", "(n/a)")
                             }))
                             _summary_banner("Summary")
-                            _summarize_memcmp(
-                                mode=mode, count=n, samples=sample,
-                                filters=dbg.get("filters"),
-                                pages_dbg=dbg.get("pages"),
-                                pagination_key=dbg.get("final_paginationKey", "(n/a)"),
-                                owner_offset=sess.owner_offset, data_size=sess.data_size,
-                                signer_pub=sess.signer_pubkey,
-                            )
+                            scanned = sum(p.get("returned", 0) for p in (dbg.get("pages") or []) if isinstance(p, dict))
+                            print(f" ⚠️ No matches.  📄 Returned: {scanned}")
                         else:
                             first = sample[0]
                             print("first match pubkey:", first)
@@ -459,11 +417,7 @@ def menu_loop(sess: Session) -> None:
                             lamports = v.get("lamports")
                             space = v.get("space")
                             data = v.get("data")
-                            if isinstance(data, list) and data:
-                                peek = data[0]
-                            else:
-                                peek = "(no data)"
-                            # Raw JSON (peek summary)
+                            peek = data[0][:160] + "..." if (isinstance(data, list) and data) else "(no data)"
                             print(pretty({
                                 "mode": mode,
                                 "matched_account_count": n,
@@ -473,20 +427,9 @@ def menu_loop(sess: Session) -> None:
                                 "lamports": lamports,
                                 "paginationKey": dbg.get("final_paginationKey", "(n/a)"),
                             }))
-                            # Pretty summary
                             _summary_banner("Summary")
-                            _summarize_memcmp(
-                                mode=mode, count=n, samples=sample,
-                                filters=dbg.get("filters"),
-                                pages_dbg=dbg.get("pages"),
-                                pagination_key=dbg.get("final_paginationKey", "(n/a)"),
-                                owner_offset=sess.owner_offset, data_size=sess.data_size,
-                                signer_pub=sess.signer_pubkey,
-                            )
-                            _summarize_peek(
-                                lamports=lamports, space=space, peek=peek,
-                                signer_pub=sess.signer_pubkey, store_pid=sess.store_pid, mode=mode,
-                            )
+                            print(f" ✅ First: {first}   📦 Space: {space}   💎 Lamports: {lamports}")
+                            print(f" 🔬 Peek: {peek}")
                     except Exception as e:
                         print("error:", e)
                 _wait()
@@ -513,7 +456,6 @@ def menu_loop(sess: Session) -> None:
                     print("⚠️  Set Store PID [2] and Signer [3] first.")
                 else:
                     candidates = [0, 8, 16, 24, 32, 40, 48, 56, 64]
-                    # Try V2 (Helius) sweep
                     if _is_helius(sess.rpc_http) and sess.prefer_v2:
                         sweep = memcmp_sweep_v2(
                             rpc_url=sess.rpc_http,
@@ -526,7 +468,6 @@ def menu_loop(sess: Session) -> None:
                         print(pretty({"auto_sweep_v2": sweep}))
                         best_off = max(sweep, key=lambda t: t[1])[0] if sweep else sess.owner_offset
                     else:
-                        # v1 quick
                         best_off, best_cnt = sess.owner_offset, -1
                         for off in candidates:
                             try:
@@ -550,12 +491,34 @@ def menu_loop(sess: Session) -> None:
                     sess.persist()
                 _wait()
 
+            # ── NEW: builders (IDL-driven, manifest outbox) ───────────────
+            elif choice == "20":
+                _build_and_write(sess, "prepare_position", "prepare_position")
+
+            elif choice == "21":
+                _build_and_write(sess, "create_deposit", "create_deposit")
+
+            elif choice == "22":
+                _build_and_write(sess, "create_withdrawal", "create_withdrawal")
+
+            elif choice == "23":
+                _build_and_write(sess, "create_order_v2", "create_order_v2")
+
+            elif choice == "24":
+                print("📂 Outbox:", DEFAULT_OUTBOX)
+                try:
+                    if os.name == "nt":
+                        os.startfile(str(DEFAULT_OUTBOX))
+                except Exception:
+                    pass
+                _wait()
+
             elif choice == "0":
-                print("Bye.")
+                print("Bye. ✌️")
                 return
 
         except KeyboardInterrupt:
-            print("\nBye.")
+            print("\nBye. ✌️")
             return
         except Exception as e:
             print("Unhandled error:", e)
