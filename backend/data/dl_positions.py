@@ -221,6 +221,7 @@ class DLPositionManager:
             log.error(f"❌ Failed to record position snapshot: {e}", source="DataLocker")
             return
 
+    @staticmethod
     def initialize_schema(db):
         cursor = db.get_cursor()
         cursor.execute("""
@@ -271,6 +272,64 @@ class DLPositionManager:
             position_type TEXT
         )""")
         db.commit()
+
+    @staticmethod
+    def ensure_schema(db):
+        """
+        Idempotent guard:
+          1) Create positions (and alerts) tables if they don't exist.
+          2) Add any missing columns to positions that the sync/upsert expects.
+        Safe to run on every start/sync; no data loss.
+        """
+        try:
+            DLPositionManager.initialize_schema(db)
+        except Exception as e:
+            log.warning(f"positions.initialize_schema failed (continuing): {e}", source="DLPositionManager")
+        # verify columns, add any that are missing
+        required_cols = {
+            # name: SQL type/default
+            "id": "TEXT",
+            "asset_type": "TEXT",
+            "position_type": "TEXT",
+            "entry_price": "REAL",
+            "liquidation_price": "REAL",
+            "travel_percent": "REAL",
+            "value": "REAL",
+            "collateral": "REAL",
+            "size": "REAL",
+            "leverage": "REAL",
+            "wallet_name": "TEXT",
+            "last_updated": "TEXT",
+            "alert_reference_id": "TEXT",
+            "hedge_buddy_id": "TEXT",
+            "current_price": "REAL",
+            "liquidation_distance": "REAL",
+            "heat_index": "REAL",
+            "current_heat_index": "REAL",
+            "pnl_after_fees_usd": "REAL",
+            "status": "TEXT DEFAULT 'ACTIVE'"
+        }
+        cur = db.get_cursor()
+        if cur is None:
+            log.error("DB cursor unavailable during ensure_schema", source="DLPositionManager")
+            return
+        try:
+            cur.execute("PRAGMA table_info(positions);")
+            existing = {row[1] for row in cur.fetchall()}
+            to_add = [c for c in required_cols.keys() if c not in existing]
+            for col in to_add:
+                ddl = required_cols[col]
+                try:
+                    cur.execute(f"ALTER TABLE positions ADD COLUMN {col} {ddl}")
+                    log.info(f"positions: added missing column '{col}' ({ddl})", source="DLPositionManager")
+                except Exception as e:
+                    log.warning(f"positions: failed to add column '{col}': {e}", source="DLPositionManager")
+            db.commit()
+        finally:
+            try:
+                cur.close()
+            except Exception:
+                pass
 
     def insert_position(self, position):
         """Helper used in tests to insert a row without defaults."""
