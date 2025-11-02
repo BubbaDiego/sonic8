@@ -17,10 +17,6 @@ import os
 from pathlib import Path
 import asyncio
 
-from backend.routes import positions_snapshot_api
-app.include_router(positions_snapshot_api.router)
-
-
 from backend.core.xcom_core.xcom_config_loader import (
     load_xcom_config,
     apply_xcom_env,
