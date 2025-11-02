@@ -10,5 +10,10 @@ router = APIRouter(prefix="/api/positions", tags=["positions"])
 
 @router.get("/snapshot")
 def get_positions_snapshot() -> dict:
-    """Return unified rows + totals for dashboard & tools."""
+    """
+    Return the same rows + totals the console uses:
+    - Sum(Value), Sum(PnL)
+    - Weighted avg Leverage
+    - Weighted avg Travel%
+    """
     return build_positions_snapshot()
