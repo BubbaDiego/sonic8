@@ -34,7 +34,13 @@ def render_startup_banner(dl, default_json_path: str) -> None:
     render_banner(dl, default_json_path)
 
 
-def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
+def render_cycle(
+    dl,
+    csum: Dict[str, Any],
+    *,
+    default_json_path: str,
+    show_monitors_summary: bool = False,
+) -> None:
     """
     One full console cycle:
 
@@ -72,13 +78,18 @@ def render_cycle(dl, csum: Dict[str, Any], *, default_json_path: str) -> None:
     # ---------- Optional polish / diagnostics (tolerant imports) ----------
 
     # Polished Monitors summary (left icons like Prices: 🟡/🔷/🟣)
-    try:
-        from .monitors_summary import render as _render_monitors_summary  # type: ignore
-        write_line("")  # spacer before compact summary
-        _render_monitors_summary(dl, csum, default_json_path)
-    except Exception as _e:  # do not crash cycle
-        if _log:
-            _log.debug("monitors_summary skipped", source="sequencer", payload={"error": str(_e)})
+    if show_monitors_summary:
+        try:
+            from .monitors_summary import render as _render_monitors_summary  # type: ignore
+            write_line("")  # spacer before compact summary
+            _render_monitors_summary(dl, csum, default_json_path)
+        except Exception as _e:  # do not crash cycle
+            if _log:
+                _log.debug(
+                    "monitors_summary skipped",
+                    source="sequencer",
+                    payload={"error": str(_e)},
+                )
 
     # XCOM Check footer (channels • readiness • cooldown • table breach count)
     try:
