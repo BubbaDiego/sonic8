@@ -1,13 +1,13 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-# Simple ANSI styling for highlight; tweak or blank out if you don’t want color/bold
-RESET = "\x1b[0m"
+# Minimal ANSI styling; safe if your console supports it. Set to "" to disable.
 BOLD = "\x1b[1m"
-LINE_COLOR = "\x1b[38;5;45m"  # cyan-ish; change as desired, or set to "" for no color
+LINE_COLOR = "\x1b[38;5;45m"  # cyan-ish
+RESET = "\x1b[0m"
 
 def _as_float(x: Any) -> Optional[float]:
-    """Coerce numbers and strings like '$1,234.56', '12.3%', '10.5x', '9.90×' into floats."""
+    """Coerce numbers/strings like '$1,234.56', '12.3%', '10.5x', '9.90×' to float."""
     if isinstance(x, (int, float)):
         return float(x)
     if isinstance(x, str):
@@ -16,13 +16,12 @@ def _as_float(x: Any) -> Optional[float]:
             return None
         for ch in ("$", ",", "%", "x", "X", "×"):
             s = s.replace(ch, "")
-        s = s.replace("\u2013", "-")  # normalize en-dash
+        s = s.replace("\u2013", "-")  # en-dash
         try:
             return float(s)
         except Exception:
             import re
-            m = re.search(r"[-+]?\d+(?:\.\b)?", s)
-            m = m or re.search(r"[-+]?\d+(?:\.\d+)?", s)
+            m = re.search(r"[-+]?\d+(?:\.\d+)?", s)
             if m:
                 try:
                     return float(m.group(0))
@@ -30,38 +29,43 @@ def _as_float(x: Any) -> Optional[float]:
                     return None
     return None
 
-def _get_ci(d: Dict[str, Any], key: str) -> Any:
-    """Case-insensitive dict access."""
-    lk = key.lower()
-    for k, v in d.items():
-        if isinstance(k, str) and k.lower() == lk:
-            return v
-    return None
+def _w(width_map: Dict[str, int], *keys: str, default: int = 0) -> int:
+    """Width helper allowing synonyms, e.g., ('sz','size') → width."""
+    for k in keys:
+        if k in width_map:
+            return int(width_map[k])
+    return default
 
 def _extract_fields(row: Any) -> Dict[str, Optional[float]]:
     """
-    Accept either:
+    Accept:
       - dict-like with keys (case-insensitive): value, pnl, size, lev, travel
       - sequence with 7 or 8 columns:
           7-col: [Asset, Side, Value, PnL, Lev, Liq, Travel]
-          8-col: [Asset, Side, Value, PnL, Size, Lev, Liq, Travel]  <-- preferred
-    Returns numeric fields (None when not parseable).
+          8-col: [Asset, Side, Value, PnL, Size, Lev, Liq, Travel]
     """
     if isinstance(row, dict):
-        size = (_as_float(_get_ci(row, "size"))
-                or _as_float(_get_ci(row, "qty"))
-                or _as_float(_get_ci(row, "amount"))
-                or _as_float(_get_ci(row, "position_size")))
+        def get(d: Dict[str, Any], name: str) -> Any:
+            ln = name.lower()
+            for k, v in d.items():
+                if isinstance(k, str) and k.lower() == ln:
+                    return v
+            return None
+        size = (_as_float(get(row, "size"))
+                or _as_float(get(row, "qty"))
+                or _as_float(get(row, "amount"))
+                or _as_float(get(row, "position_size")))
         return {
-            "value":  _as_float(_get_ci(row, "value")),
-            "pnl":    _as_float(_get_ci(row, "pnl")),
-            "size":   size,                        # used as weight when present
-            "lev":    _as_float(_get_ci(row, "lev")),
-            "travel": _as_float(_get_ci(row, "travel")),
+            "value":  _as_float(get(row, "value")),
+            "pnl":    _as_float(get(row, "pnl")),
+            "size":   size,
+            "lev":    _as_float(get(row, "lev")),
+            "travel": _as_float(get(row, "travel")),
         }
+
     if isinstance(row, Sequence):
+        # 8 columns (preferred: includes Size)
         if len(row) >= 8:
-            # [asset, side, value, pnl, size, lev, liq, travel]
             return {
                 "value":  _as_float(row[2]),
                 "pnl":    _as_float(row[3]),
@@ -69,21 +73,22 @@ def _extract_fields(row: Any) -> Dict[str, Optional[float]]:
                 "lev":    _as_float(row[5]),
                 "travel": _as_float(row[7]),
             }
+        # 7 columns (no Size)
         if len(row) >= 7:
-            # legacy 7-col rows (no size column) – fallback to weighting by Value for those rows only
             return {
                 "value":  _as_float(row[2]),
                 "pnl":    _as_float(row[3]),
-                "size":   None,                     # fallback to |value| for weighting
+                "size":   None,
                 "lev":    _as_float(row[4]),
                 "travel": _as_float(row[6]),
             }
+
     return {"value": None, "pnl": None, "size": None, "lev": None, "travel": None}
 
 def compute_weighted_totals(rows: List[Any]) -> Dict[str, Optional[float]]:
     """
-    Compute ΣValue, ΣPnL, and |Size|-weighted averages for Lev and Travel.
-    If a row has no Size, weight that row by |Value| to avoid dropping it.
+    Compute ΣValue, ΣPnL, and Size-weighted averages for Lev/Travel.
+    If Size is missing for a row, weight that row by |Value| so the footer never collapses.
     """
     total_value = 0.0
     total_pnl = 0.0
@@ -99,12 +104,7 @@ def compute_weighted_totals(rows: List[Any]) -> Dict[str, Optional[float]]:
         if p is not None:
             total_pnl += p
 
-        weight = None
-        if s is not None:
-            weight = abs(s)
-        elif v is not None:
-            weight = abs(v)
-
+        weight = abs(s) if s is not None else (abs(v) if v is not None else None)
         if weight is not None:
             if l is not None:
                 w_lev_num += weight * l
@@ -120,45 +120,66 @@ def compute_weighted_totals(rows: List[Any]) -> Dict[str, Optional[float]]:
         "value": total_value,
         "pnl": total_pnl,
         "avg_lev_weighted": lev_w,
-        "avg_travel_weighted": trv_w
+        "avg_travel_weighted": trv_w,
     }
 
 def _fmt_money(v: Optional[float]) -> str:
-    if isinstance(v, (int, float)):
-        return f"${float(v):,.2f}"
-    return "-"
+    return f"${v:,.2f}" if isinstance(v, float) else "-"
 
 def _fmt_lev(v: Optional[float]) -> str:
-    if isinstance(v, (int, float)):
-        return f"{float(v):.2f}×"
-    return "-"
+    return f"{v:.2f}×" if isinstance(v, float) else "-"
 
 def _fmt_pct(v: Optional[float]) -> str:
-    if isinstance(v, (int, float)):
-        return f"{float(v):.2f}%"
-    return "-"
+    return f"{v:.2f}%" if isinstance(v, float) else "-"
 
-def print_positions_totals_line(totals: Dict[str, Optional[float]], width_map: Dict[str, int]) -> None:
+def print_positions_totals_line(
+    totals: Dict[str, Optional[float]],
+    width_map: Dict[str, int],
+    color: str = LINE_COLOR,
+    bold: bool = BOLD,
+) -> None:
     """
-    Print ONE aligned totals line directly under the last Positions row (no extra section).
-    Columns (with Size): Asset | Side | Value | PnL | Size | Lev | Liq | Travel
-    - Asset, Side, Liq cells left blank by design.
-    - Value, PnL are straight sums.
-    - Lev and Travel are size-weighted averages.
+    Print ONE aligned totals line directly under the last Positions row.
+    Supports 7 or 8 columns (presence of Size column inferred from width_map).
+    Accepts short keys ('a','s','v','p','sz','l','liq','t') and long keys
+    ('asset','side','value','pnl','size','lev','liq','travel').
     """
+    has_size = (("sz" in width_map) or ("size" in width_map))
+
+    a  = _w(width_map, "a",    "asset")
+    s  = _w(width_map, "s",    "side")
+    v  = _w(width_map, "v",    "value")
+    p  = _w(width_map, "p",    "pnl")
+    sz = _w(width_map, "sz",   "size")
+    l  = _w(width_map, "l",    "lev")
+    lq = _w(width_map, "liq",  "liquidation", "liquid", "liqd")
+    t  = _w(width_map, "t",    "travel")
+
     val = _fmt_money(totals.get("value"))
     pnl = _fmt_money(totals.get("pnl"))
-    lev = _fmt_lev(totals.get("avg_lev", totals.get("avg_lev_weighted")))
-    trv = _fmt_pct(totals.get("avg_travel", totals.get("avg_travel_weighted")))
+    lev = _fmt_lev(totals.get("avg_lev_weighted"))
+    trv = _fmt_pct(totals.get("avg_travel_weighted"))
 
-    line = (
-        f"{'':<{width_map['a']}} "
-        f"{'':<{width_map['s']}} "
-        f"{val:>{width_map['v']}} "
-        f"{pnl:>{width_map['p']}} "
-        f"{'':>{width_map['sz']}} "      # Size footer intentionally left blank (ΣSize optional)
-        f"{lev:>{width_map['l']}} "
-        f"{'':>{width_map['liq']}} "
-        f"{trv:>{width_map['t']}}"
-    )
-    print(f"{LINE_COLOR}{BOLD}{line}{RESET}")
+    if has_size:
+        line = (
+            f"{'':<{a}} "
+            f"{'':<{s}} "
+            f"{val:>{v}} "
+            f"{pnl:>{p}} "
+            f"{'':>{sz}} "
+            f"{lev:>{l}} "
+            f"{'':>{lq}} "
+            f"{trv:>{t}}"
+        )
+    else:
+        line = (
+            f"{'':<{a}} "
+            f"{'':<{s}} "
+            f"{val:>{v}} "
+            f"{pnl:>{p}} "
+            f"{lev:>{l}} "
+            f"{'':>{lq}} "
+            f"{trv:>{t}}"
+        )
+
+    print(f"{color}{bold}{line}{RESET}")
