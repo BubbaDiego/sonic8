@@ -2,13 +2,16 @@
 """
 LiquidationMonitor — alerts when positions approach their liquidation price.
 
-This version aligns the dispatch path with the consolidated XCOM stack:
+Requested behavior:
+- REMOVE rising-edge gating entirely.
+- KEEP a simple per-asset local cooldown; if condition is still true after cooldown, retrigger.
+- Continue to honor consolidated XCOM readiness + provider cooldown + per-monitor channels.
+
+This version:
 - Uses XComConfigService.channels_for('liquid') to decide if voice is enabled.
 - Calls backend.core.xcom_core.dispatch_notifications (unified path).
-- Adds high-signal debug at every gate in the decision chain.
+- Logs a clear INFO "XCOM[GATE]" line for each breached asset every cycle.
 - Blast radius remains display-only (no gating).
-
-Compatible with BaseMonitor + existing console output.
 """
 
 from __future__ import annotations
@@ -26,21 +29,13 @@ from backend.data.dl_positions import DLPositionManager  # type: ignore
 from backend.core.logging import log  # type: ignore
 from backend.utils.env_utils import _resolve_env  # type: ignore
 
-# consolidated XCOM stack
 from backend.core.xcom_core import dispatch_notifications
 from backend.core.xcom_core.xcom_config_service import XComConfigService
 from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
 
-# --- Rising-edge + cooldown helpers (per asset) ------------------------------
-_LIQ_LAST_HIT: dict[str, bool] = {}
+# ── Local per-asset notify cooldown (provider cooldown still applies) ─────────
 _LIQ_LAST_NOTIFY_AT: dict[str, float] = {}
-_LIQ_NOTIFY_COOLDOWN_S = int(os.getenv("LIQUID_NOTIFY_COOLDOWN_S", "180"))
-
-
-def _rising_edge(asset: str, hit: bool) -> bool:
-    prev = _LIQ_LAST_HIT.get(asset, False)
-    _LIQ_LAST_HIT[asset] = hit
-    return hit and not prev
+_LIQ_NOTIFY_COOLDOWN_S = int(os.getenv("LIQUID_NOTIFY_COOLDOWN_S", "180"))  # set "0" to disable local cooldown
 
 
 def _cooldown_ok(asset: str, now: float) -> bool:
@@ -52,38 +47,8 @@ def _mark_notified(asset: str, when: Optional[float] = None) -> None:
     _LIQ_LAST_NOTIFY_AT[asset] = float(when or time.time())
 
 
-def _maybe_clear_queue_on_safe(ctx, asset: str) -> None:
-    """Best-effort: if asset flips back to safe, clear any queued voice item."""
-    svc = (
-        getattr(ctx.dl, "voice_service", None)
-        or getattr(ctx.dl, "xcom_voice", None)
-        or getattr(ctx.dl, "xcom", None)
-        or getattr(ctx.dl, "voice", None)
-    )
-    try:
-        if svc and hasattr(svc, "clear"):
-            try:
-                svc.clear("liquid", asset)
-            except TypeError:
-                svc.clear({"monitor": "liquid", "asset": asset})
-    except Exception:
-        pass
-
-
 class LiquidationMonitor(BaseMonitor):
-    """
-    Config key: ``liquid_monitor``
-
-    JSON slice (example):
-
-        {
-          "liquid_monitor": {
-            "snooze_seconds": 300,
-            "thresholds": { "BTC": 5, "ETH": 8, "SOL": 7 },
-            "notifications": { "system": true, "voice": true, "sms": false, "tts": true }
-          }
-        }
-    """
+    """Config key: ``liquid_monitor``"""
 
     DEFAULT_THRESHOLD = 5.0
     DEFAULT_ASSET_THRESHOLDS = {"BTC": DEFAULT_THRESHOLD, "ETH": DEFAULT_THRESHOLD, "SOL": DEFAULT_THRESHOLD}
@@ -147,7 +112,7 @@ class LiquidationMonitor(BaseMonitor):
         except Exception:
             merged["snooze_seconds"] = int(self.DEFAULT_CONFIG["snooze_seconds"])
 
-        # Parse thresholds
+        # thresholds
         thresholds = merged.get("thresholds", {})
         if isinstance(thresholds, str):
             try:
@@ -168,7 +133,7 @@ class LiquidationMonitor(BaseMonitor):
             normalized.setdefault(asset, float(default_value))
         merged["thresholds"] = normalized
 
-        # Parse notifications (system/sms/tts). Voice is resolved via XComConfigService.
+        # notifications (system/sms/tts only; voice resolved via XComConfigService)
         notifications = merged.get("notifications", {})
         if isinstance(notifications, str):
             try:
@@ -184,7 +149,6 @@ class LiquidationMonitor(BaseMonitor):
             "tts": to_bool(notifications.get("tts", True)),
         }
         merged["notifications"] = notifications
-
         merged["enabled"] = to_bool(merged.get("enabled", True))
         merged["windows_alert"] = notifications["system"]
         merged["voice_alert"]   = notifications["voice"]
@@ -219,18 +183,14 @@ class LiquidationMonitor(BaseMonitor):
             log.info("LiquidationMonitor disabled; skipping cycle", source=self.name)
             return {"status": "Disabled", "success": True}
 
-        # Effective channels for THIS monitor (from JSON/DB)
+        # Resolve per-monitor channels exactly like the dispatcher does
         cfg_service = XComConfigService(self.dl.system, config=getattr(self.dl, "global_config", None))
         channels_for_monitor = cfg_service.channels_for("liquid")
         voice_enabled = bool(channels_for_monitor.get("voice", False))
-        log.debug(
-            "XCOM channels_for(liquid) => %s",
-            channels_for_monitor,
-            source="LiquidationMonitor",
-        )
+        log.debug("channels_for(liquid) => %s", channels_for_monitor, source="LiquidationMonitor")
 
         positions = self.pos_mgr.get_active_positions()
-        thresholds = cfg.get("thresholds", {})
+        thresholds = cfg.get("thresholds", {}) or {}
         notif = cfg.get("notifications") or {}
 
         details = []
@@ -245,68 +205,56 @@ class LiquidationMonitor(BaseMonitor):
             except Exception:
                 continue
 
-            threshold = self._resolve_threshold(getattr(p, "asset_type", None), thresholds)
             asset_key = str(getattr(p, "asset_type", "") or "UNKNOWN").upper()
+            threshold = self._resolve_threshold(asset_key, thresholds)
+            breach = dist <= threshold
             now_ts = time.time()
 
-            breach = dist <= threshold
             if breach:
                 in_danger.append(p)
                 try:
                     line = (
                         f"{p.asset_type} {p.position_type} at {p.current_price:.2f} – "
-                        f"liq {p.liquidation_price:.2f} ({p.liquidation_distance:.2f}% away)"
+                        f"liq {p.liquidation_price:.2f} ({float(p.liquidation_distance):.2f}% away)"
                     )
                 except Exception:
-                    line = f"{asset_key} {getattr(p, 'position_type', '—')} ≤ {threshold:.2f}% (distance {dist:.2f}%)"
+                    line = f"{asset_key} ≤ {threshold:.2f}% (dist {dist:.2f}%)"
                 alert_lines.append(line)
 
-                r_edge = _rising_edge(asset_key, True)
-                cd_ok  = _cooldown_ok(asset_key, now_ts)
+                cd_ok  = _cooldown_ok(asset_key, now_ts) if _LIQ_NOTIFY_COOLDOWN_S > 0 else True
                 snoozed = self._snoozed(cfg)
                 ready_ok, ready_reason = xcom_ready(self.dl, cfg=getattr(self.dl, "global_config", None))
 
-                log.debug(
-                    "liq: asset=%s breach=%s dist=%.2f thr=%.2f rising_edge=%s cooldown_ok=%s snoozed=%s voice_enabled=%s xcom_ready=%s(%s)",
-                    asset_key, breach, dist, threshold, r_edge, cd_ok, snoozed, voice_enabled, ready_ok, ready_reason or "ok",
+                # INFO trace every cycle for breached assets
+                log.info(
+                    "XCOM[GATE] asset=%s breach=%s dist=%.2f thr=%.2f local_cooldown_ok=%s snoozed=%s voice_enabled=%s xcom_ready=%s(%s)",
+                    asset_key, breach, dist, threshold, cd_ok, snoozed, voice_enabled, ready_ok, ready_reason or "ok",
                     source="LiquidationMonitor",
                 )
 
-                will_dispatch = breach and r_edge and cd_ok and voice_enabled and ready_ok and not snoozed
+                will_dispatch = breach and cd_ok and voice_enabled and ready_ok and not snoozed
                 if will_dispatch:
                     _mark_notified(asset_key, now_ts)
-                    # One consolidated call; channels=None → use JSON/DB defaults (channels.liquid.voice)
                     summary = dispatch_notifications(
                         monitor_name="liquid",
                         result={"breach": True, "summary": line},
-                        channels=None,
-                        context={
-                            "subject": f"⚠️ {asset_key} near liquidation",
-                            "body": line,
-                            "asset": asset_key,
-                        },
+                        channels=None,  # use per-monitor JSON
+                        context={"subject": f"⚠️ {asset_key} near liquidation", "body": line, "asset": asset_key},
                         db_path=self.dl.db_path,
                     )
                     log.info(
-                        "XCOM voice dispatch result",
+                        "XCOM[VOICE] result",
                         source="LiquidationMonitor",
                         payload={"voice": summary.get("channels", {}).get("voice", {}), "success": summary.get("success")},
                     )
-                else:
-                    # Flip back to safe if needed (and clear queue)
-                    pass
-            else:
-                if _LIQ_LAST_HIT.get(asset_key, False):
-                    _LIQ_LAST_HIT[asset_key] = False
-                    _maybe_clear_queue_on_safe(self, asset_key)
 
             log.info(
-                f"Asset: {getattr(p, 'asset_type', '—')}  Current Liquid Distance: {dist:.2f}  "
+                f"Asset: {getattr(p, 'asset_type', asset_key)}  Current Liquid Distance: {dist:.2f}  "
                 f"Threshold: {threshold:.2f}  Result: {'BREACH' if breach else 'NO BREACH'}",
                 source="LiquidationMonitor",
             )
             details.append(
-                {"asset": getattr(p, "asset_type", None), "distance": dist, "threshold": threshold, "breach": breach}
+                {"asset": getattr(p, "asset_type", asset_key), "distance": dist, "threshold": threshold, "breach": breach}
             )
 
         summary = {
@@ -317,15 +265,13 @@ class LiquidationMonitor(BaseMonitor):
             "details": details,
         }
 
-        # End-of-loop “batch” side channels (system / tts / sms).
+        # End-of-loop side channels
         if not in_danger or self._snoozed(cfg):
             return {**summary, "status": "Success", "alert_sent": False}
 
-        # Build body text
         subject = f"⚠️ {len(alert_lines)} position(s) near liquidation"
         body = "\n".join(alert_lines)
 
-        # Local system sound
         if notif.get("system"):
             log.info("System sound alert dispatched", source="LiquidationMonitor")
             try:
@@ -334,22 +280,20 @@ class LiquidationMonitor(BaseMonitor):
             except Exception as e:
                 log.warning(f"SoundService unavailable: {e}", source="LiquidationMonitor")
 
-        # TTS (through XCom voice provider when enabled; otherwise no-op)
         if notif.get("tts", True):
             dispatch_notifications(
                 monitor_name="liquid",
                 result={"breach": True, "summary": "Liquidation is a concern"},
-                channels=["tts"],  # explicit to avoid voice here
+                channels=["tts"],
                 context={"subject": subject, "body": "Liquidation is a concern"},
                 db_path=self.dl.db_path,
             )
 
-        # SMS stub (if/when provider gets wired)
         if notif.get("sms"):
             dispatch_notifications(
                 monitor_name="liquid",
                 result={"breach": True, "summary": body},
-                channels=["sms"],  # explicit to avoid voice here
+                channels=["sms"],
                 context={"subject": subject, "body": body},
                 db_path=self.dl.db_path,
             )
