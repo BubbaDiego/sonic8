@@ -1246,20 +1246,23 @@ def run_monitor(
             if dl is not None:
                 render_cycle(dl, summary, default_json_path=DEFAULT_JSON_PATH)
 
-                # === Unified Positions data (rows + totals) ===
+                # === Unified Positions data (rows + totals)
                 try:
                     snap_data = get_positions_rows_and_totals()
                 except Exception:
                     logging.debug("positions snapshot bridge failure", exc_info=True)
                     snap_data = {"rows": [], "totals": {}}
 
-                rows = snap_data.get("rows", [])
-                totals = snap_data.get("totals", {})
+                # We fetched pos_rows earlier via collect_positions(dl); use them if snapshot is empty.
+                fallback_rows = pos_rows if isinstance(locals().get("pos_rows"), list) else []
+                rows = snap_data.get("rows") or fallback_rows
+                totals = snap_data.get("totals") or {}
 
+                # If no numeric totals from snapshot, compute from whatever rows we are actually displaying.
                 if not totals or "value" not in totals:
                     totals = compute_weighted_totals(rows)
 
-                # === Colored totals line (weighted averages for Lev & Travel) ===
+                # Colored footer under: Asset | Side | Value | PnL | Lev | Liq | Travel
                 print_positions_totals_line(
                     totals,
                     width_map={"asset": 5, "side": 6, "value": 10, "pnl": 10, "lev": 8, "liq": 8, "travel": 8},
