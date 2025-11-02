@@ -2,7 +2,10 @@
   "sol_rpc": "https://mainnet.helius-rpc.com/?api-key=a8809bee-20ba-48e9-b841-0bd2bafd60b9",
   "store_program_id": "Gmso1uvJnLbawvw7yezdfCDcPydwW2s2iqG3w6MDucLo",
   "signer_file": "C:\\sonic7\\signer.txt",
-  "owner_offset": 8,
+  "signer_pubkey": "C9JAHcKPnu3Xw39jwjhfE2WnSx7VsLJzzWPcjYNdboLF",
   "limit": 100,
-  "page": 1
+  "page": 1,
+  "owner_offset": 56,
+  "data_size": 0,
+  "prefer_v2": true
 }

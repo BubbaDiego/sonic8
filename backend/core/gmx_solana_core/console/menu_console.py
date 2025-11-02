@@ -11,6 +11,9 @@ GMX-Solana Interactive Console (Option A: hardened)
     [9] Show first match (raw)
    [10] Toggle V2 preference (Helius)
    [11] Set/clear dataSize filter
+   [12] Auto-apply best offset from sweep
+
+All actions print full raw JSON first, then a compact summary with unicode icons.
 """
 
 from __future__ import annotations
@@ -18,7 +21,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 
 from ..clients.solana_rpc_client import SolanaRpcClient, RpcError
 from ..services.market_service import MarketService
@@ -34,6 +37,7 @@ from ..services.memcmp_service import (
 DEFAULT_CFG = Path(__file__).resolve().parent.parent / "config" / "solana.yaml"
 
 
+# ---------- helpers ----------
 def _is_base58(s: str) -> bool:
     return isinstance(s, str) and len(s) >= 32 and re.fullmatch(r"[1-9A-HJ-NP-Za-km-z]+", s or "") is not None
 
@@ -43,23 +47,17 @@ def _is_helius(rpc: str) -> bool:
 
 
 def _derive_pub_from_signer(signer_path: Path) -> Optional[str]:
-    """
-    Prefer base58 pubkey anywhere in the file; else tolerant BIP-39 (12/15/18/21/24).
-    """
+    """Prefer base58 in file; else tolerant BIP-39 if bip_utils present."""
     if not signer_path.exists():
         return None
-
     txt = signer_path.read_text(encoding="utf-8", errors="ignore")
     m = re.search(r"[1-9A-HJ-NP-Za-km-z]{32,}", txt)
     if m:
         return m.group(0)
-
-    # Optional BIP-39: only if bip_utils present in the venv
     try:
         from bip_utils import Bip39MnemonicValidator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
     except Exception:
         return None
-
     clean = re.sub(r"[^A-Za-z\s]", " ", txt).lower()
     words = [w for w in clean.split() if w]
     for n in (24, 21, 18, 15, 12):
@@ -76,6 +74,91 @@ def _derive_pub_from_signer(signer_path: Path) -> Optional[str]:
     return None
 
 
+def _summary_banner(title: str) -> None:
+    print("\n" + "─" * 72)
+    print(f" {title} ".center(72, "─"))
+    print("─" * 72)
+
+
+def _summarize_memcmp(
+    *,
+    mode: str,
+    count: int,
+    samples: List[str],
+    filters: Any,
+    pages_dbg: Any,
+    pagination_key: str,
+    owner_offset: int,
+    data_size: Optional[int],
+    signer_pub: str,
+) -> None:
+    """Compact, icon-rich summary for memcmp results."""
+
+    # Icons
+    ic_ok = "✅"
+    ic_warn = "⚠️"
+    ic_info = "ℹ️"
+    ic_filter = "🔎"
+    ic_page = "📄"
+    ic_pin = "📌"
+    ic_key = "🔑"
+    ic_link = "🔗"
+    ic_box = "📦"
+    ic_gear = "⚙️"
+
+    # Basic line
+    print(f"{ic_info} Mode: {mode.upper()}   {ic_filter} Filters: owner_offset={owner_offset}"
+          + (f", dataSize={data_size}" if data_size else ", dataSize=(none)"))
+
+    # Pages snapshot
+    if isinstance(pages_dbg, list) and pages_dbg:
+        scanned = sum(p.get("returned", 0) for p in pages_dbg if isinstance(p, dict))
+        first_page = pages_dbg[0].get("page_index", 1) if isinstance(pages_dbg[0], dict) else 1
+        last_page = pages_dbg[-1].get("page_index", first_page) if isinstance(pages_dbg[-1], dict) else first_page
+        print(f"{ic_page} Pages scanned: {first_page}→{last_page}  • Returned={scanned}  • nextKey={pagination_key}")
+    else:
+        print(f"{ic_page} Pages: (n/a)")
+
+    # Count + first sample
+    status = ic_ok if count > 0 else ic_warn
+    print(f"{status} Matches: {count}  {ic_pin} First pubkey: {samples[0] if samples else '(none)'}")
+
+    # Hints
+    if count == 0 and owner_offset != 24:
+        print(f"{ic_info} Hint: Your last sweep showed hits at 24/56. Try owner_offset=24 via [7] or [12].")
+    if count > 0 and owner_offset != 24:
+        print(f"{ic_info} Note: This offset ({owner_offset}) hits. You can [12] auto-apply best offset from sweep.")
+
+    print("")  # spacing
+
+
+def _summarize_peek(
+    *,
+    lamports: Any,
+    space: Any,
+    peek: str,
+    signer_pub: str,
+    store_pid: str,
+    mode: str,
+) -> None:
+    """Summary for first-match peek."""
+    ic_box = "📦"
+    ic_key = "🔑"
+    ic_info = "ℹ️"
+    ic_ok = "✅"
+
+    print(f"{ic_ok} First match summary")
+    print(f"{ic_key} Owner (program): {store_pid}")
+    print(f"{ic_box} Space: {space}   Lamports: {lamports}")
+    print(f"{ic_info} Base64 peek: {peek[:120]}{'...' if len(peek) > 120 else ''}")
+    print("")  # spacing
+
+
+def _warn_offset8() -> None:
+    print("ℹ️  Hint: your last sweep showed hits at offset 24/56. Use [12] to auto-apply best offset.")
+
+
+# ---------- console session ----------
 class Session:
     def __init__(self):
         j = load_json(DEFAULT_JSON)
@@ -94,14 +177,13 @@ class Session:
                     break
 
         self.signer_pubkey: Optional[str] = j.get("signer_pubkey") or _derive_pub_from_signer(self.signer_file)
-
         self.limit: int = int(j.get("limit") or 100)
         self.page: int = int(j.get("page") or 1)
-        self.owner_offset: int = int(j.get("owner_offset") or 24)  # default 24 (your sweep hit here)
+        self.owner_offset: int = int(j.get("owner_offset") or 24)
         self.data_size: Optional[int] = (
             int(j["data_size"]) if ("data_size" in j and str(j["data_size"]).isdigit()) else None
         )
-        self.prefer_v2: bool = bool(j.get("prefer_v2", True))  # use V2 on Helius by default
+        self.prefer_v2: bool = bool(j.get("prefer_v2", True))
 
     def persist(self) -> None:
         out: Dict[str, Any] = {
@@ -140,6 +222,7 @@ def _wait() -> None:
     input("\n<enter>")
 
 
+# ---------- main loop ----------
 def menu_loop(sess: Session) -> None:
     while True:
         sess.header()
@@ -154,6 +237,7 @@ def menu_loop(sess: Session) -> None:
         print("  [9] Show first match (raw)")
         print(" [10] Toggle V2 preference (Helius)")
         print(" [11] Set/clear dataSize filter")
+        print(" [12] Auto-apply best offset from sweep")
         print("  [0] Exit")
         choice = input("Select: ").strip()
 
@@ -219,7 +303,30 @@ def menu_loop(sess: Session) -> None:
                             data_size=sess.data_size,
                             prefer_v2=sess.prefer_v2,
                         )
-                        print(pretty({"mode": mode, "matched_account_count": n, "sample_pubkeys": sample, "debug": dbg}))
+                        # Raw JSON
+                        print(pretty({
+                            "mode": mode,
+                            "matched_account_count": n,
+                            "sample_pubkeys": sample,
+                            "effective_filters": dbg.get("filters"),
+                            "pages": dbg.get("pages"),
+                            "paginationKey": dbg.get("final_paginationKey", "(n/a)")
+                        }))
+                        # Summary
+                        _summary_banner("Summary")
+                        _summarize_memcmp(
+                            mode=mode,
+                            count=n,
+                            samples=sample,
+                            filters=dbg.get("filters"),
+                            pages_dbg=dbg.get("pages"),
+                            pagination_key=dbg.get("final_paginationKey", "(n/a)"),
+                            owner_offset=sess.owner_offset,
+                            data_size=sess.data_size,
+                            signer_pub=sess.signer_pubkey,
+                        )
+                        if sess.owner_offset == 8:
+                            _warn_offset8()
                     except Exception as e:
                         print("error:", e)
                 _wait()
@@ -243,7 +350,26 @@ def menu_loop(sess: Session) -> None:
                                 data_size=sess.data_size,
                                 prefer_v2=sess.prefer_v2,
                             )
-                            print(pretty({"mode": mode, "matched_account_count": n, "sample_pubkeys": sample, "debug": dbg}))
+                            print(pretty({
+                                "mode": mode,
+                                "matched_account_count": n,
+                                "sample_pubkeys": sample,
+                                "effective_filters": dbg.get("filters"),
+                                "pages": dbg.get("pages"),
+                                "paginationKey": dbg.get("final_paginationKey", "(n/a)")
+                            }))
+                            _summary_banner("Summary")
+                            _summarize_memcmp(
+                                mode=mode,
+                                count=n,
+                                samples=sample,
+                                filters=dbg.get("filters"),
+                                pages_dbg=dbg.get("pages"),
+                                pagination_key=dbg.get("final_paginationKey", "(n/a)"),
+                                owner_offset=sess.owner_offset,
+                                data_size=sess.data_size,
+                                signer_pub=pub,
+                            )
                         except Exception as e:
                             print("error:", e)
                 _wait()
@@ -308,7 +434,23 @@ def menu_loop(sess: Session) -> None:
                             prefer_v2=sess.prefer_v2,
                         )
                         if n <= 0 or not sample:
-                            print("No matches.")
+                            print(pretty({
+                                "mode": mode,
+                                "matched_account_count": n,
+                                "sample_pubkeys": sample,
+                                "effective_filters": dbg.get("filters"),
+                                "pages": dbg.get("pages"),
+                                "paginationKey": dbg.get("final_paginationKey", "(n/a)")
+                            }))
+                            _summary_banner("Summary")
+                            _summarize_memcmp(
+                                mode=mode, count=n, samples=sample,
+                                filters=dbg.get("filters"),
+                                pages_dbg=dbg.get("pages"),
+                                pagination_key=dbg.get("final_paginationKey", "(n/a)"),
+                                owner_offset=sess.owner_offset, data_size=sess.data_size,
+                                signer_pub=sess.signer_pubkey,
+                            )
                         else:
                             first = sample[0]
                             print("first match pubkey:", first)
@@ -318,10 +460,33 @@ def menu_loop(sess: Session) -> None:
                             space = v.get("space")
                             data = v.get("data")
                             if isinstance(data, list) and data:
-                                peek = data[0][:160] + "..."
+                                peek = data[0]
                             else:
                                 peek = "(no data)"
-                            print(pretty({"mode": mode, "lamports": lamports, "space": space, "data_peek": peek, "debug": dbg}))
+                            # Raw JSON (peek summary)
+                            print(pretty({
+                                "mode": mode,
+                                "matched_account_count": n,
+                                "first_pubkey": first,
+                                "owner": v.get("owner"),
+                                "space": space,
+                                "lamports": lamports,
+                                "paginationKey": dbg.get("final_paginationKey", "(n/a)"),
+                            }))
+                            # Pretty summary
+                            _summary_banner("Summary")
+                            _summarize_memcmp(
+                                mode=mode, count=n, samples=sample,
+                                filters=dbg.get("filters"),
+                                pages_dbg=dbg.get("pages"),
+                                pagination_key=dbg.get("final_paginationKey", "(n/a)"),
+                                owner_offset=sess.owner_offset, data_size=sess.data_size,
+                                signer_pub=sess.signer_pubkey,
+                            )
+                            _summarize_peek(
+                                lamports=lamports, space=space, peek=peek,
+                                signer_pub=sess.signer_pubkey, store_pid=sess.store_pid, mode=mode,
+                            )
                     except Exception as e:
                         print("error:", e)
                 _wait()
@@ -343,6 +508,48 @@ def menu_loop(sess: Session) -> None:
                     print("bad input:", e)
                 _wait()
 
+            elif choice == "12":
+                if not sess.store_pid or not sess.signer_pubkey:
+                    print("⚠️  Set Store PID [2] and Signer [3] first.")
+                else:
+                    candidates = [0, 8, 16, 24, 32, 40, 48, 56, 64]
+                    # Try V2 (Helius) sweep
+                    if _is_helius(sess.rpc_http) and sess.prefer_v2:
+                        sweep = memcmp_sweep_v2(
+                            rpc_url=sess.rpc_http,
+                            program_id=sess.store_pid,
+                            wallet_b58=sess.signer_pubkey,
+                            offsets=candidates,
+                            limit=max(1, sess.limit),
+                            data_size=sess.data_size,
+                        )
+                        print(pretty({"auto_sweep_v2": sweep}))
+                        best_off = max(sweep, key=lambda t: t[1])[0] if sweep else sess.owner_offset
+                    else:
+                        # v1 quick
+                        best_off, best_cnt = sess.owner_offset, -1
+                        for off in candidates:
+                            try:
+                                n, _ = memcmp_count_v1(
+                                    rpc_url=sess.rpc_http,
+                                    program_id=sess.store_pid,
+                                    wallet_b58=sess.signer_pubkey,
+                                    owner_offset=off,
+                                    limit=max(1, sess.limit),
+                                    page=1,
+                                    data_size=sess.data_size,
+                                )
+                                if n > best_cnt:
+                                    best_cnt = n
+                                    best_off = off
+                            except Exception:
+                                continue
+                        print(pretty({"auto_sweep_v1": [[best_off, best_cnt]]}))
+                    print("Applying owner_offset =", best_off)
+                    sess.owner_offset = best_off
+                    sess.persist()
+                _wait()
+
             elif choice == "0":
                 print("Bye.")
                 return
@@ -360,9 +567,8 @@ def main() -> int:
     if not sess.rpc_http:
         print("⚠️  No RPC endpoint configured. Set sol_rpc in", DEFAULT_JSON)
         return 2
-    # Helpful warning: many recent hits were at 24; if you're at 8 we'll hint.
     if sess.owner_offset == 8:
-        print("ℹ️  Note: your earlier sweep showed hits at offset 24. If [5] returns 0, try [7] → set owner offset = 24.")
+        print("ℹ️  Hint: your last sweep showed hits at offset 24/56. Use [12] to auto-apply best offset.")
     menu_loop(sess)
     return 0
 
