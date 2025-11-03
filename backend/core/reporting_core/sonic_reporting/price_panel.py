@@ -1,117 +1,187 @@
+# backend/core/reporting_core/sonic_reporting/panels/price_panel.py
 from __future__ import annotations
-from typing import Any, Mapping
+
+from typing import Any, Mapping, Iterable, Optional
+from datetime import datetime
+import math
 
 ASSETS = ("BTC", "ETH", "SOL")
 ASSET_ICON = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
 
 
-def _abbr(n: float | None) -> str:
-    if n is None:
-        return "—"
+# ---------- small utils ----------
+
+def _is_num(x: Any) -> bool:
     try:
-        x = float(n)
+        float(x)
+        return True
     except Exception:
+        return False
+
+
+def _to_float(x: Any) -> Optional[float]:
+    if x is None:
+        return None
+    if isinstance(x, (int, float)):
+        return float(x)
+    if isinstance(x, str):
+        s = x.strip().replace(",", "")
+        # strip leading currency symbol if present
+        if s.startswith("$"):
+            s = s[1:]
+        try:
+            return float(s)
+        except Exception:
+            return None
+    return None
+
+
+def _compact_num(x: Optional[float]) -> str:
+    if x is None:
         return "—"
-    units = [(1_000_000_000, "b"), (1_000_000, "m"), (1_000, "k")]
-    for base, suffix in units:
-        if abs(x) >= base:
-            return f"{x/base:.1f}{suffix}"
-    # show INT if >=100, else two decimals
-    return f"{x:.0f}" if abs(x) >= 100 else f"{x:.2f}"
+    a = abs(x)
+    if a >= 1000:
+        # match your style: 3.7k
+        return f"{x/1000:.1f}k"
+    if a >= 100:
+        return f"{x:.0f}"
+    return f"{x:.2f}"
 
 
-def _get_prices_from_csum(csum: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
-    if not isinstance(csum, Mapping):
-        return {}
-    prices = csum.get("prices") or {}
-    if isinstance(prices, Mapping):
-        return {k.upper(): v for k, v in prices.items() if isinstance(v, Mapping)}
-    return {}
+def _fmt_delta(cur: Optional[float], prev: Optional[float]) -> tuple[str, str]:
+    if cur is None or prev is None:
+        return "—", "—"
+    d = cur - prev
+    dpct = (d / prev * 100.0) if prev != 0 else math.inf
+    # sign-aware formatting
+    dd = f"{d:+.2f}" if abs(d) < 1000 else f"{d/1000:+.1f}k"
+    if abs(dpct) == math.inf:
+        return dd, "∞%"
+    return dd, f"{dpct:+.2f}%"
 
 
-def _find_prices_fallback(dl: Any) -> dict[str, dict[str, Any]]:
+def _find_dict_with_assets(d: Mapping[str, Any]) -> Optional[Mapping[str, Any]]:
+    """Return a dict that has BTC/ETH/SOL keys (any shape under those keys)."""
+    if not isinstance(d, Mapping):
+        return None
+    if all(k in d for k in ASSETS):
+        return d
+    # breadth-ish search 1 level down
+    for v in d.values():
+        if isinstance(v, Mapping) and all(k in v for k in ASSETS):
+            return v
+    return None
+
+
+def _extract_from_price_map(m: Mapping[str, Any]) -> dict[str, dict]:
     """
-    Best effort to find a dict like:
-      {"BTC": {"current": float, "previous": float, "checked": "str?"}, ...}
+    Accept many shapes:
+      {'BTC': 110234.0, 'ETH': 3920.3, 'SOL': 184.8}
+      {'BTC': {'current': 110234, 'previous': 110100, 'ts': '...'}, ...}
+      {'BTC': {'price': 110234, 'prev': 110100}, ...}
     """
-    if not dl:
-        return {}
-    # Common places in the app where recent prices might live
-    for attr in ("cache", "market", "price", "prices"):
-        node = getattr(dl, attr, None)
-        if isinstance(node, dict):
-            # try the dict as-is
-            probe = {}
-            for k in ASSETS:
-                d = node.get(k) if isinstance(node.get(k), dict) else None
-                if d:
-                    probe[k] = {
-                        "current": d.get("current") or d.get("last") or d.get("price"),
-                        "previous": d.get("previous"),
-                        "checked": d.get("checked") or d.get("ts"),
-                    }
-            if probe:
-                return probe
-        # object with attributes
-        for name in ("prices", "last_prices", "latest", "price_cache"):
-            sub = getattr(node, name, None)
-            if isinstance(sub, dict):
-                probe = {}
-                for k in ASSETS:
-                    d = sub.get(k) if isinstance(sub.get(k), dict) else None
-                    if d:
-                        probe[k] = {
-                            "current": d.get("current") or d.get("last") or d.get("price"),
-                            "previous": d.get("previous"),
-                            "checked": d.get("checked") or d.get("ts"),
-                        }
-                if probe:
-                    return probe
-    return {}
-
-
-def _render_table(rows: list[list[str]]) -> None:
-    if not rows:
-        print(" (no rows)")
-        return
-    # simple proportional table
-    widths = [max(len(str(r[c])) for r in rows) for c in range(len(rows[0]))]
-    for i, row in enumerate(rows):
-        print(" " + "  ".join(str(col).ljust(widths[idx]) for idx, col in enumerate(row)))
-        if i == 0:
-            print()
-
-
-def render(dl=None, csum=None, **_):
-    print("\n 💰 Prices\n")
-    # Try csum first (preferred), fallback to dl
-    px = _get_prices_from_csum(csum)
-    if not px:
-        px = _find_prices_fallback(dl)
-
-    header = ["Asset", "Current", "Previous", "Δ", "Δ%", "Checked"]
-    out = [header]
-    for sym in ASSETS:
-        icon = ASSET_ICON.get(sym, "•")
-        d = px.get(sym, {})
-        cur = d.get("current")
-        prev = d.get("previous")
-        checked = d.get("checked") or "—"
-        if cur is None and prev is None and sym not in px:
-            # show bare asset if we truly found nothing
-            out.append([f"{icon} {sym}", "—", "—", "—", "—", "(—)"])
+    out: dict[str, dict] = {}
+    for a in ASSETS:
+        v = m.get(a)
+        cur = prev = None
+        ts = None
+        if v is None:
+            out[a] = {"current": None, "previous": None, "checked": None}
             continue
-        # compute deltas if both exist
-        if cur is not None and prev is not None:
-            try:
-                delta = float(cur) - float(prev)
-                pct = (delta / float(prev) * 100.0) if float(prev) != 0 else 0.0
-                d_txt = _abbr(delta)
-                p_txt = f"{pct:.2f}%"
-            except Exception:
-                d_txt, p_txt = "—", "—"
+        if isinstance(v, Mapping):
+            cur = _to_float(v.get("current") or v.get("price") or v.get("value") or v.get("last"))
+            prev = _to_float(v.get("previous") or v.get("prev") or v.get("prior"))
+            ts = v.get("ts") or v.get("checked") or v.get("updated_at") or v.get("timestamp")
         else:
-            d_txt, p_txt = "—", "—"
-        out.append([f"{icon} {sym}", _abbr(cur), _abbr(prev), d_txt, p_txt, f"({checked})"])
+            cur = _to_float(v)
+        out[a] = {"current": cur, "previous": prev, "checked": ts}
+    return out
 
-    _render_table(out)
+
+def _first_nonempty(*candidates: Iterable[Optional[str]]) -> str:
+    for c in candidates:
+        if c:
+            return str(c)
+    return "—"
+
+
+# ---------- extraction ----------
+
+def _extract_prices(dl: Any, csum: Optional[Mapping[str, Any]]) -> tuple[dict[str, dict], str]:
+    """
+    Returns (rows, source)
+      rows: {'BTC': {'current': float|None, 'previous': float|None, 'checked': Any}, ...}
+      source: string used for a single breadcrumb line
+    """
+    # 1) Try summary directly
+    if isinstance(csum, Mapping):
+        # common top-level keys
+        for k in ("prices", "price", "prices_state", "prices_current", "current_prices"):
+            v = csum.get(k)
+            if isinstance(v, Mapping):
+                d = _find_dict_with_assets(v) or v
+                rows = _extract_from_price_map(d)
+                if any(rows[a]["current"] is not None for a in ASSETS):
+                    return rows, f"csum.{k}"
+
+        # dive one level down for {'price_monitor': {'prices': {...}}} etc.
+        for k, v in csum.items():
+            if isinstance(v, Mapping):
+                d = _find_dict_with_assets(v) or _find_dict_with_assets(v.get("prices", {})) if isinstance(v.get("prices", {}), Mapping) else None
+                if d:
+                    rows = _extract_from_price_map(d)
+                    if any(rows[a]["current"] is not None for a in ASSETS):
+                        return rows, f"csum.{k}"
+
+    # 2) Try DataLocker system vars (most monitor pipelines stash these)
+    sys = getattr(dl, "system", None)
+    if sys is not None:
+        for key in ("current_prices", "prices", "last_prices", "price_cache", "prices_state"):
+            try:
+                cand = sys.get_var(key)
+            except Exception:
+                cand = None
+            if isinstance(cand, Mapping):
+                d = _find_dict_with_assets(cand)
+                if d:
+                    rows = _extract_from_price_map(d)
+                    if any(rows[a]["current"] is not None for a in ASSETS):
+                        return rows, f"dl.system[{key}]"
+
+    # 3) Try common caches/holders on DataLocker
+    for attr in ("prices", "cache", "portfolio"):
+        holder = getattr(dl, attr, None)
+        if holder and isinstance(holder, object):
+            for name in ("prices", "last_prices", "current_prices", "state", "snapshot"):
+                v = getattr(holder, name, None)
+                if isinstance(v, Mapping):
+                    d = _find_dict_with_assets(v) or v
+                    rows = _extract_from_price_map(d)
+                    if any(rows[a]["current"] is not None for a in ASSETS):
+                        return rows, f"dl.{attr}.{name}"
+
+    # Nothing reliable
+    rows = {a: {"current": None, "previous": None, "checked": None} for a in ASSETS}
+    return rows, "none"
+
+
+# ---------- public render ----------
+
+def render(*, dl: Any, csum: Optional[Mapping[str, Any]] = None) -> None:
+    rows, src = _extract_prices(dl, csum)
+
+    print("\n 💰 Prices\n")
+    print(" Asset       Current   Previous   Δ   Δ%   Checked\n")
+    for a in ASSETS:
+        cur = rows[a]["current"]
+        prev = rows[a]["previous"]
+        chk = _first_nonempty(rows[a]["checked"])
+        d, dp = _fmt_delta(cur, prev)
+        print(
+            f" {ASSET_ICON[a]} {a:<3}  "
+            f"{_compact_num(cur):>8}  "
+            f"{_compact_num(prev):>9}  "
+            f"{d:>3}  {dp:>4}   {f'({chk})' if chk else '(—)'}"
+        )
+    # breadcrumb (quiet, one line)
+    print(f"\n[PRICE] source: {src}")
