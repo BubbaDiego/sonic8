@@ -7,11 +7,21 @@
       "accounts": [
         {
           "name": "authority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
           "name": "store",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "market",
           "isMut": false,
           "isSigner": false
         }
@@ -32,13 +42,13 @@
           "isSigner": false
         },
         {
-          "name": "market",
-          "isMut": false,
+          "name": "position",
+          "isMut": true,
           "isSigner": false
         },
         {
-          "name": "deposit",
-          "isMut": true,
+          "name": "market",
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -68,13 +78,13 @@
           "isSigner": false
         },
         {
-          "name": "market",
-          "isMut": false,
+          "name": "position",
+          "isMut": true,
           "isSigner": false
         },
         {
-          "name": "withdrawal",
-          "isMut": true,
+          "name": "market",
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -135,11 +145,11 @@
         },
         {
           "name": "orderKind",
-          "type": "u8"
+          "type": "u16"
         },
         {
           "name": "priceType",
-          "type": "u8"
+          "type": "u16"
         },
         {
           "name": "triggerPriceX32",
@@ -157,5 +167,8 @@
     }
   ],
   "accounts": [],
-  "types": []
+  "types": [],
+  "metadata": {
+    "address": "Gmso1uvJnLbawvw7yezdfCDcPydwW2s2iqG3w6MDucLo"
+  }
 }
