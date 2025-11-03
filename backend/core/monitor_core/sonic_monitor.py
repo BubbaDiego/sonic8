@@ -14,7 +14,7 @@ import time
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Dict, Optional, Callable, List
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
@@ -191,6 +191,61 @@ def _require(path_desc: str, value, coerce=lambda x: x):
     except Exception:
         print(f"❌ JSON invalid type for {path_desc}: {value!r}")
         raise SystemExit(2)
+
+
+# --- AUGMENT CSUM WITH PRICES & POSITIONS (PANELS CONTRACT) ---
+def _csum_prices(dl) -> Dict[str, Dict[str, Optional[float]]]:
+    out: Dict[str, Dict[str, Optional[float]]] = {}
+    try:
+        for sym in ("BTC", "ETH", "SOL"):
+            latest = getattr(dl, "get_latest_price", None)
+            cur = prev = None
+            if callable(latest):
+                info = latest(sym) or {}
+                cur = info.get("current_price") or info.get("current") or info.get("price")
+                prev = info.get("previous") or info.get("prev")
+            out[sym] = {
+                "current": float(cur) if cur is not None else None,
+                "previous": float(prev) if prev is not None else None,
+            }
+    except Exception:
+        pass
+    return out
+
+
+def _csum_positions(dl) -> List[Dict[str, Any]]:
+    def _norm_row(r):
+        if isinstance(r, dict):
+            return r
+        data = getattr(r, "__dict__", {})
+        return data if isinstance(data, dict) else {}
+
+    for root in ("positions", "portfolio", "cache"):
+        holder = getattr(dl, root, None)
+        if not holder:
+            continue
+        for name in ("active", "active_positions", "positions", "snapshot", "last_positions"):
+            v = getattr(holder, name, None)
+            if isinstance(v, list) and v:
+                return [_norm_row(r) for r in v]
+            m = getattr(holder, name, None)
+            if callable(m):
+                try:
+                    vv = m()
+                    if isinstance(vv, list) and vv:
+                        return [_norm_row(r) for r in vv]
+                except Exception:
+                    pass
+    sys = getattr(dl, "system", None)
+    if sys:
+        for key in ("active_positions", "positions_snapshot", "last_positions"):
+            try:
+                vv = sys.get_var(key)
+                if isinstance(vv, list) and vv:
+                    return [_norm_row(r) for r in vv]
+            except Exception:
+                pass
+    return []
 
 
 # ── REQUIRED JSON FIELDS (single source of truth) ────────────────────────────
@@ -1239,6 +1294,14 @@ def run_monitor(
                 pass
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
             if dl is not None:
+                try:
+                    summary["prices"] = _csum_prices(dl)
+                except Exception:
+                    summary.setdefault("prices", {})
+                try:
+                    summary["pos_rows"] = _csum_positions(dl)
+                except Exception:
+                    summary.setdefault("pos_rows", [])
                 render_cycle(
                     dl,
                     summary,

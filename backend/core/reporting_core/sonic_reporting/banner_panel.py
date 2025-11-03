@@ -96,3 +96,16 @@ def render_banner(dl, default_json_path: str) -> None:
         f"🔌 Database       : {db_path}  (ACTIVE for runtime data, provenance=DEFAULT, "
         f"{'exists' if exists else 'missing'}, {'inside repo' if inside_repo else 'outside repo'})"
     )
+
+
+def render(dl, default_json_path: str | None = None) -> None:
+    try:
+        render_banner(dl, default_json_path or "")
+    except NameError:
+        # fallback: inline import if render_banner was renamed/removed
+        try:
+            from .banner_panel import render_banner as _render_banner
+
+            _render_banner(dl, default_json_path or "")
+        except Exception:
+            pass

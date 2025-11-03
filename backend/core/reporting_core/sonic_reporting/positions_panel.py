@@ -143,7 +143,7 @@ def _emoji(asset: str) -> str:
     a = (asset or "").upper()
     return {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}.get(a, "•")
 
-def render(dl, csum) -> bool:
+def render(dl, csum, default_json_path: str | None = None) -> bool:
     write_line = print
 
     rows, src, attempts = _collect_positions(dl, csum)
