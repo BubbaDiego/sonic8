@@ -119,6 +119,52 @@ def render_cycle(*args, **kwargs) -> None:
       show_prices_panel, show_positions_table, show_positions_totals,
       show_wallets_panel
     """
+
+
+    # 1) Sync Data
+    write_line("")
+    write_line("---------------------- 🛠️  Sync  Data  🛠️ ----------------------")
+    # Known names across branches: sync_panel | sync_data | sync_cycle | sync_activities
+    _try_render_candidates(
+        ["sync_panel", "sync_data", "sync_cycle", "sync_activities"],
+        dl=dl, csum=csum, default_json_path=default_json_path
+    )
+
+    # 2) Prices
+    write_line("")
+    write_line("---------------------- 💰  Prices  ----------------------")
+    # Known names: price_panel | prices_table | prices | market_prices
+    _try_render_candidates(
+        ["price_panel", "prices_table", "prices", "market_prices"],
+        csum=csum
+    )
+
+    # 3) Monitors
+    write_line("")
+    write_line("---------------------- 🖥️  Monitors  ----------------------")
+    # Known names: monitor_panel | evaluations_table | monitors_table | monitor_table
+    _try_render_candidates(
+        ["monitor_panel", "evaluations_table", "monitors_table", "monitor_table"],
+        dl=dl, csum=csum
+    )
+
+    # 4) Positions
+    write_line("")
+    write_line("---------------------- 📈  Positions  ----------------------")
+    # Known names: positions_panel | positions_snapshot | positions_snapshot_v1 | positions_debug | positions_table
+    _try_render_candidates(
+        ["positions_panel", "positions_snapshot", "positions_snapshot_v1", "positions_debug", "positions_table"],
+        dl=dl, csum=csum
+    )
+
+    # Optional Wallets panel
+    _try_render_candidates(["wallets_panel"], dl=dl)
+
+    # XCOM Check footer with explicit BEGIN/END markers
+    print("[XCOM-CHECK][BEGIN]")
+    _try_render_candidates(["xcom_panel", "xcom_check_panel"],
+                           dl=dl, csum=csum, default_json_path=default_json_path)
+
     # known kwargs
     dl = kwargs.pop("dl", None)
     csum = kwargs.pop("csum", None)
@@ -196,3 +242,4 @@ def render_wallets_panel(*, dl: Any, csum: Mapping[str, Any] | None = None,
                          default_json_path: str | None = None, **_: Any) -> None:
     _try_render("wallets_panel", dl=dl, csum=csum, default_json_path=default_json_path,
                 debug_label="wallets_panel")
+

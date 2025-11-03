@@ -48,7 +48,7 @@ def _compute_breaches(dl, thresholds: Dict[str, float]) -> List[Dict[str, Any]]:
     try:
         positions = DLPositionManager(dl.db).get_active_positions()
     except Exception as e:
-        log.debug("XCOM Check: cannot fetch positions", source="xcom_check", payload={"error": str(e)})
+        log.debug("XCOM Check: cannot fetch positions", source="xcom_panel", payload={"error": str(e)})
         return out
 
     for p in positions:
