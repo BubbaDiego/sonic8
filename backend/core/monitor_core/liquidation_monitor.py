@@ -12,7 +12,7 @@ Behavior:
   • Provider readiness + global cooldown are enforced inside dispatch path.
 
 Debug:
-  • Loud [LM] console prints for config source, channels, thresholds, values, breaches, and call results.
+  • Loud [LM] console prints for config source, channels, thresholds, values, and call results.
   • Never silent-fails loading JSON or reading channels.
 
 Inputs:
@@ -20,15 +20,14 @@ Inputs:
   • default_json_path (optional): canonical JSON path; when omitted we’ll try dl.global_config.
   • pos_rows (optional): runner-provided positions (we’ll still validate and print counts).
 
-Return:
+Outputs (dict):
   {
     "monitor": "liquid",
     "values": {"BTC": <float|None>, "ETH": <float|None>, "SOL": <float|None>},
     "thresholds": {"BTC": <float|None>, ...},
     "breaches": [{"asset": "SOL", "value": 8.96, "threshold": 11.5}],
     "channels": {"voice": True, "system": True, "sms": False, "tts": False},
-    "dispatch": {...} | None,
-    "config_source": "GLOBAL" | "FILE" | "EMPTY",
+    "dispatch": {...}  # dispatcher return when a call was attempted, else None
   }
 """
 
@@ -44,6 +43,8 @@ from backend.data.data_locker import DataLocker
 
 # XCOM consolidated dispatcher (no legacy)
 from backend.core.xcom_core import dispatch_notifications
+
+__all__ = ["run", "LiquidationMonitor"]
 
 
 # ---------- Small utils ----------
@@ -94,8 +95,8 @@ def _discover_json_path(default_json_path: str | None) -> str | None:
 
 def _load_config(dl: DataLocker, default_json_path: str | None) -> tuple[dict, str]:
     """
-    Return (config, source_label) where source_label ∈ {"GLOBAL", "FILE", "EMPTY"}.
-    Loud logs; never silent.
+    Return (config, source_label)
+      source_label ∈ {"GLOBAL", "FILE", "EMPTY"}
     """
     # If runner already hoisted JSON into dl.global_config, use that
     if getattr(dl, "global_config", None):
@@ -158,7 +159,7 @@ def _extract_positions(dl: DataLocker, pos_rows: list[dict] | None) -> list[dict
 
     rows: list[dict] = []
 
-    # Typical places on DataLocker to find recent/active positions
+    # Try common attributes/collections on DataLocker
     for attr in ("positions", "cache", "portfolio"):
         obj = getattr(dl, attr, None)
         if obj is None:
@@ -167,7 +168,7 @@ def _extract_positions(dl: DataLocker, pos_rows: list[dict] | None) -> list[dict
         for name in ("active", "active_positions", "positions", "last_positions", "snapshot"):
             got = getattr(obj, name, None)
             if isinstance(got, list) and got:
-                rows = [r if isinstance(r, dict) else getattr(r, "__dict__", {}) for r in got]  # type: ignore
+                rows = [r if isinstance(r, dict) else getattr(r, "__dict__", {}) for r in got]  # normalize
                 if rows:
                     print(f"[LM][POS] via dl.{attr}.{name} -> {len(rows)} rows")
                     return rows
@@ -178,7 +179,7 @@ def _extract_positions(dl: DataLocker, pos_rows: list[dict] | None) -> list[dict
                 try:
                     got = meth()
                     if isinstance(got, list) and got:
-                        rows = [r if isinstance(r, dict) else getattr(r, "__dict__", {}) for r in got]  # type: ignore
+                        rows = [r if isinstance(r, dict) else getattr(r, "__dict__", {}) for r in got]
                         if rows:
                             print(f"[LM][POS] via dl.{attr}.{name}() -> {len(rows)} rows")
                             return rows
@@ -216,7 +217,7 @@ def _liq_of(row: Mapping[str, Any]) -> float | None:
 
 def _compute_liq_values(rows: list[dict]) -> dict[str, float | None]:
     """
-    Reduce to the MIN liquidation distance per asset symbol (BTC/ETH/SOL).
+    Reduce to the MIN liquidation distance per asset symbol.
     """
     if not rows:
         return {"BTC": None, "ETH": None, "SOL": None}
@@ -351,3 +352,24 @@ def run(
         pass
 
     return summary
+
+
+# ---------- Legacy compatibility wrapper ----------
+
+class LiquidationMonitor:
+    """
+    Thin wrapper so legacy import patterns keep working:
+
+        from backend.core.monitor_core.liquidation_monitor import LiquidationMonitor
+        LiquidationMonitor.run(dl, default_json_path=..., pos_rows=...)
+
+    Internally forwards to the module-level `run(...)` above.
+    """
+    @staticmethod
+    def run(
+        dl: DataLocker,
+        *,
+        default_json_path: str | None = None,
+        pos_rows: list[dict] | None = None,
+    ) -> dict:
+        return run(dl, default_json_path=default_json_path, pos_rows=pos_rows)
