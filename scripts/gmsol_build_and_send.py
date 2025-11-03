@@ -63,6 +63,7 @@ def load_idl(path: Path) -> Idl:
     return Idl.from_json(text)
 
 
+
 def list_instruction_schema(idl: Idl, name: str) -> Dict[str, Any]:
     ins = next((i for i in idl.instructions if i.name == name), None)
     if ins is None:
@@ -108,29 +109,40 @@ def build_ix_from_manifest(idl: Idl, program_id: Pubkey, manifest: Dict[str, Any
         raise SystemExit("Manifest missing 'instruction'.")
     schema = list_instruction_schema(idl, name)
 
-    # Validate accounts
+    # If the IDL has no accounts/args, you’re on a placeholder — abort early
+    if len(schema["accounts"]) == 0 and len(schema["args"]) == 0:
+        raise SystemExit(
+            "IDL for this instruction has no accounts/args. "
+            "This usually means you are using a placeholder gmsol-store.json. "
+            "Replace it with the official GMX-Solana IDL."
+        )
+
+    # Validate accounts exist in manifest (and in IDL order)
     accmap = manifest.get("accounts") or {}
     missing = [a["name"] for a in schema["accounts"] if not accmap.get(a["name"])]
     if missing:
         raise SystemExit(f"Manifest missing required accounts: {missing}")
 
-    # Validate args
-    argmap = manifest.get("args") or {}
-    arg_missing = [a["name"] for a in schema["args"] if argmap.get(a["name"]) is None]
-    if arg_missing:
-        raise SystemExit(f"Manifest missing required args: {arg_missing}")
-
-    # Account metas in IDL order
     metas: List[AccountMeta] = []
     for a in schema["accounts"]:
         pk = ensure_pubkey(accmap[a["name"]])
         metas.append(AccountMeta(pubkey=pk, is_signer=a["isSigner"], is_writable=a["isMut"]))
 
-    # Instruction data using Anchor coder
+    # Build args **as a list** in the IDL order
+    argmap = manifest.get("args") or {}
+    arg_values: List[Any] = []
+    for a in schema["args"]:
+        v = argmap.get(a["name"])
+        if v is None:
+            raise SystemExit(f"Manifest missing required arg '{a['name']}'")
+        arg_values.append(v)
+
     coder = InstructionCoder(idl)
-    data = coder.build(name, argmap)  # bytes
+    # Anchor coder in 0.19.x expects (name: str, args: list)
+    data = coder.build(name, arg_values)
 
     return SInstruction(program_id=program_id, accounts=metas, data=data)
+
 
 def add_compute_budget_ixs(tx: Transaction, price_micro_lamports: int, cu_limit: int) -> None:
     if set_compute_unit_price and price_micro_lamports and price_micro_lamports > 0:

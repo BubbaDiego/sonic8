@@ -1,100 +1,126 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import Dict, Any
-from importlib import import_module
 
-from .banner_config import render_banner
-from .sync_data import render as render_sync                  # prints table only
-from .prices_table import render as render_prices_table       # prints table only
-from .evaluations_table import render as render_evals         # prints table only
-from .positions_snapshot import render as render_positions    # prints table only
-from .writer import write_line
+from typing import Any, Dict, Optional
 
-# optional logger for tolerant panels
+# Titles/spacing
+try:
+    from .writer import write_line
+except Exception:
+    def write_line(s: str) -> None:
+        print(s)
+
+# Optional logger
 try:
     from backend.core.logging import log as _log  # type: ignore
-except Exception:  # pragma: no cover
+except Exception:
     _log = None  # type: ignore
 
 
-def _try_render(name: str, **kwargs):
-    try:
-        mod = import_module(f"backend.core.reporting_core.sonic_reporting.{name}")
-        render = getattr(mod, "render", None)
-        if callable(render):
-            render(**kwargs)
-        else:
-            print(f"[sequencer] {name}.render() missing")
-    except Exception as e:
-        print(f"[sequencer] {name} failed: {e}")
-
-
-def render_startup_banner(dl, default_json_path: str) -> None:
-    """Print the Sonic Monitor Configuration banner once at startup."""
-    render_banner(dl, default_json_path)
-
-
-def render_cycle(
-    dl,
-    csum: Dict[str, Any],
-    *,
-    default_json_path: str,
-    show_monitors_summary: bool = False,
-) -> None:
+def _try_render_one(module_name: str, *, fn_name: str = "render", **kwargs) -> bool:
     """
-    One full console cycle:
+    Import and render a single module; return True on success.
+    Prints a short banner so you know exactly which file was used.
+    """
+    try:
+        from importlib import import_module
+        mod = import_module(f"backend.core.reporting_core.sonic_reporting.{module_name}")
+        fn = getattr(mod, fn_name, None)
+        if callable(fn):
+            print(f"[SEQ] using {module_name}.{fn_name}()")
+            fn(**kwargs)
+            return True
+        else:
+            print(f"[SEQ] {module_name}.{fn_name} missing/callable=False")
+            if _log:
+                _log.debug("renderer function missing",
+                           source="sequencer", payload={"module": module_name, "fn": fn_name})
+    except Exception as e:
+        print(f"[SEQ] {module_name} import failed: {e}")
+        if _log:
+            _log.debug("optional renderer failed",
+                       source="sequencer", payload={"module": module_name, "error": str(e)})
+    return False
 
-      1) Sync Data        (title here) + Sync table
-      2) Prices           (title here) + Prices table
-      3) Monitors         (title here) + Evaluations table
-      4) Positions        (title here) + Positions table
-      +) Polished Monitors (optional; icons match Prices)
-      +) XCOM Check footer (optional; channels • readiness • cooldown • breaches)
+
+def _try_render_candidates(candidates: list[str], *, fn_name: str = "render", **kwargs) -> Optional[str]:
+    """
+    Try a list of module names until one renders.
+    Return the winning module name (or None).
+    """
+    for m in candidates:
+        if _try_render_one(m, fn_name=fn_name, **kwargs):
+            return m
+    return None
+
+
+def render_startup_banner(dl, default_json_path: Optional[str] = None) -> None:
+    """
+    Print the Sonic Monitor Configuration banner (LAN URLs, config mode, paths, DB).
+    Called once at startup.
+    """
+    # Banner module is consistent in your tree.
+    try:
+        from .banner_config import render_banner
+        render_banner(dl, default_json_path)
+    except Exception as e:
+        print(f"[SEQ] banner_config.render_banner failed: {e}")
+        if _log:
+            _log.debug("banner failed", source="sequencer", payload={"error": str(e)})
+
+
+def render_cycle(dl, csum: Dict[str, Any], default_json_path: Optional[str] = None) -> None:
+    """
+    One full console cycle (tolerant imports with clear 'using X' prints):
+
+      1) Sync Data        (title + table)
+      2) Prices           (title + table)
+      3) Monitors         (title + table)
+      4) Positions        (title + table)
+      +) Wallets panel    (optional)
+      +) XCOM Check       (optional; wrapped with BEGIN/END markers)
     """
 
     # 1) Sync Data
-    write_line("")  # spacer from previous block
+    write_line("")
     write_line("---------------------- 🛠️  Sync  Data  🛠️ ----------------------")
-    render_sync(dl, csum, default_json_path)
+    # Known names across branches: sync_data | sync_cycle | sync_activities
+    _try_render_candidates(
+        ["sync_data", "sync_cycle", "sync_activities"],
+        dl=dl, csum=csum, default_json_path=default_json_path
+    )
 
     # 2) Prices
     write_line("")
     write_line("---------------------- 💰  Prices  ----------------------")
-    render_prices_table(csum)
+    # Known names: prices_table | prices | market_prices
+    _try_render_candidates(
+        ["prices_table", "prices", "market_prices"],
+        csum=csum
+    )
 
     # 3) Monitors
     write_line("")
     write_line("---------------------- 🖥️  Monitors  ----------------------")
-    render_evals(dl, csum)
-
-    # 💳 Wallets panel (safe, optional)
-    _try_render("wallets_panel", dl=dl)
+    # Known names: evaluations_table | monitors_table | monitor_table
+    _try_render_candidates(
+        ["evaluations_table", "monitors_table", "monitor_table"],
+        dl=dl, csum=csum
+    )
 
     # 4) Positions
     write_line("")
     write_line("---------------------- 📈  Positions  ----------------------")
-    render_positions(dl, csum)
+    # Known names: positions_snapshot | positions_snapshot_v1 | positions_debug | positions_table
+    _try_render_candidates(
+        ["positions_snapshot", "positions_snapshot_v1", "positions_debug", "positions_table"],
+        dl=dl, csum=csum
+    )
 
-    # ---------- Optional polish / diagnostics (tolerant imports) ----------
+    # Optional Wallets panel
+    _try_render_candidates(["wallets_panel"], dl=dl)
 
-    # Polished Monitors summary (left icons like Prices: 🟡/🔷/🟣)
-    if show_monitors_summary:
-        try:
-            from .monitors_summary import render as _render_monitors_summary  # type: ignore
-            write_line("")  # spacer before compact summary
-            _render_monitors_summary(dl, csum, default_json_path)
-        except Exception as _e:  # do not crash cycle
-            if _log:
-                _log.debug(
-                    "monitors_summary skipped",
-                    source="sequencer",
-                    payload={"error": str(_e)},
-                )
-
-    # XCOM Check footer (channels • readiness • cooldown • table breach count)
-    try:
-        from .xcom_check_panel import render as _render_xcom_check  # type: ignore
-        _render_xcom_check(dl, csum, default_json_path)
-    except Exception as _e:  # do not crash cycle
-        if _log:
-            _log.debug("xcom_check_panel skipped", source="sequencer", payload={"error": str(_e)})
+    # XCOM Check footer with explicit BEGIN/END markers
+    print("[XCOM-CHECK][BEGIN]")
+    _try_render_candidates(["xcom_check_panel"], dl=dl, csum=csum, default_json_path=default_json_path)
+    print("[XCOM-CHECK][END]")
