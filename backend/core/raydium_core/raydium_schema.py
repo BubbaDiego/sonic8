@@ -1,30 +1,30 @@
-from __future__ import annotations
-from typing import Optional, Dict, List
-from pydantic import BaseModel, Field
+from dataclasses import dataclass
+from typing import Optional, List, Dict
 
 
-class TokenBalance(BaseModel):
-    mint: str
-    amount_raw: int = Field(..., description="On-chain integer amount")
-    decimals: int
-    ui_amount: float = Field(..., description="amount_raw / 10**decimals")
-    ata: Optional[str] = Field(None, description="Associated token account (if available)")
-    symbol: Optional[str] = None
-    token_program: Optional[str] = None  # token-2022 or classic
-
-
-class WalletBalances(BaseModel):
+@dataclass
+class RaydiumPosition:
     owner: str
-    sol_lamports: int
-    sol: float
-    tokens: List[TokenBalance]
-    context_slot: Optional[int] = None
+    nft_mint: str
+    pool_id: str
+    tick_lower: int
+    tick_upper: int
+    liquidity: int
+    tokens_owed0: int
+    tokens_owed1: int
+    # enrichment
+    mint0: Optional[str] = None
+    mint1: Optional[str] = None
+    current_tick: Optional[int] = None
+    sqrt_price: Optional[float] = None  # unscaled sqrt(price) if available
+    amount0: Optional[float] = None
+    amount1: Optional[float] = None
+    usd_value: Optional[float] = None
 
 
-class TokenInfo(BaseModel):
-    address: str
-    symbol: Optional[str] = None
-    name: Optional[str] = None
-    decimals: Optional[int] = None
-    tags: Optional[List[str]] = None
-    extensions: Optional[Dict[str, str]] = None
+@dataclass
+class RaydiumPortfolio:
+    owner: str
+    positions: List[RaydiumPosition]
+    total_usd: float
+    prices: Dict[str, float]
