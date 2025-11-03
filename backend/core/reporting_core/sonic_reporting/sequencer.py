@@ -61,10 +61,10 @@ def render_startup_banner(dl, default_json_path: Optional[str] = None) -> None:
     """
     # Banner module is consistent in your tree.
     try:
-        from .banner_config import render_banner
+        from .banner_panel import render_banner
         render_banner(dl, default_json_path)
     except Exception as e:
-        print(f"[SEQ] banner_config.render_banner failed: {e}")
+        print(f"[SEQ] banner_panel.render_banner failed: {e}")
         if _log:
             _log.debug("banner failed", source="sequencer", payload={"error": str(e)})
 
@@ -84,36 +84,36 @@ def render_cycle(dl, csum: Dict[str, Any], default_json_path: Optional[str] = No
     # 1) Sync Data
     write_line("")
     write_line("---------------------- 🛠️  Sync  Data  🛠️ ----------------------")
-    # Known names across branches: sync_data | sync_cycle | sync_activities
+    # Known names across branches: sync_panel | sync_data | sync_cycle | sync_activities
     _try_render_candidates(
-        ["sync_data", "sync_cycle", "sync_activities"],
+        ["sync_panel", "sync_data", "sync_cycle", "sync_activities"],
         dl=dl, csum=csum, default_json_path=default_json_path
     )
 
     # 2) Prices
     write_line("")
     write_line("---------------------- 💰  Prices  ----------------------")
-    # Known names: prices_table | prices | market_prices
+    # Known names: price_panel | prices_table | prices | market_prices
     _try_render_candidates(
-        ["prices_table", "prices", "market_prices"],
+        ["price_panel", "prices_table", "prices", "market_prices"],
         csum=csum
     )
 
     # 3) Monitors
     write_line("")
     write_line("---------------------- 🖥️  Monitors  ----------------------")
-    # Known names: evaluations_table | monitors_table | monitor_table
+    # Known names: monitor_panel | evaluations_table | monitors_table | monitor_table
     _try_render_candidates(
-        ["evaluations_table", "monitors_table", "monitor_table"],
+        ["monitor_panel", "evaluations_table", "monitors_table", "monitor_table"],
         dl=dl, csum=csum
     )
 
     # 4) Positions
     write_line("")
     write_line("---------------------- 📈  Positions  ----------------------")
-    # Known names: positions_snapshot | positions_snapshot_v1 | positions_debug | positions_table
+    # Known names: positions_panel | positions_snapshot | positions_snapshot_v1 | positions_debug | positions_table
     _try_render_candidates(
-        ["positions_snapshot", "positions_snapshot_v1", "positions_debug", "positions_table"],
+        ["positions_panel", "positions_snapshot", "positions_snapshot_v1", "positions_debug", "positions_table"],
         dl=dl, csum=csum
     )
 
@@ -122,5 +122,6 @@ def render_cycle(dl, csum: Dict[str, Any], default_json_path: Optional[str] = No
 
     # XCOM Check footer with explicit BEGIN/END markers
     print("[XCOM-CHECK][BEGIN]")
-    _try_render_candidates(["xcom_check_panel"], dl=dl, csum=csum, default_json_path=default_json_path)
+    _try_render_candidates(["xcom_panel", "xcom_check_panel"],
+                           dl=dl, csum=csum, default_json_path=default_json_path)
     print("[XCOM-CHECK][END]")

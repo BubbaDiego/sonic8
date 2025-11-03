@@ -50,7 +50,7 @@ def install_compact_console_filter(enable_color: bool = True) -> None:
         sys.stderr = _StdoutFilter(sys.stderr)
 
 def emit_config_banner(dl, interval: Optional[int] = None) -> None:
-    # Banner moved to sonic_reporting.banner_config
+    # Banner moved to sonic_reporting.banner_panel
     return
 
 # ----------------- compact cycle (end-of-cycle line only) -----------------

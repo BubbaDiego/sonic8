@@ -107,7 +107,7 @@ def render(dl, csum: Dict[str, Any], default_json_path: Optional[str] = None) ->
 
     print("\n  ---------------------- 🧭  Monitors (summary)  ----------------------")
     if not rows:
-        log.debug("Monitors summary: no rows extracted from csum", source="monitors_summary")
+        log.debug("Monitors summary: no rows extracted from csum", source="monitor_panel")
         print("  (no rows)")
         return
 
