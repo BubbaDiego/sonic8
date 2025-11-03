@@ -65,16 +65,56 @@ def load_idl(path: Path) -> Idl:
 
 
 def list_instruction_schema(idl: Idl, name: str) -> Dict[str, Any]:
+    """
+    Return a spec dict:
+      { "instruction": name,
+        "accounts": [{name,isMut,isSigner}, ...],
+        "args":     [{name,type}, ...] }
+    Works with anchorpy_core 0.2.x (IdlField.idl_type) and nested account groups.
+    """
     ins = next((i for i in idl.instructions if i.name == name), None)
     if ins is None:
         raise SystemExit(f"Instruction '{name}' not found in IDL.")
-    accounts = [{"name": a.name, "isMut": a.is_mut, "isSigner": a.is_signer} for a in ins.accounts]
-    def _idl_type_to_str(t):
-        if isinstance(t, dict):
-            return json.dumps(t)
-        return str(t)
-    args = [{"name": a.name, "type": _idl_type_to_str(a.type)} for a in ins.args]
-    return {"instruction": name, "accounts": accounts, "args": args}
+
+    # --- flatten accounts (handles nested IdlAccounts) ---
+    flat_accounts: List[Dict[str, Any]] = []
+
+    def _flatten(acc_items):
+        # acc_items can be a list of IdlAccountItem or IdlAccounts
+        for item in acc_items:
+            # Composite group (has .accounts) — recurse
+            if hasattr(item, "accounts") and isinstance(item.accounts, list):
+                _flatten(item.accounts)
+            else:
+                # Leaf account (IdlAccountItem)
+                nm = getattr(item, "name", None)
+                is_mut = bool(getattr(item, "is_mut", False))
+                is_signer = bool(getattr(item, "is_signer", False))
+                if nm:
+                    flat_accounts.append({"name": nm, "isMut": is_mut, "isSigner": is_signer})
+
+    _flatten(ins.accounts)
+
+    # --- args: use .idl_type (anchorpy_core 0.2.x) ---
+    def _type_to_str(t):
+        try:
+            # Many IdlType objects have to_json(); fall back to str otherwise
+            if hasattr(t, "to_json"):
+                return json.dumps(t.to_json())
+            return str(t)
+        except Exception:
+            return str(t)
+
+    args_list = []
+    for a in ins.args:
+        # anchorpy_core.IdlField → .idl_type
+        t = getattr(a, "idl_type", None)
+        args_list.append({
+            "name": getattr(a, "name", ""),
+            "type": _type_to_str(t),
+        })
+
+    return {"instruction": name, "accounts": flat_accounts, "args": args_list}
 
 def write_skeleton_manifest(schema: Dict[str, Any], out_path: Path) -> None:
     man = {
@@ -107,17 +147,16 @@ def build_ix_from_manifest(idl: Idl, program_id: Pubkey, manifest: Dict[str, Any
     name = manifest.get("instruction")
     if not name:
         raise SystemExit("Manifest missing 'instruction'.")
+
     schema = list_instruction_schema(idl, name)
 
-    # If the IDL has no accounts/args, you’re on a placeholder — abort early
     if len(schema["accounts"]) == 0 and len(schema["args"]) == 0:
         raise SystemExit(
-            "IDL for this instruction has no accounts/args. "
-            "This usually means you are using a placeholder gmsol-store.json. "
-            "Replace it with the official GMX-Solana IDL."
+            "IDL for this instruction has no accounts/args (likely a placeholder). "
+            "Replace gmsol-store.json with the real Store IDL."
         )
 
-    # Validate accounts exist in manifest (and in IDL order)
+    # Validate accounts
     accmap = manifest.get("accounts") or {}
     missing = [a["name"] for a in schema["accounts"] if not accmap.get(a["name"])]
     if missing:
@@ -128,7 +167,7 @@ def build_ix_from_manifest(idl: Idl, program_id: Pubkey, manifest: Dict[str, Any
         pk = ensure_pubkey(accmap[a["name"]])
         metas.append(AccountMeta(pubkey=pk, is_signer=a["isSigner"], is_writable=a["isMut"]))
 
-    # Build args **as a list** in the IDL order
+    # Build args as a list (IDL order)
     argmap = manifest.get("args") or {}
     arg_values: List[Any] = []
     for a in schema["args"]:
@@ -138,8 +177,7 @@ def build_ix_from_manifest(idl: Idl, program_id: Pubkey, manifest: Dict[str, Any
         arg_values.append(v)
 
     coder = InstructionCoder(idl)
-    # Anchor coder in 0.19.x expects (name: str, args: list)
-    data = coder.build(name, arg_values)
+    data = coder.build(name, arg_values)  # AnchorPy 0.19.x expects list
 
     return SInstruction(program_id=program_id, accounts=metas, data=data)
 
