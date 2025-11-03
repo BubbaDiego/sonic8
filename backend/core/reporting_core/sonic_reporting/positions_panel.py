@@ -1,13 +1,24 @@
-# backend/core/reporting_core/sonic_reporting/panels/positions_panel.py
+# -*- coding: utf-8 -*-
 from __future__ import annotations
+from typing import Any, Mapping, List, Dict, Tuple, Optional
 
-from typing import Any, Mapping, Optional, Iterable
-import re
+def _as_dict(row: Any) -> Mapping[str, Any]:
+    if isinstance(row, Mapping):
+        return row
+    return getattr(row, "__dict__", {}) or {}
 
-ASSET_ICON = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
-
-
-# ---------- small utils ----------
+def _get(row: Mapping[str, Any], *names: str) -> Any:
+    for n in names:
+        if n in row:
+            return row.get(n)
+    # nested common spots
+    for nest in ("risk", "meta", "stats"):
+        d = row.get(nest)
+        if isinstance(d, Mapping):
+            for n in names:
+                if n in d:
+                    return d.get(n)
+    return None
 
 def _is_num(x: Any) -> bool:
     try:
@@ -16,234 +27,158 @@ def _is_num(x: Any) -> bool:
     except Exception:
         return False
 
-
-def _to_float(x: Any) -> Optional[float]:
-    if x is None:
-        return None
-    if isinstance(x, (int, float)):
-        return float(x)
-    if isinstance(x, str):
-        s = x.strip().replace(",", "")
-        s = re.sub(r"^\$", "", s)
-        s = re.sub(r"[^\d\.\-\+eE]", "", s)
-        try:
-            return float(s)
-        except Exception:
-            return None
-    return None
-
-
 def _fmt_money(x: Optional[float]) -> str:
     if x is None:
-        return "$0.00"
-    sign = "-" if x < 0 else ""
-    ax = abs(x)
-    return f"{sign}${ax:,.2f}"
+        return "—"
+    sgn = "-" if x < 0 else ""
+    v = abs(float(x))
+    if v >= 1_000_000:
+        return f"{sgn}${v/1_000_000:.1f}m"
+    if v >= 1_000:
+        return f"{sgn}${v/1_000:.1f}k"
+    return f"{sgn}${v:.2f}"
 
+def _fmt_x(x: Optional[float]) -> str:
+    if x is None:
+        return "—"
+    return f"{float(x):.2f}×"
 
 def _fmt_pct(x: Optional[float]) -> str:
     if x is None:
         return "—"
-    return f"{x:+.2f}%"
+    return f"{float(x):.2f}%"
 
-
-def _sym_of(r: Mapping[str, Any]) -> Optional[str]:
-    for k in ("asset", "symbol", "coin", "ticker"):
-        v = r.get(k)
-        if isinstance(v, str) and v:
-            return v.strip().upper()
-    return None
-
-
-def _side_of(r: Mapping[str, Any]) -> Optional[str]:
-    v = r.get("side") or r.get("position_side") or r.get("pos_side")
+def _sym(row: Mapping[str, Any]) -> Optional[str]:
+    v = _get(row, "asset", "symbol", "coin", "ticker")
     if isinstance(v, str) and v:
-        return v.strip().upper()
+        return v.upper()
     return None
 
+def _side(row: Mapping[str, Any]) -> str:
+    v = str(_get(row, "side", "position", "dir", "direction") or "").lower()
+    if v.startswith("l"):
+        return "LONG"
+    if v.startswith("s"):
+        return "SHORT"
+    return "-"
 
-def _val_of(r: Mapping[str, Any]) -> Optional[float]:
-    for k in ("value", "notional", "usd_value", "size_usd"):
-        v = _to_float(r.get(k))
-        if v is not None:
-            return v
+def _value(row: Mapping[str, Any]) -> Optional[float]:
+    for k in ("value_usd", "value", "notional", "size_usd"):
+        v = _get(row, k)
+        if _is_num(v):
+            return float(v)
     return None
 
-
-def _pnl_of(r: Mapping[str, Any]) -> Optional[float]:
-    for k in ("pnl", "pnl_usd", "profit", "pl", "p_and_l"):
-        v = _to_float(r.get(k))
-        if v is not None:
-            return v
+def _pnl(row: Mapping[str, Any]) -> Optional[float]:
+    for k in ("pnl_usd", "pnl", "profit_usd", "profit"):
+        v = _get(row, k)
+        if _is_num(v):
+            return float(v)
     return None
 
-
-def _lev_of(r: Mapping[str, Any]) -> Optional[float]:
-    for k in ("lev", "leverage", "x"):
-        v = _to_float(r.get(k))
-        if v is not None:
-            return v
+def _lev(row: Mapping[str, Any]) -> Optional[float]:
+    for k in ("lev", "leverage"):
+        v = _get(row, k)
+        if _is_num(v):
+            return float(v)
     return None
 
-
-def _liq_of(r: Mapping[str, Any]) -> Optional[float]:
-    # either direct number or "distance to liq"
-    for k in ("liq", "liquidation", "liquidation_distance", "liq_dist", "liq_pct"):
-        v = _to_float(r.get(k))
-        if v is not None:
-            return v
-    risk = r.get("risk") or r.get("meta") or {}
-    if isinstance(risk, Mapping):
-        for k in ("liq", "liquidation", "liquidation_distance"):
-            v = _to_float(risk.get(k))
-            if v is not None:
-                return v
+def _liq(row: Mapping[str, Any]) -> Optional[float]:
+    for k in ("liq", "liq_dist", "liquidation", "liquidation_distance", "liq_pct"):
+        v = _get(row, k)
+        if _is_num(v):
+            return float(v)
     return None
 
-
-def _travel_of(r: Mapping[str, Any]) -> Optional[float]:
-    for k in ("travel", "move", "move_pct", "travel_pct"):
-        v = _to_float(r.get(k))
-        if v is not None:
-            return v
+def _travel(row: Mapping[str, Any]) -> Optional[float]:
+    for k in ("travel", "travel_pct"):
+        v = _get(row, k)
+        if _is_num(v):
+            return float(v)
     return None
 
-
-def _normalize_row(r: Mapping[str, Any]) -> Optional[dict]:
-    sym = _sym_of(r)
-    side = _side_of(r)
-    if not sym or not side:
-        return None
-    val = _val_of(r)
-    pnl = _pnl_of(r)
-    lev = _lev_of(r)
-    liq = _liq_of(r)
-    trv = _travel_of(r)
-    return {
-        "symbol": sym,
-        "side": side,
-        "value": val,
-        "pnl": pnl,
-        "lev": lev,
-        "liq": liq,
-        "travel": trv,
-    }
-
-
-# ---------- extraction ----------
-
-def _from_iter(rows: Iterable[Any]) -> list[dict]:
-    out: list[dict] = []
-    for r in rows:
-        if isinstance(r, Mapping):
-            n = _normalize_row(r)
-        else:
-            n = _normalize_row(getattr(r, "__dict__", {}))
-        if n:
-            out.append(n)
-    return out
-
-
-def _extract_positions(dl: Any, csum: Optional[Mapping[str, Any]]) -> tuple[list[dict], str]:
+def _collect_positions(dl, csum) -> Tuple[List[Mapping[str, Any]], str, List[str]]:
     """
-    Returns (rows, source)
+    Try multiple sources; return (rows, source_tag, attempts).
     """
-    # 1) csum top-level shapes
-    if isinstance(csum, Mapping):
-        for k in ("positions", "pos_rows", "position_rows", "portfolio_positions"):
-            v = csum.get(k)
-            if isinstance(v, list) and v:
-                rows = _from_iter(v)
-                if rows:
-                    return rows, f"csum.{k}"
-        # nested common
-        for key, val in csum.items():
-            if isinstance(val, Mapping):
-                for k in ("active", "active_positions", "positions", "snapshot"):
-                    v = val.get(k)
+    attempts: List[str] = []
+
+    # 1) Summary injection
+    for key in ("positions", "pos_rows", "positions_table"):
+        v = csum.get(key)
+        if isinstance(v, list) and v:
+            return ([ _as_dict(r) for r in v ], f"csum.{key}", attempts)
+
+    # 2) Common dl.* paths
+    for root in ("positions", "cache", "portfolio"):
+        robj = getattr(dl, root, None)
+        if robj is None:
+            attempts.append(f"dl.{root}: None")
+            continue
+
+        # direct list
+        if isinstance(robj, list) and robj:
+            return ([ _as_dict(r) for r in robj ], f"dl.{root}", attempts)
+
+        # attributes likely to hold lists
+        for attr in ("active", "active_positions", "positions", "last_positions", "snapshot"):
+            got = getattr(robj, attr, None)
+            if isinstance(got, list) and got:
+                return ([ _as_dict(r) for r in got ], f"dl.{root}.{attr}", attempts)
+            # callable getter
+            meth = getattr(robj, attr, None)
+            if callable(meth):
+                try:
+                    v = meth()
                     if isinstance(v, list) and v:
-                        rows = _from_iter(v)
-                        if rows:
-                            return rows, f"csum.{key}.{k}"
+                        return ([ _as_dict(r) for r in v ], f"dl.{root}.{attr}()", attempts)
+                except Exception:
+                    pass
+            attempts.append(f"dl.{root}.{attr}: empty")
 
-    # 2) DataLocker common locations
-    for attr in ("portfolio", "positions", "cache"):
-        holder = getattr(dl, attr, None)
-        if holder:
-            for k in ("active", "active_positions", "positions", "last_positions", "snapshot"):
-                v = getattr(holder, k, None)
-                if isinstance(v, list) and v:
-                    rows = _from_iter(v)
-                    if rows:
-                        return rows, f"dl.{attr}.{k}"
-                # callable
-                meth = getattr(holder, k, None)
-                if callable(meth):
-                    try:
-                        vv = meth()
-                    except Exception:
-                        vv = None
-                    if isinstance(vv, list) and vv:
-                        rows = _from_iter(vv)
-                        if rows:
-                            return rows, f"dl.{attr}.{k}()"
+    # 3) Nothing
+    return ([], "none", attempts)
 
-    # 3) system var (fallbacks)
-    sys = getattr(dl, "system", None)
-    if sys is not None:
-        for key in ("active_positions", "last_positions", "positions_snapshot"):
-            try:
-                vv = sys.get_var(key)
-            except Exception:
-                vv = None
-            if isinstance(vv, list) and vv:
-                rows = _from_iter(vv)
-                if rows:
-                    return rows, f"dl.system[{key}]"
+def _emoji(asset: str) -> str:
+    a = (asset or "").upper()
+    return {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}.get(a, "•")
 
-    return [], "none"
+def render(dl, csum) -> bool:
+    write_line = print
 
+    rows, src, attempts = _collect_positions(dl, csum)
 
-# ---------- public render ----------
-
-def render(*, dl: Any, csum: Optional[Mapping[str, Any]] = None) -> None:
-    rows, src = _extract_positions(dl, csum)
-
-    print("\n  ---------------------- 📈  Positions  ----------------------")
-    print(" Asset   Side        Value        PnL     Lev      Liq   Travel")
-
-    total_value = 0.0
-    total_pnl = 0.0
+    write_line("  ---------------------- 📈  Positions  ----------------------")
+    write_line(" Asset   Side        Value        PnL     Lev      Liq   Travel")
 
     if not rows:
-        # placeholder row
-        print(" -      -             -           -       -        -        -")
-    else:
-        for r in rows:
-            sym = r["symbol"]
-            side = r["side"]
-            val = r["value"]
-            pnl = r["pnl"]
-            lev = r["lev"]
-            liq = r["liq"]
-            trv = r["travel"]
+        write_line(" -      -             -           -       -        -        -")
+        write_line("                       $0.00     $0.00       -                 -")
+        write_line("")
+        write_line(f"[POSITIONS] source: {src}")
+        if attempts:
+            write_line("[POSITIONS] attempts: " + "; ".join(attempts[:6]))
+        write_line("")
+        return True
 
-            if val is not None:
-                total_value += val
-            if pnl is not None:
-                total_pnl += pnl
+    tot_value = 0.0
+    tot_pnl = 0.0
+    for r in rows:
+        a = _sym(r) or "-"
+        s = _side(r)
+        v = _value(r); p = _pnl(r); l = _lev(r); q = _liq(r); t = _travel(r)
+        if v is not None: tot_value += v
+        if p is not None: tot_pnl += p
 
-            icon = ASSET_ICON.get(sym, "•")
-            print(
-                f" {icon} {sym:<3}  {side:<5}  "
-                f"{_fmt_money(val):>10}  {_fmt_money(pnl):>8}  "
-                f"{(f'{lev:.2f}×' if lev is not None else '-'):>6}  "
-                f"{(f'{liq:.2f}' if liq is not None else '-'):>6}  "
-                f"{(f'{trv:+.2f}%' if trv is not None else '-'):>6}"
-            )
+        write_line(
+            f" {_emoji(a)} {a:<4}  {s:<6}  "
+            f"{_fmt_money(v):>10}  {_fmt_money(p):>8}  "
+            f"{_fmt_x(l):>6}  {('%.2f' % q) if q is not None else '—':>6}  "
+            f"{_fmt_pct(t):>7}"
+        )
 
-    # Totals line (same style you’ve been using)
-    print(f"                  {_fmt_money(total_value):>10}  {_fmt_money(total_pnl):>8}       -                 -")
-
-    # breadcrumb
-    print(f"\n[POSITIONS] source: {src}")
+    write_line(f"                       {_fmt_money(tot_value):>10}  {_fmt_money(tot_pnl):>8}       -                 -")
+    write_line("")
+    write_line(f"[POSITIONS] source: {src}")
+    write_line("")
+    return True
