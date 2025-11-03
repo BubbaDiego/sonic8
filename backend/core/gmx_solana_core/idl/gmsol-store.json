@@ -1,61 +1,11 @@
 {
   "version": "0.1.0",
-  "name": "gmsol_store",
+  "name": "gmsol-store-stub",
   "instructions": [
-    {
-      "name": "prepare_position",
-      "accounts": [
-        { "name": "authority", "isMut": false, "isSigner": true },
-        { "name": "store",     "isMut": false, "isSigner": false }
-      ],
-      "args": []
-    },
-    {
-      "name": "create_deposit",
-      "accounts": [
-        { "name": "authority",    "isMut": true,  "isSigner": true  },
-        { "name": "store",        "isMut": false, "isSigner": false },
-        { "name": "market",       "isMut": false, "isSigner": false },
-        { "name": "deposit",      "isMut": true,  "isSigner": false },
-        { "name": "tokenProgram", "isMut": false, "isSigner": false }
-      ],
-      "args": [
-        { "name": "amount", "type": "u64" }
-      ]
-    },
-    {
-      "name": "create_withdrawal",
-      "accounts": [
-        { "name": "authority",      "isMut": true,  "isSigner": true  },
-        { "name": "store",          "isMut": false, "isSigner": false },
-        { "name": "market",         "isMut": false, "isSigner": false },
-        { "name": "withdrawal",     "isMut": true,  "isSigner": false },
-        { "name": "tokenProgram",   "isMut": false, "isSigner": false }
-      ],
-      "args": [
-        { "name": "amount", "type": "u64" }
-      ]
-    },
-    {
-      "name": "create_order_v2",
-      "accounts": [
-        { "name": "authority",      "isMut": true,  "isSigner": true  },
-        { "name": "store",          "isMut": false, "isSigner": false },
-        { "name": "position",       "isMut": true,  "isSigner": false },
-        { "name": "order",          "isMut": true,  "isSigner": false },
-        { "name": "market",         "isMut": false, "isSigner": false },
-        { "name": "tokenProgram",   "isMut": false, "isSigner": false }
-      ],
-      "args": [
-        { "name": "sizeDelta",           "type": "u64"  },
-        { "name": "collateralDelta",     "type": "u64"  },
-        { "name": "orderKind",           "type": "u8"   },
-        { "name": "priceType",           "type": "u8"   },
-        { "name": "triggerPriceX32",     "type": "u128" },
-        { "name": "slippageBps",         "type": "u16"  },
-        { "name": "ttlSeconds",          "type": "u32"  }
-      ]
-    }
+    { "name": "prepare_position", "accounts": [], "args": [] },
+    { "name": "create_deposit",   "accounts": [], "args": [] },
+    { "name": "create_withdrawal","accounts": [], "args": [] },
+    { "name": "create_order_v2",  "accounts": [], "args": [] }
   ],
   "accounts": [],
   "types": []
