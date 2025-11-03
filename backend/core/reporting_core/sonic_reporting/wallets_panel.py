@@ -133,7 +133,7 @@ def _read_wallets(dl: DataLocker) -> List[Dict[str, Any]]:
 
 
 # ---------------- renderer ----------------
-def render(dl: DataLocker, **_kwargs) -> None:
+def render(dl: DataLocker, csum=None, default_json_path: str | None = None, **_kwargs) -> None:
     try:
         wallets = _read_wallets(dl)
     except Exception as e:

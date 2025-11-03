@@ -52,7 +52,22 @@ def _extract_prices_and_ages(dl, csum) -> Tuple[Dict[str, float], Dict[str, floa
     Ages are returned separately via csum['price_ages'] but not as prices.
     """
     # 1) csum hints first
-    for key in ("prices", "price_map", "last_prices"):
+    summary_prices = csum.get("prices")
+    if isinstance(summary_prices, Mapping):
+        cur_map: Dict[str, float] = {}
+        prev_map: Dict[str, float] = {}
+        for sym in ASSETS:
+            info = summary_prices.get(sym)
+            if isinstance(info, Mapping):
+                cur = info.get("current")
+                prev = info.get("previous")
+                if _is_num(cur):
+                    cur_map[sym] = float(cur)
+                if _is_num(prev):
+                    prev_map[sym] = float(prev)
+        if cur_map or prev_map:
+            return cur_map, prev_map, "csum.prices"
+    for key in ("price_map", "last_prices"):
         m = _sniff_price_map(csum.get(key))
         if m:
             prev = _sniff_price_map(csum.get("prev_prices")) or {}
@@ -82,7 +97,7 @@ def _extract_prices_and_ages(dl, csum) -> Tuple[Dict[str, float], Dict[str, floa
     # We keep returning empty dict (so renderer prints blanks) and show attempted paths.
     return ({}, {}, "none(" + ", ".join(candidates) + ")")
 
-def render(dl, csum) -> bool:
+def render(dl, csum, default_json_path: str | None = None) -> bool:
     write_line = print  # sequencer injects same convention
 
     prices, prev, src = _extract_prices_and_ages(dl, csum)

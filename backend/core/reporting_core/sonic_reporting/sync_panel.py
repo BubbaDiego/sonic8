@@ -148,7 +148,7 @@ def _xcom_live_status(dl, cfg: Optional[dict] = None) -> Tuple[bool, str]:
     return False, "—"
 
 # ------------------------------ RENDER ------------------------------
-def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
+def render(dl, csum: Dict[str, Any], default_json_path: str | None = None) -> None:
     """
     Sync Data table:
       - XCOM Live row (🟢 ON / 🔴 OFF) with origin in brackets.
@@ -159,7 +159,7 @@ def render(dl, csum: Dict[str, Any], default_json_path: str) -> None:
       - Multi-line Liquid/Profit thresholds with per-item origin
     """
 
-    json_path = discover_json_path(default_json_path)
+    json_path = discover_json_path(default_json_path or "")
     obj, err, meta = parse_json(json_path)
     exists = bool(meta.get("exists"))
     size = meta.get("size", "—")

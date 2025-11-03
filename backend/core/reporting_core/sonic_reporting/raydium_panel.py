@@ -18,7 +18,7 @@ Notes:
 from __future__ import annotations
 
 import os
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Mapping
 
 from backend.data.dl_raydium import DLRaydium
 
@@ -98,3 +98,64 @@ def render_raydium_panel(
     print("  ====================================================================\n")
 
     return {"total_usd": total_global}
+
+
+def _collect_wallets(dl: Any, csum: Mapping[str, Any] | None) -> List[Dict[str, str]]:
+    wallets: List[Dict[str, str]] = []
+    source = csum or {}
+    for key in ("raydium_wallets", "wallets", "wallet_rows", "wallet_panel"):
+        value = source.get(key) if isinstance(source, Mapping) else None
+        if isinstance(value, list) and value:
+            for item in value:
+                if isinstance(item, Mapping):
+                    addr = item.get("address") or item.get("public_address") or item.get("pubkey")
+                    name = item.get("name") or item.get("label") or "Wallet"
+                    if addr:
+                        wallets.append({"name": str(name), "address": str(addr)})
+            if wallets:
+                return wallets
+
+    for attr in ("wallets", "portfolio", "cache"):
+        holder = getattr(dl, attr, None)
+        if isinstance(holder, Mapping):
+            inner = holder.get("wallets")
+            if isinstance(inner, list):
+                for item in inner:
+                    if isinstance(item, Mapping):
+                        addr = item.get("address") or item.get("public_address") or item.get("pubkey")
+                        name = item.get("name") or item.get("label") or "Wallet"
+                        if addr:
+                            wallets.append({"name": str(name), "address": str(addr)})
+                if wallets:
+                    return wallets
+        if hasattr(holder, "wallets"):
+            try:
+                inner = holder.wallets  # type: ignore[attr-defined]
+                if isinstance(inner, list):
+                    for item in inner:
+                        if isinstance(item, Mapping):
+                            addr = item.get("address") or item.get("public_address") or item.get("pubkey")
+                            name = item.get("name") or item.get("label") or "Wallet"
+                            if addr:
+                                wallets.append({"name": str(name), "address": str(addr)})
+                    if wallets:
+                        return wallets
+            except Exception:
+                pass
+    return wallets
+
+
+def render(dl, csum, default_json_path: str | None = None) -> None:
+    try:
+        wallets = _collect_wallets(dl, csum)
+        if not wallets:
+            return
+        rpc_url = None
+        try:
+            rpc_url = getattr(dl, "rpc_url", None) or getattr(dl, "raydium_rpc_url", None)
+        except Exception:
+            rpc_url = None
+        rpc_url = rpc_url or os.getenv("RPC_URL") or os.getenv("RAYDIUM_RPC_URL")
+        render_raydium_panel(wallets=wallets, rpc_url=rpc_url)
+    except Exception:
+        return
