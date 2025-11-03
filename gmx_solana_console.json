@@ -5,7 +5,7 @@
   "signer_pubkey": "C9JAHcKPnu3Xw39jwjhfE2WnSx7VsLJzzWPcjYNdboLF",
   "limit": 100,
   "page": 1,
-  "owner_offset": 56,
+  "owner_offset": 24,
   "data_size": 0,
   "prefer_v2": true,
   "idl_path": "C:\\sonic7\\backend\\core\\gmx_solana_core\\idl\\gmsol-store.json"
