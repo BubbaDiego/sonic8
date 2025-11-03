@@ -148,6 +148,13 @@ def render_cycle(*args, **kwargs) -> None:
     if show_positions_panel:
         _try_render("positions_panel", dl=dl, csum=csum, default_json_path=default_json_path, debug_label="positions_panel")
 
+    _try_render(
+        "raydium_panel",
+        dl=dl,
+        csum=csum,
+        default_json_path=default_json_path,
+        debug_label="raydium_panel"
+    )
     if show_positions_totals_panel:
         _try_render("positions_totals_panel", dl=dl, csum=csum, default_json_path=default_json_path, debug_label="positions_totals_panel")
 
@@ -181,3 +188,4 @@ def render_positions_totals_panel(*, dl: Any, csum: Mapping[str, Any] | None = N
 def render_wallets_panel(*, dl: Any, csum: Mapping[str, Any] | None = None,
                          default_json_path: str | None = None, **_: Any) -> None:
     _try_render("wallets_panel", dl=dl, csum=csum, default_json_path=default_json_path, debug_label="wallets_panel")
+
