@@ -1,10 +1,8 @@
-"""
-XCOM consolidated API (public surface).
+"""Thin wrapper: export the consolidated XCOM dispatcher from dispatcher.py."""
 
-Import wherever you need to notify:
-    from backend.core.xcom_core import dispatch_notifications
-"""
+from .dispatcher import dispatch_notifications  # re-export
 
-from .dispatch import dispatch_notifications
+# Legacy symbol — keep import from callers from breaking, but don’t load old module.
+XComCore = None  # type: ignore
 
-__all__ = ["dispatch_notifications"]
+__all__ = ["dispatch_notifications", "XComCore"]
