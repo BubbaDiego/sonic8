@@ -97,7 +97,7 @@ def _extract_prices_and_ages(dl, csum) -> Tuple[Dict[str, float], Dict[str, floa
     # We keep returning empty dict (so renderer prints blanks) and show attempted paths.
     return ({}, {}, "none(" + ", ".join(candidates) + ")")
 
-def render(dl, csum, default_json_path: str | None = None) -> bool:
+def render(dl, csum, default_json_path=None):
     write_line = print  # sequencer injects same convention
 
     prices, prev, src = _extract_prices_and_ages(dl, csum)

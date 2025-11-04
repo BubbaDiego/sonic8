@@ -320,7 +320,6 @@ from backend.core.reporting_core.sonic_reporting.sequencer import (
     render_startup_banner,
     render_cycle,
 )
-from backend.core.monitor_core.config_store import DEFAULT_JSON_PATH as _CONFIG_JSON_PATH
 from backend.core.monitor_core.summary_helpers import (
     load_monitor_config_snapshot,
     build_sources_snapshot,
@@ -337,17 +336,17 @@ from backend.core.reporting_core.alerts_formatter import compose_alerts_inline
 from backend.data.dl_hedges import DLHedgeManager
 from backend.models.monitor_status import MonitorStatus, MonitorType
 
-DEFAULT_JSON_PATH = str(Path(_CONFIG_JSON_PATH).resolve())
+DEFAULT_JSON_PATH = r"C:\sonic7\backend\config\sonic_monitor_config.json"
 
 
 def _csum_prices(dl) -> dict:
-    out: dict[str, dict[str, Optional[float]]] = {}
+    out = {}
     try:
+        glp = getattr(dl, "get_latest_price", None)
         for sym in ("BTC", "ETH", "SOL"):
-            latest = getattr(dl, "get_latest_price", None)
             cur = prev = None
-            if callable(latest):
-                info = latest(sym) or {}
+            if callable(glp):
+                info = glp(sym) or {}
                 cur = info.get("current_price") or info.get("current") or info.get("price")
                 prev = info.get("previous") or info.get("prev")
             out[sym] = {
@@ -498,8 +497,8 @@ def _normalize_pos_rows(rows: Iterable[Any]) -> list[dict]:
 
 
 def _csum_positions(dl) -> list[dict]:
-    def _norm(row):
-        return row if isinstance(row, dict) else getattr(row, "__dict__", {}) or {}
+    def norm(r):
+        return r if isinstance(r, dict) else getattr(r, "__dict__", {}) or {}
 
     for root in ("positions", "portfolio", "cache"):
         holder = getattr(dl, root, None)
@@ -508,23 +507,23 @@ def _csum_positions(dl) -> list[dict]:
         for name in ("active", "active_positions", "positions", "snapshot", "last_positions"):
             v = getattr(holder, name, None)
             if isinstance(v, list) and v:
-                return [_norm(r) for r in v]
+                return [norm(r) for r in v]
             m = getattr(holder, name, None)
             if callable(m):
                 try:
-                    rows = m()
-                    if isinstance(rows, list) and rows:
-                        return [_norm(r) for r in rows]
+                    vv = m()
+                    if isinstance(vv, list) and vv:
+                        return [norm(r) for r in vv]
                 except Exception:
                     pass
 
-    sys_holder = getattr(dl, "system", None)
-    if sys_holder:
+    sys = getattr(dl, "system", None)
+    if sys:
         for key in ("active_positions", "positions_snapshot", "last_positions"):
             try:
-                rows = sys_holder.get_var(key)
-                if isinstance(rows, list) and rows:
-                    return [_norm(r) for r in rows]
+                vv = sys.get_var(key)
+                if isinstance(vv, list) and vv:
+                    return [norm(r) for r in vv]
             except Exception:
                 pass
 
@@ -1436,28 +1435,10 @@ def run_monitor(
                 pass
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
             if dl is not None:
-                # ensure the panels get data every cycle
-                summary["prices"] = _csum_prices(dl)    # {'BTC': {'current':..., 'previous':...}, 'ETH': {...}, 'SOL': {...}}
+                summary["prices"] = _csum_prices(dl)     # ensures price_panel has data
+                summary["pos_rows"] = _csum_positions(dl)  # ensures positions_panel has data
 
-                pos_rows_source: list[Any] = []
-                pos_section = summary.get("positions")
-                if isinstance(pos_section, Mapping):
-                    existing_rows = pos_section.get("rows")
-                    if isinstance(existing_rows, list) and existing_rows:
-                        pos_rows_source = existing_rows  # already fetched earlier in the cycle
-
-                if not pos_rows_source:
-                    pos_rows_source = _csum_positions(dl)
-
-                summary["pos_rows"] = _normalize_pos_rows(pos_rows_source)
-
-                # always pass the absolute JSON path so sync/xcom panels parse FILE (not '.')
-                render_cycle(
-                    dl,
-                    summary,
-                    default_json_path=DEFAULT_JSON_PATH,
-                    show_monitors_summary=False,
-                )
+                render_cycle(dl, summary, default_json_path=DEFAULT_JSON_PATH)
 
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(

@@ -148,7 +148,7 @@ def _xcom_live_status(dl, cfg: Optional[dict] = None) -> Tuple[bool, str]:
     return False, "—"
 
 # ------------------------------ RENDER ------------------------------
-def render(dl, csum: Dict[str, Any], default_json_path: str | None = None) -> None:
+def render(dl, csum, default_json_path=None):
     """
     Sync Data table:
       - XCOM Live row (🟢 ON / 🔴 OFF) with origin in brackets.

@@ -98,7 +98,7 @@ def render_banner(dl, default_json_path: str) -> None:
     )
 
 
-def render(dl, default_json_path: str | None = None) -> None:
+def render(dl, default_json_path=None):
     try:
         render_banner(dl, default_json_path or "")
     except NameError:
