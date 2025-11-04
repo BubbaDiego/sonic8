@@ -30,6 +30,9 @@ CONFIG_PATH = ROOT / "gmx_solana_console.json"
 OUTBOX_DIR = ROOT / "outbox"
 IDL_PATH = ROOT / "backend" / "core" / "gmx_solana_core" / "idl" / "gmsol-store.json"
 
+TOKEN_PROGRAM_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+TOKEN_PROGRAM_CLASSIC = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+
 # ensure outbox exists
 OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -109,7 +112,12 @@ def pretty_summary_raw_accounts(sample_pubkeys: List[str], matched_count: int, o
     # add friendly markers
     return summary
 
-def write_manifest(instruction_name: str, idl: Dict[str, Any], outdir: pathlib.Path = OUTBOX_DIR) -> pathlib.Path:
+def write_manifest(
+    instruction_name: str,
+    idl: Dict[str, Any],
+    outdir: pathlib.Path = OUTBOX_DIR,
+    prefill_accounts: Optional[Dict[str, str]] = None,
+) -> Tuple[pathlib.Path, Dict[str, Any]]:
     outdir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     fname = f"{timestamp}_{instruction_name}.json"
@@ -129,8 +137,13 @@ def write_manifest(instruction_name: str, idl: Dict[str, Any], outdir: pathlib.P
             manifest["args"] = ins.get("args", [])
     # compute discriminator anyway
     manifest["discriminator"] = compute_anchor_discriminator(instruction_name)
+    if prefill_accounts:
+        for acc in manifest.get("accounts", []):
+            name = acc.get("name")
+            if name in prefill_accounts and not acc.get("pubkey"):
+                acc["pubkey"] = prefill_accounts[name]
     fp.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    return fp
+    return fp, manifest
 
 # ========= IDL load =========
 def load_idl(path: pathlib.Path = IDL_PATH) -> Optional[Dict[str, Any]]:
@@ -397,18 +410,25 @@ def interactive_menu():
                 }
                 inst = mapping[choice]
                 idl = load_idl() or {}
-                fp = write_manifest(inst, idl)
+                prefill_accounts = None
+                if inst == "create_order_v2":
+                    store_account = cfg.get("store_account")
+                    signer_prefill = signer_pub or derive_pub_from_signer_file(cfg.get("signer_file", str(ROOT / "signer.txt")))
+                    prefill_accounts = {}
+                    if signer_prefill:
+                        prefill_accounts["authority"] = signer_prefill
+                    if store_account:
+                        prefill_accounts["store"] = store_account
+                    prefill_accounts["tokenProgram"] = TOKEN_PROGRAM_CLASSIC
+                fp, manifest = write_manifest(inst, idl, prefill_accounts=prefill_accounts)
                 print(f"{ICONS['ok']} Manifest created: {fp}")
                 print(f"• 🧾 Instruction : {inst}")
-                accs = (idl.get("instructions", []) if idl else [])
-                # show counts if IDL present
-                if idl:
-                    ins = next((i for i in idl.get("instructions", []) if i.get("name") == inst), None)
-                    acc_count = len(ins.get("accounts", [])) if ins else 0
-                    args_count = len(ins.get("args", [])) if ins else 0
-                else:
-                    acc_count, args_count = 0, 0
-                print(f"• 🧩 Accounts    : {acc_count} total → 0 filled, 0 pending")
+                account_entries = manifest.get("accounts", []) if isinstance(manifest, dict) else []
+                acc_count = len(account_entries)
+                filled_count = sum(1 for a in account_entries if a.get("pubkey"))
+                pending_count = acc_count - filled_count
+                args_count = len(manifest.get("args", [])) if isinstance(manifest, dict) else 0
+                print(f"• 🧩 Accounts    : {acc_count} total → {filled_count} filled, {pending_count} pending")
                 print(f"• 🧷 Args        : {args_count}")
                 print(f"• 🔑 Discriminator (hex): {compute_anchor_discriminator(inst)}")
                 print(f"• 📂 Outbox      : {OUTBOX_DIR}")
