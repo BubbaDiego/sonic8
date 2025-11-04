@@ -14,7 +14,7 @@ import time
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Callable, List
+from typing import Any, Dict, Optional, Callable
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
@@ -194,58 +194,6 @@ def _require(path_desc: str, value, coerce=lambda x: x):
 
 
 # --- AUGMENT CSUM WITH PRICES & POSITIONS (PANELS CONTRACT) ---
-def _csum_prices(dl) -> Dict[str, Dict[str, Optional[float]]]:
-    out: Dict[str, Dict[str, Optional[float]]] = {}
-    try:
-        for sym in ("BTC", "ETH", "SOL"):
-            latest = getattr(dl, "get_latest_price", None)
-            cur = prev = None
-            if callable(latest):
-                info = latest(sym) or {}
-                cur = info.get("current_price") or info.get("current") or info.get("price")
-                prev = info.get("previous") or info.get("prev")
-            out[sym] = {
-                "current": float(cur) if cur is not None else None,
-                "previous": float(prev) if prev is not None else None,
-            }
-    except Exception:
-        pass
-    return out
-
-
-def _csum_positions(dl) -> List[Dict[str, Any]]:
-    def _norm_row(r):
-        if isinstance(r, dict):
-            return r
-        data = getattr(r, "__dict__", {})
-        return data if isinstance(data, dict) else {}
-
-    for root in ("positions", "portfolio", "cache"):
-        holder = getattr(dl, root, None)
-        if not holder:
-            continue
-        for name in ("active", "active_positions", "positions", "snapshot", "last_positions"):
-            v = getattr(holder, name, None)
-            if isinstance(v, list) and v:
-                return [_norm_row(r) for r in v]
-            m = getattr(holder, name, None)
-            if callable(m):
-                try:
-                    vv = m()
-                    if isinstance(vv, list) and vv:
-                        return [_norm_row(r) for r in vv]
-                except Exception:
-                    pass
-    sys = getattr(dl, "system", None)
-    if sys:
-        for key in ("active_positions", "positions_snapshot", "last_positions"):
-            try:
-                vv = sys.get_var(key)
-                if isinstance(vv, list) and vv:
-                    return [_norm_row(r) for r in vv]
-            except Exception:
-                pass
-    return []
 
 
 # ── REQUIRED JSON FIELDS (single source of truth) ────────────────────────────
@@ -372,7 +320,7 @@ from backend.core.reporting_core.sonic_reporting.sequencer import (
     render_startup_banner,
     render_cycle,
 )
-from backend.core.monitor_core.config_store import DEFAULT_JSON_PATH
+from backend.core.monitor_core.config_store import DEFAULT_JSON_PATH as _CONFIG_JSON_PATH
 from backend.core.monitor_core.summary_helpers import (
     load_monitor_config_snapshot,
     build_sources_snapshot,
@@ -388,6 +336,61 @@ from backend.core.reporting_core.summary_cache import (
 from backend.core.reporting_core.alerts_formatter import compose_alerts_inline
 from backend.data.dl_hedges import DLHedgeManager
 from backend.models.monitor_status import MonitorStatus, MonitorType
+
+DEFAULT_JSON_PATH = str(Path(_CONFIG_JSON_PATH).resolve())
+
+
+def _csum_prices(dl) -> dict:
+    out: dict[str, dict[str, Optional[float]]] = {}
+    try:
+        for sym in ("BTC", "ETH", "SOL"):
+            info = getattr(dl, "get_latest_price", lambda *_: {})(sym) or {}
+            cur = info.get("current_price") or info.get("current") or info.get("price")
+            prev = info.get("previous") or info.get("prev")
+            out[sym] = {
+                "current": float(cur) if cur is not None else None,
+                "previous": float(prev) if prev is not None else None,
+            }
+    except Exception:
+        pass
+    return out
+
+
+def _csum_positions(dl) -> list[dict]:
+    def norm(row):
+        if isinstance(row, dict):
+            return row
+        return getattr(row, "__dict__", {}) or {}
+
+    for attr in ("positions", "portfolio", "cache"):
+        holder = getattr(dl, attr, None)
+        if not holder:
+            continue
+        for name in ("active", "active_positions", "positions", "snapshot", "last_positions"):
+            value = getattr(holder, name, None)
+            if isinstance(value, list) and value:
+                return [norm(r) for r in value]
+            method = getattr(holder, name, None)
+            if callable(method):
+                try:
+                    rows = method()
+                    if isinstance(rows, list) and rows:
+                        return [norm(r) for r in rows]
+                except Exception:
+                    pass
+
+    sys_holder = getattr(dl, "system", None)
+    if sys_holder:
+        for key in ("active_positions", "positions_snapshot", "last_positions"):
+            try:
+                rows = sys_holder.get_var(key)
+            except Exception:
+                rows = None
+            if isinstance(rows, list) and rows:
+                return [norm(r) for r in rows]
+
+    return []
+
 
 DEFAULT_INTERVAL = 60  # only used if JSON somehow lacks a loop value (we exit earlier)
 
