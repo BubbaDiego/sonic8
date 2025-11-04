@@ -20,6 +20,93 @@ from typing import Any, Dict, Optional, Callable, Iterable
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
 
+# ----- Handoff helpers (panels contract) -----
+def _csum_prices(dl) -> dict:
+    out = {}
+    try:
+        glp = getattr(dl, "get_latest_price", None)
+        for sym in ("BTC", "ETH", "SOL"):
+            cur = prev = None
+            if callable(glp):
+                info = glp(sym) or {}
+                cur = info.get("current_price") or info.get("current") or info.get("price")
+                prev = info.get("previous") or info.get("prev")
+            out[sym] = {
+                "current": float(cur) if cur is not None else None,
+                "previous": float(prev) if prev is not None else None,
+            }
+    except Exception:
+        pass
+    return out
+
+
+def _norm_row(r):
+    return r if isinstance(r, dict) else getattr(r, "__dict__", {}) or {}
+
+
+def _collect_positions_from_dl(dl):
+    for root in ("positions", "portfolio", "cache"):
+        holder = getattr(dl, root, None)
+        if not holder:
+            continue
+        for name in ("active", "active_positions", "positions", "snapshot", "last_positions"):
+            v = getattr(holder, name, None)
+            if isinstance(v, list) and v:
+                return [_norm_row(x) for x in v], f"dl.{root}.{name}"
+            m = getattr(holder, name, None)
+            if callable(m):
+                try:
+                    vv = m()
+                    if isinstance(vv, list) and vv:
+                        return [_norm_row(x) for x in vv], f"dl.{root}.{name}()"
+                except Exception:
+                    pass
+    sys = getattr(dl, "system", None)
+    if sys:
+        for key in ("active_positions", "positions_snapshot", "last_positions"):
+            try:
+                vv = sys.get_var(key)
+                if isinstance(vv, list) and vv:
+                    return [_norm_row(x) for x in vv], f"dl.system[{key}]"
+            except Exception:
+                pass
+    return [], "none"
+
+
+def _collect_positions_from_db(dl):
+    # Very defensive generic query; adjust names if you have a formal manager.
+    try:
+        cur = dl.db.get_cursor()
+        if not cur:
+            return [], "db:none"
+        # Pick the most recent rows per asset/type
+        cur.execute(
+            """
+            SELECT * FROM positions
+            WHERE status IN ('active','OPEN','open') OR status IS NULL
+            ORDER BY COALESCE(updated_at, created_at) DESC
+            LIMIT 200
+        """
+        )
+        cols = [d[0] for d in cur.description]
+        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        return rows, "db:positions"
+    except Exception as e:
+        return [], f"db:error({e})"
+
+
+def _csum_positions(dl):
+    rows, src = _collect_positions_from_dl(dl)
+    if rows:
+        print(f"[HANDOFF] pos_rows={len(rows)} source={src}")
+        return rows
+    rows, src = _collect_positions_from_db(dl)
+    print(f"[HANDOFF] pos_rows={len(rows)} source={src}")
+    return rows
+
+
+# ----- end handoff helpers -----
+
 try:
     from colorama import Fore, Style  # optional dependency
 
@@ -347,59 +434,6 @@ from backend.data.dl_hedges import DLHedgeManager
 from backend.models.monitor_status import MonitorStatus, MonitorType
 
 DEFAULT_JSON_PATH = r"C:\sonic7\backend\config\sonic_monitor_config.json"
-
-
-def _csum_prices(dl) -> dict:
-    out = {}
-    try:
-        glp = getattr(dl, "get_latest_price", None)
-        for sym in ("BTC", "ETH", "SOL"):
-            cur = prev = None
-            if callable(glp):
-                info = glp(sym) or {}
-                cur = info.get("current_price") or info.get("current") or info.get("price")
-                prev = info.get("previous") or info.get("prev")
-            out[sym] = {
-                "current": float(cur) if cur is not None else None,
-                "previous": float(prev) if prev is not None else None,
-            }
-    except Exception:
-        pass
-    return out
-
-
-def _csum_positions(dl) -> list[dict]:
-    def norm(r):
-        return r if isinstance(r, dict) else getattr(r, "__dict__", {}) or {}
-
-    for root in ("positions", "portfolio", "cache"):
-        holder = getattr(dl, root, None)
-        if not holder:
-            continue
-        for name in ("active", "active_positions", "positions", "snapshot", "last_positions"):
-            v = getattr(holder, name, None)
-            if isinstance(v, list) and v:
-                return [norm(r) for r in v]
-            m = getattr(holder, name, None)
-            if callable(m):
-                try:
-                    vv = m()
-                    if isinstance(vv, list) and vv:
-                        return [norm(r) for r in vv]
-                except Exception:
-                    pass
-
-    sys = getattr(dl, "system", None)
-    if sys:
-        for key in ("active_positions", "positions_snapshot", "last_positions"):
-            try:
-                vv = sys.get_var(key)
-                if isinstance(vv, list) and vv:
-                    return [norm(r) for r in vv]
-            except Exception:
-                pass
-
-    return []
 
 
 def _first_present(mapping: Mapping[str, Any], keys: Iterable[str]) -> Any:
@@ -1515,6 +1549,7 @@ def run_monitor(
 
             print()  # breathing room before summary
             summary = snapshot_into(summary)
+            csum = summary
             # ---- Alerts detail + sources snapshot (tolerant; safe when missing) ----
             try:
                 cfg_snapshot = load_monitor_config_snapshot(summary)
@@ -1528,10 +1563,10 @@ def run_monitor(
                 pass
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
             if dl is not None:
-                summary["prices"] = _csum_prices(dl)     # ensures price_panel has data
-                summary["pos_rows"] = _csum_positions(dl)  # ensures positions_panel has data
+                csum["prices"] = _csum_prices(dl)      # ensures price_panel has data
+                csum["pos_rows"] = _csum_positions(dl)  # ensures positions_panel has data
 
-                render_cycle(dl, summary, default_json_path=DEFAULT_JSON_PATH)
+                render_cycle(dl, csum, default_json_path=DEFAULT_JSON_PATH)
 
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
