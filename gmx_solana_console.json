@@ -8,5 +8,7 @@
   "owner_offset": 24,
   "data_size": 0,
   "prefer_v2": true,
-  "idl_path": "C:\\sonic7\\backend\\core\\gmx_solana_core\\idl\\gmsol-store.json"
+  "store_account": "CTDLvGGXnoxvqLyTpGzdGLg9pD6JexKxKXSV8tqqo8bN",
+  "default_position": "",
+  "default_market": ""
 }
