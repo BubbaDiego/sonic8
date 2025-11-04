@@ -14,7 +14,7 @@ import time
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Dict, Optional, Callable, Iterable
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
@@ -357,6 +357,144 @@ def _csum_prices(dl) -> dict:
     except Exception:
         pass
     return out
+
+
+def _first_present(mapping: Mapping[str, Any], keys: Iterable[str]) -> Any:
+    for key in keys:
+        if key in mapping:
+            value = mapping.get(key)
+            if value is not None and value != "":
+                return value
+    return None
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return float(value)
+        except Exception:
+            return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        text = text.replace(",", "")
+        if text.endswith("%"):
+            text = text[:-1]
+        try:
+            return float(text)
+        except Exception:
+            return None
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except Exception:
+        return None
+
+
+def _normalize_pos_row(row: Mapping[str, Any]) -> Dict[str, Any]:
+    asset = _first_present(
+        row,
+        ("asset", "symbol", "ticker", "asset_type", "market", "pair"),
+    )
+    side = _first_present(
+        row,
+        ("side", "position_side", "position_type", "direction", "dir"),
+    )
+    value = _coerce_float(
+        _first_present(
+            row,
+            (
+                "value",
+                "value_usd",
+                "notional",
+                "notional_usd",
+                "size_usd",
+                "size",
+                "position_value",
+                "position_value_usd",
+                "usd_value",
+                "gross_value",
+                "market_value",
+            ),
+        )
+    )
+    pnl = _coerce_float(
+        _first_present(
+            row,
+            (
+                "pnl",
+                "pnl_usd",
+                "pnl_after_fees_usd",
+                "profit",
+                "profit_usd",
+                "net_pnl_usd",
+                "total_pnl_usd",
+            ),
+        )
+    )
+    lev = _coerce_float(
+        _first_present(
+            row,
+            (
+                "lev",
+                "leverage",
+                "leverage_ratio",
+                "effective_leverage",
+                "leverage_used",
+            ),
+        )
+    )
+    liq = _coerce_float(
+        _first_present(
+            row,
+            (
+                "liquidation_distance",
+                "liq",
+                "liq_dist",
+                "liq_pct",
+                "liq_percent",
+                "liquidation",
+                "liquidation_buffer",
+                "liquidation_distance_pct",
+            ),
+        )
+    )
+    travel = _coerce_float(
+        _first_present(
+            row,
+            ("travel", "move", "move_pct", "change_pct", "delta_pct", "pct_change"),
+        )
+    )
+
+    normalized: Dict[str, Any] = {
+        "asset": str(asset).upper() if asset else None,
+        "side": str(side).upper() if side else None,
+        "value": value,
+        "pnl": pnl,
+        "lev": lev,
+        "liquidation_distance": liq,
+        "travel": travel,
+    }
+    return normalized
+
+
+def _normalize_pos_rows(rows: Iterable[Any]) -> list[dict]:
+    normalized: list[dict] = []
+    for row in rows:
+        if isinstance(row, Mapping):
+            mapping = row
+        else:
+            mapping = getattr(row, "__dict__", {}) or {}
+            if not isinstance(mapping, Mapping):
+                continue
+        normalized_row = _normalize_pos_row(mapping)
+        if any(value is not None for value in normalized_row.values()):
+            normalized.append(normalized_row)
+    return normalized
 
 
 def _csum_positions(dl) -> list[dict]:
@@ -1300,7 +1438,18 @@ def run_monitor(
             if dl is not None:
                 # ensure the panels get data every cycle
                 summary["prices"] = _csum_prices(dl)    # {'BTC': {'current':..., 'previous':...}, 'ETH': {...}, 'SOL': {...}}
-                summary["pos_rows"] = _csum_positions(dl)  # list of normalized position dicts
+
+                pos_rows_source: list[Any] = []
+                pos_section = summary.get("positions")
+                if isinstance(pos_section, Mapping):
+                    existing_rows = pos_section.get("rows")
+                    if isinstance(existing_rows, list) and existing_rows:
+                        pos_rows_source = existing_rows  # already fetched earlier in the cycle
+
+                if not pos_rows_source:
+                    pos_rows_source = _csum_positions(dl)
+
+                summary["pos_rows"] = _normalize_pos_rows(pos_rows_source)
 
                 # always pass the absolute JSON path so sync/xcom panels parse FILE (not '.')
                 render_cycle(
