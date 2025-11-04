@@ -63,7 +63,7 @@ def _compute_breaches(dl, thresholds: Dict[str, float]) -> List[Dict[str, Any]]:
     return out
 
 
-def render(dl, csum: Dict[str, Any], default_json_path: Optional[str] = None) -> None:
+def render(dl, csum, default_json_path=None):
     # 1) JSON same as Sync Data
     try:
         cfg_path = discover_json_path(default_json_path)

@@ -201,7 +201,7 @@ def _normalize_row(x: Any) -> Dict[str, Any]:
     }
 
 
-def render(dl: DataLocker, **_kwargs: Any) -> None:
+def render(dl, csum, default_json_path=None):
     rows, source = _read_raydium_positions(dl)
     print("\n  ---------------------- 🧪  Raydium LPs  ----------------------")
     print(f"  [RAY] source={source} count={len(rows)}")
