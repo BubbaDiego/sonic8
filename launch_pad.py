@@ -98,6 +98,7 @@ ICON = {
     "goals": "🎯",
     "maintenance": "🧹",
     "exit": "⏻",
+    "gmx": "🪙",
 }
 
 def repo_root() -> Path:
@@ -328,6 +329,56 @@ def launch_sonic_monitor():
         new_window=True,
     )
     console.log("[green]Sonic Monitor started in background.[/]")
+
+
+def launch_gmx_solana():
+    """
+    Launch GMX-Solana console using the most robust method available.
+    Tries .cmd → .ps1 → python module fallback.
+    """
+    # 1) prefer the .cmd shim (works anywhere if PATH has C:\sonic7)
+    cmd_shim = Path(r"C:\\sonic7\\gmx_solana_console.cmd")
+    if cmd_shim.exists():
+        try:
+            # run without blocking this process
+            subprocess.Popen([str(cmd_shim)], shell=True)
+            print("Launched GMX-Solana console via .cmd")
+            return
+        except Exception as e:
+            print(f"Note: .cmd launch failed: {e}")
+
+    # 2) PowerShell .ps1 launcher
+    ps1 = Path(r"C:\\sonic7\\gmx_solana_console.ps1")
+    if ps1.exists():
+        try:
+            # new window (non-blocking)
+            subprocess.Popen([
+                "powershell", "-ExecutionPolicy", "Bypass", "-File", str(ps1)
+            ])
+            print("Launched GMX-Solana console via .ps1")
+            return
+        except Exception as e:
+            print(f"Note: .ps1 launch failed: {e}")
+
+    # 3) Python module fallback from repo root
+    try:
+        repo = Path(r"C:\\sonic7")
+        if repo.exists():
+            env = os.environ.copy()
+            env["PYTHONPATH"] = r"C:\\sonic7" + os.pathsep + env.get("PYTHONPATH", "")
+            py = sys.executable or "python"
+            subprocess.Popen(
+                [py, "-m", "backend.core.gmx_solana_core.console.menu_console"],
+                cwd=str(repo),
+                env=env,
+                shell=False
+            )
+            print("Launched GMX-Solana console via python module fallback")
+            return
+        else:
+            print("C:\\sonic7 not found; cannot launch GMX-Solana console.")
+    except Exception as e:
+        print(f"GMX-Solana launch failed: {e}")
 
 
 def _read(path: Path) -> str:
@@ -961,6 +1012,7 @@ def main() -> None:
                 f"14. {ICON['goals']} Session / Goals",
                 f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
                 f"16. {ICON['topic']} Topic Test Runner",
+                f"17. {ICON['gmx']} GMX Solana Console",
                 f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window)",
             ]
         )
@@ -1000,6 +1052,8 @@ def main() -> None:
             run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
         elif choice == "16":
             run_menu_action("Topic Test Runner", run_topic_test_runner)
+        elif choice == "17":
+            run_menu_action("GMX Solana Console", launch_gmx_solana)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
         elif choice in {"0", "q", "quit", "exit"}:
