@@ -74,15 +74,15 @@ def _collect_positions_from_dl(dl):
 
 
 def _collect_positions_from_db(dl):
-    # Very defensive generic query; adjust names if you have a formal manager.
+    # very defensive generic query; adjust names if you have a formal manager
     try:
         cur = dl.db.get_cursor()
         if not cur:
             return [], "db:none"
-        # Pick the most recent rows per asset/type
         cur.execute(
             """
-            SELECT * FROM positions
+            SELECT *
+            FROM positions
             WHERE status IN ('active','OPEN','open') OR status IS NULL
             ORDER BY COALESCE(updated_at, created_at) DESC
             LIMIT 200
@@ -1562,10 +1562,10 @@ def run_monitor(
                 # don't fail the cycle on cosmetics; console will show ✓ for missing detail
                 pass
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
-            if dl is not None:
-                csum["prices"] = _csum_prices(dl)      # ensures price_panel has data
-                csum["pos_rows"] = _csum_positions(dl)  # ensures positions_panel has data
+            csum["prices"] = _csum_prices(dl) if dl is not None else {}
+            csum["pos_rows"] = _csum_positions(dl) if dl is not None else []
 
+            if dl is not None:
                 render_cycle(dl, csum, default_json_path=DEFAULT_JSON_PATH)
 
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
