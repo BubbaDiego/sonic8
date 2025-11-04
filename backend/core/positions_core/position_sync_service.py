@@ -88,17 +88,24 @@ class PositionSyncService:
 
     def _request_with_retries(self, url: str, attempts: int = 3, delay: float = 1.0):
         headers = {"User-Agent": "Cyclone/PositionSyncService"}
+        last_exc: Exception | None = None
         for i in range(1, attempts + 1):
             try:
-                r = requests.get(url, headers=headers, timeout=12)
+                r = requests.get(url, headers=headers, timeout=(2.0, 4.0))
                 log.debug(f"📡 GET {url} (attempt {i}) → {r.status_code}", source="JupiterAPI")
                 r.raise_for_status()
                 return r
+            except requests.Timeout as exc:
+                last_exc = exc
+                log.error(f"[{i}/{attempts}] Request timeout: {exc}", source="JupiterAPI")
             except requests.RequestException as exc:
+                last_exc = exc
                 log.error(f"[{i}/{attempts}] Request error: {exc}", source="JupiterAPI")
-                if i == attempts:
-                    raise
+            if i < attempts:
                 time.sleep(delay * i)
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Jupiter perps request failed without exception")
 
     @staticmethod
     def _extract_positions(payload: dict) -> list:
@@ -277,6 +284,8 @@ class PositionSyncService:
         imported = updated = skipped = errors = 0
         jup_ids: set[str] = set()
         fetched_positions: list[dict] = []
+        fallback_positions: list[dict] | None = None
+        timeout_triggered = False
 
         # probe DB schema to pass only valid columns on upsert
         cur = self.dl.db.get_cursor()
@@ -331,10 +340,23 @@ class PositionSyncService:
 
             try:
                 res = self._request_with_retries(url)
+            except requests.Timeout as e:
+                errors += 1
+                timeout_triggered = True
+                log.error(f"API timeout for {name}: {e}", source="JupiterAPI")
+                fallback_positions = self._positions_fallback()
+                break
+            except requests.RequestException as e:
+                errors += 1
+                log.error(f"API error for {name}: {e}", source="JupiterAPI")
+                continue
             except Exception as e:
                 errors += 1
                 log.error(f"API error for {name}: {e}", source="JupiterAPI")
                 continue
+
+            if timeout_triggered:
+                break
 
             try:
                 payload = res.json() or {}
@@ -406,6 +428,23 @@ class PositionSyncService:
                     errors += 1
                     log.error(f"Upsert failed for {pos_id}: {e}", source="Upsert")
 
+        if timeout_triggered:
+            fallback_positions = fallback_positions or self._positions_fallback()
+            summary = {
+                "message": "Jupiter Perps sync fallback (cached snapshot)",
+                "imported": 0,
+                "updated": 0,
+                "skipped": skipped,
+                "errors": errors,
+                "position_ids": list(jup_ids),
+                "fallback": True,
+                "success": False,
+            }
+            if fallback_positions:
+                fetched_positions = fallback_positions
+            self._stash_last_positions(fetched_positions)
+            return summary
+
         summary = {
             "message": "Jupiter Perps sync complete",
             "imported": imported,
@@ -413,6 +452,7 @@ class PositionSyncService:
             "skipped": skipped,
             "errors": errors,
             "position_ids": list(jup_ids),
+            "success": True,
         }
         log.info(
             f"📦 Perps Sync Result → Imported:{imported} Updated:{updated} Skipped:{skipped} Errors:{errors}",
@@ -446,6 +486,37 @@ class PositionSyncService:
             setattr(self.dl, "last_positions_icon_line", line)
         except Exception:
             pass
+
+    def _positions_fallback(self) -> list[dict]:
+        cache = getattr(self.dl, "last_positions_fetch", None)
+        if isinstance(cache, list) and cache:
+            return [dict(item) if isinstance(item, dict) else dict(getattr(item, "__dict__", {})) for item in cache]
+
+        try:
+            pos_mgr = getattr(self.dl, "positions", None)
+            if pos_mgr and hasattr(pos_mgr, "get_all_positions"):
+                rows = pos_mgr.get_all_positions() or []
+                normalized: list[dict] = []
+                for row in rows:
+                    if isinstance(row, dict):
+                        normalized.append(dict(row))
+                    else:
+                        normalized.append(dict(getattr(row, "__dict__", {})))
+                if normalized:
+                    return normalized
+        except Exception:
+            pass
+
+        try:
+            system_mgr = getattr(self.dl, "system", None)
+            if system_mgr:
+                snapshot = system_mgr.get_var("positions_snapshot")
+                if isinstance(snapshot, list) and snapshot:
+                    return [dict(item) if isinstance(item, dict) else dict(getattr(item, "__dict__", {})) for item in snapshot]
+        except Exception:
+            pass
+
+        return []
 
     def _upsert_position(self, position_data: dict, db_columns: set) -> bool:
         """

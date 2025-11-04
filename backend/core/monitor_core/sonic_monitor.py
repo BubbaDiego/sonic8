@@ -11,6 +11,7 @@ import sys
 import asyncio
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
@@ -84,6 +85,15 @@ def _resolve_and_load_env() -> str | None:
 
 
 _env_used = _resolve_and_load_env()
+
+
+def _step(label, fn, *args, **kwargs):
+    t0 = time.perf_counter()
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        dt = time.perf_counter() - t0
+        print(f"[PERF] {label} took {dt:.2f}s")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = REPO_ROOT / "backend"
@@ -558,6 +568,18 @@ CYCLONE_GROUPS = [
     "ConsoleHelper",
 ]
 
+REMAINING_CYCLONE_STEPS = [
+    "check_jupiter_for_updates",
+    "prune_stale_positions",
+    "enrich_positions",
+    "aggregate_positions",
+    "update_evaluated_value",
+    "create_market_alerts",
+    "cleanse_ids",
+    "link_hedges",
+    "update_hedges",
+]
+
 _MONITOR_LABELS: Dict[MonitorType, str] = {
     MonitorType.SONIC: "Sonic",
     MonitorType.PRICE: "Price",
@@ -899,6 +921,41 @@ def _fmt_now_clock() -> str:
     s = datetime.now().strftime("%I:%M%p")
     return s.lstrip("0").lower()
 
+
+def _run_price_and_positions_parallel(cyclone: "Cyclone") -> tuple[dict[str, Any], dict[str, Exception]]:
+    def fetch_prices() -> Any:
+        return _step("price_sync", cyclone.price_sync.run_full_price_sync, source="Cyclone")
+
+    def fetch_positions() -> Any:
+        return _step(
+            "perps_fetch",
+            cyclone.position_core.update_positions_from_jupiter,
+            "Cyclone",
+        )
+
+    t0 = time.perf_counter()
+    results: dict[str, Any] = {}
+    errors: dict[str, Exception] = {}
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_map = {
+            executor.submit(fetch_prices): "price_sync",
+            executor.submit(fetch_positions): "perps_fetch",
+        }
+        for future in as_completed(future_map):
+            label = future_map[future]
+            try:
+                results[label] = future.result()
+            except Exception as exc:  # pragma: no cover - defensive guard
+                errors[label] = exc
+                logging.exception("Parallel step %s failed", label)
+                print(f"[PERF] {label} failed: {exc}")
+            finally:
+                print(f"[PERF] {label} done at {time.perf_counter() - t0:.2f}s")
+
+    print(f"[PERF] parallel total {time.perf_counter() - t0:.2f}s")
+    return results, errors
+
 def _enrich_summary_from_locker(summary: Dict[str, Any], dl: DataLocker) -> None:
     # prices (top3) + positions/hedges glance
     try:
@@ -1100,8 +1157,44 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
         heartbeat(loop_counter)
         return
 
-    # Full Cyclone pipeline
-    await cyclone.run_cycle()
+    # Fetch prices + Jupiter positions in parallel (ThreadPool to overlap I/O)
+    results, errors = await asyncio.to_thread(_run_price_and_positions_parallel, cyclone)
+
+    price_result = results.get("price_sync")
+    if price_result is None and "price_sync" in errors:
+        logging.error("Price sync step failed: %s", errors["price_sync"])
+    elif isinstance(price_result, Mapping):
+        if price_result.get("success"):
+            logging.info("📈 Prices updated successfully (SonicMonitor)")
+            try:
+                cyclone._mark_price_monitor_synced()
+            except Exception:
+                logging.debug("Unable to flag price monitor as synced", exc_info=True)
+        elif price_result.get("fallback"):
+            logging.warning("Price sync fallback to cached values")
+        else:
+            err_msg = price_result.get("error") or f"{price_result.get('fetched_count', 0)} assets"
+            logging.warning("Price sync reported issues: %s", err_msg)
+
+    positions_result = results.get("perps_fetch")
+    if positions_result is None and "perps_fetch" in errors:
+        logging.error("Perps fetch step failed: %s", errors["perps_fetch"])
+    elif isinstance(positions_result, Mapping):
+        fallback_used = bool(positions_result.get("fallback"))
+        errors_count = int(positions_result.get("errors", 0) or 0)
+        if fallback_used:
+            logging.warning("Perps fetch fallback to cached snapshot")
+        elif errors_count:
+            logging.warning("Perps fetch completed with %d error(s)", errors_count)
+        else:
+            logging.info("🪐 Position updates completed (SonicMonitor)")
+            try:
+                cyclone._mark_position_monitor_synced()
+            except Exception:
+                logging.debug("Unable to flag position monitor as synced", exc_info=True)
+
+    # Run remaining Cyclone steps sequentially
+    await cyclone.run_cycle(steps=REMAINING_CYCLONE_STEPS)
 
     # Run monitors (each will call XCom inline if needed)
     if price_enabled:
