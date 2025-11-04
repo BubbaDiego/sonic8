@@ -26,6 +26,7 @@ _RPC_URL = _resolve_url()
 _RPC_URLS: List[str] = [_RPC_URL]
 _RPC_MAX_RETRIES = max(1, int(os.getenv("RPC_MAX_RETRIES", "5")))
 _HEADERS = {"User-Agent": "Cyclone/PerpsRPC"}
+_RPC_TIMEOUT = float(os.getenv("RPC_TIMEOUT", "4.0"))
 
 
 def _post_json(url: str, payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
@@ -43,7 +44,7 @@ def _post_json(url: str, payload: Dict[str, Any], timeout: float) -> Dict[str, A
         raise RpcError(str(exc)) from exc
 
 
-def rpc_post(method: str, params: Any, timeout: float = 30.0) -> Any:
+def rpc_post(method: str, params: Any, timeout: float = _RPC_TIMEOUT) -> Any:
     """JSON-RPC POST with retry/backoff against the configured Helius endpoint."""
 
     attempt = 0
