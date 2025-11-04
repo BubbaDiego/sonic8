@@ -344,9 +344,12 @@ def _csum_prices(dl) -> dict:
     out: dict[str, dict[str, Optional[float]]] = {}
     try:
         for sym in ("BTC", "ETH", "SOL"):
-            info = getattr(dl, "get_latest_price", lambda *_: {})(sym) or {}
-            cur = info.get("current_price") or info.get("current") or info.get("price")
-            prev = info.get("previous") or info.get("prev")
+            latest = getattr(dl, "get_latest_price", None)
+            cur = prev = None
+            if callable(latest):
+                info = latest(sym) or {}
+                cur = info.get("current_price") or info.get("current") or info.get("price")
+                prev = info.get("previous") or info.get("prev")
             out[sym] = {
                 "current": float(cur) if cur is not None else None,
                 "previous": float(prev) if prev is not None else None,
@@ -357,25 +360,23 @@ def _csum_prices(dl) -> dict:
 
 
 def _csum_positions(dl) -> list[dict]:
-    def norm(row):
-        if isinstance(row, dict):
-            return row
-        return getattr(row, "__dict__", {}) or {}
+    def _norm(row):
+        return row if isinstance(row, dict) else getattr(row, "__dict__", {}) or {}
 
-    for attr in ("positions", "portfolio", "cache"):
-        holder = getattr(dl, attr, None)
+    for root in ("positions", "portfolio", "cache"):
+        holder = getattr(dl, root, None)
         if not holder:
             continue
         for name in ("active", "active_positions", "positions", "snapshot", "last_positions"):
-            value = getattr(holder, name, None)
-            if isinstance(value, list) and value:
-                return [norm(r) for r in value]
-            method = getattr(holder, name, None)
-            if callable(method):
+            v = getattr(holder, name, None)
+            if isinstance(v, list) and v:
+                return [_norm(r) for r in v]
+            m = getattr(holder, name, None)
+            if callable(m):
                 try:
-                    rows = method()
+                    rows = m()
                     if isinstance(rows, list) and rows:
-                        return [norm(r) for r in rows]
+                        return [_norm(r) for r in rows]
                 except Exception:
                     pass
 
@@ -384,10 +385,10 @@ def _csum_positions(dl) -> list[dict]:
         for key in ("active_positions", "positions_snapshot", "last_positions"):
             try:
                 rows = sys_holder.get_var(key)
+                if isinstance(rows, list) and rows:
+                    return [_norm(r) for r in rows]
             except Exception:
-                rows = None
-            if isinstance(rows, list) and rows:
-                return [norm(r) for r in rows]
+                pass
 
     return []
 
