@@ -1297,14 +1297,11 @@ def run_monitor(
                 pass
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
             if dl is not None:
-                try:
-                    summary["prices"] = _csum_prices(dl)
-                except Exception:
-                    summary.setdefault("prices", {})
-                try:
-                    summary["pos_rows"] = _csum_positions(dl)
-                except Exception:
-                    summary.setdefault("pos_rows", [])
+                # ensure the panels get data every cycle
+                summary["prices"] = _csum_prices(dl)    # {'BTC': {'current':..., 'previous':...}, 'ETH': {...}, 'SOL': {...}}
+                summary["pos_rows"] = _csum_positions(dl)  # list of normalized position dicts
+
+                # always pass the absolute JSON path so sync/xcom panels parse FILE (not '.')
                 render_cycle(
                     dl,
                     summary,

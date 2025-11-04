@@ -3,22 +3,20 @@ from __future__ import annotations
 """
 Sonic Reporting Sequencer (LEAN • NO SHIMS • CORRECT PATHS)
 
-Expected panels & signatures:
+Panel contracts (exact names):
   - banner_panel    : render(dl, default_json_path=None)
-  - sync_panel      : render(dl, csum, default_json_path=None)
+  - sync_panel      : render(dl, csum, default_json_path=None)   # needs JSON path
   - price_panel     : render(dl, csum, default_json_path=None)
   - positions_panel : render(dl, csum, default_json_path=None)
-  - raydium_panel   : render(dl, csum, default_json_path=None)  # right after Positions
+  - raydium_panel   : render(dl, csum, default_json_path=None)   # right after Positions
   - xcom_panel      : render(dl, csum, default_json_path=None)
   - wallets_panel   : render(dl, csum, default_json_path=None)
-
-Monitor summary has been removed per your instruction.
 """
 
 from typing import Any, Dict, Optional
 import importlib, traceback
 
-# one enable flag per panel (defaults ON)
+# Per-panel toggles (defaults ON)
 ENABLE_BANNER       = True
 ENABLE_SYNC         = True
 ENABLE_PRICE        = True
@@ -65,6 +63,10 @@ def _call_banner(panel_mod: str, *, dl, default_json_path: Optional[str]) -> boo
 
 
 def _call_panel(panel_mod: str, *, dl, csum: Dict[str, Any], default_json_path: Optional[str]) -> bool:
+    """
+    Standard panel contract. We pass (dl, csum) by default.
+    If panel supports the 3rd arg, we try (dl, csum, default_json_path) once.
+    """
     fq = f"backend.core.reporting_core.sonic_reporting.{panel_mod}"
     mod = _import(fq)
     if not mod:
@@ -74,15 +76,51 @@ def _call_panel(panel_mod: str, *, dl, csum: Dict[str, Any], default_json_path: 
     if not callable(fn):
         _dbg(f"skip: {fq} (no callable `render`)")
         return False
+
     try:
-        fn(dl, csum)                  # standard panel contract (no default_json_path)
+        fn(dl, csum)                  # default 2-arg call
         _dbg(f"ok: {fq}")
         return True
     except TypeError:
-        # Panel already adopts the 3-arg contract (dl, csum, default_json_path); try that once.
+        # If the panel actually declares 3 args, try once.
         try:
             fn(dl, csum, default_json_path)
             _dbg(f"ok: {fq} (3-arg)")
+            return True
+        except Exception as exc:
+            _dbg(f"{fq} raised: {exc.__class__.__name__}: {exc}")
+            for line in traceback.format_exc(limit=3).rstrip().splitlines():
+                _dbg(f"  {line}")
+            return False
+    except Exception as exc:
+        _dbg(f"{fq} raised: {exc.__class__.__name__}: {exc}")
+        for line in traceback.format_exc(limit=3).rstrip().splitlines():
+            _dbg(f"  {line}")
+        return False
+
+
+def _call_sync(dl, csum: Dict[str, Any], default_json_path: Optional[str]) -> bool:
+    """
+    sync_panel explicitly needs the JSON path for file parsing.
+    Call it with (dl, csum, default_json_path); if it only accepts 2 args, we degrade once.
+    """
+    fq = "backend.core.reporting_core.sonic_reporting.sync_panel"
+    mod = _import(fq)
+    if not mod:
+        _dbg(f"skip: {fq} (module not found)")
+        return False
+    fn = getattr(mod, "render", None)
+    if not callable(fn):
+        _dbg(f"skip: {fq} (no callable `render`)")
+        return False
+    try:
+        fn(dl, csum, default_json_path)   # 3-arg path so it reads FILE (not '.')
+        _dbg(f"ok: {fq}")
+        return True
+    except TypeError:
+        try:
+            fn(dl, csum)                 # degrade if panel doesn’t use the path
+            _dbg(f"ok: {fq} (2-arg)")
             return True
         except Exception as exc:
             _dbg(f"{fq} raised: {exc.__class__.__name__}: {exc}")
@@ -110,13 +148,14 @@ def render_cycle(
     csum: Dict[str, Any] | None,
     *,
     default_json_path: Optional[str] = None,
-    **_: Any,
+    **_: Any,   # ignore runner extras — keep lean
 ) -> None:
+    """Render one full console cycle in the configured order."""
     csum = csum or {}
 
-    # 1) Sync
+    # 1) Sync (always with JSON path so FILE parsing works; no '.' fallbacks)
     if ENABLE_SYNC:
-        _call_panel("sync_panel", dl=dl, csum=csum, default_json_path=default_json_path)
+        _call_sync(dl, csum, default_json_path)
 
     # 2) Price
     if ENABLE_PRICE:
