@@ -32,6 +32,7 @@ IDL_PATH = ROOT / "backend" / "core" / "gmx_solana_core" / "idl" / "gmsol-store.
 
 TOKEN_PROGRAM_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 TOKEN_PROGRAM_CLASSIC = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+SPL_TOKEN = TOKEN_PROGRAM_CLASSIC
 
 # ensure outbox exists
 OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
@@ -112,6 +113,37 @@ def pretty_summary_raw_accounts(sample_pubkeys: List[str], matched_count: int, o
     # add friendly markers
     return summary
 
+
+def _acc_shape_is_dict(man: dict) -> bool:
+    return isinstance(man.get("accounts"), dict)
+
+
+def _acc_get(man: dict, key: str) -> Optional[str]:
+    acc = man.get("accounts")
+    if isinstance(acc, dict):
+        return acc.get(key)
+    if isinstance(acc, list):
+        for item in acc:
+            if isinstance(item, dict) and item.get("name") == key:
+                return item.get("pubkey") or ""
+    return None
+
+
+def _acc_set(man: dict, key: str, value: str) -> None:
+    if not value:
+        return
+    acc = man.get("accounts")
+    if isinstance(acc, dict):
+        acc[key] = value
+        return
+    if isinstance(acc, list):
+        for item in acc:
+            if isinstance(item, dict) and item.get("name") == key:
+                item["pubkey"] = value
+                return
+        acc.append({"name": key, "pubkey": value, "isMut": False, "isSigner": False})
+
+
 def write_manifest(
     instruction_name: str,
     idl: Dict[str, Any],
@@ -138,10 +170,9 @@ def write_manifest(
     # compute discriminator anyway
     manifest["discriminator"] = compute_anchor_discriminator(instruction_name)
     if prefill_accounts:
-        for acc in manifest.get("accounts", []):
-            name = acc.get("name")
-            if name in prefill_accounts and not acc.get("pubkey"):
-                acc["pubkey"] = prefill_accounts[name]
+        for key, value in prefill_accounts.items():
+            if not _acc_get(manifest, key):
+                _acc_set(manifest, key, value)
     fp.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return fp, manifest
 
