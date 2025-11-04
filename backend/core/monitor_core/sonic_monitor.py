@@ -358,6 +358,40 @@ def _csum_prices(dl) -> dict:
     return out
 
 
+def _csum_positions(dl) -> list[dict]:
+    def norm(r):
+        return r if isinstance(r, dict) else getattr(r, "__dict__", {}) or {}
+
+    for root in ("positions", "portfolio", "cache"):
+        holder = getattr(dl, root, None)
+        if not holder:
+            continue
+        for name in ("active", "active_positions", "positions", "snapshot", "last_positions"):
+            v = getattr(holder, name, None)
+            if isinstance(v, list) and v:
+                return [norm(r) for r in v]
+            m = getattr(holder, name, None)
+            if callable(m):
+                try:
+                    vv = m()
+                    if isinstance(vv, list) and vv:
+                        return [norm(r) for r in vv]
+                except Exception:
+                    pass
+
+    sys = getattr(dl, "system", None)
+    if sys:
+        for key in ("active_positions", "positions_snapshot", "last_positions"):
+            try:
+                vv = sys.get_var(key)
+                if isinstance(vv, list) and vv:
+                    return [norm(r) for r in vv]
+            except Exception:
+                pass
+
+    return []
+
+
 def _first_present(mapping: Mapping[str, Any], keys: Iterable[str]) -> Any:
     for key in keys:
         if key in mapping:
@@ -494,40 +528,6 @@ def _normalize_pos_rows(rows: Iterable[Any]) -> list[dict]:
         if any(value is not None for value in normalized_row.values()):
             normalized.append(normalized_row)
     return normalized
-
-
-def _csum_positions(dl) -> list[dict]:
-    def norm(r):
-        return r if isinstance(r, dict) else getattr(r, "__dict__", {}) or {}
-
-    for root in ("positions", "portfolio", "cache"):
-        holder = getattr(dl, root, None)
-        if not holder:
-            continue
-        for name in ("active", "active_positions", "positions", "snapshot", "last_positions"):
-            v = getattr(holder, name, None)
-            if isinstance(v, list) and v:
-                return [norm(r) for r in v]
-            m = getattr(holder, name, None)
-            if callable(m):
-                try:
-                    vv = m()
-                    if isinstance(vv, list) and vv:
-                        return [norm(r) for r in vv]
-                except Exception:
-                    pass
-
-    sys = getattr(dl, "system", None)
-    if sys:
-        for key in ("active_positions", "positions_snapshot", "last_positions"):
-            try:
-                vv = sys.get_var(key)
-                if isinstance(vv, list) and vv:
-                    return [norm(r) for r in vv]
-            except Exception:
-                pass
-
-    return []
 
 
 DEFAULT_INTERVAL = 60  # only used if JSON somehow lacks a loop value (we exit earlier)

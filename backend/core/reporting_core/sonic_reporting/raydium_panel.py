@@ -72,7 +72,7 @@ def _fmt_int(x: Optional[float]) -> str:
         return "—"
 
 
-def _fmt_usd_compact(x: Optional[float]) -> str:
+def _fmt_compact_usd(x: Optional[float]) -> str:
     if x is None:
         return "—"
     try:

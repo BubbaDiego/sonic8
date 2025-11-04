@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 import importlib, traceback
 
-# One switch per panel (toggle here)
+# toggles
 ENABLE_BANNER       = True
 ENABLE_SYNC         = True
 ENABLE_PRICE        = True
@@ -52,11 +52,11 @@ def _call_panel(panel_mod: str, *, dl, csum: Dict[str, Any], default_json_path: 
     if not callable(fn):
         _dbg(f"skip: {fq} (no callable `render`)"); return False
     try:
-        fn(dl, csum, default_json_path)    # standard contract
+        fn(dl, csum, default_json_path)    # standard panel contract
         _dbg(f"ok: {fq}")
         return True
     except TypeError:
-        # If panel hasn't added the third arg, try (dl, csum) once then report
+        # if the panel hasn't added the optional 3rd param yet, try 2-arg once
         try:
             fn(dl, csum)
             _dbg(f"ok: {fq} (2-arg)")
