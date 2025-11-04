@@ -19,6 +19,7 @@ import json
 import re
 import time
 import base64
+import glob
 import hashlib
 import pathlib
 from datetime import datetime
@@ -32,6 +33,7 @@ IDL_PATH = ROOT / "backend" / "core" / "gmx_solana_core" / "idl" / "gmsol-store.
 
 TOKEN_PROGRAM_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 TOKEN_PROGRAM_CLASSIC = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+SPL_TOKEN = TOKEN_PROGRAM_CLASSIC
 
 # ensure outbox exists
 OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
@@ -61,15 +63,157 @@ def load_config(path: pathlib.Path = CONFIG_PATH) -> Dict[str, Any]:
     except Exception:
         return {}
 
-def rpc_call(rpc_url: str, method: str, params: list, timeout: int = 20) -> Any:
+def _rpc_call_json(rpc_url: str, method: str, params: list, timeout: int = 10) -> dict:
+    """Strict RPC call with short timeout and clear error text."""
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
-    req = Request(rpc_url, data=body, headers={"Content-Type": "application/json", "User-Agent": "gmx-solana-console"})
-    with urlopen(req, timeout=timeout) as resp:
-        raw = resp.read().decode()
-        data = json.loads(raw)
+    req = Request(
+        rpc_url,
+        data=body,
+        headers={"Content-Type": "application/json", "User-Agent": "gmx-console"},
+    )
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as e:
+        raise RuntimeError(f"RPC {method} failed (timeout {timeout}s): {e}")
     if "error" in data:
-        raise RuntimeError(data["error"])
-    return data.get("result")
+        raise RuntimeError(f"RPC {method} error: {data['error']}")
+    return data["result"]
+
+
+def _rpc_call_json_safe(rpc_url: str, method: str, params: list, timeout: int = 10):
+    """Non-throwing wrapper -> (result, error_str|None)."""
+    try:
+        return _rpc_call_json(rpc_url, method, params, timeout=timeout), None
+    except Exception as e:
+        return None, str(e)
+
+
+class Session:
+    """Mutable view over console JSON config with helper accessors."""
+
+    def __init__(self, cfg: Dict[str, Any]):
+        self._cfg = cfg
+        self.rpc_http: str = cfg.get("sol_rpc", "") or ""
+        self.store_pid: str = cfg.get("store_program_id", "") or ""
+        self.store_account: str = cfg.get("store_account", "") or ""
+        self.default_position: str = cfg.get("default_position", "") or ""
+        self.default_market: str = cfg.get("default_market", "") or ""
+        self.owner_offset: int = int(cfg.get("owner_offset", 8) or 0)
+        self.limit: int = int(cfg.get("limit", 100) or 0)
+        self.signer_pubkey: str = cfg.get("signer_pubkey", "") or ""
+
+    def persist(self) -> None:
+        self._cfg["sol_rpc"] = self.rpc_http
+        if self.store_pid:
+            self._cfg["store_program_id"] = self.store_pid
+        self._cfg["store_account"] = self.store_account
+        self._cfg["default_position"] = self.default_position
+        self._cfg["default_market"] = self.default_market
+        self._cfg["owner_offset"] = self.owner_offset
+        self._cfg["limit"] = self.limit
+        if self.signer_pubkey:
+            self._cfg["signer_pubkey"] = self.signer_pubkey
+        pathlib.Path(CONFIG_PATH).write_text(json.dumps(self._cfg, indent=2), encoding="utf-8")
+
+
+_BASE58_RE = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,}\Z")
+
+
+def _is_base58(value: str) -> bool:
+    return bool(isinstance(value, str) and _BASE58_RE.match(value or ""))
+
+
+STORE_DISC = hashlib.sha256(b"account:Store").digest()[:8]
+MARKET_DISC = hashlib.sha256(b"account:Market").digest()[:8]
+
+
+def _decode_account_bytes(entry: Dict[str, Any]) -> Optional[bytes]:
+    acct = entry.get("account", {}) if isinstance(entry, dict) else {}
+    data = acct.get("data")
+    raw = None
+    if isinstance(data, list) and data:
+        raw = data[0]
+    elif isinstance(data, str):
+        raw = data
+    if not raw:
+        return None
+    try:
+        return base64.b64decode(raw)
+    except Exception:
+        return None
+
+
+def _find_store_account(rpc_url: str, program_id: str) -> Optional[str]:
+    if not rpc_url or not program_id:
+        return None
+    cfg = {"encoding": "base64", "commitment": "confirmed", "limit": 200}
+    res, err = _rpc_call_json_safe(rpc_url, "getProgramAccounts", [program_id, cfg], timeout=8)
+    if err or not isinstance(res, list):
+        return None
+    for entry in res:
+        raw = _decode_account_bytes(entry)
+        if raw and raw.startswith(STORE_DISC):
+            pk = entry.get("pubkey")
+            if isinstance(pk, str):
+                return pk
+    return None
+
+
+def _list_markets(rpc_url: str, program_id: str, limit: int = 100) -> List[str]:
+    if not rpc_url or not program_id:
+        return []
+    cfg = {"encoding": "base64", "commitment": "confirmed", "limit": max(limit, 1)}
+    res, err = _rpc_call_json_safe(rpc_url, "getProgramAccounts", [program_id, cfg], timeout=8)
+    if err or not isinstance(res, list):
+        return []
+    out: List[str] = []
+    for entry in res:
+        raw = _decode_account_bytes(entry)
+        if raw and raw.startswith(MARKET_DISC):
+            pk = entry.get("pubkey")
+            if isinstance(pk, str):
+                out.append(pk)
+    return out
+
+
+def acc_get(manifest: Dict[str, Any], name: str) -> Optional[str]:
+    accounts = manifest.get("accounts")
+    if isinstance(accounts, dict):
+        val = accounts.get(name)
+        return val if isinstance(val, str) else None
+    if isinstance(accounts, list):
+        for acc in accounts:
+            if isinstance(acc, dict) and acc.get("name") == name:
+                val = acc.get("pubkey")
+                return val if isinstance(val, str) else None
+    return None
+
+
+def acc_set(manifest: Dict[str, Any], name: str, value: str) -> None:
+    accounts = manifest.get("accounts")
+    if isinstance(accounts, dict):
+        accounts[name] = value
+        return
+    if isinstance(accounts, list):
+        for acc in accounts:
+            if isinstance(acc, dict) and acc.get("name") == name:
+                acc["pubkey"] = value
+                return
+        accounts.append({"name": name, "pubkey": value})
+        return
+    manifest["accounts"] = [{"name": name, "pubkey": value}]
+
+
+def _latest_order_manifest() -> Optional[str]:
+    try:
+        pattern = str(OUTBOX_DIR / "*_create_order_v2.json")
+        paths = glob.glob(pattern)
+        if not paths:
+            return None
+        return max(paths, key=os.path.getmtime)
+    except Exception:
+        return None
 
 def derive_pub_from_signer_file(path: str) -> Optional[str]:
     """Try bip-utils derivation (24/21/18/15/12), else fallback to first base58 token."""
@@ -160,7 +304,7 @@ def gpa_v2_get_program_accounts(rpc: str, program_id: str, limit: int = 100, pag
     cfg = {"encoding": "base64", "commitment": "confirmed", "limit": limit, "page": page}
     if filters:
         cfg.update(filters)
-    res = rpc_call(rpc, "getProgramAccounts", [program_id, cfg])
+    res = _rpc_call_json(rpc, "getProgramAccounts", [program_id, cfg])
     # some RPCs (Helius) return list; others return dict — normalize
     if isinstance(res, dict) and "result" in res:
         return res["result"]
@@ -170,10 +314,214 @@ def memcmp_probe_count(rpc: str, program_id: str, owner_pubkey: str, offset: int
     try:
         cfg = {"encoding": "base64", "commitment": "confirmed", "limit": page_limit, "page": 1,
                "filters": [{"memcmp": {"offset": offset, "bytes": owner_pubkey}}]}
-        res = rpc_call(rpc, "getProgramAccounts", [program_id, cfg])
+        res = _rpc_call_json(rpc, "getProgramAccounts", [program_id, cfg])
         return len(res) if isinstance(res, list) else 0
     except Exception:
         return 0
+
+
+def order_wizard_submenu(sess: "Session") -> None:
+    def banner() -> None:
+        print("─" * 70)
+        print("  🧩  Order Wizard")
+        print("─" * 70)
+        print(f"  🛰 store_account : {sess.store_account or '(not set)'}")
+        print(f"  📌 def_position  : {sess.default_position or '(not set)'}")
+        print(f"  🧭 def_market    : {sess.default_market or '(not set)'}")
+        print("─" * 70)
+
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        banner()
+        print("  [1] 🔍 Detect & save Store")
+        print("  [2] 📋 Pick Position (save default)")
+        print("  [3] 🗺 Pick Market (save default)")
+        print("  [4] 🧾 Prefill latest order manifest (authority/store/tokenProgram/position/market)")
+        print("  [5] 🔑 Set Order PDA (paste into latest manifest)")
+        print("  [6] ⚙️  Edit Args (typed values)")
+        print("  [7] 📂 Show latest manifest path")
+        print("  [8] ▶️  Print simulate command")
+        print("  [0] ↩️  Back")
+        sub = input("Select: ").strip()
+
+        try:
+            if sub == "0":
+                return
+
+            elif sub == "1":
+                if sess.store_account:
+                    print(f"🛰 Store already set: {sess.store_account}")
+                    if input("Re-detect on chain? (y/N): ").strip().lower() not in ("y", "yes"):
+                        input("<enter>")
+                        continue
+                print("⏳ Scanning for Store account (short timeout)…")
+                store = _find_store_account(sess.rpc_http, sess.store_pid)
+                if store:
+                    sess.store_account = store
+                    sess.persist()
+                    print(f"✅ store_account: {store}")
+                else:
+                    print("⚠️  Could not find Store (network/timeout). Try again later.")
+                input("<enter>")
+
+            elif sub == "2":
+                print("⏳ Scanning positions (page=1, owner_offset=", sess.owner_offset, ")…", sep="")
+                cfg = {
+                    "encoding": "base64",
+                    "commitment": "confirmed",
+                    "limit": sess.limit,
+                    "page": 1,
+                    "filters": [{"memcmp": {"offset": sess.owner_offset, "bytes": sess.signer_pubkey}}],
+                }
+                res, err = _rpc_call_json_safe(
+                    sess.rpc_http,
+                    "getProgramAccounts",
+                    [sess.store_pid, cfg],
+                    timeout=8,
+                )
+                if err:
+                    print("⚠️  RPC failed:", err)
+                    input("<enter>")
+                    continue
+                arr = res or []
+                picks = [a.get("pubkey") for a in arr if isinstance(a, dict)]
+                if not picks:
+                    print("⚠️  No positions on this page. Run [8] Sweep then [12] Auto-apply 24, re-try.")
+                    input("<enter>")
+                    continue
+                for i, p in enumerate(picks, 1):
+                    print(f"  [{i}] {p}")
+                sel = input("Pick #: ").strip()
+                if not (sel.isdigit() and 1 <= int(sel) <= len(picks)):
+                    print("Canceled.")
+                    input("<enter>")
+                    continue
+                sess.default_position = picks[int(sel) - 1]
+                sess.persist()
+                print("✅ Saved default_position:", sess.default_position)
+                input("<enter>")
+
+            elif sub == "3":
+                print("⏳ Listing markets (short timeout)…")
+                markets = _list_markets(sess.rpc_http, sess.store_pid, limit=100)
+                if not markets:
+                    print("⚠️  No markets found (or timeout). Try again.")
+                    input("<enter>")
+                    continue
+                for i, m in enumerate(markets, 1):
+                    print(f"  [{i}] {m}")
+                sel = input("Pick #: ").strip()
+                if not (sel.isdigit() and 1 <= int(sel) <= len(markets)):
+                    print("Canceled.")
+                    input("<enter>")
+                    continue
+                sess.default_market = markets[int(sel) - 1]
+                sess.persist()
+                print("✅ Saved default_market:", sess.default_market)
+                input("<enter>")
+
+            elif sub == "4":
+                mf = _latest_order_manifest()
+                if not mf:
+                    print("ℹ️  No order manifest yet. Run [23] once to create it.")
+                    input("<enter>")
+                    continue
+                man = json.loads(pathlib.Path(mf).read_text(encoding="utf-8"))
+                changed: List[str] = []
+                if sess.signer_pubkey and not acc_get(man, "authority"):
+                    acc_set(man, "authority", sess.signer_pubkey)
+                    changed.append("authority")
+                if sess.store_account and not acc_get(man, "store"):
+                    acc_set(man, "store", sess.store_account)
+                    changed.append("store")
+                if not acc_get(man, "tokenProgram"):
+                    acc_set(man, "tokenProgram", SPL_TOKEN)
+                    changed.append("tokenProgram")
+                if sess.default_position and not acc_get(man, "position"):
+                    acc_set(man, "position", sess.default_position)
+                    changed.append("position")
+                if sess.default_market and not acc_get(man, "market"):
+                    acc_set(man, "market", sess.default_market)
+                    changed.append("market")
+                pathlib.Path(mf).write_text(json.dumps(man, indent=2), encoding="utf-8")
+                print("✅ Prefilled:", mf)
+                print("   🔧 fields:", ", ".join(changed) if changed else "(nothing)")
+                input("<enter>")
+
+            elif sub == "5":
+                mf = _latest_order_manifest()
+                if not mf:
+                    print("ℹ️  Run [23] first.")
+                    input("<enter>")
+                    continue
+                man = json.loads(pathlib.Path(mf).read_text(encoding="utf-8"))
+                op = input("Paste ORDER PDA pubkey: ").strip()
+                if not _is_base58(op):
+                    print("⚠️  Not valid base58.")
+                    input("<enter>")
+                    continue
+                acc_set(man, "order", op)
+                pathlib.Path(mf).write_text(json.dumps(man, indent=2), encoding="utf-8")
+                print("✅ Set 'order' in manifest.")
+                input("<enter>")
+
+            elif sub == "6":
+                mf = _latest_order_manifest()
+                if not mf:
+                    print("ℹ️  Run [23] first.")
+                    input("<enter>")
+                    continue
+                man = json.loads(pathlib.Path(mf).read_text(encoding="utf-8"))
+                if "args" not in man or not isinstance(man["args"], dict):
+                    man["args"] = {}
+
+                def _u(prompt: str, cast=int, allow_empty: bool = True, as_str: bool = False):
+                    s = input(prompt).strip()
+                    if not s and allow_empty:
+                        return "0" if as_str else 0
+                    try:
+                        return s if as_str else cast(s)
+                    except Exception:
+                        print("Bad input.")
+                        return _u(prompt, cast, allow_empty, as_str)
+
+                print("⚙️  Args: press Enter for 0")
+                man["args"]["sizeDelta"] = int(_u("  sizeDelta (u64) [0]: ", int))
+                man["args"]["collateralDelta"] = int(_u("  collateralDelta (u64) [0]: ", int))
+                man["args"]["orderKind"] = int(_u("  orderKind (u16) [0]: ", int))
+                man["args"]["priceType"] = int(_u("  priceType (u16) [0]: ", int))
+                man["args"]["triggerPriceX32"] = _u("  triggerPriceX32 (u128) [0]: ", as_str=True)
+                man["args"]["slippageBps"] = int(_u("  slippageBps (u16) [0]: ", int))
+                man["args"]["ttlSeconds"] = int(_u("  ttlSeconds (u32) [0]: ", int))
+                pathlib.Path(mf).write_text(json.dumps(man, indent=2), encoding="utf-8")
+                print("✅ Args updated.")
+                input("<enter>")
+
+            elif sub == "7":
+                mf = _latest_order_manifest()
+                print(mf or "(no manifest)")
+                input("<enter>")
+
+            elif sub == "8":
+                mf = _latest_order_manifest()
+                if not mf:
+                    print("ℹ️  Run [23] first.")
+                    input("<enter>")
+                    continue
+                print("\n▶️  Simulate (no send):")
+                print(
+                    rf'python C:\\sonic7\\scripts\\gmsol_build_and_send_v2.py send-manifest --rpc "{sess.rpc_http}" --program {sess.store_pid} --idl C:\\sonic7\\backend\\core\\gmx_solana_core\\idl\\gmsol-store.json --signer-mnemonic-file C:\\sonic7\\signer.txt --manifest {mf}'
+                )
+                print("Add --send when simulate is clean.")
+                input("<enter>")
+
+            else:
+                print("Unknown selection.")
+                input("<enter>")
+
+        except Exception as e:
+            print("Wizard error:", e)
+            input("<enter>")
 
 # ========= Console UI =========
 ICONS = {
@@ -244,6 +592,7 @@ def interactive_menu():
         print(" [22]  💸 Create Withdrawal → manifest (create_withdrawal)")
         print(" [23]  🧾 Create Order      → manifest (create_order_v2)")
         print(" [24]  📂 Show outbox path")
+        print(" [25]  🧩 Order Wizard (guided defaults)")
         print(f" [0]   {ICONS['exit']} Exit")
         choice = input("Select: ").strip()
         if not choice:
@@ -260,7 +609,7 @@ def interactive_menu():
                     input("<enter>")
                     continue
                 try:
-                    res = rpc_call(rpc, "getHealth", [])
+                    res = _rpc_call_json(rpc, "getHealth", [])
                     print(json.dumps(res, indent=2) if not isinstance(res, str) else res)
                 except Exception as e:
                     print(f"{ICONS['warn']} RPC error: {e}")
@@ -315,7 +664,7 @@ def interactive_menu():
                 try:
                     # quick probe via memcmp (owner offset)
                     cfg_filters = {"filters":[{"memcmp":{"offset": off, "bytes": signer_pub}}], "limit":cfg.get("limit", 100), "page":cfg.get("page", 1)}
-                    accs = rpc_call(rpc, "getProgramAccounts", [pid, {"encoding":"base64","commitment":"confirmed","limit":cfg.get("limit",100),"page":cfg.get("page",1),"filters":[{"memcmp":{"offset":off,"bytes":signer_pub}}]}])
+                    accs = _rpc_call_json(rpc, "getProgramAccounts", [pid, {"encoding":"base64","commitment":"confirmed","limit":cfg.get("limit",100),"page":cfg.get("page",1),"filters":[{"memcmp":{"offset":off,"bytes":signer_pub}}]}])
                     if not isinstance(accs, list):
                         accs = accs or []
                     sample = [a.get("pubkey") for a in accs[:10]]
@@ -329,7 +678,7 @@ def interactive_menu():
                     input("<enter>"); continue
                 rpc = cfg.get("sol_rpc")
                 try:
-                    res = rpc_call(rpc, "getAccountInfo", [pk, {"encoding":"base64"}])
+                    res = _rpc_call_json(rpc, "getAccountInfo", [pk, {"encoding":"base64"}])
                     print(json.dumps(res, indent=2))
                 except Exception as e:
                     print(f"{ICONS['warn']} {e}")
@@ -373,7 +722,7 @@ def interactive_menu():
                     print("No matches found in last sweep.")
                     input("<enter>"); continue
                 try:
-                    res = rpc_call(rpc, "getProgramAccounts", [pid, {"encoding":"base64","commitment":"confirmed","limit":10,"page":1,"filters":[{"memcmp":{"offset":offset,"bytes":owner}}]}])
+                    res = _rpc_call_json(rpc, "getProgramAccounts", [pid, {"encoding":"base64","commitment":"confirmed","limit":10,"page":1,"filters":[{"memcmp":{"offset":offset,"bytes":owner}}]}])
                     print(json.dumps(res[:2] if isinstance(res, list) else res, indent=2))
                 except Exception as e:
                     print(f"{ICONS['warn']} {e}")
@@ -436,6 +785,11 @@ def interactive_menu():
             elif choice == "24":
                 print(str(OUTBOX_DIR.resolve()))
                 input("<enter>")
+            elif choice == "25":
+                order_wizard_submenu(Session(cfg))
+                cfg = load_config()
+                signer_file = cfg.get("signer_file", str(ROOT / "signer.txt"))
+                signer_pub = cfg.get("signer_pubkey") or derive_pub_from_signer_file(signer_file)
             else:
                 print("Unknown selection.")
                 input("<enter>")
