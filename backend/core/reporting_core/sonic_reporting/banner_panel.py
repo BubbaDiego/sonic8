@@ -1,111 +1,156 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+"""
+banner_panel — Sonic Monitor Configuration (icon + line style)
 
-import socket
+Contract (sequencer):
+  render(dl, csum, default_json_path=None)
+"""
+
+from typing import Any, Dict, Optional
 from pathlib import Path
-
-from .config_probe import discover_json_path, parse_json
-from .writer import write_line
-from .xcom_extras import xcom_live_status
+import json
+import os
 
 
-def _lan_ip() -> str:
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        if ip.startswith("127."):
-            raise RuntimeError("loopback")
-        return ip
-    except Exception:
+# ---------- small helpers ----------
+
+def _safe(obj: Any, *attrs: str, default=None):
+    for a in attrs:
         try:
-            return socket.gethostbyname(socket.gethostname())
+            v = getattr(obj, a)
         except Exception:
-            return "127.0.0.1"
+            v = None
+        if v not in (None, ""):
+            return v
+    return default
 
+def _trueish(x: Any) -> bool:
+    if isinstance(x, str):
+        return x.strip().lower() in {"1", "true", "on", "yes", "y"}
+    return bool(x)
 
-def render_banner(dl, default_json_path: str) -> None:
-    # Framed header
-    print("══════════════════════════════════════════════════════════════")
-    write_line("🦔 Sonic Monitor Configuration")
-    print("══════════════════════════════════════════════════════════════")
-
-    lan = _lan_ip()
-    write_line("🌐 Sonic Dashboard: http://127.0.0.1:5001/dashboard")
-    write_line(f"🌐 LAN Dashboard : http://{lan}:5001/dashboard")
-    write_line(f"🔌 LAN API      : http://{lan}:5000")
-
-    # XCOM Live (unified JSON-aware probe: FILE > DB > ENV)
+def _read_json(path: Optional[str]) -> Dict[str, Any]:
+    if not path:
+        return {}
     try:
-        _path = discover_json_path(default_json_path)
-        _cfg_obj, _err, _meta = parse_json(_path)
-        _cfg_for_probe = _cfg_obj if isinstance(_cfg_obj, dict) else getattr(dl, "global_config", None)
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
-        _cfg_for_probe = getattr(dl, "global_config", None)
+        return {}
 
-    _live, _src = xcom_live_status(dl, _cfg_for_probe)
-    print(f"  🛰 XCOM Live : {'🟢 ON' if _live else '🔴 OFF'} [{_src}]")
+def _guess_env_path() -> str:
+    p = Path("C:/sonic7/.env")
+    return str(p if p.exists() else Path.cwd() / ".env")
 
-    # Muted modules
-    write_line(
-        "🔒 Muted Modules:      ConsoleLogger, console_logger, LoggerControl, "
-        "werkzeug, uvicorn.access, fuzzy_wuzzy, asyncio"
+def _guess_lan_ip(cfg: Dict[str, Any]) -> str:
+    ip = (
+        cfg.get("lan_ip")
+        or cfg.get("host_ip")
+        or os.environ.get("SONIC_LAN_IP")
     )
-
-    # Configuration path
+    if ip:
+        return str(ip)
     try:
-        json_path = discover_json_path(default_json_path)
+        import socket
+        return socket.gethostbyname(socket.gethostname())
     except Exception:
-        json_path = default_json_path
-    write_line(f"🧭 Configuration: JSON ONLY — {json_path}")
+        return "192.168.0.100"
 
-    # .env path (search up from backend/)
-    try:
-        backend_dir = Path(__file__).resolve().parents[4]   # …/backend
-        candidates = [
-            backend_dir / ".env",
-            backend_dir.parent / ".env",
-            backend_dir.parent.parent / ".env",
-        ]
-        found = next((c for c in candidates if c.exists()), None)
-        env_path = str(found or (backend_dir / ".env"))
-    except Exception:
-        env_path = ".env"
-    write_line(f"📦 .env (ignored for config) : {env_path}")
+def _db_path_from_dl(dl) -> str:
+    return _safe(dl, "db_path", "database", "database_path",
+                 default="C:\\sonic7\\backend\\mother.db")
 
-    # Database path & hints
-    db_path = None
-    try:
-        db = getattr(dl, "db", None)
-        for attr in ("db_path", "path", "database_path", "filename"):
-            val = getattr(db, attr, None)
-            if val:
-                db_path = str(val)
-                break
-    except Exception:
-        pass
-    db_path = db_path or "mother.db"
-    try:
-        backend_dir = Path(__file__).resolve().parents[4]
-        exists = Path(db_path).exists()
-        inside_repo = str(db_path).startswith(str(backend_dir))
-    except Exception:
-        exists, inside_repo = True, True
-    write_line(
-        f"🔌 Database       : {db_path}  (ACTIVE for runtime data, provenance=DEFAULT, "
-        f"{'exists' if exists else 'missing'}, {'inside repo' if inside_repo else 'outside repo'})"
-    )
-
-
-def render(dl, default_json_path=None):
-    try:
-        render_banner(dl, default_json_path or "")
-    except NameError:
-        # fallback: inline import if render_banner was renamed/removed
+def _muted_from_dl(dl) -> str:
+    vals = _safe(dl, "muted_modules", "muted", default=None)
+    if vals is None:
+        return "—"
+    if isinstance(vals, str):
+        parts = [v.strip() for v in vals.split(",") if v.strip()]
+    else:
         try:
-            from .banner_panel import render_banner as _render_banner
-
-            _render_banner(dl, default_json_path or "")
+            parts = [str(v) for v in vals]
         except Exception:
-            pass
+            parts = []
+    return ", ".join(parts) if parts else "—"
+
+
+# ---------- rendering ----------
+
+TITLE = "🌀 🌀 🌀  Sonic Monitor  🌀 🌀 🌀"
+TITLE_COLOR = "bright_cyan"
+RULE_COLOR  = "bright_cyan"
+
+def _render_rich(lines: list[str]) -> None:
+    try:
+        from rich.console import Console
+        from rich.text import Text
+    except Exception:
+        _render_plain(lines)
+        return
+
+    console = Console()
+    width = max(60, min(console.width, max(len(l) for l in lines) if lines else 60))
+
+    # Title + single cyan rule (no table headers)
+    console.print(Text(TITLE.center(width), style=f"bold {TITLE_COLOR}"))
+    console.print(Text("─" * width, style=RULE_COLOR))
+
+    # Body lines with icons (exactly one line per item)
+    for l in lines:
+        console.print(l)
+
+def _render_plain(lines: list[str]) -> None:
+    width = max(60, max(len(l) for l in lines) if lines else 60)
+    print(TITLE.center(width))
+    print("─" * width)
+    for l in lines:
+        print(l)
+
+
+# ---------- panel entry ----------
+
+def render(dl, csum, default_json_path=None):
+    cfg_path = str(default_json_path) if default_json_path else None
+    cfg = _read_json(cfg_path)
+
+    dash_port = cfg.get("dashboard_port") or 5001
+    api_port  = cfg.get("api_port") or 5000
+    lan_ip    = _guess_lan_ip(cfg)
+
+    sonic_dash = f"http://127.0.0.1:{dash_port}/dashboard"
+    lan_dash   = f"http://{lan_ip}:{dash_port}/dashboard"
+    lan_api    = f"http://{lan_ip}:{api_port}"
+
+    # XCOM
+    xcom_live = _trueish(
+        _safe(dl, "xcom_live", "xcom_enabled", default=None)
+        or os.environ.get("XCOM_LIVE")
+        or cfg.get("xcom_live", False)
+    )
+    xcom_status = "🟢  ON [FILE]" if xcom_live else "⚫  OFF"
+
+    # Muted, config, env, database
+    muted = _muted_from_dl(dl)
+    env_path = _guess_env_path()
+    cfg_display = f"JSON ONLY  –  {cfg_path}" if cfg_path else "—"
+
+    db_path = _db_path_from_dl(dl)
+    if Path(db_path).exists():
+        db_suffix = " (ACTIVE for runtime data, provenance=DEFAULT, exists, inside repo)"
+    else:
+        db_suffix = " (path not found)"
+
+    # Build the icon+line body (no table headers)
+    lines = [
+        f"🌐  Sonic Dashboard :  {sonic_dash}",
+        f"🌐  LAN Dashboard   :  {lan_dash}",
+        f"🔱  LAN API         :  {lan_api}",
+        f"📡  XCOM Live       :  {xcom_status}",
+        f"🔒  Muted Modules   :  {muted}",
+        f"🟡  Configuration   :  {cfg_display}",
+        f"🧪  .env (ignored)  :  {env_path}",
+        f"🗄️  Database        :  {db_path}{db_suffix}",
+    ]
+
+    _render_rich(lines)
