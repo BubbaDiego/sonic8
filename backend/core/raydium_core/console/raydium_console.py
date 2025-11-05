@@ -281,24 +281,88 @@ def print_nfts(nfts: List[Tuple[str, str, bool]]):
 
 # ---------- TS valuation launcher ----------
 
-def run_ts_valuation(owner_pubkey: str) -> int:
+def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     """
-    Call the TS helper to value Raydium CL positions for this owner.
-    Expects backend/core/raydium_core/ts/value_raydium_positions.ts to exist.
+    Run the TS helper to value Raydium CL positions.
+    Windows-safe: wraps *.cmd with 'cmd.exe /c' to avoid WinError 2.
+    Prefers local ts-node -> npx -> node -r ts-node/register.
     """
+    from shutil import which
+    from pathlib import Path
+    import subprocess, os, shlex
+
+    mints = mints or []
     js_root = Path(__file__).resolve().parent.parent / "ts"
     script = js_root / "value_raydium_positions.ts"
     if not script.exists():
         print("❌ TS valuation script not found:", script)
-        print("   Install it under backend/core/raydium_core/ts and run npm i")
+        print("   Ensure files are under backend/core/raydium_core/ts and run npm i")
         return 1
+
     env = os.environ.copy()
-    cmd = ["npx", "--yes", "ts-node", str(script), "--owner", owner_pubkey]
-    try:
-        return subprocess.call(cmd, cwd=str(js_root), env=env)
-    except Exception as e:
-        print("❌ Failed to run ts-node:", e)
-        return 1
+    mint_arg = ["--mints", ",".join(mints)] if mints else []
+
+    def _run(cmd_list: list[str], use_shell: bool = False) -> int:
+        # Pretty-print the command we will actually run
+        printable = " ".join(shlex.quote(str(c)) for c in cmd_list)
+        print("   • Exec:", printable)
+        try:
+            proc = subprocess.run(cmd_list, cwd=str(js_root), env=env, shell=use_shell)
+            return int(proc.returncode)
+        except FileNotFoundError as e:
+            print("   • File not found:", e)
+            return 127
+        except Exception as e:
+            print("   • Exec failed:", e)
+            return 1
+
+    # 1) Prefer local ts-node binary (no PATH/npx needed)
+    tsnode_local = js_root / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
+    if tsnode_local.exists():
+        if os.name == "nt":
+            # Robust on Windows: run .cmd via cmd.exe /c
+            return _run(
+                ["cmd.exe", "/c", str(tsnode_local), "--transpile-only",
+                 str(script), "--owner", owner_pubkey, *mint_arg]
+            )
+        else:
+            return _run(
+                [str(tsnode_local), "--transpile-only",
+                 str(script), "--owner", owner_pubkey, *mint_arg]
+            )
+
+    # 2) Try npx
+    npx = which("npx.cmd") if os.name == "nt" else which("npx")
+    if npx:
+        if os.name == "nt":
+            return _run(
+                ["cmd.exe", "/c", npx, "--yes", "ts-node", "--transpile-only",
+                 str(script), "--owner", owner_pubkey, *mint_arg]
+            )
+        else:
+            return _run(
+                [npx, "--yes", "ts-node", "--transpile-only",
+                 str(script), "--owner", owner_pubkey, *mint_arg]
+            )
+
+    # 3) Fallback: node -r ts-node/register/transpile-only
+    node = which("node") or ("node" if os.name != "nt" else r"C:\Program Files\nodejs\node.exe")
+    if node:
+        if os.name == "nt":
+            return _run(
+                ["cmd.exe", "/c", node, "-r", "ts-node/register/transpile-only",
+                 str(script), "--owner", owner_pubkey, *mint_arg]
+            )
+        else:
+            return _run(
+                [node, "-r", "ts-node/register/transpile-only",
+                 str(script), "--owner", owner_pubkey, *mint_arg]
+            )
+
+    print("❌ Could not locate ts-node, npx, or node executables.")
+    print("   Checked:", tsnode_local, "and PATH for npx/node.")
+    return 1
+
 
 
 # ---------- Menu ----------
