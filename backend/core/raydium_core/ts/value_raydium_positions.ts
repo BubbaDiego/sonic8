@@ -3,12 +3,10 @@ import 'dotenv/config'
 import { Connection, PublicKey } from '@solana/web3.js'
 import Decimal from 'decimal.js'
 
-// Prefer v2, fallback v1
+// Load Raydium SDK (v2 preferred, fallback v1)
 let SDK: any = {}
 try { SDK = require('@raydium-io/raydium-sdk-v2') } catch {}
-if (!SDK || !Object.keys(SDK).length) {
-  try { SDK = require('@raydium-io/raydium-sdk') } catch {}
-}
+if (!SDK || !Object.keys(SDK).length) { try { SDK = require('@raydium-io/raydium-sdk') } catch {} }
 if (!SDK || !Object.keys(SDK).length) {
   console.error('❌ Could not load @raydium-io/raydium-sdk[-v2]. Install one of them in ./ts folder.')
   process.exit(2)
@@ -16,107 +14,84 @@ if (!SDK || !Object.keys(SDK).length) {
 
 const RPC = process.env.RPC_URL || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
 const args = process.argv.slice(2)
-function arg(flag: string) { const i = args.indexOf(flag); return i >= 0 ? args[i+1] : undefined }
-
+const arg = (f: string) => { const i = args.indexOf(f); return i >= 0 ? args[i+1] : undefined }
 const ownerStr = arg('--owner')
 const mintsCsv = arg('--mints')
 const owner = ownerStr ? new PublicKey(ownerStr) : undefined
 const inputMints = (mintsCsv ? mintsCsv.split(',').map(s=>s.trim()).filter(Boolean) : []) as string[]
-
 const short = (s: string) => `${s.slice(0, 6)}…${s.slice(-6)}`
 
-// pull candidates by dotted path (deep)
-function getDeep(obj: any, paths: string[]): any {
-  for (const p of paths) {
-    const parts = p.split('.')
-    let cur = obj
-    let ok = true
-    for (const part of parts) {
-      if (cur && (part in cur)) cur = cur[part]; else { ok = false; break }
-    }
-    if (ok && typeof cur === 'function') return cur.bind(obj)
-    if (ok && typeof cur === 'object') return cur
-  }
-  return undefined
-}
+// deep getter for dotted path
+const getDeep = (obj: any, path: string) => path.split('.').reduce((a,k)=> (a && k in a) ? a[k] : undefined, obj)
+const bindIfFn = (ctx: any, fn: any) => (typeof fn === 'function' ? fn.bind(ctx) : undefined)
 
 async function main() {
   const connection = new Connection(RPC, 'confirmed')
 
-  // Find top-level Raydium
-  const Raydium = SDK.Raydium || SDK.raydium || getDeep(SDK, ['default.Raydium'])
-  if (!Raydium) {
-    console.error('❌ Raydium client class not found. SDK keys:', Object.keys(SDK))
-    process.exit(2)
-  }
-  const ray = await Raydium.load?.({ connection })
-  if (!ray) {
-    console.error('❌ Raydium.load failed. SDK keys:', Object.keys(SDK))
-    process.exit(2)
-  }
+  // Raydium client
+  const Raydium = SDK.Raydium || getDeep(SDK, 'default.Raydium') || SDK.raydium
+  if (!Raydium) { console.error('❌ Raydium class not found. Keys:', Object.keys(SDK)); process.exit(2) }
+  const ray = await (Raydium.load ? Raydium.load({ connection }) : Raydium({ connection }))
+  if (!ray) { console.error('❌ Raydium client failed to load.'); process.exit(2) }
 
-  // Find CLMM namespace/object
-  const Clmm =
-    SDK.Clmm || SDK.CLMM || SDK.clmm ||
-    getDeep(SDK, ['default.Clmm','default.CLMM']) ||
-    getDeep(SDK, ['ClmmPool','default.ClmmPool']) ||
-    getDeep(SDK, ['CLMM','default.CLMM']) ||
-    {}
+  // CLMM namespace OR factory
+  const ClmmExport = SDK.Clmm || SDK.CLMM || SDK.clmm || getDeep(SDK, 'default.Clmm') || getDeep(SDK, 'default.CLMM')
+  const isFactory = typeof ClmmExport === 'function'
+  let ClmmObj: any = ClmmExport
 
-  // Show EVERYTHING we can see so we know what this package looks like
-  const clmmKeys = Clmm && typeof Clmm === 'object' ? Object.keys(Clmm) : []
-  console.log('🔧 SDK check →', JSON.stringify({
-    rootKeys: Object.keys(SDK),
-    clmmType: typeof Clmm,
-    clmmKeysCount: clmmKeys.length,
-    clmmKeys: clmmKeys,
-  }, null, 2), '\n')
-
-  // Helper to find a function by many names and also inside sub-namespaces
-  function pickFn(candidates: string[], alsoCheck: string[] = []) {
-    for (const name of candidates) {
-      if (Clmm && typeof Clmm[name] === 'function') return Clmm[name].bind(Clmm)
+  // If it's a function/factory, call it to get an instance that holds methods.
+  if (isFactory) {
+    // try common factory signatures
+    try {
+      ClmmObj = await ClmmExport({ connection })
+    } catch {
+      try { ClmmObj = await (ClmmExport.load ? ClmmExport.load({ connection }) : ClmmExport({ connection })) } catch {}
     }
-    for (const ns of alsoCheck) {
-      const sub = getDeep(Clmm, [ns])
-      if (!sub) continue
-      for (const name of candidates) {
-        if (sub && typeof sub[name] === 'function') return sub[name].bind(sub)
-      }
+  }
+
+  const rootKeys = Object.keys(SDK)
+  const clmmKeys = ClmmObj && typeof ClmmObj === 'object' ? Object.keys(ClmmObj) : []
+  console.log('🔧 SDK check →', JSON.stringify({ rootKeys, clmmType: typeof ClmmExport, clmmInstanceKeys: clmmKeys }, null, 2), '\n')
+
+  // Try to pick methods first from instance (preferred), then from static export as fallback
+  function pickFrom(target: any, names: string[]) {
+    for (const n of names) {
+      const v = target && (target[n] ?? getDeep(target, n))
+      if (typeof v === 'function') return v.bind(target)
     }
     return undefined
   }
 
-  const fetchPositionsByOwner = pickFn(
-    ['fetchPositionsByOwner','fetchPositionsByUser','getPositionsByOwner','getPositionsByUser'],
-    ['Position','Positions','User','Users']
-  )
-  const fetchPositionInfos = pickFn(
-    ['fetchPositionInfos','fetchPositionsInfo','getPositionInfos','getPositionsInfo','getPositionsByMints','fetchPositionsByMints'],
-    ['Position','Positions']
-  )
-  const fetchPools = pickFn(
-    ['fetchMultiplePoolInfos','fetchPools','getMultiplePoolInfos','getPools'],
-    ['Pool','Pools']
-  )
-  const amountsFromLiq = pickFn(
-    ['getAmountsFromLiquidity','liquidityToTokenAmounts','getTokenAmountsFromLiquidity'],
-    ['Math','Maths','Utils','ClmmMath','ClmmUtils']
-  )
-  const fetchMintInfos = SDK.fetchMultipleMintInfos
-    || SDK.MintUtil?.fetchMultipleMintInfos
-    || SDK.Token?.fetchMultipleMintInfos
-    || getDeep(SDK, ['Utils.fetchMultipleMintInfos','Token.fetchMultipleMintInfos','default.fetchMultipleMintInfos'])
+  // Position-by-owner (optional)
+  const fetchPositionsByOwner =
+    pickFrom(ClmmObj, ['fetchPositionsByOwner','fetchPositionsByUser','getPositionsByOwner','getPositionsByUser']) ||
+    pickFrom(ClmmExport, ['fetchPositionsByOwner','fetchPositionsByUser','getPositionsByOwner','getPositionsByUser'])
 
+  // Position infos (required)
+  const fetchPositionInfos =
+    pickFrom(ClmmObj, ['fetchPositionInfos','fetchPositionsInfo','getPositionInfos','getPositionsInfo','getPositionsByMints','fetchPositionsByMints']) ||
+    pickFrom(ClmmExport, ['fetchPositionInfos','fetchPositionsInfo','getPositionInfos','getPositionsInfo','getPositionsByMints','fetchPositionsByMints'])
+
+  // Pools (required)
+  const fetchPools =
+    pickFrom(ClmmObj, ['fetchMultiplePoolInfos','fetchPools','getMultiplePoolInfos','getPools']) ||
+    pickFrom(ClmmExport, ['fetchMultiplePoolInfos','fetchPools','getMultiplePoolInfos','getPools'])
+
+  // Liquidity → amounts (required)
+  const amountsFromLiquidity =
+    pickFrom(ClmmObj, ['getAmountsFromLiquidity','liquidityToTokenAmounts','getTokenAmountsFromLiquidity']) ||
+    pickFrom(ClmmExport, ['getAmountsFromLiquidity','liquidityToTokenAmounts','getTokenAmountsFromLiquidity'])
+
+  // Mint infos & pricing
+  const fetchMultipleMintInfos =
+    SDK.fetchMultipleMintInfos || getDeep(SDK,'MintUtil.fetchMultipleMintInfos') || getDeep(SDK,'Token.fetchMultipleMintInfos') || getDeep(SDK,'default.fetchMultipleMintInfos')
   const Price = SDK.Price || SDK.price || {}
-  const priceMultiple = (Price && (Price.fetchMultiple || Price.getMultiple || Price.getPrices))
-    ? (Price.fetchMultiple || Price.getMultiple || Price.getPrices).bind(Price)
-    : undefined
+  const priceMultiple = bindIfFn(Price, Price.fetchMultiple || Price.getMultiple || Price.getPrices)
 
-  // Build position mint list
+  // Build list of position mints
   let positionMints: PublicKey[] = []
   if (inputMints.length) {
-    try { positionMints = inputMints.map((m)=>new PublicKey(m)) } catch (e) {
+    try { positionMints = inputMints.map((m)=> new PublicKey(m)) } catch (e) {
       console.error('❌ Invalid mint in --mints:', e); process.exit(2)
     }
   } else if (owner && fetchPositionsByOwner) {
@@ -124,14 +99,14 @@ async function main() {
     if (!briefs?.length) { console.log('   (no positions for owner)'); return }
     positionMints = briefs.map((b:any)=> new PublicKey(b.positionNftMint ?? b.mint ?? b.nftMint))
   } else {
-    console.error('❌ No --mints and no positions-by-owner method found.')
-    console.error('   clmmKeys:', clmmKeys)
+    console.error('❌ No --mints and this SDK lacks a positions-by-owner method.')
+    console.error('   clmmInstanceKeys:', clmmKeys)
     process.exit(2)
   }
 
   if (!fetchPositionInfos) {
     console.error('❌ SDK missing a "fetch position infos" function.')
-    console.error('   clmmKeys:', clmmKeys)
+    console.error('   clmmInstanceKeys:', clmmKeys)
     process.exit(2)
   }
   const posInfos = await fetchPositionInfos({ connection, positions: positionMints })
@@ -139,7 +114,7 @@ async function main() {
 
   if (!fetchPools) {
     console.error('❌ SDK missing a "fetch pools" function.')
-    console.error('   clmmKeys:', clmmKeys)
+    console.error('   clmmInstanceKeys:', clmmKeys)
     process.exit(2)
   }
   const poolIds = Array.from(new Set(
@@ -147,31 +122,29 @@ async function main() {
   )).map((s)=> new PublicKey(s))
   const pools = await fetchPools({ connection, poolIds })
 
-  if (!fetchMintInfos) {
+  if (!fetchMultipleMintInfos) {
     console.error('❌ SDK missing fetchMultipleMintInfos; cannot compute UI amounts.')
     process.exit(2)
   }
-
-  // Collect mints for decimals & prices
   const mintSet = new Set<string>()
   for (const p of pools) {
     const a = p.mintA?.mint?.toBase58?.() ?? String(p.mintA?.mint ?? '')
     const b = p.mintB?.mint?.toBase58?.() ?? String(p.mintB?.mint ?? '')
     if (a) mintSet.add(a); if (b) mintSet.add(b)
   }
-  const mintInfos = await fetchMintInfos({ connection, mints: Array.from(mintSet).map(m=>new PublicKey(m)) })
+  const mintInfos = await fetchMultipleMintInfos({ connection, mints: Array.from(mintSet).map(m=>new PublicKey(m)) })
+
   let priceMap: Record<string, number> = {}
   if (priceMultiple) {
     priceMap = (await priceMultiple({ tokenMints: Array.from(mintSet), connection, raydium: ray })) || {}
   }
 
-  if (!amountsFromLiq) {
+  if (!amountsFromLiquidity) {
     console.error('❌ SDK missing a liquidity→amounts function.')
-    console.error('   clmmKeys:', clmmKeys)
+    console.error('   clmmInstanceKeys:', clmmKeys)
     process.exit(2)
   }
 
-  // Index pools by id
   const poolById = new Map<string, any>()
   for (const p of pools) {
     const id = p.id?.toBase58?.() ?? String(p.id)
@@ -187,7 +160,7 @@ async function main() {
     const pool = poolById.get(poolId)
     if (!pool) continue
 
-    const res = await amountsFromLiq({
+    const res = await amountsFromLiquidity({
       poolInfo: pool,
       tickLower: pos.tickLower ?? pos.lowerTick,
       tickUpper: pos.tickUpper ?? pos.upperTick,
