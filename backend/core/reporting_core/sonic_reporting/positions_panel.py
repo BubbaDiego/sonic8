@@ -1,158 +1,337 @@
-# -*- coding: utf-8 -*-
+# positions_panel.py — FULL REPLACEMENT (schema-agnostic with fuzzy key mapping)
+# Sequencer contract: render(dl, csum, default_json_path=None)
 from __future__ import annotations
-"""
-positions_panel — classic version (pre-adaptive)
-- Uses DataLocker.get_manager("positions")
-- Calls manager.active() for rows
-- Prints with the snapshot printer for aligned columns + totals
-- Sequencer contract: render(dl, csum, default_json_path)
-"""
 
-from typing import Any, Mapping, List, Dict, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+from dataclasses import is_dataclass, asdict
 
-# Reuse the snapshot printer for consistent layout
-try:
-    from backend.core.reporting_core.sonic_reporting.positions_snapshot import (
-        _print_positions_table as _print_table
-    )
-except Exception:
-    _print_table = None  # fallback handled below
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 
-# ------------ helpers ------------
-def _as_dict(obj: Any) -> Mapping[str, Any]:
-    if isinstance(obj, dict):
-        return obj
-    return getattr(obj, "__dict__", {}) or {}
+# --------------------- Title (mirror wallet_panel style) ---------------------
 
-
-def _normalize_row(p: Any) -> Dict[str, Any]:
-    """
-    Minimal normalization used by the classic panel.
-    Assumes positions manager already returns the common fields.
-    """
-    row = _as_dict(p)
-
-    # Basic, conservative extraction (classic aliases)
-    asset = (
-        row.get("asset")
-        or row.get("symbol")
-        or row.get("ticker")
-        or row.get("coin")
-        or row.get("name")
-        or "---"
-    )
-    if isinstance(asset, str):
-        asset = asset.upper()
-
-    side = (
-        row.get("side")
-        or row.get("position")
-        or row.get("dir")
-        or row.get("direction")
-        or "LONG"
-    )
-    side = str(side).upper()
-    if side not in ("LONG", "SHORT"):
-        side = "LONG"
-
-    value = row.get("value") or row.get("value_usd") or row.get("size_usd") or row.get("notional") or row.get("notional_usd")
-    pnl   = row.get("pnl") or row.get("pnl_usd") or row.get("unrealized_pnl") or row.get("profit") or row.get("pl")
-    lev   = row.get("lev") or row.get("leverage") or row.get("x")
-    liq   = row.get("liq") or row.get("liq_pct") or row.get("liquidation") or row.get("liquidation_distance_pct") or row.get("liq_dist")
-    travel = row.get("travel") or row.get("travel_pct") or row.get("move_pct")
-
-    # Coerce simple numerics to float when possible
-    def _f(x: Any) -> Optional[float]:
-        try:
-            return float(x)
-        except Exception:
-            return None
-
-    return {
-        "asset": asset or "---",
-        "side": side,
-        "value": _f(value),
-        "pnl": _f(pnl),
-        "lev": _f(lev),
-        "liq": _f(liq),
-        "travel": _f(travel),
-    }
-
-
-# ------------ core ------------
-def _rows_from_dl_positions_manager(dl: Any) -> List[Mapping[str, Any]]:
-    """
-    Classic path: dl.get_manager('positions').active()
-    Returns [] if anything is missing or raises.
-    """
+def _resolve_wallet_title_fn():
     try:
-        get_manager = getattr(dl, "get_manager", None)
-        if not callable(get_manager):
-            return []
-        mgr = get_manager("positions")
-        if not mgr:
-            return []
-        active = getattr(mgr, "active", None)
-        if not callable(active):
-            return []
-        rows = active() or []
-        return [_as_dict(r) for r in rows]
+        from . import wallet_panel as _wallet_panel  # type: ignore
+        for name in ("render_title", "title", "section_title", "print_title", "header"):
+            if hasattr(_wallet_panel, name):
+                return getattr(_wallet_panel, name)
     except Exception:
+        pass
+    return None
+
+_WALLET_TITLE_FN = _resolve_wallet_title_fn()
+
+def _print_title(console: Console, title: str) -> None:
+    if _WALLET_TITLE_FN:
+        try:
+            _WALLET_TITLE_FN(console, title)  # type: ignore
+            return
+        except TypeError:
+            try:
+                _WALLET_TITLE_FN(title)  # type: ignore
+                return
+            except Exception:
+                pass
+        except Exception:
+            pass
+    bullet = "•"
+    console.print(Text.assemble(Text(f"{bullet} ", style="bold"),
+                                Text(title, style="bold underline")))
+
+
+# --------------------- Small utils ---------------------
+
+def _to_float(x: Any) -> Optional[float]:
+    try:
+        if x is None:
+            return None
+        return float(x)
+    except Exception:
+        return None
+
+def _abbr_usd(v: Optional[float]) -> str:
+    if v is None:
+        return "-"
+    try:
+        n = float(v)
+    except Exception:
+        return str(v)
+    a = abs(n)
+    if a >= 1_000_000_000: return f"${n/1_000_000_000:,.1f}b"
+    if a >= 1_000_000:     return f"${n/1_000_000:,.1f}m"
+    if a >= 1_000:         return f"${n/1_000:,.1f}k"
+    return f"${n:,.2f}"
+
+def _fmt_pnl(amount: Optional[float], pct: Optional[float]) -> Text:
+    if amount is None and pct is None:
+        return Text("-")
+    parts = []
+    if amount is not None:
+        parts.append(_abbr_usd(amount))
+    if pct is not None:
+        sign = "+" if pct > 0 else ""
+        parts.append(f"{sign}{pct:.2f}%")
+    txt = " ".join(parts)
+    style = "green" if (amount or 0) > 0 or (pct or 0) > 0 else ("red" if (amount or 0) < 0 or (pct or 0) < 0 else "")
+    return Text(txt, style=style)
+
+def _percent_text(v: Any) -> str:
+    f = _to_float(v)
+    return f"{f:.2f}%" if f is not None else "-"
+
+def _as_list(obj: Any) -> List[Any]:
+    if obj is None:
         return []
+    if isinstance(obj, list):
+        return obj
+    if isinstance(obj, tuple):
+        return list(obj)
+    if isinstance(obj, Iterable) and not isinstance(obj, (str, bytes, dict)):
+        return list(obj)
+    return [obj]
 
 
-def _print_minimal(rows: List[Dict[str, Any]]) -> None:
-    # Simple fallback table (classic)
-    print("Asset Side        Value        PnL     Lev      Liq   Travel")
-    if not rows:
-        print("-     -               -          -       -        -        -")
-        print("\n                  $0.00      $0.00       -                 -")
-        return
+# --------------------- Row materialization & fuzzy mapping ---------------------
 
-    total_value = 0.0
-    total_pnl = 0.0
+def _to_dictish(x: Any) -> Dict[str, Any]:
+    """Turn arbitrary objects into a dict for key-based matching."""
+    if x is None:
+        return {}
+    if isinstance(x, dict):
+        return dict(x)
+    # pydantic v2
+    try:
+        if hasattr(x, "model_dump"):
+            return x.model_dump()  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    # pydantic v1
+    try:
+        if hasattr(x, "dict"):
+            return x.dict()  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    # dataclass
+    try:
+        if is_dataclass(x):
+            return asdict(x)
+    except Exception:
+        pass
+    # common "to_dict"
+    try:
+        if hasattr(x, "to_dict"):
+            return x.to_dict()  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    # fallback to __dict__
+    try:
+        return dict(vars(x))
+    except Exception:
+        return {}
 
-    for r in rows:
-        asset = f"{(r.get('asset') or '---'):<5}"
-        side  = f"{(r.get('side') or 'LONG'):<5}"
-        v = r.get("value") or 0.0
-        p = r.get("pnl") or 0.0
-        total_value += v
-        total_pnl += p
-        val   = f"{v:>10,.2f}"
-        pnl   = f"{p:>10,.2f}"
-        lev   = "" if r.get("lev") is None else f"{r['lev']:.2f}"
-        liq   = "" if r.get("liq") is None else f"{r['liq']:.2f}%"
-        trav  = "" if r.get("travel") is None else f"{r['travel']:.2f}%"
-        print(f"{asset} {side} {val:>10} {pnl:>10} {lev:>7} {liq:>7} {trav:>7}")
+def _find_key(d: Dict[str, Any], candidates: List[str]) -> Optional[str]:
+    """Return the first exact or fuzzy key match (case-insensitive, substring)."""
+    if not d:
+        return None
+    lower_map = {k.lower(): k for k in d.keys()}
+    # 1) exact (case-insensitive)
+    for c in candidates:
+        lc = c.lower()
+        if lc in lower_map:
+            return lower_map[lc]
+    # 2) substring fuzzy
+    for c in candidates:
+        lc = c.lower()
+        for lk, original in lower_map.items():
+            if lc in lk:
+                return original
+    return None
 
-    print(f"\n{'':18}${total_value:,.2f}  ${total_pnl:,.2f}       -                 -")
+# preferred key candidates per column
+CANDIDATES = {
+    "asset":  ["asset", "asset_type", "symbol", "token", "market", "pair", "name"],
+    "side":   ["side", "position_type", "direction", "pos_side"],
+    "value":  ["value", "usd_value", "value_usd", "notional_usd", "notional", "size_usd", "position_value"],
+    "pnl_usd":["pnl_after_fees_usd", "pnl_usd", "unrealized_pnl", "u_pnl", "profit_usd"],
+    "pnl_pct":["pnl_pct", "unrealized_pnl_pct", "roe", "return_pct", "pnl_percent"],
+    "lev":    ["leverage", "lev", "leverage_x"],
+    "liq":    ["liquidation_price", "liq_price", "liq"],
+    "travel": ["travel_percent", "travel_pct", "travel", "move_pct", "change_pct"],
+}
+
+def _normalize_row_any(obj: Any) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    """
+    Normalize any object/dict into our panel row dict plus the mapping used.
+    Returns (row, mapping).
+    """
+    d = _to_dictish(obj)
+    mapping: Dict[str, str] = {}
+    out: Dict[str, Any] = {}
+
+    # asset
+    k = _find_key(d, CANDIDATES["asset"])
+    out["asset"] = str(d[k]) if k else "-"
+    if k: mapping["asset"] = k
+
+    # side
+    k = _find_key(d, CANDIDATES["side"])
+    side_val = str(d[k]).lower() if k else "-"
+    if side_val not in ("long", "short", "-"):
+        # normalize common variants
+        if side_val.startswith("l"): side_val = "long"
+        elif side_val.startswith("s"): side_val = "short"
+    out["side"] = side_val
+    if k: mapping["side"] = k
+
+    # value
+    k = _find_key(d, CANDIDATES["value"])
+    out["value"] = _to_float(d[k]) if k else None
+    if k: mapping["value"] = k
+
+    # pnl usd
+    k = _find_key(d, CANDIDATES["pnl_usd"])
+    out["pnl_usd"] = _to_float(d[k]) if k else None
+    if k: mapping["pnl_usd"] = k
+
+    # pnl pct
+    k = _find_key(d, CANDIDATES["pnl_pct"])
+    out["pnl_pct"] = _to_float(d[k]) if k else None
+    if k: mapping["pnl_pct"] = k
+
+    # leverage
+    k = _find_key(d, CANDIDATES["lev"])
+    out["lev"] = d[k] if k else "-"
+    if k: mapping["lev"] = k
+
+    # liq
+    k = _find_key(d, CANDIDATES["liq"])
+    out["liq"] = d[k] if k else "-"
+    if k: mapping["liq"] = k
+
+    # travel
+    k = _find_key(d, CANDIDATES["travel"])
+    out["travel"] = d[k] if k else None
+    if k: mapping["travel"] = k
+
+    return out, mapping
 
 
-def _render_core(dl: Any) -> None:
-    rows_raw = _rows_from_dl_positions_manager(dl)
-    rows = [_normalize_row(p) for p in rows_raw]
+# --------------------- DataLocker readers ---------------------
 
-    if _print_table is not None:
-        _print_table(rows)
-    else:
-        _print_minimal(rows)
-
-    print(f"\n[POSITIONS] dl:get_manager.active ({len(rows) if rows else 0} rows)")
-
-
-# ------------ public API ------------
-def print_positions_panel(dl=None) -> None:
-    # Classic path expects the sequencer to pass `dl`
+def _read_positions(dl: Any) -> Tuple[List[Any], str]:
+    """
+    Correct access preference:
+      1) dl.read_positions()
+      2) dl.positions.get_all_positions()
+      3) DB fallback
+    """
     if dl is None:
-        # If not provided, we simply render nothing safely
-        _print_minimal([])
-        print("\n[POSITIONS] dl:none (0 rows)")
+        return [], "dl=None"
+
+    # 1) locker convenience
+    rp = getattr(dl, "read_positions", None)
+    if callable(rp):
+        try:
+            rows = rp() or []
+            if isinstance(rows, list):
+                if rows:
+                    return rows, "dl.read_positions()"
+                else:
+                    # empty but valid path, keep looking
+                    pass
+        except Exception:
+            pass
+
+    # 2) manager
+    mgr = getattr(dl, "positions", None)
+    gap = getattr(mgr, "get_all_positions", None) if mgr is not None else None
+    if callable(gap):
+        try:
+            rows = gap() or []
+            if isinstance(rows, list) and rows:
+                return rows, "dl.positions.get_all_positions()"
+        except Exception:
+            pass
+
+    # 3) SQL fallback
+    try:
+        db = getattr(dl, "db", None)
+        if db and hasattr(db, "get_cursor"):
+            cur = db.get_cursor()
+            cur.execute(
+                """
+                SELECT *
+                FROM positions
+                WHERE status IN ('ACTIVE','active','OPEN','open') OR status IS NULL
+                ORDER BY COALESCE(last_updated, updated_at, created_at) DESC
+                LIMIT 200
+                """
+            )
+            cols = [c[0] for c in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            if rows:
+                return rows, "db:positions"
+    except Exception:
+        pass
+
+    return [], "source=none"
+
+
+# --------------------- Sequencer entrypoint ---------------------
+
+def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
+    """
+    Sequencer entrypoint — matches price_panel signature.
+    """
+    console = Console()
+    _print_title(console, "Positions")
+
+    rows_raw, source = _read_positions(dl)
+    console.print(f"[POSITIONS] source: {source} ({len(rows_raw)} row{'s' if len(rows_raw)!=1 else ''})")
+
+    table = Table(show_header=True, header_style="bold")
+    for col, j in (("Asset","left"), ("Side","left"), ("Value","right"),
+                   ("PnL","right"), ("Lev","right"), ("Liq","right"), ("Travel","right")):
+        table.add_column(col, justify=j)
+
+    if not rows_raw:
+        table.add_row("-", "-", "-", "-", "-", "-", "-")
+        console.print(table)
         return
-    _render_core(dl)
+
+    showed_debug_keys = False
+    for obj in rows_raw:
+        norm, mapping = _normalize_row_any(obj)
+
+        # If the row looks totally un-mapped, print keys once to help lock schema quickly.
+        if (norm["asset"] == "-" and norm["side"] == "-" and
+            norm["value"] is None and norm["pnl_usd"] is None and
+            norm["pnl_pct"] is None and norm["lev"] == "-" and
+            norm["liq"] == "-" and norm["travel"] is None):
+            if not showed_debug_keys:
+                keys = list(_to_dictish(obj).keys())
+                console.print(f"[POSITIONS] debug: unmapped row keys → {keys}")
+                showed_debug_keys = True
+
+        side_style = "green" if norm["side"] == "long" else ("red" if norm["side"] == "short" else "")
+        table.add_row(
+            norm["asset"],
+            Text(norm["side"].capitalize() if norm["side"] != "-" else "-", style=side_style),
+            _abbr_usd(norm["value"]),
+            _fmt_pnl(norm["pnl_usd"], norm["pnl_pct"]),
+            str(norm["lev"]) if norm["lev"] is not None else "-",
+            str(norm["liq"]) if norm["liq"] is not None else "-",
+            _percent_text(norm["travel"]) if norm["travel"] is not None else "-",
+        )
+
+    console.print(table)
 
 
-# Sequencer contract: render(dl, csum, default_json_path)
-def render(dl=None, csum=None, default_json_path=None, **_):
-    print_positions_panel(dl=dl)
+# Back-compat for any callers importing `panel`
+panel = render
+
+if __name__ == "__main__":
+    render(None, {})

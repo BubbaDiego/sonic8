@@ -3,30 +3,24 @@ from __future__ import annotations
 """
 price_panel — DL-sourced prices with a Rich bordered table (no csum dependency)
 
-Panel-local options:
-  PRICE_BORDER = "light" | "none"
-  TITLE_COLOR  = <rich color>
-  BORDER_COLOR = <rich color>
-
-Signature (matches sequencer):
+Signature (sequencer contract):
   render(dl, csum, default_json_path=None)
 """
 
 from typing import Any, Dict, Optional, Tuple
 
-# Panel UI options (tweak here)
+# Panel UI options
 PRICE_BORDER  = "light"          # "light" | "none"
-TITLE_COLOR   = "bright_cyan"    # Rich color name
-BORDER_COLOR  = "bright_black"   # Rich color name
+TITLE_COLOR   = "bright_cyan"    # Rich color name for the title text
+BORDER_COLOR  = "bright_cyan"    # Match the small underline color you liked
 
 ASSETS = ("BTC", "ETH", "SOL")
 ICON   = {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}
 
-# DataLocker (panel-local source of truth)
 from backend.data.data_locker import DataLocker
 
 
-# ──────────────────────── small utils ────────────────────────
+# ─────────────────────── utils ───────────────────────
 
 def _ensure_dl(dl: Optional[DataLocker]) -> DataLocker:
     if dl is not None:
@@ -54,22 +48,17 @@ def _fmt_delta(cur: Optional[float], prev: Optional[float]) -> Tuple[str, str]:
     return (f"{s}{d:.2f}", f"{s}{pct:.2f}%")
 
 def _fmt_checked(info: Dict[str, Any]) -> str:
-    # Try a few common forms: 'age_s', 'age', 'checked', 'ts'
     age = info.get("age_s") or info.get("age")
     if isinstance(age, (int, float)):
         s = float(age)
         if s < 60:
             return f"{int(s)}s"
         return f"{int(s//60)}m"
-    # a timestamp-like field (ignore actual formatting; keep "(0s)"-style)
     if info.get("checked") or info.get("ts"):
         return "(0s)"
     return "(—)"
 
 def _read_from_dl(dl: DataLocker, sym: str) -> Tuple[Optional[float], Optional[float], str]:
-    """
-    Return (current, previous, checked_label) from DataLocker price cache.
-    """
     try:
         info = getattr(dl, "get_latest_price", lambda *_: {})(sym) or {}
         cur  = info.get("current_price") or info.get("current") or info.get("price")
@@ -82,25 +71,32 @@ def _read_from_dl(dl: DataLocker, sym: str) -> Tuple[Optional[float], Optional[f
         return None, None, "(—)"
 
 
-# ──────────────────────── rendering ────────────────────────
+# ─────────────────────── rendering ───────────────────────
+
+def _center_text(title: str, width: int) -> str:
+    # Center title within an exact width (no filler chars)
+    pad = max(0, (width - len(title)) // 2)
+    return " " * pad + title
 
 def _render_bordered(rows: list[list[str]], header: list[str], title: str) -> None:
     try:
         from rich.table import Table
         from rich.console import Console
-        from rich.box import SIMPLE
+        from rich.box import SIMPLE_HEAD
+        from rich.text import Text
     except Exception:
-        _render_unbordered(rows, header, title)  # graceful fallback
+        _render_unbordered(rows, header, title)
         return
 
+    console = Console()
+
+    # Build the table FIRST so we can compute its exact rendered width.
     table = Table(
-        title=f"[{TITLE_COLOR}]{title}[/{TITLE_COLOR}]",
         show_header=True,
         header_style="bold",
-        box=SIMPLE,
-        border_style=BORDER_COLOR,
-        title_justify="left",
-        show_edge=True,
+        box=SIMPLE_HEAD,             # keeps the small underline under header row
+        border_style=BORDER_COLOR,   # color for header underline; match our solid line
+        show_edge=False,             # no outer box
         show_lines=False,
         expand=False,
         pad_edge=False,
@@ -111,20 +107,40 @@ def _render_bordered(rows: list[list[str]], header: list[str], title: str) -> No
     for r in rows:
         table.add_row(*[str(c) for c in r])
 
-    Console().print(table)
+    # Measure exact rendered width so our lines match the table width precisely
+    rec = Console(record=True, width=console.width)
+    rec.print(table)
+    rendered = rec.export_text(clear=False)
+    table_width = max((len(line.rstrip("\n")) for line in rendered.splitlines()), default=60)
 
+    # Title on its own line (centered), then a SOLID line of same length/color as the header underline.
+    title_line = _center_text("💰 Prices", table_width)
+    console.print(Text(title_line, style=f"bold {TITLE_COLOR}"))
+    console.print(Text("─" * table_width, style=BORDER_COLOR))
+
+    # Now the table (no extra newline in between beyond the prints above)
+    console.print(table)
 
 def _render_unbordered(rows: list[list[str]], header: list[str], title: str) -> None:
-    print(f"\n  {title}\n")
+    # Plain-text fallback: estimate width from header/row lengths
+    width = max(
+        len("  " + "  ".join(header)),
+        max((len("  " + "  ".join(str(c) for c in r)) for r in rows), default=0),
+        60,
+    )
+    # Title line then solid line
+    print(_center_text("💰 Prices", width))
+    print("─" * width)
+    # header
     widths = [max(len(str(header[c])), max(len(str(r[c])) for r in rows) if rows else 0)
               for c in range(len(header))]
     print("  " + "  ".join(str(header[c]).ljust(widths[c]) for c in range(len(header))))
-    print("")
+    # rows
     for r in rows:
         print("  " + "  ".join(str(r[c]).ljust(widths[c]) for c in range(len(header))))
 
 
-# ──────────────────────── panel entry ────────────────────────
+# ─────────────────────── panel entry ───────────────────────
 
 def render(dl, csum, default_json_path=None):
     """
@@ -147,10 +163,9 @@ def render(dl, csum, default_json_path=None):
             checked,
         ])
 
-    title = "💰 Prices"
     if PRICE_BORDER == "light":
-        _render_bordered(rows, header, title)
+        _render_bordered(rows, header, "💰 Prices")
     else:
-        _render_unbordered(rows, header, title)
+        _render_unbordered(rows, header, "💰 Prices")
 
     print(f"\n[PRICE] source: dl.get_latest_price")
