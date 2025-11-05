@@ -25,6 +25,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Sequence, Optional, Dict
 
+# Windows creation flags
+CREATE_NEW_CONSOLE = 0x00000010
+DETACHED_PROCESS = 0x00000008  # fallback if needed
+
 try:
     from dotenv import load_dotenv  # type: ignore
     load_dotenv()
@@ -333,34 +337,39 @@ def launch_sonic_monitor():
 
 def launch_gmx_solana():
     """
-    Launch GMX-Solana console using the most robust method available.
-    Tries .cmd → .ps1 → python module fallback.
+    Launch GMX-Solana console in a NEW window so it doesn't share stdin/stdout
+    with the Launch Pad. Tries .cmd → .ps1 → python module fallback.
     """
-    # 1) prefer the .cmd shim (works anywhere if PATH has C:\sonic7)
+    # 1) .cmd shim: start a new console window
     cmd_shim = Path(r"C:\\sonic7\\gmx_solana_console.cmd")
     if cmd_shim.exists():
         try:
-            # run without blocking this process
-            subprocess.Popen([str(cmd_shim)], shell=True)
-            print("Launched GMX-Solana console via .cmd")
+            # Use cmd /c start "" "<path>" to spawn a new window
+            subprocess.Popen(
+                ["cmd", "/c", "start", "", str(cmd_shim)],
+                shell=False
+            )
+            print("Launched GMX-Solana console via .cmd (new window)")
             return
         except Exception as e:
             print(f"Note: .cmd launch failed: {e}")
 
-    # 2) PowerShell .ps1 launcher
+    # 2) .ps1 launcher: also new console window
     ps1 = Path(r"C:\\sonic7\\gmx_solana_console.ps1")
     if ps1.exists():
         try:
-            # new window (non-blocking)
-            subprocess.Popen([
-                "powershell", "-ExecutionPolicy", "Bypass", "-File", str(ps1)
-            ])
-            print("Launched GMX-Solana console via .ps1")
+            # Start a new PowerShell window using cmd /c start
+            subprocess.Popen(
+                ["cmd", "/c", "start", "", "powershell", "-NoExit",
+                 "-ExecutionPolicy", "Bypass", "-File", str(ps1)],
+                shell=False
+            )
+            print("Launched GMX-Solana console via .ps1 (new window)")
             return
         except Exception as e:
             print(f"Note: .ps1 launch failed: {e}")
 
-    # 3) Python module fallback from repo root
+    # 3) Python module fallback: force a NEW console
     try:
         repo = Path(r"C:\\sonic7")
         if repo.exists():
@@ -371,9 +380,10 @@ def launch_gmx_solana():
                 [py, "-m", "backend.core.gmx_solana_core.console.menu_console"],
                 cwd=str(repo),
                 env=env,
-                shell=False
+                creationflags=CREATE_NEW_CONSOLE,
+                shell=False,
             )
-            print("Launched GMX-Solana console via python module fallback")
+            print("Launched GMX-Solana console via python module (new window)")
             return
         else:
             print("C:\\sonic7 not found; cannot launch GMX-Solana console.")
