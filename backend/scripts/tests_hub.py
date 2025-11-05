@@ -94,12 +94,20 @@ def build_pytest_cmd(manifest: dict, topics: list[str], extra_args: list[str], r
     cfg = manifest.get("pytest", {}) or {}
     base_args = list(cfg.get("base_args", []) or [])
 
+    autoload = bool(cfg.get("autoload", False))
+    plugins = list(cfg.get("plugins", []) or [])
+
     paths, expr_terms = _collect_topic_globs(manifest, topics)
     if not paths:
         paths = ["backend/**/tests/**/test_*.py"]
 
     pytest_args: list[str] = []
     pytest_args.extend(base_args)
+
+    if not autoload:
+        for plugin_name in plugins:
+            pytest_args.extend(["-p", plugin_name])
+
     pytest_args.extend(paths)
 
     if expr_terms:
@@ -370,6 +378,13 @@ def main(argv: list[str] | None = None) -> int:
         env = os.environ.copy()
         if coverage_file is not None:
             env["COVERAGE_FILE"] = str(coverage_file)
+
+        pytest_cfg = manifest.get("pytest", {}) or {}
+        autoload = bool(pytest_cfg.get("autoload", False))
+        if not autoload:
+            env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+        else:
+            env.pop("PYTEST_DISABLE_PLUGIN_AUTOLOAD", None)
 
         rc = run_cmd("pytest", cmd, env=env, cwd=REPO_ROOT)
         try:
