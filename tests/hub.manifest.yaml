@@ -1,0 +1,99 @@
+version: 1
+default_suite: unit
+
+# Global settings
+report_dir: reports/tests
+coverage: true
+coverage_html: true
+junit_xml: true
+
+# Which tools are available; flip these to false if the host doesn’t have them
+tools:
+  pytest: true
+  npm: true            # enable to run frontend tests
+  playwright: false    # enable if you keep E2E here
+
+# Pytest base args applied to all runs
+pytest:
+  base_args:
+    - "-q"
+    - "-ra"
+    - "--maxfail=1"
+  coverage:
+    pkg: "backend"
+    omit:
+      - "backend/scripts/*"
+      - "backend/**/__init__.py"
+  junit:
+    file: "junit.xml"
+
+# Suites collect topics (or raw pytest selectors). Order matters.
+suites:
+  unit:
+    topics: [wallet, positions, perps, monitors, market, alerts, data, jupiter_core]
+    extra_pytest_args: []
+  integration:
+    topics: [api, db, xcom]
+    extra_pytest_args: ["-m", "integration"]
+  contracts:
+    topics: [schemas]
+    extra_pytest_args: []
+  smoke:
+    topics: [quick]
+    extra_pytest_args: []
+  e2e:
+    topics: [browser]
+    extra_pytest_args: []
+
+# Topic definitions → mapped into -k expressions and/or file globs.
+topics:
+  quick:
+    expr: "not slow"
+    paths: ["backend/**/tests/**/test_*.py"]
+  wallet:
+    expr: "wallet or wallets"
+    paths: ["backend/core/wallet_core/**/test_*.py"]
+  positions:
+    expr: "position or positions"
+    paths:
+      - "backend/core/**/positions*/**/test_*.py"
+      - "backend/api/**/test_positions*.py"
+  perps:
+    expr: "perps or perpetuals"
+    paths: ["backend/**/perps*/**/test_*.py"]
+  monitors:
+    expr: "monitor or monitors"
+    paths: ["backend/core/monitor_core/**/test_*.py"]
+  market:
+    expr: "market"
+    paths: ["backend/core/market_core/**/test_*.py"]
+  alerts:
+    expr: "alert"
+    paths:
+      - "backend/core/alert_core/**/test_*.py"
+      - "backend/data/**/dl_alert*.py"
+  data:
+    expr: "data or datalocker"
+    paths: ["backend/data/**/test_*.py"]
+  jupiter_core:
+    expr: "jupiter"
+    paths:
+      - "backend/core/auto_core/**/test_*.py"
+      - "backend/api/**/test_jupiter*.py"
+  api:
+    expr: "api"
+    paths: ["backend/api/**/test_*.py"]
+  db:
+    expr: "db or database"
+    paths: ["backend/data/**/test_*.py"]
+  xcom:
+    expr: "xcom"
+    paths: ["backend/core/**/xcom*/**/test_*.py"]
+  schemas:
+    expr: "schema"
+    paths:
+      - "docs/spec/schemas/**/*.json"
+      - "schema_bundle.json"
+  browser:
+    expr: "e2e or browser"
+    paths: ["e2e/**/test_*.py"]

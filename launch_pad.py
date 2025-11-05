@@ -477,32 +477,21 @@ def verify_database():
         console.log("[yellow]scripts/verify_all_tables_exist.py not found.[/]")
 
 
-def run_tests():
-    console.log("🧪 Running tests…")
-    # Try internal runner first; else pytest; else message.
-    try:
-        from test_core import TestCoreRunner, formatter  # type: ignore
-        results = TestCoreRunner().run()
-        console.print(formatter.render_summary(results))
+def run_tests_hub() -> None:
+    console.log("🧪 Launching Tests Hub…")
+    script = ROOT_DIR / "backend" / "scripts" / "tests_hub.py"
+    if not script.exists():
+        console.print("[yellow]backend/scripts/tests_hub.py not found.[/]")
         return
-    except Exception:
-        pass
     try:
-        subprocess.run([PYTHON_EXEC, "-m", "pytest", "-q"], cwd=str(ROOT_DIR), check=False)
+        run_in_console([PYTHON_EXEC, str(script)], cwd=repo_root(), title="Tests Hub")
     except Exception as exc:
-        console.print(f"[yellow]No test runner available ({exc}).[/]")
+        console.print(f"[yellow]Tests Hub unavailable ({exc}).[/]")
 
 
-
-
-def run_topic_test_runner() -> None:
-    console.log("🔎 Launching Topic Test Runner…")
-    try:
-        from test_core.topic_runner_ui import run_ui as run_topic_ui
-    except Exception as exc:
-        console.print(f"[yellow]Topic runner unavailable ({exc}).[/]")
-        return
-    run_topic_ui()
+# Backwards compatibility for existing automation expecting run_tests()
+def run_tests() -> None:  # pragma: no cover - shim
+    run_tests_hub()
 
 def run_test_console():
     try:
@@ -1004,15 +993,14 @@ def main() -> None:
                 f"6. {ICON['monitor']} Start [bold]Sonic Monitor[/]",
                 f"7. {ICON['perps']} Launch Perps Console",
                 f"8. {ICON['verify_db']} Verify Database",
-                f"9. {ICON['tests']} Run Unit Tests",
+                f"9. {ICON['tests']} Tests Hub",
                 f"10. 🃏 Fun Console (Jokes / Quotes / Trivia)",
                 f"11. {ICON['wallet']} Wallet Manager",
                 f"12. {ICON['test_ui']} Test Console UI",
                 f"13. {ICON['cyclone']} Launch Cyclone App",
                 f"14. {ICON['goals']} Session / Goals",
                 f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
-                f"16. {ICON['topic']} Topic Test Runner",
-                f"17. {ICON['gmx']} GMX Solana Console",
+                f"16. {ICON['gmx']} GMX Solana Console",
                 f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window)",
             ]
         )
@@ -1037,7 +1025,7 @@ def main() -> None:
         elif choice == "8":
             run_menu_action("Verify Database", verify_database)
         elif choice == "9":
-            run_menu_action("Run Unit Tests", run_tests)
+            run_menu_action("Tests Hub", run_tests_hub)
         elif choice == "10":
             run_menu_action("Fun Console", run_fun_console)
         elif choice == "11":
@@ -1051,8 +1039,6 @@ def main() -> None:
         elif choice == "15":
             run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
         elif choice == "16":
-            run_menu_action("Topic Test Runner", run_topic_test_runner)
-        elif choice == "17":
             run_menu_action("GMX Solana Console", launch_gmx_solana)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))

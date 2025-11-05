@@ -25,6 +25,7 @@ logs/
 coverage.xml
 *.cover
 *.py,cover
+reports/tests/
 
 # Distribution / packaging
 build/
