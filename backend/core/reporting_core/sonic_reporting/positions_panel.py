@@ -203,3 +203,12 @@ def print_positions_panel() -> None:
 
 if __name__ == "__main__":
     print_positions_panel()
+
+
+# Sequencer entrypoint (shim). Some callers expect `render()` with optional ctx.
+def render(ctx: Optional[Any] = None) -> None:
+    """
+    Console sequencer hook.
+    ctx is accepted for compatibility but not used.
+    """
+    print_positions_panel()

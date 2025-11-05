@@ -207,6 +207,43 @@ def render(dl, csum, default_json_path=None):
     print(f"  [RAY] source={source} count={len(rows)}")
 
     if not rows:
+        mgr = None
+        avail = []
+        dl_obj = dl or DataLocker.get_instance()
+        if dl_obj is not None:
+            try:
+                mgr = dl_obj.get_manager("raydium") or dl_obj.get_manager("raydium_lp")
+            except Exception as e:
+                mgr = None
+                print(f"  [RAY] error: {type(e).__name__}: {e}")
+                try:
+                    am = getattr(dl_obj, "available_managers", None)
+                    if callable(am):
+                        avail = sorted(am())
+                        print(f"  [RAY] dl.available_managers: {avail}")
+                except Exception:
+                    pass
+            if not mgr:
+                am = getattr(dl_obj, "available_managers", None)
+                if callable(am):
+                    try:
+                        avail = sorted(am())
+                    except Exception:
+                        avail = []
+        if mgr:
+            provider_bits = []
+            for attr in ("provider", "rpc", "rpc_url", "rpc_endpoint", "connection"):
+                try:
+                    val = getattr(mgr, attr, None)
+                except Exception:
+                    val = None
+                if val:
+                    provider_bits.append(f"{attr}={val}")
+            if provider_bits:
+                print(f"  [RAY] manager info: {', '.join(provider_bits)}")
+        else:
+            if avail:
+                print(f"  [RAY] managers present: {avail}")
         print("  (no raydium positions)")
         return
 
