@@ -46,6 +46,9 @@ suites:
   e2e:
     topics: [browser]
     extra_pytest_args: []
+  ui_scenes:
+    topics: []                    # handled by Hub (not pytest)
+    extra_pytest_args: []
 
 # Topic definitions → mapped into -k expressions and/or file globs.
 topics:
@@ -99,3 +102,7 @@ topics:
   browser:
     expr: "e2e or browser"
     paths: ["e2e/**/test_*.py"]
+
+# New: where the UI scene files live
+ui:
+  scenes_dir: "tests/ui_scenes"

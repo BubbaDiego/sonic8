@@ -244,6 +244,47 @@ def do_contracts_probe(manifest: dict) -> int:
     return 0
 
 
+def _ui_config(manifest: dict) -> dict:
+    return manifest.get("ui", {}) or {}
+
+
+def discover_scenes(manifest: dict) -> list[Path]:
+    conf = _ui_config(manifest)
+    scenes_dir = conf.get("scenes_dir", "tests/ui_scenes")
+    root = REPO_ROOT / scenes_dir
+    return sorted(root.glob("*.scene.yaml")) if root.exists() else []
+
+
+def pick_from_list(title: str, items: list[str]) -> int:
+    print(f"\n{title}\n" + "-" * len(title))
+    for i, it in enumerate(items, 1):
+        print(f"  {i:>2}. {it}")
+    print("  0. ← Back")
+    while True:
+        s = input("> ").strip()
+        if s == "0":
+            return -1
+        if s.isdigit() and 1 <= int(s) <= len(items):
+            return int(s) - 1
+        print("Pick a valid number.")
+
+
+def run_ui_scenes(manifest: dict) -> None:
+    paths = discover_scenes(manifest)
+    if not paths:
+        print("No UI scenes found. Add *.scene.yaml to tests/ui_scenes.")
+        input("\n↩  Press ENTER… ")
+        return
+    labels = [p.name for p in paths]
+    i = pick_from_list("🖥️  UI Scenes", labels)
+    if i < 0:
+        return
+    scene_rel = paths[i].relative_to(REPO_ROOT).as_posix()
+    cmd = [sys.executable, "backend/scripts/ui_scene_runner.py", "--scene", scene_rel]
+    run_cmd("ui-scene", cmd)
+    input("\n↩  Done. Press ENTER to return to Tests Hub… ")
+
+
 def interactive(manifest: dict, manifest_path: Path | None = None) -> int:
     manifest_args: list[str] = ["-m", str(manifest_path)] if manifest_path else []
 
@@ -260,7 +301,8 @@ def interactive(manifest: dict, manifest_path: Path | None = None) -> int:
               │  3. 🎯 Run by Topic                         │
               │  4. 🗂️  List Topics                         │
               │  5. 📋 List Suites                          │
-              │  6. ⏹️  Exit                                │
+              │  6. 🖥️  UI Scenes                           │
+              │  7. ⏹️  Exit                                │
               ╰────────────────────────────────────────────╯
             """
         )
@@ -306,9 +348,13 @@ def interactive(manifest: dict, manifest_path: Path | None = None) -> int:
             continue
 
         if choice == "6":
+            run_ui_scenes(manifest)
+            continue
+
+        if choice == "7":
             return 0
 
-        print("Pick 1–6.")
+        print("Pick 1–7.")
 
 
 def main(argv: list[str] | None = None) -> int:

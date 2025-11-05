@@ -1,0 +1,6 @@
+id: portfolio_panel
+title: "Portfolio Panel — Fixture Preview"
+renderer: demo.text       # placeholder; Codex will wire real renderer
+offline_ok: true
+requires_api: false
+fixture: tests/fixtures/SCHEMA-PORTFOLIO_LATEST.sample.json

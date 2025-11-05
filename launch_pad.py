@@ -1006,11 +1006,10 @@ def main() -> None:
                 f"9. {ICON['tests']} Tests Hub",
                 f"10. 🃏 Fun Console (Jokes / Quotes / Trivia)",
                 f"11. {ICON['wallet']} Wallet Manager",
-                f"12. {ICON['test_ui']} Test Console UI",
-                f"13. {ICON['cyclone']} Launch Cyclone App",
-                f"14. {ICON['goals']} Session / Goals",
-                f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
-                f"16. {ICON['gmx']} GMX Solana Console",
+                f"12. {ICON['cyclone']} Launch Cyclone App",
+                f"13. {ICON['goals']} Session / Goals",
+                f"14. {ICON['maintenance']} On-Demand Daily Maintenance",
+                f"15. {ICON['gmx']} GMX Solana Console",
                 f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window)",
             ]
         )
@@ -1041,14 +1040,12 @@ def main() -> None:
         elif choice == "11":
             run_menu_action("Wallet Manager", wallet_menu)
         elif choice == "12":
-            run_menu_action("Test Console UI", run_test_console)
-        elif choice == "13":
             run_menu_action("Launch Cyclone App", launch_cyclone_app)
-        elif choice == "14":
+        elif choice == "13":
             run_menu_action("Session / Goals", goals_menu)
-        elif choice == "15":
+        elif choice == "14":
             run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
-        elif choice == "16":
+        elif choice == "15":
             run_menu_action("GMX Solana Console", launch_gmx_solana)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
