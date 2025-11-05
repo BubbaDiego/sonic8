@@ -10,5 +10,9 @@
   "prefer_v2": true,
   "store_account": "CTDLvGGXnoxvqLyTpGzdGLg9pD6JexKxKXSV8tqqo8bN",
   "default_position": "",
-  "default_market": ""
+  "default_market": "",
+  "order_pda_recipe": [],
+  "order_defaults": {},
+  "order_kind_map": {},
+  "price_type_map": {}
 }
