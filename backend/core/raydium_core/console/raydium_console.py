@@ -21,7 +21,7 @@ import os
 import sys
 import subprocess
 from pathlib import Path
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Set
 
 # UTF-8 out on Windows
 if os.name == "nt":
@@ -34,6 +34,8 @@ if os.name == "nt":
 # --- project services ---
 from backend.services.signer_loader import load_signer  # honors SONIC_SIGNER_PATH and root signer.txt
 from backend.config import rpc as rpc_cfg  # helius_url()
+from backend.core.raydium_core.rpc import SolanaRPC
+from backend.core.raydium_core import nft_positions
 
 # solana-py + solders
 from solders.pubkey import Pubkey
@@ -281,7 +283,26 @@ def print_nfts(nfts: List[Tuple[str, str, bool]]):
 
 # ---------- TS valuation launcher ----------
 
-def run_ts_valuation(owner_pubkey: str) -> int:
+def _discover_raydium_position_mints(rpc_url: str, owner_pubkey: str) -> List[str]:
+    """Best-effort discovery of Raydium CL position NFT mints for an owner."""
+    try:
+        rpc = SolanaRPC(rpc_url)
+        positions = nft_positions.discover_positions(rpc, owner_pubkey)
+    except Exception as exc:
+        print("   ⚠️  Unable to auto-discover Raydium position NFTs:", exc)
+        return []
+
+    seen: Set[str] = set()
+    mints: List[str] = []
+    for pos in positions:
+        mint = getattr(pos, "nft_mint", None)
+        if mint and mint not in seen:
+            seen.add(mint)
+            mints.append(mint)
+    return mints
+
+
+def run_ts_valuation(owner_pubkey: str, rpc_url: str) -> int:
     """
     Call the TS helper to value Raydium CL positions for this owner.
     Expects backend/core/raydium_core/ts/value_raydium_positions.ts to exist.
@@ -293,7 +314,15 @@ def run_ts_valuation(owner_pubkey: str) -> int:
         print("   Install it under backend/core/raydium_core/ts and run npm i")
         return 1
     env = os.environ.copy()
+    env.setdefault("RPC_URL", rpc_url)
+
+    mints = _discover_raydium_position_mints(rpc_url, owner_pubkey)
+    if mints:
+        print(f"   • Discovered {len(mints)} Raydium position NFT(s). Passing mint list to helper…")
+
     cmd = ["npx", "--yes", "ts-node", str(script), "--owner", owner_pubkey]
+    if mints:
+        cmd.extend(["--mints", ",".join(mints)])
     try:
         return subprocess.call(cmd, cwd=str(js_root), env=env)
     except Exception as e:
@@ -332,7 +361,7 @@ def main():
         elif choice == "4":
             owner = show_wallet(cl)
             print("\n📈 Valuing Raydium CL positions via SDK…")
-            rc = run_ts_valuation(str(owner))
+            rc = run_ts_valuation(str(owner), rpc)
             print("\n(Exit code:", rc, ")")
             pause()
         elif choice == "0":
