@@ -9,7 +9,7 @@ Raydium Core — pick-list console (wallet + NFTs / Token-2022 aware)
     • (optional) confirm mint supply == 1, decimals == 0 → "strong"
 
 Extra:
-    • Menu item to call a TS helper using Raydium SDK v2 to compute per-position value.
+    • Menu item to call a TS helper using Raydium SDK to compute per-position value.
 
 Run:
   py backend/core/raydium_core/console/raydium_console.py
@@ -17,10 +17,12 @@ Run:
 
 from __future__ import annotations
 
-import os
 import sys
-import subprocess
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+import os
 from typing import List, Tuple, Dict, Optional
 
 # UTF-8 out on Windows
@@ -285,7 +287,7 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     """
     Run the TS helper to value Raydium CL positions.
     Windows-safe: wraps *.cmd with 'cmd.exe /c' to avoid WinError 2.
-    Prefers local ts-node -> npx -> node -r ts-node/register.
+    Prefers local ts-node -> npx -> node -r ts-node/register/transpile-only.
     """
     from shutil import which
     from pathlib import Path
@@ -302,12 +304,11 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     env = os.environ.copy()
     mint_arg = ["--mints", ",".join(mints)] if mints else []
 
-    def _run(cmd_list: list[str], use_shell: bool = False) -> int:
-        # Pretty-print the command we will actually run
+    def _run(cmd_list: list[str]) -> int:
         printable = " ".join(shlex.quote(str(c)) for c in cmd_list)
         print("   • Exec:", printable)
         try:
-            proc = subprocess.run(cmd_list, cwd=str(js_root), env=env, shell=use_shell)
+            proc = subprocess.run(cmd_list, cwd=str(js_root), env=env)
             return int(proc.returncode)
         except FileNotFoundError as e:
             print("   • File not found:", e)
@@ -320,44 +321,25 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     tsnode_local = js_root / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
     if tsnode_local.exists():
         if os.name == "nt":
-            # Robust on Windows: run .cmd via cmd.exe /c
-            return _run(
-                ["cmd.exe", "/c", str(tsnode_local), "--transpile-only",
-                 str(script), "--owner", owner_pubkey, *mint_arg]
-            )
+            return _run(["cmd.exe", "/c", str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
         else:
-            return _run(
-                [str(tsnode_local), "--transpile-only",
-                 str(script), "--owner", owner_pubkey, *mint_arg]
-            )
+            return _run([str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
 
     # 2) Try npx
     npx = which("npx.cmd") if os.name == "nt" else which("npx")
     if npx:
         if os.name == "nt":
-            return _run(
-                ["cmd.exe", "/c", npx, "--yes", "ts-node", "--transpile-only",
-                 str(script), "--owner", owner_pubkey, *mint_arg]
-            )
+            return _run(["cmd.exe", "/c", npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
         else:
-            return _run(
-                [npx, "--yes", "ts-node", "--transpile-only",
-                 str(script), "--owner", owner_pubkey, *mint_arg]
-            )
+            return _run([npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
 
     # 3) Fallback: node -r ts-node/register/transpile-only
     node = which("node") or ("node" if os.name != "nt" else r"C:\Program Files\nodejs\node.exe")
     if node:
         if os.name == "nt":
-            return _run(
-                ["cmd.exe", "/c", node, "-r", "ts-node/register/transpile-only",
-                 str(script), "--owner", owner_pubkey, *mint_arg]
-            )
+            return _run(["cmd.exe", "/c", node, "-r", "ts-node/register-transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
         else:
-            return _run(
-                [node, "-r", "ts-node/register/transpile-only",
-                 str(script), "--owner", owner_pubkey, *mint_arg]
-            )
+            return _run([node, "-r", "ts-node/register-transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
 
     print("❌ Could not locate ts-node, npx, or node executables.")
     print("   Checked:", tsnode_local, "and PATH for npx/node.")
@@ -376,7 +358,7 @@ def main():
         print("❯ 1) 🔑  Show loaded wallet")
         print("  2) 🖼️  List NFT-like tokens (dec=0, amt>=1; Token + Token-2022 if available)")
         print("  3) 💎  List Raydium NFTs (COMING SOON: allowlist filter)")
-        print("  4) 💰 Value Raydium CL positions (Raydium SDK v2)")
+        print("  4) 💰 Value Raydium CL positions (Raydium SDK)")
         print("  0) 🚪  Exit")
         choice = ask("\nPick", "1")
         if choice == "1":
@@ -396,7 +378,10 @@ def main():
         elif choice == "4":
             owner = show_wallet(cl)
             print("\n📈 Valuing Raydium CL positions via SDK…")
-            rc = run_ts_valuation(str(owner))
+            nftish = list_suspected_nfts(cl, owner, verbose=False)
+            mints = [m for (m, _ta, _strong) in nftish]
+            print("   • Mints →", ",".join(mints) if mints else "(none)")
+            rc = run_ts_valuation(str(owner), mints)
             print("\n(Exit code:", rc, ")")
             pause()
         elif choice == "0":

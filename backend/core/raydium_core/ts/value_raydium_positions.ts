@@ -3,7 +3,7 @@ import 'dotenv/config'
 import { Connection, PublicKey } from '@solana/web3.js'
 import Decimal from 'decimal.js'
 
-/** Load Raydium SDK (v2 preferred, fallback v1) */
+// Load Raydium SDK (v2 preferred, fallback v1)
 let SDK: any = {}
 try { SDK = require('@raydium-io/raydium-sdk-v2') } catch {}
 if (!SDK || !Object.keys(SDK).length) { try { SDK = require('@raydium-io/raydium-sdk') } catch {} }
@@ -12,14 +12,14 @@ if (!SDK || !Object.keys(SDK).length) {
   process.exit(2)
 }
 
-/** constants & layouts (names differ across SDK versions; try several) */
+// Helpers to normalize differences across versions
 const getDeep = (obj: any, path: string) =>
   path.split('.').reduce((a, k) => (a && k in a ? a[k] : undefined), obj)
 
 const PositionInfoLayout =
   SDK.PositionInfoLayout || SDK.ProtocolPositionLayout || SDK.PositionInfo || SDK.PositionLayout
-const PoolInfoLayout =
-  SDK.PoolInfoLayout || SDK.ClmmPoolInfoLayout || SDK.PoolLayout || SDK.PoolInfo
+const PoolInfoLayout     =
+  SDK.PoolInfoLayout     || SDK.ClmmPoolInfoLayout    || SDK.PoolLayout      || SDK.PoolInfo
 
 const _clmmPid =
   SDK.CLMM_PROGRAM_ID?.toBase58?.() ||
@@ -42,23 +42,22 @@ if (!PositionInfoLayout || !PoolInfoLayout) {
   process.exit(2)
 }
 
-/** args */
+// Args
 const RPC = process.env.RPC_URL || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
 const args = process.argv.slice(2)
-const arg = (f: string) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : undefined }
+const arg = (f: string) => { const i = args.indexOf(f); return i >= 0 ? args[i+1] : undefined }
 const ownerStr = arg('--owner')
 const mintsCsv = arg('--mints')
-
 const owner = ownerStr ? new PublicKey(ownerStr) : undefined
-const inputMints = (mintsCsv ? mintsCsv.split(',').map(s => s.trim()).filter(Boolean) : []) as string[]
+const inputMints = (mintsCsv ? mintsCsv.split(',').map(s=>s.trim()).filter(Boolean) : []) as string[]
 
-/** utils */
+// Utils
 const short = (s: string) => `${s.slice(0, 6)}…${s.slice(-6)}`
 const TWO_64 = new Decimal(2).pow(64)
 const ONE_0001 = new Decimal('1.0001')
-
 const q64ToDecimal = (q: bigint | number | string) => new Decimal(q.toString()).div(TWO_64)
 const sqrtPriceFromTick = (tick: number) => ONE_0001.pow(tick).sqrt()
+function tryPk(s: string | undefined): PublicKey | null { try { return s ? new PublicKey(s) : null } catch { return null } }
 
 function amountsFromLiquidity(L: Decimal, sqrtLower: Decimal, sqrtCur: Decimal, sqrtUpper: Decimal) {
   if (sqrtCur.lte(sqrtLower)) {
@@ -74,7 +73,7 @@ function amountsFromLiquidity(L: Decimal, sqrtLower: Decimal, sqrtCur: Decimal, 
   }
 }
 
-/** derive position PDA from mint (SDK helper if present, else seeds ["position", mint]) */
+// PDA from mint (SDK helper if present, else seeds ["position", mint])
 function getPositionPdaFromMint(mint: PublicKey): PublicKey {
   const helper =
     SDK.getPdaPersonalPositionAddress ||
@@ -89,25 +88,26 @@ function getPositionPdaFromMint(mint: PublicKey): PublicKey {
   return addr
 }
 
-/** best-effort owner scan if no --mints: find token accounts with amount==1 && decimals==0 */
+// Fallback owner scan: NFT-like (decimals==0 and amount>=1), robust to token-2022 id parsing
 async function discoverCandidateMintsByOwner(connection: Connection, owner: PublicKey): Promise<string[]> {
-  const tokenProgram = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-  const token2022   = new PublicKey('TokenzQdBNbLqP5dK3W3dH7hJZ8Fj5nV9vWwHES1s6Cw')
-  const programs    = [tokenProgram, token2022]
-  const mints: string[] = []
+  const programs: (PublicKey | null)[] = [
+    tryPk('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), // Token (legacy)
+    tryPk('TokenzQdBNbLqP5dK3W3dH7hJZ8Fj5nV9vWwHES1s6Cw'), // Token-2022 (skip if invalid here)
+  ].filter(Boolean) as PublicKey[]
 
+  const mints: string[] = []
   for (const program of programs) {
     try {
       const resp = await (connection as any).getParsedTokenAccountsByOwner(owner, { programId: program })
       const items = resp?.value || resp?.result?.value || []
       for (const it of items) {
         try {
-          const info = it.account?.data?.parsed?.info || it?.account?.data?.parsed?.info || it?.data?.parsed?.info
+          const info = it.account?.data?.parsed?.info || it?.data?.parsed?.info
           const tA   = info?.tokenAmount
           const amount = Number(tA?.amount ?? 0)
           const decimals = Number(tA?.decimals ?? 0)
           if (decimals === 0 && amount >= 1) {
-            const mint = info?.mint
+            const mint = String(info?.mint || '')
             if (mint && !mints.includes(mint)) mints.push(mint)
           }
         } catch {}
@@ -133,7 +133,7 @@ async function main() {
   const mintPks = mintStrings.map((m) => new PublicKey(m))
   const posPdas = mintPks.map(getPositionPdaFromMint)
 
-  // fetch & decode position infos
+  // fetch & decode positions
   const posInfos = await connection.getMultipleAccountsInfo(posPdas, { commitment: 'confirmed' })
   type PositionDecoded = { poolId: PublicKey; tickLower: number; tickUpper: number; liquidity: Decimal; positionMint: PublicKey }
   const decodedPositions: PositionDecoded[] = []
@@ -144,19 +144,16 @@ async function main() {
     const buf = Buffer.from(ai.data as Buffer)
     const dec: any = PositionInfoLayout.decode(buf)
 
-    // robust field picking across SDK variations
     const poolId = new PublicKey(dec.poolId ?? dec.pool_id ?? dec.poolKey ?? dec.pool ?? dec.poolAddress)
     const tickLower = Number(dec.tickLowerIndex ?? dec.tickLower ?? dec.lowerTick ?? dec.tickLowerIdx)
     const tickUpper = Number(dec.tickUpperIndex ?? dec.tickUpper ?? dec.upperTick ?? dec.tickUpperIdx)
 
-    // SAFE liquidity normalization: avoid "|| 0n" BigInt literal
     let liquidityRaw: any =
       dec.liquidity !== undefined ? dec.liquidity :
       dec.liq !== undefined ? dec.liq :
       dec.liquidityAmount !== undefined ? dec.liquidityAmount :
       (dec.L !== undefined ? dec.L : 0)
 
-    // normalize to Decimal via string
     const liqStr =
       typeof liquidityRaw === 'bigint' ? liquidityRaw.toString() :
       typeof liquidityRaw === 'number' ? String(liquidityRaw) :
@@ -191,8 +188,8 @@ async function main() {
     const sqrtPriceX64 = dec.sqrtPriceX64 ?? dec.sqrtPrice ?? dec.sqrt_price_x64 ?? dec.currentPrice
     const mintA = new PublicKey(dec.mintA?.mint ?? dec.mintA ?? dec.tokenMintA ?? dec.mint_a)
     const mintB = new PublicKey(dec.mintB?.mint ?? dec.mintB ?? dec.tokenMintB ?? dec.mint_b)
-
     const sqrtStr = typeof sqrtPriceX64 === 'bigint' ? sqrtPriceX64.toString() : String(sqrtPriceX64)
+
     poolById[pk.toBase58()] = { sqrtPriceQ64: BigInt(sqrtStr), mintA, mintB }
   }
 
@@ -223,7 +220,6 @@ async function main() {
     const sqrtCur = q64ToDecimal(pool.sqrtPriceQ64)
     const sqrtLower = sqrtPriceFromTick(pos.tickLower)
     const sqrtUpper = sqrtPriceFromTick(pos.tickUpper)
-
     const { amt0, amt1 } = amountsFromLiquidity(pos.liquidity, sqrtLower, sqrtCur, sqrtUpper)
 
     const mintA = pool.mintA.toBase58()
@@ -231,7 +227,6 @@ async function main() {
     const decA = mintInfos[mintA]?.decimals ?? 0
     const decB = mintInfos[mintB]?.decimals ?? 0
 
-    // amounts from math are already in "token units" (not raw smallest units), so just format
     const uiA = amt0
     const uiB = amt1
 
