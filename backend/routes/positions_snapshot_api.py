@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from backend.core.reporting_core.sonic_reporting.positions_snapshot_v1 import (
+from backend.core.reporting_core.sonic_reporting.positions_snapshot import (
     build_positions_snapshot,
 )
 
