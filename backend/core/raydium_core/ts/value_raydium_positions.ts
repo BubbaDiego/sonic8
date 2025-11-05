@@ -3,198 +3,256 @@ import 'dotenv/config'
 import { Connection, PublicKey } from '@solana/web3.js'
 import Decimal from 'decimal.js'
 
-// Load Raydium SDK (v2 preferred, fallback v1)
+/** Load Raydium SDK (v2 preferred, fallback v1) */
 let SDK: any = {}
 try { SDK = require('@raydium-io/raydium-sdk-v2') } catch {}
 if (!SDK || !Object.keys(SDK).length) { try { SDK = require('@raydium-io/raydium-sdk') } catch {} }
 if (!SDK || !Object.keys(SDK).length) {
-  console.error('❌ Could not load @raydium-io/raydium-sdk[-v2]. Install one of them in ./ts folder.')
+  console.error('❌ Could not load @raydium-io/raydium-sdk[-v2]. Install one of them in ./ts.')
   process.exit(2)
 }
 
+/** constants & layouts (names differ across SDK versions; try several) */
+const getDeep = (obj: any, path: string) =>
+  path.split('.').reduce((a, k) => (a && k in a ? a[k] : undefined), obj)
+
+const PositionInfoLayout =
+  SDK.PositionInfoLayout || SDK.ProtocolPositionLayout || SDK.PositionInfo || SDK.PositionLayout
+const PoolInfoLayout =
+  SDK.PoolInfoLayout || SDK.ClmmPoolInfoLayout || SDK.PoolLayout || SDK.PoolInfo
+
+const _clmmPid =
+  SDK.CLMM_PROGRAM_ID?.toBase58?.() ||
+  SDK.CLMM_PROGRAM_ID ||
+  getDeep(SDK, 'default.CLMM_PROGRAM_ID')?.toBase58?.() ||
+  getDeep(SDK, 'default.CLMM_PROGRAM_ID') ||
+  ''
+const CLMM_PROGRAM_ID = _clmmPid ? new PublicKey(String(_clmmPid)) : new PublicKey('CLMMm7ctS5Xw2qVTL4x1X2LFkW1zD6kH19V7S8hKQ2k') // fallback
+
+const fetchMultipleMintInfos =
+  SDK.fetchMultipleMintInfos ||
+  SDK.MintUtil?.fetchMultipleMintInfos ||
+  SDK.Token?.fetchMultipleMintInfos
+
+const Price = SDK.Price || SDK.price || {}
+const priceMultiple = (Price.fetchMultiple || Price.getMultiple || Price.getPrices)?.bind(Price)
+
+if (!PositionInfoLayout || !PoolInfoLayout) {
+  console.error('❌ SDK missing PositionInfoLayout / PoolInfoLayout. Keys:', Object.keys(SDK))
+  process.exit(2)
+}
+
+/** args */
 const RPC = process.env.RPC_URL || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
 const args = process.argv.slice(2)
-const arg = (f: string) => { const i = args.indexOf(f); return i >= 0 ? args[i+1] : undefined }
+const arg = (f: string) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : undefined }
 const ownerStr = arg('--owner')
 const mintsCsv = arg('--mints')
-const owner = ownerStr ? new PublicKey(ownerStr) : undefined
-const inputMints = (mintsCsv ? mintsCsv.split(',').map(s=>s.trim()).filter(Boolean) : []) as string[]
-const short = (s: string) => `${s.slice(0, 6)}…${s.slice(-6)}`
 
-// deep getter for dotted path
-const getDeep = (obj: any, path: string) => path.split('.').reduce((a,k)=> (a && k in a) ? a[k] : undefined, obj)
-const bindIfFn = (ctx: any, fn: any) => (typeof fn === 'function' ? fn.bind(ctx) : undefined)
+const owner = ownerStr ? new PublicKey(ownerStr) : undefined
+const inputMints = (mintsCsv ? mintsCsv.split(',').map(s => s.trim()).filter(Boolean) : []) as string[]
+
+/** utils */
+const short = (s: string) => `${s.slice(0, 6)}…${s.slice(-6)}`
+const TWO_64 = new Decimal(2).pow(64)
+const ONE_0001 = new Decimal('1.0001')
+
+const q64ToDecimal = (q: bigint | number | string) => new Decimal(q.toString()).div(TWO_64)
+const sqrtPriceFromTick = (tick: number) => ONE_0001.pow(tick).sqrt()
+
+function amountsFromLiquidity(L: Decimal, sqrtLower: Decimal, sqrtCur: Decimal, sqrtUpper: Decimal) {
+  if (sqrtCur.lte(sqrtLower)) {
+    const amt0 = L.mul(sqrtUpper.minus(sqrtLower)).div(sqrtLower.mul(sqrtUpper))
+    return { amt0, amt1: new Decimal(0) }
+  } else if (sqrtCur.gte(sqrtUpper)) {
+    const amt1 = L.mul(sqrtUpper.minus(sqrtLower))
+    return { amt0: new Decimal(0), amt1 }
+  } else {
+    const amt0 = L.mul(sqrtUpper.minus(sqrtCur)).div(sqrtCur.mul(sqrtUpper))
+    const amt1 = L.mul(sqrtCur.minus(sqrtLower))
+    return { amt0, amt1 }
+  }
+}
+
+/** derive position PDA from mint (SDK helper if present, else seeds ["position", mint]) */
+function getPositionPdaFromMint(mint: PublicKey): PublicKey {
+  const helper =
+    SDK.getPdaPersonalPositionAddress ||
+    SDK.getPdaPersonalPosition ||
+    SDK.PositionUtils?.getPdaPersonalPositionAddress
+  if (helper) {
+    const out = helper({ mint }) || helper(mint)
+    const key = out?.publicKey || out?.address || out
+    return key instanceof PublicKey ? key : new PublicKey(String(key))
+  }
+  const [addr] = PublicKey.findProgramAddressSync([Buffer.from('position'), mint.toBuffer()], CLMM_PROGRAM_ID)
+  return addr
+}
+
+/** best-effort owner scan if no --mints: find token accounts with amount==1 && decimals==0 */
+async function discoverCandidateMintsByOwner(connection: Connection, owner: PublicKey): Promise<string[]> {
+  const tokenProgram = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+  const token2022   = new PublicKey('TokenzQdBNbLqP5dK3W3dH7hJZ8Fj5nV9vWwHES1s6Cw')
+  const programs    = [tokenProgram, token2022]
+  const mints: string[] = []
+
+  for (const program of programs) {
+    try {
+      const resp = await (connection as any).getParsedTokenAccountsByOwner(owner, { programId: program })
+      const items = resp?.value || resp?.result?.value || []
+      for (const it of items) {
+        try {
+          const info = it.account?.data?.parsed?.info || it?.account?.data?.parsed?.info || it?.data?.parsed?.info
+          const tA   = info?.tokenAmount
+          const amount = Number(tA?.amount ?? 0)
+          const decimals = Number(tA?.decimals ?? 0)
+          if (decimals === 0 && amount >= 1) {
+            const mint = info?.mint
+            if (mint && !mints.includes(mint)) mints.push(mint)
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+  return mints
+}
 
 async function main() {
   const connection = new Connection(RPC, 'confirmed')
 
-  // Raydium client
-  const Raydium = SDK.Raydium || getDeep(SDK, 'default.Raydium') || SDK.raydium
-  if (!Raydium) { console.error('❌ Raydium class not found. Keys:', Object.keys(SDK)); process.exit(2) }
-  const ray = await (Raydium.load ? Raydium.load({ connection }) : Raydium({ connection }))
-  if (!ray) { console.error('❌ Raydium client failed to load.'); process.exit(2) }
-
-  // CLMM namespace OR factory
-  const ClmmExport = SDK.Clmm || SDK.CLMM || SDK.clmm || getDeep(SDK, 'default.Clmm') || getDeep(SDK, 'default.CLMM')
-  const isFactory = typeof ClmmExport === 'function'
-  let ClmmObj: any = ClmmExport
-
-  // If it's a function/factory, call it to get an instance that holds methods.
-  if (isFactory) {
-    // try common factory signatures
-    try {
-      ClmmObj = await ClmmExport({ connection })
-    } catch {
-      try { ClmmObj = await (ClmmExport.load ? ClmmExport.load({ connection }) : ClmmExport({ connection })) } catch {}
-    }
+  let mintStrings = inputMints.slice()
+  if (!mintStrings.length && owner) {
+    console.log('🔎 No --mints provided; scanning owner token accounts for NFT-like candidates…')
+    mintStrings = await discoverCandidateMintsByOwner(connection, owner)
   }
-
-  const rootKeys = Object.keys(SDK)
-  const clmmKeys = ClmmObj && typeof ClmmObj === 'object' ? Object.keys(ClmmObj) : []
-  console.log('🔧 SDK check →', JSON.stringify({ rootKeys, clmmType: typeof ClmmExport, clmmInstanceKeys: clmmKeys }, null, 2), '\n')
-
-  // Try to pick methods first from instance (preferred), then from static export as fallback
-  function pickFrom(target: any, names: string[]) {
-    for (const n of names) {
-      const v = target && (target[n] ?? getDeep(target, n))
-      if (typeof v === 'function') return v.bind(target)
-    }
-    return undefined
-  }
-
-  // Position-by-owner (optional)
-  const fetchPositionsByOwner =
-    pickFrom(ClmmObj, ['fetchPositionsByOwner','fetchPositionsByUser','getPositionsByOwner','getPositionsByUser']) ||
-    pickFrom(ClmmExport, ['fetchPositionsByOwner','fetchPositionsByUser','getPositionsByOwner','getPositionsByUser'])
-
-  // Position infos (required)
-  const fetchPositionInfos =
-    pickFrom(ClmmObj, ['fetchPositionInfos','fetchPositionsInfo','getPositionInfos','getPositionsInfo','getPositionsByMints','fetchPositionsByMints']) ||
-    pickFrom(ClmmExport, ['fetchPositionInfos','fetchPositionsInfo','getPositionInfos','getPositionsInfo','getPositionsByMints','fetchPositionsByMints'])
-
-  // Pools (required)
-  const fetchPools =
-    pickFrom(ClmmObj, ['fetchMultiplePoolInfos','fetchPools','getMultiplePoolInfos','getPools']) ||
-    pickFrom(ClmmExport, ['fetchMultiplePoolInfos','fetchPools','getMultiplePoolInfos','getPools'])
-
-  // Liquidity → amounts (required)
-  const amountsFromLiquidity =
-    pickFrom(ClmmObj, ['getAmountsFromLiquidity','liquidityToTokenAmounts','getTokenAmountsFromLiquidity']) ||
-    pickFrom(ClmmExport, ['getAmountsFromLiquidity','liquidityToTokenAmounts','getTokenAmountsFromLiquidity'])
-
-  // Mint infos & pricing
-  const fetchMultipleMintInfos =
-    SDK.fetchMultipleMintInfos || getDeep(SDK,'MintUtil.fetchMultipleMintInfos') || getDeep(SDK,'Token.fetchMultipleMintInfos') || getDeep(SDK,'default.fetchMultipleMintInfos')
-  const Price = SDK.Price || SDK.price || {}
-  const priceMultiple = bindIfFn(Price, Price.fetchMultiple || Price.getMultiple || Price.getPrices)
-
-  // Build list of position mints
-  let positionMints: PublicKey[] = []
-  if (inputMints.length) {
-    try { positionMints = inputMints.map((m)=> new PublicKey(m)) } catch (e) {
-      console.error('❌ Invalid mint in --mints:', e); process.exit(2)
-    }
-  } else if (owner && fetchPositionsByOwner) {
-    const briefs = await fetchPositionsByOwner({ connection, owner })
-    if (!briefs?.length) { console.log('   (no positions for owner)'); return }
-    positionMints = briefs.map((b:any)=> new PublicKey(b.positionNftMint ?? b.mint ?? b.nftMint))
-  } else {
-    console.error('❌ No --mints and this SDK lacks a positions-by-owner method.')
-    console.error('   clmmInstanceKeys:', clmmKeys)
+  if (!mintStrings.length) {
+    console.error('❌ No candidate mints. Pass --mints <M1[,M2,…]> or ensure owner has an NFT-like CLMM position token.')
     process.exit(2)
   }
 
-  if (!fetchPositionInfos) {
-    console.error('❌ SDK missing a "fetch position infos" function.')
-    console.error('   clmmInstanceKeys:', clmmKeys)
-    process.exit(2)
-  }
-  const posInfos = await fetchPositionInfos({ connection, positions: positionMints })
-  if (!posInfos?.length) { console.log('   (no position infos returned)'); return }
+  const mintPks = mintStrings.map((m) => new PublicKey(m))
+  const posPdas = mintPks.map(getPositionPdaFromMint)
 
-  if (!fetchPools) {
-    console.error('❌ SDK missing a "fetch pools" function.')
-    console.error('   clmmInstanceKeys:', clmmKeys)
-    process.exit(2)
-  }
-  const poolIds = Array.from(new Set(
-    posInfos.map((p:any)=> (p.poolId?.toBase58?.() ?? String(p.poolId))).filter(Boolean)
-  )).map((s)=> new PublicKey(s))
-  const pools = await fetchPools({ connection, poolIds })
+  // fetch & decode position infos
+  const posInfos = await connection.getMultipleAccountsInfo(posPdas, { commitment: 'confirmed' })
+  type PositionDecoded = { poolId: PublicKey; tickLower: number; tickUpper: number; liquidity: Decimal; positionMint: PublicKey }
+  const decodedPositions: PositionDecoded[] = []
 
+  for (let i = 0; i < posInfos.length; i++) {
+    const ai = posInfos[i]
+    if (!ai?.data) continue
+    const buf = Buffer.from(ai.data as Buffer)
+    const dec: any = PositionInfoLayout.decode(buf)
+
+    // robust field picking across SDK variations
+    const poolId = new PublicKey(dec.poolId ?? dec.pool_id ?? dec.poolKey ?? dec.pool ?? dec.poolAddress)
+    const tickLower = Number(dec.tickLowerIndex ?? dec.tickLower ?? dec.lowerTick ?? dec.tickLowerIdx)
+    const tickUpper = Number(dec.tickUpperIndex ?? dec.tickUpper ?? dec.upperTick ?? dec.tickUpperIdx)
+
+    // SAFE liquidity normalization: avoid "|| 0n" BigInt literal
+    let liquidityRaw: any =
+      dec.liquidity !== undefined ? dec.liquidity :
+      dec.liq !== undefined ? dec.liq :
+      dec.liquidityAmount !== undefined ? dec.liquidityAmount :
+      (dec.L !== undefined ? dec.L : 0)
+
+    // normalize to Decimal via string
+    const liqStr =
+      typeof liquidityRaw === 'bigint' ? liquidityRaw.toString() :
+      typeof liquidityRaw === 'number' ? String(liquidityRaw) :
+      (typeof liquidityRaw === 'string' ? liquidityRaw : '0')
+
+    decodedPositions.push({
+      poolId,
+      tickLower,
+      tickUpper,
+      liquidity: new Decimal(liqStr),
+      positionMint: mintPks[i],
+    })
+  }
+
+  if (!decodedPositions.length) {
+    console.log('   (no decodable CLMM positions among candidates)')
+    return
+  }
+
+  // fetch & decode pools
+  const uniquePoolIds = Array.from(new Set(decodedPositions.map(p => p.poolId.toBase58()))).map(s => new PublicKey(s))
+  const poolInfos = await connection.getMultipleAccountsInfo(uniquePoolIds, { commitment: 'confirmed' })
+
+  const poolById: Record<string, { sqrtPriceQ64: bigint; mintA: PublicKey; mintB: PublicKey }> = {}
+  for (let i = 0; i < uniquePoolIds.length; i++) {
+    const pk = uniquePoolIds[i]
+    const ai = poolInfos[i]
+    if (!ai?.data) continue
+    const buf = Buffer.from(ai.data as Buffer)
+    const dec: any = PoolInfoLayout.decode(buf)
+
+    const sqrtPriceX64 = dec.sqrtPriceX64 ?? dec.sqrtPrice ?? dec.sqrt_price_x64 ?? dec.currentPrice
+    const mintA = new PublicKey(dec.mintA?.mint ?? dec.mintA ?? dec.tokenMintA ?? dec.mint_a)
+    const mintB = new PublicKey(dec.mintB?.mint ?? dec.mintB ?? dec.tokenMintB ?? dec.mint_b)
+
+    const sqrtStr = typeof sqrtPriceX64 === 'bigint' ? sqrtPriceX64.toString() : String(sqrtPriceX64)
+    poolById[pk.toBase58()] = { sqrtPriceQ64: BigInt(sqrtStr), mintA, mintB }
+  }
+
+  // decimals
   if (!fetchMultipleMintInfos) {
-    console.error('❌ SDK missing fetchMultipleMintInfos; cannot compute UI amounts.')
+    console.error('❌ SDK missing fetchMultipleMintInfos; cannot compute UI amounts safely.')
     process.exit(2)
   }
   const mintSet = new Set<string>()
-  for (const p of pools) {
-    const a = p.mintA?.mint?.toBase58?.() ?? String(p.mintA?.mint ?? '')
-    const b = p.mintB?.mint?.toBase58?.() ?? String(p.mintB?.mint ?? '')
-    if (a) mintSet.add(a); if (b) mintSet.add(b)
-  }
-  const mintInfos = await fetchMultipleMintInfos({ connection, mints: Array.from(mintSet).map(m=>new PublicKey(m)) })
+  Object.values(poolById).forEach(p => { mintSet.add(p.mintA.toBase58()); mintSet.add(p.mintB.toBase58()) })
+  const mintInfos = await fetchMultipleMintInfos({ connection, mints: Array.from(mintSet).map(s => new PublicKey(s)) })
 
+  // prices (best-effort)
   let priceMap: Record<string, number> = {}
   if (priceMultiple) {
-    priceMap = (await priceMultiple({ tokenMints: Array.from(mintSet), connection, raydium: ray })) || {}
+    priceMap = (await priceMultiple({ tokenMints: Array.from(mintSet), connection })) || {}
   }
 
-  if (!amountsFromLiquidity) {
-    console.error('❌ SDK missing a liquidity→amounts function.')
-    console.error('   clmmInstanceKeys:', clmmKeys)
-    process.exit(2)
-  }
-
-  const poolById = new Map<string, any>()
-  for (const p of pools) {
-    const id = p.id?.toBase58?.() ?? String(p.id)
-    poolById.set(id, p)
-  }
-
-  let total = new Decimal(0)
-  console.log('\n💎 Raydium CL Positions\n')
+  // compute amounts & USD
+  let totalUsd = new Decimal(0)
+  console.log('\n💎 Raydium CL Positions (raw chain decode)\n')
   console.log('Pool'.padEnd(12), 'Position'.padEnd(14), 'TokenA'.padEnd(22), 'TokenB'.padEnd(22), 'USD')
 
-  for (const pos of posInfos) {
-    const poolId = pos.poolId?.toBase58?.() ?? String(pos.poolId)
-    const pool = poolById.get(poolId)
+  for (const pos of decodedPositions) {
+    const pool = poolById[pos.poolId.toBase58()]
     if (!pool) continue
 
-    const res = await amountsFromLiquidity({
-      poolInfo: pool,
-      tickLower: pos.tickLower ?? pos.lowerTick,
-      tickUpper: pos.tickUpper ?? pos.upperTick,
-      liquidity: pos.liquidity,
-    })
-    const amountA = res.amountA ?? res.tokenAmountA ?? res.a ?? 0
-    const amountB = res.amountB ?? res.tokenAmountB ?? res.b ?? 0
+    const sqrtCur = q64ToDecimal(pool.sqrtPriceQ64)
+    const sqrtLower = sqrtPriceFromTick(pos.tickLower)
+    const sqrtUpper = sqrtPriceFromTick(pos.tickUpper)
 
-    const mintA = pool.mintA?.mint?.toBase58?.() ?? String(pool.mintA?.mint)
-    const mintB = pool.mintB?.mint?.toBase58?.() ?? String(pool.mintB?.mint)
+    const { amt0, amt1 } = amountsFromLiquidity(pos.liquidity, sqrtLower, sqrtCur, sqrtUpper)
+
+    const mintA = pool.mintA.toBase58()
+    const mintB = pool.mintB.toBase58()
     const decA = mintInfos[mintA]?.decimals ?? 0
     const decB = mintInfos[mintB]?.decimals ?? 0
 
-    const uiA = new Decimal(String(amountA)).div(new Decimal(10).pow(decA))
-    const uiB = new Decimal(String(amountB)).div(new Decimal(10).pow(decB))
+    // amounts from math are already in "token units" (not raw smallest units), so just format
+    const uiA = amt0
+    const uiB = amt1
 
     const pA = new Decimal(priceMap[mintA] ?? 0)
     const pB = new Decimal(priceMap[mintB] ?? 0)
     const usd = uiA.mul(pA).add(uiB.mul(pB))
-    total = total.add(usd)
+    totalUsd = totalUsd.add(usd)
 
-    const symA = pool.mintA?.symbol ?? short(mintA)
-    const symB = pool.mintB?.symbol ?? short(mintB)
-    const posMint = pos.positionNftMint?.toBase58?.() ?? String(pos.positionNftMint)
+    const symA = SDK.Token?.SOLMint?.equals?.(pool.mintA) ? 'SOL' : (SDK.toToken?.(mintA)?.symbol ?? short(mintA))
+    const symB = SDK.Token?.SOLMint?.equals?.(pool.mintB) ? 'SOL' : (SDK.toToken?.(mintB)?.symbol ?? short(mintB))
+
     console.log(
-      short(poolId).padEnd(12),
-      short(posMint).padEnd(14),
+      short(pos.poolId.toBase58()).padEnd(12),
+      short(pos.positionMint.toBase58()).padEnd(14),
       `${uiA.toSignificantDigits(6).toString()} ${symA}`.padEnd(22),
       `${uiB.toSignificantDigits(6).toString()} ${symB}`.padEnd(22),
       `$${usd.toSignificantDigits(6).toString()}`
     )
   }
 
-  console.log('\nTotal ≈', `$${total.toSignificantDigits(8).toString()}`)
+  console.log('\nTotal ≈', `$${totalUsd.toSignificantDigits(8).toString()}`)
 }
 
-main().catch((e)=>{ console.error('Fatal:', e); process.exit(1) })
+main().catch(e => { console.error('Fatal:', e); process.exit(1) })
