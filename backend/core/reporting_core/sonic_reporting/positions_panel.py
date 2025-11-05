@@ -1,5 +1,5 @@
 # positions_panel.py — FULL REPLACEMENT
-# Borderless table; title matches Prices: "💰 Positions" + cyan rule sized to table width.
+# Borderless table; title matches Prices; asset icons; Size column; totals row.
 # Sequencer contract: render(dl, csum, default_json_path=None)
 
 from __future__ import annotations
@@ -130,6 +130,7 @@ def _find_key(d: Dict[str, Any], candidates: List[str]) -> Optional[str]:
 CANDIDATES = {
     "asset":  ["asset", "asset_type", "symbol", "token", "market", "pair", "name"],
     "side":   ["side", "position_type", "direction", "pos_side"],
+    "size":   ["size", "qty", "quantity", "contracts", "amount", "base_size", "position_size"],
     "value":  ["value", "usd_value", "value_usd", "notional_usd", "notional", "size_usd", "position_value"],
     "pnl_usd":["pnl_after_fees_usd", "pnl_usd", "unrealized_pnl", "u_pnl", "profit_usd"],
     "pnl_pct":["pnl_pct", "unrealized_pnl_pct", "roe", "return_pct", "pnl_percent"],
@@ -139,27 +140,29 @@ CANDIDATES = {
 }
 
 
+def _pick(d: Dict[str, Any], name: str) -> Any:
+    k = _find_key(d, CANDIDATES[name])
+    return d[k] if k is not None else None
+
+
 def _normalize_row_any(obj: Any) -> Dict[str, Any]:
     d = _to_dictish(obj)
 
-    def pick(name: str) -> Any:
-        k = _find_key(d, CANDIDATES[name])
-        return d[k] if k is not None else None
-
-    raw_side = str(pick("side") or "-").lower()
+    raw_side = str(_pick(d, "side") or "-").lower()
     if raw_side not in ("long", "short", "-"):
         if raw_side.startswith("l"): raw_side = "long"
         elif raw_side.startswith("s"): raw_side = "short"
 
     return {
-        "asset": str(pick("asset") or "-"),
+        "asset": str(_pick(d, "asset") or "-"),
         "side": raw_side,
-        "value": _to_float(pick("value")),
-        "pnl_usd": _to_float(pick("pnl_usd")),
-        "pnl_pct": _to_float(pick("pnl_pct")),
-        "lev": pick("lev") if pick("lev") is not None else "-",
-        "liq": pick("liq") if pick("liq") is not None else "-",
-        "travel": pick("travel"),
+        "size": _to_float(_pick(d, "size")),
+        "value": _to_float(_pick(d, "value")),
+        "pnl_usd": _to_float(_pick(d, "pnl_usd")),
+        "pnl_pct": _to_float(_pick(d, "pnl_pct")),
+        "lev": _pick(d, "lev") if _pick(d, "lev") is not None else "-",
+        "liq": _pick(d, "liq") if _pick(d, "liq") is not None else "-",
+        "travel": _pick(d, "travel"),
     }
 
 
@@ -189,7 +192,6 @@ def _read_positions(dl: Any) -> Tuple[List[Any], str]:
     if dl is None:
         return [], "dl=None"
 
-    # 1) convenience
     rp = getattr(dl, "read_positions", None)
     if callable(rp):
         try:
@@ -199,7 +201,6 @@ def _read_positions(dl: Any) -> Tuple[List[Any], str]:
         except Exception:
             pass
 
-    # 2) manager
     mgr = getattr(dl, "positions", None)
     gap = getattr(mgr, "get_all_positions", None) if mgr is not None else None
     if callable(gap):
@@ -210,7 +211,6 @@ def _read_positions(dl: Any) -> Tuple[List[Any], str]:
         except Exception:
             pass
 
-    # 3) DB fallback
     try:
         db = getattr(dl, "db", None)
         if db and hasattr(db, "get_cursor"):
@@ -239,44 +239,98 @@ def _read_positions(dl: Any) -> Tuple[List[Any], str]:
 def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
     """
     Sequencer entrypoint — identical signature to price_panel.
-    Renders a borderless table that matches Prices, including a cyan rule
-    under the title sized to the table width.
+    Renders a borderless table that matches Prices, with a cyan rule sized to table width.
+    Adds 'Size' column and a totals row (value/pnl sums; liq/travel size-weighted averages).
     """
     console = Console()
 
-    # Build the table first so we can measure width for a matching cyan rule.
+    # Read rows first
     rows_raw, source = _read_positions(dl)
 
+    # Build table (borderless like Prices)
     table = Table(
         show_header=True,
         header_style="bold",
         show_lines=False,
-        box=None,      # borderless like Prices
+        box=None,
         pad_edge=False,
     )
-    for col, j in (("Asset","left"), ("Side","left"), ("Value","right"),
-                   ("PnL","right"), ("Lev","right"), ("Liq","right"), ("Travel","right")):
-        table.add_column(col, justify=j, no_wrap=True)
+    # Columns: Asset, Side, Size, Value, PnL, Lev, Liq, Travel
+    table.add_column("Asset", justify="left", no_wrap=True)
+    table.add_column("Side", justify="left", no_wrap=True)
+    table.add_column("Size", justify="right", no_wrap=True)
+    table.add_column("Value", justify="right", no_wrap=True)
+    table.add_column("PnL", justify="right", no_wrap=True)
+    table.add_column("Lev", justify="right", no_wrap=True)
+    table.add_column("Liq", justify="right", no_wrap=True)
+    table.add_column("Travel", justify="right", no_wrap=True)
+
+    # Totals accumulators
+    total_size = 0.0
+    total_value = 0.0
+    total_pnl = 0.0
+    w_sum = 0.0
+    w_liq = 0.0
+    w_travel = 0.0
 
     if not rows_raw:
-        table.add_row("-", "-", "-", "-", "-", "-", "-")
+        table.add_row("-", "-", "-", "-", "-", "-", "-", "-")
     else:
         for obj in rows_raw:
             n = _normalize_row_any(obj)
+
+            size = _to_float(n.get("size"))
+            value = _to_float(n.get("value"))
+            pnl = _to_float(n.get("pnl_usd"))
+            liq = _to_float(n.get("liq"))
+            travel = _to_float(n.get("travel"))  # percent value like -5.23
+
+            # choose weight: prefer absolute size, else abs(value)
+            weight = abs(size) if (size is not None) else (abs(value) if value is not None else None)
+
+            # accumulate totals
+            if size is not None:
+                total_size += size
+            if value is not None:
+                total_value += value
+            if pnl is not None:
+                total_pnl += pnl
+            if weight is not None:
+                w_sum += weight
+                if liq is not None:
+                    w_liq += liq * weight
+                if travel is not None:
+                    w_travel += travel * weight
+
             side_style = "green" if n["side"] == "long" else ("red" if n["side"] == "short" else "")
             table.add_row(
                 _asset_cell(n["asset"]),
                 Text(n["side"].capitalize() if n["side"] != "-" else "-", style=side_style),
-                _abbr_usd(n["value"]),
-                _fmt_pnl(n["pnl_usd"], n["pnl_pct"]),
+                f"{size:.4f}" if size is not None else "-",  # print more precision for sizes
+                _abbr_usd(value),
+                _fmt_pnl(pnl, n.get("pnl_pct")),
                 str(n["lev"]) if n["lev"] is not None else "-",
-                str(n["liq"]) if n["liq"] is not None else "-",
-                _percent_text(n["travel"]) if n["travel"] is not None else "-",
+                f"{liq:.2f}" if liq is not None else "-",
+                _percent_text(travel) if travel is not None else "-",
             )
 
-    # --- Title (exactly sized rule) ---
+        # --- Totals row ---
+        liq_avg = (w_liq / w_sum) if w_sum > 0 else None
+        travel_avg = (w_travel / w_sum) if w_sum > 0 else None
+
+        table.add_row(
+            Text(""),  # Asset blank
+            Text(""),  # Side blank
+            f"{total_size:.4f}" if total_size else "-",       # Size sum
+            _abbr_usd(total_value) if total_value else "-",    # Value sum
+            _fmt_pnl(total_pnl, None) if total_pnl else Text("-"),  # PnL sum
+            "-",                                               # Lev blank (not requested)
+            f"{liq_avg:.2f}" if liq_avg is not None else "-",  # Liq weighted avg
+            _percent_text(travel_avg) if travel_avg is not None else "-",  # Travel weighted avg
+        )
+
+    # --- Title & rule (exact width match to table) ---
     console.print(Text.assemble(Text("💰 "), Text("Positions", style="bold cyan")))
-    # Measure table width to draw a cyan rule of the same width
     meas: Measurement = Measurement.get(console, console.options, table)
     rule = Text("─" * max(0, int(meas.maximum)), style="cyan")
     console.print(rule)
