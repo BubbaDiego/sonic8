@@ -78,6 +78,13 @@ def render_startup_banner(dl, default_json_path: Optional[str] = None, **_: Any)
     _call_banner("banner_panel", dl=dl, default_json_path=default_json_path)
 
 def render_cycle(dl, csum: Dict[str, Any] | None, *, default_json_path: Optional[str] = None, **_: Any) -> None:
+    # Ensure DL managers exist for reporting (positions fallback if needed)
+    try:
+        from backend.data.bootstrap_managers import ensure_default_managers
+        ensure_default_managers(dl)
+    except Exception as e:
+        print(f"[DL] bootstrap skipped: {type(e).__name__}: {e}")
+
     csum = csum or {}
     if ENABLE_SYNC:      _call_panel("sync_panel",      dl=dl, csum=csum, default_json_path=default_json_path)
     if ENABLE_PRICE:     _call_panel("price_panel",     dl=dl, csum=csum, default_json_path=default_json_path)
