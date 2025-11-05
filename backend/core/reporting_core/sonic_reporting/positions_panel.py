@@ -1,17 +1,45 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import Any, Mapping, List, Dict, Tuple, Optional
+"""
+positions_panel — DL-sourced positions table (consolidated)
 
-def _as_dict(row: Any) -> Mapping[str, Any]:
-    if isinstance(row, Mapping):
-        return row
-    return getattr(row, "__dict__", {}) or {}
+Design goals:
+- Pull active positions directly from the DataLocker manager (primary).
+- Fall back to last-known rows in SQLite if the manager is empty.
+- Normalize rows using the same shape expected by the snapshot printer
+  so headers/columns/alignments are IDENTICAL to the snapshot table.
+- Print a source breadcrumb, then return to caller.
+"""
 
-def _get(row: Mapping[str, Any], *names: str) -> Any:
+from typing import Any, Mapping, Optional, Dict, List, Tuple
+from pathlib import Path
+import sqlite3
+
+# ---- DL import (lazy-safe)
+try:
+    from backend.data.data_locker import DataLocker  # type: ignore
+except Exception:  # pragma: no cover
+    DataLocker = None  # type: ignore
+
+# ---- Reuse the snapshot formatter to guarantee identical layout
+try:
+    # Private helpers are fine inside the same package namespace.
+    from backend.core.reporting_core.sonic_reporting.positions_snapshot import _print_positions_table as _print_table  # type: ignore
+except Exception:  # pragma: no cover
+    _print_table = None  # type: ignore
+
+
+# ---------- tiny utils ----------
+def _as_dict(obj: Any) -> Mapping[str, Any]:
+    if isinstance(obj, Mapping):
+        return obj
+    return getattr(obj, "__dict__", {}) or {}
+
+def _get_any(row: Mapping[str, Any], *names: str) -> Any:
     for n in names:
         if n in row:
             return row.get(n)
-    # nested common spots
+    # nested common containers
     for nest in ("risk", "meta", "stats"):
         d = row.get(nest)
         if isinstance(d, Mapping):
@@ -20,165 +48,158 @@ def _get(row: Mapping[str, Any], *names: str) -> Any:
                     return d.get(n)
     return None
 
-def _is_num(x: Any) -> bool:
+def _as_float(x: Any) -> Optional[float]:
     try:
-        float(x)
-        return True
+        return float(x)
     except Exception:
-        return False
+        return None
 
-def _fmt_money(x: Optional[float]) -> str:
-    if x is None:
-        return "—"
-    sgn = "-" if x < 0 else ""
-    v = abs(float(x))
-    if v >= 1_000_000:
-        return f"{sgn}${v/1_000_000:.1f}m"
-    if v >= 1_000:
-        return f"{sgn}${v/1_000:.1f}k"
-    return f"{sgn}${v:.2f}"
-
-def _fmt_x(x: Optional[float]) -> str:
-    if x is None:
-        return "—"
-    return f"{float(x):.2f}×"
-
-def _fmt_pct(x: Optional[float]) -> str:
-    if x is None:
-        return "—"
-    return f"{float(x):.2f}%"
-
-def _sym(row: Mapping[str, Any]) -> Optional[str]:
-    v = _get(row, "asset", "symbol", "coin", "ticker")
-    if isinstance(v, str) and v:
-        return v.upper()
-    return None
-
-def _side(row: Mapping[str, Any]) -> str:
-    v = str(_get(row, "side", "position", "dir", "direction") or "").lower()
-    if v.startswith("l"):
-        return "LONG"
-    if v.startswith("s"):
-        return "SHORT"
-    return "-"
-
-def _value(row: Mapping[str, Any]) -> Optional[float]:
-    for k in ("value_usd", "value", "notional", "size_usd"):
-        v = _get(row, k)
-        if _is_num(v):
-            return float(v)
-    return None
-
-def _pnl(row: Mapping[str, Any]) -> Optional[float]:
-    for k in ("pnl_usd", "pnl", "profit_usd", "profit"):
-        v = _get(row, k)
-        if _is_num(v):
-            return float(v)
-    return None
-
-def _lev(row: Mapping[str, Any]) -> Optional[float]:
-    for k in ("lev", "leverage"):
-        v = _get(row, k)
-        if _is_num(v):
-            return float(v)
-    return None
-
-def _liq(row: Mapping[str, Any]) -> Optional[float]:
-    for k in ("liq", "liq_dist", "liquidation", "liquidation_distance", "liq_pct"):
-        v = _get(row, k)
-        if _is_num(v):
-            return float(v)
-    return None
-
-def _travel(row: Mapping[str, Any]) -> Optional[float]:
-    for k in ("travel", "travel_pct"):
-        v = _get(row, k)
-        if _is_num(v):
-            return float(v)
-    return None
-
-def _collect_positions(dl, csum) -> Tuple[List[Mapping[str, Any]], str, List[str]]:
+# ---------- normalization ----------
+def _normalize_row(p: Any) -> Dict[str, Any]:
     """
-    Try multiple sources; return (rows, source_tag, attempts).
+    Produce the dict shape that _print_positions_table expects:
+      {asset, side, value, pnl, lev, liq, travel}
+    We accept a wider set of field aliases than the snapshot to
+    fix missing Asset/Side seen in some DL providers.
     """
-    attempts: List[str] = []
+    row = _as_dict(p)
 
-    # 1) Summary injection
-    for key in ("positions", "pos_rows", "positions_table"):
-        v = csum.get(key)
-        if isinstance(v, list) and v:
-            return ([ _as_dict(r) for r in v ], f"csum.{key}", attempts)
+    # Asset: include asset_type/base/name fallbacks
+    asset = _get_any(row, "asset", "symbol", "ticker", "coin", "name", "asset_type", "base_asset")
+    if isinstance(asset, str):
+        asset = asset.upper()
+    elif asset is None:
+        asset = "---"
 
-    # 2) Common dl.* paths
-    for root in ("positions", "cache", "portfolio"):
-        robj = getattr(dl, root, None)
-        if robj is None:
-            attempts.append(f"dl.{root}: None")
-            continue
+    # Side: many providers vary; map truthy/booleans too
+    side = _get_any(row, "side", "position", "dir", "direction", "position_side", "long_short")
+    if side is None:
+        # boolean-style flags
+        is_long = _get_any(row, "is_long", "long")  # True/False
+        if isinstance(is_long, bool):
+            side = "LONG" if is_long else "SHORT"
+    side = (str(side or "LONG")).upper()
+    if side not in ("LONG", "SHORT"):
+        side = "LONG"
 
-        # direct list
-        if isinstance(robj, list) and robj:
-            return ([ _as_dict(r) for r in robj ], f"dl.{root}", attempts)
+    # Value/Size/PnL/Lev/Liq/Travel set liberal aliases
+    value = _as_float(_get_any(row, "value", "value_usd", "size_usd", "notional", "notional_usd"))
+    pnl   = _as_float(_get_any(row, "pnl", "pnl_usd", "pnl_after_fees_usd", "unrealized_pnl", "profit", "pl"))
+    lev   = _as_float(_get_any(row, "lev", "leverage", "x"))
+    liq   = _as_float(_get_any(row, "liq", "liq_pct", "liquidation", "liquidation_distance", "liquidation_distance_pct", "liq_dist"))
+    travel = _as_float(_get_any(row, "travel", "travel_pct", "move_pct", "move", "change_pct", "delta_pct"))
 
-        # attributes likely to hold lists
-        for attr in ("active", "active_positions", "positions", "last_positions", "snapshot"):
-            got = getattr(robj, attr, None)
-            if isinstance(got, list) and got:
-                return ([ _as_dict(r) for r in got ], f"dl.{root}.{attr}", attempts)
-            # callable getter
-            meth = getattr(robj, attr, None)
-            if callable(meth):
-                try:
-                    v = meth()
-                    if isinstance(v, list) and v:
-                        return ([ _as_dict(r) for r in v ], f"dl.{root}.{attr}()", attempts)
-                except Exception:
-                    pass
-            attempts.append(f"dl.{root}.{attr}: empty")
+    # Compute travel if missing and we have entry/mark
+    if travel is None:
+        entry = _as_float(_get_any(row, "entry", "entry_price"))
+        mark  = _as_float(_get_any(row, "mark", "mark_price", "price"))
+        liq_price = _as_float(_get_any(row, "liq_price", "liquidation_price"))
+        if entry and mark:
+            if side == "SHORT":
+                travel = (entry - mark) / entry * 100.0
+                if liq_price is not None and mark >= liq_price:
+                    travel = -100.0
+            else:
+                travel = (mark - entry) / entry * 100.0
+                if liq_price is not None and mark <= liq_price:
+                    travel = -100.0
 
-    # 3) Nothing
-    return ([], "none", attempts)
+    return {
+        "asset": asset or "---",
+        "side": side,
+        "value": value,
+        "pnl": pnl,
+        "lev": lev,
+        "liq": liq,
+        "travel": travel,
+    }
 
-def _emoji(asset: str) -> str:
-    a = (asset or "").upper()
-    return {"BTC": "🟡", "ETH": "🔷", "SOL": "🟣"}.get(a, "•")
+# ---------- data sources ----------
+def _dl() -> Any:
+    if DataLocker is None:
+        raise RuntimeError("DataLocker module not available")
+    try:
+        inst = DataLocker.get_instance()
+        if inst:
+            return inst
+    except Exception:
+        pass
+    # last resort – construct with default env
+    return DataLocker()
 
-def render(dl, csum, default_json_path=None):
-    write_line = print
+def _active_positions_via_manager(dl: Any) -> Tuple[List[Mapping[str, Any]], str]:
+    try:
+        mgr = dl.get_manager("positions")  # standard DL manager
+        if not mgr:
+            return [], "dl:manager:none"
+        rows = mgr.active()  # expected to return sequence of objects/rows
+        rows = [ _as_dict(r) for r in rows ] if rows else []
+        return rows, "dl:manager.active"
+    except Exception:
+        return [], "dl:error"
 
-    rows, src, attempts = _collect_positions(dl, csum)
+def _last_known_from_db(dl: Any) -> Tuple[List[Mapping[str, Any]], str]:
+    conn = None
+    try:
+        conn = dl.get_db() if hasattr(dl, "get_db") else None
+        if not conn:
+            return [], "db:none"
+        cur = conn.cursor()
+        # Try schema-agnostic: prefer created_at if column exists
+        cur.execute("PRAGMA table_info(positions)")
+        cols = [c[1] for c in cur.fetchall()]
+        has_created = "created_at" in cols
+        if has_created:
+            cur.execute("""
+                SELECT *
+                FROM positions
+                WHERE status IN ('active','OPEN','open') OR status IS NULL
+                ORDER BY created_at DESC
+                LIMIT 200
+            """)
+        else:
+            cur.execute("""
+                SELECT *
+                FROM positions
+                WHERE status IN ('active','OPEN','open') OR status IS NULL
+                ORDER BY rowid DESC
+                LIMIT 200
+            """)
+        colnames = [d[0] for d in cur.description]
+        rows = [dict(zip(colnames, r)) for r in cur.fetchall()]
+        return rows, "db:fallback"
+    except Exception:
+        return [], "db:error"
+    finally:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
 
-    write_line("  ---------------------- 📈  Positions  ----------------------")
-    write_line(" Asset   Side        Value        PnL     Lev      Liq   Travel")
+# ---------- public entry ----------
+def print_positions_panel() -> None:
+    dl = _dl()
 
-    if not rows:
-        write_line(" -      -             -           -       -        -        -")
-        write_line("                       $0.00     $0.00       -                 -")
-        write_line("")
-        write_line(f"[POSITIONS] source: {src}")
-        if attempts:
-            write_line("[POSITIONS] attempts: " + "; ".join(attempts[:6]))
-        write_line("")
-        return True
+    # 1) Try DL manager (authoritative)
+    rows_raw, src = _active_positions_via_manager(dl)
+    # 2) Fallback to DB snapshot if empty
+    if not rows_raw:
+        rows_raw, src = _last_known_from_db(dl)
 
-    tot_value = 0.0
-    tot_pnl = 0.0
-    for r in rows:
-        a = _sym(r) or "-"
-        s = _side(r)
-        v = _value(r); p = _pnl(r); l = _lev(r); q = _liq(r); t = _travel(r)
-        if v is not None: tot_value += v
-        if p is not None: tot_pnl += p
+    # Normalize for the snapshot printer to guarantee identical layout
+    rows_norm = [_normalize_row(p) for p in rows_raw]
 
-        write_line(
-            f" {_emoji(a)} {a:<4}  {s:<6}  "
-            f"{_fmt_money(v):>10}  {_fmt_money(p):>8}  "
-            f"{_fmt_x(l):>6}  {('%.2f' % q) if q is not None else '—':>6}  "
-            f"{_fmt_pct(t):>7}"
-        )
+    # Print table (header, rows, totals) using the shared formatter
+    if _print_table is None:
+        # defensive fallback: minimal display
+        print("Positions")
+        for r in rows_norm:
+            print(r)
+    else:
+        _print_table(rows_norm)
 
-    write_line(f"                       {_fmt_money(tot_value):>10}  {_fmt_money(tot_pnl):>8}       -                 -")
-    write_line("")
-    write_line(f"[POSITIONS] source: {src}")
-    write_line("")
-    return True
+    print(f"\n[POSITIONS] {src} ({len(rows_norm)} rows)")
+
+if __name__ == "__main__":
+    print_positions_panel()
