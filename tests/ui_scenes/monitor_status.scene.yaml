@@ -1,0 +1,6 @@
+id: monitor_status
+title: "Monitor Status — Fixture Preview"
+renderer: demo.text
+offline_ok: true
+requires_api: false
+fixture: tests/fixtures/SCHEMA-API_POSITIONS_LIST.sample.json
