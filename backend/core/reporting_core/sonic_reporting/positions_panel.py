@@ -1,35 +1,33 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 """
-positions_panel — DL-sourced positions table (consolidated)
+positions_panel — DL-sourced positions table (adaptive)
 
-Design goals:
-- Pull active positions directly from the DataLocker manager (primary).
-- Fall back to last-known rows in SQLite if the manager is empty.
-- Normalize rows using the same shape expected by the snapshot printer
-  so headers/columns/alignments are IDENTICAL to the snapshot table.
-- Print a source breadcrumb, then return to caller.
+Goals:
+- Use whatever DataLocker surface is present (get_manager / manager / managers[...] / get / registry).
+- Fallback to DB if possible (get_db / db / db() / connect_db) otherwise skip gracefully.
+- Normalize rows so Asset/Side are populated even when providers rename fields.
+- Keep the sequencer contract: render(dl, csum, default_json_path).
 """
 
-from typing import Any, Mapping, Optional, Dict, List, Tuple
-from pathlib import Path
+from typing import Any, Mapping, Optional, Dict, List, Tuple, Callable
 import sqlite3
+import inspect
 
-# ---- DL import (lazy-safe)
+# ---- Optional imports (don’t crash if unavailable)
 try:
     from backend.data.data_locker import DataLocker  # type: ignore
-except Exception:  # pragma: no cover
+except Exception:
     DataLocker = None  # type: ignore
 
-# ---- Reuse the snapshot formatter to guarantee identical layout
+# Reuse the snapshot table printer if it exists (for aligned columns/totals)
 try:
-    # Private helpers are fine inside the same package namespace.
     from backend.core.reporting_core.sonic_reporting.positions_snapshot import _print_positions_table as _print_table  # type: ignore
-except Exception:  # pragma: no cover
+except Exception:
     _print_table = None  # type: ignore
 
 
-# ---------- tiny utils ----------
+# ---------- utils ----------
 def _as_dict(obj: Any) -> Mapping[str, Any]:
     if isinstance(obj, Mapping):
         return obj
@@ -39,7 +37,6 @@ def _get_any(row: Mapping[str, Any], *names: str) -> Any:
     for n in names:
         if n in row:
             return row.get(n)
-    # nested common containers
     for nest in ("risk", "meta", "stats"):
         d = row.get(nest)
         if isinstance(d, Mapping):
@@ -54,35 +51,32 @@ def _as_float(x: Any) -> Optional[float]:
     except Exception:
         return None
 
+
 # ---------- normalization ----------
 def _normalize_row(p: Any) -> Dict[str, Any]:
     """
-    Produce the dict shape that _print_positions_table expects:
+    Shape expected by the snapshot printer:
       {asset, side, value, pnl, lev, liq, travel}
-    We accept a wider set of field aliases than the snapshot to
-    fix missing Asset/Side seen in some DL providers.
     """
     row = _as_dict(p)
 
-    # Asset: include asset_type/base/name fallbacks
+    # Asset variants
     asset = _get_any(row, "asset", "symbol", "ticker", "coin", "name", "asset_type", "base_asset")
     if isinstance(asset, str):
         asset = asset.upper()
     elif asset is None:
         asset = "---"
 
-    # Side: many providers vary; map truthy/booleans too
+    # Side variants (also accept boolean flags)
     side = _get_any(row, "side", "position", "dir", "direction", "position_side", "long_short")
     if side is None:
-        # boolean-style flags
-        is_long = _get_any(row, "is_long", "long")  # True/False
+        is_long = _get_any(row, "is_long", "long")
         if isinstance(is_long, bool):
             side = "LONG" if is_long else "SHORT"
     side = (str(side or "LONG")).upper()
     if side not in ("LONG", "SHORT"):
         side = "LONG"
 
-    # Value/Size/PnL/Lev/Liq/Travel set liberal aliases
     value = _as_float(_get_any(row, "value", "value_usd", "size_usd", "notional", "notional_usd"))
     pnl   = _as_float(_get_any(row, "pnl", "pnl_usd", "pnl_after_fees_usd", "unrealized_pnl", "profit", "pl"))
     lev   = _as_float(_get_any(row, "lev", "leverage", "x"))
@@ -114,107 +108,209 @@ def _normalize_row(p: Any) -> Dict[str, Any]:
         "travel": travel,
     }
 
-# ---------- data sources ----------
-def _dl() -> Any:
+
+# ---------- DataLocker adapters ----------
+def _dl_instance(passed_dl: Any = None) -> Any:
+    if passed_dl:
+        return passed_dl
     if DataLocker is None:
         raise RuntimeError("DataLocker module not available")
     try:
-        inst = DataLocker.get_instance()
-        if inst:
-            return inst
+        get_inst: Optional[Callable[[], Any]] = getattr(DataLocker, "get_instance", None)
+        if callable(get_inst):
+            inst = get_inst()
+            if inst:
+                return inst
     except Exception:
         pass
-    # last resort – construct with default env
-    return DataLocker()
+    return DataLocker()  # last resort
 
-def _active_positions_via_manager(dl: Any) -> Tuple[List[Mapping[str, Any]], str]:
-    try:
-        mgr = dl.get_manager("positions")  # standard DL manager
-        if not mgr:
-            return [], "dl:manager:none"
-        rows = mgr.active()  # expected to return sequence of objects/rows
-        rows = [ _as_dict(r) for r in rows ] if rows else []
-        return rows, "dl:manager.active"
-    except Exception:
-        return [], "dl:error"
+def _resolve_manager(dl: Any, name: str) -> Tuple[Any, str]:
+    """
+    Find a manager-like object for 'positions' across multiple DL shapes.
+    Returns (manager_or_None, src_tag).
+    """
+    # get_manager("name")
+    fn = getattr(dl, "get_manager", None)
+    if callable(fn):
+        try:
+            m = fn(name)
+            if m:
+                return m, "dl:get_manager"
+        except Exception:
+            pass
 
-def _last_known_from_db(dl: Any) -> Tuple[List[Mapping[str, Any]], str]:
-    conn = None
+    # manager("name")
+    fn = getattr(dl, "manager", None)
+    if callable(fn):
+        try:
+            m = fn(name)
+            if m:
+                return m, "dl:manager()"
+        except Exception:
+            pass
+
+    # managers[...] dict-like
+    mgrs = getattr(dl, "managers", None)
+    if isinstance(mgrs, dict) and name in mgrs:
+        return mgrs[name], "dl:managers[]"
+
+    # get("name") registry
+    fn = getattr(dl, "get", None)
+    if callable(fn):
+        try:
+            m = fn(name)
+            if m:
+                return m, "dl:get()"
+        except Exception:
+            pass
+
+    # registry[...] dict-like
+    reg = getattr(dl, "registry", None)
+    if isinstance(reg, dict) and name in reg:
+        return reg[name], "dl:registry[]"
+
+    return None, "dl:manager:none"
+
+def _manager_rows(mgr: Any) -> Tuple[List[Mapping[str, Any]], str]:
+    """
+    Extract active rows from a manager-like object across method variants.
+    """
+    if mgr is None:
+        return [], "mgr:none"
+
+    # active()
+    fn = getattr(mgr, "active", None)
+    if callable(fn):
+        try:
+            rows = fn()
+            return [_as_dict(r) for r in (rows or [])], "mgr:active()"
+        except Exception:
+            pass
+
+    # list_active()
+    fn = getattr(mgr, "list_active", None)
+    if callable(fn):
+        try:
+            rows = fn()
+            return [_as_dict(r) for r in (rows or [])], "mgr:list_active()"
+        except Exception:
+            pass
+
+    # list()
+    fn = getattr(mgr, "list", None)
+    if callable(fn):
+        try:
+            rows = fn()
+            return [_as_dict(r) for r in (rows or [])], "mgr:list()"
+        except Exception:
+            pass
+
+    # all()
+    fn = getattr(mgr, "all", None)
+    if callable(fn):
+        try:
+            rows = fn()
+            return [_as_dict(r) for r in (rows or [])], "mgr:all()"
+        except Exception:
+            pass
+
+    # rows attribute
+    rows = getattr(mgr, "rows", None)
+    if isinstance(rows, (list, tuple)):
+        return [_as_dict(r) for r in rows], "mgr:.rows"
+
+    return [], "mgr:none"
+
+def _db_conn(dl: Any) -> Optional[sqlite3.Connection]:
+    """
+    Try to obtain a sqlite3.Connection from various DL shapes.
+    """
+    for name in ("get_db", "db", "connect_db"):
+        fn = getattr(dl, name, None)
+        if callable(fn):
+            try:
+                conn = fn()
+                if isinstance(conn, sqlite3.Connection):
+                    return conn
+            except Exception:
+                continue
+    # plain attribute
+    db_attr = getattr(dl, "db", None)
+    if isinstance(db_attr, sqlite3.Connection):
+        return db_attr
+    return None
+
+def _rows_from_db(dl: Any) -> Tuple[List[Mapping[str, Any]], str]:
+    conn = _db_conn(dl)
+    if not conn:
+        return [], "db:none"
     try:
-        conn = dl.get_db() if hasattr(dl, "get_db") else None
-        if not conn:
-            return [], "db:none"
         cur = conn.cursor()
-        # Try schema-agnostic: prefer created_at if column exists
         cur.execute("PRAGMA table_info(positions)")
         cols = [c[1] for c in cur.fetchall()]
         has_created = "created_at" in cols
-        if has_created:
-            cur.execute("""
-                SELECT *
-                FROM positions
-                WHERE status IN ('active','OPEN','open') OR status IS NULL
-                ORDER BY created_at DESC
-                LIMIT 200
-            """)
-        else:
-            cur.execute("""
-                SELECT *
-                FROM positions
-                WHERE status IN ('active','OPEN','open') OR status IS NULL
-                ORDER BY rowid DESC
-                LIMIT 200
-            """)
-        colnames = [d[0] for d in cur.description]
-        rows = [dict(zip(colnames, r)) for r in cur.fetchall()]
-        return rows, "db:fallback"
+        sql = """
+            SELECT * FROM positions
+            WHERE status IN ('active','OPEN','open') OR status IS NULL
+            ORDER BY {ord} DESC
+            LIMIT 200
+        """.format(ord="created_at" if has_created else "rowid")
+        cur.execute(sql)
+        names = [d[0] for d in cur.description]
+        return [dict(zip(names, r)) for r in cur.fetchall()], "db:fallback"
     except Exception:
         return [], "db:error"
     finally:
         try:
-            if conn:
-                conn.close()
+            conn.close()
         except Exception:
             pass
 
+
 # ---------- public entry ----------
-def print_positions_panel(dl: Optional[Any] = None) -> None:
-    # Use the DL instance the sequencer gives us, or open our own.
-    dl = dl or _dl()
+def _render_core(dl: Any) -> None:
+    # 1) Try to resolve a positions manager using multiple strategies
+    mgr, src_a = _resolve_manager(dl, "positions")
+    rows_raw, src_b = _manager_rows(mgr)
 
-    # 1) Try DL manager (authoritative)
-    rows_raw, src = _active_positions_via_manager(dl)
-    # 2) Fallback to DB snapshot if empty
+    # 2) If empty, try DB fallback through whatever DB handle DL offers
     if not rows_raw:
-        rows_raw, src = _last_known_from_db(dl)
+        rows_raw, src_b = _rows_from_db(dl)
 
-    # Normalize for the snapshot printer to guarantee identical layout
-    rows_norm = [_normalize_row(p) for p in rows_raw]
-
-    # Print table (header, rows, totals) using the shared formatter
-    if _print_table is None:
-        # defensive fallback: minimal display
-        print("Positions")
-        for r in rows_norm:
-            print(r)
+    # Normalize + print
+    rows = [_normalize_row(p) for p in rows_raw]
+    if _print_table is not None:
+        _print_table(rows)
     else:
-        _print_table(rows_norm)
+        # Minimal alignment fallback
+        print("Asset Side        Value        PnL     Lev      Liq   Travel")
+        if not rows:
+            print("-     -               -          -       -        -        -")
+        else:
+            for r in rows:
+                asset = f"{r['asset']:<5}"
+                side  = f"{r['side']:<5}"
+                val   = f"{(r['value'] or 0):>10,.2f}"
+                pnl   = f"{(r['pnl'] or 0):>10,.2f}"
+                lev   = f"{'' if r['lev'] is None else f'{r['lev']:.2f}':>7}"
+                liq   = f"{'' if r['liq'] is None else f'{r['liq']:.2f}%':>7}"
+                trav  = f"{'' if r['travel'] is None else f'{r['travel']:.2f}%':>7}"
+                print(f"{asset} {side} {val} {pnl} {lev} {liq} {trav}")
+        # Totals (simple)
+        tv = sum((r["value"] or 0) for r in rows)
+        tp = sum((r["pnl"] or 0) for r in rows)
+        print(f"\n{'':18}${tv:,.2f}  ${tp:,.2f}       -                 -")
 
-    print(f"\n[POSITIONS] {src} ({len(rows_norm)} rows)")
+    print(f"\n[POSITIONS] {src_a} -> {src_b} ({len(rows)} rows)")
 
-if __name__ == "__main__":
-    print_positions_panel()
+def print_positions_panel(dl=None) -> None:
+    # Use provided DL if sequencer passes it; otherwise construct
+    if dl is None:
+        dl = _dl_instance()
+    _render_core(dl)
 
 
-# Sequencer entrypoint (standard contract: render(dl, csum, default_json_path))
-def render(
-    dl: Optional[Any] = None,
-    csum: Optional[str] = None,
-    default_json_path: Optional[Path] = None,
-    **_: Any,
-) -> None:
-    """
-    Console sequencer hook.
-    Accepts (dl, csum, default_json_path) from the sequencer; only `dl` is used.
-    """
+# Sequencer entrypoint (render(dl, csum, default_json_path))
+def render(dl=None, csum=None, default_json_path=None, **_):
     print_positions_panel(dl=dl)

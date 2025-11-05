@@ -1,18 +1,17 @@
 {
+  "config_path": "C:\\sonic7\\gmx_solana_console.json",
+  "outbox": "C:\\sonic7\\outbox",
   "sol_rpc": "https://mainnet.helius-rpc.com/?api-key=a8809bee-20ba-48e9-b841-0bd2bafd60b9",
   "store_program_id": "Gmso1uvJnLbawvw7yezdfCDcPydwW2s2iqG3w6MDucLo",
   "signer_file": "C:\\sonic7\\signer.txt",
   "signer_pubkey": "C9JAHcKPnu3Xw39jwjhfE2WnSx7VsLJzzWPcjYNdboLF",
+  "owner_offset": 24,
   "limit": 100,
   "page": 1,
-  "owner_offset": 24,
-  "data_size": 0,
-  "prefer_v2": true,
+  "v2": true,
+  "data_size_filter": null,
   "store_account": "CTDLvGGXnoxvqLyTpGzdGLg9pD6JexKxKXSV8tqqo8bN",
   "default_position": "",
   "default_market": "",
-  "order_pda_recipe": [],
-  "order_defaults": {},
-  "order_kind_map": {},
-  "price_type_map": {}
+  "order_pda_recipe": []
 }
