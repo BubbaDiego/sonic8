@@ -103,6 +103,7 @@ ICON = {
     "maintenance": "🧹",
     "exit": "⏻",
     "gmx": "🪙",
+    "raydium": "💎",
 }
 
 def repo_root() -> Path:
@@ -389,6 +390,25 @@ def launch_gmx_solana():
             print("C:\\sonic7 not found; cannot launch GMX-Solana console.")
     except Exception as e:
         print(f"GMX-Solana launch failed: {e}")
+
+
+def launch_raydium_console(new_window: bool = True) -> int:
+    """
+    Launch the Raydium pick-list console (wallet + NFTs).
+    Uses root signer.txt via backend.services.signer_loader.
+    """
+    script = repo_root() / "backend" / "core" / "raydium_core" / "console" / "raydium_console.py"
+    if not script.exists():
+        print(f"[Raydium] Console not found: {script}")
+        return 1
+
+    # Favor a new window so stdin/stdout don't collide with Launch Pad
+    return run_in_console(
+        [PYTHON_EXEC, str(script)],
+        cwd=repo_root(),
+        title="Raydium Console",
+        new_window=new_window,
+    )
 
 
 def _read(path: Path) -> str:
@@ -1010,6 +1030,7 @@ def main() -> None:
                 f"13. {ICON['goals']} Session / Goals",
                 f"14. {ICON['maintenance']} On-Demand Daily Maintenance",
                 f"15. {ICON['gmx']} GMX Solana Console",
+                f"16. {ICON['raydium']} Raydium Console (wallet + NFTs)",
                 f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window)",
             ]
         )
@@ -1047,6 +1068,8 @@ def main() -> None:
             run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
         elif choice == "15":
             run_menu_action("GMX Solana Console", launch_gmx_solana)
+        elif choice == "16":
+            run_menu_action("Raydium Console", launch_raydium_console)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
         elif choice in {"0", "q", "quit", "exit"}:
