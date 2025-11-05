@@ -11,6 +11,7 @@ import sys
 import asyncio
 import logging
 import time
+from contextlib import nullcontext
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Mapping
 from datetime import datetime, timezone
@@ -420,6 +421,7 @@ _ENABLED_OVERRIDES: dict[str, Optional[bool]] = {k: (None if v is None else bool
 # ── imports that depend on paths already set ─────────────────────────────────
 from backend.core.monitor_core.utils.console_title import set_console_title
 from backend.core.cyclone_core.cyclone_engine import Cyclone
+from backend.core.monitor_core.activity_logger import ActivityLogger
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.monitor_core.inputs.position_monitor import collect_positions
 from backend.core.reporting_core.task_events import task_start, task_end
@@ -1118,11 +1120,21 @@ def _fmt_now_clock() -> str:
     return s.lstrip("0").lower()
 
 
-def _run_price_and_positions_parallel(cyclone: "Cyclone") -> tuple[dict[str, Any], dict[str, Exception]]:
+def _run_price_and_positions_parallel(cyclone: "Cyclone", logger: Optional[ActivityLogger] = None) -> tuple[dict[str, Any], dict[str, Exception]]:
     def fetch_prices() -> Any:
+        if logger is not None:
+            with logger.step("Starting Price Sync", icon="🚀", meta={"source": "Cyclone"}):
+                return _step("price_sync", cyclone.price_sync.run_full_price_sync, source="Cyclone")
         return _step("price_sync", cyclone.price_sync.run_full_price_sync, source="Cyclone")
 
     def fetch_positions() -> Any:
+        if logger is not None:
+            with logger.step("Fetching positions from Jupiter perps-api", icon="🔵", meta={"source": "Cyclone"}):
+                return _step(
+                    "perps_fetch",
+                    cyclone.position_core.update_positions_from_jupiter,
+                    "Cyclone",
+                )
         return _step(
             "perps_fetch",
             cyclone.position_core.update_positions_from_jupiter,
@@ -1323,7 +1335,7 @@ def heartbeat(loop_counter: int):
 # ── main sonic cycle orchestration ───────────────────────────────────────────
 from backend.core.monitor_core.monitor_core import MonitorCore
 
-async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
+async def sonic_cycle(loop_counter: int, cyclone: Cyclone, logger: Optional[ActivityLogger] = None):
     logging.info("🔄 SonicMonitor cycle #%d starting", loop_counter)
 
     dl = DataLocker.get_instance(str(MOTHER_DB_PATH))
@@ -1348,13 +1360,21 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
     _MON_STATE.clear()
     _ALERTS_STATE.clear()
 
+    async def _run_monitor_with_logger(mon_name: str, label: str, icon: str) -> None:
+        runner = cyclone.monitor_core.run_by_name
+        if logger is not None:
+            with logger.step(label, icon=icon, meta={"monitor": mon_name}):
+                await _run_monitor_tick(mon_name, runner, mon_name)
+        else:
+            await _run_monitor_tick(mon_name, runner, mon_name)
+
     if not sonic_enabled:
         logging.info("Sonic loop disabled via config")
         heartbeat(loop_counter)
         return
 
     # Fetch prices + Jupiter positions in parallel (ThreadPool to overlap I/O)
-    results, errors = await asyncio.to_thread(_run_price_and_positions_parallel, cyclone)
+    results, errors = await asyncio.to_thread(_run_price_and_positions_parallel, cyclone, logger)
 
     price_result = results.get("price_sync")
     if price_result is None and "price_sync" in errors:
@@ -1390,21 +1410,29 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone):
                 logging.debug("Unable to flag position monitor as synced", exc_info=True)
 
     # Run remaining Cyclone steps sequentially
-    await cyclone.run_cycle(steps=REMAINING_CYCLONE_STEPS)
+    if logger is not None:
+        with logger.step("Run Cyclone processors", icon="🧮", meta={"steps": list(REMAINING_CYCLONE_STEPS)}):
+            await cyclone.run_cycle(steps=REMAINING_CYCLONE_STEPS)
+    else:
+        await cyclone.run_cycle(steps=REMAINING_CYCLONE_STEPS)
 
     # Run monitors (each will call XCom inline if needed)
     if price_enabled:
-        await _run_monitor_tick("price_monitor",  cyclone.monitor_core.run_by_name, "price_monitor")
+        await _run_monitor_with_logger("price_monitor", "Run price monitor", "📈")
     if market_enabled:
-        await _run_monitor_tick("market_monitor", cyclone.monitor_core.run_by_name, "market_monitor")
+        await _run_monitor_with_logger("market_monitor", "Run market monitor", "📊")
     if profit_enabled:
-        await _run_monitor_tick("profit_monitor", cyclone.monitor_core.run_by_name, "profit_monitor")
+        await _run_monitor_with_logger("profit_monitor", "Run profit monitor", "💰")
     if liquid_enabled:
-        await _run_monitor_tick("liquid_monitor", cyclone.monitor_core.run_by_name, "liquid_monitor")
+        await _run_monitor_with_logger("liquid_monitor", "Run liquid monitor", "💧")
 
     heartbeat(loop_counter)
     logging.info("✅ SonicMonitor cycle #%d complete", loop_counter)
-    await notify_listeners()
+    if logger is not None:
+        with logger.step("Notify Sonic listeners", icon="📣"):
+            await notify_listeners()
+    else:
+        await notify_listeners()
 
 def run_monitor(
     dl: Optional[DataLocker] = None,
@@ -1492,15 +1520,21 @@ def run_monitor(
 
             start_time = time.time()
             cycle_failed = False
+            logger = ActivityLogger()
+            logger.begin_cycle(loop_counter)
 
             try:
-                loop.run_until_complete(sonic_cycle(loop_counter, cyclone))
-                update_heartbeat(MONITOR_NAME, interval)
-                write_ledger("Success")
+                with logger.step("Run sonic cycle", icon="🦔"):
+                    loop.run_until_complete(sonic_cycle(loop_counter, cyclone, logger=logger))
+                with logger.step("Update heartbeat", icon="❤️"):
+                    update_heartbeat(MONITOR_NAME, interval)
+                with logger.step("Write success ledger entry", icon="📘"):
+                    write_ledger("Success")
             except Exception as exc:
                 cycle_failed = True
                 logging.exception("SonicMonitor cycle failure")
-                write_ledger("Error", {"error": str(exc)})
+                with logger.step("Write error ledger entry", icon="📘"):
+                    write_ledger("Error", {"error": str(exc)})
 
             # build & print summary
             status_snapshot: Optional[MonitorStatus] = None
@@ -1535,135 +1569,148 @@ def run_monitor(
                 summary["positions_icon_line"] = icon_line
 
             # populate prices/positions/hedges into summary for endcap
-            try:
-                price_mgr = getattr(dl, "prices", None)
-                if price_mgr:
-                    price_rows = price_mgr.get_all_prices() or []
-                    top3: list[tuple[str, float]] = []
-                    price_ages: dict[str, int] = {}
-                    seen_assets: set[str] = set()
-                    latest_iso: Optional[str] = None
-                    now_ts = datetime.now(timezone.utc).timestamp()
-                    for row in price_rows:
-                        asset = str(row.get("asset_type") or "").upper() or "UNKNOWN"
-                        if asset in seen_assets:
-                            continue
-                        seen_assets.add(asset)
-                        try:
-                            price_val = float(row.get("current_price") or 0.0)
-                        except Exception:
-                            price_val = 0.0
-                        top3.append((asset, price_val))
-                        last_ts = row.get("last_update_time")
-                        iso = _to_iso(last_ts)
-                        if iso and (latest_iso is None or iso > latest_iso):
-                            latest_iso = iso
-                        try:
-                            last_float = float(last_ts)
-                            price_ages[asset] = max(int((now_ts - last_float) // 60), 0)
-                        except Exception:
-                            pass
-                        if len(top3) >= 3:
-                            break
-                    if not top3:
-                        desired = get_price_assets()
-                        top3 = [(asset, float("nan")) for asset in desired]
-                    if top3:
-                        summary["prices_top3"] = top3
-                    if price_ages:
-                        summary["price_ages"] = price_ages
-                    if latest_iso and not summary.get("prices_updated_at"):
-                        summary["prices_updated_at"] = latest_iso
-                    set_prices(top3, latest_iso)
-            except Exception:
-                logging.debug("Failed to populate price summary", exc_info=True)
-                set_prices([], None)
-                set_prices_reason("error")
-
-            try:
-                pos_rows, pos_error, pos_meta = collect_positions(dl)
-                summary["positions_error"] = pos_error
-                summary["positions_count"] = len(pos_rows)
-                summary["positions_provider"] = pos_meta.get("provider") if pos_meta else None
-                summary["positions_source"] = pos_meta.get("source") if pos_meta else None
-                latest_iso: Optional[str] = None
-                positions_block: Optional[Dict[str, Any]] = None
-                if pos_meta.get("provider") or pos_meta.get("source") or pos_rows:
-                    positions_block = summary.setdefault("positions", {})
-                    if pos_meta.get("provider"):
-                        positions_block["provider"] = pos_meta["provider"]
-                    if pos_meta.get("source"):
-                        positions_block["source"] = pos_meta["source"]
-                if pos_rows:
-                    if positions_block is None:
-                        positions_block = summary.setdefault("positions", {})
-                    positions_block["rows"] = pos_rows
-                    try:
-                        setattr(dl, "last_positions_fetch", pos_rows)
-                    except Exception:
-                        pass
-                    for pos in pos_rows:
-                        iso = _to_iso(pos.get("ts") or pos.get("last_updated"))
-                        if iso and (latest_iso is None or iso > latest_iso):
-                            latest_iso = iso
-                else:
-                    positions_mgr = getattr(dl, "positions", None)
-                    if positions_mgr:
-                        try:
-                            fallback_rows = positions_mgr.get_all_positions() or []
-                        except Exception:
-                            fallback_rows = []
-                        for pos in fallback_rows:
-                            iso = _to_iso(getattr(pos, "last_updated", None))
+            with (logger.step("Summarize prices", icon="💹", meta={"source": "DataLocker"}) if logger else nullcontext()):
+                try:
+                    price_mgr = getattr(dl, "prices", None)
+                    if price_mgr:
+                        price_rows = price_mgr.get_all_prices() or []
+                        top3: list[tuple[str, float]] = []
+                        price_ages: dict[str, int] = {}
+                        seen_assets: set[str] = set()
+                        latest_iso: Optional[str] = None
+                        now_ts = datetime.now(timezone.utc).timestamp()
+                        for row in price_rows:
+                            asset = str(row.get("asset_type") or "").upper() or "UNKNOWN"
+                            if asset in seen_assets:
+                                continue
+                            seen_assets.add(asset)
+                            try:
+                                price_val = float(row.get("current_price") or 0.0)
+                            except Exception:
+                                price_val = 0.0
+                            top3.append((asset, price_val))
+                            last_ts = row.get("last_update_time")
+                            iso = _to_iso(last_ts)
                             if iso and (latest_iso is None or iso > latest_iso):
                                 latest_iso = iso
-                if latest_iso and not summary.get("positions_updated_at"):
-                    summary["positions_updated_at"] = latest_iso
-                if pos_error:
-                    summary["positions_error"] = pos_error
-                set_positions_icon_line(
-                    line=icon_line if icon_line else None,
-                    updated_iso=summary.get("positions_updated_at") or latest_iso,
-                    reason=None,
-                )
-            except Exception:
-                logging.debug("Failed to populate position summary", exc_info=True)
-                summary.setdefault("positions_error", "positions summary failure")
-                set_positions_icon_line(line=None, updated_iso=None, reason="error")
+                            try:
+                                last_float = float(last_ts)
+                                price_ages[asset] = max(int((now_ts - last_float) // 60), 0)
+                            except Exception:
+                                pass
+                            if len(top3) >= 3:
+                                break
+                        if not top3:
+                            desired = get_price_assets()
+                            top3 = [(asset, float("nan")) for asset in desired]
+                        if top3:
+                            summary["prices_top3"] = top3
+                        if price_ages:
+                            summary["price_ages"] = price_ages
+                        if latest_iso and not summary.get("prices_updated_at"):
+                            summary["prices_updated_at"] = latest_iso
+                        set_prices(top3, latest_iso)
+                except Exception:
+                    logging.debug("Failed to populate price summary", exc_info=True)
+                    set_prices([], None)
+                    set_prices_reason("error")
 
-            try:
-                hedge_mgr = getattr(dl, "hedges", None)
-                if hedge_mgr:
-                    hedges = hedge_mgr.get_hedges() or []
-                    summary["hedge_groups"] = len(hedges)
-                    set_hedges(len(hedges))
-                    try: setattr(dl, "last_hedge_groups", int(len(hedges)))
-                    except Exception: pass
-            except Exception:
-                logging.debug("Failed to populate hedge summary", exc_info=True)
-                fallback_hedges = getattr(dl, "last_hedge_groups", None)
-                if fallback_hedges is not None and "hedge_groups" not in summary:
-                    summary["hedge_groups"] = int(fallback_hedges)
-                    set_hedges(int(fallback_hedges))
+            with (logger.step("Snapshot portfolio", icon="💾", meta={"source": "collect_positions"}) if logger else nullcontext()):
+                try:
+                    pos_rows, pos_error, pos_meta = collect_positions(dl)
+                    summary["positions_error"] = pos_error
+                    summary["positions_count"] = len(pos_rows)
+                    summary["positions_provider"] = pos_meta.get("provider") if pos_meta else None
+                    summary["positions_source"] = pos_meta.get("source") if pos_meta else None
+                    latest_iso: Optional[str] = None
+                    positions_block: Optional[Dict[str, Any]] = None
+                    if pos_meta.get("provider") or pos_meta.get("source") or pos_rows:
+                        positions_block = summary.setdefault("positions", {})
+                        if pos_meta.get("provider"):
+                            positions_block["provider"] = pos_meta["provider"]
+                        if pos_meta.get("source"):
+                            positions_block["source"] = pos_meta["source"]
+                    if pos_rows:
+                        if positions_block is None:
+                            positions_block = summary.setdefault("positions", {})
+                        positions_block["rows"] = pos_rows
+                        try:
+                            setattr(dl, "last_positions_fetch", pos_rows)
+                        except Exception:
+                            pass
+                        for pos in pos_rows:
+                            iso = _to_iso(pos.get("ts") or pos.get("last_updated"))
+                            if iso and (latest_iso is None or iso > latest_iso):
+                                latest_iso = iso
+                    else:
+                        positions_mgr = getattr(dl, "positions", None)
+                        if positions_mgr:
+                            try:
+                                fallback_rows = positions_mgr.get_all_positions() or []
+                            except Exception:
+                                fallback_rows = []
+                            for pos in fallback_rows:
+                                iso = _to_iso(getattr(pos, "last_updated", None))
+                                if iso and (latest_iso is None or iso > latest_iso):
+                                    latest_iso = iso
+                    if latest_iso and not summary.get("positions_updated_at"):
+                        summary["positions_updated_at"] = latest_iso
+                    if pos_error:
+                        summary["positions_error"] = pos_error
+                    set_positions_icon_line(
+                        line=icon_line if icon_line else None,
+                        updated_iso=summary.get("positions_updated_at") or latest_iso,
+                        reason=None,
+                    )
+                except Exception:
+                    logging.debug("Failed to populate position summary", exc_info=True)
+                    summary.setdefault("positions_error", "positions summary failure")
+                    set_positions_icon_line(line=None, updated_iso=None, reason="error")
+
+            with (logger.step("Update hedge snapshot", icon="🛡", meta={"source": "hedges"}) if logger else nullcontext()):
+                try:
+                    hedge_mgr = getattr(dl, "hedges", None)
+                    if hedge_mgr:
+                        hedges = hedge_mgr.get_hedges() or []
+                        summary["hedge_groups"] = len(hedges)
+                        set_hedges(len(hedges))
+                        try:
+                            setattr(dl, "last_hedge_groups", int(len(hedges)))
+                        except Exception:
+                            pass
+                except Exception:
+                    logging.debug("Failed to populate hedge summary", exc_info=True)
+                    fallback_hedges = getattr(dl, "last_hedge_groups", None)
+                    if fallback_hedges is not None and "hedge_groups" not in summary:
+                        summary["hedge_groups"] = int(fallback_hedges)
+                        set_hedges(int(fallback_hedges))
 
             # rebuild/count hedges from DB (if supported)
-            try:
-                if getattr(dal, "db", None):
-                    hmgr = DLHedgeManager(dal.db)
-                    for fn in ("rebuild_groups_from_positions", "rebuild_from_positions", "rebuild", "refresh"):
-                        if hasattr(hmgr, fn):
-                            try: getattr(hmgr, fn)(); break
-                            except Exception: pass
-                    hedge_count = 0
-                    if hasattr(hmgr, "count_groups"):
-                        try: hedge_count = int(hmgr.count_groups() or 0)
-                        except Exception: hedge_count = 0
-                    summary["hedge_groups"] = hedge_count
-                    set_hedges(hedge_count)
-                    try: setattr(dl, "last_hedge_groups", int(hedge_count))
-                    except Exception: pass
-            except Exception:
-                pass
+            with (logger.step("Rebuild hedge groups", icon="🧩", meta={"source": "DLHedgeManager"}) if logger else nullcontext()):
+                try:
+                    if getattr(dal, "db", None):
+                        hmgr = DLHedgeManager(dal.db)
+                        for fn in ("rebuild_groups_from_positions", "rebuild_from_positions", "rebuild", "refresh"):
+                            if hasattr(hmgr, fn):
+                                try:
+                                    getattr(hmgr, fn)()
+                                    break
+                                except Exception:
+                                    pass
+                        hedge_count = 0
+                        if hasattr(hmgr, "count_groups"):
+                            try:
+                                hedge_count = int(hmgr.count_groups() or 0)
+                            except Exception:
+                                hedge_count = 0
+                        summary["hedge_groups"] = hedge_count
+                        set_hedges(hedge_count)
+                        try:
+                            setattr(dl, "last_hedge_groups", int(hedge_count))
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
 
             # monitors strip & alerts
             try:
@@ -1694,10 +1741,11 @@ def run_monitor(
             except Exception:
                 if cycle_failed: summary["errors_count"] = 1
 
-            try:
-                _enrich_summary_from_locker(summary, dl)
-            except Exception:
-                logging.exception("Failed to enrich sonic summary")
+            with (logger.step("Enrich summary from locker", icon="📦") if logger else nullcontext()):
+                try:
+                    _enrich_summary_from_locker(summary, dl)
+                except Exception:
+                    logging.exception("Failed to enrich sonic summary")
 
             if icon_line:
                 summary.setdefault("positions_icon_line", icon_line)
@@ -1724,6 +1772,18 @@ def run_monitor(
             except Exception as _e:
                 # don't fail the cycle on cosmetics; console will show ✓ for missing detail
                 pass
+            try:
+                cycle_summary = logger.end_cycle()
+            except Exception:
+                cycle_summary = {"id": loop_counter, "started_at": None, "activities": []}
+            if dl is not None:
+                try:
+                    if hasattr(dl, "set_last_cycle"):
+                        dl.set_last_cycle(cycle_summary)
+                    else:
+                        setattr(dl, "last_cycle", cycle_summary)
+                except Exception:
+                    logging.debug("Failed to persist cycle activities", exc_info=True)
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
             if dl is not None:
                 cycle_snapshot["prices"] = _csum_prices(dl)
