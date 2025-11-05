@@ -13,7 +13,7 @@ ENABLE_RAYDIUM      = True
 ENABLE_XCOM         = True
 ENABLE_WALLETS      = True
 
-DEBUG_SEQUENCER     = True
+DEBUG_SEQUENCER     = False
 
 def _dbg(msg: str) -> None:
     if DEBUG_SEQUENCER:
