@@ -6,6 +6,7 @@ import importlib, traceback
 # toggles
 ENABLE_BANNER       = True
 ENABLE_SYNC         = True
+ENABLE_CYCLE_ACTIVITY = True
 ENABLE_PRICE        = True
 ENABLE_MONITORS     = True   # 🆕 add monitor_panel
 ENABLE_POSITIONS    = True
@@ -88,6 +89,8 @@ def render_cycle(dl, csum: Dict[str, Any] | None, *, default_json_path: Optional
 
     csum = csum or {}
     if ENABLE_SYNC:       _call_panel("sync_panel",      dl=dl, csum=csum, default_json_path=default_json_path)
+    if ENABLE_CYCLE_ACTIVITY:
+        _call_panel("cycle_activity_panel", dl=dl, csum=csum, default_json_path=default_json_path)
     if ENABLE_PRICE:      _call_panel("price_panel",     dl=dl, csum=csum, default_json_path=default_json_path)
     if ENABLE_MONITORS:   _call_panel("monitor_panel",   dl=dl, csum=csum, default_json_path=default_json_path)  # 🆕
     if ENABLE_POSITIONS:  _call_panel("positions_panel", dl=dl, csum=csum, default_json_path=default_json_path)

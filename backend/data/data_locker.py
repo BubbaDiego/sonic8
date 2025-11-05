@@ -16,6 +16,7 @@ import os
 import json
 import sqlite3
 from collections.abc import Mapping
+from typing import Any, Dict, Optional
 from backend.data.database import DatabaseManager
 from backend.data.dl_alerts import DLAlertManager
 from backend.data.dl_prices import DLPriceManager
@@ -75,6 +76,13 @@ class DataLocker:
     """Singleton-style access point for all data managers."""
 
     _instance = None
+
+    # last_cycle: holds the most recent monitor cycle summary for reporting panels
+    last_cycle: Optional[Dict[str, Any]] = None
+
+    def set_last_cycle(self, cycle_summary: Dict[str, Any]) -> None:
+        """Store the most recent cycle summary (id, started_at, activities[..])."""
+        self.last_cycle = cycle_summary
 
     def __setattr__(self, name, value):
         if name == "db":
