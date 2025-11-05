@@ -1562,10 +1562,9 @@ def run_monitor(
                 # don't fail the cycle on cosmetics; console will show ✓ for missing detail
                 pass
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
-            csum["prices"] = _csum_prices(dl) if dl is not None else {}
-            csum["pos_rows"] = _csum_positions(dl) if dl is not None else []
-
             if dl is not None:
+                csum["prices"] = _csum_prices(dl)
+                csum["pos_rows"] = _csum_positions(dl)
                 render_cycle(dl, csum, default_json_path=DEFAULT_JSON_PATH)
 
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
