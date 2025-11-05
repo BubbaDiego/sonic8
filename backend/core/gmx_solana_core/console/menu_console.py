@@ -128,6 +128,93 @@ STORE_DISC = hashlib.sha256(b"account:Store").digest()[:8]
 MARKET_DISC = hashlib.sha256(b"account:Market").digest()[:8]
 
 
+def _anchor_disc_b64(name: str) -> str:
+    disc = hashlib.sha256(f"account:{name}".encode()).digest()[:8]
+    return base64.b64encode(disc).decode()
+
+
+# --- ORDER discriminator (Anchor) ---
+_ORDER_DISC_B64 = _anchor_disc_b64("Order")
+
+
+def _account_has_disc(sess: "Session", pubkey: str, disc_b64: str) -> bool:
+    if not (sess and sess.rpc_http and pubkey and disc_b64):
+        return False
+    res, err = _rpc_call_json_safe(
+        sess.rpc_http,
+        "getAccountInfo",
+        [pubkey, {"encoding": "base64"}],
+        timeout=6,
+    )
+    if err or not res or not res.get("value"):
+        return False
+    data = res["value"].get("data")
+    b64 = data[0] if isinstance(data, list) and data else (data if isinstance(data, str) else None)
+    if not b64:
+        return False
+    try:
+        raw = base64.b64decode(b64)
+        return base64.b64encode(raw[:8]).decode() == disc_b64
+    except Exception:
+        return False
+
+
+def _list_orders_for_position(sess: "Session", position_b58: str, limit_per_offset: int = 200) -> List[str]:
+    """Scan for Order accounts referencing a position via memcmp + discriminator."""
+    if not (_is_base58(position_b58) and sess and sess.rpc_http and sess.store_pid):
+        return []
+    offsets_guess = [8, 24, 32, 40, 48, 56, 64, 72, 80, 96, 112, 128]
+    seen: set[str] = set()
+    out: List[str] = []
+    for off in offsets_guess:
+        cfg = {
+            "encoding": "base64",
+            "commitment": "confirmed",
+            "limit": limit_per_offset,
+            "page": 1,
+            "filters": [{"memcmp": {"offset": int(off), "bytes": position_b58}}],
+            "dataSlice": {"offset": 0, "length": 8},
+        }
+        res, err = _rpc_call_json_safe(
+            sess.rpc_http,
+            "getProgramAccountsV2",
+            [sess.store_pid, cfg],
+            timeout=8,
+        )
+        accts: List[dict] = []
+        if not err and res:
+            if isinstance(res, list):
+                accts = res
+            elif isinstance(res, dict):
+                accts = res.get("value") or res.get("accounts") or []
+        else:
+            cfg2 = {
+                "encoding": "base64",
+                "commitment": "confirmed",
+                "limit": limit_per_offset,
+                "page": 1,
+                "filters": [{"memcmp": {"offset": int(off), "bytes": position_b58}}],
+                "dataSlice": {"offset": 0, "length": 8},
+            }
+            res2, err2 = _rpc_call_json_safe(
+                sess.rpc_http,
+                "getProgramAccounts",
+                [sess.store_pid, cfg2],
+                timeout=8,
+            )
+            if not err2 and isinstance(res2, list):
+                accts = res2
+
+        for entry in accts:
+            pk = entry.get("pubkey") if isinstance(entry, dict) else None
+            if not pk or pk in seen:
+                continue
+            if _account_has_disc(sess, pk, _ORDER_DISC_B64):
+                out.append(pk)
+                seen.add(pk)
+    return out
+
+
 def _decode_account_bytes(entry: Dict[str, Any]) -> Optional[bytes]:
     acct = entry.get("account", {}) if isinstance(entry, dict) else {}
     data = acct.get("data")
@@ -190,7 +277,21 @@ def acc_get(manifest: Dict[str, Any], name: str) -> Optional[str]:
     return None
 
 
-def acc_set(manifest: Dict[str, Any], name: str, value: str) -> None:
+def ensure_accounts_list(manifest: Dict[str, Any]) -> None:
+    accounts = manifest.get("accounts")
+    if isinstance(accounts, list):
+        return
+    if isinstance(accounts, dict):
+        manifest["accounts"] = [
+            {"name": k, "pubkey": v}
+            for k, v in accounts.items()
+            if isinstance(k, str)
+        ]
+        return
+    manifest["accounts"] = []
+
+
+def acc_set(manifest: Dict[str, Any], name: str, value: str, mut: bool = False) -> None:
     accounts = manifest.get("accounts")
     if isinstance(accounts, dict):
         accounts[name] = value
@@ -199,10 +300,18 @@ def acc_set(manifest: Dict[str, Any], name: str, value: str) -> None:
         for acc in accounts:
             if isinstance(acc, dict) and acc.get("name") == name:
                 acc["pubkey"] = value
+                if mut:
+                    acc["isMut"] = True
                 return
-        accounts.append({"name": name, "pubkey": value})
+        entry = {"name": name, "pubkey": value}
+        if mut:
+            entry["isMut"] = True
+        accounts.append(entry)
         return
-    manifest["accounts"] = [{"name": name, "pubkey": value}]
+    entry = {"name": name, "pubkey": value}
+    if mut:
+        entry["isMut"] = True
+    manifest["accounts"] = [entry]
 
 
 def _latest_order_manifest() -> Optional[str]:
@@ -289,6 +398,40 @@ def write_manifest(
     fp.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return fp, manifest
 
+
+def _write_manifest_order_skeleton(sess: "Session") -> Optional[str]:
+    """Create a create_order_v2 manifest with best-effort defaults."""
+    idl = load_idl() or {}
+    prefill: Dict[str, str] = {}
+    if sess.signer_pubkey:
+        prefill["authority"] = sess.signer_pubkey
+    if sess.store_account:
+        prefill["store"] = sess.store_account
+    if sess.default_position:
+        prefill["position"] = sess.default_position
+    if sess.default_market:
+        prefill["market"] = sess.default_market
+    prefill["tokenProgram"] = SPL_TOKEN
+    path, _ = write_manifest("create_order_v2", idl, prefill_accounts=prefill or None)
+    return str(path)
+
+
+def _auto_derive_order_pda(sess: "Session", manifest: Dict[str, Any]) -> Tuple[Optional[str], str]:
+    ensure_accounts_list(manifest)
+    existing = acc_get(manifest, "order")
+    if _is_base58(existing or ""):
+        return existing, f"ℹ️  Manifest already has order set: {existing}"
+    pos = acc_get(manifest, "position") or sess.default_position or ""
+    if not _is_base58(pos):
+        return None, "⚠️  Need a valid position pubkey in manifest (accounts.position)."
+    found = _list_orders_for_position(sess, pos, limit_per_offset=200)
+    if not found:
+        return None, "No valid Order PDA found via auto-recipes…"
+    if len(found) == 1:
+        return found[0], f"✅ Auto-derived Order PDA: {found[0]}"
+    return None, f"⚠️  Multiple Order accounts ({len(found)}) reference this position. Use scan [10] to pick."
+
+
 # ========= IDL load =========
 def load_idl(path: pathlib.Path = IDL_PATH) -> Optional[Dict[str, Any]]:
     if not path.exists():
@@ -337,10 +480,11 @@ def order_wizard_submenu(sess: "Session") -> None:
         print("  [2] 📋 Pick Position (save default)")
         print("  [3] 🗺 Pick Market (save default)")
         print("  [4] 🧾 Prefill latest order manifest (authority/store/tokenProgram/position/market)")
-        print("  [5] 🔑 Set Order PDA (paste into latest manifest)")
+        print("  [5] 🔑 Derive Order PDA (auto/manual)")
         print("  [6] ⚙️  Edit Args (typed values)")
         print("  [7] 📂 Show latest manifest path")
         print("  [8] ▶️  Print simulate command")
+        print("  [10] 🔎 Find Order PDA (scan & pick)")
         print("  [0] ↩️  Back")
         sub = input("Select: ").strip()
 
@@ -449,20 +593,55 @@ def order_wizard_submenu(sess: "Session") -> None:
                 input("<enter>")
 
             elif sub == "5":
-                mf = _latest_order_manifest()
+                mf = _latest_order_manifest() or _write_manifest_order_skeleton(sess)
                 if not mf:
                     print("ℹ️  Run [23] first.")
                     input("<enter>")
                     continue
-                man = json.loads(pathlib.Path(mf).read_text(encoding="utf-8"))
-                op = input("Paste ORDER PDA pubkey: ").strip()
-                if not _is_base58(op):
-                    print("⚠️  Not valid base58.")
+                path = pathlib.Path(mf)
+                if not path.exists():
+                    print("⚠️  Manifest missing on disk. Run [23] to create it again.")
                     input("<enter>")
                     continue
-                acc_set(man, "order", op)
-                pathlib.Path(mf).write_text(json.dumps(man, indent=2), encoding="utf-8")
-                print("✅ Set 'order' in manifest.")
+                man = json.loads(path.read_text(encoding="utf-8"))
+                ensure_accounts_list(man)
+                print("  [1] Auto-derive via recipes")
+                print("  [2] Paste Order PDA manually")
+                mode = input("Select [1]: ").strip() or "1"
+                if mode == "2":
+                    op = input("Paste ORDER PDA pubkey: ").strip()
+                    if not _is_base58(op):
+                        print("⚠️  Not valid base58.")
+                    else:
+                        acc_set(man, "order", op, mut=True)
+                        path.write_text(json.dumps(man, indent=2), encoding="utf-8")
+                        print("✅ Wrote 'order' into manifest.")
+                else:
+                    pda, msg = _auto_derive_order_pda(sess, man)
+                    print(msg)
+                    if pda:
+                        acc_set(man, "order", pda, mut=True)
+                        path.write_text(json.dumps(man, indent=2), encoding="utf-8")
+                        print("✅ Wrote 'order' into manifest.")
+                    else:
+                        pos_for_scan = acc_get(man, "position") or sess.default_position or ""
+                        if not _is_base58(pos_for_scan):
+                            print("⚠️  No position set. Use steps [2]/[4] first.")
+                        elif input("Run Order PDA scan for this position now? (Y/n): ").strip().lower() in ("", "y", "yes"):
+                            found = _list_orders_for_position(sess, pos_for_scan, limit_per_offset=200)
+                            if found:
+                                for i, pk in enumerate(found, 1):
+                                    print(f"  [{i}] {pk}")
+                                sel = input("Pick #: ").strip()
+                                if sel.isdigit() and 1 <= int(sel) <= len(found):
+                                    picked = found[int(sel) - 1]
+                                    acc_set(man, "order", picked, mut=True)
+                                    path.write_text(json.dumps(man, indent=2), encoding="utf-8")
+                                    print("✅ Wrote 'order' into manifest.")
+                                else:
+                                    print("Canceled.")
+                            else:
+                                print("⚠️  Scanner found no Order accounts for this position.")
                 input("<enter>")
 
             elif sub == "6":
@@ -513,6 +692,43 @@ def order_wizard_submenu(sess: "Session") -> None:
                     rf'python C:\\sonic7\\scripts\\gmsol_build_and_send_v2.py send-manifest --rpc "{sess.rpc_http}" --program {sess.store_pid} --idl C:\\sonic7\\backend\\core\\gmx_solana_core\\idl\\gmsol-store.json --signer-mnemonic-file C:\\sonic7\\signer.txt --manifest {mf}'
                 )
                 print("Add --send when simulate is clean.")
+                input("<enter>")
+
+            elif sub == "10":
+                mf = _latest_order_manifest() or _write_manifest_order_skeleton(sess)
+                if not mf:
+                    print("ℹ️  Run [23] first.")
+                    input("<enter>")
+                    continue
+                path = pathlib.Path(mf)
+                if not path.exists():
+                    print("⚠️  Manifest missing on disk. Run [23] to create it again.")
+                    input("<enter>")
+                    continue
+                man = json.loads(path.read_text(encoding="utf-8"))
+                ensure_accounts_list(man)
+                pos = acc_get(man, "position") or sess.default_position or ""
+                if not _is_base58(pos):
+                    print("⚠️  No position set. Use steps [2]/[4] first.")
+                    input("<enter>")
+                    continue
+                print("⏳ Scanning for Order accounts that reference this position…")
+                found = _list_orders_for_position(sess, pos, limit_per_offset=200)
+                if not found:
+                    print("⚠️  No Order accounts found for this position (or timeout).")
+                    input("<enter>")
+                    continue
+                for i, pk in enumerate(found, 1):
+                    print(f"  [{i}] {pk}")
+                sel = input("Pick Order PDA #: ").strip()
+                if not (sel.isdigit() and 1 <= int(sel) <= len(found)):
+                    print("Canceled.")
+                    input("<enter>")
+                    continue
+                picked = found[int(sel) - 1]
+                acc_set(man, "order", picked, mut=True)
+                path.write_text(json.dumps(man, indent=2), encoding="utf-8")
+                print(f"✅ Wrote 'order' into manifest: {picked}")
                 input("<enter>")
 
             else:
