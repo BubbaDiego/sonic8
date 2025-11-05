@@ -283,11 +283,13 @@ def print_nfts(nfts: List[Tuple[str, str, bool]]):
 
 # ---------- TS valuation launcher ----------
 
+
 def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     """
     Run the TS helper to value Raydium CL positions.
     Windows-safe: wraps *.cmd with 'cmd.exe /c' to avoid WinError 2.
-    Prefers local ts-node -> npx -> node -r ts-node/register/transpile-only.
+    Prefers local ts-node -> npx -> node -r ts-node/register-transpile-only.
+    Always prints the command and returns a numeric exit code.
     """
     from shutil import which
     from pathlib import Path
@@ -317,33 +319,29 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
             print("   • Exec failed:", e)
             return 1
 
-    # 1) Prefer local ts-node binary (no PATH/npx needed)
+    # 1) local ts-node
     tsnode_local = js_root / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
     if tsnode_local.exists():
-        if os.name == "nt":
-            return _run(["cmd.exe", "/c", str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
-        else:
-            return _run([str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
+        cmd = [str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg]
+        return _run(["cmd.exe", "/c", *cmd] if os.name == "nt" else cmd)
 
-    # 2) Try npx
+    # 2) npx
     npx = which("npx.cmd") if os.name == "nt" else which("npx")
     if npx:
-        if os.name == "nt":
-            return _run(["cmd.exe", "/c", npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
-        else:
-            return _run([npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
+        cmd = [npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg]
+        return _run(["cmd.exe", "/c", *cmd] if os.name == "nt" else cmd)
 
-    # 3) Fallback: node -r ts-node/register/transpile-only
+    # 3) node -r ts-node/register-transpile-only
     node = which("node") or ("node" if os.name != "nt" else r"C:\Program Files\nodejs\node.exe")
     if node:
-        if os.name == "nt":
-            return _run(["cmd.exe", "/c", node, "-r", "ts-node/register-transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
-        else:
-            return _run([node, "-r", "ts-node/register-transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
+        cmd = [node, "-r", "ts-node/register-transpile-only", str(script), "--owner", owner_pubkey, *mint_arg]
+        return _run(["cmd.exe", "/c", *cmd] if os.name == "nt" else cmd)
 
     print("❌ Could not locate ts-node, npx, or node executables.")
     print("   Checked:", tsnode_local, "and PATH for npx/node.")
     return 1
+
+
 
 
 

@@ -12,7 +12,7 @@ if (!SDK || !Object.keys(SDK).length) {
   process.exit(2)
 }
 
-// Helpers to normalize differences across versions
+// Helpers to normalize names across SDK versions
 const getDeep = (obj: any, path: string) =>
   path.split('.').reduce((a, k) => (a && k in a ? a[k] : undefined), obj)
 
@@ -73,26 +73,17 @@ function amountsFromLiquidity(L: Decimal, sqrtLower: Decimal, sqrtCur: Decimal, 
   }
 }
 
-// PDA from mint (SDK helper if present, else seeds ["position", mint])
+// Manual PDA from mint: seeds ["position", mint]
 function getPositionPdaFromMint(mint: PublicKey): PublicKey {
-  const helper =
-    SDK.getPdaPersonalPositionAddress ||
-    SDK.getPdaPersonalPosition ||
-    SDK.PositionUtils?.getPdaPersonalPositionAddress
-  if (helper) {
-    const out = helper({ mint }) || helper(mint)
-    const key = out?.publicKey || out?.address || out
-    return key instanceof PublicKey ? key : new PublicKey(String(key))
-  }
   const [addr] = PublicKey.findProgramAddressSync([Buffer.from('position'), mint.toBuffer()], CLMM_PROGRAM_ID)
   return addr
 }
 
-// Fallback owner scan: NFT-like (decimals==0 and amount>=1), robust to token-2022 id parsing
+// Owner fallback scan (skip invalid program ids)
 async function discoverCandidateMintsByOwner(connection: Connection, owner: PublicKey): Promise<string[]> {
   const programs: (PublicKey | null)[] = [
-    tryPk('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), // Token (legacy)
-    tryPk('TokenzQdBNbLqP5dK3W3dH7hJZ8Fj5nV9vWwHES1s6Cw'), // Token-2022 (skip if invalid here)
+    tryPk('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+    tryPk('TokenzQdBNbLqP5dK3W3dH7hJZ8Fj5nV9vWwHES1s6Cw'),
   ].filter(Boolean) as PublicKey[]
 
   const mints: string[] = []
@@ -133,10 +124,10 @@ async function main() {
   const mintPks = mintStrings.map((m) => new PublicKey(m))
   const posPdas = mintPks.map(getPositionPdaFromMint)
 
-  // fetch & decode positions
+  // positions decode
   const posInfos = await connection.getMultipleAccountsInfo(posPdas, { commitment: 'confirmed' })
   type PositionDecoded = { poolId: PublicKey; tickLower: number; tickUpper: number; liquidity: Decimal; positionMint: PublicKey }
-  const decodedPositions: PositionDecoded[] = []
+  const decoded: PositionDecoded[] = []
 
   for (let i = 0; i < posInfos.length; i++) {
     const ai = posInfos[i]
@@ -153,33 +144,24 @@ async function main() {
       dec.liq !== undefined ? dec.liq :
       dec.liquidityAmount !== undefined ? dec.liquidityAmount :
       (dec.L !== undefined ? dec.L : 0)
-
     const liqStr =
       typeof liquidityRaw === 'bigint' ? liquidityRaw.toString() :
       typeof liquidityRaw === 'number' ? String(liquidityRaw) :
       (typeof liquidityRaw === 'string' ? liquidityRaw : '0')
 
-    decodedPositions.push({
-      poolId,
-      tickLower,
-      tickUpper,
-      liquidity: new Decimal(liqStr),
-      positionMint: mintPks[i],
+    decoded.push({
+      poolId, tickLower, tickUpper, liquidity: new Decimal(liqStr), positionMint: mintPks[i],
     })
   }
+  if (!decoded.length) { console.log('   (no decodable CLMM positions among candidates)'); return }
 
-  if (!decodedPositions.length) {
-    console.log('   (no decodable CLMM positions among candidates)')
-    return
-  }
-
-  // fetch & decode pools
-  const uniquePoolIds = Array.from(new Set(decodedPositions.map(p => p.poolId.toBase58()))).map(s => new PublicKey(s))
-  const poolInfos = await connection.getMultipleAccountsInfo(uniquePoolIds, { commitment: 'confirmed' })
-
+  // pools decode
+  const poolIds = Array.from(new Set(decoded.map(p => p.poolId.toBase58()))).map(s => new PublicKey(s))
+  const poolInfos = await connection.getMultipleAccountsInfo(poolIds, { commitment: 'confirmed' })
   const poolById: Record<string, { sqrtPriceQ64: bigint; mintA: PublicKey; mintB: PublicKey }> = {}
-  for (let i = 0; i < uniquePoolIds.length; i++) {
-    const pk = uniquePoolIds[i]
+
+  for (let i = 0; i < poolIds.length; i++) {
+    const pk = poolIds[i]
     const ai = poolInfos[i]
     if (!ai?.data) continue
     const buf = Buffer.from(ai.data as Buffer)
@@ -193,39 +175,34 @@ async function main() {
     poolById[pk.toBase58()] = { sqrtPriceQ64: BigInt(sqrtStr), mintA, mintB }
   }
 
-  // decimals
-  if (!fetchMultipleMintInfos) {
-    console.error('❌ SDK missing fetchMultipleMintInfos; cannot compute UI amounts safely.')
-    process.exit(2)
-  }
+  // decimals & prices
+  if (!fetchMultipleMintInfos) { console.error('❌ fetchMultipleMintInfos not available.'); process.exit(2) }
   const mintSet = new Set<string>()
   Object.values(poolById).forEach(p => { mintSet.add(p.mintA.toBase58()); mintSet.add(p.mintB.toBase58()) })
   const mintInfos = await fetchMultipleMintInfos({ connection, mints: Array.from(mintSet).map(s => new PublicKey(s)) })
 
-  // prices (best-effort)
   let priceMap: Record<string, number> = {}
-  if (priceMultiple) {
-    priceMap = (await priceMultiple({ tokenMints: Array.from(mintSet), connection })) || {}
-  }
+  if (priceMultiple) priceMap = (await priceMultiple({ tokenMints: Array.from(mintSet), connection })) || {}
 
   // compute amounts & USD
   let totalUsd = new Decimal(0)
   console.log('\n💎 Raydium CL Positions (raw chain decode)\n')
   console.log('Pool'.padEnd(12), 'Position'.padEnd(14), 'TokenA'.padEnd(22), 'TokenB'.padEnd(22), 'USD')
 
-  for (const pos of decodedPositions) {
+  for (const pos of decoded) {
     const pool = poolById[pos.poolId.toBase58()]
     if (!pool) continue
 
-    const sqrtCur = q64ToDecimal(pool.sqrtPriceQ64)
+    const sqrtCur   = q64ToDecimal(pool.sqrtPriceQ64)
     const sqrtLower = sqrtPriceFromTick(pos.tickLower)
     const sqrtUpper = sqrtPriceFromTick(pos.tickUpper)
+
     const { amt0, amt1 } = amountsFromLiquidity(pos.liquidity, sqrtLower, sqrtCur, sqrtUpper)
 
     const mintA = pool.mintA.toBase58()
     const mintB = pool.mintB.toBase58()
-    const decA = mintInfos[mintA]?.decimals ?? 0
-    const decB = mintInfos[mintB]?.decimals ?? 0
+    const decA  = mintInfos[mintA]?.decimals ?? 0
+    const decB  = mintInfos[mintB]?.decimals ?? 0
 
     const uiA = amt0
     const uiB = amt1
@@ -250,4 +227,4 @@ async function main() {
   console.log('\nTotal ≈', `$${totalUsd.toSignificantDigits(8).toString()}`)
 }
 
-main().catch(e => { console.error('Fatal:', e); process.exit(1) })
+main().catch((e)=>{ console.error('Fatal:', e); process.exit(1) })
