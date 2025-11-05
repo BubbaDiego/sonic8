@@ -23,6 +23,7 @@ Notes:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import shutil
@@ -61,6 +62,11 @@ def ensure_report_dir(report_dir: Path) -> None:
 
 def which_or_warn(bin_name: str) -> bool:
     return shutil.which(bin_name) is not None
+
+
+def has_module(mod: str) -> bool:
+    # robust check for optional deps like 'coverage'
+    return importlib.util.find_spec(mod) is not None
 
 
 def _collect_topic_globs(manifest: dict, topics: Iterable[str]) -> tuple[list[str], list[str]]:
@@ -107,9 +113,13 @@ def build_pytest_cmd(manifest: dict, topics: list[str], extra_args: list[str], r
         pytest_args.extend(["--junitxml", str(junit_path)])
 
     coverage_enabled = bool(manifest.get("coverage", True))
+    use_cov = coverage_enabled and has_module("coverage")
+    if coverage_enabled and not use_cov:
+        print("⚠️  coverage module not installed; running without coverage.")
+
     coverage_cfg = cfg.get("coverage", {}) or {}
     cov_prefix: list[str]
-    if coverage_enabled:
+    if use_cov:
         cov_prefix = [sys.executable, "-m", "coverage", "run"]
         cov_pkg = coverage_cfg.get("pkg", "backend")
         if cov_pkg:
@@ -132,7 +142,7 @@ def run_cmd(name: str, cmd: list[str], env: dict | None = None, cwd: Path | None
 
 
 def summarize_coverage(manifest: dict, coverage_file: Path | None) -> None:
-    if not manifest.get("coverage", True):
+    if not (manifest.get("coverage", True) and has_module("coverage")):
         return
 
     report_dir = manifest.get("report_dir", "reports/tests") or "reports/tests"
@@ -163,7 +173,9 @@ def list_items(kind: str, manifest: dict) -> int:
     else:
         print("Specify 'topics' or 'suites'.", file=sys.stderr)
         return 2
-    _echo(f"Available {kind}", "\n".join(rows))
+    bullet = "•"
+    pretty = "\n".join([f"  {bullet} {row}" for row in rows]) if rows else "  (none)"
+    _echo(f"Available {kind}", pretty)
     return 0
 
 
@@ -176,6 +188,28 @@ def resolve_suite_topics(manifest: dict, suite: str) -> tuple[list[str], list[st
     topics = list(sdef.get("topics", []) or [])
     extra = list(sdef.get("extra_pytest_args", []) or [])
     return topics, extra
+
+
+def _pick_suite(manifest: dict) -> tuple[str, list[str]]:
+    suites = manifest.get("suites", {}) or {}
+    keys = list(suites.keys())
+    if not keys:
+        print("No suites configured.")
+        return "", []
+
+    title = "🧪  Suites"
+    menu = "\n".join([f"  {idx + 1:>2}. {name}" for idx, name in enumerate(keys)])
+    _echo(title, menu + "\n  0. ← Back")
+
+    while True:
+        choice = input("Pick a suite #: ").strip()
+        if choice == "0":
+            return "", []
+        if choice.isdigit() and 1 <= int(choice) <= len(keys):
+            name = keys[int(choice) - 1]
+            _, extra = resolve_suite_topics(manifest, name)
+            return name, extra
+        print("Pick a valid number.")
 
 
 def _glob_exists(pattern: str) -> bool:
@@ -202,33 +236,71 @@ def do_contracts_probe(manifest: dict) -> int:
     return 0
 
 
-def interactive(manifest: dict, manifest_path: Path) -> int:
-    menu = textwrap.dedent(
-        """
-          Tests Hub — choose an option:
-            1) Quick smoke (fast sanity)
-            2) Run a suite (unit / integration / contracts / smoke / e2e)
-            3) Run by topic (comma-separated)
-            4) List topics
-            5) List suites
-            6) Exit
-        """
-    )
-    print(menu)
-    choice = input("> ").strip()
-    if choice == "1":
-        return main(["-m", str(manifest_path), "run", "-s", "smoke"])
-    if choice == "2":
-        suite = input("Suite name: ").strip()
-        return main(["-m", str(manifest_path), "run", "-s", suite])
-    if choice == "3":
-        ts = input("Topics (comma-separated): ").strip()
-        return main(["-m", str(manifest_path), "run", "-t", ts])
-    if choice == "4":
-        return list_items("topics", manifest)
-    if choice == "5":
-        return list_items("suites", manifest)
-    return 0
+def interactive(manifest: dict, manifest_path: Path | None = None) -> int:
+    manifest_args: list[str] = ["-m", str(manifest_path)] if manifest_path else []
+
+    while True:
+        if manifest_path:
+            manifest = load_manifest(manifest_path)
+        menu = textwrap.dedent(
+            """
+              ╭────────────────────────────────────────────╮
+              │ 🧪  Tests Hub                               │
+              │                                            │
+              │  1. 🚀 Quick Smoke                          │
+              │  2. 📚 Run a Suite                          │
+              │  3. 🎯 Run by Topic                         │
+              │  4. 🗂️  List Topics                         │
+              │  5. 📋 List Suites                          │
+              │  6. ⏹️  Exit                                │
+              ╰────────────────────────────────────────────╯
+            """
+        )
+        print(menu)
+        choice = input("> ").strip()
+
+        if choice == "1":
+            rc = main(manifest_args + ["run", "-s", "smoke"])
+            if rc != 0:
+                print(f"\n↯ Command exited with status {rc}.")
+            input("\n↩  Done. Press ENTER to return to Tests Hub… ")
+            continue
+
+        if choice == "2":
+            name, extra = _pick_suite(manifest)
+            if name:
+                cmd = manifest_args + ["run", "-s", name]
+                if extra:
+                    cmd.extend(["--extra"] + extra)
+                rc = main(cmd)
+                if rc != 0:
+                    print(f"\n↯ Command exited with status {rc}.")
+                input("\n↩  Done. Press ENTER to return to Tests Hub… ")
+            continue
+
+        if choice == "3":
+            ts = input("Topics (comma-separated): ").strip()
+            if ts:
+                rc = main(manifest_args + ["run", "-t", ts])
+                if rc != 0:
+                    print(f"\n↯ Command exited with status {rc}.")
+                input("\n↩  Done. Press ENTER to return to Tests Hub… ")
+            continue
+
+        if choice == "4":
+            list_items("topics", manifest)
+            input("\n↩  Press ENTER… ")
+            continue
+
+        if choice == "5":
+            list_items("suites", manifest)
+            input("\n↩  Press ENTER… ")
+            continue
+
+        if choice == "6":
+            return 0
+
+        print("Pick 1–6.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -270,7 +342,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.topics:
             topics = [t.strip() for t in args.topics.split(",") if t.strip()]
         if args.extra:
-            extra.extend(args.extra)
+            extras = list(args.extra)
+            if extras and extras[0] == "--":
+                extras = extras[1:]
+            extra.extend(extras)
         if not topics:
             default_suite = manifest.get("default_suite", "unit")
             topics, extra = resolve_suite_topics(manifest, default_suite)
@@ -289,7 +364,7 @@ def main(argv: list[str] | None = None) -> int:
         cmd = build_pytest_cmd(manifest, topics, extra, report_path)
 
         coverage_file: Path | None = None
-        if manifest.get("coverage", True):
+        if manifest.get("coverage", True) and has_module("coverage"):
             coverage_file = report_path / ".coverage"
 
         env = os.environ.copy()
