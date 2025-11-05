@@ -20,6 +20,26 @@ from typing import Any, Dict, Optional, Callable, Iterable
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
 
+DEBUG_DUMP_SNAPSHOT = True
+
+
+def _dump_cycle_snapshot(cycle_snapshot: dict | None, *, title: str = "CYCLE SNAPSHOT") -> None:
+    """Pretty-print the snapshot (focused on 'monitors') for one cycle."""
+    try:
+        import json as _json
+
+        snap = cycle_snapshot or {}
+        payload = {
+            "as_of": snap.get("as_of"),
+            "keys": sorted(list(snap.keys())),
+            "monitors": snap.get("monitors", "(missing)"),
+        }
+        print(f"\n[DEBUG] ==== {title} ====")
+        print(_json.dumps(payload, ensure_ascii=False, indent=2, default=str))
+        print("[DEBUG] =====================\n")
+    except Exception as e:  # pragma: no cover - defensive debug helper
+        print(f"[DEBUG] snapshot dump failed: {type(e).__name__}: {e}")
+
 # ----- Handoff helpers (panels contract) -----
 def _csum_prices(dl) -> dict:
     out = {}
@@ -714,6 +734,148 @@ def _ingest_alert_result(name: str, result: Mapping[str, Any]) -> None:
             _ALERTS_STATE["liquid"] = rows
         else:
             _ALERTS_STATE.pop("liquid", None)
+
+
+def _normalize_profit_entry(
+    raw_entry: Any,
+    threshold_default: Optional[float],
+    *,
+    default_source: str,
+) -> Dict[str, Any] | None:
+    entry = raw_entry if isinstance(raw_entry, Mapping) else {}
+    value = _safe_float(entry.get("value")) if entry else None
+    if value is None and entry:
+        value = _safe_float(entry.get("max_profit") or entry.get("total_profit"))
+
+    threshold = _safe_float(entry.get("threshold")) if entry else None
+    if threshold is None and threshold_default is not None:
+        threshold = _safe_float(threshold_default)
+
+    if value is None:
+        return None
+
+    breach: Optional[bool]
+    if threshold is not None:
+        breach = value >= threshold
+    elif entry and "breach" in entry:
+        breach = bool(entry.get("breach"))
+    else:
+        breach = None
+
+    payload: Dict[str, Any] = {"value": value}
+    if threshold is not None:
+        payload["threshold"] = threshold
+    payload["breach"] = bool(breach) if breach is not None else False
+
+    source = entry.get("source") if entry and isinstance(entry.get("source"), str) else None
+    if not source and threshold is not None:
+        source = default_source
+    if source:
+        payload["source"] = source
+
+    return payload
+
+
+def _build_liquid_snapshot(liquid_entries: Any) -> Dict[str, Dict[str, Any]]:
+    payload: Dict[str, Dict[str, Any]] = {}
+    thresholds = {str(k).upper(): _safe_float(v) for k, v in LIQ_THR.items()}
+
+    if not isinstance(liquid_entries, list):
+        return payload
+
+    for item in liquid_entries:
+        if not isinstance(item, Mapping):
+            continue
+
+        asset = str(item.get("asset") or item.get("symbol") or "").strip().upper()
+        if not asset:
+            continue
+
+        value = _safe_float(item.get("value"))
+        if value is None:
+            value = _safe_float(item.get("dist_pct"))
+        if value is None:
+            value = _safe_float(item.get("distance"))
+        if value is None:
+            continue
+
+        threshold = _safe_float(item.get("threshold"))
+        if threshold is None:
+            threshold = thresholds.get(asset)
+
+        breach: Optional[bool]
+        if threshold is not None:
+            breach = value > threshold
+        elif "breach" in item:
+            breach = bool(item.get("breach"))
+        else:
+            breach = None
+
+        entry_payload: Dict[str, Any] = {"value": value}
+        if threshold is not None:
+            entry_payload["threshold"] = threshold
+        entry_payload["breach"] = bool(breach) if breach is not None else False
+
+        source = item.get("source") if isinstance(item.get("source"), str) else None
+        if not source and threshold is not None:
+            source = "JSON" if asset in thresholds else "—"
+        if source:
+            entry_payload["source"] = source
+
+        payload[asset] = entry_payload
+
+    return payload
+
+
+def _build_profit_snapshot() -> Dict[str, Dict[str, Any]]:
+    payload: Dict[str, Dict[str, Any]] = {}
+    profit_state = _ALERTS_STATE.get("profit")
+    if not isinstance(profit_state, Mapping):
+        return payload
+
+    pos_entry = _normalize_profit_entry(
+        profit_state.get("position") or profit_state.get("single"),
+        _safe_float(PROFIT_POS),
+        default_source="JSON",
+    )
+    if pos_entry:
+        payload["single"] = pos_entry
+
+    pf_entry = _normalize_profit_entry(
+        profit_state.get("portfolio"),
+        _safe_float(PROFIT_PF),
+        default_source="JSON",
+    )
+    if pf_entry:
+        payload["portfolio"] = pf_entry
+
+    return payload
+
+
+def _assemble_monitors_snapshot(target: Dict[str, Any], *, timestamp_iso: Optional[str] = None) -> None:
+    ts = timestamp_iso or datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+    if ts.endswith("+00:00"):
+        ts = ts[:-6] + "Z"
+
+    target["as_of"] = ts
+
+    monitors_payload: Dict[str, Any] = {
+        "version": 1,
+        "as_of": ts,
+        "liquid": {},
+        "profit": {},
+    }
+
+    liquid_snapshot = _build_liquid_snapshot(_ALERTS_STATE.get("liquid"))
+    if liquid_snapshot:
+        monitors_payload["liquid"] = liquid_snapshot
+
+    profit_snapshot = _build_profit_snapshot()
+    if profit_snapshot:
+        monitors_payload["profit"] = profit_snapshot
+
+    target.setdefault("monitors", {})
+    target["monitors"] = monitors_payload
 
 # ── legacy thresholds (kept for compatibility with endcap formatting) ────────
 def _coerce_mapping(value: Any) -> Dict[str, Any]:
@@ -1549,7 +1711,8 @@ def run_monitor(
 
             print()  # breathing room before summary
             summary = snapshot_into(summary)
-            csum = summary
+            cycle_snapshot = summary
+            _assemble_monitors_snapshot(cycle_snapshot)
             # ---- Alerts detail + sources snapshot (tolerant; safe when missing) ----
             try:
                 cfg_snapshot = load_monitor_config_snapshot(summary)
@@ -1563,9 +1726,11 @@ def run_monitor(
                 pass
             # 3) Render modular Sonic reporting UI (sync, evaluations, positions, prices)
             if dl is not None:
-                csum["prices"] = _csum_prices(dl)
-                csum["pos_rows"] = _csum_positions(dl)
-                render_cycle(dl, csum, default_json_path=DEFAULT_JSON_PATH)
+                cycle_snapshot["prices"] = _csum_prices(dl)
+                cycle_snapshot["pos_rows"] = _csum_positions(dl)
+                if DEBUG_DUMP_SNAPSHOT:
+                    _dump_cycle_snapshot(cycle_snapshot, title="PRE-RENDER HANDOFF")
+                render_cycle(dl, cycle_snapshot, default_json_path=DEFAULT_JSON_PATH)
 
             # 4) Then emit compact line and JSON summary (derive elapsed/sleep defensively)
             cl.emit_compact_cycle(
