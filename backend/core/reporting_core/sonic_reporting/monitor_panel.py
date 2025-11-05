@@ -20,6 +20,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from pathlib import Path
 import json
 import os
+import re
 
 TITLE = "🧭 Monitors"
 TITLE_COLOR = "bright_cyan"
@@ -85,7 +86,7 @@ def _safe_getattr(obj: Any, name: str, default=None):
     except Exception:
         return default
 
-# Solid accessor that works for dicts, Pydantic models, and plain objects
+# Robust access for dicts, Pydantic models, and objects
 def _field(row: Any, *candidates: str) -> Any:
     if isinstance(row, dict):
         for k in candidates:
@@ -118,6 +119,25 @@ def _field(row: Any, *candidates: str) -> Any:
         pass
     return None
 
+# Normalize symbols so JSON keys and position symbols match
+# Examples:
+#   SOL-PERP  → SOL
+#   BTC_PERP  → BTC
+#   ETH/USDC  → ETH
+#   sol       → SOL
+def _norm_sym(s: str | None) -> Optional[str]:
+    if not s:
+        return None
+    t = s.strip().upper()
+    # split pairs like BTC/USDC
+    if "/" in t:
+        t = t.split("/", 1)[0]
+    # strip common suffixes for perps
+    t = re.sub(r"[-_]?PERP$", "", t)
+    # strip possible trailing .P or similar exchange suffixes
+    t = re.sub(r"[.\-_:].*$", "", t)
+    return t or None
+
 
 # ───────────────────────── thresholds (from JSON) ─────────────────────────
 
@@ -129,7 +149,7 @@ def _read_liquid_thresholds(cfg: Dict[str, Any]) -> Dict[str, float]:
     try:
         t = cfg.get("liquid_monitor", {}).get("thresholds", {})
         if isinstance(t, dict):
-            return {k.upper(): float(v) for k, v in t.items()}
+            return {(_norm_sym(k) or k): float(v) for k, v in t.items()}
     except Exception:
         pass
     return {}
@@ -162,8 +182,8 @@ def _read_positions(dl: Any) -> List[Any]:
         return []
 
 def _symbol_of(row: Any) -> Optional[str]:
-    v = _field(row, "asset", "symbol", "base", "ticker")
-    return v.upper() if isinstance(v, str) and v else None
+    raw = _field(row, "asset", "symbol", "base", "ticker")
+    return _norm_sym(raw) if isinstance(raw, str) else None
 
 def _latest_mark(dl: Any, sym: str) -> Optional[float]:
     """Use DL’s price path if the row lacks a mark."""
@@ -174,15 +194,15 @@ def _latest_mark(dl: Any, sym: str) -> Optional[float]:
     except Exception:
         return None
 
-def _liq_distance_pct_of(row: Any, sym: str, dl: Any) -> Optional[float]:
+def _liq_distance_pct_of(row: Any, sym_norm: str, dl: Any) -> Optional[float]:
     """
     Distance to liquidation (%):
       1) direct percent-like fields: liq, liq_pct, dist_to_liq_pct, distance_liq_pct
       2) else compute from prices: |mark - liq_price| / mark * 100,
-         using row's mark/price or DL's latest price as a fallback.
+         using row's mark/price or DL's latest price (by normalized symbol) as a fallback.
     """
     v = _field(row, "liq", "liq_pct", "dist_to_liq_pct", "distance_liq_pct")
-    if _to_float(v) is not None:
+    if _to_float(v) is not None and float(v) <= 10000:  # sanity cap: ignore obvious price fields mis-tagged as pct
         return float(v)
 
     liq_price = _field(row, "liq_price", "liquidation_price", "liq")
@@ -193,7 +213,7 @@ def _liq_distance_pct_of(row: Any, sym: str, dl: Any) -> Optional[float]:
     mark = _field(row, "mark_price", "price", "current_price")
     mark_f = _to_float(mark) if mark is not None else None
     if mark_f is None:
-        mark_f = _latest_mark(dl, sym)
+        mark_f = _latest_mark(dl, sym_norm)
 
     if mark_f is None or mark_f == 0:
         return None
@@ -202,7 +222,7 @@ def _liq_distance_pct_of(row: Any, sym: str, dl: Any) -> Optional[float]:
 
 def _liquid_values_from_positions(rows: List[Any], dl: Any) -> Dict[str, float]:
     """
-    For each symbol, take the minimal distance-to-liquidation (worst case) across that symbol’s positions.
+    For each normalized symbol, take the minimal distance-to-liquidation (worst case).
     """
     best: Dict[str, float] = {}
     for r in rows:
@@ -244,13 +264,13 @@ def _build_rows_from_json_and_positions(
 
     positions = _read_positions(dl)
 
-    # Liquid (per-asset)
-    liq_thr  = _read_liquid_thresholds(cfg)                 # {"BTC":1.3,"ETH":1.0,"SOL":11.5}
-    liq_vals = _liquid_values_from_positions(positions, dl) # {"SOL": 5.4, ...}
-    symbols  = set(liq_thr.keys()) | set(liq_vals.keys()) or set(FALLBACK_SYMBOLS)
+    # Liquid (per-asset, normalized)
+    liq_thr_raw = _read_liquid_thresholds(cfg)             # keys already normalized
+    liq_vals    = _liquid_values_from_positions(positions, dl)
+    symbols     = set(liq_thr_raw.keys()) | set(liq_vals.keys()) or set(_norm_sym(s) for s in FALLBACK_SYMBOLS)
 
-    for sym in sorted(symbols):
-        t = liq_thr.get(sym)
+    for sym in sorted(s for s in symbols if s):
+        t = liq_thr_raw.get(sym)
         v = liq_vals.get(sym)
         if t is None or v is None:
             continue
