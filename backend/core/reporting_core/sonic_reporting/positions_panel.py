@@ -178,8 +178,9 @@ def _last_known_from_db(dl: Any) -> Tuple[List[Mapping[str, Any]], str]:
             pass
 
 # ---------- public entry ----------
-def print_positions_panel() -> None:
-    dl = _dl()
+def print_positions_panel(dl: Optional[Any] = None) -> None:
+    # Use the DL instance the sequencer gives us, or open our own.
+    dl = dl or _dl()
 
     # 1) Try DL manager (authoritative)
     rows_raw, src = _active_positions_via_manager(dl)
@@ -205,10 +206,15 @@ if __name__ == "__main__":
     print_positions_panel()
 
 
-# Sequencer entrypoint (shim). Some callers expect `render()` with optional ctx.
-def render(ctx: Optional[Any] = None) -> None:
+# Sequencer entrypoint (standard contract: render(dl, csum, default_json_path))
+def render(
+    dl: Optional[Any] = None,
+    csum: Optional[str] = None,
+    default_json_path: Optional[Path] = None,
+    **_: Any,
+) -> None:
     """
     Console sequencer hook.
-    ctx is accepted for compatibility but not used.
+    Accepts (dl, csum, default_json_path) from the sequencer; only `dl` is used.
     """
-    print_positions_panel()
+    print_positions_panel(dl=dl)
