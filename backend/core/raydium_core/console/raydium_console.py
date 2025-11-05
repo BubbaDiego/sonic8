@@ -281,35 +281,24 @@ def print_nfts(nfts: List[Tuple[str, str, bool]]):
 
 # ---------- TS valuation launcher ----------
 
-def run_ts_valuation(owner_pubkey: str, mints: list[str]) -> int:
-    from shutil import which
-    from pathlib import Path
-    import subprocess, os
-
+def run_ts_valuation(owner_pubkey: str) -> int:
+    """
+    Call the TS helper to value Raydium CL positions for this owner.
+    Expects backend/core/raydium_core/ts/value_raydium_positions.ts to exist.
+    """
     js_root = Path(__file__).resolve().parent.parent / "ts"
     script = js_root / "value_raydium_positions.ts"
     if not script.exists():
         print("❌ TS valuation script not found:", script)
-        print("   Ensure files are under backend/core/raydium_core/ts and run npm i")
+        print("   Install it under backend/core/raydium_core/ts and run npm i")
         return 1
-
     env = os.environ.copy()
-    npx = which("npx.cmd") if os.name == "nt" else which("npx")
-    mint_arg = []
-    if mints:
-        mint_arg = ["--mints", ",".join(mints)]
-
-    if npx:
-        cmd = [npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg]
+    cmd = ["npx", "--yes", "ts-node", str(script), "--owner", owner_pubkey]
+    try:
         return subprocess.call(cmd, cwd=str(js_root), env=env)
-
-    node = which("node")
-    if node:
-        cmd = [node, "-r", "ts-node/register/transpile-only", str(script), "--owner", owner_pubkey, *mint_arg]
-        return subprocess.call(cmd, cwd=str(js_root), env=env)
-
-    print("❌ Neither npx nor node found on PATH.")
-    return 1
+    except Exception as e:
+        print("❌ Failed to run ts-node:", e)
+        return 1
 
 
 # ---------- Menu ----------
@@ -343,11 +332,7 @@ def main():
         elif choice == "4":
             owner = show_wallet(cl)
             print("\n📈 Valuing Raydium CL positions via SDK…")
-
-            # Try to gather NFT mints we already detect (option 2 logic) as a fallback
-            nftish = list_suspected_nfts(cl, owner, verbose=False)
-            mint_list = [m for (m, _ta, _strong) in nftish]
-            rc = run_ts_valuation(str(owner), mint_list)
+            rc = run_ts_valuation(str(owner))
             print("\n(Exit code:", rc, ")")
             pause()
         elif choice == "0":

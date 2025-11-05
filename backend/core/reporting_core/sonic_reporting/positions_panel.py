@@ -1,5 +1,7 @@
 # positions_panel.py — FULL REPLACEMENT
-# Borderless table; title matches Prices; asset icons; Size column; totals row.
+# Borderless table; title matches Prices; asset icons.
+# Value column now shows SIZE as abbreviated counts (e.g., 1.53k).
+# Totals row: colored for distinction; PnL keeps red/green; Lev/Liq/Travel are size-weighted avgs.
 # Sequencer contract: render(dl, csum, default_json_path=None)
 
 from __future__ import annotations
@@ -22,6 +24,24 @@ def _to_float(x: Any) -> Optional[float]:
         return float(x)
     except Exception:
         return None
+
+
+def _abbr_count(v: Optional[float]) -> str:
+    """Abbreviate a plain number (no $): 1538.68 -> 1.54k."""
+    if v is None:
+        return "-"
+    try:
+        n = float(v)
+    except Exception:
+        return str(v)
+    a = abs(n)
+    if a >= 1_000_000_000:
+        return f"{n/1_000_000_000:.2f}b"
+    if a >= 1_000_000:
+        return f"{n/1_000_000:.2f}m"
+    if a >= 1_000:
+        return f"{n/1_000:.2f}k"
+    return f"{n:.2f}"
 
 
 def _abbr_usd(v: Optional[float]) -> str:
@@ -157,11 +177,12 @@ def _normalize_row_any(obj: Any) -> Dict[str, Any]:
         "asset": str(_pick(d, "asset") or "-"),
         "side": raw_side,
         "size": _to_float(_pick(d, "size")),
-        "value": _to_float(_pick(d, "value")),
+        # keep USD notional available for totals fallback if size missing
+        "usd_value": _to_float(_pick(d, "value")),
         "pnl_usd": _to_float(_pick(d, "pnl_usd")),
         "pnl_pct": _to_float(_pick(d, "pnl_pct")),
-        "lev": _pick(d, "lev") if _pick(d, "lev") is not None else "-",
-        "liq": _pick(d, "liq") if _pick(d, "liq") is not None else "-",
+        "lev": _pick(d, "lev") if _pick(d, "lev") is not None else None,
+        "liq": _pick(d, "liq") if _pick(d, "liq") is not None else None,
         "travel": _pick(d, "travel"),
     }
 
@@ -239,8 +260,8 @@ def _read_positions(dl: Any) -> Tuple[List[Any], str]:
 def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
     """
     Sequencer entrypoint — identical signature to price_panel.
-    Renders a borderless table that matches Prices, with a cyan rule sized to table width.
-    Adds 'Size' column and a totals row (value/pnl sums; liq/travel size-weighted averages).
+    Value column shows SIZE (abbrev). Totals row with distinct color styling.
+    Lev/Liq/Travel totals are size-weighted averages; PnL is summed with sign color.
     """
     console = Console()
 
@@ -255,48 +276,50 @@ def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
         box=None,
         pad_edge=False,
     )
-    # Columns: Asset, Side, Size, Value, PnL, Lev, Liq, Travel
+    # Columns: Asset, Side, Value(SIZE), PnL, Lev, Liq, Travel
     table.add_column("Asset", justify="left", no_wrap=True)
     table.add_column("Side", justify="left", no_wrap=True)
-    table.add_column("Size", justify="right", no_wrap=True)
-    table.add_column("Value", justify="right", no_wrap=True)
+    table.add_column("Value", justify="right", no_wrap=True)   # shows SIZE abbreviations
     table.add_column("PnL", justify="right", no_wrap=True)
     table.add_column("Lev", justify="right", no_wrap=True)
     table.add_column("Liq", justify="right", no_wrap=True)
     table.add_column("Travel", justify="right", no_wrap=True)
 
-    # Totals accumulators
+    # Totals accumulators (weight by size; if missing, fallback to USD value)
     total_size = 0.0
-    total_value = 0.0
     total_pnl = 0.0
     w_sum = 0.0
+    w_lev = 0.0
     w_liq = 0.0
     w_travel = 0.0
 
-    if not rows_raw:
-        table.add_row("-", "-", "-", "-", "-", "-", "-", "-")
+    normalized_rows: List[Dict[str, Any]] = []
+    for obj in rows_raw:
+        normalized_rows.append(_normalize_row_any(obj))
+
+    if not normalized_rows:
+        table.add_row("-", "-", "-", "-", "-", "-", "-")
     else:
-        for obj in rows_raw:
-            n = _normalize_row_any(obj)
-
+        for n in normalized_rows:
             size = _to_float(n.get("size"))
-            value = _to_float(n.get("value"))
+            usd_value = _to_float(n.get("usd_value"))
             pnl = _to_float(n.get("pnl_usd"))
+            lev = _to_float(n.get("lev"))
             liq = _to_float(n.get("liq"))
-            travel = _to_float(n.get("travel"))  # percent value like -5.23
+            travel = _to_float(n.get("travel"))
 
-            # choose weight: prefer absolute size, else abs(value)
-            weight = abs(size) if (size is not None) else (abs(value) if value is not None else None)
+            # choose weight: prefer absolute size, else abs(usd_value)
+            weight = abs(size) if (size is not None) else (abs(usd_value) if usd_value is not None else None)
 
             # accumulate totals
             if size is not None:
                 total_size += size
-            if value is not None:
-                total_value += value
             if pnl is not None:
                 total_pnl += pnl
             if weight is not None:
                 w_sum += weight
+                if lev is not None:
+                    w_lev += lev * weight
                 if liq is not None:
                     w_liq += liq * weight
                 if travel is not None:
@@ -306,27 +329,29 @@ def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
             table.add_row(
                 _asset_cell(n["asset"]),
                 Text(n["side"].capitalize() if n["side"] != "-" else "-", style=side_style),
-                f"{size:.4f}" if size is not None else "-",  # print more precision for sizes
-                _abbr_usd(value),
+                _abbr_count(size),  # Value column now shows SIZE
                 _fmt_pnl(pnl, n.get("pnl_pct")),
-                str(n["lev"]) if n["lev"] is not None else "-",
+                f"{lev:.2f}" if lev is not None else "-",
                 f"{liq:.2f}" if liq is not None else "-",
                 _percent_text(travel) if travel is not None else "-",
             )
 
-        # --- Totals row ---
+        # --- Totals row (distinct color for non-PnL cells) ---
+        lev_avg = (w_lev / w_sum) if w_sum > 0 else None
         liq_avg = (w_liq / w_sum) if w_sum > 0 else None
         travel_avg = (w_travel / w_sum) if w_sum > 0 else None
+
+        totals_style = "bold cyan"
+        pnl_total_text = _fmt_pnl(total_pnl, None) if total_pnl or total_pnl == 0 else Text("-")
 
         table.add_row(
             Text(""),  # Asset blank
             Text(""),  # Side blank
-            f"{total_size:.4f}" if total_size else "-",       # Size sum
-            _abbr_usd(total_value) if total_value else "-",    # Value sum
-            _fmt_pnl(total_pnl, None) if total_pnl else Text("-"),  # PnL sum
-            "-",                                               # Lev blank (not requested)
-            f"{liq_avg:.2f}" if liq_avg is not None else "-",  # Liq weighted avg
-            _percent_text(travel_avg) if travel_avg is not None else "-",  # Travel weighted avg
+            Text(_abbr_count(total_size), style=totals_style),      # total size
+            pnl_total_text,                                         # total pnl (red/green)
+            Text(f"{lev_avg:.2f}" if lev_avg is not None else "-", style=totals_style),
+            Text(f"{liq_avg:.2f}" if liq_avg is not None else "-", style=totals_style),
+            Text(_percent_text(travel_avg) if travel_avg is not None else "-", style=totals_style),
         )
 
     # --- Title & rule (exact width match to table) ---
