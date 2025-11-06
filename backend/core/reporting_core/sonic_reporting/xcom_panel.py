@@ -41,7 +41,6 @@ from backend.core.xcom_core.xcom_config_service import XComConfigService
 from backend.core.reporting_core.sonic_reporting.xcom_extras import (
     xcom_ready,
     read_voice_cooldown_remaining,
-    xcom_live_status,
 )
 
 # ───────────────────── Panel-local UI options ─────────────────────
@@ -55,6 +54,63 @@ _IC = {"ok": "✅", "skip": "⏭", "phone": "📞", "sys": "🖥️", "tts": "�
 
 def _tick(b: bool) -> str:
     return _IC["ok"] if b else _IC["skip"]
+
+def _cfg_get(cfg: dict, dotted: str, default=None):
+    cur = cfg
+    for part in dotted.split('.'):
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(part)
+        if cur is None:
+            return default
+    return cur
+
+def _db_xcom_live(dl):
+    try:
+        db = getattr(dl, "db", None) or getattr(dl, "database", None)
+        cur = getattr(db, "get_cursor", None)
+        if not callable(cur):
+            return None, "EMPTY"
+        c = cur()
+        for tbl, keycol in (("system", "key"), ("system_vars", "key")):
+            try:
+                c.execute(
+                    f"SELECT value FROM {tbl} WHERE {keycol} IN (?,?)",
+                    ("monitor.xcom_live", "xcom_live"),
+                )
+                row = c.fetchone()
+                if row:
+                    s = str(row[0]).strip().lower()
+                    if s in ("1", "true", "yes", "on"):
+                        return True, "DB"
+                    if s in ("0", "false", "no", "off"):
+                        return False, "DB"
+            except Exception:
+                pass
+        try:
+            c.execute("SELECT xcom_live FROM monitor_settings LIMIT 1")
+            row = c.fetchone()
+            if row:
+                s = str(row[0]).strip().lower()
+                if s in ("1", "true", "yes", "on"):
+                    return True, "DB"
+                if s in ("0", "false", "no", "off"):
+                    return False, "DB"
+        except Exception:
+            pass
+    except Exception:
+        return None, "EMPTY"
+    return None, "EMPTY"
+
+def _resolve_xcom_live_and_src(cfg: dict, dl) -> tuple[bool, str]:
+    raw = _cfg_get(cfg, "monitor.xcom_live", None)
+    if raw is not None:
+        val = raw if isinstance(raw, bool) else (str(raw).strip().lower() in ("1", "true", "yes", "on"))
+        return bool(val), "JSON"
+    db_val, db_src = _db_xcom_live(dl)
+    if db_val is None:
+        return False, db_src
+    return bool(db_val), db_src
 
 def _ensure_dl(dl: Optional[DataLocker]) -> DataLocker:
     if dl is not None:
@@ -261,11 +317,6 @@ def render(dl: Optional[DataLocker], csum: Optional[dict], default_json_path: Op
     except Exception:
         rem_s, cooldown_ok = 0, True
 
-    try:
-        live_on, live_src = xcom_live_status(dl, cfg=getattr(dl, "global_config", None))
-    except Exception:
-        live_on, live_src = False, "—"
-
     # Thresholds + breaches
     thr = _thresholds(cfg)
     breaches = _active_breaches(dl, thr)
@@ -273,13 +324,17 @@ def render(dl: Optional[DataLocker], csum: Optional[dict], default_json_path: Op
     # Snooze
     snooze_ok = _snooze_ok(dl)
 
+    xcom_on, xcom_src = _resolve_xcom_live_and_src(cfg, dl)
+
     # Prepare rows
     header = ["Check", "Status", "Details"]
     rows: List[List[str]] = []
 
     # Top summary
     rows.append(["cfg source", _tick(cfg != {}), cfg_src])
-    rows.append(["XCOM live", _ok_label(live_on := bool(live_on := live_on)), f"[{live_src}]"])
+    status = "🟢  ON" if xcom_on else "⚫  OFF"
+    origin = f"({xcom_src if xcom_src in ('JSON', 'DB') else 'EMPTY'})"
+    rows.append(["📡  XCOM Live", status, origin])
     rows.append([
         "channels(liquid)",
         _tick(any(ch.values())),
@@ -314,6 +369,3 @@ def render(dl: Optional[DataLocker], csum: Optional[dict], default_json_path: Op
 
     # Breadcrumb (useful when diagnosing)
     print(f"\n[XCOM] source: cfg={cfg_src}  breaches={len(breaches)}")
-
-def _ok_label(ok: bool) -> str:
-    return "🟢 ON" if ok else "🔴 OFF"

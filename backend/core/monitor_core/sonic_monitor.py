@@ -24,7 +24,7 @@ from rich.console import Console
 from backend.core.monitor_core.activity_logger import ActivityLogger
 from backend.core.monitor_core.cycle_activity_stream import CycleActivityStream
 
-DEBUG_DUMP_SNAPSHOT = True
+DEBUG_DUMP_SNAPSHOT = False
 
 
 _LOG = logging.getLogger(__name__)
