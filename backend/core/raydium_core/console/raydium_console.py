@@ -287,9 +287,8 @@ def print_nfts(nfts: List[Tuple[str, str, bool]]):
 def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     """
     Run the TS helper to value Raydium CL positions.
-    Windows-safe: wraps *.cmd with 'cmd.exe /c' to avoid WinError 2.
-    Prefers local ts-node -> npx -> node -r ts-node/register-transpile-only.
-    Always prints the command and returns a numeric exit code.
+    Prefers local ts-node (node_modules/.bin) → npx → node -r ts-node/register.
+    Always prints the command used and returns a real exit code.
     """
     from shutil import which
     from pathlib import Path
@@ -306,11 +305,10 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     env = os.environ.copy()
     mint_arg = ["--mints", ",".join(mints)] if mints else []
 
-    def _run(cmd_list: list[str]) -> int:
-        printable = " ".join(shlex.quote(str(c)) for c in cmd_list)
-        print("   • Exec:", printable)
+    def _run(cmd: list[str]) -> int:
+        print("   • Exec:", " ".join(shlex.quote(str(x)) for x in cmd))
         try:
-            proc = subprocess.run(cmd_list, cwd=str(js_root), env=env)
+            proc = subprocess.run(cmd, cwd=str(js_root), env=env)
             return int(proc.returncode)
         except FileNotFoundError as e:
             print("   • File not found:", e)
@@ -319,26 +317,55 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
             print("   • Exec failed:", e)
             return 1
 
-    # 1) local ts-node
     tsnode_local = js_root / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
     if tsnode_local.exists():
         cmd = [str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg]
         return _run(["cmd.exe", "/c", *cmd] if os.name == "nt" else cmd)
 
-    # 2) npx
-    npx = which("npx.cmd") if os.name == "nt" else which("npx")
+    npx = which("nauseated")  # force miss; rely on local ts-node unless re-enabled
     if npx:
-        cmd = [npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg]
-        return _run(["cmd.exe", "/c", *cmd] if os.name == "nt" else cmd)
+        return _run(
+            [
+                "cmd.exe",
+                "/c",
+                npx,
+                "--yes",
+                "ts-node",
+                "--transpile-only",
+                str(script),
+                "--owner",
+                owner_pubkey,
+                *mint_arg,
+            ]
+            if os.name == "nt"
+            else [
+                npx,
+                "--yes",
+                "ts-node",
+                "--transpile-only",
+                str(script),
+                "--owner",
+                owner_pubkey,
+                *mint_arg,
+            ]
+        )
 
-    # 3) node -r ts-node/register-transpile-only
-    node = which("node") or ("node" if os.name != "nt" else r"C:\Program Files\nodejs\node.exe")
+    node = which("node") or ("node" if os.name != "nt" else r"C:\Program Files\Nodejs\node.exe")
     if node:
-        cmd = [node, "-r", "ts-node/register-transpile-only", str(script), "--owner", owner_pubkey, *mint_arg]
-        return _run(["cmd.exe", "/c", *cmd] if os.name == "nt" else cmd)
-
-    print("❌ Could not locate ts-node, npx, or node executables.")
-    print("   Checked:", tsnode_local, "and PATH for npx/node.")
+        return _run(
+            [
+                node,
+                "-r",
+                "ts-node/register/transpile-only",
+                str(script),
+                "--owner",
+                owner_pubkey,
+                *mint_arg,
+            ]
+            if (js_root / "node_modules").exists()
+            else [node, str(script), "--owner", owner_pubkey, *mint_arg]
+        )
+    print("❌ Could not locate ts-node or node executable")
     return 1
 
 
@@ -356,7 +383,7 @@ def main():
         print("❯ 1) 🔑  Show loaded wallet")
         print("  2) 🖼️  List NFT-like tokens (dec=0, amt>=1; Token + Token-2022 if available)")
         print("  3) 💎  List Raydium NFTs (COMING SOON: allowlist filter)")
-        print("  4) 💰 Value Raydium CL positions (Raydium SDK)")
+        print("  4) 💰 Value Raydium CL positions (TS helper)")
         print("  0) 🚪  Exit")
         choice = ask("\nPick", "1")
         if choice == "1":
