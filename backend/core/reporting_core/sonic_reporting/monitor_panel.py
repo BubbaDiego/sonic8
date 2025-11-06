@@ -19,7 +19,7 @@ Behavior:
 - Source:  "JSON" (threshold provenance)
 """
 
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Mapping
 from pathlib import Path
 import json
 import os
@@ -135,26 +135,41 @@ def _norm_sym(s: str | None) -> Optional[str]:
     return t or None
 
 
-# ───────────────────────── thresholds (from JSON) ─────────────────────────
+# ───────────────────────── thresholds (JSON → DL accessor) ─────────────────────────
 
-def _read_liquid_thresholds(cfg: Dict[str, Any]) -> Dict[str, float]:
-    """
-    Support both:
-      liquid_monitor.thresholds  (preferred)
-      liquid.thresholds          (legacy)
-    """
-    # Preferred
+def _read_liquid_thresholds(dl: Any, cfg: Dict[str, Any]) -> Dict[str, float]:
+    """Return normalized liquid thresholds using DataLocker accessors."""
+
+    def _normalize_map(raw: Mapping[str, Any]) -> Dict[str, float]:
+        out: Dict[str, float] = {}
+        for key, value in raw.items():
+            try:
+                sym = _norm_sym(str(key)) or str(key).upper()
+                out[sym] = float(value)
+            except Exception:
+                continue
+        return out
+
+    accessor = getattr(dl, "get_liquid_thresholds", None)
+    if callable(accessor):
+        try:
+            raw = accessor() or {}
+            if isinstance(raw, Mapping):
+                return _normalize_map(raw)
+        except Exception:
+            pass
+
+    # Fallback to JSON parsing if accessor missing (legacy code paths)
     try:
         t = cfg.get("liquid_monitor", {}).get("thresholds", {})
-        if isinstance(t, dict) and t:
-            return {(_norm_sym(k) or k): float(v) for k, v in t.items()}
+        if isinstance(t, Mapping) and t:
+            return _normalize_map(t)
     except Exception:
         pass
-    # Legacy
     try:
         t = cfg.get("liquid", {}).get("thresholds", {})
-        if isinstance(t, dict) and t:
-            return {(_norm_sym(k) or k): float(v) for k, v in t.items()}
+        if isinstance(t, Mapping) and t:
+            return _normalize_map(t)
     except Exception:
         pass
     return {}
@@ -283,10 +298,10 @@ def _build_rows_from_json_and_positions(
             print(f"[MON] row[{i}] sym_raw={_field(r,'asset_type','asset','symbol','base','ticker','asset_symbol')} sym_norm={_symbol_of(r)}")
 
     # Liquid (per-asset, normalized)
-    liq_thr  = _read_liquid_thresholds(cfg)                 # {"BTC":1.3,"ETH":1.0,"SOL":11.5} OR legacy values
+    liq_thr  = _read_liquid_thresholds(dl, cfg)             # {"BTC":1.3,"ETH":1.0,"SOL":11.5} OR legacy values
     liq_vals = _liquid_values_from_positions(positions, dl) # {"SOL": 5.4, ...}
     if DEBUG_MONITOR_PANEL:
-        print(f"[MON] liquid thresholds (JSON): {liq_thr}")
+        print(f"[MON] liquid thresholds: {liq_thr}")
         print(f"[MON] liquid values (derived): {liq_vals}")
 
     symbols  = set(liq_thr.keys()) | set(liq_vals.keys()) or set(_norm_sym(s) for s in FALLBACK_SYMBOLS)

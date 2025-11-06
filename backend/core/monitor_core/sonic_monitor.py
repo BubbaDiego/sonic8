@@ -1626,6 +1626,15 @@ def run_monitor(
     if DL and dl is not None:
         setattr(DL, "_instance", dl)
 
+    if dl is not None:
+        _thr_snapshot = getattr(dl, "get_liquid_thresholds", lambda: {})() or {}
+        logging.debug(
+            "[LIQ] thresholds (JSON→DB→ENV→defaults): BTC=%s, ETH=%s, SOL=%s",
+            _thr_snapshot.get("BTC"),
+            _thr_snapshot.get("ETH"),
+            _thr_snapshot.get("SOL"),
+        )
+
     global _ALERT_LIMITS
     try:
         # build thresholds object for alert formatter

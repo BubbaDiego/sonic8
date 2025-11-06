@@ -212,6 +212,19 @@ def render(dl, csum, default_json_path=None):
     except Exception:
         db_suffix = ""
 
+    thresholds = getattr(dl, "get_liquid_thresholds", lambda: {})()
+
+    def _fmt_thr(val: Any) -> str:
+        try:
+            if val is None:
+                return "—"
+            num = float(val)
+            if num.is_integer():
+                return f"{int(num)}"
+            return f"{num:g}"
+        except Exception:
+            return "—"
+
     lines = [
         f"🌐  Sonic Dashboard :  {urls['Sonic']}",
         f"🌐  LAN Dashboard   :  {urls['LAN_DASH']}",
@@ -219,6 +232,12 @@ def render(dl, csum, default_json_path=None):
         f"📡  XCOM Live       :  {'🟢  ON' if x_on else '⚫  OFF'}  ({x_src})",
         f"🔒  Muted Modules   :  {_muted_modules(dl)}",
         f"🟡  Configuration   :  {cfg_src}",
+        "💧  Liquid thresholds :  "
+        + f"🟡 BTC {_fmt_thr(thresholds.get('BTC'))}"
+        + " • "
+        + f"🔷 ETH {_fmt_thr(thresholds.get('ETH'))}"
+        + " • "
+        + f"🟣 SOL {_fmt_thr(thresholds.get('SOL'))}",
         f"🧪  .env (ignored)  :  {_env_path()}",
         f"🗄️  Database        :  {str(dbp) if dbp else '—'}{db_suffix}",
     ]
