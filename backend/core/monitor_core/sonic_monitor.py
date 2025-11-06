@@ -11,7 +11,7 @@ import sys
 import asyncio
 import logging
 import time
-from contextlib import nullcontext
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Mapping
 from datetime import datetime, timezone
@@ -21,6 +21,8 @@ from typing import Any, Dict, Optional, Callable, Iterable
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
 from rich.console import Console
+from backend.core.monitor_core.activity_logger import ActivityLogger
+from backend.core.monitor_core.cycle_activity_stream import CycleActivityStream
 
 DEBUG_DUMP_SNAPSHOT = True
 
@@ -425,8 +427,6 @@ _ENABLED_OVERRIDES: dict[str, Optional[bool]] = {k: (None if v is None else bool
 # ── imports that depend on paths already set ─────────────────────────────────
 from backend.core.monitor_core.utils.console_title import set_console_title
 from backend.core.cyclone_core.cyclone_engine import Cyclone
-from backend.core.monitor_core.activity_logger import ActivityLogger
-from backend.core.monitor_core.cycle_activity_stream import CycleActivityStream
 from backend.core.monitor_core.sonic_events import notify_listeners
 from backend.core.monitor_core.inputs.position_monitor import collect_positions
 from backend.core.reporting_core.task_events import task_start, task_end
@@ -834,6 +834,103 @@ def _build_liquid_snapshot(liquid_entries: Any) -> Dict[str, Dict[str, Any]]:
     return payload
 
 
+class SonicMonitorLive:
+    """Owns the live activity table + logging glue for one Sonic cycle."""
+
+    def __init__(
+        self,
+        *,
+        console: Console | None = None,
+        refresh_hz: float = 10.0,
+        live_enabled: bool = True,
+    ) -> None:
+        self.console = console or Console()
+        self._activity_log = ActivityLogger()
+        self._activity_ui = CycleActivityStream(self.console, refresh_hz=refresh_hz)
+        self._activity_log.add_listener(self._activity_ui.on_event)
+
+        self._live_activities_enabled = bool(live_enabled)
+        self._live_activities = False
+
+    @property
+    def logger(self) -> ActivityLogger:
+        return self._activity_log
+
+    @property
+    def is_live_active(self) -> bool:
+        return self._live_activities_enabled and self._live_activities
+
+    def begin_cycle(self, cycle_id: int) -> None:
+        self._activity_log.begin_cycle(cycle_id)
+        if self._live_activities_enabled:
+            self._live_activities = True
+            self._activity_ui.begin(cycle_id)
+        else:
+            self._live_activities = False
+
+    def tick(self) -> None:
+        if self.is_live_active:
+            self._activity_ui.tick()
+
+    def visible_print(self, message: str) -> None:
+        if self.is_live_active:
+            self._activity_ui.visible_print(message)
+        else:
+            self.console.print(message)
+
+    def complete_cycle(self, status: str, text: str) -> Dict[str, Any]:
+        try:
+            summary = self._activity_log.end_cycle()
+        except Exception:
+            summary = {"id": None, "started_at": None, "activities": []}
+
+        if self.is_live_active:
+            try:
+                self._activity_ui.end({"status": status, "text": text})
+            finally:
+                self._live_activities = False
+        elif self._live_activities_enabled:
+            # ensure flag reset when live disabled during run
+            self._live_activities = False
+
+        return summary
+
+    def abort_cycle(self, status: str, text: str) -> None:
+        if not self._live_activities_enabled:
+            return
+        if self.is_live_active:
+            try:
+                self._activity_log.end_cycle()
+            except Exception:
+                pass
+            finally:
+                try:
+                    self._activity_ui.end({"status": status, "text": text})
+                finally:
+                    self._live_activities = False
+
+    @contextmanager
+    def activity_step(self, label: str, *, icon: str = "•", meta: Optional[Dict[str, Any]] = None):
+        meta_payload = meta or {}
+        if self.is_live_active:
+            with self._activity_log.step(label, icon=icon, meta=meta_payload):
+                yield
+            return
+
+        start = time.perf_counter()
+        _LOG.info("%s %s", icon, label)
+        try:
+            with self._activity_log.step(label, icon=icon, meta=meta_payload):
+                yield
+        except Exception:
+            duration = time.perf_counter() - start
+            _LOG.exception("❌ %s failed after %.2fs", label, duration)
+            raise
+        else:
+            duration = time.perf_counter() - start
+            _LOG.info("✅ %s (%.2fs)", label, duration)
+
+
 def _build_profit_snapshot() -> Dict[str, Dict[str, Any]]:
     payload: Dict[str, Dict[str, Any]] = {}
     profit_state = _ALERTS_STATE.get("profit")
@@ -1125,16 +1222,25 @@ def _fmt_now_clock() -> str:
     return s.lstrip("0").lower()
 
 
-def _run_price_and_positions_parallel(cyclone: "Cyclone", logger: Optional[ActivityLogger] = None) -> tuple[dict[str, Any], dict[str, Exception]]:
+def _run_price_and_positions_parallel(
+    cyclone: "Cyclone",
+    live: Optional[SonicMonitorLive] = None,
+) -> tuple[dict[str, Any], dict[str, Exception]]:
+    activity = live.activity_step if live is not None else None
+
     def fetch_prices() -> Any:
-        if logger is not None:
-            with logger.step("Starting Price Sync", icon="🚀", meta={"source": "Cyclone"}):
+        if activity is not None:
+            with activity("Starting Price Sync", icon="🚀", meta={"source": "Cyclone"}):
                 return _step("price_sync", cyclone.price_sync.run_full_price_sync, source="Cyclone")
         return _step("price_sync", cyclone.price_sync.run_full_price_sync, source="Cyclone")
 
     def fetch_positions() -> Any:
-        if logger is not None:
-            with logger.step("Fetching positions from Jupiter perps-api", icon="🔵", meta={"source": "Cyclone"}):
+        if activity is not None:
+            with activity(
+                "Fetching positions from Jupiter perps-api",
+                icon="🔵",
+                meta={"source": "Cyclone"},
+            ):
                 return _step(
                     "perps_fetch",
                     cyclone.position_core.update_positions_from_jupiter,
@@ -1339,8 +1445,14 @@ def heartbeat(loop_counter: int):
 # ── main sonic cycle orchestration ───────────────────────────────────────────
 from backend.core.monitor_core.monitor_core import MonitorCore
 
-async def sonic_cycle(loop_counter: int, cyclone: Cyclone, logger: Optional[ActivityLogger] = None):
-    logging.info("🔄 SonicMonitor cycle #%d starting", loop_counter)
+
+async def sonic_cycle(
+    loop_counter: int,
+    cyclone: Cyclone,
+    live: Optional[SonicMonitorLive] = None,
+):
+    if live is None or not live.is_live_active:
+        logging.info("🔄 SonicMonitor cycle #%d starting", loop_counter)
 
     dl = DataLocker.get_instance(str(MOTHER_DB_PATH))
     cfg = dl.system.get_var("sonic_monitor") or {}
@@ -1366,8 +1478,8 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone, logger: Optional[Acti
 
     async def _run_monitor_with_logger(mon_name: str, label: str, icon: str) -> None:
         runner = cyclone.monitor_core.run_by_name
-        if logger is not None:
-            with logger.step(label, icon=icon, meta={"monitor": mon_name}):
+        if live is not None:
+            with live.activity_step(label, icon=icon, meta={"monitor": mon_name}):
                 await _run_monitor_tick(mon_name, runner, mon_name)
         else:
             await _run_monitor_tick(mon_name, runner, mon_name)
@@ -1378,23 +1490,26 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone, logger: Optional[Acti
         return
 
     # Fetch prices + Jupiter positions in parallel (ThreadPool to overlap I/O)
-    results, errors = await asyncio.to_thread(_run_price_and_positions_parallel, cyclone, logger)
+    results, errors = await asyncio.to_thread(_run_price_and_positions_parallel, cyclone, live)
 
     price_result = results.get("price_sync")
     if price_result is None and "price_sync" in errors:
         logging.error("Price sync step failed: %s", errors["price_sync"])
     elif isinstance(price_result, Mapping):
         if price_result.get("success"):
-            logging.info("📈 Prices updated successfully (SonicMonitor)")
+            if live is None or not live.is_live_active:
+                logging.info("📈 Prices updated successfully (SonicMonitor)")
             try:
                 cyclone._mark_price_monitor_synced()
             except Exception:
                 logging.debug("Unable to flag price monitor as synced", exc_info=True)
         elif price_result.get("fallback"):
-            logging.warning("Price sync fallback to cached values")
+            if live is None or not live.is_live_active:
+                logging.warning("Price sync fallback to cached values")
         else:
             err_msg = price_result.get("error") or f"{price_result.get('fetched_count', 0)} assets"
-            logging.warning("Price sync reported issues: %s", err_msg)
+            if live is None or not live.is_live_active:
+                logging.warning("Price sync reported issues: %s", err_msg)
 
     positions_result = results.get("perps_fetch")
     if positions_result is None and "perps_fetch" in errors:
@@ -1403,19 +1518,22 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone, logger: Optional[Acti
         fallback_used = bool(positions_result.get("fallback"))
         errors_count = int(positions_result.get("errors", 0) or 0)
         if fallback_used:
-            logging.warning("Perps fetch fallback to cached snapshot")
+            if live is None or not live.is_live_active:
+                logging.warning("Perps fetch fallback to cached snapshot")
         elif errors_count:
-            logging.warning("Perps fetch completed with %d error(s)", errors_count)
+            if live is None or not live.is_live_active:
+                logging.warning("Perps fetch completed with %d error(s)", errors_count)
         else:
-            logging.info("🪐 Position updates completed (SonicMonitor)")
+            if live is None or not live.is_live_active:
+                logging.info("🪐 Position updates completed (SonicMonitor)")
             try:
                 cyclone._mark_position_monitor_synced()
             except Exception:
                 logging.debug("Unable to flag position monitor as synced", exc_info=True)
 
     # Run remaining Cyclone steps sequentially
-    if logger is not None:
-        with logger.step("Run Cyclone processors", icon="🧮", meta={"steps": list(REMAINING_CYCLONE_STEPS)}):
+    if live is not None:
+        with live.activity_step("Run Cyclone processors", icon="🧮", meta={"steps": list(REMAINING_CYCLONE_STEPS)}):
             await cyclone.run_cycle(steps=REMAINING_CYCLONE_STEPS)
     else:
         await cyclone.run_cycle(steps=REMAINING_CYCLONE_STEPS)
@@ -1431,9 +1549,10 @@ async def sonic_cycle(loop_counter: int, cyclone: Cyclone, logger: Optional[Acti
         await _run_monitor_with_logger("liquid_monitor", "Run liquid monitor", "💧")
 
     heartbeat(loop_counter)
-    logging.info("✅ SonicMonitor cycle #%d complete", loop_counter)
-    if logger is not None:
-        with logger.step("Notify Sonic listeners", icon="📣"):
+    if live is None or not live.is_live_active:
+        logging.info("✅ SonicMonitor cycle #%d complete", loop_counter)
+    if live is not None:
+        with live.activity_step("Notify Sonic listeners", icon="📣"):
             await notify_listeners()
     else:
         await notify_listeners()
@@ -1490,10 +1609,8 @@ def run_monitor(
     monitor_core = MonitorCore()
     cyclone = Cyclone(monitor_core=monitor_core)
 
-    console = Console()
-    activity_log = ActivityLogger()
-    activity_ui = CycleActivityStream(console, refresh_hz=10.0)
-    activity_log.add_listener(activity_ui.on_event)
+    live = SonicMonitorLive()
+    console = live.console
 
     # heartbeat table
     cursor = dl.db.get_cursor()
@@ -1526,28 +1643,27 @@ def run_monitor(
             loop_counter += 1
             cycle_id = loop_counter
 
-            logger = activity_log
-            logger.begin_cycle(cycle_id)
-            activity_ui.begin(cycle_id)
-            activity_ui.visible_print(
-                f"[bold]INFO[/]:[green]SonicMonitor[/] cycle #{cycle_id} starting — {_fmt_now_clock()}"
-            )
-            activity_ui.visible_print("")  # spacer before first step
+            live.begin_cycle(cycle_id)
+            if not live.is_live_active:
+                live.visible_print(
+                    f"[bold]INFO[/]:[green]SonicMonitor[/] cycle #{cycle_id} starting — {_fmt_now_clock()}"
+                )
+                live.visible_print("")  # spacer before first step
 
             start_time = time.time()
             cycle_failed = False
 
             try:
-                with logger.step("Run sonic cycle", icon="🦔"):
-                    loop.run_until_complete(sonic_cycle(loop_counter, cyclone, logger=logger))
-                with logger.step("Update heartbeat", icon="❤️"):
+                with live.activity_step("Run sonic cycle", icon="🦔"):
+                    loop.run_until_complete(sonic_cycle(loop_counter, cyclone, live=live))
+                with live.activity_step("Update heartbeat", icon="❤️"):
                     update_heartbeat(MONITOR_NAME, interval)
-                with logger.step("Write success ledger entry", icon="📘"):
+                with live.activity_step("Write success ledger entry", icon="📘"):
                     write_ledger("Success")
             except Exception as exc:
                 cycle_failed = True
                 logging.exception("SonicMonitor cycle failure")
-                with logger.step("Write error ledger entry", icon="📘"):
+                with live.activity_step("Write error ledger entry", icon="📘"):
                     write_ledger("Error", {"error": str(exc)})
 
             # build & print summary
@@ -1588,7 +1704,7 @@ def run_monitor(
                     summary["positions_icon_line"] = icon_line
 
                 # populate prices/positions/hedges into summary for endcap
-                with (logger.step("Summarize prices", icon="💹", meta={"source": "DataLocker"}) if logger else nullcontext()):
+                with live.activity_step("Summarize prices", icon="💹", meta={"source": "DataLocker"}):
                     try:
                         price_mgr = getattr(dl, "prices", None)
                         if price_mgr:
@@ -1634,7 +1750,7 @@ def run_monitor(
                         set_prices([], None)
                         set_prices_reason("error")
 
-                with (logger.step("Snapshot portfolio", icon="💾", meta={"source": "collect_positions"}) if logger else nullcontext()):
+                with live.activity_step("Snapshot portfolio", icon="💾", meta={"source": "collect_positions"}):
                     try:
                         pos_rows, pos_error, pos_meta = collect_positions(dl)
                         summary["positions_error"] = pos_error
@@ -1686,7 +1802,7 @@ def run_monitor(
                         summary.setdefault("positions_error", "positions summary failure")
                         set_positions_icon_line(line=None, updated_iso=None, reason="error")
 
-                with (logger.step("Update hedge snapshot", icon="🛡", meta={"source": "hedges"}) if logger else nullcontext()):
+                with live.activity_step("Update hedge snapshot", icon="🛡", meta={"source": "hedges"}):
                     try:
                         hedge_mgr = getattr(dl, "hedges", None)
                         if hedge_mgr:
@@ -1704,7 +1820,7 @@ def run_monitor(
                             summary["hedge_groups"] = int(fallback_hedges)
                             set_hedges(int(fallback_hedges))
 
-                with (logger.step("Rebuild hedge groups", icon="🧩", meta={"source": "DLHedgeManager"}) if logger else nullcontext()):
+                with live.activity_step("Rebuild hedge groups", icon="🧩", meta={"source": "DLHedgeManager"}):
                     try:
                         if getattr(dal, "db", None):
                             hmgr = DLHedgeManager(dal.db)
@@ -1758,7 +1874,7 @@ def run_monitor(
                     if cycle_failed:
                         summary["errors_count"] = 1
 
-                with (logger.step("Enrich summary from locker", icon="📦") if logger else nullcontext()):
+                with live.activity_step("Enrich summary from locker", icon="📦"):
                     try:
                         _enrich_summary_from_locker(summary, dl)
                     except Exception:
@@ -1774,7 +1890,8 @@ def run_monitor(
                 except Exception:
                     logging.debug("Failed to load sonic_monitor config", exc_info=True)
 
-                activity_ui.visible_print("")  # breathing room before summary
+                if not live.is_live_active:
+                    live.visible_print("")  # breathing room before summary
                 summary = snapshot_into(summary)
                 cycle_snapshot = summary
                 _assemble_monitors_snapshot(cycle_snapshot)
@@ -1802,24 +1919,16 @@ def run_monitor(
                 summary_text = f"{type(exc).__name__}: {exc}"
                 raise
             finally:
-                try:
-                    cycle_summary = logger.end_cycle()
-                except Exception:
-                    cycle_summary = {"id": cycle_id, "started_at": None, "activities": []}
-                else:
-                    activities = cycle_summary.get("activities") if isinstance(cycle_summary, dict) else None
-                    if isinstance(activities, list) and activities:
-                        steps_suffix = f"{len(activities)} steps"
-                        if summary_text and "steps" not in summary_text:
-                            summary_text = f"{summary_text} • {steps_suffix}"
-                        elif not summary_text:
-                            summary_text = f"{alerts_inline} • {steps_suffix} • {elapsed:.1f}s"
+                activities = tuple(live.logger.activities())
+                if activities:
+                    steps_suffix = f"{len(activities)} steps"
+                    if summary_text and "steps" not in summary_text:
+                        summary_text = f"{summary_text} • {steps_suffix}"
+                    elif not summary_text:
+                        summary_text = f"{alerts_inline} • {steps_suffix} • {elapsed:.1f}s"
                 if not summary_text:
                     summary_text = f"{alerts_inline} • {elapsed:.1f}s"
-                try:
-                    activity_ui.end({"status": final_status, "text": summary_text})
-                except Exception:
-                    pass
+                cycle_summary = live.complete_cycle(final_status, summary_text)
             if dl is not None:
                 try:
                     if hasattr(dl, "set_last_cycle"):
