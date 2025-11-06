@@ -22,11 +22,6 @@
       "sms": true,
       "tts": true
     },
-    "thresholds": {
-      "BTC": 5.3,
-      "ETH": 111.0,
-      "SOL": 21.5
-    },
     "blast": {
       "BTC": 5,
       "ETH": 5,
@@ -41,9 +36,7 @@
       "sms": false,
       "tts": true
     },
-    "snooze_seconds": 1200,
-    "position_usd": 10,
-    "portfolio_usd": 40
+    "snooze_seconds": 1200
   },
 
   "market": {

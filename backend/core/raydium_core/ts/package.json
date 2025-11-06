@@ -7,10 +7,10 @@
     "value": "ts-node value_raydium_positions.ts"
   },
   "dependencies": {
-    "@raydium-io/raydium-sdk-v2": "0.2.30-alpha",
+    "@raydium-io/raydium-sdk-v2": "^0.2.30-alpha",
     "@solana/web3.js": "^1.95.3",
     "bs58": "^5.0.0",
-    "decimal.js": "10.6.0",
+    "decimal.js": "^10.6.0",
     "dotenv": "16.6.1"
   },
   "devDependencies": {
