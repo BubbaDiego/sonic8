@@ -1,241 +1,243 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 """
-wallets_panel — DL-sourced wallets with a Rich bordered table
+wallets_panel — Wallets summary table
 
-Panel-local options (tweak here; no sequencer changes needed):
-  WALLET_BORDER = "light" | "none"
-  TITLE_COLOR   = <rich color>   (e.g., "bright_cyan")
-  BORDER_COLOR  = <rich color>   (e.g., "bright_black")
-
-Signature (lean sequencer):
-  render(dl, csum, default_json_path=None)
+Contract (sequencer):
+  render(dl, cycle_snapshot_unused, default_json_path=None)
 
 Behavior:
-  • Reads wallets directly from DataLocker (manager first, then DB fallback).
-  • Per-row shows: Name / Chain / Address / Balance / USD / Checked
-  • Balance is integer dollars with $, USD is compact without $ (K/M/B).
-  • Totals row prints USD sum and Balance total only if all wallets share the same chain.
-  • Breadcrumb prints the effective source used.
+- Source of truth: dl.read_wallets()
+- Robust field extraction for dicts and Pydantic/object rows
+- Columns: Name | Chain | Address | Balance | USD | Checked
+- Prints provenance line like: "[WALLETS] source: dl.read_wallets (N rows)"
 """
 
-from typing import Any, Dict, List, Optional
-import math
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
+from pathlib import Path
 
-# Panel-local UI options
-WALLET_BORDER = "light"          # "light" | "none"
-TITLE_COLOR   = "bright_cyan"    # Rich color
-BORDER_COLOR  = "bright_black"   # Rich color
+# ───────────────────────── small utils ─────────────────────────
 
-IC_HEADER = "💼"
-IC_ROW    = "💳"
-CHAIN_ICON = {"SOL": "🟣", "ETH": "🔷", "BTC": "🟡"}
-
-from backend.data.data_locker import DataLocker
-from backend.core.logging import log
-
-
-# ------------- helpers -------------
-
-def _ensure_dl(dl: Optional[DataLocker]) -> DataLocker:
-    if dl is not None:
-        return dl
+def _to_float(x: Any) -> Optional[float]:
     try:
-        return DataLocker.get_instance(r"C:\sonic7\backend\mother.db")
-    except Exception:
-        return DataLocker.get_instance()
-
-def _short_addr(addr: Optional[str], left: int = 6, right: int = 6) -> str:
-    if not addr:
-        return "—"
-    a = addr.strip()
-    return a if len(a) <= left + right + 1 else f"{a[:left]}…{a[-right:]}"
-
-def _guess_chain(addr: Optional[str]) -> str:
-    if not addr:
-        return "SOL"
-    a = addr.strip().lower()
-    if a.startswith("0x") and len(a) == 42: return "ETH"
-    if a.startswith("bc1") or a[:1] in {"1", "3"}: return "BTC"
-    return "SOL"
-
-def _fmt_int_balance(x: Optional[float]) -> str:
-    if x is None: return "—"
-    try:
-        v = int(float(x))
-        return f"${v:,}"
-    except Exception:
-        return "—"
-
-def _fmt_usd_compact(x: Optional[float]) -> str:
-    if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
-        return "—"
-    v = float(x)
-    sign = "-" if v < 0 else ""
-    a = abs(v)
-    if a >= 1_000_000_000: return f"{sign}{a/1_000_000_000:.1f}B".replace(".0B", "B")
-    if a >= 1_000_000:     return f"{sign}{a/1_000_000:.1f}M".replace(".0M", "M")
-    if a >= 1_000:         return f"{sign}{a/1_000:.1f}K".replace(".0K", "K")
-    return f"{sign}{a:,.0f}"
-
-def _fmt_time_only(dt: Optional[datetime] = None) -> str:
-    try:
-        d = dt or datetime.now()
-        return d.strftime("%I:%M%p").lstrip("0").lower()
-    except Exception:
-        return "(now)"
-
-
-# ------------- DL readers -------------
-
-def _price_usd(dl: DataLocker, chain: str) -> Optional[float]:
-    sym = {"SOL": "SOL", "ETH": "ETH", "BTC": "BTC"}.get(chain)
-    if not sym:
-        return None
-    try:
-        info = dl.get_latest_price(sym) or {}
-        p = info.get("current_price")
-        return float(p) if p is not None else None
+        return float(x)
     except Exception:
         return None
 
-def _read_wallets_via_manager(dl: DataLocker) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
+def _fmt_usd(x: Any) -> str:
+    f = _to_float(x)
+    if f is None:
+        return "—"
+    sgn = "-" if f < 0 else ""
+    f = abs(f)
+    if f >= 1_000_000:
+        return f"{sgn}${f/1_000_000:.1f}m"
+    if f >= 1_000:
+        return f"{sgn}${f/1_000:.1f}k"
+    return f"{sgn}${f:.0f}" if f >= 100 else f"{sgn}${f:.2f}"
+
+def _fmt_native(x: Any) -> str:
+    f = _to_float(x)
+    if f is None:
+        return "—"
+    if abs(f) >= 1_000_000:
+        return f"{f/1_000_000:.1f}m"
+    if abs(f) >= 1_000:
+        return f"{f/1_000:.1f}k"
+    return f"{f:.2f}"
+
+def _safe_getattr(obj: Any, name: str, default=None):
     try:
-        for w in (dl.read_wallets() or []):
-            name = w.get("name")
-            addr = w.get("public_address") or w.get("address")
-            bal  = w.get("balance")
-            rows.append({"name": name, "address": addr, "balance": bal})
+        return getattr(obj, name)
+    except Exception:
+        return default
+
+def _field(row: Any, *candidates: str) -> Any:
+    """Return first non-empty value across candidate keys; works for dicts and objects."""
+    # dict fast path
+    if isinstance(row, dict):
+        for k in candidates:
+            if k in row:
+                v = row[k]
+                if v not in (None, ""):
+                    return v
+        # fall through to attr path just in case
+    # Pydantic/object dump
+    mapper = _safe_getattr(row, "dict", None) or _safe_getattr(row, "model_dump", None)
+    data = None
+    if callable(mapper):
+        try:
+            data = mapper()
+        except Exception:
+            data = None
+    if isinstance(data, dict):
+        for k in candidates:
+            if k in data:
+                v = data[k]
+                if v not in (None, ""):
+                    return v
+    # attribute access
+    for k in candidates:
+        v = _safe_getattr(row, k, None)
+        if v not in (None, ""):
+            return v
+    # item access as final try
+    try:
+        for k in candidates:
+            v = row[k]  # type: ignore[index]
+            if v not in (None, ""):
+                return v
+    except Exception:
+        pass
+    return None
+
+def _fmt_checked(row: Any) -> str:
+    # prefer explicit age seconds
+    age = _field(row, "age_s", "age")
+    if isinstance(age, (int, float)):
+        s = float(age)
+        return f"{int(s)}s" if s < 60 else f"{int(s//60)}m"
+    # absolute timestamp string
+    ts = _field(row, "checked", "updated_at", "ts", "timestamp")
+    if isinstance(ts, (int, float)):
+        # epoch seconds → hh:mm
+        try:
+            return datetime.fromtimestamp(float(ts)).strftime("%-I:%M%p").lower()
+        except Exception:
+            return "(—)"
+    if isinstance(ts, str) and ts:
+        # show as hh:mm if parseable, else just "(0s)"
+        try:
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            return dt.strftime("%-I:%M%p").lower()
+        except Exception:
+            return "(0s)"
+    return "(0s)"
+
+# ───────────────────────── DL access ─────────────────────────
+
+def _read_wallets(dl: Any) -> Tuple[List[Any], str]:
+    """Return (rows, source_label)."""
+    try:
+        rows = dl.read_wallets()
+        try:
+            n = len(rows)
+        except Exception:
+            rows = list(rows)
+            n = len(rows)
+        print(f"[WALLETS] source: dl.read_wallets ({n} rows)")
+        return rows, "dl.read_wallets"
     except Exception as e:
-        log.warning(f"[WALLETS] manager read failed: {e}", source="wallets_panel")
-    return rows
+        print(f"[WALLETS] error: {type(e).__name__}: {e}")
+        return [], "error"
 
-def _read_wallets_via_db(dl: DataLocker) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
+# ───────────────────────── table builders ─────────────────────────
+
+def _normalize_row(row: Any) -> Tuple[str, str, str, str, str]:
+    """
+    Map various row schemas to: (name, chain, address, balance_native, usd)
+    """
+    name = _field(row, "name", "label", "title") or "—"
+    chain = _field(row, "chain", "network", "blockchain") or "—"
+    addr = _field(row, "address", "pubkey", "public_key") or "—"
+
+    native = _field(row, "balance", "amount", "native", "balance_native")
+    usd = _field(row, "usd", "usd_total", "balance_usd", "total_usd", "fiat_usd", "value_usd")
+
+    return (
+        str(name),
+        str(chain),
+        str(addr),
+        _fmt_native(native),
+        _fmt_usd(usd),
+    )
+
+def _total_usd(rows: List[Any]) -> float:
+    total = 0.0
+    for r in rows:
+        v = _field(r, "usd", "usd_total", "balance_usd", "total_usd", "fiat_usd", "value_usd")
+        f = _to_float(v)
+        if f is not None:
+            total += f
+    return total
+
+# ───────────────────────── rendering ─────────────────────────
+
+def _render_plain(rows: List[Any]) -> None:
+    width = 80
+    print("💼 Wallets")
+    print("─" * width)
+    hdr = f"{'Name':<16} {'Chain':<6} {'Address':<22} {'Balance':>10} {'USD':>8} {'Checked':>9}"
+    print(hdr)
+    print("─" * len(hdr))
+    if not rows:
+        total = _fmt_usd(0)
+        print(f"{'Total (USD):':>58} {total:>8}")
+        return
+    for r in rows:
+        name, chain, addr, bal, usd = _normalize_row(r)
+        chk = _fmt_checked(r)
+        print(f"{name:<16} {chain:<6} {addr:<22} {bal:>10} {usd:>8} {chk:>9}")
+    print()
+    print(f"{'Total (USD):':>58} {_fmt_usd(_total_usd(rows)):>8}")
+
+def _render_rich(rows: List[Any]) -> None:
     try:
-        cur = dl.db.get_cursor()
-        if not cur: return rows
-        cur.execute("PRAGMA table_info(wallets)")
-        cols = {r[1] for r in cur.fetchall()}
-        if "name" in cols and "public_address" in cols:
-            cur.execute("SELECT name, public_address, COALESCE(balance, 0.0) FROM wallets")
-            for name, addr, bal in cur.fetchall():
-                rows.append({"name": name, "address": addr, "balance": bal})
-        elif "name" in cols and "address" in cols:
-            cur.execute("SELECT name, address FROM wallets")
-            for name, addr in cur.fetchall():
-                rows.append({"name": name, "address": addr, "balance": None})
-    except Exception as e:
-        log.error(f"[WALLETS] fallback query failed: {e}", source="wallets_panel")
-    return rows
-
-
-# ------------- Rich rendering -------------
-
-def _render_bordered(rows: list[list[str]], header: list[str], title: str) -> None:
-    try:
-        from rich.table import Table
         from rich.console import Console
-        from rich.box import SIMPLE
+        from rich.text import Text
+        from rich.table import Table
+        from rich.box import SIMPLE_HEAD
+        from rich.measure import Measurement
     except Exception:
-        _render_unbordered(rows, header, title)
+        _render_plain(rows)
         return
 
+    console = Console()
+
     table = Table(
-        title=f"[{TITLE_COLOR}]{title}[/{TITLE_COLOR}]",
         show_header=True,
         header_style="bold",
-        box=SIMPLE,
-        border_style=BORDER_COLOR,
-        title_justify="left",
-        show_edge=True,
+        box=SIMPLE_HEAD,
+        show_edge=False,
         show_lines=False,
         expand=False,
         pad_edge=False,
     )
-    for col in header:
-        table.add_column(col)
+    table.add_column("Name")
+    table.add_column("Chain")
+    table.add_column("Address")
+    table.add_column("Balance", justify="right")
+    table.add_column("USD", justify="right")
+    table.add_column("Checked", justify="right")
 
-    for r in rows:
-        table.add_row(*[str(c) for c in r])
-
-    Console().print(table)
-
-def _render_unbordered(rows: list[list[str]], header: list[str], title: str) -> None:
-    print(f"\n  {title}\n")
-    widths = [max(len(str(header[c])), max(len(str(r[c])) for r in rows) if rows else 0)
-              for c in range(len(header))]
-    print("  " + "  ".join(str(header[c]).ljust(widths[c]) for c in range(len(header))))
-    print("")
-    for r in rows:
-        print("  " + "  ".join(str(r[c]).ljust(widths[c]) for c in range(len(header))))
-
-
-# ------------- panel entry -------------
-
-def render(dl, csum, default_json_path=None):
-    dl = _ensure_dl(dl)
-
-    wallets = _read_wallets_via_manager(dl)
-    source = "dl.read_wallets"
-    if not wallets:
-        wallets = _read_wallets_via_db(dl)
-        source = "db.wallets"
-
-    title  = f"{IC_HEADER} Wallets"
-    header = ["Name", "Chain", "Address", "Balance", "USD", "Checked"]
-    out: list[list[str]] = []
-
-    total_usd = 0.0
-    have_usd  = False
-    total_bal: Optional[float] = 0.0
-    chains = set()
-    now = datetime.now()
-
-    for w in wallets:
-        name = str(w.get("name") or "—")
-        addr = w.get("address")
-        chain = _guess_chain(addr)
-        chains.add(chain)
-        icon  = CHAIN_ICON.get(chain, "▫️")
-
-        bal = w.get("balance")
-        px  = _price_usd(dl, chain)
-        usd = (float(bal) * float(px)) if (bal not in (None, "") and px is not None) else None
-        if usd is not None:
-            have_usd = True
-            total_usd += float(usd)
-        try:
-            if bal not in (None, ""):
-                total_bal = (total_bal or 0.0) + float(bal)
-        except Exception:
-            pass
-
-        row = [
-            f"{IC_ROW} {name}",
-            f"{icon} {chain}",
-            _short_addr(addr),
-            _fmt_int_balance(bal),
-            _fmt_usd_compact(usd),
-            _fmt_time_only(now),
-        ]
-        out.append(row)
-
-    # Totals row
-    one_chain = (len(chains) == 1)
-    bal_total_cell = _fmt_int_balance(total_bal) if one_chain else "—"
-    out.append([
-        "", "", "Total (USD):",
-        bal_total_cell,
-        _fmt_usd_compact(total_usd) if have_usd else "—",
-        "",
-    ])
-
-    if WALLET_BORDER == "light":
-        _render_bordered(out, header, title)
+    if not rows:
+        # Render an empty body but still show a total line below
+        pass
     else:
-        _render_unbordered(out, header, title)
+        for r in rows:
+            name, chain, addr, bal, usd = _normalize_row(r)
+            chk = _fmt_checked(r)
+            table.add_row(name, chain, addr, bal, usd, chk)
 
-    print(f"\n[WALLETS] source: {source} ({len(wallets)} rows)")
+    # Measure width to size the title rule without echoing
+    meas = Measurement.get(console, console.options, table)
+    width = max(60, meas.maximum)
+
+    console.print(Text("💼 Wallets".center(width), style="bold bright_cyan"))
+    console.print(Text("─" * width, style="bright_cyan"))
+    console.print(table)
+
+    # Total line
+    console.print(
+        Text(
+            f"{'Total (USD):':>58} {_fmt_usd(_total_usd(rows)):>8}",
+            style="bold",
+        )
+    )
+
+# ───────────────────────── panel entry ─────────────────────────
+
+def render(dl, _cycle_snapshot_unused, default_json_path=None):
+    rows, _ = _read_wallets(dl)
+    _render_rich(rows)
