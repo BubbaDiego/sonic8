@@ -30,6 +30,9 @@ DEBUG_DUMP_SNAPSHOT = False
 _LOG = logging.getLogger(__name__)
 
 
+_LIVE_SPAM_SUPPRESS = False
+
+
 def _dump_cycle_snapshot(cycle_snapshot: dict | None, *, title: str = "CYCLE SNAPSHOT") -> None:
     """Pretty-print the snapshot (focused on 'monitors') for one cycle."""
     try:
@@ -207,7 +210,8 @@ def _step(label, fn, *args, **kwargs):
         return fn(*args, **kwargs)
     finally:
         dt = time.perf_counter() - t0
-        _LOG.debug("[PERF] %s took %.2fs", label, dt)
+        if not _LIVE_SPAM_SUPPRESS:
+            _LOG.debug("[PERF] %s took %.2fs", label, dt)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = REPO_ROOT / "backend"
@@ -851,6 +855,7 @@ class SonicMonitorLive:
 
         self._live_activities_enabled = bool(live_enabled)
         self._live_activities = False
+        self._prev_log_level: Optional[int] = None
 
     @property
     def logger(self) -> ActivityLogger:
@@ -860,13 +865,34 @@ class SonicMonitorLive:
     def is_live_active(self) -> bool:
         return self._live_activities_enabled and self._live_activities
 
+    @property
+    def live_enabled(self) -> bool:
+        return self._live_activities_enabled
+
+    def _silence_logs_for_live(self, enable: bool) -> None:
+        global _LIVE_SPAM_SUPPRESS
+        root = logging.getLogger()
+        if enable:
+            _LIVE_SPAM_SUPPRESS = True
+            if self._prev_log_level is None:
+                self._prev_log_level = root.level
+            if root.level < logging.WARNING:
+                root.setLevel(logging.WARNING)
+        else:
+            _LIVE_SPAM_SUPPRESS = False
+            if self._prev_log_level is not None:
+                root.setLevel(self._prev_log_level)
+                self._prev_log_level = None
+
     def begin_cycle(self, cycle_id: int) -> None:
         self._activity_log.begin_cycle(cycle_id)
         if self._live_activities_enabled:
             self._live_activities = True
+            self._silence_logs_for_live(True)
             self._activity_ui.begin(cycle_id)
         else:
             self._live_activities = False
+            self._silence_logs_for_live(False)
 
     def tick(self) -> None:
         if self.is_live_active:
@@ -884,30 +910,37 @@ class SonicMonitorLive:
         except Exception:
             summary = {"id": None, "started_at": None, "activities": []}
 
-        if self.is_live_active:
-            try:
-                self._activity_ui.end({"status": status, "text": text})
-            finally:
+        try:
+            if self.is_live_active:
+                try:
+                    self._activity_ui.end({"status": status, "text": text})
+                finally:
+                    self._live_activities = False
+            elif self._live_activities_enabled:
+                # ensure flag reset when live disabled during run
                 self._live_activities = False
-        elif self._live_activities_enabled:
-            # ensure flag reset when live disabled during run
-            self._live_activities = False
+        finally:
+            self._silence_logs_for_live(False)
 
         return summary
 
     def abort_cycle(self, status: str, text: str) -> None:
         if not self._live_activities_enabled:
+            self._silence_logs_for_live(False)
             return
-        if self.is_live_active:
-            try:
-                self._activity_log.end_cycle()
-            except Exception:
-                pass
-            finally:
+        try:
+            if self.is_live_active:
                 try:
-                    self._activity_ui.end({"status": status, "text": text})
+                    self._activity_log.end_cycle()
+                except Exception:
+                    pass
                 finally:
-                    self._live_activities = False
+                    try:
+                        self._activity_ui.end({"status": status, "text": text})
+                    finally:
+                        self._live_activities = False
+        finally:
+            self._silence_logs_for_live(False)
 
     @contextmanager
     def activity_step(self, label: str, *, icon: str = "•", meta: Optional[Dict[str, Any]] = None):
@@ -1269,9 +1302,11 @@ def _run_price_and_positions_parallel(
                 errors[label] = exc
                 logging.exception("Parallel step %s failed", label)
             finally:
-                _LOG.debug("[PERF] %s done at %.2fs", label, time.perf_counter() - t0)
+                if not _LIVE_SPAM_SUPPRESS:
+                    _LOG.debug("[PERF] %s done at %.2fs", label, time.perf_counter() - t0)
 
-    _LOG.debug("[PERF] parallel total %.2fs", time.perf_counter() - t0)
+    if not _LIVE_SPAM_SUPPRESS:
+        _LOG.debug("[PERF] parallel total %.2fs", time.perf_counter() - t0)
     return results, errors
 
 def _enrich_summary_from_locker(summary: Dict[str, Any], dl: DataLocker) -> None:
@@ -1997,12 +2032,15 @@ def run_monitor(
                 float(interval) - float(summary.get("elapsed_s", elapsed_for_emit)),
             )
             if sleep_time > 0:
-                spin_progress(
-                    sleep_time,
-                    style=style_for_cycle(loop_counter),
-                    label=f"sleep {int(round(sleep_time))}s",
-                    bar_colorizer=lambda bar: f"{_CYAN}{bar}{_RST}",
-                )
+                if live.live_enabled:
+                    time.sleep(sleep_time)
+                else:
+                    spin_progress(
+                        sleep_time,
+                        style=style_for_cycle(loop_counter),
+                        label=f"sleep {int(round(sleep_time))}s",
+                        bar_colorizer=lambda bar: f"{_CYAN}{bar}{_RST}",
+                    )
 
     except KeyboardInterrupt:
         logging.info("SonicMonitor terminated by user.")
