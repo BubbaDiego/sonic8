@@ -2,15 +2,27 @@
 from __future__ import annotations
 """
 banner_panel — Sonic Monitor Configuration (icon + line style)
+
+Contract (sequencer):
+  render(dl, csum, default_json_path=None)
+
+- Discover config in this order: dl.global_config → explicit default_json_path →
+  <repo>/backend/config/sonic_monitor_config.json → ./backend/config/… → ./config/…
+- Resolve XCOM live from JSON (monitor.xcom_live) first, then DB fallback.
+- Display provenance in parentheses: (JSON) or (DB); (EMPTY) if neither found.
+- Show configuration source (GLOBAL/FILE <path>/EMPTY), LAN/API URLs, muted modules, env and DB paths.
 """
 
 from typing import Any, Dict, Optional, Tuple
 from pathlib import Path
-import json, os, socket
+import json
+import socket
 
 TITLE = "🦔  Sonic Monitor Configuration"
 TITLE_COLOR = "bright_cyan"
 RULE_COLOR  = "bright_cyan"
+
+# ───────────── helpers: config & system info ─────────────
 
 def _cfg_get(cfg: Dict[str, Any], dotted: str, default: Any = None) -> Any:
     cur: Any = cfg
@@ -22,34 +34,39 @@ def _cfg_get(cfg: Dict[str, Any], dotted: str, default: Any = None) -> Any:
             return default
     return cur
 
-def _find_config_file(default_json_path: Optional[str], dl: Any) -> Optional[Path]:
-    # 1) explicit path
+def _db_path_from_dl(dl: Any) -> Optional[Path]:
+    for attr in ("db_path", "database", "database_path", "path"):
+        v = getattr(dl, attr, None)
+        if isinstance(v, str) and v:
+            return Path(v)
+    return None
+
+def _discover_config_path(dl: Any, default_json_path: Optional[str]) -> Optional[Path]:
+    # 1) explicit param
     if default_json_path:
         p = Path(default_json_path)
         if p.exists():
             return p.resolve()
-    # 2) look next to the DB (…\backend\mother.db → …\backend\config\sonic_monitor_config.json)
-    for attr in ("db_path", "database", "database_path", "path"):
-        base = getattr(dl, attr, None)
-        if isinstance(base, str):
-            bp = Path(base)
-            if bp.exists():
-                bdir = bp.parent  # e.g. C:\sonic7\backend
-                cand = (bdir / "config" / "sonic_monitor_config.json")
-                if cand.exists():
-                    return cand.resolve()
-                # also try repo-root/config
-                if bdir.name.lower() == "backend":
-                    alt = (bdir.parent / "config" / "sonic_monitor_config.json")
-                    if alt.exists():
-                        return alt.resolve()
-                break
-    # 3) typical absolute install path
-    p = Path(r"C:\sonic7\backend\raise")  # ignore
+    # 2) derive from the running DB location (…\backend\mother.db → …\backend\config\sonic_monitor_config.json)
+    bp = _db_path_from_dl(dl)
+    if bp and bp.exists():
+        b = bp.parent  # …\backend
+        cand = (b / "config" / "sonic_monitor_config.json")
+        if cand.exists():
+            return cand.resolve()
+        # also try repo-root\config\sonic_monitor_config.json if we’re under <repo>\backend\…
+        if b.name.lower() == "backend":
+            alt = (b.parent / "config" / "sonic_monitor_config.json")
+            if alt.exists():
+                return alt.resolve()
+    # 3) typical absolute install path (your machine layout)
+    p = Path(r"C:\sonic7\backend\config\").joinpath("sonic_mate", "sonic_monitor_config.json")
+    if p.exists():
+        return p.resolve()
     p = Path(r"C:\sonic7\backend\config\sonic_monitor_config.json")
     if p.exists():
         return p.resolve()
-    # 4) cwd relative fallbacks
+    # 4) cwd fallbacks
     for rel in ("backend\\config\\sonic_monitor_config.json", "config\\sonic_monitor_config.json"):
         p = Path(rel)
         if p.exists():
@@ -57,15 +74,16 @@ def _find_config_file(default_json_path: Optional[str], dl: Any) -> Optional[Pat
     return None
 
 def _load_config(dl: Any, default_json_path: Optional[str]) -> Tuple[Dict[str, Any], str, Optional[Path]]:
-    # Try runtime first
+    """Return (cfg, source_label, file_path)."""
+    # Prefer runtime/global injection
     try:
         gc = getattr(dl, "global_config", None)
         if isinstance(gc, dict) and gc:
             return gc, "GLOBAL", None
     except Exception:
         pass
-    # Then file(s)
-    fp = _find_config_file(default_json_path, dl)
+
+    fp = _discover_config_path(dl, default_json_path)
     if fp:
         try:
             with open(fp, "r", encoding="utf-8") as f:
@@ -74,10 +92,59 @@ def _load_config(dl: Any, default_json_path: Optional[str]) -> Tuple[Dict[str, A
                 return cfg, f"FILE {str(fp)}", fp
         except Exception:
             return {}, f"FILE {str(fp)} (load error)", fp
+
     return {}, "EMPTY", None
 
+def _resolve_xcom_live(cfg: Dict[str, Any], dl: Any) -> Tuple[bool, str, str]:
+    """
+    Returns (is_on, source_label, detail_source_label)
+      is_on: bool
+      source_label: 'JSON' | 'DB' | 'EMPTY'  (for printing in parentheses)
+      detail: human-readable where it came from: 'JSON', 'DB', or 'EMPTY'
+    Uses JSON first (cfg['monitor']['xcom_live']), then DB fallback on dl.db.
+    """
+    raw = _cfg_get(cfg, "monitor.xcom_live", None)
+    if raw is not None:
+        val = raw if isinstance(raw, bool) else (str(raw).strip().lower() in ("1","true","yes","on"))
+        return bool(val), "JSON", "JSON"
+
+    # DB fallback, first check system tables, then monitor_settings
+    try:
+        db = getattr(dl, "db", None) or getattr(dl, "database", None)
+        getcur = getattr(db, "get_cursor", None)
+        if callable(getcur):
+            cur = getcur()
+            # system / system_vars
+            for tbl, keycol in (("system", "key"), ("system_vars", "key")):
+                try:
+                    cur.execute(f"SELECT value FROM {tbl} WHERE {keycol} IN (?,?)", ("monitor.xcom_live","xcom_live"))
+                    row = cur.fetchone()
+                    if row:
+                        v = str(row[0]).strip().lower()
+                        if v in ("1","true","yes","on"):
+                            return True, "DB", "DB"
+                        if v in ("0","false","no","off"):
+                            return False, "DB", "DB"
+                except Exception:
+                    pass
+            # monitor_settings.xcom_* (if present)
+            try:
+                cur.execute("SELECT xcom_live FROM monitor_settings LIMIT 1")
+                row = cur.fetchone()
+                if row is not None:
+                    v = str(row[0]).strip().lower()
+                    if v in ("1","true","yes","on"):
+                        return True, "DB", "DB"
+                    if v in ("0","false","no","off"):
+                        return False, "DB", "DB"
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return False, "EMPTY", "EMPTY"
+
 def _urls(cfg: Dict[str, Any]) -> Dict[str, str]:
-    dash = _cfg_get(cfg, "dashboard.pose", None)  # ignore sentinel; we’ll set fallback below
     dash = _cfg_get(cfg, "dashboard_port", 5001)
     api  = _cfg_get(cfg, "api_port", 5000)
     host = _cfg_get(cfg, "lan_ip") or _cfg_get(cfg, "monitor.lan_ip")
@@ -87,12 +154,12 @@ def _urls(cfg: Dict[str, Any]) -> Dict[str, str]:
         except Exception:
             host = "127.0.0.1"
     return {
-        "Sonic Dashboard": f"http://127.0.0.1:{dash}/dashboard",
-        "LAN Dashboard":   f"http://{host}:{dash}/dashboard",
-        "LAN API":         f"http://{host}:{api}",
+        "Sonic": f"http://127.0.0.1:{dash}/dashboard",
+        "LAN_DASH": f"http://{host}:{dash}/dashboard",
+        "LAN_API":  f"http://{host}:{api}",
     }
 
-def _muted(dl: Any) -> str:
+def _muted_modules(dl: Any) -> str:
     vals = getattr(dl, "muted_modules", None) or getattr(dl, "muted", None)
     if vals is None:
         return "—"
@@ -109,93 +176,50 @@ def _env_path() -> str:
     p = Path("C:/sonic7/.env")
     return str(p if p.exists() else Path.cwd() / ".env")
 
-def _db_path(dl: Any) -> str:
-    for k in ("db_path", "database", "database_path", "path"):
-        v = getattr(dl, k, None)
-        if isinstance(v, str) and v:
-            return v
-    return "C:\\sonic7\\backend\\mother.db"
-
-def _db_xcom_live(dl: Any) -> Optional[bool]:
-    try:
-        db = getattr(dl, "db", None) or getattr(dl, "database", None)
-        cur = getattr(db, "get_last_cursor", None) or getattr(db, "get_cursor", None)
-        if not callable(cur):
-            return None
-        c = cur()
-        for tbl, keycol in (("system", "key"), ("system_vars", "key")):
-            try:
-                c.execute(f"SELECT value FROM {tbl} WHERE {keycol} IN (?,?)", ("monitor.xcom_live","xcom_live"))
-                row = c.fetchone()
-                if row:
-                    v = str(row[0]).strip().lower()
-                    if v in ("1","true","yes","on"): return True
-                    if v in ("0","false","no","off"): return False
-            except Exception:
-                pass
-        try:
-            c.execute("SELECT xcom_live FROM monitor_settings LIMIT 1")
-            row = c.fetchone()
-            if row:
-                v = str(row[0]).strip().lower()
-                if v in ("1","true","yes","on"): return True
-                if v in ("0","false","no","off"): return False
-        except Exception:
-            pass
-    except Exception:
-        return None
-    return None
+# ─────────────────── rendering ───────────────────
 
 def _render(lines: list[str]) -> None:
     try:
         from rich.console import Console
         from rich.text import Text
-        c = new_console = Console()
-        width = max(60, min(new_console.width, max(len(s) for s in lines) if lines else 60))
-        new_console.print(Text("🦔  Sonic Monitor Configuration".center(width), style=f"bold {TITLE_COLOR}"))
-        new_console.print(Text("─" * width, style=RULE_COLOR))
-        for L in lines:
-            new_console.print(L)
+        c = Console()
+        width = max(60, min(c.width, max(len(s) for s in lines) if lines else 60))
+        c.print(Text(TITLE.center(width), style=f"bold {TITLE_COLOR}"))
+        c.print(Text("─" * width, style=RULE_COLOR))
+        for line in lines:
+            c.print(line)
     except Exception:
-        print("🦔  Sonic Monitor Configuration".center(60))
+        print(TITLE.center(60))
         print("─" * 60)
-        for L in lines:
-            print(L)
+        for line in lines:
+            print(line)
+
+# ─────────────────── entry ───────────────────
 
 def render(dl, csum, default_json_path=None):
-    cfg, cfg_src, cfg_path = _load_config(dl, default_json_path)
+    cfg, cfg_src, _ = _load_config(dl, default_json_path)
     urls = _urls(cfg)
 
-    # JSON-first, DB fallback
-    j = _cfg_get(cfg, "monitor.xcom_live", None)
-    db_val = None if j is not None else _db_xcom_live(dl)
-    if isinstance(j, bool):
-        x_on, x_src = j, "JSON"
-    elif isinstance(j, str):
-        x_on, x_src = (j.strip().lower() in ("1","true","yes","on")), "JSON"
-    elif db_val is not None:
-        x_on, x_src = bool(db_val), "DB"
-    else:
-        x_on, x_src = False, "EMPTY"
+    x_on, x_src, _detail_src = _resolve_xcom_live(cfg, dl)
 
-    envp = _all = _db = _db_suffix = None
-    envp = _env_path()
-    dbp  = _db = _db_path(dl)
+    dbp = _db_path_from_dl(dl)
+    db_suffix = ""
     try:
-        _db_exists = Path(dbp).exists()
+        if dbp and dbp.exists():
+            db_suffix = " (ACTIVE for runtime data)"
+        elif dbp is not None:
+            db_suffix = " (path not found)"
     except Exception:
-        _db_exists = False
-    _db_suffix = " (ACTIVE for runtime data)" if _db_exists else " (path not found)"
+        db_suffix = ""
 
     lines = [
-        f"🌐  Sonic Dashboard :  {urls['S']} " if 'S' in urls else f"🌐  Sonic Dashboard :  {urls['Sonic Dashboard']}",
-        f"🌐  LAN Dashboard   :  {urls['LAN Dashboard']}",
-        f"🔱  LAN API         :  {urls['LAN API']}",
+        f"🌐  Sonic Dashboard :  {urls['Sonic']}",
+        f"🌐  LAN Dashboard   :  {urls['LAN_DASH']}",
+        f"🔱  LAN API         :  {urls['LAN_API']}",
         f"📡  XCOM Live       :  {'🟢  ON' if x_on else '⚫  OFF'}  ({x_src})",
-        f"🔒  Muted Modules   :  {_all or _muted(dl)}",
+        f"🔒  Muted Modules   :  {_muted_modules(dl)}",
         f"🟡  Configuration   :  {cfg_src}",
-        f"🧪  .{ 'env'.ljust(4) }(ignored)  :  {envp}",
-        f"🗄️  Database        :  {dbp}{_db_suffix}",
+        f"🧪  .env (ignored)  :  {_env_path()}",
+        f"🗄️  Database        :  {str(dbp) if dbp else '—'}{db_suffix}",
     ]
-    _To = [L for L in lines if L]  # no empties
-    _render(_To)
+    _render([ln for ln in lines if ln])

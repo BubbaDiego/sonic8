@@ -22,7 +22,7 @@ from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
 from rich.console import Console
 
-DEBUG_DUMP_SNAPSHOT = True
+DEBUG_DUMP_SNAPSHOT = False
 
 
 _LOG = logging.getLogger(__name__)
