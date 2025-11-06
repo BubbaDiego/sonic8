@@ -139,14 +139,33 @@ def _channels_from_json(cfg: dict, monitor_name: str) -> dict[str, bool]:
         return {"voice": False, "system": False, "sms": False, "tts": False}
 
 
-def _thresholds_from_json(cfg: dict, monitor_name: str) -> dict[str, float | None]:
+def _thresholds_from_json(dl: DataLocker, cfg: dict, monitor_name: str) -> dict[str, float | None]:
+    """Return thresholds preferring DataLocker accessor (JSON → DB → ENV → defaults)."""
+
+    def _normalize(raw: Mapping[str, Any]) -> dict[str, float | None]:
+        out: dict[str, float | None] = {}
+        for key, value in raw.items():
+            sym = str(key).upper()
+            out[sym] = _as_float(value)
+        return out
+
+    accessor = getattr(dl, "get_liquid_thresholds", None)
+    if callable(accessor):
+        try:
+            raw = accessor() or {}
+            if isinstance(raw, Mapping):
+                data = _normalize(raw)
+                if data:
+                    return data
+        except Exception:
+            pass
+
     blk = cfg.get(monitor_name, {}) or {}
     thr = blk.get("thresholds", {}) or {}
-    out: dict[str, float | None] = {}
-    for k in ("BTC", "ETH", "SOL"):
-        v = thr.get(k)
-        out[k] = _as_float(v)
-    return out
+    if isinstance(thr, Mapping):
+        return _normalize(thr)
+
+    return {}
 
 
 def _extract_positions(dl: DataLocker, pos_rows: list[dict] | None) -> list[dict]:
@@ -261,7 +280,7 @@ def run(
 
     # 2) Channels + thresholds
     channels = _channels_from_json(cfg, "liquid")
-    thresholds = _thresholds_from_json(cfg, "liquid")
+    thresholds = _thresholds_from_json(dl, cfg, "liquid")
     print(f"[LM][CHAN] voice={channels['voice']} system={channels['system']} "
           f"tts={channels['tts']} sms={channels['sms']} (cfg_src={cfg_src})")
 

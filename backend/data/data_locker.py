@@ -570,6 +570,79 @@ class DataLocker:
         except Exception:
             return {}
 
+    def get_liquid_thresholds(self) -> Dict[str, float]:
+        """
+        Return liquid thresholds with precedence: JSON -> DB -> ENV -> defaults.
+        Expected keys: "SOL", "ETH", "BTC" (but tolerates partial data).
+        """
+
+        out: Dict[str, float] = {}
+
+        # 1) JSON (global monitor config)
+        try:
+            root = (
+                getattr(self, "monitor_config_json", None)
+                or getattr(self, "global_config", None)
+                or {}
+            )
+            monitors = (root or {}).get("monitors", {})
+            liquid = (monitors or {}).get("liquid", {})
+            if isinstance(liquid, dict):
+                for key, value in liquid.items():
+                    if value is None:
+                        continue
+                    try:
+                        out[str(key).upper()] = float(value)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # 2) DB fallback (only for symbols still missing)
+        try:
+            db = getattr(self, "db", None)
+            if db:
+                cursor = db.get_cursor()
+                if cursor:
+                    try:
+                        cursor.execute("SELECT symbol, threshold FROM liquid_thresholds")
+                        for sym, val in cursor.fetchall():
+                            symbol = str(sym).upper()
+                            if symbol not in out:
+                                out[symbol] = float(val)
+                    except Exception:
+                        try:
+                            cursor.execute(
+                                "SELECT key, value FROM system "
+                                "WHERE key LIKE 'LIQ_%_THRESH'"
+                            )
+                            for key, val in cursor.fetchall():
+                                parts = str(key).split("_")
+                                symbol = parts[1].upper() if len(parts) >= 3 else None
+                                if symbol and symbol not in out:
+                                    out[symbol] = float(val)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+        # 3) ENV fallback
+        for symbol in ("SOL", "ETH", "BTC"):
+            env_key = f"LIQ_{symbol}_THRESH"
+            try:
+                env_value = os.getenv(env_key)
+                if env_value and symbol not in out:
+                    out[symbol] = float(env_value)
+            except Exception:
+                pass
+
+        # 4) Defaults
+        defaults = {"SOL": 11.50, "ETH": 111.0, "BTC": 5.3}
+        for symbol, default_value in defaults.items():
+            out.setdefault(symbol, default_value)
+
+        return out
+
     def get_death_log_entries(self, limit: int = 20) -> list:
         """Return the most recent entries from the death log file."""
         path = os.path.join(BASE_DIR, "death_log.txt")
