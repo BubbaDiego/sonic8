@@ -26,6 +26,11 @@ from backend.core.reporting_core.sonic_reporting.config_probe import (
     parse_json,
 )
 
+from backend.core.reporting_core.sonic_reporting.threshold_resolvers import (
+    resolve_liquid_thresholds,
+    resolve_profit_thresholds,
+)
+
 # XCOM gate helpers
 from backend.core.reporting_core.sonic_reporting.xcom_extras import (
     xcom_live_status,
@@ -78,6 +83,18 @@ def _cooldown_label(dl: DataLocker) -> Tuple[str, str]:
     except Exception:
         return ("idle", "")
 
+
+def _fmt_threshold_value(value: Optional[float]) -> str:
+    if value is None:
+        return "—"
+    try:
+        f = float(value)
+    except Exception:
+        return "—"
+    if f.is_integer():
+        return str(int(f))
+    return f"{f:.2f}"
+
 def _schema_markers(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     """
     Return (ok, 8 markers) where markers are 'name ✓' or 'name —'.
@@ -92,32 +109,14 @@ def _schema_markers(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         ok = ok and present
     return ok, marks
 
-def _liquid_thresholds(cfg: Dict[str, Any]) -> Dict[str, Optional[float]]:
-    block = _safe_get(cfg, ["liquid", "thresholds"], None) or _safe_get(cfg, ["liquid_monitor", "thresholds"], {})
-    out: Dict[str, Optional[float]] = {}
-    for k in ("BTC", "ETH", "SOL"):
-        try:
-            out[k] = float(block.get(k)) if block and k in block else None
-        except Exception:
-            out[k] = None
-    return out
+def _liquid_thresholds(cfg: Dict[str, Any]) -> Tuple[Dict[str, Optional[float]], str]:
+    liq_map, src = resolve_liquid_thresholds(cfg if isinstance(cfg, dict) else {})
+    return liq_map, src
 
-def _profit_thresholds(cfg: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
-    single = _safe_get(cfg, ["profit", "position_profit_usd"])
-    portfolio = _safe_get(cfg, ["profit", "portfolio_profit_usd"])
-    if single is None:
-        single = _safe_get(cfg, ["profit", "position_usd"])
-    if portfolio is None:
-        portfolio = _safe_get(cfg, ["profit", "portfolio_usd"])
-    try:
-        single = float(single) if single is not None else None
-    except Exception:
-        single = None
-    try:
-        portfolio = float(portfolio) if portfolio is not None else None
-    except Exception:
-        portfolio = None
-    return single, portfolio
+
+def _profit_thresholds(cfg: Dict[str, Any]) -> Tuple[Optional[float], Optional[float], str]:
+    single, portfolio, src = resolve_profit_thresholds(cfg if isinstance(cfg, dict) else {})
+    return single, portfolio, src
 
 
 # ────────────────────────────────── Rendering ──────────────────────────────────
@@ -205,8 +204,12 @@ def render(dl: Optional[DataLocker], csum: Optional[dict], default_json_path: Op
     row_b = " · ".join(markers[4:8])
 
     # 5) Thresholds
-    lq = _liquid_thresholds(cfg) if cfg else {"BTC": None, "ETH": None, "SOL": None}
-    pf_s, pf_p = _profit_thresholds(cfg) if cfg else (None, None)
+    if cfg:
+        lq_map, lq_src = _liquid_thresholds(cfg)
+        pf_s, pf_p, pf_src = _profit_thresholds(cfg)
+    else:
+        lq_map, lq_src = ({"BTC": None, "ETH": None, "SOL": None}, "EMPTY")
+        pf_s, pf_p, pf_src = (None, None, "EMPTY")
 
     header = ["Activity", "Status", "Details"]
     rows: List[List[str]] = []
@@ -224,16 +227,16 @@ def render(dl: Optional[DataLocker], csum: Optional[dict], default_json_path: Op
     rows.append(["🧭 Read monitor thresholds", _tick(True), "JSON→DB→ENV"])
 
     lt_detail = " • ".join([
-        f"🟡 BTC {lq.get('BTC') if lq.get('BTC') is not None else '—'} (FILE)",
-        f"🔷 ETH {lq.get('ETH') if lq.get('ETH') is not None else '—'} (FILE)",
-        f"🟣 SOL {lq.get('SOL') if lq.get('SOL') is not None else '—'} (FILE)",
-    ]) if cfg else "—"
+        f"🟡 BTC {_fmt_threshold_value(lq_map.get('BTC'))} ({lq_src})",
+        f"🔷 ETH {_fmt_threshold_value(lq_map.get('ETH'))} ({lq_src})",
+        f"🟣 SOL {_fmt_threshold_value(lq_map.get('SOL'))} ({lq_src})",
+    ])
     rows.append(["💧 Liquid thresholds", _tick(cfg != {}), lt_detail])
 
     pf_detail = " • ".join([
-        f"👤 Single ${pf_s:.0f} (FILE)" if pf_s is not None else "👤 Single —",
-        f"🧺 Portfolio ${pf_p:.0f} (FILE)" if pf_p is not None else "🧺 Portfolio —",
-    ]) if cfg else "—"
+        f"👤 Single ${_fmt_threshold_value(pf_s)} ({pf_src})" if pf_s is not None else f"👤 Single — ({pf_src})",
+        f"🧺 Portfolio ${_fmt_threshold_value(pf_p)} ({pf_src})" if pf_p is not None else f"🧺 Portfolio — ({pf_src})",
+    ])
     rows.append(["💵 Profit thresholds", _tick(cfg != {}), pf_detail])
 
     title = "🧪 Sonic Monitor Configuration"

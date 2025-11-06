@@ -20,6 +20,10 @@ from typing import Any, Dict, Optional, Callable, Iterable
 
 from backend.core.config_core.sonic_config_bridge import get_xcom_live
 from backend.core.reporting_core.spinner import spin_progress, style_for_cycle
+from backend.core.reporting_core.sonic_reporting.threshold_resolvers import (
+    resolve_liquid_thresholds,
+    resolve_profit_thresholds,
+)
 from rich.console import Console
 from backend.core.monitor_core.activity_logger import ActivityLogger
 from backend.core.monitor_core.cycle_activity_stream import CycleActivityStream
@@ -331,24 +335,14 @@ LOOP_SECONDS = _require(
     coerce=lambda x: int(float(x)),
 )
 
-LIQ_THR = _require(
-    "liquid.thresholds | (legacy) liquid_monitor.thresholds",
-    _get(CFG, "liquid", "thresholds") or _get(CFG, "liquid_monitor", "thresholds"),
-    coerce=lambda mapping: {str(k).upper(): float(v) for k, v in mapping.items()},
-)
+_LIQ_RESOLVED, _ = resolve_liquid_thresholds(CFG if isinstance(CFG, dict) else {})
+LIQ_THR = {str(k).upper(): float(v) for k, v in _LIQ_RESOLVED.items() if v is not None}
 _liq_blast_cfg = _get(CFG, "liquid", "blast") or {}
 LIQ_BLAST = {str(k).upper(): int(_liq_blast_cfg.get(k, 0)) for k in LIQ_THR.keys()}
 
-PROFIT_POS = _require(
-    "profit.position_usd",
-    _get(CFG, "profit", "position_usd"),
-    coerce=lambda x: int(float(x)),
-)
-PROFIT_PF = _require(
-    "profit.portfolio_usd",
-    _get(CFG, "profit", "portfolio_usd"),
-    coerce=lambda x: int(float(x)),
-)
+_PROFIT_SINGLE, _PROFIT_PORTF, _ = resolve_profit_thresholds(CFG if isinstance(CFG, dict) else {})
+PROFIT_POS = float(_PROFIT_SINGLE) if _PROFIT_SINGLE is not None else None
+PROFIT_PF = float(_PROFIT_PORTF) if _PROFIT_PORTF is not None else None
 
 
 # seed DB once so legacy readers behave like JSON (but JSON stays the source)
@@ -356,9 +350,11 @@ try:
     sysmgr = dal.system
     sysmgr.set_var("sonic_monitor_loop_time", LOOP_SECONDS)
     sysmgr.set_var("alert_thresholds", json.dumps({"thresholds": LIQ_THR, "blast": LIQ_BLAST}, separators=(",", ":")))
-    sysmgr.set_var("profit_pos", PROFIT_POS)
-    sysmgr.set_var("profit_pf", PROFIT_PF)
-    sysmgr.set_var("profit_badge_value", PROFIT_PF)  # compat alias
+    if PROFIT_POS is not None:
+        sysmgr.set_var("profit_pos", PROFIT_POS)
+    if PROFIT_PF is not None:
+        sysmgr.set_var("profit_pf", PROFIT_PF)
+        sysmgr.set_var("profit_badge_value", PROFIT_PF)  # compat alias
 except Exception as exc:
     print(f"⚠ DB seed from JSON failed: {exc}")
 
@@ -385,7 +381,12 @@ def cfg_liquid_blast() -> dict:
     return dict(LIQ_BLAST)
 
 def cfg_profit_thresholds() -> dict:
-    return {"position_usd": PROFIT_POS, "portfolio_usd": PROFIT_PF}
+    out: dict[str, float] = {}
+    if PROFIT_POS is not None:
+        out["position_usd"] = float(PROFIT_POS)
+    if PROFIT_PF is not None:
+        out["portfolio_usd"] = float(PROFIT_PF)
+    return out
 
 # normalize asset list
 def get_price_assets() -> list[str]:
