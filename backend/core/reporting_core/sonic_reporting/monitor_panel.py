@@ -16,15 +16,19 @@ Behavior:
     • profit.position_usd / portfolio_usd                        → fallback
 - Values: from dl.read_positions() + dl.get_latest_price(symbol) (for mark)
 - Outcome: Liquid -> value ≤ threshold ; Profit -> value ≥ threshold
-- Source:  "JSON" (threshold provenance)
+- Source:  "JSON:…" (threshold provenance, e.g., profit_monitor vs legacy)
 """
 
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Mapping
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from pathlib import Path
 import json
 import os
 import re
 
+from backend.core.reporting_core.sonic_reporting.threshold_resolvers import (
+    resolve_liquid_thresholds,
+    resolve_profit_thresholds,
+)
 TITLE = "🧭 Monitors"
 TITLE_COLOR = "bright_cyan"
 RULE_COLOR  = "bright_cyan"
@@ -137,66 +141,6 @@ def _norm_sym(s: str | None) -> Optional[str]:
 
 # ───────────────────────── thresholds (JSON → DL accessor) ─────────────────────────
 
-def _read_liquid_thresholds(dl: Any, cfg: Dict[str, Any]) -> Dict[str, float]:
-    """Return normalized liquid thresholds using DataLocker accessors."""
-
-    def _normalize_map(raw: Mapping[str, Any]) -> Dict[str, float]:
-        out: Dict[str, float] = {}
-        for key, value in raw.items():
-            try:
-                sym = _norm_sym(str(key)) or str(key).upper()
-                out[sym] = float(value)
-            except Exception:
-                continue
-        return out
-
-    accessor = getattr(dl, "get_liquid_thresholds", None)
-    if callable(accessor):
-        try:
-            raw = accessor() or {}
-            if isinstance(raw, Mapping):
-                return _normalize_map(raw)
-        except Exception:
-            pass
-
-    # Fallback to JSON parsing if accessor missing (legacy code paths)
-    try:
-        t = cfg.get("liquid_monitor", {}).get("thresholds", {})
-        if isinstance(t, Mapping) and t:
-            return _normalize_map(t)
-    except Exception:
-        pass
-    try:
-        t = cfg.get("liquid", {}).get("thresholds", {})
-        if isinstance(t, Mapping) and t:
-            return _normalize_map(t)
-    except Exception:
-        pass
-    return {}
-
-def _read_profit_thresholds(cfg: Dict[str, Any]) -> Dict[str, float]:
-    """
-    Support both:
-      profit_monitor.position_profit_usd / portfolio_profit_usd  (preferred)
-      profit.position_usd / portfolio_usd                        (legacy)
-    """
-    out: Dict[str, float] = {}
-    pm = cfg.get("profit_monitor", {}) if isinstance(cfg, dict) else {}
-    if isinstance(pm, dict):
-        if pm.get("position_profit_usd") is not None:
-            out["single"] = float(pm["position_profit_usd"])
-        if pm.get("portfolio_profit_usd") is not None:
-            out["portfolio"] = float(pm["portfolio_profit_usd"])
-    # Legacy (fill any missing)
-    p = cfg.get("profit", {}) if isinstance(cfg, dict) else {}
-    if isinstance(p, dict):
-        if "single" not in out and p.get("position_usd") is not None:
-            out["single"] = float(p["position_usd"])
-        if "portfolio" not in out and p.get("portfolio_usd") is not None:
-            out["portfolio"] = float(p["portfolio_usd"])
-    return out
-
-
 # ───────────────────────── values (from positions + price) ─────────────────────────
 
 def _read_positions(dl: Any) -> List[Any]:
@@ -298,34 +242,37 @@ def _build_rows_from_json_and_positions(
             print(f"[MON] row[{i}] sym_raw={_field(r,'asset_type','asset','symbol','base','ticker','asset_symbol')} sym_norm={_symbol_of(r)}")
 
     # Liquid (per-asset, normalized)
-    liq_thr  = _read_liquid_thresholds(dl, cfg)             # {"BTC":1.3,"ETH":1.0,"SOL":11.5} OR legacy values
+    liq_map, liq_src = resolve_liquid_thresholds(cfg)
     liq_vals = _liquid_values_from_positions(positions, dl) # {"SOL": 5.4, ...}
     if DEBUG_MONITOR_PANEL:
-        print(f"[MON] liquid thresholds: {liq_thr}")
+        print(f"[MON] liquid thresholds: {liq_map} src={liq_src}")
         print(f"[MON] liquid values (derived): {liq_vals}")
 
-    symbols  = set(liq_thr.keys()) | set(liq_vals.keys()) or set(_norm_sym(s) for s in FALLBACK_SYMBOLS)
+    symbols  = set(k for k, val in liq_map.items() if val is not None)
+    symbols |= set(sym for sym in liq_vals.keys() if sym)
+    if not symbols:
+        symbols = set(_norm_sym(s) for s in FALLBACK_SYMBOLS)
 
     for sym in sorted(s for s in symbols if s):
-        t = liq_thr.get(sym)
+        t = liq_map.get(sym)
         v = liq_vals.get(sym)
-        if t is None or v is None:
-            continue
-        # Liquid: breach if value ≤ threshold
-        outcome = BREACH if (_to_float(v) is not None and _to_float(t) is not None and float(v) <= float(t)) else NO_BREACH
+        outcome = NO_BREACH
+        if _to_float(v) is not None and _to_float(t) is not None:
+            outcome = BREACH if float(v) <= float(t) else NO_BREACH
         rows_out.append((
             f"{ICON_LIQUID} Liquid ({sym})",
             _fmt_num(v),
             _fmt_num(t),
-            "JSON",
+            liq_src,
             outcome
         ))
 
     # Profit
-    prof_thr  = _read_profit_thresholds(cfg)                # {"single":10.0, "portfolio":40.0}
+    prof_single, prof_portf, profit_src = resolve_profit_thresholds(cfg)
+    prof_thr = {"single": prof_single, "portfolio": prof_portf}
     prof_vals = _profit_values_from_positions(positions)    # {"single":v, "portfolio":v}
     if DEBUG_MONITOR_PANEL:
-        print(f"[MON] profit thresholds (JSON): {prof_thr}")
+        print(f"[MON] profit thresholds (JSON): {prof_thr} src={profit_src}")
         print(f"[MON] profit values (derived): {prof_vals}")
 
     labels = {
@@ -335,14 +282,14 @@ def _build_rows_from_json_and_positions(
     for key, label in labels.items():
         t = prof_thr.get(key)
         v = prof_vals.get(key)
-        if t is None or v is None:
-            continue
-        outcome = BREACH if (_to_float(v) is not None and _to_float(t) is not None and float(v) >= float(t)) else NO_BREACH
+        outcome = NO_BREACH
+        if _to_float(v) is not None and _to_float(t) is not None:
+            outcome = BREACH if float(v) >= float(t) else NO_BREACH
         rows_out.append((
             label,
             _fmt_money(v),
             _fmt_money(t),
-            "JSON",
+            profit_src,
             outcome
         ))
 
@@ -395,7 +342,11 @@ def _render_rich(rows: List[Tuple[str, str, str, str, str]]) -> None:
     else:
         for monitor, value, threshold, source, outcome in rows:
             outcome_text = "[bold red]BREACH[/]" if outcome == BREACH else "[green]no breach[/]"
-            src_text = "[cyan]JSON[/]"
+            src_label = source or "EMPTY"
+            if src_label == "EMPTY":
+                src_text = "[dim]EMPTY[/]"
+            else:
+                src_text = f"[cyan]{src_label}[/]"
             table.add_row(monitor, value, threshold, src_text, outcome_text)
 
     meas = Measurement.get(console, console.options, table)
