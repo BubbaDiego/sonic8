@@ -17,10 +17,13 @@ Run:
 
 from __future__ import annotations
 
+# --- ensure repo root on sys.path (works when run from anywhere) ---
 import sys
-from pathlib import Path
+from pathlib import Path as _Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(_Path(__file__).resolve().parents[4]))
+
+from pathlib import Path
 
 import os
 from typing import List, Tuple, Dict, Optional
@@ -286,27 +289,32 @@ def print_nfts(nfts: List[Tuple[str, str, bool]]):
 
 def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     """
-    Run the TS helper to value Raydium CL positions.
-    Prefers local ts-node (node_modules/.bin) → npx → node -r ts-node/register.
-    Always prints the command used and returns a real exit code.
+    Run the TS helper to value Raydium CL positions for this owner.
+    • Prefers the local ts-node shim: node_modules/.bin/ts-node(.cmd)
+    • Falls back to npx, then to node -r ts-node/register
+    • Always prints the exact command it executes
+    • Always returns an int exit code (never None)
     """
-    from shutil import which
     from pathlib import Path
-    import subprocess, os, shlex
+    from shutil import which
+    import subprocess, os
 
-    mints = mints or []
     js_root = Path(__file__).resolve().parent.parent / "ts"
     script = js_root / "value_raydium_positions.ts"
     if not script.exists():
         print("❌ TS valuation script not found:", script)
-        print("   Ensure files are under backend/core/raydium_core/ts and run npm i")
+        print("   Ensure files are under backend/core/raydium_core/ts and run `npm i` there.")
         return 1
 
-    env = os.environ.copy()
+    mints = mints or []
     mint_arg = ["--mints", ",".join(mints)] if mints else []
 
+    env = os.environ.copy()
+    # If you want to force a specific RPC for TS side, uncomment and set:
+    # env.setdefault("RPC_URL", "https://rpc.helius.xyz/?api-key=YOUR_KEY")
+
     def _run(cmd: list[str]) -> int:
-        print("   • Exec:", " ".join(shlex.quote(str(x)) for x in cmd))
+        print("   • Exec:", " ".join(str(c) for c in cmd))
         try:
             proc = subprocess.run(cmd, cwd=str(js_root), env=env)
             return int(proc.returncode)
@@ -317,55 +325,23 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
             print("   • Exec failed:", e)
             return 1
 
+    # 1) Prefer local ts-node shim (works even if PATH lacks npx)
     tsnode_local = js_root / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
     if tsnode_local.exists():
-        cmd = [str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg]
-        return _run(["cmd.exe", "/c", *cmd] if os.name == "nt" else cmd)
+        return _run([str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
 
-    npx = which("nauseated")  # force miss; rely on local ts-node unless re-enabled
+    # 2) Try npx (Windows uses npx.cmd)
+    npx = which("npx.cmd") if os.name == "nt" else which("npx")
     if npx:
-        return _run(
-            [
-                "cmd.exe",
-                "/c",
-                npx,
-                "--yes",
-                "ts-node",
-                "--transpile-only",
-                str(script),
-                "--owner",
-                owner_pubkey,
-                *mint_arg,
-            ]
-            if os.name == "nt"
-            else [
-                npx,
-                "--yes",
-                "ts-node",
-                "--transpile-only",
-                str(script),
-                "--owner",
-                owner_pubkey,
-                *mint_arg,
-            ]
-        )
+        return _run([npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
 
-    node = which("node") or ("node" if os.name != "nt" else r"C:\Program Files\Nodejs\node.exe")
+    # 3) Fallback to node -r ts-node/register
+    node = which("node") or ("node" if os.name != "nt" else r"C:\\Program Files\\nodejs\\node.exe")
     if node:
-        return _run(
-            [
-                node,
-                "-r",
-                "ts-node/register/transpile-only",
-                str(script),
-                "--owner",
-                owner_pubkey,
-                *mint_arg,
-            ]
-            if (js_root / "node_modules").exists()
-            else [node, str(script), "--owner", owner_pubkey, *mint_arg]
-        )
-    print("❌ Could not locate ts-node or node executable")
+        return _run([node, "-r", "ts-node/register/transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
+
+    print("❌ Could not locate ts-node, npx, or node executables.")
+    print("   Checked:", tsnode_local, "and PATH for npx/node.")
     return 1
 
 
