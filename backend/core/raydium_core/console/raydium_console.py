@@ -19,11 +19,9 @@ from __future__ import annotations
 
 # --- ensure repo root on sys.path (works when run from anywhere) ---
 import sys
-from pathlib import Path as _Path
-
-sys.path.insert(0, str(_Path(__file__).resolve().parents[4]))
-
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import os
 from typing import List, Tuple, Dict, Optional
@@ -288,36 +286,27 @@ def print_nfts(nfts: List[Tuple[str, str, bool]]):
 
 
 def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
-    """
-    Run the TS helper to value Raydium CL positions for this owner.
-    • Prefers the local ts-node shim: node_modules/.bin/ts-node(.cmd)
-    • Falls back to npx, then to node -r ts-node/register
-    • Always prints the exact command it executes
-    • Always returns an int exit code (never None)
-    """
-    from pathlib import Path
     from shutil import which
-    import subprocess, os
+    from pathlib import Path
+    import subprocess
+    import os
 
+    mints = mints or []
     js_root = Path(__file__).resolve().parent.parent / "ts"
     script = js_root / "value_raydium_positions.ts"
     if not script.exists():
         print("❌ TS valuation script not found:", script)
-        print("   Ensure files are under backend/core/raydium_core/ts and run `npm i` there.")
+        print("   Ensure files are under backend/core/raydium_core/ts and run npm i")
         return 1
 
-    mints = mints or []
-    mint_arg = ["--mints", ",".join(mints)] if mints else []
-
     env = os.environ.copy()
-    # If you want to force a specific RPC for TS side, uncomment and set:
-    # env.setdefault("RPC_URL", "https://rpc.helius.xyz/?api-key=YOUR_KEY")
+    mint_arg = ["--mints", ",".join(mints)] if mints else []
 
     def _run(cmd: list[str]) -> int:
         print("   • Exec:", " ".join(str(c) for c in cmd))
         try:
-            proc = subprocess.run(cmd, cwd=str(js_root), env=env)
-            return int(proc.returncode)
+            p = subprocess.run(cmd, cwd=str(js_root), env=env)
+            return int(p.returncode)
         except FileNotFoundError as e:
             print("   • File not found:", e)
             return 127
@@ -325,23 +314,19 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
             print("   • Exec failed:", e)
             return 1
 
-    # 1) Prefer local ts-node shim (works even if PATH lacks npx)
     tsnode_local = js_root / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
     if tsnode_local.exists():
         return _run([str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
 
-    # 2) Try npx (Windows uses npx.cmd)
     npx = which("npx.cmd") if os.name == "nt" else which("npx")
     if npx:
         return _run([npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
 
-    # 3) Fallback to node -r ts-node/register
     node = which("node") or ("node" if os.name != "nt" else r"C:\\Program Files\\nodejs\\node.exe")
     if node:
         return _run([node, "-r", "ts-node/register/transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
 
-    print("❌ Could not locate ts-node, npx, or node executables.")
-    print("   Checked:", tsnode_local, "and PATH for npx/node.")
+    print("❌ Could not locate ts-node, npx or node")
     return 1
 
 
@@ -379,7 +364,7 @@ def main():
         elif choice == "4":
             owner = show_wallet(cl)
             print("\n📈 Valuing Raydium CL positions via SDK…")
-            nftish = list_suspected_nfts(cl, owner, verbose=False)
+            nftish = list_suspected_nfts(cl, owner, verbose=True)
             mints = [m for (m, _ta, _strong) in nftish]
             print("   • Mints →", ",".join(mints) if mints else "(none)")
             rc = run_ts_valuation(str(owner), mints)
