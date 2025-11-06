@@ -7,12 +7,15 @@ Contract (sequencer):
   render(dl, cycle_snapshot_unused, default_json_path=None)
 
 Behavior:
-- Thresholds: from JSON
-  • liquid_monitor.thresholds              → per-asset % thresholds (e.g., BTC/ETH/SOL)
-  • profit_monitor.position_profit_usd     → "single"
-  • profit_monitor.portfolio_profit_usd    → "portfolio"
-- Values: from dl.read_positions() + dl.get_latest_price(symbol) (for mark price)
-- Outcome: Liquid -> value > threshold ; Profit -> value >= threshold
+- Thresholds: JSON (supports legacy + monitor keys)
+  Liquid:
+    • liquid_monitor.thresholds           → preferred
+    • liquid.thresholds                   → fallback
+  Profit:
+    • profit_monitor.position_profit_usd / portfolio_profit_usd → preferred
+    • profit.position_usd / portfolio_usd                        → fallback
+- Values: from dl.read_positions() + dl.get_latest_price(symbol) (for mark)
+- Outcome: Liquid -> value ≤ threshold ; Profit -> value ≥ threshold
 - Source:  "JSON" (threshold provenance)
 """
 
@@ -34,6 +37,9 @@ NO_BREACH = "no breach"
 
 DEFAULT_CONFIG_PATH = Path("backend/config/sonic_monitor_config.json")
 FALLBACK_SYMBOLS = ("BTC", "ETH", "SOL")
+
+# Set True briefly to inspect what the panel sees (positions, thresholds, values)
+DEBUG_MONITOR_PANEL = False
 
 
 # ───────────────────────── core utils ─────────────────────────
@@ -64,14 +70,6 @@ def _fmt_money(x: Any) -> str:
     if f >= 1_000:     return f"{sign}${f/1_000:.1f}k"
     return f"{sign}${f:.2f}"
 
-def _is_liquid_breach(v: Any, t: Any) -> bool:
-    fv, ft = _to_float(v), _to_float(t)
-    return False if (fv is None or ft is None) else (fv > ft)
-
-def _is_profit_breach(v: Any, t: Any) -> bool:
-    fv, ft = _to_float(v), _to_float(t)
-    return False if (fv is None or ft is None) else (fv >= ft)
-
 def _load_config(default_json_path: Optional[str | os.PathLike]) -> Dict[str, Any]:
     path = Path(default_json_path) if default_json_path else DEFAULT_CONFIG_PATH
     try:
@@ -86,7 +84,7 @@ def _safe_getattr(obj: Any, name: str, default=None):
     except Exception:
         return default
 
-# Robust access for dicts, Pydantic models, and objects
+# Robust access for dicts, Pydantic models, and plain objects
 def _field(row: Any, *candidates: str) -> Any:
     if isinstance(row, dict):
         for k in candidates:
@@ -129,13 +127,11 @@ def _norm_sym(s: str | None) -> Optional[str]:
     if not s:
         return None
     t = s.strip().upper()
-    # split pairs like BTC/USDC
     if "/" in t:
         t = t.split("/", 1)[0]
-    # strip common suffixes for perps
     t = re.sub(r"[-_]?PERP$", "", t)
-    # strip possible trailing .P or similar exchange suffixes
-    t = re.sub(r"[.\-_:].*$", "", t)
+    # keep left side only if exchange suffixes remain (e.g., SOL.P)
+    t = re.split(r"[.\-_:]", t)[0]
     return t or None
 
 
@@ -143,12 +139,21 @@ def _norm_sym(s: str | None) -> Optional[str]:
 
 def _read_liquid_thresholds(cfg: Dict[str, Any]) -> Dict[str, float]:
     """
-    JSON:
-      liquid_monitor.thresholds: { "BTC": 1.3, "ETH": 1.0, "SOL": 11.5 }
+    Support both:
+      liquid_monitor.thresholds  (preferred)
+      liquid.thresholds          (legacy)
     """
+    # Preferred
     try:
         t = cfg.get("liquid_monitor", {}).get("thresholds", {})
-        if isinstance(t, dict):
+        if isinstance(t, dict) and t:
+            return {(_norm_sym(k) or k): float(v) for k, v in t.items()}
+    except Exception:
+        pass
+    # Legacy
+    try:
+        t = cfg.get("liquid", {}).get("thresholds", {})
+        if isinstance(t, dict) and t:
             return {(_norm_sym(k) or k): float(v) for k, v in t.items()}
     except Exception:
         pass
@@ -156,19 +161,24 @@ def _read_liquid_thresholds(cfg: Dict[str, Any]) -> Dict[str, float]:
 
 def _read_profit_thresholds(cfg: Dict[str, Any]) -> Dict[str, float]:
     """
-    JSON:
-      profit_monitor.position_profit_usd   -> "single"
-      profit_monitor.portfolio_profit_usd  -> "portfolio"
+    Support both:
+      profit_monitor.position_profit_usd / portfolio_profit_usd  (preferred)
+      profit.position_usd / portfolio_usd                        (legacy)
     """
     out: Dict[str, float] = {}
-    p = cfg.get("profit_monitor", {}) if isinstance(cfg, dict) else {}
-    try:
-        if p.get("position_profit_usd") is not None:
-            out["single"] = float(p["position_profit_usd"])
-        if p.get("portfolio_profit_usd") is not None:
-            out["portfolio"] = float(p["portfolio_profit_usd"])
-    except Exception:
-        pass
+    pm = cfg.get("profit_monitor", {}) if isinstance(cfg, dict) else {}
+    if isinstance(pm, dict):
+        if pm.get("position_profit_usd") is not None:
+            out["single"] = float(pm["position_profit_usd"])
+        if pm.get("portfolio_profit_usd") is not None:
+            out["portfolio"] = float(pm["portfolio_profit_usd"])
+    # Legacy (fill any missing)
+    p = cfg.get("profit", {}) if isinstance(cfg, dict) else {}
+    if isinstance(p, dict):
+        if "single" not in out and p.get("position_usd") is not None:
+            out["single"] = float(p["position_usd"])
+        if "portfolio" not in out and p.get("portfolio_usd") is not None:
+            out["portfolio"] = float(p["portfolio_usd"])
     return out
 
 
@@ -182,7 +192,8 @@ def _read_positions(dl: Any) -> List[Any]:
         return []
 
 def _symbol_of(row: Any) -> Optional[str]:
-    raw = _field(row, "asset", "symbol", "base", "ticker")
+    # PositionDB uses 'asset_type'
+    raw = _field(row, "asset_type", "asset", "symbol", "base", "ticker", "asset_symbol")
     return _norm_sym(raw) if isinstance(raw, str) else None
 
 def _latest_mark(dl: Any, sym: str) -> Optional[float]:
@@ -197,20 +208,23 @@ def _latest_mark(dl: Any, sym: str) -> Optional[float]:
 def _liq_distance_pct_of(row: Any, sym_norm: str, dl: Any) -> Optional[float]:
     """
     Distance to liquidation (%):
-      1) direct percent-like fields: liq, liq_pct, dist_to_liq_pct, distance_liq_pct
-      2) else compute from prices: |mark - liq_price| / mark * 100,
-         using row's mark/price or DL's latest price (by normalized symbol) as a fallback.
+      1) if a percent-like field exists AND looks like a real percent (0..100), use it:
+         liquidation_distance, liquidation, liq, liq_dist, liq_pct, dist_to_liq_pct, distance_liq_pct
+      2) else compute: |mark - liq_price| / mark * 100,
+         using row's mark/price or DL's latest price as fallback.
     """
-    v = _field(row, "liq", "liq_pct", "dist_to_liq_pct", "distance_liq_pct")
-    if _to_float(v) is not None and float(v) <= 10000:  # sanity cap: ignore obvious price fields mis-tagged as pct
-        return float(v)
+    v = _field(row, "liquidation_distance", "liquidation", "liq", "liq_dist",
+                     "liq_pct", "dist_to_liq_pct", "distance_liq_pct")
+    fv = _to_float(v)
+    if fv is not None and 0.0 <= fv <= 100.0:
+        return fv
 
-    liq_price = _field(row, "liq_price", "liquidation_price", "liq")
+    liq_price = _field(row, "liq_price", "liquidation_price", "liquidation", "liq_px", "liqPrice")
     liq_f = _to_float(liq_price)
     if liq_f is None:
         return None
 
-    mark = _field(row, "mark_price", "price", "current_price")
+    mark = _field(row, "mark_price", "price", "current_price", "mark", "mark_px", "index_price", "oracle_price", "mid_price")
     mark_f = _to_float(mark) if mark is not None else None
     if mark_f is None:
         mark_f = _latest_mark(dl, sym_norm)
@@ -263,28 +277,42 @@ def _build_rows_from_json_and_positions(
     rows_out: List[Tuple[str, str, str, str, str]] = []
 
     positions = _read_positions(dl)
+    if DEBUG_MONITOR_PANEL:
+        print(f"[MON] positions read: {len(positions)}")
+        for i, r in enumerate(positions[:3]):
+            print(f"[MON] row[{i}] sym_raw={_field(r,'asset_type','asset','symbol','base','ticker','asset_symbol')} sym_norm={_symbol_of(r)}")
 
     # Liquid (per-asset, normalized)
-    liq_thr_raw = _read_liquid_thresholds(cfg)             # keys already normalized
-    liq_vals    = _liquid_values_from_positions(positions, dl)
-    symbols     = set(liq_thr_raw.keys()) | set(liq_vals.keys()) or set(_norm_sym(s) for s in FALLBACK_SYMBOLS)
+    liq_thr  = _read_liquid_thresholds(cfg)                 # {"BTC":1.3,"ETH":1.0,"SOL":11.5} OR legacy values
+    liq_vals = _liquid_values_from_positions(positions, dl) # {"SOL": 5.4, ...}
+    if DEBUG_MONITOR_PANEL:
+        print(f"[MON] liquid thresholds (JSON): {liq_thr}")
+        print(f"[MON] liquid values (derived): {liq_vals}")
+
+    symbols  = set(liq_thr.keys()) | set(liq_vals.keys()) or set(_norm_sym(s) for s in FALLBACK_SYMBOLS)
 
     for sym in sorted(s for s in symbols if s):
-        t = liq_thr_raw.get(sym)
+        t = liq_thr.get(sym)
         v = liq_vals.get(sym)
         if t is None or v is None:
             continue
+        # Liquid: breach if value ≤ threshold
+        outcome = BREACH if (_to_float(v) is not None and _to_float(t) is not None and float(v) <= float(t)) else NO_BREACH
         rows_out.append((
             f"{ICON_LIQUID} Liquid ({sym})",
             _fmt_num(v),
             _fmt_num(t),
             "JSON",
-            BREACH if _is_liquid_breach(v, t) else NO_BREACH
+            outcome
         ))
 
     # Profit
     prof_thr  = _read_profit_thresholds(cfg)                # {"single":10.0, "portfolio":40.0}
     prof_vals = _profit_values_from_positions(positions)    # {"single":v, "portfolio":v}
+    if DEBUG_MONITOR_PANEL:
+        print(f"[MON] profit thresholds (JSON): {prof_thr}")
+        print(f"[MON] profit values (derived): {prof_vals}")
+
     labels = {
         "single":    f"{ICON_PROFIT} Profit (Single)",
         "portfolio": f"{ICON_PROFIT} Profit (Portfolio)",
@@ -294,12 +322,13 @@ def _build_rows_from_json_and_positions(
         v = prof_vals.get(key)
         if t is None or v is None:
             continue
+        outcome = BREACH if (_to_float(v) is not None and _to_float(t) is not None and float(v) >= float(t)) else NO_BREACH
         rows_out.append((
             label,
             _fmt_money(v),
             _fmt_money(t),
             "JSON",
-            BREACH if _is_profit_breach(v, t) else NO_BREACH
+            outcome
         ))
 
     return rows_out
