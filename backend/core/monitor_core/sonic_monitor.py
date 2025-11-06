@@ -846,14 +846,20 @@ class SonicMonitorLive:
         *,
         console: Console | None = None,
         refresh_hz: float = 10.0,
-        live_enabled: bool = True,
+        live_enabled: bool = False,  # default OFF to restore legacy streaming
     ) -> None:
         self.console = console or Console()
         self._activity_log = ActivityLogger()
-        self._activity_ui = CycleActivityStream(self.console, refresh_hz=refresh_hz)
-        self._activity_log.add_listener(self._activity_ui.on_event)
-
         self._live_activities_enabled = bool(live_enabled)
+        # Only construct the live UI when enabled; use correct kw name.
+        self._activity_ui = (
+            CycleActivityStream(self.console, refresh_per_sec=refresh_hz)
+            if self._live_activities_enabled
+            else None
+        )
+        if self._activity_ui:
+            self._activity_log.add_listener(self._activity_ui.on_event)
+
         self._live_activities = False
         self._prev_log_level: Optional[int] = None
 
@@ -863,7 +869,11 @@ class SonicMonitorLive:
 
     @property
     def is_live_active(self) -> bool:
-        return self._live_activities_enabled and self._live_activities
+        return (
+            self._live_activities_enabled
+            and self._activity_ui is not None
+            and self._live_activities
+        )
 
     @property
     def live_enabled(self) -> bool:
@@ -886,7 +896,7 @@ class SonicMonitorLive:
 
     def begin_cycle(self, cycle_id: int) -> None:
         self._activity_log.begin_cycle(cycle_id)
-        if self._live_activities_enabled:
+        if self._live_activities_enabled and self._activity_ui:
             self._live_activities = True
             self._silence_logs_for_live(True)
             self._activity_ui.begin(cycle_id)
