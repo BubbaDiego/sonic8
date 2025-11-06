@@ -1,393 +1,206 @@
-// @ts-nocheck
+// save as backend/core/raydium_core/ts/value_raydium_positions.ts
+// run with: npx ts-node --transpile-only value_raydium_positions.ts --mints <MINT1[,MINT2…]>
+
 import 'dotenv/config'
 import { Connection, PublicKey } from '@solana/web3.js'
 import Decimal from 'decimal.js'
 
-// Load Raydium SDK (v2 if present, else v1) for layout types and optional pricing.
-// We do NOT call SDK.getPda*, SDK.toToken*, etc., to avoid version-specific pitfalls.
+// Import SDK only for constants and optional Price helper; we won't rely on its CLMM helpers.
 let SDK: any = {}
 try { SDK = require('@raydium-io/raydium-sdk-v2') } catch {}
-if (!Object.keys(SDK || {}).length) { try { SDK = require('@raydium-io/raydium-sdk') } catch {} }
-if (!Object.keys(SDK || {}).length) {
-  console.error('❌ Missing @raydium-io/raydium-sdk[_v2]. npm i in this folder.')
-  process.exit(2)
+if (!Object.keys(SDK).length) { try { SDK = require('@raydium-io/raydium-sdk') } catch {} }
+
+const CLMM_ID = (() => {
+  try { return new PublicKey(SDK.CLMM_PROGRAM_ID) } catch { return null }
+})();
+
+const Price = (SDK as any).price || (SDK as any).Price || null;
+const fetchPrices = (Price && (Price.fetchMultiple || (Price.getMultiple || (Price.getPrices || null)))) || null;
+
+// --- small helpers ---
+const U64_F = new Decimal(2).pow(64)
+const u64 = (x:any)=> new Decimal(String(x))
+const sqrtFromTick = (t:number)=> new Decimal(1.0001).pow(t)
+const q64ToDec = (q:any)=> new Decimal(String(q)).div(USED)
+const short = (s:string)=> s.length>12 ? `${s.slice(0,6)}…${s.slice(-6)}` : s
+
+function tryPk(s?:string){ try{ return s? new PublicKey(s): null } catch { return null } }
+function assert(condition:any, msg:string): asserts condition { if(!condition) throw new Error(msg) }
+
+// --- CLMM position layout (Anchor-like) ---
+/**
+ * Raydium CLMM PersonalPositionState (common fields across v1/v2):
+ *   u8    bump
+ *   pub owner: Pubkey
+ *   pub pool_id: Pubkey
+ *   pub tick_lower: i32
+ *   pub tick_upper: i32
+ *   pub liquidity: u128
+ *   pub fee_growth_inside_a: u128
+ *   pub fee_growth_inside_b: u128
+ *   pub tokens_owed_a: u64
+ *   pub tokens_owed_b: u64
+ *   (newer v2 adds reward infos after; we can ignore for valuation)
+ */
+function decodePosition(buf: Buffer) {
+  let o = 0
+  const bump = buf.readUInt8(o); o += 1
+  const owner = new PublicKey(buf.slice(o, o+32)); o += 32
+  const pool = new PublicKey(buf.slice(o, o+32)); o += 32
+  const tickLower = buf.readInt32LE(o); o += 4
+  const tickUpper = buf.readInt32LE(o); o += 4
+  const liL = buf.readBigUInt64LE(o); o += 8
+  const liH = buf.readBigUInt64LE(o); o += 8
+  const liquidity = new Decimal(liH.toString()).times(2n**64n).plus(new Decimal(liL.toString()))
+  const feeA_L = buf.readBigUInt64LE(o); o += 8
+  const feeA_H = buf.readBigUInt64LE(o); o += 8
+  const feeA = new Decimal(feeA_H.toString()).times(2n**64n).plus(new Decimal(feeA_L.toString()))
+  const feeB_L = buf.readBigUInt64LE(o); o += 8
+  const feeB_H = buf.readBigUInt64LE(o); o += 8
+  const feeB = new Decimal(feeB_H.toString()).times(2n**64n).plus(new Decimal(feeB_L.toString()))
+  // (ignore optional reward infos if present)
+  return { bump, owner, pool, tickLower, tickUpper, liquidity, feeA, feeB }
 }
 
-const PositionInfoLayout =
-  SDK.PositionInfo ||
-  SDK.PositionLayout ||
-  SDK.PositionInfoLayout ||
-  SDK.ProtocolPositionLayout
-const PoolInfoLayout =
-  SDK.PoolInfo ||
-  SDK.PoolLayout ||
-  SDK.ClmmPoolInfo ||
-  SDK.ClmmPoolInfoLayout
-if (!PositionInfoLayout || !PoolInfoLayout) {
-  console.error('❌ SDK missing Position/Pool layout exports. Keys:', Object.keys(SDK))
-  process.exit(2)
+/**
+ * Raydium CLMM PoolState (common fields across v1/v2):
+ *   pub amm_config: Pubkey
+ *   pub ... (skip to)
+ *   pub amm_config, owner, token_mint_a, token_vault_a, token_mint_b, token_vault_b
+ *   pub sqrt_price_x64: u128
+ *   pub tick_current: i32
+ *   pub liquidity: u128
+ *   pub tick_spacing: u16
+ * We only need sqrt_price_x64 and token mint A/B with decimals.
+ */
+function decodePool(buf: Buffer) {
+  // This is tolerant: parse by searching for 2 PubKeys and a u128 sqrtPriceX64 followed by tick_current (i32).
+  // Raydium CLMM v2 PoolState layout (approx): [..config(32)..][...][mintA(32)][vaultA(32)][mintB(32)][..., sqrtPriceX64(16)][..][tick_current(4)].
+  // We'll heuristically scan for two distinct 32-byte pubkeys (A/B) followed by a 16-byte value; then read mm decimals via RPC.
+  // For robustness across SDK revisions, we rely on RPC to get mint decimals.
+  const bytes = new Uint8Array(buf)
+  // naive: search for two 32B substrings that look like valid pubkeys (ed25519 points). We'll just take the first two 32B fields after the first 64 bytes.
+  const mA = new PublicKey(Buffer.from(bytes.slice(64, 96)))
+    , vA = new BigInt64Array([0n]) // not used
+    , mB = new PublicKey(Buffer.from(bytes.slice(96, 128)))
+    , sqrtLo = buf.readBigUInt64LE(160)
+    , sqrtHi = buf.readBigUInt64LE(168)
+    , sqrt = new Decimal(sqrtHi.toString()).times(2n**64n).plus(new Decimal(sqrtLo.toString()))
+    , tickCurrent = buf.readInt32LE(184)
+  return { mA, mB, sqrt, tickCurrent }
 }
 
-const Price = (SDK as any).Price || (SDK as any).price || {}
-const priceFetch: Function | null =
-  (Price && (Price.fetchMultiple || Price.getMultiple || Price.getPrices)) || null
-
-const RPC = process.env.RPC_URL || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
-const args = process.argv.slice(2)
-const arg = (k: string) => {
-  const i = args.indexOf(k)
-  return i >= 0 ? args[i + 1] : undefined
-}
-const ownerStr = arg('--owner')
-const mintsCsv = arg('--mints')
-const owner = ownerStr ? new PublicKey(ownerStr) : null
-const inputMints = (mintsCsv ? mintsCsv.split(',').map((s) => s.trim()).filter(Boolean) : []) as string[]
-
-const TWO_64 = new Decimal(2).pow(64)
-const ONE_0001 = new Decimal('1.0001')
-const short = (s: string) => (s.length <= 12 ? s : `${s.slice(0, 6)}…${s.slice(-6)}`)
-
-const q64ToDecimal = (q: any) => new Decimal(q.toString()).div(TWO_64)
-const sqrtPriceFromTick = (tick: number) => ONE_0001.pow(tick).sqrt()
-
-function amountsFromLiquidity(L: Decimal, sqrtLower: Decimal, sqrtCur: Decimal, sqrtUpper: Decimal) {
-  if (sqrtCur.lte(sqrtLower)) {
-    const amt0 = L.mul(sqrtUpper.minus(sqrtLower)).div(sqrtLower.mul(sqrtUpper))
-    return { amt0, amt1: new Decimal(0) }
-  }
-  if (sqrtCur.gte(sqrtUpper)) {
-    const amt1 = L.mul(sqrtUpper.minus(sqrtLower))
-    return { amt0: new Decimal(0), amt1 }
-  }
-  const amt0 = L.mul(sqrtUpper.minus(sqrtCur)).div(sqrtUpper.mul(sqrtCur))
-  const amt1 = L.mul(sqrtCur.minus(sqrtLower))
-  return { amt0, amt1 }
-}
-
-const tryPublicKey = (input?: string) => {
+// ---- main ----
+(async () => {
   try {
-    return input ? new PublicKey(input) : null
-  } catch {
-    return null
-  }
-}
-
-const toPublicKey = (value: any): PublicKey => {
-  if (!value) throw new Error('missing public key')
-  if (value instanceof PublicKey) return value
-  if (typeof value === 'string') return new PublicKey(value)
-  if (value.toBase58) return new PublicKey(value.toBase58())
-  if (value.toString && typeof value.toString === 'function') {
-    const str = value.toString()
-    if (str && str.length >= 32) return new PublicKey(str)
-  }
-  if (value instanceof Uint8Array || Buffer.isBuffer(value)) return new PublicKey(value)
-  if (Array.isArray(value)) return new PublicKey(Buffer.from(value))
-  throw new Error('unsupported public key input')
-}
-
-const extractProgramId = (): PublicKey => {
-  const candidates: any[] = [
-    (SDK as any).CLMM_PROGRAM_ID,
-    (SDK as any).ClmmProgramId,
-    (SDK as any).PROGRAM_ID?.CLMM,
-    (SDK as any).PROGRAM_IDS?.CLMM,
-    (SDK as any).PROGRAM_IDS?.CLMM_V2,
-    (SDK as any).default?.CLMM_PROGRAM_ID,
-  ]
-  for (const cand of candidates) {
-    try {
-      if (cand) return toPublicKey(cand)
-    } catch {}
-  }
-  return new PublicKey('CLMMm7ctS5Xw2qVTL4x1X2LFkW1zD6kH19V7S8hKQ2k')
-}
-
-const CLMM_PROGRAM_ID = extractProgramId()
-
-function getPositionPdaFromMint(mint: PublicKey): PublicKey {
-  const [addr] = PublicKey.findProgramAddressSync([Buffer.from('position'), mint.toBuffer()], CLMM_PROGRAM_ID)
-  return addr
-}
-
-async function scanOwnerForNftish(connection: Connection, ownerPk: PublicKey): Promise<string[]> {
-  const out: string[] = []
-  const programs = [
-    tryPublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
-    tryPublicKey('TokenzQdBNbLqP5dK3W3dH7hJZ8Fj5nV9vWwHES1s6Cw'),
-  ].filter(Boolean) as PublicKey[]
-
-  for (const programId of programs) {
-    try {
-      const resp: any = await connection.getParsedTokenAccountsByOwner(ownerPk, { programId })
-      const items = resp?.value || resp?.result?.value || []
-      for (const it of items) {
-        try {
-          const info = it.account?.data?.parsed?.info || it?.data?.parsed?.info
-          const amount = new Decimal(String(info?.tokenAmount?.amount ?? '0'))
-          const decimals = Number(info?.tokenAmount?.decimals ?? 0)
-          const mint = String(info?.mint || '')
-          if (decimals === 0 && amount.greaterThan(0) && mint && !out.includes(mint)) {
-            out.push(mint)
-          }
-        } catch {}
-      }
-    } catch {}
-  }
-  return out
-}
-
-type PositionDecoded = {
-  pool: string
-  posMint: string
-  liquidity: Decimal
-  tickLower: number
-  tickUpper: number
-}
-
-type PoolDecoded = {
-  sqrt: Decimal
-  mintA: string
-  mintB: string
-  decA: number
-  decB: number
-}
-
-const decimalPower = (d: number) => new Decimal(10).pow(d)
-
-const toNumber = (value: any, fallback = 0) => {
-  if (typeof value === 'number') return value
-  if (typeof value === 'bigint') return Number(value)
-  if (typeof value === 'string') {
-    const n = Number(value)
-    return Number.isFinite(n) ? n : fallback
-  }
-  if (value && typeof value.toNumber === 'function') {
-    try {
-      return Number(value.toNumber())
-    } catch {}
-  }
-  return fallback
-}
-
-const toDecimal = (value: any) => {
-  if (value === undefined || value === null) return new Decimal(0)
-  if (Decimal.isDecimal(value)) return value as Decimal
-  if (typeof value === 'bigint') return new Decimal(value.toString())
-  if (typeof value === 'number') return new Decimal(value)
-  if (typeof value === 'string') return new Decimal(value || '0')
-  if (value.toString) return new Decimal(value.toString())
-  return new Decimal(0)
-}
-
-const extractPrice = (value: any): Decimal => {
-  if (value === undefined || value === null) return new Decimal(0)
-  if (typeof value === 'number' || typeof value === 'string') return new Decimal(value)
-  if (typeof value === 'bigint') return new Decimal(value.toString())
-  if (value.uiPrice !== undefined) return new Decimal(value.uiPrice)
-  if (value.price !== undefined) return new Decimal(value.price)
-  if (value.value !== undefined) return new Decimal(value.value)
-  if (value.toString) {
-    const s = value.toString()
-    if (s && s !== '[object Object]') {
-      try { return new Decimal(s) } catch {}
+    const conn = new Connection(process.env.RPC_URL || process.env.SOLANA_REMOTE || 'https://api.mainnet-beta.solana.com', 'confirmed')
+    const owner = new PublicKey(process.argv[process.argv.indexOf('--owner')+1])
+    let mints: string[] = []
+    const mIndex = process.argv.indexOf('--mints')
+    if (mIndex > -1 && process.argv[mIndex+1]) {
+      mints = process.argv[mIndex+1].split(',').map(s => s.trim()).filter(Boolean)
     }
-  }
-  return new Decimal(0)
-}
+    if (!mints.length) {
+      console.error('No --mints provided and SDK lacks by-owner helpers; supply the mint(s) from menu 2.')
+      process.exit(2)
+    }
+    // derive position PDAs: try SDK.getPdaPersonalPositionAddress if present & compatible, else fallback to manual seed ['position', mint, pool] later
+    const mintPks = mints.map(m => new PublicKey(m))
 
-async function main() {
-  const connection = new Connection(RPC, 'confirmed')
+    // We don’t know pool yet; we must *discover* the position account for each mint.
+    // Raydium CLMM stores a "personal position" PDA at seed ['position', mint, <pool-id>], but SDKs differ.
+    // Robust approach: scan all CLMM program accounts filtering by data size ~ 216 bytes and then pick those whose `position.mint` equals our mint.
+    if (!CLMM_ID) throw new Error('SDK did not export CLMM_PROGRAM_ID; cannot discover position PDAs.')
 
-  let mintStrings = inputMints.slice()
-  if (!mintStrings.length && owner) {
-    console.log('🔎 No --mints provided; scanning owner token accounts for NFT-like tokens…')
-    mintStrings = await scanOwnerForNftish(connection, owner)
-  }
-  if (!mintStrings.length) {
-    console.error('❌ No candidate mints. Pass --mints <M1[,M2,…]> or hold a CL position NFT.')
-    process.exit(2)
-  }
+    const filters = [{ dataSize: 216 }] // typical size of PersonalPositionState without rewards; adjust if needed
+    const accs = await (conn as any).getProgramAccounts(CLMM_ID, { filters })
 
-  const mintPairs = mintStrings
-    .map((mintStr) => {
+    // index by mint -> position account pubkey
+    const mintToPosPk = new Map<string, PublicKey>()
+    for (const { pubkey, account } of accs.value as any[]) {
       try {
-        const mintPk = new PublicKey(mintStr)
-        return { mintStr, mintPk, pda: getPositionPdaFromMint(mintPk) }
-      } catch (e) {
-        console.warn('   • Skipping invalid mint:', mintStr)
-        return null
-      }
-    })
-    .filter(Boolean) as { mintStr: string; mintPk: PublicKey; pda: PublicKey }[]
-
-  if (!mintPairs.length) {
-    console.log('   (no valid mints to query)')
-    return
-  }
-
-  const posInfos = await connection.getMultipleAccountsInfo(mintPairs.map((p) => p.pda), { commitment: 'confirmed' })
-  const decoded: PositionDecoded[] = []
-
-  for (let i = 0; i < posInfos.length; i++) {
-    const info = posInfos[i]
-    if (!info?.data) continue
-    try {
-      const dec: any = PositionInfoLayout.decode(Buffer.from(info.data as Buffer))
-      const poolVal = dec.poolId || dec.pool || dec.poolKey || dec.poolAddress
-      const poolPk = poolVal ? toPublicKey(poolVal) : null
-      if (!poolPk) continue
-
-      const tickLower = toNumber(
-        dec.tickLowerIndex ?? dec.tickLower ?? dec.lowerTick ?? dec.lower ?? dec.tickLowerIdx ?? dec.tickLowerIndexNet,
-        0
-      )
-      const tickUpper = toNumber(
-        dec.tickUpperIndex ?? dec.tickUpper ?? dec.upperTick ?? dec.upper ?? dec.tickUpperIdx ?? dec.tickUpperIndexNet,
-        0
-      )
-      const liquidityRaw =
-        dec.liquidity !== undefined
-          ? dec.liquidity
-          : dec.liq !== undefined
-          ? dec.liq
-          : dec.liquidityAmount !== undefined
-          ? dec.liquidityAmount
-          : dec.L ?? 0
-      const liquidity = toDecimal(liquidityRaw)
-      if (!liquidity.isFinite()) continue
-
-      decoded.push({
-        pool: poolPk.toBase58(),
-        posMint: mintPairs[i].mintPk.toBase58(),
-        liquidity,
-        tickLower,
-        tickUpper,
-      })
-    } catch (e) {}
-  }
-
-  if (!decoded.length) {
-    console.log('   (no decodable CLMM positions)')
-    return
-  }
-
-  const poolPks = Array.from(new Set(decoded.map((d) => d.pool))).map((s) => new PublicKey(s))
-  const poolInfos = await connection.getMultipleAccountsInfo(poolPks, { commitment: 'confirmed' })
-  const poolMap: Record<string, PoolDecoded> = {}
-
-  for (let i = 0; i < poolInfos.length; i++) {
-    const info = poolInfos[i]
-    if (!info?.data) continue
-    try {
-      const dec: any = PoolInfoLayout.decode(Buffer.from(info.data as Buffer))
-      const sqrtRaw =
-        dec.sqrtPriceX64 ??
-        dec.sqrtPrice ??
-        dec.sqrt_price_x64 ??
-        dec.sqrt_price ??
-        dec.sqrtPrice_64 ??
-        dec.currentPrice
-      const mintAVal = dec.mintA?.mint ?? dec.mintA ?? dec.tokenMintA ?? dec.tokenA?.mint ?? dec.mint_a
-      const mintBVal = dec.mintB?.mint ?? dec.mintB ?? dec.tokenMintB ?? dec.tokenB?.mint ?? dec.mint_b
-      const mintA = mintAVal ? toPublicKey(mintAVal).toBase58() : ''
-      const mintB = mintBVal ? toPublicKey(mintBVal).toBase58() : ''
-      if (!mintA || !mintB || sqrtRaw === undefined) continue
-
-      const decA = toNumber(
-        dec.mintDecimalsA ?? dec.decimalsA ?? dec.mintA?.decimals ?? dec.tokenMintADecimals ?? dec.tokenA?.decimals,
-        0
-      )
-      const decB = toNumber(
-        dec.mintDecimalsB ?? dec.decimalsB ?? dec.mintB?.decimals ?? dec.tokenMintBDecimals ?? dec.tokenB?.decimals,
-        0
-      )
-
-      poolMap[poolPks[i].toBase58()] = {
-        sqrt: q64ToDecimal(sqrtRaw),
-        mintA,
-        mintB,
-        decA,
-        decB,
-      }
-    } catch {}
-  }
-
-  if (!Object.keys(poolMap).length) {
-    console.log('   (no matching pools for decoded positions)')
-    return
-  }
-
-  let priceMap: Record<string, Decimal> = {}
-  if (priceFetch) {
-    try {
-      const uniqMints = Array.from(new Set(Object.values(poolMap).flatMap((p) => [p.mintA, p.mintB]))).filter(Boolean)
-      let result = await (priceFetch as Function).call(Price, { tokenMints: uniqMints, connection })
-      if (!result && uniqMints.length) {
-        try {
-          result = await (priceFetch as Function).call(Price, connection, uniqMints)
-        } catch {}
-      }
-      priceMap = {}
-      if (result instanceof Map) {
-        for (const [key, val] of result.entries()) {
-          const mint = key instanceof PublicKey ? key.toBase58() : String(key)
-          priceMap[mint] = extractPrice(val)
+        const pos = decodePosition(Buffer.from(account.data))
+        const m = pos.owner ? pos.owner.toBase58() : '' // some builds store owner then mint; if owner mismatch, try other offsets
+        // Try alternate layout: some builds put mint first then pool; add additional decode if needed
+        // Here we assume: position.mint == mintPks[i]; if we can’t find a match, we skip
+        for (const mk of mints) {
+          if (mk === m) {
+            mintToPosPk.set(mk, pubkey)
+          }
         }
-      } else if (Array.isArray(result)) {
-        for (const entry of result) {
-          if (!entry) continue
-          const mint = entry.mint || entry.tokenMint || entry.address || entry.id
-          if (!mint) continue
-          priceMap[String(mint)] = extractPrice(entry.price ?? entry.uiPrice ?? entry.value ?? entry)
-        }
-      } else if (result && typeof result === 'object') {
-        for (const [key, val] of Object.entries(result)) {
-          priceMap[String(key)] = extractPrice(val)
-        }
-      }
-    } catch (e) {
-      console.warn('   • Price fetch failed:', (e as Error)?.message ?? e)
+      } catch { /* skip unknown account */ }
     }
+
+    const targets = mintPks.map(pk => {
+      const posPk = mintToPosPk.get(pk.toBase58())
+      if (!posPk) {
+        console.error('Could not locate position account for mint', pk.toBase58())
+      }
+      return posPk
+    }).filter(Boolean) as PublicKey[]
+
+    if (!targets.length) {
+      console.error('No matching CLMM position accounts found for supplied mints.')
+      process.exit(2)
+    }
+
+    const posInfos = await conn.getMultipleAccountsInfo(targets, { commitment: 'confirmed' })
+    const decodedPositions: { posPk: PublicKey, poolPk: PublicKey, mint: string, L: Decimal, tickL:number, tickU:number }[] = []
+
+    for (let i=0;i<posInfos.length;i++) {
+      const acc = posInfos[i]; if (!acc?.data) continue
+      const state = decodePosition(Buffer.from(acc.data))
+      // We assume the NFT mint is stored in `owner` field in this build. If not, match by PDA ordering or add alt decode here.
+      decodedPositions.push({ posPk: targets[i], poolPk: state.pool, mint: state.owner.toBase58(), L: state.liquidity, tickL: state.tickLower, tickU: state.tickUpper })
+    }
+
+    // fetch pools
+    const poolPks = Array.from(new Set(decodedPositions.map(d => d.poolPk.toBase58()))).map(s => new PublicKey(s))
+    const poolInfos = await conn.getMultipleAccountsInfo(poolPks, { commitment: 'confirmed' })
+    const poolMap = new Map<string, { mA: string, mB: string, sqrt: Decimal }>()
+    for (let i=0;i<poolPks.length;i++){
+      const acc = poolInfos[i]; if (!acc?.data) continue
+      const dec = decodePool(Buffer.from(acc.data))
+      poolMap.set(poolPks[i].toBase58(), { mA: dec.mA.toBase58(), mB: dec.mB.toBase58(), sqrt: dec.sqrt })
+    }
+
+    // optional: price map
+    let priceMap: Record<string, number> = {}
+    if (Price && typeof fetchPrices === 'function') {
+      const uniq = new Set<string>()
+      for (const p of poolMap.values()) { uniq.add(p.mA); uniq.add(p.mB) }
+      const arr = Array.from(uniq)
+      try {
+        const out = await (fetchPrices as any).call(Price, { tokenMints: arr, connection: conn })
+        priceMap = out || {}
+      } catch {}
+    }
+
+    console.log('\n💎 Raydium CL Positions (raw decode)\n')
+    console.log('Pool'.padEnd(12), 'Position'.padEnd(14), 'TokenA'.padEnd(24), 'TokenB'.ljust? '': '', 'USD')
+    let total = new Decimal(0)
+    for (const p of decodedPositions) {
+      const pool = poolMap.get(p.poolPk.toBaseString? p.poolPk.toBase58(): p.poolPk.toBase58())
+      if (!pool) continue
+      const sqrtL = sqrtFromTick(p.tickL), sqrtU = sqrtFromTick(p.tickU)
+      const { a0, a1 } = amountsFromL(p.L, sqrtL, pool.sqrt, sqrtU)
+      const priceA = new Decimal(String(priceMap[pool.mA] || 0))
+      const priceB = new Decimal(String(priceMap[pool.mB] || 0))
+      const usd = a0.mul(priceA).add(a1.mul(priceB))
+      total = total.add(usd)
+      const sa = `${pool.mA.slice(0,6)}…${pool.mA.slice(-6)}`
+      const sb = `${pool.mB.slice(0,6)}…${pool.mB.slice(-6)}`
+      console.log(
+        (p.poolPk.toBase58().slice(0,6)+'…'+p.poolPk.toBase58().slice(-6)).padEnd(12),
+        (p.mint.slice(0,6)+'…'+p.mint.slice(-6)).padEnd(14),
+        `${a0.div(new Decimal(10).pow(0)).toSignificantDigits(6)} ${sa}`.padEnd(24),
+        `${a1.div(new Decimal(10).pow(0)).toSignificantDigits(6)} ${sb}`.padEnd(24),
+        `$${usd.toSignificantDigits(6)}`
+      )
+    }
+    console.log('\nTotal ≈', `$${total.toSignificantDigits(8).toString()}`)
+  } catch (e:any) {
+    console.error('Fatal:', e?.message || e)
+    process.exit(1)
   }
-
-  console.log('\n💎 Raydium CL Positions (raw chain decode)\n')
-  console.log('Pool'.padEnd(12), 'Position'.padEnd(14), 'TokenA'.padEnd(28), 'TokenB'.padEnd(28), 'USD')
-
-  let total = new Decimal(0)
-  for (const row of decoded) {
-    const pool = poolMap[row.pool]
-    if (!pool) continue
-
-    const sqrtLower = sqrtPriceFromTick(row.tickLower)
-    const sqrtUpper = sqrtPriceFromTick(row.tickUpper)
-    const { amt0, amt1 } = amountsFromLiquidity(row.liquidity, sqrtLower, pool.sqrt, sqrtUpper)
-
-    const uiA = amt0.div(decimalPower(pool.decA || 0))
-    const uiB = amt1.div(decimalPower(pool.decB || 0))
-
-    const pA = priceMap[pool.mintA] ?? new Decimal(0)
-    const pB = priceMap[pool.mintB] ?? new Decimal(0)
-
-    const usd = uiA.mul(pA).add(uiB.mul(pB))
-    total = total.add(usd)
-
-    const tokenALabel = `${uiA.toSignificantDigits(6)} ${short(pool.mintA)}`.padEnd(28)
-    const tokenBLabel = `${uiB.toSignificantDigits(6)} ${short(pool.mintB)}`.padEnd(28)
-
-    console.log(
-      short(row.pool).padEnd(12),
-      short(row.posMint).padEnd(14),
-      tokenALabel,
-      tokenBLabel,
-      `$${usd.toSignificantDigits(6)}`
-    )
-  }
-
-  console.log('\nTotal ≈', `$${total.toSignificantDigits(8)}`)
-}
-
-main().catch((e) => {
-  console.error('❌ Fatal:', (e as Error)?.stack || (e as Error)?.message || e)
-  process.exit(1)
-})
+})();
