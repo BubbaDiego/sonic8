@@ -1,215 +1,250 @@
-from backend.core.logging import log
-# dl_alerts.py
+# -*- coding: utf-8 -*-
+"""SQLite persistence helpers for monitor alerts and attempts."""
+
+from __future__ import annotations
+
+import os
+import sqlite3
+import uuid
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+
+# ------------------------- DB connection plumbing -------------------------
+
+def _iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+def _guess_db_path(dl: Any) -> str:
+    # Try explicit attrs on the DataLocker first
+    for attr in ("db_path", "mother_db_path", "database_path"):
+        p = getattr(dl, attr, None)
+        if isinstance(p, str) and Path(p).exists():
+            return p
+    # Env override
+    p = os.environ.get("SONIC_DB_PATH")
+    if p and Path(p).exists():
+        return p
+    # Canonical repo fallback: backend/mother.db
+    here = Path(__file__).resolve()
+    for up in [0, 1, 2, 3, 4, 5]:
+        root = here.parents[up] if up > 0 else here.parent
+        guess = root.joinpath("..", "mother.db").resolve()
+        if guess.exists():
+            return str(guess)
+    # Windows dev fallback
+    dev = r"C:\sonic7\backend\mother.db"
+    return dev
+
+@contextmanager
+def _conn_ctx(db_path: str):
+    conn = sqlite3.connect(db_path, timeout=30)
+    try:
+        # row factory → dict-like convenience
+        conn.row_factory = sqlite3.Row
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+def _dicts(rows: List[sqlite3.Row]) -> List[Dict[str, Any]]:
+    return [dict(r) for r in rows or []]
+
+
+# ------------------------- DDL helpers -------------------------
+
+DDL_ALERTS = """
+CREATE TABLE IF NOT EXISTS alerts (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,            -- 'breach' (extensible)
+  monitor TEXT NOT NULL,         -- 'liquid', 'profit', etc.
+  symbol TEXT NOT NULL,          -- 'SOL', 'BTC', ...
+  side TEXT,                     -- 'long'|'short'|NULL
+  value REAL,                    -- e.g., distance for 'breach'
+  threshold REAL,
+  status TEXT NOT NULL,          -- 'open'|'resolved'
+  occurrences INTEGER NOT NULL DEFAULT 1,
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  last_dispatch_at TEXT,
+  fingerprint TEXT NOT NULL UNIQUE,  -- e.g., 'liquid|SOL'
+  extra TEXT
+);
 """
-Author: BubbaDiego
-Module: DLAlertManager
-Description:
-    Handles creation, retrieval, and deletion of alert records in the SQLite database.
-    This module is part of the modular DataLocker architecture and is focused purely
-    on alert-related persistence operations.
 
-Dependencies:
-    - DatabaseManager from database.py
-    - ConsoleLogger from console_logger.py
+DDL_ALERT_ATTEMPTS = """
+CREATE TABLE IF NOT EXISTS alert_attempts (
+  id TEXT PRIMARY KEY,
+  alert_id TEXT NOT NULL,
+  ts TEXT NOT NULL,
+  channel TEXT NOT NULL,         -- 'voice'|'sms'|'tts'|'system'
+  provider TEXT NOT NULL,        -- 'twilio'|'textbelt'|...
+  status TEXT NOT NULL,          -- 'success'|'fail'|'skipped'
+  http_status INTEGER,
+  error_code TEXT,
+  error_msg TEXT,
+  FOREIGN KEY(alert_id) REFERENCES alerts(id)
+);
 """
 
+DDL_INDEXES = [
+    "CREATE INDEX IF NOT EXISTS idx_alerts_status_monitor_symbol ON alerts(status, monitor, symbol);",
+    "CREATE INDEX IF NOT EXISTS idx_alerts_last_seen ON alerts(last_seen_at DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_attempts_alert ON alert_attempts(alert_id);",
+]
 
-class DLAlertManager:
-    def __init__(self, db):
-        self.db = db
-        log.debug("DLAlertManager initialized.", source="DLAlertManager")
 
-    def create_alert(self, alert: dict) -> bool:
-        try:
-            cursor = self.db.get_cursor()
-            if cursor is None:
-                log.error("DB unavailable for alert creation", source="DLAlertManager")
-                return False
-            cursor.execute(
-                """
-                INSERT INTO alerts (
-                    id, created_at, alert_type, alert_class, asset_type,
-                    trigger_value, condition, notification_type, level,
-                    last_triggered, status, frequency, counter,
-                    liquidation_distance, travel_percent, liquidation_price,
-                    notes, description, position_reference_id, evaluated_value,
-                    position_type
-                ) VALUES (
-                    :id, :created_at, :alert_type, :alert_class, :asset_type,
-                    :trigger_value, :condition, :notification_type, :level,
-                    :last_triggered, :status, :frequency, :counter,
-                    :liquidation_distance, :travel_percent, :liquidation_price,
-                    :notes, :description, :position_reference_id, :evaluated_value,
-                    :position_type
-                )
-                """,
-                alert,
-            )
-            self.db.commit()
-            log.success(f"Alert created: {alert['id']}", source="DLAlertManager")
-            return True
-        except Exception as e:
-            log.error(f"Failed to create alert: {e}", source="DLAlertManager")
-            return False
+# ------------------------- Public API -------------------------
 
-    def get_alert(self, alert_id: str) -> dict:
-        cursor = self.db.get_cursor()
-        if cursor is None:
-            log.error("DB unavailable while fetching alert", source="DLAlertManager")
-            return {}
-        cursor.execute("SELECT * FROM alerts WHERE id = ?", (alert_id,))
-        row = cursor.fetchone()
+def ensure_schema(dl: Any) -> None:
+    db_path = _guess_db_path(dl)
+    with _conn_ctx(db_path) as cx:
+        cx.executescript(DDL_ALERTS)
+        cx.executescript(DDL_ALERT_ATTEMPTS)
+        for ddl in DDL_INDEXES:
+            cx.execute(ddl)
+
+def _fingerprint(kind: str, monitor: str, symbol: str, *, side: Optional[str] = None) -> str:
+    # Keep it simple for now; extend with owner/position later if needed
+    s = f"{kind}|{monitor}|{symbol.upper()}"
+    if side:
+        s += f"|{side.lower()}"
+    return s
+
+def upsert_open(
+    dl: Any,
+    *,
+    kind: str,
+    monitor: str,
+    symbol: str,
+    value: Optional[float],
+    threshold: Optional[float],
+    side: Optional[str] = None,
+    extra: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Insert a new OPEN alert or update the existing one (occurrences++, last_seen_at=now, value/threshold updated).
+    Returns the alert row as a dict.
+    """
+    ensure_schema(dl)
+    db_path = _guess_db_path(dl)
+    fp = _fingerprint(kind, monitor, symbol, side=side)
+    now = _iso_now()
+    with _conn_ctx(db_path) as cx:
+        cur = cx.execute("SELECT * FROM alerts WHERE fingerprint=?", (fp,))
+        row = cur.fetchone()
         if row:
-            log.debug(f"Fetched alert {alert_id}", source="DLAlertManager")
+            cx.execute(
+                """UPDATE alerts SET
+                       value = COALESCE(?, value),
+                       threshold = COALESCE(?, threshold),
+                       status = 'open',
+                       occurrences = occurrences + 1,
+                       last_seen_at = ?
+                   WHERE fingerprint=?""",
+                (value, threshold, now, fp),
+            )
+            cur = cx.execute("SELECT * FROM alerts WHERE fingerprint=?", (fp,))
+            return dict(cur.fetchone())
         else:
-            log.warning(f"No alert found with ID {alert_id}", source="DLAlertManager")
-        return dict(row) if row else {}
-
-    def find_alert(
-        self, alert_type: str, alert_class: str, position_reference_id: str | None
-    ) -> dict | None:
-        """Return the alert matching the given criteria if it exists."""
-        cursor = self.db.get_cursor()
-        if cursor is None:
-            log.error("DB unavailable while searching for alert", source="DLAlertManager")
-            return None
-        try:
-            if position_reference_id is None:
-                cursor.execute(
-                    "SELECT * FROM alerts WHERE alert_type = ? AND alert_class = ? AND position_reference_id IS NULL",
-                    (alert_type, alert_class),
-                )
-            else:
-                cursor.execute(
-                    "SELECT * FROM alerts WHERE alert_type = ? AND alert_class = ? AND position_reference_id = ?",
-                    (alert_type, alert_class, position_reference_id),
-                )
-            row = cursor.fetchone()
-            return dict(row) if row else None
-        except Exception as e:
-            log.error(f"Failed to lookup alert: {e}", source="DLAlertManager")
-            return None
-
-    def delete_alert(self, alert_id: str) -> None:
-        cursor = self.db.get_cursor()
-        if cursor is None:
-            log.error("DB unavailable, cannot delete alert", source="DLAlertManager")
-            return
-        cursor.execute("DELETE FROM alerts WHERE id = ?", (alert_id,))
-        self.db.commit()
-        log.info(f"Deleted alert {alert_id}", source="DLAlertManager")
-
-    def update_alert(self, alert) -> bool:
-        """Persist updated alert fields back to the database."""
-        try:
-            if not isinstance(alert, dict):
-                alert = (
-                    alert.model_dump() if hasattr(alert, "model_dump") else alert.dict()
-                )
-
-            cursor = self.db.get_cursor()
-            if cursor is None:
-                log.error("DB unavailable for alert update", source="DLAlertManager")
-                return False
-
-            fields = {k: v for k, v in alert.items() if k != "id"}
-            if not fields:
-                return True
-
-            set_clause = ", ".join(f"{k} = :{k}" for k in fields)
-            params = {**fields, "id": alert["id"]}
-            cursor.execute(f"UPDATE alerts SET {set_clause} WHERE id = :id", params)
-            self.db.commit()
-            log.info(f"Alert updated: {alert['id']}", source="DLAlertManager")
-            return True
-        except Exception as e:
-            log.error(f"Failed to update alert {alert.get('id')}: {e}", source="DLAlertManager")
-            return False
-
-    def get_all_alerts(self) -> list:
-        """
-        Retrieves all alert records from the database.
-        """
-        try:
-            cursor = self.db.get_cursor()
-            if cursor is None:
-                log.error("DB unavailable while fetching alerts", source="DLAlertManager")
-                return []
-            cursor.execute("SELECT * FROM alerts ORDER BY created_at DESC")
-            rows = cursor.fetchall()
-            return [dict(row) for row in rows]
-        except Exception as e:
-            log.error(f"Failed to retrieve all alerts: {e}", source="DLAlertManager")
-            return []
-
-    def clear_all_alerts(self) -> None:
-        cursor = self.db.get_cursor()
-        if cursor is None:
-            log.error("DB unavailable, cannot clear alerts", source="DLAlertManager")
-            return
-        cursor.execute("DELETE FROM alerts")
-        self.db.commit()
-        log.success("🧹 All alerts deleted", source="DLAlertManager")
-
-    def delete_all_alerts(self):
-        return self.clear_all_alerts()
-
-    def clear_inactive_alerts(self) -> None:
-        """Remove all alerts whose status is not ``'Active'``."""
-        try:
-            cursor = self.db.get_cursor()
-            if cursor is None:
-                log.error(
-                    "DB unavailable, cannot clear inactive alerts",
-                    source="DLAlertManager",
-                )
-                return
-            cursor.execute(
-                "DELETE FROM alerts WHERE status IS NULL OR status != ?",
-                ("Active",),
+            aid = str(uuid.uuid4())
+            cx.execute(
+                """INSERT INTO alerts
+                   (id, kind, monitor, symbol, side, value, threshold, status,
+                    occurrences, first_seen_at, last_seen_at, last_dispatch_at,
+                    fingerprint, extra)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 'open', 1, ?, ?, NULL, ?, ?)""",
+                (aid, kind, monitor, symbol.upper(), side, value, threshold, now, now, fp, extra),
             )
-            self.db.commit()
-            log.success("🧹 Inactive alerts cleared", source="DLAlertManager")
-        except Exception as e:  # pragma: no cover - defensive
-            log.error(
-                f"Failed to clear inactive alerts: {e}", source="DLAlertManager"
-            )
+            cur = cx.execute("SELECT * FROM alerts WHERE id=?", (aid,))
+            return dict(cur.fetchone())
 
+def resolve_open(
+    dl: Any,
+    *,
+    kind: str,
+    monitor: str,
+    symbol: str,
+    side: Optional[str] = None
+) -> int:
+    """
+    Resolve all open alerts matching the fingerprint (usually 0 or 1).
+    Returns the number of rows updated.
+    """
+    ensure_schema(dl)
+    db_path = _guess_db_path(dl)
+    fp = _fingerprint(kind, monitor, symbol, side=side)
+    now = _iso_now()
+    with _conn_ctx(db_path) as cx:
+        cur = cx.execute(
+            "UPDATE alerts SET status='resolved', last_seen_at=? WHERE fingerprint=? AND status='open'",
+            (now, fp),
+        )
+        return cur.rowcount
 
-    def update_alert(self, alert):
-        """Update alert fields in the database."""
-        try:
-            data = alert.dict() if hasattr(alert, "dict") else alert
-            alert_id = data.get("id")
-            if not alert_id:
-                log.error("Missing alert id for update", source="DLAlertManager")
-                return
+def list_open(
+    dl: Any,
+    *,
+    kind: Optional[str] = None,
+    monitor: Optional[str] = None,
+    symbol: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    ensure_schema(dl)
+    db_path = _guess_db_path(dl)
+    q = "SELECT * FROM alerts WHERE status='open'"
+    args: List[Any] = []
+    if kind:
+        q += " AND kind=?"; args.append(kind)
+    if monitor:
+        q += " AND monitor=?"; args.append(monitor)
+    if symbol:
+        q += " AND UPPER(symbol)=?"; args.append(symbol.upper())
+    q += " ORDER BY last_seen_at DESC"
+    with _conn_ctx(db_path) as cx:
+        cur = cx.execute(q, tuple(args))
+        return _dicts(cur.fetchall())
 
-            cursor = self.db.get_cursor()
-            if cursor is None:
-                log.error("DB unavailable while updating alert", source="DLAlertManager")
-                return
+def get_by_id(dl: Any, alert_id: str) -> Optional[Dict[str, Any]]:
+    ensure_schema(dl)
+    db_path = _guess_db_path(dl)
+    with _conn_ctx(db_path) as cx:
+        cur = cx.execute("SELECT * FROM alerts WHERE id=?", (alert_id,))
+        r = cur.fetchone()
+        return dict(r) if r else None
 
-            cursor.execute(
-                """
-                UPDATE alerts SET
-                    level = :level,
-                    evaluated_value = :evaluated_value,
-                    last_triggered = :last_triggered,
-                    status = :status
-                WHERE id = :id
-                """,
-                {
-                    "level": data.get("level"),
-                    "evaluated_value": data.get("evaluated_value"),
-                    "last_triggered": data.get("last_triggered"),
-                    "status": data.get("status"),
-                    "id": alert_id,
-                },
-            )
-            self.db.commit()
-            log.info(f"Alert updated: {alert_id}", source="DLAlertManager")
-        except Exception as e:
-            log.error(f"Failed to update alert {data.get('id', '')}: {e}", source="DLAlertManager")
+def touch_dispatch(dl: Any, alert_id: str) -> None:
+    ensure_schema(dl)
+    db_path = _guess_db_path(dl)
+    now = _iso_now()
+    with _conn_ctx(db_path) as cx:
+        cx.execute("UPDATE alerts SET last_dispatch_at=? WHERE id=?", (now, alert_id))
 
-
+def record_attempt(
+    dl: Any,
+    *,
+    alert_id: str,
+    channel: str,
+    provider: str,
+    status: str,
+    http_status: Optional[int] = None,
+    error_code: Optional[str] = None,
+    error_msg: Optional[str] = None,
+) -> Dict[str, Any]:
+    ensure_schema(dl)
+    db_path = _guess_db_path(dl)
+    now = _iso_now()
+    aid = str(uuid.uuid4())
+    with _conn_ctx(db_path) as cx:
+        cx.execute(
+            """INSERT INTO alert_attempts
+               (id, alert_id, ts, channel, provider, status, http_status, error_code, error_msg)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (aid, alert_id, now, channel, provider, status, http_status, error_code, error_msg),
+        )
+        # also reflect last_dispatch_at on the alert if status != 'skipped'
+        if status in ("success", "fail"):
+            cx.execute("UPDATE alerts SET last_dispatch_at=? WHERE id=?", (now, alert_id))
+        cur = cx.execute("SELECT * FROM alert_attempts WHERE id=?", (aid,))
+        return dict(cur.fetchone())
