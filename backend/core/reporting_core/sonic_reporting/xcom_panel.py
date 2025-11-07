@@ -1,409 +1,200 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
-"""
-xcom_panel — DL-sourced XCOM status, Rich-styled like sync_panel (NO rising-edge)
 
-Panel-local options (tweak here; no sequencer change needed):
-  XCOM_BORDER  = "light" | "none"       # bordered Rich table or plain list
-  TITLE_COLOR  = <rich color>           # title color (e.g., "bright_cyan")
-  BORDER_COLOR = <rich color>           # border color (e.g., "bright_black")
+from typing import Any, Optional, Sequence
 
-Contract (lean sequencer):
-  render(dl, csum, default_json_path=None)
+try:
+    from rich.table import Table
+    from rich.text import Text
+except Exception:  # pragma: no cover - optional dependency
+    Table = None  # type: ignore
+    Text = None  # type: ignore
 
-Notes:
-  • Reads JSON via config_probe (monitor-level), not csum.
-  • Uses DataLocker + DLPositionManager so the panel sees what monitors/UI see.
-  • Prints each gate explicitly: breach, channel.voice, xcom_ready, cooldown, snooze.
-  • No rising-edge logic in this panel.
+try:
+    from backend.core.reporting_core.sonic_reporting.config_probe import discover_json_path, parse_json
+except Exception:  # pragma: no cover - defensive fallback
+    def discover_json_path(_):  # type: ignore
+        return None
 
-Source reference: :contentReference[oaicite:0]{index=0}
-"""
+    def parse_json(_):  # type: ignore
+        return {}, None, {}
 
-from typing import Any, Dict, Optional, List, Tuple
-from datetime import datetime, timezone
+try:
+    from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_live_status
+except Exception:  # pragma: no cover - optional dependency
+    def xcom_live_status(dl: Any, cfg: dict | None = None) -> tuple[bool, str]:
+        val = getattr(dl, "xcom_live", None)
+        if isinstance(val, bool):
+            return val, "RUNTIME"
+        return True, "RUNTIME"
 
-# Data source + logging
-from backend.data.data_locker import DataLocker
-from backend.data.dl_positions import DLPositionManager
-from backend.core.logging import log
-
-# Config probe (present in repo)
-from backend.core.reporting_core.sonic_reporting.config_probe import (
-    discover_json_path,
-    parse_json,
-)
-
-# Monitor-level notifications resolver
-from backend.core.xcom_core.xcom_config_service import XComConfigService
-
-# Provider gates
-from backend.core.reporting_core.sonic_reporting.xcom_extras import (
-    xcom_ready,
-    read_voice_cooldown_remaining,
-)
-from backend.services.xcom_status_service import get_last_attempt
-
-# ───────────────────── Panel-local UI options ─────────────────────
-XCOM_BORDER  = "light"         # "light" | "none"
-TITLE_COLOR  = "bright_cyan"   # Rich color name
-BORDER_COLOR = "bright_black"  # Rich color name
-# ──────────────────────────────────────────────────────────────────
+try:
+    from backend.services.xcom_status_service import get_last_attempt
+except Exception:  # pragma: no cover - optional dependency
+    def get_last_attempt(_):
+        return None
 
 
-_IC = {"ok": "✅", "skip": "⏭", "phone": "📞", "sys": "🖥️", "tts": "🔊", "sms": "💬"}
+def _text(val: str, *, style: Optional[str] = None):
+    if Text is None:
+        return val
+    return Text(val, style=style) if style else Text(val)
 
-def _tick(b: bool) -> str:
-    return _IC["ok"] if b else _IC["skip"]
 
-def _cfg_get(cfg: dict, dotted: str, default=None):
-    cur = cfg
-    for part in dotted.split('.'):
-        if not isinstance(cur, dict):
-            return default
-        cur = cur.get(part)
-        if cur is None:
-            return default
-    return cur
+def _chip_on_off(v: bool):
+    return _text("🟢  ON", style="bold green") if v else _text("🔴  OFF", style="bold red")
 
-def _db_xcom_live(dl):
+
+def _cfg_source_label(path: Optional[str]) -> str:
+    return f"FILE {path}" if path else "[-]"
+
+
+def _resolve_cfg(default_json_path: Optional[str]) -> tuple[dict, Optional[str]]:
+    cfg = {}
+    path = None
     try:
-        db = getattr(dl, "db", None) or getattr(dl, "database", None)
-        cur = getattr(db, "get_cursor", None)
-        if not callable(cur):
-            return None, "EMPTY"
-        c = cur()
-        for tbl, keycol in (("system", "key"), ("system_vars", "key")):
-            try:
-                c.execute(
-                    f"SELECT value FROM {tbl} WHERE {keycol} IN (?,?)",
-                    ("monitor.xcom_live", "xcom_live"),
-                )
-                row = c.fetchone()
-                if row:
-                    s = str(row[0]).strip().lower()
-                    if s in ("1", "true", "yes", "on"):
-                        return True, "DB"
-                    if s in ("0", "false", "no", "off"):
-                        return False, "DB"
-            except Exception:
-                pass
-        try:
-            c.execute("SELECT xcom_live FROM monitor_settings LIMIT 1")
-            row = c.fetchone()
-            if row:
-                s = str(row[0]).strip().lower()
-                if s in ("1", "true", "yes", "on"):
-                    return True, "DB"
-                if s in ("0", "false", "no", "off"):
-                    return False, "DB"
-        except Exception:
-            pass
+        path = default_json_path or discover_json_path(None)
+        if path:
+            obj, _err, _meta = parse_json(path)
+            if isinstance(obj, dict):
+                cfg = obj
     except Exception:
-        return None, "EMPTY"
-    return None, "EMPTY"
+        cfg = {}
+    return cfg, path
 
-def _resolve_xcom_live_and_src(cfg: dict, dl) -> tuple[bool, str]:
-    raw = _cfg_get(cfg, "monitor.xcom_live", None)
-    if raw is not None:
-        val = raw if isinstance(raw, bool) else (str(raw).strip().lower() in ("1", "true", "yes", "on"))
-        return bool(val), "JSON"
-    db_val, db_src = _db_xcom_live(dl)
-    if db_val is None:
-        return False, db_src
-    return bool(db_val), db_src
 
-def _ensure_dl(dl: Optional[DataLocker]) -> DataLocker:
-    if dl is not None:
-        return dl
+def _voice_enabled(cfg: dict, dl: Any) -> bool:
+    v = cfg.get("liquid", {}).get("notifications", {}).get("voice", None)
+    if isinstance(v, bool):
+        return v
+    rv = getattr(dl, "voice_enabled", None)
+    if isinstance(rv, bool):
+        return rv
+    return True
+
+
+def _provider_cooldown_ok(dl: Any) -> tuple[bool, str]:
+    status = getattr(dl, "xcom_provider_state", None) or getattr(dl, "provider_state", None) or "idle"
+    ok = getattr(dl, "xcom_provider_cooldown_ok", None)
+    if isinstance(ok, bool):
+        return ok, str(status)
+    ok2 = getattr(dl, "provider_cooldown_ok", None)
+    if isinstance(ok2, bool):
+        return ok2, str(status)
+    return True, str(status)
+
+
+def _is_snoozed(dl: Any) -> bool:
+    v = getattr(dl, "monitor_snoozed", 0)
     try:
-        return DataLocker.get_instance(r"C:\sonic7\backend\mother.db")
+        return bool(v) and float(v) > 0
     except Exception:
-        return DataLocker.get_instance()
+        return bool(v)
 
-# ---------------- JSON + channels ----------------
 
-def _cfg_from(dl: DataLocker, default_json_path: Optional[str]) -> Tuple[dict, str]:
-    """FILE → RUNTIME → EMPTY (mirror of sync panel’s behavior)."""
-    # FILE (explicit)
-    if default_json_path:
-        try:
-            cfg_obj, err, meta = parse_json(default_json_path)
-            if isinstance(cfg_obj, dict) and cfg_obj:
-                return cfg_obj, f"FILE {default_json_path}"
-        except Exception as e:
-            print(f"[XCOM] cfg file error: {e}")
+def _format_rows(rows: Sequence[tuple[str, Any, Any]]):
+    if Table is None or Text is None:
+        return rows
+    table = Table(title="🧪  XCOM Check", show_header=True, header_style="bold")
+    table.add_column("Check")
+    table.add_column("Status", justify="center")
+    table.add_column("Details")
+    for check, status, details in rows:
+        if isinstance(status, Text):
+            status_cell = status
+        else:
+            status_cell = _text(str(status))
+        if isinstance(details, Text):
+            detail_cell = details
+        else:
+            detail_cell = _text(str(details))
+        table.add_row(check, status_cell, detail_cell)
+    return table
 
-    # RUNTIME
-    if isinstance(getattr(dl, "global_config", None), dict) and dl.global_config:
-        return dl.global_config, "RUNTIME —"
 
-    # Discover FILE
+def render_xcom_check(dl: Any, default_json_path: Optional[str] = None):
+    cfg, cfg_path = _resolve_cfg(default_json_path)
+    rows: list[tuple[str, Any, Any]] = []
+
+    rows.append(("cfg source", _text("✅"), _text(_cfg_source_label(cfg_path))))
+
+    live, live_src = xcom_live_status(dl, cfg=cfg or getattr(dl, "global_config", None))
+    rows.append(("📡  XCOM Live", _chip_on_off(bool(live)), _text(f"[{live_src}]")))
+
+    notif = cfg.get("liquid", {}).get("notifications", {}) if isinstance(cfg, dict) else {}
+    ph = "📞 " + ("✅" if notif.get("voice", True) else "❌")
+    ui = "🖥️ " + ("✅" if notif.get("system", True) else "❌")
+    sp = "🔊 " + ("✅" if notif.get("tts", True) else "❌")
+    sm = "💬 " + ("✅" if notif.get("sms", False) else "❌")
+    rows.append(("channels(liquid)", _text("✅"), _text(f"{ph}  {ui}  {sp}  {sm}")))
+
+    ok_cd, cd_state = _provider_cooldown_ok(dl)
+    rows.append(("provider cooldown", _text("✅" if ok_cd else "❌"), _text(str(cd_state))))
+
+    breaches = getattr(dl, "breaches", None) or getattr(dl, "breaches_count", 0)
     try:
-        p = discover_json_path(None)
-        if p:
-            cfg_obj, err, meta = parse_json(p)
-            if isinstance(cfg_obj, dict) and cfg_obj:
-                return cfg_obj, f"FILE {p}"
-    except Exception as e:
-        print(f"[XCOM] cfg discover error: {e}")
-
-    return {}, "EMPTY —"
-
-
-def _thresholds(cfg: dict) -> Dict[str, Optional[float]]:
-    """
-    Prefer 'liquid_monitor.thresholds', then 'liquid.thresholds'.
-    Returns {'BTC': float|None, 'ETH': ..., 'SOL': ...}
-    """
-    block = {}
-    try:
-        block = (cfg.get("liquid_monitor") or {}).get("thresholds") or {}
-        if not block:
-            block = (cfg.get("liquid") or {}).get("thresholds") or {}
+        breaches = int(breaches)
     except Exception:
-        block = {}
-    out: Dict[str, Optional[float]] = {}
-    for k in ("BTC", "ETH", "SOL"):
-        try:
-            out[k] = float(block.get(k)) if k in block else None
-        except Exception:
-            out[k] = None
-    return out
+        breaches = 0
+    rows.append(("breaches", _text("✅" if breaches else "—"), _text(str(breaches or "—"))))
+    if hasattr(dl, "breach_symbol") and hasattr(dl, "breach_distance_text"):
+        rows.append((
+            "  • " + str(getattr(dl, "breach_symbol")),
+            _text("—"),
+            _text(str(getattr(dl, "breach_distance_text"))),
+        ))
 
-
-def _channels(cfg: dict, dl: DataLocker) -> Dict[str, bool]:
-    """Monitor-level notifications (no global channel gate)."""
-    try:
-        svc = XComConfigService(getattr(dl, "system", None), config=cfg)
-        ch = svc.channels_for("liquid") or {}
-        return {
-            "voice": bool(ch.get("voice", False)),
-            "system": bool(ch.get("system", False)),
-            "sms": bool(ch.get("sms", False)),
-            "tts": bool(ch.get("tts", False)),
-        }
-    except Exception as e:
-        print(f"[XCOM] channels error: {e}")
-        return {"voice": False, "system": False, "sms": False, "tts": False}
-
-# ---------------- Breaches from DL ----------------
-
-def _active_breaches(dl: DataLocker, thr: Dict[str, Optional[float]]) -> List[dict]:
-    """
-    Compute live breaches from active positions (value ≤ threshold).
-    We take the MIN(liq_distance) per asset among active rows.
-    """
-    out: List[dict] = []
-    try:
-        mgr = DLPositionManager(dl.db)
-        rows = mgr.get_active_positions() or []
-    except Exception as e:
-        print(f"[XCOM] positions error: {e}")
-        rows = []
-
-    mins: Dict[str, float] = {}
-    for p in rows:
-        try:
-            sym = str(getattr(p, "asset_type", "") or "").upper()
-            if not sym:
-                continue
-            dist = None
-            for k in ("liquidation_distance", "liquidation", "liq", "liq_dist", "liq_pct"):
-                v = getattr(p, k, None)
-                if v is None:
-                    continue
-                try:
-                    dist = float(v)
-                    break
-                except Exception:
-                    pass
-            if dist is None:
-                continue
-            prev = mins.get(sym)
-            if prev is None or dist < prev:
-                mins[sym] = dist
-        except Exception:
-            continue
-
-    for sym, v in mins.items():
-        t = thr.get(sym)
-        if t is None:
-            continue
-        if v <= t:
-            out.append({"asset": sym, "value": v, "threshold": float(t)})
-    return out
-
-# ---------------- Snooze ----------------
-
-def _snooze_ok(dl: DataLocker) -> bool:
-    """
-    Snooze via dl.system['liquid_monitor']:
-      {"snooze_seconds": int, "_last_alert_ts": epoch-seconds}
-    Return True when NOT snoozed (ok to call).
-    """
-    try:
-        rec = dl.system.get_var("liquid_monitor") or {}
-        snooze_sec = int(rec.get("snooze_seconds") or 0)
-        last_ts = float(rec.get("_last_alert_ts") or 0)
-        if snooze_sec <= 0 or last_ts <= 0:
-            return True
-        now = datetime.now(timezone.utc).timestamp()
-        return (now - last_ts) >= snooze_sec
-    except Exception:
-        return True
-
-# ---------------- Rendering ----------------
-
-def _render_bordered(rows: List[List[str]], header: List[str], title: str) -> None:
-    try:
-        from rich.table import Table
-        from rich.console import Console
-        from rich.box import SIMPLE
-    except Exception:
-        _render_unbordered(rows, header, title)
-        return
-
-    table = Table(
-        title=f"[{TITLE_COLOR}]{title}[/{TITLE_COLOR}]",
-        show_header=True,
-        header_style="bold",
-        box=SIMPLE,
-        border_style=BORDER_COLOR,
-        title_justify="left",
-        show_edge=True,
-        show_lines=False,
-        expand=False,
-        pad_edge=False,
-    )
-    for col in header:
-        table.add_column(col)
-
-    for r in rows:
-        table.add_row(*[str(c) for c in r])
-
-    Console().print(table)
-
-
-def _render_unbordered(rows: List[List[str]], header: List[str], title: str) -> None:
-    print(f"\n  {title}\n")
-    widths = [max(len(str(header[c])), max(len(str(r[c])) for r in rows) if rows else 0)
-              for c in range(len(header))]
-    print("  " + "  ".join(str(header[c]).ljust(widths[c]) for c in range(len(header))))
-    print("")
-    for r in rows:
-        print("  " + "  ".join(str(r[c]).ljust(widths[c]) for c in range(len(header))))
-
-# ---------------- Panel entry ----------------
-
-def render(dl: Optional[DataLocker], csum: Optional[dict], default_json_path: Optional[str] = None) -> None:
-    """
-    DL + JSON + gate matrix in a Rich-styled table (no rising-edge).
-    """
-    dl = _ensure_dl(dl)
-
-    # Config + channels
-    cfg, cfg_src = _cfg_from(dl, default_json_path)
-    ch = _channels(cfg, dl)
-
-    # Provider gates
-    try:
-        ready_ok, ready_reason = xcom_ready(dl, cfg=cfg)
-    except Exception as e:
-        ready_ok, ready_reason = False, f"ready-error({e})"
-
-    try:
-        rem_s, _ = read_voice_cooldown_remaining(dl)
-        cooldown_ok = (rem_s <= 0)
-    except Exception:
-        rem_s, cooldown_ok = 0, True
-
-    # Thresholds + breaches
-    thr = _thresholds(cfg)
-    breaches = _active_breaches(dl, thr)
-
-    # Snooze
-    snooze_ok = _snooze_ok(dl)
-
-    xcom_on, xcom_src = _resolve_xcom_live_and_src(cfg, dl)
-
-    # Prepare rows
-    header = ["Check", "Status", "Details"]
-    rows: List[List[str]] = []
-
-    # Top summary
-    rows.append(["cfg source", _tick(cfg != {}), cfg_src])
-    status = "🟢  ON" if xcom_on else "⚫  OFF"
-    origin = f"({xcom_src if xcom_src in ('JSON', 'DB') else 'EMPTY'})"
-    rows.append(["📡  XCOM Live", status, origin])
-    rows.append([
-        "channels(liquid)",
-        _tick(any(ch.values())),
-        f"{_IC['phone']} {_tick(ch.get('voice', False))}  "
-        f"{_IC['sys']} {_tick(ch.get('system', False))}  "
-        f"{_IC['tts']} {_tick(ch.get('tts', False))}  "
-        f"{_IC['sms']} {_tick(ch.get('sms', False))}"
+    voice_on = _voice_enabled(cfg, dl)
+    snoozed = _is_snoozed(dl)
+    armed = bool(live) and voice_on and ok_cd and (not snoozed) and (breaches > 0)
+    why = " • ".join([
+        f"Live {'✓' if live else '✗'}",
+        f"Voice {'✓' if voice_on else '✗'}",
+        f"Cooldown {'✓' if ok_cd else '✗'}",
+        f"Snoozed {'✓' if not snoozed else '✗'}",
+        f"Breach {'✓' if breaches > 0 else '✗'}",
     ])
-    rows.append(["provider cooldown", _tick(cooldown_ok), "idle" if cooldown_ok else f"{int(rem_s)}s"])
-
-    # Breaches summary
-    if breaches:
-        rows.append(["breaches", _tick(True), f"{len(breaches)}"])
-        for b in breaches:
-            rows.append([f" • {b['asset']}", "—", f"{b['value']:.2f} ≤ {b['threshold']:.2f}"])
-    else:
-        rows.append(["breaches", _tick(False), "0"])
-
-    # Gate matrix (no rising-edge here)
-    rows.append(["breach", _tick(bool(breaches)), "—"])
-    rows.append(["channel.voice", _tick(ch.get('voice', False)), "—"])
-    rows.append(["xcom_ready", _tick(ready_ok), ("ok" if ready_ok else str(ready_reason))])
-    rows.append(["provider_cooldown_ok", _tick(cooldown_ok), "—"])
-    rows.append(["monitor_snoozed=False", _tick(snooze_ok), "—"])
-
-    gates = [
-        ("Live", bool(xcom_on)),
-        ("Voice", bool(ch.get("voice", False))),
-        ("Cooldown", bool(cooldown_ok)),
-        ("Snoozed", bool(snooze_ok)),
-        ("Breach", bool(breaches)),
-    ]
-    dispatch_ok = all(val for _, val in gates)
-    gate_text = " • ".join(f"{name} {'✓' if val else '✗'}" for name, val in gates)
-    rows.append(["dispatch.armed", _tick(dispatch_ok), gate_text])
+    rows.append(("dispatch.armed", _text("✅" if armed else "❌"), _text(why)))
 
     last = get_last_attempt(dl) or {}
     if last:
         status = last.get("status")
-        status_label = {
-            "success": "🟢 success",
-            "fail": "🔴 fail",
-            "skipped": "⚪ skipped",
-        }.get(status, status or "—")
+        label_map = {"success": "🟢 success", "fail": "🔴 fail", "skipped": "⚪ skipped"}
+        label = label_map.get(status, status or "—")
         who = f"{last.get('provider', 'twilio')}/{last.get('channel', 'voice')} → {last.get('to_number', '—')}"
         sid = last.get("sid") or "—"
         src = last.get("source", "monitor")
-        rows.append([
-            "last attempt",
-            status_label,
-            f"{last.get('ts', '—')} • {who} • sid={sid} [{src}]",
-        ])
+        rows.append(("last attempt", _text(label), _text(f"{last.get('ts', '—')} • {who} • sid={sid} [{src}]")))
         if status == "fail":
             code = last.get("error_code") or "—"
             http = last.get("http_status") or "—"
             msg = (last.get("error_msg") or "—")[:120]
-            rows.append(["   provider error", "details", f"HTTP {http} • code {code} — {msg}"])
+            rows.append(("   provider error", _text("details"), _text(f"HTTP {http} • code {code} — {msg}")))
         if status == "skipped" and last.get("gated_by"):
-            rows.append(["   skipped by", "gate", str(last.get("gated_by"))])
+            rows.append(("   skipped by", _text("gate"), _text(str(last.get("gated_by")))))
     else:
-        rows.append(["last attempt", "—", "no attempts recorded"])
+        rows.append(("last attempt", _text("—"), _text("no attempts recorded")))
 
-    title = "🔍 XCOM Check"
+    return _format_rows(rows)
 
-    if XCOM_BORDER == "light":
-        _render_bordered(rows, header, title)
+
+def render(dl: Any, _csum: Optional[dict], default_json_path: Optional[str] = None) -> None:
+    panel = render_xcom_check(dl, default_json_path=default_json_path)
+    if Table is not None and isinstance(panel, Table):
+        try:
+            from rich.console import Console
+
+            Console().print(panel)
+            return
+        except Exception:
+            pass
+
+    # Fallback textual rendering when Rich is unavailable
+    rows: Sequence[tuple[str, Any, Any]]
+    if Table is not None and isinstance(panel, Table):  # pragma: no cover - guard in case Console import failed
+        rows = []
     else:
-        _render_unbordered(rows, header, title)
+        rows = panel  # type: ignore[assignment]
 
-    # Breadcrumb (useful when diagnosing)
-    print(f"\n[XCOM] source: cfg={cfg_src}  breaches={len(breaches)}")
+    print("XCOM Check")
+    for check, status, details in rows:
+        print(f"- {check}: {status} :: {details}")

@@ -5,7 +5,38 @@ import html
 import re
 from typing import Any, Dict, Optional, Tuple
 
+try:
+    from twilio.rest import Client
+except Exception:  # twilio might not be installed in some test envs
+    Client = None  # type: ignore
+
 from backend.core.logging import log
+
+
+def _twiml_url_from_ctx(dl: Any, ctx: Optional[dict]) -> Optional[str]:
+    if ctx and "twiml_url" in ctx:
+        return ctx["twiml_url"]
+    return getattr(dl, "twiml_url", None)
+
+
+def place_call(dl: Any, *, to_number: str, from_number: str, ctx: dict) -> Tuple[str, int]:
+    """Place a Twilio call and return (sid, http_status)."""
+
+    if Client is None:
+        raise RuntimeError("twilio client not available in this environment")
+
+    sid = getattr(dl, "twilio_sid", None) or getattr(dl, "twilio_account_sid", None)
+    token = getattr(dl, "twilio_token", None) or getattr(dl, "twilio_auth_token", None)
+
+    if not sid or not token:
+        raise RuntimeError("Twilio credentials missing on DataLocker: twilio_sid / twilio_token")
+
+    url = _twiml_url_from_ctx(dl, ctx) or "https://demo.twilio.com/docs/voice.xml"
+
+    client = Client(sid, token)
+    call = client.calls.create(to=to_number, from_=from_number, url=url)
+    http_status = getattr(getattr(call, "last_response", None), "status_code", 201)
+    return call.sid, http_status
 
 
 # --- tiny dotenv (no deps) ----------------------------------------------------
@@ -178,8 +209,8 @@ class VoiceService:
         twiml = f"<Response><Say>{html.escape(msg) or 'Alert'}</Say></Response>"
 
         try:
-            # import inside so tests can stub sys.modules cleanly
-            from twilio.rest import Client  # type: ignore
+            if Client is None:
+                raise ModuleNotFoundError("twilio client not available in this environment")
 
             client = Client(sid, tok)
             call = client.calls.create(to=to_num, from_=from_num, twiml=twiml)
