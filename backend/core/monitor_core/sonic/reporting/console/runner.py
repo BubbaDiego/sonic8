@@ -14,7 +14,8 @@ def _safe_render(mod_name: str, fn_name: str, dl: Any) -> None:
         print(f"[REPORT] {mod_name}.{fn_name} failed: {e}")
 
 def run_console_reporters(dl: Any, debug: bool = False) -> None:
-    # Order: monitor panel, positions, wallets, raydium
+    # Order: cycle activity first, then monitors, positions, wallets, raydium
+    _safe_render("backend.core.reporting_core.sonic_reporting.cycle_activity_reporter", "render", dl)
     _safe_render("backend.core.reporting_core.sonic_reporting.monitor_panel", "render", dl)
     _safe_render("backend.core.reporting_core.sonic_reporting.positions_panel", "render", dl)
     _safe_render("backend.core.reporting_core.sonic_reporting.wallets_panel", "render", dl)
