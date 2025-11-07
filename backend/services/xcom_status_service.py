@@ -2,12 +2,71 @@ import os
 import smtplib
 import ssl
 from concurrent import futures
-from typing import Dict, Callable
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, Optional
 
 from backend.core.xcom_core.check_twilio_heartbeat_service import (
     CheckTwilioHeartbeatService,
 )
 from backend.core.xcom_core.sound_service import SoundService
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+@dataclass
+class XComAttempt:
+    ts: str
+    channel: str
+    intent: str
+    to_number: Optional[str] = None
+    from_number: Optional[str] = None
+    provider: str = "twilio"
+    status: str = "unknown"
+    sid: Optional[str] = None
+    http_status: Optional[int] = None
+    error_code: Optional[str] = None
+    error_msg: Optional[str] = None
+    gated_by: Optional[str] = None
+    source: str = "monitor"
+
+
+def _dl_put(dl: Any, key: str, value: Dict[str, Any]) -> None:
+    """Store runtime status in the DataLocker if possible."""
+
+    if hasattr(dl, "runtime_set"):
+        dl.runtime_set(key, value)
+        return
+    if hasattr(dl, "set_kv"):
+        dl.set_kv(key, value)
+        return
+    setattr(dl, key.replace(".", "_"), value)
+
+
+def record_attempt(dl: Any, **fields: Any) -> Dict[str, Any]:
+    """Unified recorder for XCOM dispatch attempts."""
+
+    payload = asdict(XComAttempt(ts=_utc_now_iso(), **fields))
+    _dl_put(dl, "xcom.last_attempt", payload)
+    try:
+        key = "xcom.attempts"
+        attr = key.replace(".", "_")
+        buf = getattr(dl, attr, [])
+        buf = (list(buf) + [payload])[-50:]
+        setattr(dl, attr, buf)
+    except Exception:
+        pass
+    return payload
+
+
+def get_last_attempt(dl: Any) -> Optional[Dict[str, Any]]:
+    if hasattr(dl, "runtime_get"):
+        return dl.runtime_get("xcom.last_attempt")
+    if hasattr(dl, "get_kv"):
+        return dl.get_kv("xcom.last_attempt")
+    return getattr(dl, "xcom_last_attempt", None)
 
 
 class XComStatusService:

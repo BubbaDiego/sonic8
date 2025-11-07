@@ -28,6 +28,7 @@ from backend.data.data_locker import DataLocker
 
 from backend.core.xcom_core.xcom_config_service import XComConfigService
 from backend.core.xcom_core.voice_service import VoiceService
+from backend.services.xcom_status_service import record_attempt
 from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
 
 
@@ -137,6 +138,10 @@ def dispatch_notifications(
     subject = ctx.get("subject") or f"[{monitor_name}] alert"
     body = ctx.get("body") or res.get("message") or res.get("summary") or ""
     breach = bool(res.get("breach", False))
+    source = ctx.get("source") or res.get("source") or "monitor"
+    intent = res.get("intent") or f"{monitor_name}-breach"
+    to_hint = ctx.get("to_number") or res.get("to_number")
+    from_hint = ctx.get("from_number") or res.get("from_number")
 
     # DataLocker + consolidated config view
     if db_path:
@@ -180,8 +185,31 @@ def dispatch_notifications(
         ok_ready, reason = xcom_ready(dl, cfg=getattr(dl, "global_config", None))
         if not breach:
             summary["channels"]["voice"] = {"ok": False, "skip": "breach-required"}
+            record_attempt(
+                dl,
+                channel="voice",
+                intent=intent,
+                to_number=to_hint,
+                from_number=from_hint,
+                provider="twilio",
+                status="skipped",
+                gated_by="breach-required",
+                source=source,
+            )
         elif not ok_ready:
-            summary["channels"]["voice"] = {"ok": False, "skip": str(reason or "xcom-not-ready")}
+            gate_reason = str(reason or "xcom-not-ready")
+            summary["channels"]["voice"] = {"ok": False, "skip": gate_reason}
+            record_attempt(
+                dl,
+                channel="voice",
+                intent=intent,
+                to_number=to_hint,
+                from_number=from_hint,
+                provider="twilio",
+                status="skipped",
+                gated_by=gate_reason,
+                source=source,
+            )
         else:
             try:
                 provider_cfg = _resolve_voice_provider(dl, cfg)
@@ -195,21 +223,89 @@ def dispatch_notifications(
 
                 if isinstance(provider_cfg, dict) and (provider_cfg.get("enabled", True) is False):
                     summary["channels"]["voice"] = {"ok": False, "skip": "provider-disabled"}
+                    record_attempt(
+                        dl,
+                        channel="voice",
+                        intent=intent,
+                        to_number=to_hint,
+                        from_number=from_hint,
+                        provider="twilio",
+                        status="skipped",
+                        gated_by="provider-disabled",
+                        source=source,
+                    )
                 else:
                     svc = VoiceService(provider_cfg)
-                    ok, sid, to_num, from_num = svc.call(None, subject, body, dl=dl)
-                    summary["channels"]["voice"] = {
-                        "ok": bool(ok),
-                        **({"sid": sid, "to": to_num, "from": from_num} if ok else {}),
-                    }
+                    ok, sid, to_num, from_num, http_status = svc.call(None, subject, body, dl=dl)
+                    payload: dict[str, Any] = {"ok": bool(ok)}
+                    if ok:
+                        if sid is not None:
+                            payload["sid"] = sid
+                        if to_num is not None:
+                            payload["to"] = to_num
+                        if from_num is not None:
+                            payload["from"] = from_num
+                        if http_status is not None:
+                            payload["http_status"] = http_status
+                        record_attempt(
+                            dl,
+                            channel="voice",
+                            intent=intent,
+                            to_number=to_num or to_hint,
+                            from_number=from_num or from_hint,
+                            provider="twilio",
+                            status="success",
+                            sid=sid,
+                            http_status=http_status,
+                            source=source,
+                        )
+                    else:
+                        record_attempt(
+                            dl,
+                            channel="voice",
+                            intent=intent,
+                            to_number=to_num or to_hint,
+                            from_number=from_num or from_hint,
+                            provider="twilio",
+                            status="fail",
+                            error_msg="voice-service-returned-false",
+                            source=source,
+                        )
+                    summary["channels"]["voice"] = payload
             except Exception as exc:  # don't crash dispatch — report reason
+                msg = str(exc)[:160]
                 summary["channels"]["voice"] = {
                     "ok": False,
                     "skip": "twilio-error",
-                    "error": str(exc)[:160],
+                    "error": msg,
                 }
+                status_val = getattr(exc, "status", None)
+                record_attempt(
+                    dl,
+                    channel="voice",
+                    intent=intent,
+                    to_number=to_hint,
+                    from_number=from_hint,
+                    provider="twilio",
+                    status="fail",
+                    error_msg=msg,
+                    error_code=str(getattr(exc, "code", "")) or None,
+                    http_status=int(status_val) if status_val is not None else None,
+                    source=source,
+                )
     else:
         summary["channels"]["voice"] = {"ok": False, "skip": "disabled"}
+        record_attempt(
+            dl,
+            channel="voice",
+            intent=intent,
+            to_number=to_hint,
+            from_number=from_hint,
+            provider="twilio",
+            status="skipped",
+            gated_by="channel-disabled",
+            source=source,
+        )
 
     # SMS/TTS placeholders — wire when providers enabled
     for k in ("sms", "tts"):

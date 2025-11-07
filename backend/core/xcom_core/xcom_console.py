@@ -1265,7 +1265,7 @@ def _voice_test():
     print(f"   → Using voice: {cfg.get('voice_name')} (direct TwiML)\n")
 
     try:
-        ok, sid, to_resolved, from_resolved = VoiceService(cfg).call(
+        ok, sid, to_resolved, from_resolved, http_status = VoiceService(cfg).call(
             to_number=to_number,
             subject="[XCom Test] voice",
             body=msg,
@@ -1277,9 +1277,10 @@ def _voice_test():
         return
 
     if ok:
+        status_note = f" http={http_status}" if http_status is not None else ""
         print(
             "  ✅ Twilio call created — "
-            f"SID={sid or 'n/a'} to={to_resolved or to_number} from={from_resolved or from_number}\n"
+            f"SID={sid or 'n/a'} to={to_resolved or to_number} from={from_resolved or from_number}{status_note}\n"
         )
     else:
         print("  ❌ Call failed.\n")
@@ -1576,7 +1577,7 @@ def _comms_wizard():
             cfg["voice_name"] = _get_voice_name()
 
         try:
-            ok, sid, to_resolved, from_resolved = VoiceService(cfg).call(
+            ok, sid, to_resolved, from_resolved, http_status = VoiceService(cfg).call(
                 to_number=to_number,
                 subject="[Wizard] voice",
                 body=message,
@@ -1588,9 +1589,10 @@ def _comms_wizard():
             return
 
         if ok:
+            status_note = f" http={http_status}" if http_status is not None else ""
             print(
                 "   ✅ Voice call placed — "
-                f"SID={sid or 'n/a'} to={to_resolved or to_number} from={from_resolved or _resolve_from()}\n"
+                f"SID={sid or 'n/a'} to={to_resolved or to_number} from={from_resolved or _resolve_from()}{status_note}\n"
             )
         else:
             print("   ❌ Voice call failed.\n")
