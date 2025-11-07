@@ -150,18 +150,18 @@ class DbConsoleService:
             self._clear(); self._render_header()
             self.console.print(f"{ICON['table']} [bold]Explore[/]\n")
             self.console.print("1) List tables/views")
-            self.console.print("2) Show schema (CREATE, indexes, FKs, triggers)")
-            self.console.print("3) View rows (paged)")
+            self.console.print("2) Show schema (pick from list)")
+            self.console.print("3) View rows (pick from list)")
             self.console.print("0) Back\n")
             ch = Prompt.ask("Select", default="1")
             if ch == "1":
                 self._list_tables()
             elif ch == "2":
-                t = Prompt.ask("Table/View name")
-                if t.strip(): self._show_schema(t.strip())
+                name = self._pick_table(title="Pick a table/view for schema")
+                if name: self._show_schema(name)
             elif ch == "3":
-                t = Prompt.ask("Table name")
-                if t.strip(): self._view_rows_paged(t.strip())
+                name = self._pick_table(title="Pick a table/view to browse rows")
+                if name: self._view_rows_paged(name)
             elif ch == "0":
                 return
             self._pause()
@@ -288,11 +288,7 @@ class DbConsoleService:
     def _list_tables(self) -> None:
         """Inline list with friendly errors, never bails to outer logger."""
         try:
-            rows = self._exec_ro(
-                "SELECT name, type FROM sqlite_master "
-                "WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' "
-                "ORDER BY type DESC, name ASC"
-            )
+            rows = self._fetch_tables()
             tbl = Table(title="Tables & Views", expand=True)
             tbl.add_column("Name", style="bold")
             tbl.add_column("Type")
@@ -309,6 +305,46 @@ class DbConsoleService:
             self.console.print("Tip: Launch via LaunchPad option 8 or set DB path with env var DB_CONSOLE_DB.")
         except Exception as e:
             self.console.print(f"{ICON['err']} Failed to enumerate tables: {e}")
+
+    def _fetch_tables(self) -> list[tuple[str, str]]:
+        return self._exec_ro(
+            "SELECT name, type FROM sqlite_master "
+            "WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' "
+            "ORDER BY type DESC, name ASC"
+        )
+
+    def _pick_table(self, title: str = "Pick a table/view") -> Optional[str]:
+        try:
+            rows = self._fetch_tables()
+        except FileNotFoundError as e:
+            self.console.print(f"{ICON['err']} {e}")
+            self.console.print("Tip: Launch via LaunchPad option 8 or set DB path with env var DB_CONSOLE_DB.")
+            return None
+        except Exception as e:
+            self.console.print(f"{ICON['err']} Failed to enumerate tables: {e}")
+            return None
+
+        if not rows:
+            self.console.print(f"{ICON['info']} No tables/views found.")
+            return None
+
+        picker = Table(title=title, expand=True)
+        picker.add_column("#", justify="right")
+        picker.add_column("Name", style="bold")
+        picker.add_column("Type")
+        picker.add_column("Rows", justify="right")
+        for i, (name, typ) in enumerate(rows, start=1):
+            try:
+                cnt = self._scalar_ro(f"SELECT COUNT(*) FROM [{name}]") if typ == "table" else "—"
+            except Exception:
+                cnt = "?"
+            picker.add_row(str(i), name, typ, str(cnt))
+        self.console.print(picker)
+
+        pick = IntPrompt.ask("Pick # (0=cancel)", default=0)
+        if 1 <= pick <= len(rows):
+            return rows[pick - 1][0]
+        return None
 
     def _show_schema(self, table: str) -> None:
         info = self._exec_ro(f"SELECT sql FROM sqlite_master WHERE name=? AND type IN ('table','view')", (table,))
