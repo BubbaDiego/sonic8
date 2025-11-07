@@ -1,48 +1,47 @@
 # -*- coding: utf-8 -*-
-"""SQLite persistence helpers for monitor alerts and attempts."""
-
 from __future__ import annotations
 
 import os
 import sqlite3
 import uuid
 from contextlib import contextmanager
+from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
-# ------------------------- DB connection plumbing -------------------------
+# ===================== common helpers =====================
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 def _guess_db_path(dl: Any) -> str:
-    # Try explicit attrs on the DataLocker first
+    """
+    Try to find the mother.db path consistently with how the rest of Sonic resolves it.
+    """
+    # 1) DataLocker-attached paths
     for attr in ("db_path", "mother_db_path", "database_path"):
         p = getattr(dl, attr, None)
         if isinstance(p, str) and Path(p).exists():
             return p
-    # Env override
+    # 2) Env override
     p = os.environ.get("SONIC_DB_PATH")
     if p and Path(p).exists():
         return p
-    # Canonical repo fallback: backend/mother.db
+    # 3) Canonical fallback: backend/mother.db (relative), then Windows dev path
     here = Path(__file__).resolve()
     for up in [0, 1, 2, 3, 4, 5]:
         root = here.parents[up] if up > 0 else here.parent
         guess = root.joinpath("..", "mother.db").resolve()
         if guess.exists():
             return str(guess)
-    # Windows dev fallback
-    dev = r"C:\sonic7\backend\mother.db"
-    return dev
+    return r"C:\\sonic7\\backend\\mother.db"
 
 @contextmanager
 def _conn_ctx(db_path: str):
     conn = sqlite3.connect(db_path, timeout=30)
     try:
-        # row factory → dict-like convenience
         conn.row_factory = sqlite3.Row
         yield conn
         conn.commit()
@@ -53,7 +52,7 @@ def _dicts(rows: List[sqlite3.Row]) -> List[Dict[str, Any]]:
     return [dict(r) for r in rows or []]
 
 
-# ------------------------- DDL helpers -------------------------
+# ===================== schema =====================
 
 DDL_ALERTS = """
 CREATE TABLE IF NOT EXISTS alerts (
@@ -69,7 +68,7 @@ CREATE TABLE IF NOT EXISTS alerts (
   first_seen_at TEXT NOT NULL,
   last_seen_at TEXT NOT NULL,
   last_dispatch_at TEXT,
-  fingerprint TEXT NOT NULL UNIQUE,  -- e.g., 'liquid|SOL'
+  fingerprint TEXT NOT NULL UNIQUE,  -- e.g., 'breach|liquid|SOL'
   extra TEXT
 );
 """
@@ -96,7 +95,7 @@ DDL_INDEXES = [
 ]
 
 
-# ------------------------- Public API -------------------------
+# ===================== module-level API (canonical) =====================
 
 def ensure_schema(dl: Any) -> None:
     db_path = _guess_db_path(dl)
@@ -107,7 +106,6 @@ def ensure_schema(dl: Any) -> None:
             cx.execute(ddl)
 
 def _fingerprint(kind: str, monitor: str, symbol: str, *, side: Optional[str] = None) -> str:
-    # Keep it simple for now; extend with owner/position later if needed
     s = f"{kind}|{monitor}|{symbol.upper()}"
     if side:
         s += f"|{side.lower()}"
@@ -125,8 +123,8 @@ def upsert_open(
     extra: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Insert a new OPEN alert or update the existing one (occurrences++, last_seen_at=now, value/threshold updated).
-    Returns the alert row as a dict.
+    Insert or update an OPEN alert (occurrences++, last_seen_at=now).
+    Returns the alert row.
     """
     ensure_schema(dl)
     db_path = _guess_db_path(dl)
@@ -170,8 +168,8 @@ def resolve_open(
     side: Optional[str] = None
 ) -> int:
     """
-    Resolve all open alerts matching the fingerprint (usually 0 or 1).
-    Returns the number of rows updated.
+    Resolve any OPEN alerts matching the fingerprint.
+    Returns rows updated.
     """
     ensure_schema(dl)
     db_path = _guess_db_path(dl)
@@ -243,8 +241,92 @@ def record_attempt(
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (aid, alert_id, now, channel, provider, status, http_status, error_code, error_msg),
         )
-        # also reflect last_dispatch_at on the alert if status != 'skipped'
+        # reflect last_dispatch_at for success/fail
         if status in ("success", "fail"):
             cx.execute("UPDATE alerts SET last_dispatch_at=? WHERE id=?", (now, alert_id))
         cur = cx.execute("SELECT * FROM alert_attempts WHERE id=?", (aid,))
         return dict(cur.fetchone())
+
+
+# ===================== class-based manager (for DataLocker import) =====================
+
+class DLAlertManager:
+    """
+    Class wrapper that mirrors the module-level API.
+    DataLocker can import and instantiate this as it does for other managers.
+    """
+    def __init__(self, dl: Any):
+        self.dl = dl
+        ensure_schema(self.dl)
+
+    def ensure_schema(self) -> None:
+        ensure_schema(self.dl)
+
+    def upsert_open(
+        self,
+        *,
+        kind: str,
+        monitor: str,
+        symbol: str,
+        value: Optional[float],
+        threshold: Optional[float],
+        side: Optional[str] = None,
+        extra: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return upsert_open(
+            self.dl,
+            kind=kind,
+            monitor=monitor,
+            symbol=symbol,
+            value=value,
+            threshold=threshold,
+            side=side,
+            extra=extra,
+        )
+
+    def resolve_open(
+        self,
+        *,
+        kind: str,
+        monitor: str,
+        symbol: str,
+        side: Optional[str] = None,
+    ) -> int:
+        return resolve_open(self.dl, kind=kind, monitor=monitor, symbol=symbol, side=side)
+
+    def list_open(
+        self,
+        *,
+        kind: Optional[str] = None,
+        monitor: Optional[str] = None,
+        symbol: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        return list_open(self.dl, kind=kind, monitor=monitor, symbol=symbol)
+
+    def get_by_id(self, alert_id: str) -> Optional[Dict[str, Any]]:
+        return get_by_id(self.dl, alert_id)
+
+    def touch_dispatch(self, alert_id: str) -> None:
+        touch_dispatch(self.dl, alert_id)
+
+    def record_attempt(
+        self,
+        *,
+        alert_id: str,
+        channel: str,
+        provider: str,
+        status: str,
+        http_status: Optional[int] = None,
+        error_code: Optional[str] = None,
+        error_msg: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return record_attempt(
+            self.dl,
+            alert_id=alert_id,
+            channel=channel,
+            provider=provider,
+            status=status,
+            http_status=http_status,
+            error_code=error_code,
+            error_msg=error_msg,
+        )
