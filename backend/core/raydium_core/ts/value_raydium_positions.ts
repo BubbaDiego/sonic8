@@ -35,18 +35,26 @@ const short = (s: string) => (s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-6)}
 function isValidPkStr(s: string) { try { new PublicKey(s); return true } catch { return false } }
 
 async function discoverOwnerMints(conn: Connection, owner: PublicKey) {
+  // Scan BOTH legacy SPL Token and Token-2022 for dec=0 balances
   const TOKEN_LEGACY = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-  const resp: any = await (conn as any).getParsedTokenAccountsByOwner(owner, { programId: TOKEN_LEGACY })
-  const items = resp?.value || []
-  const found: string[] = []
-  for (const it of items) {
-    const info = it.account?.data?.parsed?.info
-    const dec = Number(info?.tokenAmount?.decimals || 0)
-    const amt = new Decimal(String(info?.tokenAmount?.amount || '0'))
-    const mint = String(info?.mint || '')
-    if (dec === 0 && mint && isValidPkStr(mint) && amt.gt(0)) found.push(mint)
+  const TOKEN_2022 = new PublicKey('TokenzQdBNbLqPbwZbzxACjuNbWVHX8sDiiF2CwZJ7')
+
+  async function scan(pid: PublicKey) {
+    const resp: any = await (conn as any).getParsedTokenAccountsByOwner(owner, { programId: pid })
+    const items = resp?.value || []
+    const out: string[] = []
+    for (const it of items) {
+      const info = it.account?.data?.parsed?.info
+      const dec = Number(info?.tokenAmount?.decimals ?? 0)
+      const amt = new Decimal(String(info?.tokenAmount?.amount ?? '0'))
+      const mint = String(info?.mint ?? '')
+      if (dec === 0 && mint && isValidPkStr(mint) && amt.gt(0)) out.push(mint)
+    }
+    return out
   }
-  return [...new Set(found)]
+
+  const [a, b] = await Promise.all([scan(TOKEN_LEGACY), scan(TOKEN_2022)])
+  return [...new Set([...a, ...b])]
 }
 
 function priceFromSqrt(pool: ReturnType<typeof PoolInfoLayout.decode>) {
