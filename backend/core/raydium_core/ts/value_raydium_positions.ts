@@ -30,31 +30,57 @@ const ownerStr = arg('--owner')
 const mintsCsv = arg('--mints')
 const overridePriceUrl = arg('--price-url') || process.env.JUP_PRICE_URL
 const mintList: string[] = (mintsCsv ? mintsCsv.split(',').map(s => s.trim()).filter(Boolean) : [])
+const emitJson = argv.includes('--emit-json')
 
 const short = (s: string) => (s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-6)}` : s)
 function isValidPkStr(s: string) { try { new PublicKey(s); return true } catch { return false } }
+const toNum = (v: any): number | null => {
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'bigint') {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  }
+  if (v && typeof v === 'object') {
+    if (typeof v.toNumber === 'function') {
+      try {
+        const n = v.toNumber()
+        return Number.isFinite(n) ? n : null
+      } catch {}
+    }
+    if (typeof v.toString === 'function') {
+      const n = Number(v.toString())
+      if (Number.isFinite(n)) return n
+    }
+  }
+  return null
+}
+const decimalToNum = (d: Decimal | null): number | null => {
+  if (!d) return null
+  const n = Number(d.toSignificantDigits(12).toString())
+  return Number.isFinite(n) ? n : null
+}
 
 async function discoverOwnerMints(conn: Connection, owner: PublicKey) {
-  // Scan BOTH legacy SPL Token and Token-2022 for dec=0 balances
+  // Scan BOTH legacy SPL Token and Token-2022 for dec=0 balances (NFT-ish)
   const TOKEN_LEGACY = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-  const TOKEN_2022 = new PublicKey('TokenzQdBNbLqPbwZbzxACjuNbWVHX8sDiiF2CwZJ7')
+  const TOKEN_2022   = new PublicKey('TokenzQdBNbLqPbwZbzxACjuNbWVHX8sDiiF2CwZJ7')
 
-  async function scan(pid: PublicKey) {
-    const resp: any = await (conn as any).getParsedTokenAccountsByOwner(owner, { programId: pid })
+  async function scan(programId: PublicKey): Promise<string[]> {
+    const resp: any = await (conn as any).getParsedTokenAccountsByOwner(owner, { programId })
     const items = resp?.value || []
     const out: string[] = []
     for (const it of items) {
       const info = it.account?.data?.parsed?.info
-      const dec = Number(info?.tokenAmount?.decimals ?? 0)
-      const amt = new Decimal(String(info?.tokenAmount?.amount ?? '0'))
+      const dec  = Number(info?.tokenAmount?.decimals ?? 0)
+      const amt  = new Decimal(String(info?.tokenAmount?.amount ?? '0'))
       const mint = String(info?.mint ?? '')
       if (dec === 0 && mint && isValidPkStr(mint) && amt.gt(0)) out.push(mint)
     }
     return out
   }
 
-  const [a, b] = await Promise.all([scan(TOKEN_LEGACY), scan(TOKEN_2022)])
-  return [...new Set([...a, ...b])]
+  const [legacy, t22] = await Promise.all([scan(TOKEN_LEGACY), scan(TOKEN_2022)])
+  return [...new Set([...legacy, ...t22])]
 }
 
 function priceFromSqrt(pool: ReturnType<typeof PoolInfoLayout.decode>) {
@@ -206,18 +232,51 @@ async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> 
   }
   const priceMap = await fetchJupPrices([...priceMintSet])
 
-  const rows: {
+  const tableRows: {
     poolPk: string
     posMint: string
     tokenA: string
     tokenB: string
     usd: string
   }[] = []
+  const detailRows: {
+    poolPk: string
+    posMint: string
+    mintA: string | null
+    mintB: string | null
+    amountA: number | null
+    amountB: number | null
+    priceA: number | null
+    priceB: number | null
+    usd: number | null
+    inRange: boolean | null
+    tickLower: number | null
+    tickUpper: number | null
+    checked: string
+  }[] = []
 
   for (const t of targets) {
     const pool = poolMap.get(t.poolId.toBase58())
+    const checked = new Date().toISOString()
+    const tickLower = toNum((t.position as any)?.tickLower)
+    const tickUpper = toNum((t.position as any)?.tickUpper)
     if (!pool) {
-      rows.push({ poolPk: t.poolId.toBase58(), posMint: t.mint.toBase58(), tokenA: '-', tokenB: '-', usd: '-' })
+      tableRows.push({ poolPk: t.poolId.toBase58(), posMint: t.mint.toBase58(), tokenA: '-', tokenB: '-', usd: '-' })
+      detailRows.push({
+        poolPk: t.poolId.toBase58(),
+        posMint: t.mint.toBase58(),
+        mintA: null,
+        mintB: null,
+        amountA: null,
+        amountB: null,
+        priceA: null,
+        priceB: null,
+        usd: null,
+        inRange: null,
+        tickLower,
+        tickUpper,
+        checked,
+      })
       continue
     }
 
@@ -261,18 +320,44 @@ async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> 
       usdValue = usdA.add(usdB)
     }
 
-    rows.push({
+    const amountANum = decimalToNum(amountAUi)
+    const amountBNum = decimalToNum(amountBUi)
+    const usdNum = decimalToNum(usdValue)
+    const priceANum = typeof pA === 'number' && isFinite(pA) ? pA : null
+    const priceBNum = typeof pB === 'number' && isFinite(pB) ? pB : null
+    const tickCurrent = toNum((pool as any).tickCurrent)
+    const inRange =
+      tickLower !== null && tickUpper !== null && tickCurrent !== null
+        ? tickCurrent >= tickLower && tickCurrent < tickUpper
+        : null
+
+    tableRows.push({
       poolPk: t.poolId.toBase58(),
       posMint: t.mint.toBase58(),
       tokenA: amountAUi ? `${amountAUi.toSignificantDigits(6).toString()} ${short(mintA)}` : `- ${short(mintA)}`,
       tokenB: amountBUi ? `${amountBUi.toSignificantDigits(6).toString()} ${short(mintB)}` : `- ${short(mintB)}`,
       usd: usdValue ? `$${usdValue.toSignificantDigits(6).toString()}` : '-',
     })
+    detailRows.push({
+      poolPk: t.poolId.toBase58(),
+      posMint: t.mint.toBase58(),
+      mintA,
+      mintB,
+      amountA: amountANum,
+      amountB: amountBNum,
+      priceA: priceANum,
+      priceB: priceBNum,
+      usd: usdNum,
+      inRange,
+      tickLower,
+      tickUpper,
+      checked,
+    })
   }
 
   console.log('\n💎 Raydium CL Positions — USD value (SDK + Jupiter)\n')
   console.log('Pool'.padEnd(44), 'Position'.padEnd(14), 'TokenA'.padEnd(22), 'TokenB'.padEnd(22), 'USD')
-  for (const r of rows) {
+  for (const r of tableRows) {
     console.log(
       short(r.poolPk).padEnd(12),
       short(r.posMint).padEnd(14),
@@ -280,5 +365,17 @@ async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> 
       String(r.tokenB).padEnd(22),
       r.usd ?? '-',
     )
+  }
+
+  if (emitJson) {
+    const panelRows = detailRows.map(d => ({
+      name: `Raydium ${short(d.poolPk)}`,
+      address: d.posMint,
+      chain: 'solana',
+      usd: d.usd,
+      checked: d.checked,
+    }))
+    console.log(`__JSON__DETAILS__:${JSON.stringify({ details: detailRows })}`)
+    console.log(`__JSON__:${JSON.stringify({ rows: panelRows })}`)
   }
 })()
