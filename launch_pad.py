@@ -466,37 +466,10 @@ def launch_perps_console(new_window: bool = False) -> int:
 
 
 def launch_cyclone_app(new_window: bool = True) -> int:
-    """
-    Try in-process first; if not available, spawn external.
-
-    Prefer external module so the menu stays responsive, and package context is correct.
-    """
-    if not new_window:
-        # old in-process import attempt kept for backward compat (but we don't rely on it)
-        try:
-            from backend.core.cyclone_core import run_cyclone_console  # type: ignore
-
-            print("[Cyclone] Launching Cyclone console in-process…")
-            return run_cyclone_console()
-        except Exception:
-            print("[Cyclone] In-process entry not found (run_cyclone_console / run_console missing).")
-            try:
-                # last in-process attempt via shim
-                from backend.console.cyclone_console import main as _cyclone_main  # type: ignore
-
-                print("[Cyclone] Using backend.console.cyclone_console:main in-process…")
-                return _cyclone_main()
-            except Exception:
-                pass
-
-    # external: run as module to preserve package context
-    print("[Cyclone] Launching via module: backend.console.cyclone_console_service")
-    return run_in_console(
-        [PYTHON_EXEC, "-m", "backend.console.cyclone_console_service"],
-        cwd=repo_root(),
-        title="Cyclone",
-        new_window=new_window,
-    )
+    """Launch the interactive Cyclone console (menu-driven)."""
+    cmd = [PYTHON_EXEC, "-m", "backend.console.cyclone_console"]
+    print("[Cyclone] Launching Cyclone console module…")
+    return run_in_console(cmd, cwd=repo_root(), title="Cyclone App", new_window=new_window)
 
 
 def verify_database():
@@ -1061,7 +1034,7 @@ def main() -> None:
         elif choice == "11":
             run_menu_action("Wallet Manager", wallet_menu)
         elif choice == "12":
-            run_menu_action("Launch Cyclone App", launch_cyclone_app)
+            run_menu_action("Launch Cyclone App", lambda: launch_cyclone_app(new_window=True))
         elif choice == "13":
             run_menu_action("Session / Goals", goals_menu)
         elif choice == "14":
