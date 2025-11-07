@@ -38,6 +38,10 @@ except Exception:
 from backend.console.cyclone_console_service import run_cyclone_console
 from backend.console.db_console_service import run_db_console  # use entry with db_path
 try:
+    from backend.console.config_console import run_console as run_config_console
+except Exception:  # pragma: no cover - optional dependency at runtime
+    run_config_console = None
+try:
     from backend.data.data_locker import DataLocker  # type: ignore
 except Exception:  # pragma: no cover - optional dependency at runtime
     DataLocker = None  # type: ignore
@@ -110,6 +114,7 @@ ICON = {
     "exit": "⏻",
     "gmx": "🪙",
     "raydium": "💎",
+    "config": "🧩",
 }
 
 def repo_root() -> Path:
@@ -280,6 +285,14 @@ def _launch_db_console() -> None:
         except Exception:
             db_path = None
     run_db_console(db_path)
+
+
+def _launch_config_console() -> None:
+    """Launch the Config console if available."""
+    if run_config_console is None:
+        console.log("[yellow]Config console not available in this build.[/]")
+        return
+    run_config_console()
 
 
 # ──────────────────────────── Actions ─────────────────────────────────────────
@@ -1016,16 +1029,17 @@ def main() -> None:
                 f"6. {ICON['perps']} Launch Perps Console",
                 f"7. {ICON['verify_db']} Verify Database",
                 f"8. {ICON['verify_db']} Database Console",
-                f"9. {ICON['monitor']} Start [bold]Sonic Monitor[/]",
-                f"10. {ICON['tests']} Tests Hub",
-                f"11. 🃏 Fun Console (Jokes / Quotes / Trivia)",
-                f"12. {ICON['wallet']} Wallet Manager",
-                f"13. {ICON['cyclone']} Launch Cyclone App",
-                f"14. {ICON['goals']} Session / Goals",
-                f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
-                f"16. {ICON['gmx']} GMX Solana Console",
-                f"17. {ICON['raydium']} Raydium Console (wallet + NFTs)",
-                f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window, [D] Database Console)",
+                f"9. {ICON['config']} Config Console",
+                f"10. {ICON['monitor']} Start [bold]Sonic Monitor[/]",
+                f"11. {ICON['tests']} Tests Hub",
+                f"12. 🃏 Fun Console (Jokes / Quotes / Trivia)",
+                f"13. {ICON['wallet']} Wallet Manager",
+                f"14. {ICON['cyclone']} Launch Cyclone App",
+                f"15. {ICON['goals']} Session / Goals",
+                f"16. {ICON['maintenance']} On-Demand Daily Maintenance",
+                f"17. {ICON['gmx']} GMX Solana Console",
+                f"18. {ICON['raydium']} Raydium Console (wallet + NFTs)",
+                f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window, [D] Database Console, [G] Config Console)",
             ]
         )
         _print_panel(menu_body, title="Main Menu")
@@ -1049,25 +1063,29 @@ def main() -> None:
         elif choice == "8":
             run_menu_action("Database Console", _launch_db_console)
         elif choice == "9":
-            run_menu_action("Start Sonic Monitor", launch_sonic_monitor)
+            run_menu_action("Config Console", _launch_config_console)
         elif choice == "10":
-            run_menu_action("Tests Hub", run_tests_hub)
+            run_menu_action("Start Sonic Monitor", launch_sonic_monitor)
         elif choice == "11":
-            run_menu_action("Fun Console", run_fun_console)
+            run_menu_action("Tests Hub", run_tests_hub)
         elif choice == "12":
-            run_menu_action("Wallet Manager", wallet_menu)
+            run_menu_action("Fun Console", run_fun_console)
         elif choice == "13":
-            run_menu_action("Launch Cyclone App", run_cyclone_console)
+            run_menu_action("Wallet Manager", wallet_menu)
         elif choice == "14":
-            run_menu_action("Session / Goals", goals_menu)
+            run_menu_action("Launch Cyclone App", run_cyclone_console)
         elif choice == "15":
-            run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
+            run_menu_action("Session / Goals", goals_menu)
         elif choice == "16":
-            run_menu_action("GMX Solana Console", launch_gmx_solana)
+            run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
         elif choice == "17":
+            run_menu_action("GMX Solana Console", launch_gmx_solana)
+        elif choice == "18":
             run_menu_action("Raydium Console", launch_raydium_console)
         elif choice.upper() == "D":
             run_menu_action("Database Console", _launch_db_console)
+        elif choice.upper() == "G":
+            run_menu_action("Config Console", _launch_config_console)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
         elif choice in {"0", "q", "quit", "exit"}:
