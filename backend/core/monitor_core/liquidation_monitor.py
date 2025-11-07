@@ -1,436 +1,195 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
-"""
-Liquidation Monitor — edge-free + explicit XCOM call
+from typing import Any, Dict, List, Optional
+import logging
 
-Behavior:
-  • Pull active positions (fallback to latest snapshot if needed).
-  • Compute per-asset liquidation "distance" by taking the MIN across sides.
-  • Compare to JSON thresholds (liquid.thresholds), breach if value <= threshold.
-  • If any breach exists: CALL XCOM DISPATCHER (no rising-edge, no extra gates).
-  • Channel enablement comes from JSON: liquid.notifications.* only.
-  • Provider readiness + global cooldown are enforced inside dispatch path.
+log = logging.getLogger(__name__)
 
-Debug:
-  • Loud [LM] console prints for config source, channels, thresholds, values, and call results.
-  • Never silent-fails loading JSON or reading channels.
+# Config probe (same as panels)
+try:
+    from backend.core.reporting_core.sonic_reporting.config_probe import discover_json_path, parse_json
+except Exception:
+    def discover_json_path(_): return None
+    def parse_json(_): return {}, None, {}
 
-Inputs:
-  • dl: DataLocker instance (mother.db already set up by the runner).
-  • default_json_path (optional): canonical JSON path; when omitted we’ll try dl.global_config.
-  • pos_rows (optional): runner-provided positions (we’ll still validate and print counts).
+# Nearest distance helpers (prefer monitor_core, then reporting, then DL fallback)
+_NEAREST_FROM_SUMMARY = None
+try:
+    from backend.core.monitor_core.summary_helpers import get_nearest_liquidation_distances as _N1  # type: ignore
+    _NEAREST_FROM_SUMMARY = _N1
+except Exception:
+    pass
 
-Outputs (dict):
-  {
-    "monitor": "liquid",
-    "values": {"BTC": <float|None>, "ETH": <float|None>, "SOL": <float|None>},
-    "thresholds": {"BTC": <float|None>, ...},
-    "breaches": [{"asset": "SOL", "value": 8.96, "threshold": 11.5}],
-    "channels": {"voice": True, "system": True, "sms": False, "tts": False},
-    "dispatch": {...}  # dispatcher return when a call was attempted, else None
-  }
-"""
+_NEAREST_FROM_REPORTING = None
+try:
+    from backend.core.reporting_core.sonic_reporting.evaluations_table import get_nearest_liquidation_distances as _N2  # type: ignore
+    _NEAREST_FROM_REPORTING = _N2
+except Exception:
+    pass
 
-from typing import Any, Mapping
+# Alerts DB (canonical)
+from backend.data import dl_alerts
 
-import json
-from pathlib import Path
+# XCOM dispatcher
+try:
+    from backend.core.xcom_core.dispatch import dispatch_voice_if_needed
+except Exception:
+    def dispatch_voice_if_needed(*_a, **_k):  # type: ignore
+        raise RuntimeError("dispatch not available")
 
-# Core infra
-from backend.core.logging import log
-from backend.core.core_constants import MOTHER_DB_PATH
-from backend.data.data_locker import DataLocker
-
-# XCOM consolidated dispatcher (no legacy)
-from backend.core.xcom_core import dispatch_notifications
-from backend.core.xcom_core.dispatch import dispatch_voice_if_needed
-
-__all__ = ["run", "LiquidationMonitor"]
-
-
-# ---------- Small utils ----------
 
 def _is_num(x: Any) -> bool:
     try:
-        float(x)
-        return True
+        float(x); return True
     except Exception:
         return False
 
-
-def _as_float(x: Any) -> float | None:
-    if _is_num(x):
-        try:
-            return float(x)  # type: ignore[return-value]
-        except Exception:
-            return None
-    return None
-
-
-def _xcom_call_on_breach(
-    dl: DataLocker,
-    *,
-    symbol: str,
-    distance: float,
-    threshold: float,
-) -> None:
-    """Fire the XCOM voice dispatcher and let it record the outcome."""
-
-    to_num = getattr(dl, "twilio_to", None)
-    from_num = getattr(dl, "twilio_from", None)
-    reason_ctx = {
-        "source": "liquid",
-        "intent": "liquid-breach",
-        "symbol": symbol,
-        "distance": distance,
-        "threshold": threshold,
-        "twiml_url": getattr(dl, "twiml_url", None),
-    }
+def _load_cfg(default_json_path: Optional[str]) -> Dict:
+    cfg = {}
     try:
-        dispatch_voice_if_needed(
-            dl,
-            breach=True,
-            to_number=to_num,
-            from_number=from_num,
-            reason_ctx=reason_ctx,
-        )
-    except Exception as exc:
-        # We don't crash the monitor loop on provider issues; the dispatcher logs details.
+        path = default_json_path or discover_json_path(None)
+        if path:
+            obj, err, meta = parse_json(path)
+            if isinstance(obj, dict):
+                cfg = obj
+    except Exception as e:
+        log.debug("liquidation_monitor: config parse failed", extra={"error": str(e)})
+        cfg = {}
+    return cfg
+
+def _extract_thresholds(cfg: Dict) -> Dict[str, float]:
+    t = cfg.get("liquid", {}).get("thresholds", {}) or {}
+    if not t:
+        t = cfg.get("liquid_monitor", {}).get("thresholds", {}) or {}
+    out: Dict[str, float] = {}
+    for k, v in (t or {}).items():
         try:
-            dl.log("xcom dispatch error", {"error": str(exc), "symbol": symbol})
+            out[str(k).upper()] = float(v)
         except Exception:
             pass
-
-
-def _read_json_config_from_path(path: str | Path) -> dict:
-    p = Path(path)
-    text = p.read_text(encoding="utf-8")
-    return json.loads(text)
-
-
-def _discover_json_path(default_json_path: str | None) -> str | None:
-    """
-    Prefer explicit default_json_path if exists;
-    otherwise accept a few common fallbacks. Return None if not found.
-    """
-    candidates: list[str] = []
-    if default_json_path:
-        candidates.append(default_json_path)
-
-    # Common in this repo
-    candidates += [
-        "backend/config/sonic_monitor_config.json",
-        "config/sonic_monitor_config.json",
-    ]
-
-    for c in candidates:
-        if c and Path(c).exists():
-            return c
-    return None
-
-
-def _load_config(dl: DataLocker, default_json_path: str | None) -> tuple[dict, str]:
-    """
-    Return (config, source_label)
-      source_label ∈ {"GLOBAL", "FILE", "EMPTY"}
-    """
-    # If runner already hoisted JSON into dl.global_config, use that
-    if getattr(dl, "global_config", None):
-        cfg = getattr(dl, "global_config")
-        if isinstance(cfg, dict) and cfg:
-            print("[LM][CFG] ✅ source=GLOBAL keys=%d" % len(cfg.keys()))
-            return cfg, "GLOBAL"
-
-    # Else try file discovery
-    path = _discover_json_path(default_json_path)
-    if path is None:
-        print("[LM][CFG] discover_json_path returned None")
-    else:
-        try:
-            cfg = _read_json_config_from_path(path)
-            if isinstance(cfg, dict) and cfg:
-                print(f"[LM][CFG] ✅ source=FILE path={Path(path).resolve()} keys={len(cfg.keys())}")
-                return cfg, "FILE"
-        except Exception as exc:
-            print(f"[LM][CFG] file load failed: {exc}")
-
-    print("[LM][CFG] ⚠️  no config available; proceeding with EMPTY dict")
-    return {}, "EMPTY"
-
-
-def _channels_from_json(cfg: dict, monitor_name: str) -> dict[str, bool]:
-    """
-    Only respect monitor-level notifications block:
-        cfg["liquid"]["notifications"]
-    This intentionally ignores 'channels.voice' global to avoid accidental gating.
-    """
-    try:
-        block = cfg.get(monitor_name, {}).get("notifications", {}) or {}
-        voice = bool(block.get("voice", False))
-        system = bool(block.get("system", False))
-        sms = bool(block.get("sms", False))
-        tts = bool(block.get("tts", False))
-        return {"voice": voice, "system": system, "sms": sms, "tts": tts}
-    except Exception:
-        return {"voice": False, "system": False, "sms": False, "tts": False}
-
-
-def _thresholds_from_json(dl: DataLocker, cfg: dict, monitor_name: str) -> dict[str, float | None]:
-    """Return thresholds preferring DataLocker accessor (JSON → DB → ENV → defaults)."""
-
-    def _normalize(raw: Mapping[str, Any]) -> dict[str, float | None]:
-        out: dict[str, float | None] = {}
-        for key, value in raw.items():
-            sym = str(key).upper()
-            out[sym] = _as_float(value)
-        return out
-
-    accessor = getattr(dl, "get_liquid_thresholds", None)
-    if callable(accessor):
-        try:
-            raw = accessor() or {}
-            if isinstance(raw, Mapping):
-                data = _normalize(raw)
-                if data:
-                    return data
-        except Exception:
-            pass
-
-    blk = cfg.get(monitor_name, {}) or {}
-    thr = blk.get("thresholds", {}) or {}
-    if isinstance(thr, Mapping):
-        return _normalize(thr)
-
-    return {}
-
-
-def _extract_positions(dl: DataLocker, pos_rows: list[dict] | None) -> list[dict]:
-    """
-    Try to obtain a list of 'active' positions (dict-like). We keep this defensive and chatty.
-    """
-    if pos_rows:
-        print(f"[LM][POS] runner provided pos_rows count={len(pos_rows)}")
-        return pos_rows
-
-    rows: list[dict] = []
-
-    # Try common attributes/collections on DataLocker
-    for attr in ("positions", "cache", "portfolio"):
-        obj = getattr(dl, attr, None)
-        if obj is None:
-            continue
-
-        for name in ("active", "active_positions", "positions", "last_positions", "snapshot"):
-            got = getattr(obj, name, None)
-            if isinstance(got, list) and got:
-                rows = [r if isinstance(r, dict) else getattr(r, "__dict__", {}) for r in got]  # normalize
-                if rows:
-                    print(f"[LM][POS] via dl.{attr}.{name} -> {len(rows)} rows")
-                    return rows
-
-            # callable getters
-            meth = getattr(obj, name, None)
-            if callable(meth):
-                try:
-                    got = meth()
-                    if isinstance(got, list) and got:
-                        rows = [r if isinstance(r, dict) else getattr(r, "__dict__", {}) for r in got]
-                        if rows:
-                            print(f"[LM][POS] via dl.{attr}.{name}() -> {len(rows)} rows")
-                            return rows
-                except Exception:
-                    pass
-
-    print("[LM][POS] ⚠️  no active positions found (will evaluate as no-data)")
-    return []
-
-
-def _symbol_of(row: Mapping[str, Any]) -> str | None:
-    for k in ("asset", "symbol", "coin", "ticker"):
-        v = row.get(k)
-        if isinstance(v, str) and v:
-            return v.strip().upper()
-    return None
-
-
-def _liq_of(row: Mapping[str, Any]) -> float | None:
-    # try canonical names first
-    for k in ("liq", "liq_dist", "liquidation", "liquidation_distance", "liq_pct"):
-        if k in row:
-            v = _as_float(row.get(k))
-            if v is not None:
-                return v
-    # sometimes nested
-    d = row.get("risk") or row.get("meta") or {}
-    if isinstance(d, Mapping):
-        for k in ("liq", "liq_dist", "liquidation"):
-            v = _as_float(d.get(k))
-            if v is not None:
-                return v
-    return None
-
-
-def _compute_liq_values(rows: list[dict]) -> dict[str, float | None]:
-    """
-    Reduce to the MIN liquidation distance per asset symbol.
-    """
-    if not rows:
-        return {"BTC": None, "ETH": None, "SOL": None}
-
-    mins: dict[str, float] = {}
-    for r in rows:
-        sym = _symbol_of(r)
-        liq = _liq_of(r)
-        if sym is None or liq is None:
-            continue
-        prev = mins.get(sym)
-        if prev is None or liq < prev:
-            mins[sym] = liq
-
-    out: dict[str, float | None] = {}
-    for k in ("BTC", "ETH", "SOL"):
-        out[k] = mins.get(k)
     return out
 
+def _nearest_from_dl(dl: Any) -> Dict[str, float]:
+    for key in ("liquid_nearest", "nearest_liquid_distances", "liquid_nearest_by_symbol"):
+        v = getattr(dl, key, None)
+        if isinstance(v, dict) and v:
+            return {str(k).upper(): float(v[k]) for k in v if _is_num(v[k])}
+    for key in ("sonic_summary", "summary", "enriched_summary"):
+        d = getattr(dl, key, None)
+        if isinstance(d, dict):
+            liquid = d.get("liquid") or d.get("nearest") or {}
+            if isinstance(liquid, dict):
+                out: Dict[str, float] = {}
+                for k, val in liquid.items():
+                    if _is_num(val):
+                        out[str(k).upper()] = float(val)
+                    elif isinstance(val, dict):
+                        for sub in ("distance", "nearest", "value"):
+                            vv = val.get(sub)
+                            if _is_num(vv):
+                                out[str(k).upper()] = float(vv); break
+                if out:
+                    return out
+    return {}
 
-# ---------- Public entry ----------
-
-def run(
-    dl: DataLocker,
-    *,
-    default_json_path: str | None = None,
-    pos_rows: list[dict] | None = None,
-) -> dict:
-    """
-    Runner calls this once per cycle. We will always:
-      1) Load config (GLOBAL -> FILE -> EMPTY).
-      2) Read channels + thresholds.
-      3) Extract positions and compute current liq values.
-      4) If any breach: CALL XCOM dispatcher (no edge gate).
-      5) Return a structured summary.
-    """
-    print("[LM] loaded LM/no-edge v2")
-
-    # 1) Load config
-    cfg, cfg_src = _load_config(dl, default_json_path)
-
-    # 2) Channels + thresholds
-    channels = _channels_from_json(cfg, "liquid")
-    thresholds = _thresholds_from_json(dl, cfg, "liquid")
-    print(f"[LM][CHAN] voice={channels['voice']} system={channels['system']} "
-          f"tts={channels['tts']} sms={channels['sms']} (cfg_src={cfg_src})")
-
-    # 3) Positions -> values
-    rows = _extract_positions(dl, pos_rows)
-    values = _compute_liq_values(rows)
-    print(f"[LM][VAL] values={values} thresholds={thresholds}")
-
-    # 4) Evaluate breaches (value <= threshold)
-    breaches: list[dict[str, Any]] = []
-    for asset in ("BTC", "ETH", "SOL"):
-        v = values.get(asset)
-        t = thresholds.get(asset)
-        if v is None or t is None:
-            continue
-        if v <= t:
-            breaches.append({"asset": asset, "value": v, "threshold": t})
-            _xcom_call_on_breach(
-                dl,
-                symbol=asset,
-                distance=float(v),
-                threshold=float(t),
-            )
-
-    if breaches:
-        btxt = ", ".join(f"{b['asset']} {b['value']:.2f} ≤ {b['threshold']:.2f}" for b in breaches)
-        print(f"[LM][BREACH] {len(breaches)} hit → {btxt}")
-    else:
-        print("[LM][BREACH] none")
-
-    # 5) If breach and voice enabled -> call XCOM dispatcher
-    dispatch_result: dict[str, Any] | None = None
-    if breaches and channels.get("voice", False):
-        subject = "[liquid] breach"
-        # Compact body: list assets + value <= thr
-        body = "Liquidation distance breach:\n" + "\n".join(
-            f" • {b['asset']}: {b['value']:.2f} ≤ {b['threshold']:.2f}" for b in breaches
-        )
-        result_payload = {
-            "breach": True,
-            "summary": body,
-            "breaches": breaches,
-        }
-        try:
-            print("[LM][XCOM] dispatching voice…")
-            dispatch_result = dispatch_notifications(
-                monitor_name="liquid",
-                result=result_payload,
-                channels=None,              # use JSON monitor defaults
-                context={"subject": subject, "body": body},
-                db_path=str(getattr(dl, "path", MOTHER_DB_PATH)),
-            )
-            # Show the key outcome
-            vch = (dispatch_result or {}).get("channels", {}).get("voice", {})
-            ok = vch.get("ok")
-            sid = vch.get("sid") or vch.get("call_sid") or ""
-            skip = vch.get("skip") or vch.get("error") or ""
-            if ok:
-                print(f"[LM][VOICE] ✅ call sid={sid}")
-            else:
-                print(f"[LM][VOICE] ❌ {skip}")
-        except Exception as exc:
-            print(f"[LM][XCOM] ❌ dispatch error: {exc}")
-            dispatch_result = {"error": str(exc)}
-
-    else:
-        if not breaches:
-            print("[LM][XCOM] no call: no breaches")
-        elif not channels.get("voice", False):
-            print("[LM][XCOM] no call: channel.voice=False in JSON")
-
-    summary = {
-        "monitor": "liquid",
-        "values": values,
-        "thresholds": thresholds,
-        "breaches": breaches,
-        "channels": channels,
-        "dispatch": dispatch_result,
-        "config_source": cfg_src,
-    }
-
-    # (Optional) debug into structured log
+def _nearest_positions(dl: Any) -> Dict[str, float]:
+    rows = []
     try:
-        log.debug(
-            "Liquidation monitor summary",
-            source="liquidation_monitor",
-            payload={
-                "breaches": breaches,
-                "voice_enabled": channels.get("voice", False),
-                "config_source": cfg_src,
-            },
-        )
+        rows = dl.read_positions() if hasattr(dl, "read_positions") else getattr(dl, "positions", [])
+        rows = rows or []
+    except Exception:
+        rows = []
+    best: Dict[str, float] = {}
+    for p in rows:
+        try:
+            sym = str(p.get("asset") or p.get("symbol") or "").upper()
+            if not sym: continue
+            cand = None
+            for key in ("liq_distance", "liq_dist", "distance_to_liq", "nearest", "distance"):
+                v = p.get(key)
+                if _is_num(v):
+                    cand = float(v); break
+            if cand is None: continue
+            if sym not in best or cand < best[sym]:
+                best[sym] = cand
+        except Exception:
+            continue
+    return best
+
+def _get_nearest_map(dl: Any) -> Dict[str, float]:
+    try:
+        if _NEAREST_FROM_SUMMARY:
+            d = _NEAREST_FROM_SUMMARY(dl)  # type: ignore
+            if isinstance(d, dict) and d:
+                return {str(k).upper(): float(d[k]) for k in d if _is_num(d[k])}
     except Exception:
         pass
+    try:
+        if _NEAREST_FROM_REPORTING:
+            d = _NEAREST_FROM_REPORTING(dl)  # type: ignore
+            if isinstance(d, dict) and d:
+                return {str(k).upper(): float(d[k]) for k in d if _is_num(d[k])}
+    except Exception:
+        pass
+    d = _nearest_from_dl(dl)
+    if d: return d
+    return _nearest_positions(dl)
 
-    return summary
 
-
-# ---------- Legacy compatibility wrapper ----------
-
-class LiquidationMonitor:
+def run(dl: Any, *, default_json_path: Optional[str] = None) -> Dict[str, Any]:
     """
-    Thin wrapper so legacy import patterns keep working:
-
-        from backend.core.monitor_core.liquidation_monitor import LiquidationMonitor
-        LiquidationMonitor.run(dl, default_json_path=..., pos_rows=...)
-
-    Internally forwards to the module-level `run(...)` above.
+    Canonical liquidation monitor.
+    - Load thresholds (liquid.thresholds with legacy fallback)
+    - Compute nearest distances using the same sources as the panels
+    - UPSERT OPEN alerts for active breaches; resolve when cleared
+    - Dispatch voice per open breach (gates/cooldown handled in dispatcher)
     """
-    @staticmethod
-    def run(
-        dl: DataLocker,
-        *,
-        default_json_path: str | None = None,
-        pos_rows: list[dict] | None = None,
-    ) -> dict:
-        return run(dl, default_json_path=default_json_path, pos_rows=pos_rows)
+    cfg = _load_cfg(default_json_path)
+    thresholds = _extract_thresholds(cfg)
+    nearest = _get_nearest_map(dl)
+
+    # Ensure schema once per run (cheap, idempotent)
+    dl_alerts.ensure_schema(dl)
+
+    open_syms: List[str] = []
+    for sym, thr in thresholds.items():
+        val = nearest.get(sym)
+        if _is_num(val) and float(val) <= float(thr):
+            open_syms.append(sym)
+            alert = dl_alerts.upsert_open(
+                dl,
+                kind="breach",
+                monitor="liquid",
+                symbol=sym,
+                value=float(val),
+                threshold=float(thr),
+            )
+            # One dispatch attempt per breach (per cycle). Dispatcher will log success/fail/skipped.
+            try:
+                dispatch_voice_if_needed(
+                    dl,
+                    breach=True,
+                    to_number=getattr(dl, "twilio_to", None),
+                    from_number=getattr(dl, "twilio_from", None),
+                    reason_ctx={
+                        "source": "liquid",
+                        "intent": "liquid-breach",
+                        "symbol": sym,
+                        "distance": float(val),
+                        "threshold": float(thr),
+                        "alert_id": alert["id"],
+                        "twiml_url": getattr(dl, "twiml_url", None),
+                    },
+                )
+            except Exception as e:
+                log.debug("liquidation_monitor: dispatch error", extra={"error": str(e), "symbol": sym})
+
+        else:
+            # If not in breach now, resolve any open alert for this symbol
+            try:
+                dl_alerts.resolve_open(dl, kind="breach", monitor="liquid", symbol=sym)
+            except Exception as e:
+                log.debug("liquidation_monitor: resolve error", extra={"error": str(e), "symbol": sym})
+
+    return {"thresholds": thresholds, "nearest": nearest, "open": open_syms}
