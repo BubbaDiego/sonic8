@@ -256,11 +256,15 @@ def load_monitor_config(
         data = {}
 
     data.setdefault("monitor", {}).setdefault("enabled", {})
-    data.setdefault("channels", {})
     data.setdefault("liquid", {}).setdefault("thresholds", {})
     data.setdefault("profit", {}).setdefault("snooze_seconds", 600)
     data.setdefault("market", {})
     data.setdefault("price", {})
+
+    # Drop deprecated top-level "channels" section so downstream callers rely on
+    # per-monitor notification settings instead.
+    if isinstance(data, dict):
+        data.pop("channels", None)
 
     return data, str(path)
 
@@ -276,6 +280,10 @@ def save_monitor_config(
     """
     cfg, path = load_monitor_config(json_path=json_path)
     _deep_merge_dict_inplace(cfg, patch or {})
+
+    # Ensure deprecated "channels" block never persists back to disk.
+    if isinstance(cfg, dict):
+        cfg.pop("channels", None)
 
     cfg.setdefault("profit", {})
     if "position_usd" not in cfg["profit"]:

@@ -3,7 +3,36 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 # Route all legacy uses of XComCore -> consolidated dispatcher
-from backend.core.xcom_core.dispatch import dispatch_notifications
+from backend.core.xcom_core.dispatch import dispatch_notifications as _dispatch_notifications
+
+def dispatch_notifications(
+    monitor_name: str,
+    result: Mapping[str, Any] | None = None,
+    channels: Mapping[str, Any] | Sequence[str] | str | None = None,
+    context: Mapping[str, Any] | None = None,
+    db_path: str | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Compatibility wrapper that accepts the legacy positional signature."""
+
+    if "monitor_name" in kwargs and monitor_name is None:
+        monitor_name = kwargs.pop("monitor_name")  # type: ignore[assignment]
+    if "result" in kwargs and result is None:
+        result = kwargs.pop("result")
+    if "channels" in kwargs and channels is None:
+        channels = kwargs.pop("channels")
+    if "context" in kwargs and context is None:
+        context = kwargs.pop("context")
+    if "db_path" in kwargs and db_path is None:
+        db_path = kwargs.pop("db_path")
+
+    return _dispatch_notifications(
+        monitor_name=monitor_name,
+        result=result,
+        channels=channels,
+        context=context,
+        db_path=db_path,
+    )
 
 
 class XComCore:

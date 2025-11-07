@@ -86,6 +86,13 @@ def _xcom_from_cfg(cfg: dict | None) -> tuple[Optional[bool], str]:
     if "xcom_live" in mon:
         ok, b = _as_bool(mon.get("xcom_live"))
         if ok: return b, "FILE"
+    for section in ("liquid", "profit", "market", "price"):
+        block = cfg.get(section) or {}
+        notif = block.get("notifications") if isinstance(block, dict) else None
+        if isinstance(notif, dict) and "voice" in notif:
+            ok, b = _as_bool(notif.get("voice"))
+            if ok:
+                return b, f"FILE:{section}.notifications"
     ch = (cfg.get("channels") or {})
     voice = ch.get("voice") or ch.get("xcom") or {}
     if "enabled" in voice:
