@@ -1026,10 +1026,8 @@ class DataLocker:
         try:
             current = self.system.get_var("liquid_monitor")
             if current:
+                # migrate legacy keys if present
                 migrated = False
-                from backend.core.monitor_core.liquidation_monitor import (  # lazy import
-                    LiquidationMonitor,
-                )
                 if (
                     isinstance(current, Mapping)
                     and "asset_thresholds" in current
@@ -1039,31 +1037,12 @@ class DataLocker:
                     if isinstance(at, Mapping):
                         current["thresholds"] = dict(at)
                         migrated = True
-                if isinstance(current, Mapping) and "asset_thresholds" in current:
-                    current.pop("asset_thresholds", None)
-                    migrated = True
-                thresholds_map = current.get("thresholds") if isinstance(current, Mapping) else {}
-                if isinstance(thresholds_map, Mapping):
-                    normalized = {}
-                    for key, value in thresholds_map.items():
-                        try:
-                            normalized[str(key).upper()] = float(value)
-                        except Exception:
-                            continue
-                    for asset, default_value in LiquidationMonitor.DEFAULT_ASSET_THRESHOLDS.items():
-                        normalized.setdefault(asset, float(default_value))
-                    if normalized != thresholds_map:
-                        current["thresholds"] = normalized
-                        migrated = True
-                if isinstance(current, Mapping) and "threshold_percent" in current:
-                    current.pop("threshold_percent", None)
-                    migrated = True
                 if migrated:
                     self.system.set_var("liquid_monitor", current)
                 return
 
             json_path = os.path.join(CONFIG_DIR, "sonic_config.json")
-            config = {}
+            config: dict = {}
             assets: list[str] | None = None
             if os.path.exists(json_path):
                 with open(json_path, "r", encoding="utf-8") as f:
@@ -1074,48 +1053,41 @@ class DataLocker:
                         if isinstance(price_cfg, Mapping):
                             assets = price_cfg.get("assets")
 
-            from backend.core.monitor_core.liquidation_monitor import (  # lazy import
-                LiquidationMonitor,
-            )
-
+            # Inline sane defaults; avoid importing monitor class here (prevents cycles)
             if not config:
-                config = dict(LiquidationMonitor.DEFAULT_CONFIG)
+                config = {
+                    "enabled": True,
+                    "threshold_percent": 5.0,
+                    "notifications": {
+                        "system": True,
+                        "voice": False,
+                        "sms": False,
+                        "tts": False,
+                    },
+                }
 
             if not assets:
                 assets = ["BTC", "ETH", "SOL"]
 
             try:
-                fallback = float(config.get("threshold_percent", LiquidationMonitor.DEFAULT_THRESHOLD))
+                threshold = float(config.get("threshold_percent", 5.0))
             except Exception:
-                fallback = float(LiquidationMonitor.DEFAULT_THRESHOLD)
+                threshold = 5.0
 
-            raw_thresholds = config.get("thresholds") or {}
-            if not isinstance(raw_thresholds, Mapping):
-                raw_thresholds = {}
-
-            normalized: dict[str, float] = {}
-            for key, value in raw_thresholds.items():
-                asset = str(key).upper()
-                try:
-                    normalized[asset] = float(value)
-                except Exception:
-                    continue
-
+            # Normalize shape and mirror legacy flags into nested notifications
+            cfg_out = dict(config)
+            cfg_out.setdefault("enabled", bool(config.get("enabled", True)))
+            cfg_out.setdefault("thresholds", {})
+            notifications = dict(config.get("notifications") or {})
+            notifications.setdefault("system", bool(config.get("windows_alert", True)))
+            notifications.setdefault("voice", bool(config.get("voice_alert", False)))
+            notifications.setdefault("sms", bool(config.get("sms_alert", False)))
+            notifications.setdefault("tts", bool(notifications.get("tts", False)))
+            cfg_out["notifications"] = notifications
             for asset in assets:
-                if asset is None:
-                    continue
-                asset_key = str(asset).upper()
-                default_asset = LiquidationMonitor.DEFAULT_ASSET_THRESHOLDS.get(asset_key, fallback)
-                if asset_key not in normalized:
-                    normalized[asset_key] = float(default_asset)
-                elif normalized[asset_key] == LiquidationMonitor.DEFAULT_THRESHOLD and asset_key in LiquidationMonitor.DEFAULT_ASSET_THRESHOLDS and fallback != LiquidationMonitor.DEFAULT_THRESHOLD:
-                    normalized[asset_key] = float(fallback)
+                cfg_out["thresholds"].setdefault(asset, threshold)
 
-            config["thresholds"] = normalized
-            config.setdefault("enabled", True)
-            config.pop("threshold_percent", None)
-
-            self.system.set_var("liquid_monitor", config)
+            self.system.set_var("liquid_monitor", cfg_out)
             log.debug(
                 "Liquid monitor config seeded from defaults",
                 source="DataLocker",
