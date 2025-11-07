@@ -4,7 +4,7 @@ import ssl
 from concurrent import futures
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from backend.core.xcom_core.check_twilio_heartbeat_service import (
     CheckTwilioHeartbeatService,
@@ -33,8 +33,8 @@ class XComAttempt:
     source: str = "monitor"
 
 
-def _dl_put(dl: Any, key: str, value: Dict[str, Any]) -> None:
-    """Store runtime status in the DataLocker if possible."""
+def _dl_runtime_set(dl: Any, key: str, value: Any) -> None:
+    """Persist runtime status in the DataLocker if possible."""
 
     if hasattr(dl, "runtime_set"):
         dl.runtime_set(key, value)
@@ -45,27 +45,37 @@ def _dl_put(dl: Any, key: str, value: Dict[str, Any]) -> None:
     setattr(dl, key.replace(".", "_"), value)
 
 
+def _dl_runtime_get(dl: Any, key: str) -> Any:
+    """Fetch runtime status from the DataLocker if available."""
+
+    if hasattr(dl, "runtime_get"):
+        return dl.runtime_get(key)
+    if hasattr(dl, "get_kv"):
+        return dl.get_kv(key)
+    return getattr(dl, key.replace(".", "_"), None)
+
+
 def record_attempt(dl: Any, **fields: Any) -> Dict[str, Any]:
     """Unified recorder for XCOM dispatch attempts."""
 
     payload = asdict(XComAttempt(ts=_utc_now_iso(), **fields))
-    _dl_put(dl, "xcom.last_attempt", payload)
+    _dl_runtime_set(dl, "xcom.last_attempt", payload)
     try:
         key = "xcom.attempts"
-        attr = key.replace(".", "_")
-        buf = getattr(dl, attr, [])
+        buf: List[Dict[str, Any]] = _dl_runtime_get(dl, key) or getattr(dl, "xcom_attempts", [])
+        if not isinstance(buf, list):
+            buf = []
         buf = (list(buf) + [payload])[-50:]
-        setattr(dl, attr, buf)
+        _dl_runtime_set(dl, key, buf)
     except Exception:
         pass
     return payload
 
 
 def get_last_attempt(dl: Any) -> Optional[Dict[str, Any]]:
-    if hasattr(dl, "runtime_get"):
-        return dl.runtime_get("xcom.last_attempt")
-    if hasattr(dl, "get_kv"):
-        return dl.get_kv("xcom.last_attempt")
+    val = _dl_runtime_get(dl, "xcom.last_attempt")
+    if val is not None:
+        return val
     return getattr(dl, "xcom_last_attempt", None)
 
 

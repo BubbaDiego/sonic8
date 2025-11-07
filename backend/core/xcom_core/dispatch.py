@@ -27,12 +27,22 @@ from backend.core.logging import log
 from backend.data.data_locker import DataLocker
 
 from backend.core.xcom_core.xcom_config_service import XComConfigService
-from backend.core.xcom_core.voice_service import VoiceService
+from backend.core.xcom_core.voice_service import VoiceService, place_call
 from backend.services.xcom_status_service import record_attempt
 from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
 
+# We rely on the existing helper if available; otherwise we degrade gracefully
+try:
+    from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_live_status
+except Exception:
+    def xcom_live_status(dl: Any, cfg: dict | None = None) -> tuple[bool, str]:
+        val = getattr(dl, "xcom_live", None)
+        if isinstance(val, bool):
+            return val, "RUNTIME"
+        return True, "RUNTIME"
 
-__all__ = ["dispatch_notifications"]
+
+__all__ = ["dispatch_notifications", "dispatch_voice_if_needed"]
 
 
 def _normalize_channels(channels: Mapping[str, Any] | Sequence[str] | str | None) -> list[str]:
@@ -332,3 +342,158 @@ def dispatch_notifications(
     )
 
     return summary
+
+
+# ---------- lightweight voice dispatcher for monitors ----------
+
+
+def _resolve_cfg(dl: Any) -> dict:
+    cfg = getattr(dl, "global_config", None)
+    if isinstance(cfg, dict):
+        return cfg
+    try:
+        from backend.core.reporting_core.sonic_reporting.config_probe import discover_json_path, parse_json
+
+        path = discover_json_path(None)
+        if path:
+            obj, _err, _meta = parse_json(path)
+            if isinstance(obj, dict):
+                return obj
+    except Exception:
+        pass
+    return {}
+
+
+def _voice_enabled(cfg: dict, dl: Any) -> bool:
+    v = cfg.get("liquid", {}).get("notifications", {}).get("voice")
+    if isinstance(v, bool):
+        return v
+    rv = getattr(dl, "voice_enabled", None)
+    if isinstance(rv, bool):
+        return rv
+    return True
+
+
+def _is_snoozed(dl: Any) -> bool:
+    for key in ("monitor_snoozed", "liquid_snoozed", "liquid_snooze"):
+        v = getattr(dl, key, 0)
+        try:
+            return bool(v) and float(v) > 0
+        except Exception:
+            if isinstance(v, bool):
+                return v
+    return False
+
+
+def _provider_cooldown_ok(dl: Any) -> bool:
+    v = getattr(dl, "xcom_provider_cooldown_ok", None)
+    if isinstance(v, bool):
+        return v
+    v = getattr(dl, "provider_cooldown_ok", None)
+    if isinstance(v, bool):
+        return v
+    return True
+
+
+def _compute_voice_gating(dl: Any, breach: bool, reason_ctx: dict) -> tuple[bool, str]:
+    if not breach:
+        return False, "no_breach"
+
+    cfg = _resolve_cfg(dl)
+    live, _src = xcom_live_status(dl, cfg=cfg)
+    if not live:
+        return False, "xcom_disabled"
+
+    if not _voice_enabled(cfg, dl):
+        return False, "voice_channel_disabled"
+
+    if _is_snoozed(dl):
+        return False, "snoozed"
+
+    if not _provider_cooldown_ok(dl):
+        return False, "provider_cooldown"
+
+    return True, "ok"
+
+
+try:
+    from twilio.base.exceptions import TwilioException  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    class TwilioException(Exception):
+        ...
+
+
+def dispatch_voice_if_needed(
+    dl: Any,
+    *,
+    breach: bool,
+    to_number: str,
+    from_number: str,
+    reason_ctx: dict,
+) -> bool:
+    """
+    Decide gates and, if allowed, place a Twilio call.
+    Records an attempt for all outcomes.
+    """
+
+    can_call, gate_reason = _compute_voice_gating(dl, breach, reason_ctx)
+
+    if not can_call:
+        record_attempt(
+            dl,
+            channel="voice",
+            intent=reason_ctx.get("intent", "liquid-breach"),
+            to_number=to_number,
+            from_number=from_number,
+            provider="twilio",
+            status="skipped",
+            gated_by=gate_reason,
+            source=reason_ctx.get("source", "monitor"),
+        )
+        return False
+
+    try:
+        sid, http_status = place_call(dl, to_number=to_number, from_number=from_number, ctx=reason_ctx)
+        record_attempt(
+            dl,
+            channel="voice",
+            intent=reason_ctx.get("intent", "liquid-breach"),
+            to_number=to_number,
+            from_number=from_number,
+            provider="twilio",
+            status="success",
+            sid=sid,
+            http_status=http_status,
+            source=reason_ctx.get("source", "monitor"),
+        )
+        return True
+    except TwilioException as e:
+        code = getattr(e, "code", None)
+        status = getattr(e, "status", None)
+        record_attempt(
+            dl,
+            channel="voice",
+            intent=reason_ctx.get("intent", "liquid-breach"),
+            to_number=to_number,
+            from_number=from_number,
+            provider="twilio",
+            status="fail",
+            error_code=str(code) if code is not None else None,
+            http_status=int(status) if status is not None else None,
+            error_msg=str(e)[:240],
+            source=reason_ctx.get("source", "monitor"),
+        )
+        return False
+    except Exception as e:
+        record_attempt(
+            dl,
+            channel="voice",
+            intent=reason_ctx.get("intent", "liquid-breach"),
+            to_number=to_number,
+            from_number=from_number,
+            provider="twilio",
+            status="fail",
+            error_msg=str(e)[:240],
+            source=reason_ctx.get("source", "monitor"),
+        )
+        return False
