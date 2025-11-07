@@ -24,6 +24,7 @@ from backend.data.dl_positions import DLPositionManager
 from backend.data.dl_wallets import DLWalletManager
 from backend.data.dl_portfolio import DLPortfolioManager
 from backend.data.dl_session import DLSessionManager
+from backend.data.dl_raydium import DLRaydiumManager
 
 try:  # pragma: no cover - optional dependency
     from backend.data.dl_system_data import DLSystemDataManager
@@ -125,6 +126,7 @@ class DataLocker:
         self.portfolio = DLPortfolioManager(self.db)
 
         self.session = DLSessionManager(self.db)
+        self.raydium = DLRaydiumManager(self.db)
         if DLTraderManager:
             try:
                 self.traders = DLTraderManager(self.db)
@@ -199,6 +201,42 @@ class DataLocker:
                     tags TEXT DEFAULT '',
                     is_active BOOLEAN DEFAULT 1,
                     type TEXT DEFAULT 'personal'
+                )
+            """,
+            "raydium_nfts": """
+                CREATE TABLE IF NOT EXISTS raydium_nfts (
+                    nft_mint        TEXT PRIMARY KEY,
+                    owner           TEXT,
+                    pool_id         TEXT,
+                    token_a_mint    TEXT,
+                    token_b_mint    TEXT,
+                    amount_a        REAL,
+                    amount_b        REAL,
+                    price_a         REAL,
+                    price_b         REAL,
+                    usd_total       REAL,
+                    in_range        INTEGER,
+                    tick_lower      INTEGER,
+                    tick_upper      INTEGER,
+                    checked_at      TEXT,
+                    source          TEXT,
+                    details         TEXT
+                )
+            """,
+            "raydium_nft_history": """
+                CREATE TABLE IF NOT EXISTS raydium_nft_history (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nft_mint        TEXT,
+                    owner           TEXT,
+                    pool_id         TEXT,
+                    amount_a        REAL,
+                    amount_b        REAL,
+                    price_a         REAL,
+                    price_b         REAL,
+                    usd_total       REAL,
+                    checked_at      TEXT,
+                    source          TEXT,
+                    details         TEXT
                 )
             """,
             "alerts": """
