@@ -7,30 +7,20 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-# Alerts DB
 from backend.data import dl_alerts
 
-# Config resolution: use the same helper other panels use
 try:
     from backend.core.reporting_core.sonic_reporting.config_probe import discover_json_path, parse_json
 except Exception:
     def discover_json_path(_): return None
     def parse_json(_): return {}, None, {}
 
-# Live resolver (same as banner/sync)
 try:
     from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_live_status
 except Exception:
     def xcom_live_status(dl: Any, cfg: dict | None = None) -> tuple[bool, str]:
         v = getattr(dl, "xcom_live", None)
         return (bool(v), "RUNTIME") if isinstance(v, bool) else (False, "—")
-
-# Dispatcher telemetry (still shown in panel)
-try:
-    from backend.services.xcom_status_service import get_last_attempt
-except Exception:
-    def get_last_attempt(_): return None
-
 
 def _chip_on_off(v: bool) -> Text:
     return Text("🟢  ON", style="bold green") if v else Text("🔴  OFF", style="bold red")
@@ -48,7 +38,6 @@ def _load_cfg() -> tuple[dict, Optional[str]]:
         cfg = {}
     return cfg, path
 
-
 def _extract_notifications(cfg: Dict) -> Dict[str, bool]:
     n = cfg.get("liquid", {}).get("notifications", {}) or {}
     return {
@@ -58,7 +47,6 @@ def _extract_notifications(cfg: Dict) -> Dict[str, bool]:
         "sms": bool(n.get("sms", False)),
     }
 
-
 def render(dl: Any, csum: Optional[dict] = None) -> None:
     console = Console()
     t = Table(title="🧪  XCOM Check", show_header=True, header_style="bold")
@@ -67,7 +55,8 @@ def render(dl: Any, csum: Optional[dict] = None) -> None:
     t.add_column("Details")
 
     cfg, cfg_path = _load_cfg()
-    t.add_row("cfg source", Text("✅" if cfg_path else "—"), Text(f"FILE {cfg_path}" if cfg_path else "[-]"))
+
+    t.add_row("🛠️  cfg source", Text("✅" if cfg_path else "—"), Text(f"FILE {cfg_path}" if cfg_path else "[-]"))
 
     live, live_src = xcom_live_status(dl, cfg=cfg or getattr(dl, "global_config", None))
     t.add_row("📡  XCOM Live", _chip_on_off(bool(live)), Text(f"[{live_src}]"))
@@ -79,15 +68,15 @@ def render(dl: Any, csum: Optional[dict] = None) -> None:
         "🔊 " + ("✅" if notif["tts"] else "❌"),
         "💬 " + ("✅" if notif["sms"] else "❌"),
     ])
-    t.add_row("channels(liquid)", Text("✅"), Text(chips))
+    t.add_row("🔔  channels(liquid)", Text("✅"), Text(chips))
 
-    # Published alerts (canonical source) — only 'open' breach alerts for liquid monitor
+    # canonical “published” source: Alerts (open breaches)
     open_alerts = dl_alerts.list_open(dl, kind="breach", monitor="liquid")
     pub_ok = len(open_alerts) > 0
     sym_list = ", ".join(sorted({a["symbol"] for a in open_alerts})) if pub_ok else "—"
-    t.add_row("breaches (published)", Text("✅" if pub_ok else "—"), Text(f"{len(open_alerts)} • {sym_list}"))
+    t.add_row("🚨  breaches (published)", Text("✅" if pub_ok else "—"), Text(f"{len(open_alerts)} • {sym_list}"))
 
-    # Armed summary: uses published alerts (single path), not transient flags
+    # armed summary
     snoozed = False
     for key in ("monitor_snoozed", "liquid_snoozed", "liquid_snooze"):
         v = getattr(dl, key, 0)
@@ -103,18 +92,22 @@ def render(dl: Any, csum: Optional[dict] = None) -> None:
         f"Snoozed {'✓' if not snoozed else '✗'}",
         f"Breach {'✓' if pub_ok else '✗'}",
     ])
-    t.add_row("dispatch.armed", Text("✅" if armed else "❌"), Text(why))
+    t.add_row("🚦  dispatch.armed", Text("✅" if armed else "❌"), Text(why))
 
-    # Last attempt (still helpful)
-    last = get_last_attempt(dl) or {}
+    # last attempt (in-memory telemetry; DB attempts are also stored)
+    try:
+        from backend.services.xcom_status_service import get_last_attempt
+        last = get_last_attempt(dl) or {}
+    except Exception:
+        last = {}
     if last:
         status = last.get("status")
         label = {"success":"🟢 success","fail":"🔴 fail","skipped":"⚪ skipped"}.get(status, status or "—")
         who = f"{last.get('provider','twilio')}/{last.get('channel','voice')} → {last.get('to_number','—')}"
         sid = last.get("sid") or "—"
         src = last.get("source", "monitor")
-        t.add_row("last attempt", Text(label), Text(f"{last.get('ts','—')} • {who} • sid={sid} [{src}]"))
+        t.add_row("🕘  last attempt", Text(label), Text(f"{last.get('ts','—')} • {who} • sid={sid} [{src}]"))
     else:
-        t.add_row("last attempt", Text("—"), Text("no attempts recorded"))
+        t.add_row("🕘  last attempt", Text("—"), Text("no attempts recorded"))
 
     console.print(t)

@@ -2,18 +2,17 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
 import logging
 
 log = logging.getLogger(__name__)
 
-# Config probe (same as panels)
 try:
     from backend.core.reporting_core.sonic_reporting.config_probe import discover_json_path, parse_json
 except Exception:
     def discover_json_path(_): return None
     def parse_json(_): return {}, None, {}
 
-# Nearest distance helpers (prefer monitor_core, then reporting, then DL fallback)
 _NEAREST_FROM_SUMMARY = None
 try:
     from backend.core.monitor_core.summary_helpers import get_nearest_liquidation_distances as _N1  # type: ignore
@@ -28,16 +27,13 @@ try:
 except Exception:
     pass
 
-# Alerts DB (canonical)
 from backend.data import dl_alerts
 
-# XCOM dispatcher
 try:
     from backend.core.xcom_core.dispatch import dispatch_voice_if_needed
 except Exception:
     def dispatch_voice_if_needed(*_a, **_k):  # type: ignore
-        raise RuntimeError("dispatch not available")
-
+        raise RuntimeError("XCOM dispatch not available")
 
 def _is_num(x: Any) -> bool:
     try:
@@ -64,10 +60,8 @@ def _extract_thresholds(cfg: Dict) -> Dict[str, float]:
         t = cfg.get("liquid_monitor", {}).get("thresholds", {}) or {}
     out: Dict[str, float] = {}
     for k, v in (t or {}).items():
-        try:
-            out[str(k).upper()] = float(v)
-        except Exception:
-            pass
+        try: out[str(k).upper()] = float(v)
+        except Exception: pass
     return out
 
 def _nearest_from_dl(dl: Any) -> Dict[str, float]:
@@ -87,13 +81,11 @@ def _nearest_from_dl(dl: Any) -> Dict[str, float]:
                     elif isinstance(val, dict):
                         for sub in ("distance", "nearest", "value"):
                             vv = val.get(sub)
-                            if _is_num(vv):
-                                out[str(k).upper()] = float(vv); break
-                if out:
-                    return out
+                            if _is_num(vv): out[str(k).upper()] = float(vv); break
+                if out: return out
     return {}
 
-def _nearest_positions(dl: Any) -> Dict[str, float]:
+def _nearest_from_positions(dl: Any) -> Dict[str, float]:
     rows = []
     try:
         rows = dl.read_positions() if hasattr(dl, "read_positions") else getattr(dl, "positions", [])
@@ -123,33 +115,36 @@ def _get_nearest_map(dl: Any) -> Dict[str, float]:
             d = _NEAREST_FROM_SUMMARY(dl)  # type: ignore
             if isinstance(d, dict) and d:
                 return {str(k).upper(): float(d[k]) for k in d if _is_num(d[k])}
-    except Exception:
-        pass
+    except Exception: pass
     try:
         if _NEAREST_FROM_REPORTING:
             d = _NEAREST_FROM_REPORTING(dl)  # type: ignore
             if isinstance(d, dict) and d:
                 return {str(k).upper(): float(d[k]) for k in d if _is_num(d[k])}
-    except Exception:
-        pass
+    except Exception: pass
     d = _nearest_from_dl(dl)
     if d: return d
-    return _nearest_positions(dl)
+    return _nearest_from_positions(dl)
 
+class LiquidationMonitor:
+    def __init__(self, default_json_path: Optional[str] = None):
+        self.default_json_path = default_json_path
+
+    def run(self, dl: Any) -> Dict[str, Any]:
+        return _run_impl(dl, default_json_path=self.default_json_path)
+
+    @staticmethod
+    def run_static(dl: Any, default_json_path: Optional[str] = None) -> Dict[str, Any]:
+        return _run_impl(dl, default_json_path=default_json_path)
 
 def run(dl: Any, *, default_json_path: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Canonical liquidation monitor.
-    - Load thresholds (liquid.thresholds with legacy fallback)
-    - Compute nearest distances using the same sources as the panels
-    - UPSERT OPEN alerts for active breaches; resolve when cleared
-    - Dispatch voice per open breach (gates/cooldown handled in dispatcher)
-    """
+    return _run_impl(dl, default_json_path=default_json_path)
+
+def _run_impl(dl: Any, *, default_json_path: Optional[str]) -> Dict[str, Any]:
     cfg = _load_cfg(default_json_path)
     thresholds = _extract_thresholds(cfg)
     nearest = _get_nearest_map(dl)
 
-    # Ensure schema once per run (cheap, idempotent)
     dl_alerts.ensure_schema(dl)
 
     open_syms: List[str] = []
@@ -159,13 +154,9 @@ def run(dl: Any, *, default_json_path: Optional[str] = None) -> Dict[str, Any]:
             open_syms.append(sym)
             alert = dl_alerts.upsert_open(
                 dl,
-                kind="breach",
-                monitor="liquid",
-                symbol=sym,
-                value=float(val),
-                threshold=float(thr),
+                kind="breach", monitor="liquid", symbol=sym,
+                value=float(val), threshold=float(thr),
             )
-            # One dispatch attempt per breach (per cycle). Dispatcher will log success/fail/skipped.
             try:
                 dispatch_voice_if_needed(
                     dl,
@@ -173,20 +164,14 @@ def run(dl: Any, *, default_json_path: Optional[str] = None) -> Dict[str, Any]:
                     to_number=getattr(dl, "twilio_to", None),
                     from_number=getattr(dl, "twilio_from", None),
                     reason_ctx={
-                        "source": "liquid",
-                        "intent": "liquid-breach",
-                        "symbol": sym,
-                        "distance": float(val),
-                        "threshold": float(thr),
-                        "alert_id": alert["id"],
-                        "twiml_url": getattr(dl, "twiml_url", None),
+                        "source": "liquid", "intent": "liquid-breach",
+                        "symbol": sym, "distance": float(val), "threshold": float(thr),
+                        "alert_id": alert["id"], "twiml_url": getattr(dl, "twiml_url", None),
                     },
                 )
             except Exception as e:
                 log.debug("liquidation_monitor: dispatch error", extra={"error": str(e), "symbol": sym})
-
         else:
-            # If not in breach now, resolve any open alert for this symbol
             try:
                 dl_alerts.resolve_open(dl, kind="breach", monitor="liquid", symbol=sym)
             except Exception as e:
