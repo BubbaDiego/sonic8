@@ -1,49 +1,37 @@
+# backend/core/reporting_core/sonic_reporting/raydium_panel.py
 # -*- coding: utf-8 -*-
 """
-Raydium LPs panel — always prints, robust data discovery.
+Raydium LPs panel — service-first, no get_manager calls.
 
 Columns:
- • Pool (name with icon)
- • Address (shortened)
- • LP (integer, right aligned)
- • USD (compact: 280.8k / 1.2m, right aligned)
- • APR (if available)
- • Checked (time only '1:05pm')
-
-Footer:
- • 'Total (USD):' compact sum of USD
- • 'Checked:' with local '1:05pm - 11/2/25'
-
-Data discovery order:
- 1) dl.read_raydium_positions()   # if your manager exposes it
- 2) dl.raydium.get_positions()    # or dl.raydium.positions
- 3) dl.portfolio.raydium_positions
- 4) dl.system['raydium_positions'] / ['raydium_lp_positions'] / ['lp_positions']
- 5) empty list fallback (prints '(no raydium positions)')
-
-Each path logs its source for visibility.
+ • Pool
+ • Address
+ • LP
+ • USD
+ • APR
+ • Checked
 """
 
 from __future__ import annotations
 
-import math
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from backend.data.data_locker import DataLocker
-from backend.core.logging import log
 
 IC_HEAD = "🧪"
-CHAIN_ICON = {"SOL": "🟣", "ETH": "🔷", "BTC": "🟡"}
 
 # column widths
-W_POOL   = 22       # 'Pool' (with icon)
-W_ADDR   = 26       # Address shown as short form
-W_LP     = 10       # right aligned integer
-W_USD    = 12       # right aligned compact USD
-W_APR    = 8        # right aligned '12.3%' or '—'
-W_CHK    = 12       # right aligned time (hh:mmam)
+W_POOL = 22
+W_ADDR = 26
+W_LP   = 10
+W_USD  = 12
+W_APR  = 8
+W_CHK  = 12
 
+
+# ── formatting helpers ─────────────────────────────────────────────────────────
 
 def _pad(s: str, n: int, align: str = "left") -> str:
     s = "" if s is None else str(s)
@@ -51,7 +39,6 @@ def _pad(s: str, n: int, align: str = "left") -> str:
         return s[:n]
     pad = " " * (n - len(s))
     return (s + pad) if align == "left" else (pad + s)
-
 
 def _short_addr(addr: Optional[str], left: int = 6, right: int = 6) -> str:
     if not addr:
@@ -61,16 +48,13 @@ def _short_addr(addr: Optional[str], left: int = 6, right: int = 6) -> str:
         return a
     return f"{a[:left]}…{a[-right:]}"
 
-
 def _fmt_int(x: Optional[float]) -> str:
     if x is None:
         return "—"
     try:
-        v = int(float(x))
-        return f"{v:,}"
+        return f"{int(float(x)):,}"
     except Exception:
         return "—"
-
 
 def _fmt_compact_usd(x: Optional[float]) -> str:
     if x is None:
@@ -89,7 +73,6 @@ def _fmt_compact_usd(x: Optional[float]) -> str:
     except Exception:
         return "—"
 
-
 def _fmt_time_only(dt: Optional[datetime] = None) -> str:
     try:
         d = dt or datetime.now()
@@ -97,13 +80,13 @@ def _fmt_time_only(dt: Optional[datetime] = None) -> str:
     except Exception:
         return "(now)"
 
-
 def _fmt_time_date(dt: Optional[datetime] = None) -> str:
     d = dt or datetime.now()
     t = d.strftime("%I:%M%p").lstrip("0").lower()
     return f"{t} - {d.month}/{d.day}/{str(d.year)[-2:]}"
-                               # correct slice     ^^^^
 
+
+# ── data shaping ───────────────────────────────────────────────────────────────
 
 def _coalesce(*vals):
     for v in vals:
@@ -111,87 +94,48 @@ def _coalesce(*vals):
             return v
     return None
 
-
-def _read_raydium_positions(dl: DataLocker) -> (List[Dict[str, Any]], str):
-    """
-    Return (rows, source_label). Each row contains:
-      name, address, chain, balance, usd, apr, checked(optional)
-    """
-    # 1) Manager-style
-    for attr in ("read_raydium_positions", "get_raydium_positions"):
-        fn = getattr(dl, attr, None)
-        if callable(fn):
-            try:
-                items = fn() or []
-                if items:
-                    return [_normalize_row(x) for x in items if x], f"manager:{attr}"
-            except Exception as e:
-                log.warning(f"[RAY] manager call {attr} failed: {e}")
-
-    # 2) dl.raydium.*
-    try:
-        r = getattr(dl, "raydum", None) or getattr(dl, "raydium", None)
-        if r is not None:
-            for attr in ("positions", "lp_positions", "get_positions", "get_lp_positions"):
-                obj = getattr(r, attr, None)
-                if callable(obj):
-                    try:
-                        out = obj()
-                    except Exception:
-                        out = None
-                else:
-                    out = obj
-                if isinstance(out, list) and out:
-                    return ([_normalize_row(x) for x in out if x], f"dl.raydium.{attr}")
-    except Exception as e:
-        log.warning(f"[RAY] dl.raydium* read failed: {e}")
-
-    # 3) dl.portfolio / dl.cache stash
-    for base in ("portfolio", "cache"):
+def _try_parse_details_name(x: Dict[str, Any]) -> Optional[str]:
+    det = x.get("details")
+    if isinstance(det, str):
         try:
-            node = getattr(dl, base, None)
-            if node is None:
-                continue
-            for name in ("raydium_positions", "lp_positions", "raydium", "raydium_positions_by_wallet"):
-                obj = getattr(node, name, None)
-                if isinstance(obj, list) and obj:
-                    return ([_normalize_row(x) for x in obj if x], f"dl.{base}.{name}")
-        except Exception as e:
-            log.warning(f"[RAY] dl.{base} read failed: {e}")
-
-    # 4) system var fallback
-    for key in ("raydium_positions", "raydium_lp_positions", "lp_positions"):
-        try:
-            arr = (dl.system.get_var(key) if getattr(dl, "system", None) else None) or []
-            if isinstance(arr, list) and arr:
-                return ([_normalize_row(x) for x in arr if x], f"system[{key}]")
-        except Exception as e:
-            log.warning(f"[RAY] system var {key} read failed: {e}")
-
-    return ([], "none")
-
+            det = json.loads(det)
+        except Exception:
+            det = None
+    if isinstance(det, dict):
+        pair = det.get("pair") or det.get("pool") or det.get("symbol")
+        if isinstance(pair, str) and pair:
+            return pair
+        a = det.get("mintA") or det.get("tokenA")
+        b = det.get("mintB") or det.get("tokenB")
+        if isinstance(a, str) and isinstance(b, str):
+            return f"{_short_addr(a,4,4)}/{_short_addr(b,4,4)}"
+    return None
 
 def _normalize_row(x: Any) -> Dict[str, Any]:
-    """
-    Best-effort field mapping from diverse upstream shapes to:
-      name, address, chain, balance, usd, apr, checked
-    """
     if not isinstance(x, dict):
         x = getattr(x, "__dict__", {}) or {}
 
-    name = _coalesce(x.get("name"), x.get("pool"), x.get("pair"), x.get("symbol"))
-    addr = _coalesce(x.get("address"), x.get("mint"), x.get("lp_mint"), x.get("lpMint"), x.get("id"))
-    chain = _coalesce(x.get("chain"), "SOL")
-
-    # numeric values (balance & usd)
+    name = _coalesce(
+        x.get("name"),
+        x.get("pool"),
+        x.get("pair"),
+        x.get("symbol"),
+        _try_parse_details_name(x),
+        "—",
+    )
+    addr = _coalesce(
+        x.get("address"), x.get("mint"), x.get("nft_mint"),
+        x.get("lp_mint"), x.get("lpMint"), x.get("id")
+    )
+    chain = x.get("chain") or "SOL"
     bal = _coalesce(x.get("balance"), x.get("lp_balance"), x.get("amount"), x.get("liquidity"))
-    usd = _coalesce(x.get("usd"), x.get("usd_value"), x.get("value"), x.get("value_usd"), x.get("valuation"))
-    apr = _coalesce(x.get("apr"), x.get("apy"), x.get("apy_7d"), x.get("apr_day"), x.get("apy_7day"))
-    # optional timestamp
-    checked = _coalesce(x.get("checked_at"), x.get("updated_at"), x.get("ts"))
+    usd = _coalesce(x.get("usd"), x.get("usd_total"), x.get("usd_value"),
+                    x.get("value"), x.get("value_usd"), x.get("valuation"))
+    apr = _coalesce(x.get("apr"), x.get("apy"), x.get("apy_7d"), x.get("apr_day"))
+    checked = _coalesce(x.get("checked_at"), x.get("updated_at"), x.get("ts"), x.get("checked"))
 
     return {
-        "name": name or "—",
+        "name": name,
         "address": addr,
         "chain": chain if isinstance(chain, str) else "SOL",
         "balance": float(bal) if bal is not None else None,
@@ -201,104 +145,126 @@ def _normalize_row(x: Any) -> Dict[str, Any]:
     }
 
 
+# ── service + fallbacks (NO get_manager) ───────────────────────────────────────
+
+def _active_owner(dl: DataLocker) -> Optional[str]:
+    sys = getattr(dl, "system", None)
+    if sys and hasattr(sys, "get_var"):
+        for k in ("wallet.current_pubkey", "wallet_pubkey",
+                  "active_wallet_pubkey", "current_wallet_pubkey"):
+            try:
+                v = sys.get_var(k)
+                if isinstance(v, str) and len(v) > 30:
+                    return v
+            except Exception:
+                pass
+    return None
+
+def _rows_from_service(dl: DataLocker) -> Optional[tuple[list[dict], str]]:
+    mgr = getattr(dl, "raydium", None)
+    if not mgr:
+        return None
+    owner = _active_owner(dl)
+
+    # Try typical service methods without get_manager
+    for name, want_owner in (("get_positions", True),
+                             ("get_by_owner", True),
+                             ("get_positions", False)):
+        fn = getattr(mgr, name, None)
+        if not callable(fn):
+            continue
+        try:
+            out = fn(owner) if want_owner else fn()
+            if isinstance(out, list) and out:
+                return ([_normalize_row(o) for o in out], f"service:raydium.{name}({('owner' if want_owner else 'all')})")
+        except Exception:
+            # swallow; keep trying fallbacks
+            pass
+    return None
+
+def _read_raydium_positions(dl: DataLocker) -> (List[Dict[str, Any]], str):
+    # 0) DB-backed service (dl.raydium) FIRST
+    svc = _rows_from_service(dl)
+    if svc:
+        return svc
+
+    # 1) system var fallback (what the console writes)
+    sys = getattr(dl, "system", None)
+    if sys and hasattr(sys, "get_var"):
+        for key in ("raydium_positions", "raydium_lp_positions", "lp_positions"):
+            try:
+                arr = sys.get_var(key)
+            except Exception:
+                arr = None
+            if isinstance(arr, list) and arr:
+                return ([_normalize_row(x) for x in arr], f"system[{key}]")
+
+    # 2) portfolio/cache stashes if they exist (no hard deps)
+    for base in ("portfolio", "cache"):
+        node = getattr(dl, base, None)
+        if node is None:
+            continue
+        for name in ("raydium_positions", "lp_positions", "raydium", "raydium_positions_by_wallet"):
+            obj = getattr(node, name, None)
+            if isinstance(obj, list) and obj:
+                return ([_normalize_row(x) for x in obj], f"dl.{base}.{name}")
+
+    return ([], "none")
+
+
+# ── render ─────────────────────────────────────────────────────────────────────
+
 def render(dl, csum, default_json_path=None):
     rows, source = _read_raydium_positions(dl)
     print("\n  ---------------------- 🧪  Raydium LPs  ----------------------")
     print(f"  [RAY] source={source} count={len(rows)}")
 
     if not rows:
-        mgr = None
-        avail = []
-        dl_obj = dl or DataLocker.get_instance()
-        if dl_obj is not None:
-            try:
-                mgr = dl_obj.get_manager("raydium") or dl_obj.get_manager("raydium_lp")
-            except Exception as e:
-                mgr = None
-                print(f"  [RAY] error: {type(e).__name__}: {e}")
-                try:
-                    am = getattr(dl_obj, "available_managers", None)
-                    if callable(am):
-                        avail = sorted(am())
-                        print(f"  [RAY] dl.available_managers: {avail}")
-                except Exception:
-                    pass
-            if not mgr:
-                am = getattr(dl_obj, "available_managers", None)
-                if callable(am):
-                    try:
-                        avail = sorted(am())
-                    except Exception:
-                        avail = []
-        if mgr:
-            provider_bits = []
-            for attr in ("provider", "rpc", "rpc_url", "rpc_endpoint", "connection"):
-                try:
-                    val = getattr(mgr, attr, None)
-                except Exception:
-                    val = None
-                if val:
-                    provider_bits.append(f"{attr}={val}")
-            if provider_bits:
-                print(f"  [RAY] manager info: {', '.join(provider_bits)}")
-        else:
-            if avail:
-                print(f"  [RAY] managers present: {avail}")
         print("  (no raydium positions)")
         return
 
-    # Sort by USD descending
     now = datetime.now()
     rows = [r for r in (_normalize_row(r) for r in rows) if r]
     rows.sort(key=lambda r: (r["usd"] or 0.0), reverse=True)
 
-    # Header
     header = (
         "    "
-        + _pad("Pool",  W_NAME := 22)
+        + _pad("Pool",  W_POOL)
         + _pad("Address", W_ADDR)
         + _pad("LP",    W_LP,   "right")
         + _pad("USD",   W_USD,  "right")
         + _pad("APR",   W_APR,  "right")
-        + _pad("Checked", W_CHECK := 12, "right")
+        + _pad("Checked", W_CHK, "right")
     )
     print(header)
 
     total_usd = 0.0
     for r in rows:
-        pool = f"{IC_HEAD} {r['name']}"
-        chain = r["chain"]
-        # If you prefer to show the chain icon somewhere, uncomment:
-        # pool = f"{CHAIN_ICON.get(chain, '▫️')} {r['name']}"
-
-        usd = r["usd"]
-        if isinstance(usd, (int, float)):
-            total_usd += float(usd)
-
+        if isinstance(r.get("usd"), (int, float)):
+            total_usd += float(r["usd"])
         line = (
             "    "
-            + _pad(pool, W_NAME)
+            + _pad(f"{IC_HEAD} {r['name']}", W_POOL)
             + _pad(_short_addr(r["address"]), W_ADDR)
             + _pad(_fmt_int(r["balance"]), W_LP, "right")
             + _pad(_fmt_compact_usd(r["usd"]), W_USD, "right")
             + _pad(f"{r['apr']:.1f}%" if isinstance(r["apr"], (int, float)) else "—", W_APR, "right")
-            + _pad(_fmt_time_only(now), W_CHECK, "right")
+            + _pad(_fmt_time_only(now), W_CHK, "right")
         )
         print(line)
 
-    # Footer with total USD (compact)
     print(
         "    "
-        + _pad("", W_NAME)
+        + _pad("", W_POOL)
         + _pad("Total (USD):", W_ADDR)
         + _pad("", W_LP, "right")
         + _pad(_fmt_compact_usd(total_usd), W_USD, "right")
-        + _pad("", W_CHECK, "right")
+        + _pad("", W_CHK, "right")
     )
     print(
         "    "
-        + _pad("", W_NAME)
+        + _pad("", W_POOL)
         + _pad("Checked:", W_ADDR)
         + _pad("", W_LP, "right")
-        + _pad(_fmt_time_date(now), W_USD + W_CHECK, "right")
+        + _pad(_fmt_time_date(now), W_USD + W_CHK, "right")
     )
