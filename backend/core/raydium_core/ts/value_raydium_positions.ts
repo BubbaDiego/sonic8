@@ -10,6 +10,12 @@ import {
   PositionUtils,
   SqrtPriceMath,
 } from '@raydium-io/raydium-sdk-v2'
+import * as dns from 'node:dns'
+
+// Prefer IPv4 to sidestep Windows/ISP DNS weirdness.
+if ((dns as any).setDefaultResultOrder) {
+  ;(dns as any).setDefaultResultOrder('ipv4first')
+}
 
 const CLMM_ID = new PublicKey(CLMM_PROGRAM_ID)
 const RPC = process.env.RPC_URL || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
@@ -19,19 +25,16 @@ const arg = (k: string) => {
   const i = argv.indexOf(k)
   return i >= 0 ? argv[i + 1] : undefined
 }
+
 const ownerStr = arg('--owner')
 const mintsCsv = arg('--mints')
+const overridePriceUrl = arg('--price-url') || process.env.JUP_PRICE_URL
 const mintList: string[] = (mintsCsv ? mintsCsv.split(',').map(s => s.trim()).filter(Boolean) : [])
 
 const short = (s: string) => (s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-6)}` : s)
-
-function isValidPkStr(s: string) {
-  try { new PublicKey(s); return true } catch { return false }
-}
+function isValidPkStr(s: string) { try { new PublicKey(s); return true } catch { return false } }
 
 async function discoverOwnerMints(conn: Connection, owner: PublicKey) {
-  // Token Program v1 (legacy) + Token-2022: you already scan those in Python,
-  // but for standalone TS use, scan the legacy Program here for dec=0 balances.
   const TOKEN_LEGACY = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
   const resp: any = await (conn as any).getParsedTokenAccountsByOwner(owner, { programId: TOKEN_LEGACY })
   const items = resp?.value || []
@@ -53,27 +56,77 @@ function priceFromSqrt(pool: ReturnType<typeof PoolInfoLayout.decode>) {
   return SqrtPriceMath.sqrtPriceX64ToPrice(sqrtPrice, decimalsA, decimalsB)
 }
 
-// --- Jupiter v6 price fetch (mints) ---
+// ------------ Resilient Jupiter price fetch ------------
 type JupV6 = { data?: Record<string, { price?: number }> }
+type JupV4 = { data?: Record<string, { price?: number }> }
+type JupLiteV3 = Record<string, { usdPrice?: number } | number>
+
 function chunk<T>(arr: T[], size = 60): T[][] {
   const out: T[][] = []
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
   return out
 }
+
+function sleep(ms: number) { return new Promise(res => setTimeout(res, ms)) }
+
+function withTimeout<T>(p: Promise<T>, ms = 8000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms)
+    p.then(v => { clearTimeout(t); resolve(v) }).catch(e => { clearTimeout(t); reject(e) })
+  })
+}
+
+async function fetchOne(url: string) {
+  const res = await withTimeout(fetch(url, { method: 'GET', headers: { accept: 'application/json' } }), 8000)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
 async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> {
   const ids = Array.from(new Set(mints))
   const out: Record<string, number> = {}
-  for (const c of chunk(ids, 60)) {
-    const url = `https://price.jup.ag/v6/price?ids=${encodeURIComponent(c.join(','))}`
-    const res = await fetch(url, { method: 'GET' })
-    if (!res.ok) continue
-    const json = (await res.json()) as JupV6
-    for (const [k, v] of Object.entries(json?.data || {})) {
-      if (typeof v?.price === 'number' && isFinite(v.price)) out[k] = v.price
+
+  // Priority list; you can override with --price-url or JUP_PRICE_URL
+  const bases = (overridePriceUrl ? [overridePriceUrl] : []).concat([
+    'https://price.jup.ag/v6/price',   // modern
+    'https://price.jup.ag/v4/price',   // older
+    'https://lite-api.jup.ag/price/v3' // lite mapping
+  ])
+
+  for (const c of chunk(ids, 50)) {
+    let ok = false, lastErr: any = null
+    for (const base of bases) {
+      const url = `${base}${base.includes('?') ? '&' : '?'}ids=${encodeURIComponent(c.join(','))}`
+      try {
+        const json: any = await fetchOne(url)
+        // Unify v6/v4 ({data: {mint: {price}}}) and lite v3 (top-level {mint: {usdPrice}})
+        if (json?.data && typeof json.data === 'object') {
+          for (const [k, v] of Object.entries(json.data as Record<string, any>)) {
+            const p = (v as any).price ?? (v as any).usdPrice
+            if (typeof p === 'number' && isFinite(p)) out[k] = p
+          }
+        } else if (json && typeof json === 'object') {
+          for (const [k, v] of Object.entries(json as JupLiteV3)) {
+            const p = typeof v === 'number' ? v : (v as any)?.usdPrice ?? (v as any)?.price
+            if (typeof p === 'number' && isFinite(p)) out[k] = p
+          }
+        }
+        ok = true
+        break
+      } catch (e: any) {
+        lastErr = e
+        // brief backoff before trying next base
+        await sleep(150)
+      }
+    }
+    if (!ok) {
+      throw new Error(`All Jupiter price endpoints failed for ids=[${c.join(',')}]: ${lastErr?.message || lastErr}`)
     }
   }
   return out
 }
+
+// -------------------------------------------------------
 
 ;(async () => {
   const conn = new Connection(RPC, 'confirmed')
@@ -81,25 +134,24 @@ async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> 
   let mints = [...new Set(mintList)]
   if (mints.length === 0) {
     if (!ownerStr) {
-      console.error('No --mints provided and no --owner to scan; supply --mints <M1[,M2…]>.')
+      console.error('No --mints and no --owner. Supply --mints <M1[,M2…]> or --owner <PUBKEY>.')
       process.exit(2)
     }
     try {
       const owner = new PublicKey(ownerStr)
       mints = await discoverOwnerMints(conn, owner)
       if (!mints.length) {
-        console.error('No NFT-like tokens found for owner; pass --mints <M1[,M2…]>.')
+        console.error('No NFT-like tokens (dec=0) found for owner; pass --mints explicitly.')
         process.exit(2)
       }
     } catch (e) {
-      console.error('Owner scan failed, pass --mints explicitly. Detail:', (e as any)?.message || e)
+      console.error('Owner scan failed; pass --mints. Detail:', (e as any)?.message || e)
       process.exit(1)
     }
   }
 
   const epochInfo = await conn.getEpochInfo()
 
-  // Resolve CLMM position accounts for each NFT mint
   const targets: {
     mint: PublicKey
     posPk: PublicKey
@@ -109,50 +161,42 @@ async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> 
 
   for (const m of mints) {
     let mintPk: PublicKey
-    try { mintPk = new PublicKey(m) } catch (e) {
-      console.error('Invalid mint', m, '-', (e as any)?.message || e)
-      continue
-    }
+    try { mintPk = new PublicKey(m) } catch (e) { continue }
 
     const { publicKey: posPk } = getPdaPersonalPositionAddress(CLMM_ID, mintPk)
     const posAcc = await conn.getAccountInfo(posPk)
-    if (!posAcc?.data) {
-      // Not a CLMM position; skip silently so the console stays friendly.
-      continue
-    }
-    let pos
-    try { pos = PositionInfoLayout.decode(posAcc.data) } catch (e) {
-      console.error('Failed to decode position for mint', m, '-', (e as any)?.message || e)
-      continue
-    }
-    const poolId = new PublicKey(pos.poolId)
-    targets.push({ mint: mintPk, posPk, poolId, position: pos })
+    if (!posAcc?.data) continue
+
+    try {
+      const position = PositionInfoLayout.decode(posAcc.data)
+      const poolId = new PublicKey(position.poolId)
+      targets.push({ mint: mintPk, posPk, poolId, position })
+    } catch {}
   }
 
   if (!targets.length) {
-    console.error('No matching CLMM position accounts; cannot value.')
+    console.error('No matching CLMM position accounts; nothing to value.')
     process.exit(2)
   }
 
-  // Batch-fetch and decode all pools
-  const uniquePoolKeys = [...new Map(targets.map(t => [t.poolId.toBase58(), t.poolId])).values()]
-  const poolAccounts = await conn.getMultipleAccountsInfo(uniquePoolKeys)
+  // Batch pools
+  const poolKeys = [...new Map(targets.map(t => [t.poolId.toBase58(), t.poolId])).values()]
+  const poolAccs = await conn.getMultipleAccountsInfo(poolKeys)
   const poolMap = new Map<string, ReturnType<typeof PoolInfoLayout.decode>>()
-  uniquePoolKeys.forEach((pk, idx) => {
-    const acc = poolAccounts[idx]
+  poolKeys.forEach((pk, i) => {
+    const acc = poolAccs[i]
     if (acc?.data) {
-      try { poolMap.set(pk.toBase58(), PoolInfoLayout.decode(acc.data)) }
-      catch (e) { /* ignore */ }
+      try { poolMap.set(pk.toBase58(), PoolInfoLayout.decode(acc.data)) } catch {}
     }
   })
 
-  // Build a mint set for pricing
+  // Prices for both legs across pools
   const priceMintSet = new Set<string>()
   for (const pool of poolMap.values()) {
     priceMintSet.add(pool.mintA.toBase58())
     priceMintSet.add(pool.mintB.toBase58())
   }
-  const priceMap = await fetchJupPrices([...priceMintSet])  // Jupiter v6
+  const priceMap = await fetchJupPrices([...priceMintSet])
 
   const rows: {
     poolPk: string
@@ -162,16 +206,15 @@ async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> 
     usd: string
   }[] = []
 
-  for (const target of targets) {
-    const poolIdStr = target.poolId.toBase58()
-    const pool = poolMap.get(poolIdStr)
+  for (const t of targets) {
+    const pool = poolMap.get(t.poolId.toBase58())
     if (!pool) {
-      rows.push({ poolPk: poolIdStr, posMint: target.mint.toBase58(), tokenA: '-', tokenB: '-', usd: '-' })
+      rows.push({ poolPk: t.poolId.toBase58(), posMint: t.mint.toBase58(), tokenA: '-', tokenB: '-', usd: '-' })
       continue
     }
 
-    // Use Raydium math to compute UI amounts
-    const poolPrice = priceFromSqrt(pool)  // unused for USD now but handy for debugging
+    // Raydium SDK math
+    const poolPrice = priceFromSqrt(pool)
     const poolInfoForMath = {
       price: poolPrice.toString(),
       mintA: { decimals: pool.mintDecimalsA, extensions: {} },
@@ -185,8 +228,8 @@ async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> 
     try {
       const amounts = PositionUtils.getAmountsFromLiquidity({
         poolInfo: poolInfoForMath,
-        ownerPosition: target.position as any,
-        liquidity: target.position.liquidity,
+        ownerPosition: t.position as any,
+        liquidity: t.position.liquidity,
         slippage: 0,
         add: false,
         epochInfo,
@@ -196,7 +239,7 @@ async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> 
       amountAUi = new Decimal(rawA.toString()).div(new Decimal(10).pow(pool.mintDecimalsA))
       amountBUi = new Decimal(rawB.toString()).div(new Decimal(10).pow(pool.mintDecimalsB))
     } catch (e) {
-      console.error('Failed to compute liquidity amounts for position', target.mint.toBase58(), '-', (e as any)?.message || e)
+      // keep placeholders
     }
 
     const mintA = pool.mintA.toBase58()
@@ -211,8 +254,8 @@ async function fetchJupPrices(mints: string[]): Promise<Record<string, number>> 
     }
 
     rows.push({
-      poolPk: poolIdStr,
-      posMint: target.mint.toBase58(),
+      poolPk: t.poolId.toBase58(),
+      posMint: t.mint.toBase58(),
       tokenA: amountAUi ? `${amountAUi.toSignificantDigits(6).toString()} ${short(mintA)}` : `- ${short(mintA)}`,
       tokenB: amountBUi ? `${amountBUi.toSignificantDigits(6).toString()} ${short(mintB)}` : `- ${short(mintB)}`,
       usd: usdValue ? `$${usdValue.toSignificantDigits(6).toString()}` : '-',
