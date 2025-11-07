@@ -30,6 +30,8 @@ REQUIRED_TABLES = [
     "positions_totals_history",
     "modifiers",
     "prices",
+    "raydium_nfts",
+    "raydium_nft_history",
     "monitor_heartbeat",
     "global_config",
     "system_vars",
