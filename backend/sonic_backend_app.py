@@ -146,6 +146,7 @@ from backend.routes.jupiter_perps_api import router as perps_router
 from backend.api.routes_perps import router as perps_cli_router
 from backend.api.debug_market_api import router as debug_market_router
 from backend.api.raydium_router import router as raydium_router
+from backend.routes.raydium_api import router as raydium_api_router
 from backend.api.liquid_settings_api import router as liquid_settings_router
 from backend.middleware.response_validator import install_response_validator, schema_map_router
 from backend.routes import positions_snapshot_api
@@ -222,6 +223,7 @@ app.include_router(jupiter_router)
 app.include_router(perps_router)
 app.include_router(perps_cli_router)
 app.include_router(raydium_router)
+app.include_router(raydium_api_router)
 app.include_router(positions_snapshot_api.router)
 
 # Jupiter legacy API stays under /api for compatibility
