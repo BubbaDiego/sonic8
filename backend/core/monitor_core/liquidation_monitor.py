@@ -43,6 +43,7 @@ from backend.data.data_locker import DataLocker
 
 # XCOM consolidated dispatcher (no legacy)
 from backend.core.xcom_core import dispatch_notifications
+from backend.core.xcom_core.dispatch import dispatch_voice_if_needed
 
 __all__ = ["run", "LiquidationMonitor"]
 
@@ -64,6 +65,41 @@ def _as_float(x: Any) -> float | None:
         except Exception:
             return None
     return None
+
+
+def _xcom_call_on_breach(
+    dl: DataLocker,
+    *,
+    symbol: str,
+    distance: float,
+    threshold: float,
+) -> None:
+    """Fire the XCOM voice dispatcher and let it record the outcome."""
+
+    to_num = getattr(dl, "twilio_to", None)
+    from_num = getattr(dl, "twilio_from", None)
+    reason_ctx = {
+        "source": "liquid",
+        "intent": "liquid-breach",
+        "symbol": symbol,
+        "distance": distance,
+        "threshold": threshold,
+        "twiml_url": getattr(dl, "twiml_url", None),
+    }
+    try:
+        dispatch_voice_if_needed(
+            dl,
+            breach=True,
+            to_number=to_num,
+            from_number=from_num,
+            reason_ctx=reason_ctx,
+        )
+    except Exception as exc:
+        # We don't crash the monitor loop on provider issues; the dispatcher logs details.
+        try:
+            dl.log("xcom dispatch error", {"error": str(exc), "symbol": symbol})
+        except Exception:
+            pass
 
 
 def _read_json_config_from_path(path: str | Path) -> dict:
@@ -298,6 +334,12 @@ def run(
             continue
         if v <= t:
             breaches.append({"asset": asset, "value": v, "threshold": t})
+            _xcom_call_on_breach(
+                dl,
+                symbol=asset,
+                distance=float(v),
+                threshold=float(t),
+            )
 
     if breaches:
         btxt = ", ".join(f"{b['asset']} {b['value']:.2f} ≤ {b['threshold']:.2f}" for b in breaches)
