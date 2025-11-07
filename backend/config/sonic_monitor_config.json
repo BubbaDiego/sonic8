@@ -10,11 +10,6 @@
     },
     "xcom_live": true
   },
-
-  "channels": {
-    "voice": { "enabled": true }
-  },
-
   "liquid": {
     "notifications": {
       "system": true,

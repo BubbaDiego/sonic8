@@ -78,7 +78,6 @@ def _persist_monitor_json(
     liquid: Optional[Dict[str, Any]] = None,
     profit: Optional[Dict[str, Any]] = None,
     twilio: Optional[Dict[str, Any]] = None,
-    channels: Optional[Dict[str, Any]] = None,
     monitor: Optional[Dict[str, Any]] = None,
     market: Optional[Dict[str, Any]] = None,
     price: Optional[Dict[str, Any]] = None,
@@ -116,9 +115,6 @@ def _persist_monitor_json(
 
     if price:
         patch.setdefault("price", {}).update(price)
-
-    if channels:
-        patch.setdefault("channels", {}).update(channels)
 
     if market:
         patch.setdefault("market", {}).update(market)

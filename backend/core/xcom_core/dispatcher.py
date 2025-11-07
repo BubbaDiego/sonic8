@@ -109,7 +109,10 @@ def dispatch_notifications(
     breach = bool(res.get("breach", False))
 
     # DataLocker + consolidated config
-    dl = DataLocker.get_instance(str(db_path or MOTHER_DB_PATH))
+    if db_path:
+        dl = DataLocker.get_instance(str(db_path))
+    else:
+        dl = DataLocker.get_instance()
     cfg = XComConfigService(getattr(dl, "system", None), config=getattr(dl, "global_config", None))
 
     # Channel resolution

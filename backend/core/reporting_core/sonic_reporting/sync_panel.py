@@ -83,7 +83,7 @@ def _schema_markers(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
     Return (ok, 8 markers) where markers are 'name ✓' or 'name —'.
     We show them in two rows with 4 items each.
     """
-    sections = ["monitor", "channels", "liquid", "profit", "market", "price", "liquid_monitor", "profit_monitor"]
+    sections = ["monitor", "liquid", "profit", "market", "price", "liquid_monitor", "profit_monitor"]
     ok = True
     marks: List[str] = []
     for s in sections:
