@@ -72,10 +72,9 @@ def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
     except Exception:
         cfg = {}
     try:
-        live_on, live_src = xcom_live_status(dl, cfg=cfg)
+        xcom_live, live_src = xcom_live_status(dl, cfg=cfg)
     except Exception:
-        live_on, live_src = False, "—"
-    xcom_live = live_on
+        xcom_live, live_src = False, "—"
     muted      = _get(dl, "muted_modules", default=None)
 
     # Paths (shown as values only; we never embed raw backslashes here)
@@ -99,7 +98,7 @@ def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
     t.add_row("🌐  Sonic Dashboard", " ", Text(str(dash_local)))
     t.add_row("🌐  LAN Dashboard",   " ", Text(str(dash_lan)))
     t.add_row("🔱  LAN API",         " ", Text(str(api_lan)))
-    t.add_row("📡  XCOM Live", _chip_on_off(xcom_live), Text(f"[{live_src}]"))
+    t.add_row("📡  XCOM Live", _chip_on_off(bool(xcom_live)), Text(f"[{live_src}]"))
     t.add_row("🔒  Muted Modules", "—" if not muted else "…", "—" if not muted else Text(str(muted)))
     t.add_row("🟡  Configuration", "FILE", Text(str(cfg_path)))
     t.add_row("🧪  .env (ignored)", " ",   Text(str(env_path)))
