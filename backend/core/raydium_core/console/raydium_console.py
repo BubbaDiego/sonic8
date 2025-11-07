@@ -41,6 +41,8 @@ if os.name == "nt":
 # --- project services ---
 from backend.services.signer_loader import load_signer  # honors SONIC_SIGNER_PATH and root signer.txt
 from backend.config import rpc as rpc_cfg  # helius_url()
+from backend.core.raydium_core.services.nft_scanner import scan_owner_nfts
+from backend.core.raydium_core.services.nft_valuation import value_owner_nfts
 from backend.data.data_locker import DataLocker
 
 # solana-py + solders
@@ -544,17 +546,21 @@ def main():
             pause()
         elif choice == "5":
             owner = show_wallet(cl)
-            print("\n💵 Valuing CLMM NFTs via Raydium SDK + Jupiter…")
-            nftish = list_suspected_nfts(cl, owner, verbose=True)
-            mints = [m for (m, _ta, _strong) in nftish]
-            if not mints:
-                print("   (no candidate mints found)")
-                pause()
-            else:
-                print("   • Mints →", ",".join(mints))
-                rc = _run_ts_value_and_store(str(owner), mints)
-                print("\n(Exit code:", rc, ")")
-                pause()
+            print("\n💵 Valuing CLMM NFTs via services…")
+            # 1) discover (safe if none found)
+            found = scan_owner_nfts(str(owner))
+            # 2) value (uses sdk+jupiter; persists to DB)
+            saved = value_owner_nfts(str(owner))
+            # 3) populate panel fallback var from DB for immediate view
+            try:
+                dl = DataLocker.get_instance()
+                rows = dl.raydium.get_by_owner(str(owner))
+                if getattr(dl, "system", None) and hasattr(dl.system, "set_var"):
+                    dl.system.set_var("raydium_positions", rows)
+            except Exception:
+                pass
+            print(f"   • scanned={found}, saved={saved}")
+            pause()
         elif choice == "0":
             print("\n👋 Done.")
             return
