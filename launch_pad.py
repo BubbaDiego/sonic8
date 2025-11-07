@@ -37,10 +37,30 @@ except Exception:
 
 from backend.console.cyclone_console_service import run_cyclone_console
 from backend.console.db_console_service import run_db_console  # use entry with db_path
-try:
-    from backend.console.config_console import run_console as run_config_console
-except Exception:  # pragma: no cover - optional dependency at runtime
-    run_config_console = None
+# Do NOT import the config console at module import time; import lazily so we can show inline errors.
+
+
+def _launch_config_console_inprocess() -> int:
+    """
+    Run the Config Console in the same window.
+    Show a clear inline reason if it's not available (no log-only behavior).
+    """
+
+    try:
+        # Lazy import so missing files surface as a readable message.
+        from backend.console.config_console_service import run_config_console
+    except Exception as e:
+        console.print(f"[bold red]Config Console not available:[/bold red] {e}")
+        console.print("Expect: backend/console/config_console_service.py with run_config_console()")
+        console.print("Fix: ensure config_core + config_console files are in place, then try again.")
+        return 1
+
+    try:
+        run_config_console()  # runs synchronously in this window
+        return 0
+    except Exception as e:
+        console.print(f"[bold red]Config Console crashed:[/bold red] {e}")
+        return 2
 try:
     from backend.data.data_locker import DataLocker  # type: ignore
 except Exception:  # pragma: no cover - optional dependency at runtime
@@ -285,14 +305,6 @@ def _launch_db_console() -> None:
         except Exception:
             db_path = None
     run_db_console(db_path)
-
-
-def _launch_config_console() -> None:
-    """Launch the Config console if available."""
-    if run_config_console is None:
-        console.log("[yellow]Config console not available in this build.[/]")
-        return
-    run_config_console()
 
 
 # ──────────────────────────── Actions ─────────────────────────────────────────
@@ -1063,7 +1075,7 @@ def main() -> None:
         elif choice == "8":
             run_menu_action("Database Console", _launch_db_console)
         elif choice == "9":
-            run_menu_action("Config Console", _launch_config_console)
+            run_menu_action("Config Console", _launch_config_console_inprocess)
         elif choice == "10":
             run_menu_action("Start Sonic Monitor", launch_sonic_monitor)
         elif choice == "11":
@@ -1085,7 +1097,7 @@ def main() -> None:
         elif choice.upper() == "D":
             run_menu_action("Database Console", _launch_db_console)
         elif choice.upper() == "G":
-            run_menu_action("Config Console", _launch_config_console)
+            run_menu_action("Config Console", _launch_config_console_inprocess)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
         elif choice in {"0", "q", "quit", "exit"}:
