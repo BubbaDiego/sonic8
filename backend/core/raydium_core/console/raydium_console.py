@@ -555,7 +555,7 @@ def main():
                 continue
             # 1) value using explicit mints (bypasses TS owner-scan)
             saved = value_owner_nfts(str(owner), mints=mints)
-            found = saved  # treat valued as found for display
+            found = len(mints)
             # 3) populate panel fallback var from DB for immediate view
             try:
                 dl = DataLocker.get_instance()
