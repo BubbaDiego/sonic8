@@ -1080,9 +1080,9 @@ class DataLocker:
             cfg_out.setdefault("thresholds", {})
             notifications = dict(config.get("notifications") or {})
             notifications.setdefault("system", bool(config.get("windows_alert", True)))
-            notifications.setdefault("voice", bool(config.get("voice_alert", False)))
-            notifications.setdefault("sms", bool(config.get("sms_alert", False)))
-            notifications.setdefault("tts", bool(notifications.get("tts", False)))
+            notifications.setdefault("voice",  bool(config.get("voice_alert", False)))
+            notifications.setdefault("sms",    bool(config.get("sms_alert", False)))
+            notifications.setdefault("tts",    bool(notifications.get("tts", False)))
             cfg_out["notifications"] = notifications
             for asset in assets:
                 cfg_out["thresholds"].setdefault(asset, threshold)
