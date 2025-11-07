@@ -35,6 +35,7 @@ try:
 except Exception:
     pass
 
+from backend.console.cyclone_console_service import run_cyclone_console
 # --- spec toolchain bootstrap (ensures cwd/PYTHONPATH + pyyaml/jsonschema) ---
 try:
     from backend.scripts.spec_bootstrap import preflight as spec_preflight
@@ -467,7 +468,7 @@ def launch_perps_console(new_window: bool = False) -> int:
 
 def launch_cyclone_app(new_window: bool = True) -> int:
     """Launch the interactive Cyclone console (menu-driven)."""
-    cmd = [PYTHON_EXEC, "-m", "backend.console.cyclone_console"]
+    cmd = [PYTHON_EXEC, "-m", "backend.console.cyclone_console_service"]
     print("[Cyclone] Launching Cyclone console module…")
     return run_in_console(cmd, cwd=repo_root(), title="Cyclone App", new_window=new_window)
 
@@ -1034,7 +1035,7 @@ def main() -> None:
         elif choice == "11":
             run_menu_action("Wallet Manager", wallet_menu)
         elif choice == "12":
-            run_menu_action("Launch Cyclone App", lambda: launch_cyclone_app(new_window=True))
+            run_menu_action("Launch Cyclone App", run_cyclone_console)
         elif choice == "13":
             run_menu_action("Session / Goals", goals_menu)
         elif choice == "14":
