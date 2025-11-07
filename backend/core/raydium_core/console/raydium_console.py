@@ -25,8 +25,9 @@ sys.path.insert(0, str(_Path(__file__).resolve().parents[4]))
 
 from pathlib import Path
 
+import json
 import os
-from typing import List, Tuple, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # UTF-8 out on Windows
 if os.name == "nt":
@@ -39,6 +40,7 @@ if os.name == "nt":
 # --- project services ---
 from backend.services.signer_loader import load_signer  # honors SONIC_SIGNER_PATH and root signer.txt
 from backend.config import rpc as rpc_cfg  # helius_url()
+from backend.data.data_locker import DataLocker
 
 # solana-py + solders
 from solders.pubkey import Pubkey
@@ -287,6 +289,51 @@ def print_nfts(nfts: List[Tuple[str, str, bool]]):
 # ---------- TS valuation launcher ----------
 
 
+def _ts_valuation_command(owner_pubkey: str, mints: list[str]) -> tuple[Optional[list[str]], Path, dict[str, str]]:
+    from shutil import which
+
+    js_root = Path(__file__).resolve().parent.parent / "ts"
+    script = js_root / "value_raydium_positions.ts"
+    if not script.exists():
+        print("❌ TS valuation script not found:", script)
+        print(
+            "   Create it via the TS helper snippet from the same CODEX block and run `npm i` in",
+            js_root,
+        )
+        return None, js_root, os.environ.copy()
+
+    env = os.environ.copy()
+    mint_arg = ["--mints", ",".join(mints)] if mints else []
+
+    tsnode_local = js_root / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
+    if tsnode_local.exists():
+        return (
+            [str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg],
+            js_root,
+            env,
+        )
+
+    npx = which("npx.cmd") if os.name == "nt" else which("npx")
+    if npx:
+        return (
+            [npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg],
+            js_root,
+            env,
+        )
+
+    node = which("node") or ("node" if os.name != "nt" else r"C:\\Program Files\\nodejs\\node.exe")
+    if node:
+        return (
+            [node, "-r", "ts-node/register/transpile-only", str(script), "--owner", owner_pubkey, *mint_arg],
+            js_root,
+            env,
+        )
+
+    print("❌ Could not locate ts-node, npx, or node executables.")
+    print("   Checked:", tsnode_local, "and PATH for npx/node.")
+    return None, js_root, env
+
+
 def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     """
     Run the TS helper to value Raydium CL positions for this owner.
@@ -294,53 +341,74 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     Falls back to npx, then to node -r ts-node/register.
     Always prints the actual command and returns a real exit code.
     """
-    from shutil import copyfile, which
-    from pathlib import Path
-    import subprocess, os
+    import subprocess
 
     mints = mints or []
-    js_root = Path(__file__).resolve().parent.parent / "ts"
-    script = js_root / "value_raydium_positions.ts"
-    if not script.exists():
-        print("❌ TS valuation script not found:", script)
-        print("   Create it via the TS helper snippet from the same CODEX block and run `npm i` in", js_root)
+    cmd, js_root, env = _ts_valuation_command(owner_pubkey, mints)
+    if not cmd:
         return 1
 
-    env = os.environ.copy()
-    mint_arg = ["--mints", ",".join(mints)] if mints else []
-    # Optional: pin RPC for TS helper explicitly
-    # env.setdefault("RPC_URL", "https://rpc.helius.xyz/?api-key=YOUR_KEY")
+    print("   • Exec:", " ".join(str(c) for c in cmd))
+    try:
+        proc = subprocess.run(cmd, cwd=str(js_root), env=env)
+        return int(proc.returncode or 0)
+    except FileNotFoundError as e:
+        print("   • File not found:", e)
+        return 127
+    except Exception as e:
+        print("   • Exec failed:", e)
+        return 1
 
-    def _run(cmd: list[str]) -> int:
-        print("   • Exec:", " ".join(str(c) for c in cmd))
+
+def _run_ts_value_and_store(owner: str, mints: list[str]) -> int:
+    import subprocess
+
+    cmd, js_root, env = _ts_valuation_command(owner, mints)
+    if not cmd:
+        return 1
+
+    print("   • Exec:", " ".join(str(c) for c in cmd))
+    payload: Optional[Dict[str, Any]] = None
+    try:
+        with subprocess.Popen(
+            cmd,
+            cwd=str(js_root),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        ) as proc:
+            assert proc.stdout is not None
+            for raw in proc.stdout:
+                line = raw.rstrip("\n")
+                print(line)
+                stripped = line.strip()
+                if stripped.startswith("{") and stripped.endswith("}"):
+                    try:
+                        payload = json.loads(stripped)
+                    except Exception:
+                        continue
+            proc.wait()
+            rc = int(proc.returncode or 0)
+    except FileNotFoundError as e:
+        print("   • File not found:", e)
+        return 127
+    except Exception as e:
+        print("   • Exec failed:", e)
+        return 1
+
+    if payload and isinstance(payload.get("rows") or payload.get("details"), list):
         try:
-            p = subprocess.run(cmd, cwd=str(js_root), env=env)
-            return int(p.returncode)
-        except FileNotFoundError as e:
-            print("   • File not found:", e)
-            return 127
+            dl = DataLocker.get_instance()
+            owner_pk = owner
+            if getattr(dl, "system", None) and hasattr(dl.system, "set_var"):
+                dl.system.set_var("raydium_positions", payload.get("rows") or [])
+            saved = dl.raydium.upsert_from_ts_payload(owner_pk, payload)
+            print(f"   • Upserted {saved} CLMM NFT row(s) → DB.raydium_nfts (+history)")
         except Exception as e:
-            print("   • Exec failed:", e)
-            return 1
+            print(f"   • Note: failed to persist to DataLocker: {e}")
 
-    # 1) Prefer local ts-node shim
-    tsnode_local = js_root / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
-    if tsnode_local.exists():
-        return _run([str(tsnode_local), "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
-
-    # 2) Fallback: npx
-    npx = which("npx.cmd") if os.name == "nt" else which("npx")
-    if npx:
-        return _run([npx, "--yes", "ts-node", "--transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
-
-    # 3) Fallback: node -r ts-node/register
-    node = which("node") or ("node" if os.name != "nt" else r"C:\\Program Files\\nodejs\\node.exe")
-    if node:
-        return _run([node, "-r", "ts-node/register/transpile-only", str(script), "--owner", owner_pubkey, *mint_arg])
-
-    print("❌ Could not locate ts-node, npx, or node executables.")
-    print("   Checked:", tsnode_local, "and PATH for npx/node.")
-    return 1
+    return rc
 
 
 def run_ts_prices(mints: list[str] | None = None) -> int:
@@ -442,7 +510,7 @@ def main():
                 pause()
             else:
                 print("   • Mints →", ",".join(mints))
-                rc = run_ts_valuation(str(owner), mints)
+                rc = _run_ts_value_and_store(str(owner), mints)
                 print("\n(Exit code:", rc, ")")
                 pause()
         elif choice == "0":
