@@ -10,6 +10,7 @@ from .context import MonitorContext
 from .registry import get_enabled_monitors, get_enabled_services
 from .storage.heartbeat_store import HeartbeatStore
 from .storage.ledger_store import LedgerStore
+from .storage.monitor_status_store import MonitorStatusStore
 from .reporting.console.runner import run_console_reporters
 
 class MonitorEngine:
@@ -39,6 +40,7 @@ class MonitorEngine:
         self.ctx = MonitorContext(dl=self.dl, cfg=self.cfg, logger=self.logger, debug=self.debug)
         self.heartbeat = HeartbeatStore(self.dl, self.logger)
         self.ledger = LedgerStore(self.dl, self.logger)
+        self.status = MonitorStatusStore(self.dl, self.logger)
 
     # ───────────────────────── helpers ─────────────────────────
 
@@ -73,9 +75,17 @@ class MonitorEngine:
         for name, runner in monitors:
             try:
                 self.dlog(f"[mon] start {name}")
-                r = runner(self.ctx)
+                r = runner(self.ctx)  # expected contract: dict with optional 'statuses': List[dict]
                 mon_results.append((name, r))
                 self.ledger.append_monitor_result(cycle_id, name, r)
+                # persist normalized statuses if provided
+                try:
+                    statuses = r.get("statuses") if isinstance(r, dict) else None
+                    if isinstance(statuses, list) and statuses:
+                        saved = self.status.append_many(cycle_id, name, statuses)
+                        self.dlog(f"[mon] persisted {saved} statuses", monitor=name)
+                except Exception as e:
+                    self.logger.debug(f"status persist failed for {name}: {e}")
                 self.dlog(f"[mon] done {name}", result=r)
             except Exception as e:
                 self.logger.exception(f"[mon] {name} failed: {e}")

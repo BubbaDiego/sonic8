@@ -4,4 +4,4 @@ from typing import Any, Dict
 
 def run_market_monitors(ctx: Any) -> Dict[str, Any]:
     # Optional market-wide monitor; no-op by default
-    return {"ok": True, "source": "market_monitor", "result": None}
+    return {"ok": True, "source": "market_monitor", "result": None, "statuses": []}
