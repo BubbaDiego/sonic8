@@ -547,10 +547,15 @@ def main():
         elif choice == "5":
             owner = show_wallet(cl)
             print("\n💵 Valuing CLMM NFTs via services…")
-            # 1) discover (safe if none found)
-            found = scan_owner_nfts(str(owner))
-            # 2) value (uses sdk+jupiter; persists to DB)
-            saved = value_owner_nfts(str(owner))
+            nftish = list_suspected_nfts(cl, owner, verbose=True)
+            mints = [m for (m, _ta, _strong) in nftish]
+            if not mints:
+                print("   (no candidate mints found)")
+                pause()
+                continue
+            # 1) value using explicit mints (bypasses TS owner-scan)
+            saved = value_owner_nfts(str(owner), mints=mints)
+            found = saved  # treat valued as found for display
             # 3) populate panel fallback var from DB for immediate view
             try:
                 dl = DataLocker.get_instance()
