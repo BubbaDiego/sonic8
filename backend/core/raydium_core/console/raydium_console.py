@@ -27,6 +27,7 @@ from pathlib import Path
 
 import json
 import os
+import subprocess
 from typing import Any, Dict, List, Optional, Tuple
 
 # UTF-8 out on Windows
@@ -94,6 +95,47 @@ def pause():
 
 
 # ---------- Core ops ----------
+
+
+def _run_ts_value_and_store(owner: str, mints: list[str]) -> int:
+    ts_dir = Path("backend/core/raydium_core/ts").resolve()
+    ts_entry = ts_dir / "value_raydium_positions.ts"
+    ts_node = ts_dir / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
+    cmd = [
+        str(ts_node),
+        "--transpile-only",
+        str(ts_entry),
+        "--owner",
+        owner,
+        "--mints",
+        ",".join(mints),
+        "--emit-json",
+    ]
+    proc = subprocess.run(cmd, cwd=str(ts_dir), text=True, capture_output=True)
+    out = (proc.stdout or "") + "\n" + (proc.stderr or "")
+
+    payload = None
+    for line in out.splitlines():
+        if line.startswith("__JSON__:"):
+            try:
+                payload = json.loads(line.split(":", 1)[1])
+            except Exception:
+                pass
+
+    if payload:
+        try:
+            dl = DataLocker.get_instance()
+            if getattr(dl, "system", None) and hasattr(dl.system, "set_var"):
+                dl.system.set_var("raydium_positions", payload.get("rows", []))
+            if getattr(dl, "raydium", None):
+                dl.raydium.upsert_from_ts_payload(owner, payload)
+            print(f"   • persisted {len(payload.get('rows', []))} rows → system + DB")
+        except Exception as e:
+            print(f"   • persist note: {e}")
+    else:
+        print("   • no JSON payload from TS helper")
+
+    return proc.returncode
 
 def show_wallet(cl: SolClient):
     """
