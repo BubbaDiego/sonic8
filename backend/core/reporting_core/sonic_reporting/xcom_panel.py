@@ -42,6 +42,7 @@ from backend.core.reporting_core.sonic_reporting.xcom_extras import (
     xcom_ready,
     read_voice_cooldown_remaining,
 )
+from backend.services.xcom_status_service import get_last_attempt
 
 # ───────────────────── Panel-local UI options ─────────────────────
 XCOM_BORDER  = "light"         # "light" | "none"
@@ -359,6 +360,43 @@ def render(dl: Optional[DataLocker], csum: Optional[dict], default_json_path: Op
     rows.append(["xcom_ready", _tick(ready_ok), ("ok" if ready_ok else str(ready_reason))])
     rows.append(["provider_cooldown_ok", _tick(cooldown_ok), "—"])
     rows.append(["monitor_snoozed=False", _tick(snooze_ok), "—"])
+
+    gates = [
+        ("Live", bool(xcom_on)),
+        ("Voice", bool(ch.get("voice", False))),
+        ("Cooldown", bool(cooldown_ok)),
+        ("Snoozed", bool(snooze_ok)),
+        ("Breach", bool(breaches)),
+    ]
+    dispatch_ok = all(val for _, val in gates)
+    gate_text = " • ".join(f"{name} {'✓' if val else '✗'}" for name, val in gates)
+    rows.append(["dispatch.armed", _tick(dispatch_ok), gate_text])
+
+    last = get_last_attempt(dl) or {}
+    if last:
+        status = last.get("status")
+        status_label = {
+            "success": "🟢 success",
+            "fail": "🔴 fail",
+            "skipped": "⚪ skipped",
+        }.get(status, status or "—")
+        who = f"{last.get('provider', 'twilio')}/{last.get('channel', 'voice')} → {last.get('to_number', '—')}"
+        sid = last.get("sid") or "—"
+        src = last.get("source", "monitor")
+        rows.append([
+            "last attempt",
+            status_label,
+            f"{last.get('ts', '—')} • {who} • sid={sid} [{src}]",
+        ])
+        if status == "fail":
+            code = last.get("error_code") or "—"
+            http = last.get("http_status") or "—"
+            msg = (last.get("error_msg") or "—")[:120]
+            rows.append(["   provider error", "details", f"HTTP {http} • code {code} — {msg}"])
+        if status == "skipped" and last.get("gated_by"):
+            rows.append(["   skipped by", "gate", str(last.get("gated_by"))])
+    else:
+        rows.append(["last attempt", "—", "no attempts recorded"])
 
     title = "🔍 XCOM Check"
 

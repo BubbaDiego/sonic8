@@ -89,7 +89,7 @@ class VoiceService:
       3) minimal .env parser fallback (same shell, no extra deps)
 
     Returns from call():
-      (ok: bool, sid: Optional[str], to_number: Optional[str], from_number: Optional[str])
+      (ok: bool, sid: Optional[str], to_number: Optional[str], from_number: Optional[str], http_status: Optional[int])
     """
 
     def __init__(self, provider_cfg: Optional[Dict[str, Any]] = None) -> None:
@@ -137,11 +137,18 @@ class VoiceService:
         )
         return sid, tok, from_num, to_num, flow_sid
 
-    def call(self, template: Any, subject: str, body: str, *, dl=None) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
+    def call(
+        self,
+        template: Any,
+        subject: str,
+        body: str,
+        *,
+        dl=None,
+    ) -> Tuple[bool, Optional[str], Optional[str], Optional[str], Optional[int]]:
         # Gate on provider enabled
         if not self._resolve_enabled(dl):
             log.debug("VoiceService: provider disabled -> skipping call", source="voice")
-            return False, None, None, None
+            return False, None, None, None, None
 
         sid, tok, from_num, to_num, flow_sid = self._collect_creds_and_numbers(dl)
 
@@ -152,7 +159,7 @@ class VoiceService:
                 source="voice",
                 payload={"need": "TWILIO_SID/TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN"},
             )
-            return False, None, None, None
+            return False, None, None, None, None
 
         if not to_num or not from_num:
             log.debug(
@@ -160,7 +167,7 @@ class VoiceService:
                 source="voice",
                 payload={"need": "TWILIO_TO/MY_PHONE_NUMBER and TWILIO_FROM/TWILIO_PHONE_NUMBER"},
             )
-            return False, None, None, None
+            return False, None, None, None, None
 
         # Build simple TwiML from subject/body
         msg = (subject or "").strip()
@@ -177,16 +184,22 @@ class VoiceService:
             client = Client(sid, tok)
             call = client.calls.create(to=to_num, from_=from_num, twiml=twiml)
 
+            http_status = getattr(getattr(call, "last_response", None), "status_code", 201)
             log.debug(
                 "VoiceService: call placed",
                 source="voice",
-                payload={"sid": getattr(call, "sid", None), "to": to_num, "from": from_num},
+                payload={
+                    "sid": getattr(call, "sid", None),
+                    "to": to_num,
+                    "from": from_num,
+                    "http_status": http_status,
+                },
             )
-            return True, getattr(call, "sid", None), to_num, from_num
+            return True, getattr(call, "sid", None), to_num, from_num, int(http_status) if http_status is not None else None
 
         except ModuleNotFoundError as e:
             log.warning("VoiceService import error", source="voice", payload={"error": str(e)})
-            return False, None, None, None
+            return False, None, None, None, None
         except Exception as e:
             log.warning("VoiceService Twilio error", source="voice", payload={"error": str(e)})
-            return False, None, None, None
+            return False, None, None, None, None

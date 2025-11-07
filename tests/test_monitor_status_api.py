@@ -216,7 +216,11 @@ def test_profit_voice_updates_liquid_snooze(monkeypatch, tmp_path):
     monkeypatch.setattr(profit_monitor, "DataLocker", lambda *_a, **_k: dl)
     monkeypatch.setattr(profit_monitor, "PositionCore", lambda _dl: FakePC(_dl))
     monkeypatch.setattr(profit_monitor, "ThresholdService", FakeThresholdSvc)
-    monkeypatch.setattr(VoiceService, "call", lambda self, recipient, message: True)
+    monkeypatch.setattr(
+        VoiceService,
+        "call",
+        lambda self, *a, **k: (True, "sid", "+10000000000", "+10000000001", 201),
+    )
 
     monitor = profit_monitor.ProfitMonitor()
     result = monitor._do_work()

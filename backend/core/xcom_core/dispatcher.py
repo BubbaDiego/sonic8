@@ -25,6 +25,7 @@ from backend.data.data_locker import DataLocker
 # consolidated stack
 from backend.core.xcom_core.xcom_config_service import XComConfigService
 from backend.core.xcom_core.voice_service import VoiceService
+from backend.services.xcom_status_service import record_attempt
 from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
 
 
@@ -107,6 +108,10 @@ def dispatch_notifications(
     subject = ctx.get("subject") or f"[{monitor_name}] alert"
     body = ctx.get("body") or res.get("message") or res.get("summary") or ""
     breach = bool(res.get("breach", False))
+    source = ctx.get("source") or res.get("source") or "monitor"
+    intent = res.get("intent") or f"{monitor_name}-breach"
+    to_hint = ctx.get("to_number") or res.get("to_number")
+    from_hint = ctx.get("from_number") or res.get("from_number")
 
     # DataLocker + consolidated config
     if db_path:
@@ -141,37 +146,127 @@ def dispatch_notifications(
         if not breach:
             summary["channels"]["voice"] = {"ok": False, "skip": "breach-required"}
             print("XCOM[VOICE] skip: breach-required")
+            record_attempt(
+                dl,
+                channel="voice",
+                intent=intent,
+                to_number=to_hint,
+                from_number=from_hint,
+                provider="twilio",
+                status="skipped",
+                gated_by="breach-required",
+                source=source,
+            )
         elif not ok_ready:
-            summary["channels"]["voice"] = {"ok": False, "skip": str(reason or "xcom-not-ready")}
+            gate_reason = str(reason or "xcom-not-ready")
+            summary["channels"]["voice"] = {"ok": False, "skip": gate_reason}
             print(f"XCOM[VOICE] skip: not-ready → {reason}")
+            record_attempt(
+                dl,
+                channel="voice",
+                intent=intent,
+                to_number=to_hint,
+                from_number=from_hint,
+                provider="twilio",
+                status="skipped",
+                gated_by=gate_reason,
+                source=source,
+            )
         else:
-            # choose provider (prefer “api” if present, else “twilio”)
             provider_cfg = cfg.get_provider("api") or cfg.get_provider("twilio") or {}
             provider_disabled = (provider_cfg is not None) and (provider_cfg.get("enabled", True) is False)
-            print(f"XCOM[PROV] type={'api' if cfg.get_provider('api') else 'twilio' if cfg.get_provider('twilio') else '∅'} "
-                  f"disabled={provider_disabled}")
+            print(
+                f"XCOM[PROV] type={'api' if cfg.get_provider('api') else 'twilio' if cfg.get_provider('twilio') else '∅'} "
+                f"disabled={provider_disabled}"
+            )
 
             if provider_disabled:
                 summary["channels"]["voice"] = {"ok": False, "skip": "provider-disabled"}
                 print("XCOM[VOICE] skip: provider-disabled")
+                record_attempt(
+                    dl,
+                    channel="voice",
+                    intent=intent,
+                    to_number=to_hint,
+                    from_number=from_hint,
+                    provider="twilio",
+                    status="skipped",
+                    gated_by="provider-disabled",
+                    source=source,
+                )
             else:
                 try:
                     svc = VoiceService(provider_cfg)
-                    ok, sid, to_num, from_num = svc.call(None, subject, body, dl=dl)
+                    ok, sid, to_num, from_num, http_status = svc.call(None, subject, body, dl=dl)
                     voice_payload = {"ok": bool(ok)}
                     if ok:
-                        voice_payload.update({"sid": sid, "to": to_num, "from": from_num})
+                        if sid is not None:
+                            voice_payload["sid"] = sid
+                        if to_num is not None:
+                            voice_payload["to"] = to_num
+                        if from_num is not None:
+                            voice_payload["from"] = from_num
+                        if http_status is not None:
+                            voice_payload["http_status"] = http_status
                         print(f"XCOM[VOICE] ✔ ok sid={sid} to={to_num} from={from_num}")
+                        record_attempt(
+                            dl,
+                            channel="voice",
+                            intent=intent,
+                            to_number=to_num or to_hint,
+                            from_number=from_num or from_hint,
+                            provider="twilio",
+                            status="success",
+                            sid=sid,
+                            http_status=http_status,
+                            source=source,
+                        )
                     else:
                         print("XCOM[VOICE] ✖ call returned ok=False")
+                        record_attempt(
+                            dl,
+                            channel="voice",
+                            intent=intent,
+                            to_number=to_num or to_hint,
+                            from_number=from_num or from_hint,
+                            provider="twilio",
+                            status="fail",
+                            error_msg="voice-service-returned-false",
+                            source=source,
+                        )
                     summary["channels"]["voice"] = voice_payload
                 except Exception as exc:
                     msg = str(exc)[:200]
                     summary["channels"]["voice"] = {"ok": False, "skip": "twilio-error", "error": msg}
                     print(f"XCOM[VOICE] ✖ exception: {msg}")
+                    status_val = getattr(exc, "status", None)
+                    record_attempt(
+                        dl,
+                        channel="voice",
+                        intent=intent,
+                        to_number=to_hint,
+                        from_number=from_hint,
+                        provider="twilio",
+                        status="fail",
+                        error_msg=msg,
+                        error_code=str(getattr(exc, "code", "")) or None,
+                        http_status=int(status_val) if status_val is not None else None,
+                        source=source,
+                    )
     else:
         summary["channels"]["voice"] = {"ok": False, "skip": "disabled"}
         print("XCOM[VOICE] skip: channel.voice=False")
+        record_attempt(
+            dl,
+            channel="voice",
+            intent=intent,
+            to_number=to_hint,
+            from_number=from_hint,
+            provider="twilio",
+            status="skipped",
+            gated_by="channel-disabled",
+            source=source,
+        )
 
     # SMS/TTS placeholders (still disabled unless wired later)
     for k in ("sms", "tts"):

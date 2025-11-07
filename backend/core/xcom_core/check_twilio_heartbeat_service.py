@@ -41,7 +41,7 @@ class CheckTwilioHeartbeatService:
             if not dry_run:
                 if not from_phone or not to_phone:
                     raise Exception("Missing from/to phone numbers")
-                ok, sid, to_num, from_num = VoiceService(self.config).call(
+                ok, sid, to_num, from_num, http_status = VoiceService(self.config).call(
                     to_phone,
                     "XCom Heartbeat",
                     "XCom heartbeat check",
@@ -55,6 +55,8 @@ class CheckTwilioHeartbeatService:
                     result["to_number"] = to_num
                 if from_num:
                     result["from_number"] = from_num
+                if http_status is not None:
+                    result["http_status"] = http_status
 
             result["success"] = True
         except Exception as exc:
