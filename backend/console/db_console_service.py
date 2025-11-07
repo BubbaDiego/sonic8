@@ -57,6 +57,7 @@ ICON: Dict[str, str] = {
 }
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+DB_CONSOLE_ENV = "DB_CONSOLE_DB"  # optional override
 DEFAULT_DB = os.path.join(REPO_ROOT, "backend", "mother.db")
 BACKUP_DIR = os.path.join(REPO_ROOT, "reports", "db_backups")
 EXPORT_DIR = os.path.join(REPO_ROOT, "reports", "db_console")
@@ -285,19 +286,29 @@ class DbConsoleService:
     # ----------------- explore helpers -----------------
 
     def _list_tables(self) -> None:
-        rows = self._exec_ro("""
-            SELECT name, type FROM sqlite_master
-            WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'
-            ORDER BY type DESC, name ASC
-        """)
-        tbl = Table(title="Tables & Views", expand=True)
-        tbl.add_column("Name", style="bold")
-        tbl.add_column("Type")
-        tbl.add_column("Rows", justify="right")
-        for name, typ in rows:
-            cnt = self._scalar_ro(f"SELECT COUNT(*) FROM [{name}]") if typ == "table" else "—"
-            tbl.add_row(name, typ, str(cnt))
-        self.console.print(tbl)
+        """Inline list with friendly errors, never bails to outer logger."""
+        try:
+            rows = self._exec_ro(
+                "SELECT name, type FROM sqlite_master "
+                "WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' "
+                "ORDER BY type DESC, name ASC"
+            )
+            tbl = Table(title="Tables & Views", expand=True)
+            tbl.add_column("Name", style="bold")
+            tbl.add_column("Type")
+            tbl.add_column("Rows", justify="right")
+            for name, typ in rows:
+                try:
+                    cnt = self._scalar_ro(f"SELECT COUNT(*) FROM [{name}]") if typ == "table" else "—"
+                except Exception:
+                    cnt = "?"
+                tbl.add_row(name, typ, str(cnt))
+            self.console.print(tbl)
+        except FileNotFoundError as e:
+            self.console.print(f"{ICON['err']} {e}")
+            self.console.print("Tip: Launch via LaunchPad option 8 or set DB path with env var DB_CONSOLE_DB.")
+        except Exception as e:
+            self.console.print(f"{ICON['err']} Failed to enumerate tables: {e}")
 
     def _show_schema(self, table: str) -> None:
         info = self._exec_ro(f"SELECT sql FROM sqlite_master WHERE name=? AND type IN ('table','view')", (table,))
@@ -591,18 +602,38 @@ class DbConsoleService:
     # ----------------- DB utils -----------------
 
     def _detect_db_path(self) -> str:
-        # Prefer DataLocker path if available
+        """Find a real mother.db; never guess blindly."""
+        env_db = os.environ.get(DB_CONSOLE_ENV)
+        if env_db and os.path.exists(env_db):
+            return env_db
+
         try:
             if DataLocker is not None:
                 dl = DataLocker.get_instance()
                 dbp = getattr(getattr(dl, "db", None), "db_path", None)
-                if dbp and os.path.exists(dbp): return dbp
+                if dbp and os.path.exists(dbp):
+                    return dbp
         except Exception:
             pass
+
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+        candidates = [
+            os.path.join(os.getcwd(), "backend", "mother.db"),
+            os.path.join(REPO_ROOT, "backend", "mother.db"),
+            os.path.join(REPO_ROOT, "mother.db"),
+            os.path.join(base_dir, "..", "mother.db"),
+            os.path.join(base_dir, "..", "..", "mother.db"),
+        ]
+        for p in candidates:
+            candidate = os.path.abspath(p)
+            if os.path.exists(candidate):
+                return candidate
         return DEFAULT_DB
 
     def _conn_ro(self) -> sqlite3.Connection:
-        # Use URI read-only mode to avoid write locks
+        """Read-only connection that fails loudly if file missing."""
+        if not os.path.exists(self.db_path):
+            raise FileNotFoundError(f"Database not found: {self.db_path}")
         uri = f"file:{self.db_path}?mode=ro"
         con = sqlite3.connect(uri, uri=True, check_same_thread=False)
         con.row_factory = sqlite3.Row
