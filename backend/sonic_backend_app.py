@@ -143,6 +143,7 @@ from backend.core.fun_core.fun_router import router as fun_core_router
 from backend.routers import jupiter, monitor_manager
 from backend.routes.jupiter_api import router as jupiter_router
 from backend.routes.jupiter_perps_api import router as perps_router
+from backend.routes.raydium_api import router as raydium_api_router
 from backend.api.routes_perps import router as perps_cli_router
 from backend.api.debug_market_api import router as debug_market_router
 from backend.api.raydium_router import router as raydium_router
@@ -221,6 +222,7 @@ app.add_api_route("/api/jupiter/wallet/send", _wallet_send_token, methods=["POST
 app.add_api_route("/api/jupiter/wallet/preflight-send", _wallet_preflight_send, methods=["POST"])
 app.include_router(jupiter_router)
 app.include_router(perps_router)
+app.include_router(raydium_api_router)
 app.include_router(perps_cli_router)
 app.include_router(raydium_router)
 app.include_router(raydium_api_router)

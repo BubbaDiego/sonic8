@@ -36,6 +36,8 @@ REQUIRED_TABLES = [
     "global_config",
     "system_vars",
     "monitor_ledger",
+    "raydium_nfts",
+    "raydium_nft_history",
 ]
 
 
