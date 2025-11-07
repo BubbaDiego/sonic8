@@ -171,13 +171,7 @@ def _render_unbordered(rows: List[List[str]], header: List[str], title: str) -> 
 def render(dl: Optional[DataLocker], csum: Optional[dict], default_json_path: Optional[str] = None) -> None:
     dl = _ensure_dl(dl)
 
-    # 1) XCOM live
-    try:
-        live_on, live_src = xcom_live_status(dl, cfg=getattr(dl, "global_config", None))
-    except Exception:
-        live_on, live_src = False, "—"
-
-    # 2) JSON path + load (we do not print the “Parse JSON” line anymore)
+    # 1) JSON path + load (we do not print the “Parse JSON” line anymore)
     cfg = {}
     cfg_src = "—"
     try:
@@ -190,6 +184,12 @@ def render(dl: Optional[DataLocker], csum: Optional[dict], default_json_path: Op
     except Exception as e:
         # Keep cfg empty; rows below will reflect that.
         log.debug("sync_panel: JSON parse error", source="sync_panel", payload={"error": str(e)})
+
+    # 2) XCOM live — unified resolver (FILE → DB → ENV)
+    try:
+        live_on, live_src = xcom_live_status(dl, cfg=cfg or getattr(dl, "global_config", None))
+    except Exception:
+        live_on, live_src = False, "—"
 
     # 3) Loop interval, snooze, cooldown
     loop_secs = _safe_get(cfg, ["monitor", "loop_seconds"], None)
