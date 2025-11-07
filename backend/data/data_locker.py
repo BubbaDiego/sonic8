@@ -122,10 +122,11 @@ class DataLocker:
         self.prices = DLPriceManager(self.db)
         self.positions = DLPositionManager(self.db)
         self.hedges = DLHedgeManager(self.db) if DLHedgeManager else None
-        self.wallets = DLWalletManager(self.db)
         self.portfolio = DLPortfolioManager(self.db)
 
         self.session = DLSessionManager(self.db)
+        # Canonical wallet access (reuse existing DLWalletManager)
+        self.wallets = DLWalletManager(self.db)
         self.raydium = DLRaydiumManager(self.db)
         if DLTraderManager:
             try:
