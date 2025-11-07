@@ -7,10 +7,10 @@ Contract (sequencer):
   render(dl, cycle_snapshot_unused, default_json_path=None)
 
 Behavior:
-- Source of truth: dl.read_wallets()
+- Source of truth: dl.wallets.get_wallets()
 - Robust field extraction for dicts and Pydantic/object rows
 - Columns: Name | Chain | Address | Balance | USD | Checked
-- Prints provenance line like: "[WALLETS] source: dl.read_wallets (N rows)"
+- Prints provenance line like: "[WALLETS] source: dl.wallets.get_wallets (N rows)"
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -119,15 +119,19 @@ def _fmt_checked(row: Any) -> str:
 
 def _read_wallets(dl: Any) -> Tuple[List[Any], str]:
     """Return (rows, source_label)."""
+    # canonical manager path (aligns with LaunchPad/Cyclone)
     try:
-        rows = dl.read_wallets()
+        mgr = getattr(dl, "wallets", None)
+        if not mgr or not hasattr(mgr, "get_wallets"):
+            raise AttributeError("wallets manager missing or does not expose get_wallets()")
+        rows = mgr.get_wallets() or []
         try:
             n = len(rows)
         except Exception:
             rows = list(rows)
             n = len(rows)
-        print(f"[WALLETS] source: dl.read_wallets ({n} rows)")
-        return rows, "dl.read_wallets"
+        print(f"[WALLETS] source: dl.wallets.get_wallets ({n} rows)")
+        return rows, "dl.wallets.get_wallets"
     except Exception as e:
         print(f"[WALLETS] error: {type(e).__name__}: {e}")
         return [], "error"
@@ -139,8 +143,9 @@ def _normalize_row(row: Any) -> Tuple[str, str, str, str, str]:
     Map various row schemas to: (name, chain, address, balance_native, usd)
     """
     name = _field(row, "name", "label", "title") or "—"
-    chain = _field(row, "chain", "network", "blockchain") or "—"
-    addr = _field(row, "address", "pubkey", "public_key") or "—"
+    chain = _field(row, "chain", "network", "blockchain", "type") or "—"
+    # prefer public_address to match consoles; fall back to pubkey/address
+    addr = _field(row, "public_address", "pubkey", "address", "public_key") or "—"
 
     native = _field(row, "balance", "amount", "native", "balance_native")
     usd = _field(row, "usd", "usd_total", "balance_usd", "total_usd", "fiat_usd", "value_usd")
