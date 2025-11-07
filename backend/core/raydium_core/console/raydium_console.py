@@ -343,6 +343,54 @@ def run_ts_valuation(owner_pubkey: str, mints: list[str] | None = None) -> int:
     return 1
 
 
+def run_ts_prices(mints: list[str] | None = None) -> int:
+    """
+    Run the TS prices helper for a set of mints (uses Jupiter price API).
+    Prefers the local ts-node shim to avoid PATH/npx issues.
+    """
+    from pathlib import Path
+    from shutil import which
+    import subprocess, os
+
+    mints = mints or []
+    js_root = Path(__file__).resolve().parent.parent / "ts"
+    script = js_root / "fetch_prices.ts"
+    if not script.exists():
+        print("❌ TS prices script not found:", script)
+        print("   Ensure files are under backend/core/raydium_core/ts and run npm i")
+        return 1
+
+    env = os.environ.copy()
+    mint_arg = ["--mints", ",".join(mints)] if mints else []
+
+    def _run(cmd: list[str]) -> int:
+        print("   • Exec:", " ".join(str(c) for c in cmd))
+        try:
+            p = subprocess.run(cmd, cwd=str(js_root), env=env)
+            return int(p.returncode)
+        except FileNotFoundError as e:
+            print("   • File not found:", e)
+            return 127
+        except Exception as e:
+            print("   • Exec failed:", e)
+            return 1
+
+    tsnode_local = js_root / "node_modules" / ".bin" / ("ts-node.cmd" if os.name == "nt" else "ts-node")
+    if tsnode_local.exists():
+        return _run([str(tsnode_local), "--transpile-only", str(script), *mint_arg])
+
+    npx = which("npx.cmd") if os.name == "nt" else which("npx")
+    if npx:
+        return _run([npx, "--yes", "ts-node", "--transpile-only", str(script), *mint_arg])
+
+    node = which("node") or ("node" if os.name != "nt" else r"C:\\Program Files\\nodejs\\node.exe")
+    if node:
+        return _run([node, "-r", "ts-node/register/transpile-only", str(script), *mint_arg])
+
+    print("❌ Could not locate ts-node, npx, or node executables.")
+    return 1
+
+
 
 
 
@@ -358,6 +406,7 @@ def main():
         print("  2) 🖼️  List NFT-like tokens (dec=0, amt>=1; Token + Token-2022 if available)")
         print("  3) 💎  List Raydium NFTs (COMING SOON: allowlist filter)")
         print("  4) 💰 Value Raydium CL positions (TS helper)")
+        print("  5) 💵 Prices for position tokens (Jupiter)")
         print("  0) 🚪  Exit")
         choice = ask("\nPick", "1")
         if choice == "1":
@@ -383,6 +432,19 @@ def main():
             rc = run_ts_valuation(str(owner), mints)
             print("\n(Exit code:", rc, ")")
             pause()
+        elif choice == "5":
+            owner = show_wallet(cl)
+            print("\n💵 Fetching USD prices for position tokens…")
+            nftish = list_suspected_nfts(cl, owner, verbose=True)
+            mints = [m for (m, _ta, _strong) in nftish]
+            if not mints:
+                print("   (no candidate mints found)")
+                pause()
+            else:
+                print("   • Mints →", ",".join(mints))
+                rc = run_ts_prices(mints)
+                print("\n(Exit code:", rc, ")")
+                pause()
         elif choice == "0":
             print("\n👋 Done.")
             return
