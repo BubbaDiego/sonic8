@@ -406,7 +406,7 @@ def main():
         print("  2) 🖼️  List NFT-like tokens (dec=0, amt>=1; Token + Token-2022 if available)")
         print("  3) 💎  List Raydium NFTs (COMING SOON: allowlist filter)")
         print("  4) 💰 Value Raydium CL positions (TS helper)")
-        print("  5) 💵 Prices for position tokens (Jupiter)")
+        print("  5) 💵 Value CLMM NFTs (SDK + Jupiter)")
         print("  0) 🚪  Exit")
         choice = ask("\nPick", "1")
         if choice == "1":
@@ -434,7 +434,7 @@ def main():
             pause()
         elif choice == "5":
             owner = show_wallet(cl)
-            print("\n💵 Fetching USD prices for position tokens…")
+            print("\n💵 Valuing CLMM NFTs via Raydium SDK + Jupiter…")
             nftish = list_suspected_nfts(cl, owner, verbose=True)
             mints = [m for (m, _ta, _strong) in nftish]
             if not mints:
@@ -442,7 +442,7 @@ def main():
                 pause()
             else:
                 print("   • Mints →", ",".join(mints))
-                rc = run_ts_prices(mints)
+                rc = run_ts_valuation(str(owner), mints)
                 print("\n(Exit code:", rc, ")")
                 pause()
         elif choice == "0":
