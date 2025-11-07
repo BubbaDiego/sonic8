@@ -36,7 +36,11 @@ except Exception:
     pass
 
 from backend.console.cyclone_console_service import run_cyclone_console
-from backend.console.db_console import run_console as run_db_console
+from backend.console.db_console_service import run_db_console  # use entry with db_path
+try:
+    from backend.data.data_locker import DataLocker  # type: ignore
+except Exception:  # pragma: no cover - optional dependency at runtime
+    DataLocker = None  # type: ignore
 # --- spec toolchain bootstrap (ensures cwd/PYTHONPATH + pyyaml/jsonschema) ---
 try:
     from backend.scripts.spec_bootstrap import preflight as spec_preflight
@@ -262,6 +266,20 @@ def run_menu_action(label: str, fn):
     if _STICKY_HOLD:
         _pause_after_action()
     return result
+
+
+# DB Console ---------------------------------------------------------------
+
+def _launch_db_console() -> None:
+    """Launch the DB console with a path sourced from DataLocker when available."""
+    db_path = None
+    if 'DataLocker' in globals() and DataLocker is not None:
+        try:
+            locker = DataLocker.get_instance()
+            db_path = getattr(getattr(locker, "db", None), "db_path", None)
+        except Exception:
+            db_path = None
+    run_db_console(db_path)
 
 
 # ──────────────────────────── Actions ─────────────────────────────────────────
@@ -1029,7 +1047,7 @@ def main() -> None:
         elif choice == "7":
             run_menu_action("Verify Database", verify_database)
         elif choice == "8":
-            run_menu_action("Database Console", run_db_console)
+            run_menu_action("Database Console", _launch_db_console)
         elif choice == "9":
             run_menu_action("Start Sonic Monitor", launch_sonic_monitor)
         elif choice == "10":
@@ -1049,7 +1067,7 @@ def main() -> None:
         elif choice == "17":
             run_menu_action("Raydium Console", launch_raydium_console)
         elif choice.upper() == "D":
-            run_menu_action("Database Console", run_db_console)
+            run_menu_action("Database Console", _launch_db_console)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
         elif choice in {"0", "q", "quit", "exit"}:
