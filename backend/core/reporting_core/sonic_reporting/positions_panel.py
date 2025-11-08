@@ -110,6 +110,101 @@ def _left(text: str, width: int) -> str:
     return (text or "").ljust(width)
 
 
+def _get_dl_manager(dl: Any, key: str) -> Any:
+    """Return a DataLocker manager by name, supporting various registry styles."""
+
+    if not dl:
+        return None
+
+    direct = getattr(dl, key, None)
+    if direct:
+        return direct
+
+    gm = getattr(dl, "get_manager", None)
+    if callable(gm):
+        try:
+            mgr = gm(key)
+            if mgr:
+                return mgr
+        except Exception:
+            pass
+
+    legacy = getattr(dl, "manager", None)
+    if callable(legacy):
+        try:
+            mgr = legacy(key)
+            if mgr:
+                return mgr
+        except Exception:
+            pass
+
+    mgrs = getattr(dl, "managers", None)
+    if isinstance(mgrs, dict) and mgrs.get(key):
+        return mgrs.get(key)
+
+    getter = getattr(dl, "get", None)
+    if callable(getter):
+        try:
+            mgr = getter(key)
+            if mgr:
+                return mgr
+        except Exception:
+            pass
+
+    registry = getattr(dl, "registry", None)
+    if isinstance(registry, dict):
+        return registry.get(key)
+
+    return None
+
+
+def _get_sqlite_cursor(*sources: Any):
+    """Return the first SQLite cursor available from provided sources."""
+
+    for src in sources:
+        if not src:
+            continue
+
+        fn = getattr(src, "get_cursor", None)
+        if callable(fn):
+            try:
+                cur = fn()
+                if cur:
+                    return cur
+            except Exception:
+                pass
+
+        db = getattr(src, "db", None)
+        if db:
+            db_fn = getattr(db, "get_cursor", None)
+            if callable(db_fn):
+                try:
+                    cur = db_fn()
+                    if cur:
+                        return cur
+                except Exception:
+                    pass
+            cursor_attr = getattr(db, "cursor", None)
+            if callable(cursor_attr):
+                try:
+                    cur = cursor_attr()
+                    if cur:
+                        return cur
+                except Exception:
+                    pass
+
+        cursor_attr = getattr(src, "cursor", None)
+        if callable(cursor_attr):
+            try:
+                cur = cursor_attr()
+                if cur:
+                    return cur
+            except Exception:
+                pass
+
+    return None
+
+
 # ────────────────────────────────────────────────────────────────────────────────
 # Normalization — Perps + NFTs
 # ────────────────────────────────────────────────────────────────────────────────
@@ -119,15 +214,29 @@ def _norm_perp_row(rec: Dict[str, Any]) -> Dict[str, Any]:
     Normalize a Jupiter/Perps position-like record into the canonical shape.
     Fields are best-effort; we probe a few common aliases.
     """
-    asset = (rec.get("asset") or rec.get("symbol") or rec.get("pair") or rec.get("base") or "").upper()
-    side = rec.get("side") or rec.get("direction") or ""
+    asset = (
+        rec.get("asset_type")
+        or rec.get("asset")
+        or rec.get("symbol")
+        or rec.get("pair")
+        or rec.get("base")
+        or ""
+    ).upper()
+    side = rec.get("side") or rec.get("position_type") or rec.get("direction") or ""
     size = rec.get("size") or rec.get("qty") or rec.get("amount") or 0.0
-    value = rec.get("value") or rec.get("value_usd") or rec.get("usd_value") or rec.get("usd") or 0.0
-    pnl = rec.get("pnl") or rec.get("pnl_usd") or rec.get("delta_usd") or 0.0
+    value = (
+        rec.get("value")
+        or rec.get("size_usd")
+        or rec.get("value_usd")
+        or rec.get("usd_value")
+        or rec.get("usd")
+        or 0.0
+    )
+    pnl = rec.get("pnl") or rec.get("pnl_usd") or rec.get("pnl_after_fees_usd") or rec.get("delta_usd") or 0.0
     lev = rec.get("lev") or rec.get("leverage") or rec.get("lev_x") or rec.get("x")
-    liq = rec.get("liq") or rec.get("liq_usd") or rec.get("liquidation")  # USD
-    heat = rec.get("heat") or rec.get("heat_pct")
-    travel = rec.get("travel") or rec.get("travel_pct") or rec.get("move_pct")
+    liq = rec.get("liq") or rec.get("liq_usd") or rec.get("liquidation_price") or rec.get("liquidation")
+    heat = rec.get("heat") or rec.get("heat_pct") or rec.get("current_heat_index") or rec.get("heat_index")
+    travel = rec.get("travel") or rec.get("travel_pct") or rec.get("travel_percent") or rec.get("move_pct")
 
     try:
         size = float(size or 0.0)
@@ -173,21 +282,11 @@ def _norm_perp_row(rec: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _norm_nft_row(nft: Dict[str, Any], pnl_usd: float) -> Dict[str, Any]:
-    """
-    Normalize a Raydium LP NFT record to the same row shape.
-    We show a diamond + pair code in the Asset column.
-    """
-    # Try to build a nice pair code if we have mint A/B symbols; else show pool or short mint.
-    pair = (
-        nft.get("pair") or
-        nft.get("pair_code") or
-        nft.get("pool") or
-        nft.get("pool_id") or
-        nft.get("symbol") or
-        nft.get("mint") or
-        "NFT"
-    )
-    asset_label = f"◇ {pair}"
+    """Normalize a Raydium LP NFT record to the same row shape."""
+
+    mint = (nft.get("mint") or "").strip()
+    tag = (mint[:3].lower() if mint else "nft")
+    asset_label = f"NFT-{tag}"
 
     usd_total = nft.get("usd_total") or nft.get("usd_value") or nft.get("value_usd") or nft.get("usd") or 0.0
     try:
@@ -211,7 +310,7 @@ def _norm_nft_row(nft: Dict[str, Any], pnl_usd: float) -> Dict[str, Any]:
         "liq": None,
         "heat": None,
         "travel": None,
-        "mint": nft.get("mint"),
+        "mint": mint,
     }
 
 
@@ -223,7 +322,9 @@ def _collect_perp_rows(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
     """
     Try to assemble perp positions from (in order):
       1) ctx['positions'] or ctx['perps'] (list of dicts)
-      2) DataLocker providers commonly used for perps (best-effort)
+      2) DataLocker manager (positions)
+      3) Legacy providers (dl.perps, dl.jupiter, ...)
+      4) SQLite fallback tables
     """
     # 1) Direct
     for key in ("positions", "perps", "perp_positions"):
@@ -232,19 +333,71 @@ def _collect_perp_rows(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
             rows = [_norm_perp_row(r or {}) for r in arr]
             return rows, f"ctx.{key}"
 
-    # 2) DataLocker providers (best-effort)
     dl = ctx.get("dl")
+    svc = _get_dl_manager(dl, "positions")
+    if svc:
+        for name in (
+            "get_active_positions",
+            "get_all_positions",
+            "active",
+            "list_active",
+            "list_positions",
+            "get_positions",
+            "all",
+            "list",
+        ):
+            fn = getattr(svc, name, None)
+            if callable(fn):
+                try:
+                    res = fn()
+                    arr = (res.get("records") if isinstance(res, dict) else res) or []
+                    if isinstance(arr, Iterable) and not isinstance(arr, (str, bytes)):
+                        data = list(arr)
+                    else:
+                        data = []
+                    if data:
+                        rows = []
+                        for item in data:
+                            if isinstance(item, dict):
+                                payload = item
+                            elif hasattr(item, "model_dump"):
+                                payload = item.model_dump()
+                            elif hasattr(item, "dict"):
+                                payload = item.dict()
+                            else:
+                                payload = getattr(item, "__dict__", {}) or {}
+                            rows.append(_norm_perp_row(payload))
+                        if rows:
+                            return rows, f"dl.positions.{name}()"
+                except Exception:
+                    pass
+        for attr in ("records", "positions", "items"):
+            arr = getattr(svc, attr, None)
+            if isinstance(arr, list) and arr:
+                rows = []
+                for item in arr:
+                    if isinstance(item, dict):
+                        payload = item
+                    elif hasattr(item, "model_dump"):
+                        payload = item.model_dump()
+                    elif hasattr(item, "dict"):
+                        payload = item.dict()
+                    else:
+                        payload = getattr(item, "__dict__", {}) or {}
+                    rows.append(_norm_perp_row(payload))
+                if rows:
+                    return rows, f"dl.positions.{attr}"
+
+    # 3) Legacy providers (perps/jupiter/etc)
     if dl:
-        # Try a few plausible providers/names
         candidates = [
             getattr(dl, "perps", None),
             getattr(dl, "jupiter", None),
-            getattr(dl, "positions", None),
+            getattr(dl, "positions", None) if getattr(dl, "positions", None) is not svc else None,
         ]
         for prov in candidates:
             if not prov:
                 continue
-            # common method names
             for name in (
                 "get_open_positions",
                 "get_positions",
@@ -255,21 +408,43 @@ def _collect_perp_rows(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
                 if callable(fn):
                     try:
                         res = fn()
-                        if isinstance(res, dict):
-                            arr = res.get("records") or res.get("positions") or res.get("items") or []
-                        else:
-                            arr = res
+                        arr = (res.get("records") if isinstance(res, dict) else res) or []
                         if isinstance(arr, list) and arr:
                             rows = [_norm_perp_row(r or {}) for r in arr]
                             return rows, f"dl.{prov.__class__.__name__}.{name}()"
                     except Exception:
                         pass
-            # attributes fallback
             for attr in ("records", "positions", "items"):
                 arr = getattr(prov, attr, None)
                 if isinstance(arr, list) and arr:
                     rows = [_norm_perp_row(r or {}) for r in arr]
                     return rows, f"dl.{prov.__class__.__name__}.{attr}"
+
+    # 4) SQLite fallback
+    cursor = _get_sqlite_cursor(dl, svc)
+    if cursor:
+        try:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = {row[0] for row in cursor.fetchall() or []}
+        except Exception:
+            tables = set()
+        table = next((t for t in ("positions", "dl_positions", "open_positions", "sonic_positions") if t in tables), None)
+        if table:
+            try:
+                cursor.execute(f"PRAGMA table_info('{table}')")
+                cols = {row[1] for row in cursor.fetchall() or []}
+            except Exception:
+                cols = set()
+            query = f"SELECT * FROM {table}"
+            if "status" in cols:
+                query += " WHERE status IN ('ACTIVE','OPEN','open','active')"
+            try:
+                cursor.execute(query)
+                rows = cursor.fetchall() or []
+                if rows:
+                    return [_norm_perp_row(dict(r)) for r in rows], f"sqlite:{table}"
+            except Exception:
+                pass
 
     return [], "none"
 
