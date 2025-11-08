@@ -1,13 +1,13 @@
-# Full file: minimal CLI console to prove end-to-end.
 from __future__ import annotations
 
 import argparse
 import json
 
-from ..services import gmx_service
+# use absolute import so both `-m` and direct-path runs work cleanly
+from backend.core.gmx_core.services import gmx_service
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="GMX Console (base)")
     ap.add_argument("--cluster", default="mainnet", choices=["mainnet", "devnet"])
     ap.add_argument("--signer", default=None, help="Path to signer.txt (12-word mnemonic)")
@@ -19,6 +19,7 @@ def main():
 
     args = ap.parse_args()
     signer = args.signer or None
+
     if args.cmd == "health":
         out = gmx_service.get_health(cluster=args.cluster, signer_path=signer)
     elif args.cmd == "markets":
