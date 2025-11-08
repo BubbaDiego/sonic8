@@ -83,7 +83,7 @@ def render_panel_stack(*, ctx: Dict[str, Any], dl=None, width: Optional[int] = N
                     lines_obj = mod.render(ctx)
 
             out = _normalize_lines(lines_obj)
-            # small trace so you can see which panels actually ran
+            # Always trace in-process so we can see this inside the Monitor screen
             writer(f"[REPORT] ran: {mod_path} ({len(out)} lines)")
             for ln in out:
                 writer(ln)
