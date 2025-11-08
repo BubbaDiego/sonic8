@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import platform
 import re
 import shutil
@@ -27,12 +28,14 @@ DETACHED_PROCESS = 0x00000008 if IS_WINDOWS else 0
 def _which(exe: str) -> Optional[str]:
     return shutil.which(exe)
 
+
 def _is_port_listening(port: int, host: str = "127.0.0.1", timeout: float = 0.5) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
     except Exception:
         return False
+
 
 def _sleep_until(predicate, timeout_s: float, interval_s: float = 0.25) -> bool:
     start = time.time()
@@ -42,8 +45,10 @@ def _sleep_until(predicate, timeout_s: float, interval_s: float = 0.25) -> bool:
         time.sleep(interval_s)
     return predicate()
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
 
 def _write_json(path: Path, obj: Any):
     try:
@@ -53,6 +58,7 @@ def _write_json(path: Path, obj: Any):
     except Exception:
         pass
 
+
 def _read_json(path: Path, default: Any = None):
     try:
         if not path.exists():
@@ -60,6 +66,7 @@ def _read_json(path: Path, default: Any = None):
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return default
+
 
 # ---- DataLocker shim ----
 class _DLShim:
@@ -95,6 +102,7 @@ class _DLShim:
                     pass
         return default
 
+
 # ---- process helpers ----
 def _spawn(cmd: list[str], log_path: Path) -> Optional[subprocess.Popen]:
     try:
@@ -106,11 +114,64 @@ def _spawn(cmd: list[str], log_path: Path) -> Optional[subprocess.Popen]:
     except Exception:
         return None
 
+
+def _kill_pid(pid: Optional[int]) -> bool:
+    if not pid:
+        return False
+    try:
+        if IS_WINDOWS:
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/F", "/T"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        else:
+            os.kill(pid, 9)
+        return True
+    except Exception:
+        return False
+
+
+def _kill_ttyd_by_port(port: int) -> bool:
+    # best-effort: try to find the PID by port, else kill all ttyd
+    try:
+        if IS_WINDOWS:
+            out = subprocess.check_output(
+                ["netstat", "-ano"], text=True, stderr=subprocess.DEVNULL
+            )  # noqa: S603
+            for line in out.splitlines():
+                if f":{port} " in line and "LISTENING" in line:
+                    pid = int(line.strip().split()[-1])
+                    return _kill_pid(pid)
+    except Exception:
+        pass
+    try:
+        if IS_WINDOWS:
+            subprocess.run(
+                ["taskkill", "/IM", "ttyd.exe", "/F", "/T"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        else:
+            subprocess.run(
+                ["pkill", "-f", "ttyd"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        return True
+    except Exception:
+        return False
+
+
 # ---- Cloudflare helpers ----
 _URL_RE = re.compile(
     r"https?://[A-Za-z0-9\.\-]+(?:trycloudflare\.com|\.link|\.cfargotunnel\.com|[A-Za-z0-9\.\-]+)/?",
     re.I,
 )
+
 
 def _parse_cloudflared_url_from_log(path: Path) -> Optional[str]:
     if not path.exists():
@@ -122,11 +183,20 @@ def _parse_cloudflared_url_from_log(path: Path) -> Optional[str]:
     except Exception:
         return None
 
+
 def _start_cloudflare_quick(local_port: int) -> Tuple[Optional[subprocess.Popen], Optional[str]]:
     exe = _which("cloudflared") or _which("cloudflared.exe")
     if not exe:
         return (None, None)
-    cmd = [exe, "tunnel", "--url", f"http://127.0.0.1:{local_port}", "--no-autoupdate", "--logfile", str(CF_LOG)]
+    cmd = [
+        exe,
+        "tunnel",
+        "--url",
+        f"http://127.0.0.1:{local_port}",
+        "--no-autoupdate",
+        "--logfile",
+        str(CF_LOG),
+    ]
     proc = _spawn(cmd, CF_LOG)
     if not proc:
         return (None, None)
@@ -134,12 +204,14 @@ def _start_cloudflare_quick(local_port: int) -> Tuple[Optional[subprocess.Popen]
     url = _parse_cloudflared_url_from_log(CF_LOG) if ok else None
     return (proc, url)
 
+
 def _start_cloudflare_named(tunnel_name: str) -> Optional[subprocess.Popen]:
     exe = _which("cloudflared") or _which("cloudflared.exe")
     if not exe or not tunnel_name:
         return None
     cmd = [exe, "tunnel", "run", tunnel_name, "--no-autoupdate", "--logfile", str(CF_LOG)]
     return _spawn(cmd, CF_LOG)
+
 
 # ---- Tailscale helpers ----
 def _tailscale_ip() -> Optional[str]:
@@ -153,8 +225,11 @@ def _tailscale_ip() -> Optional[str]:
     except Exception:
         return None
 
+
 # ---- ttyd launcher ----
-def _start_ttyd(port: int, command: str, auth_user: Optional[str], auth_pass: Optional[str]) -> Optional[subprocess.Popen]:
+def _start_ttyd(
+    port: int, command: str, auth_user: Optional[str], auth_pass: Optional[str]
+) -> Optional[subprocess.Popen]:
     exe = _which("ttyd") or _which("ttyd.exe")
     if not exe:
         return None
@@ -167,14 +242,17 @@ def _start_ttyd(port: int, command: str, auth_user: Optional[str], auth_pass: Op
         args += ["/bin/sh", "-lc", command]
     return _spawn(args, TTYD_LOG)
 
+
 # ---- public API ----
-def ensure_running(config: Dict[str, Any], dl: Any = None, logger: Optional[logging.Logger] = None) -> Optional[str]:
+def ensure_running(
+    config: Dict[str, Any], dl: Any = None, logger: Optional[logging.Logger] = None
+) -> Optional[str]:
     """
     Idempotently ensure web terminal + tunnel are up using ONLY values from `config`.
+    Detects config drift (auth/command) and restarts ttyd when needed.
     Returns public (or local) URL if available.
     """
     log = logger or logging.getLogger("webterm")
-
     if not bool(config.get("enabled", True)):
         return None
 
@@ -185,6 +263,19 @@ def ensure_running(config: Dict[str, Any], dl: Any = None, logger: Optional[logg
     auth_cfg = config.get("auth", {}) or {}
     auth_user = auth_cfg.get("basic_user")
     auth_pass = auth_cfg.get("basic_pass")
+    auth_enabled = bool(auth_user and auth_pass)
+
+    prev = _read_json(STATE_PATH, {}) or {}
+    prev_port = prev.get("port")
+    prev_cmd = prev.get("command")
+    prev_auth = bool(prev.get("auth_enabled", False))
+    prev_pid = prev.get("ttyd_pid")
+
+    # If ttyd is up but config changed, restart it so changes take effect
+    if _is_port_listening(port) and prev_port == port:
+        if (prev_cmd != command) or (prev_auth != auth_enabled):
+            _kill_pid(prev_pid) or _kill_ttyd_by_port(port)
+            _sleep_until(lambda: not _is_port_listening(port), timeout_s=5.0)
 
     # Start ttyd if needed
     if not _is_port_listening(port):
@@ -193,6 +284,9 @@ def ensure_running(config: Dict[str, Any], dl: Any = None, logger: Optional[logg
             log.warning("[WebTerm] ttyd not found or failed to start; skipping web terminal.")
             return None
         _sleep_until(lambda: _is_port_listening(port), timeout_s=10.0)
+        ttyd_pid = getattr(proc, "pid", None)
+    else:
+        ttyd_pid = prev.get("ttyd_pid")
 
     # Decide URL
     url: Optional[str] = None
@@ -204,7 +298,9 @@ def ensure_running(config: Dict[str, Any], dl: Any = None, logger: Optional[logg
         mode = str(cf.get("mode", "named")).lower().strip()
         if mode == "named":
             hostname = cf.get("hostname")
-            tunnel_name = cf.get("tunnel_name") or (hostname.split(".")[0] if isinstance(hostname, str) and "." in hostname else None)
+            tunnel_name = cf.get("tunnel_name") or (
+                hostname.split(".")[0] if isinstance(hostname, str) and "." in hostname else None
+            )
             proc = _start_cloudflare_named(tunnel_name) if tunnel_name else None
             tunnel_pid = getattr(proc, "pid", None)
             if hostname:
@@ -223,13 +319,15 @@ def ensure_running(config: Dict[str, Any], dl: Any = None, logger: Optional[logg
         url = f"http://127.0.0.1:{port}"
         mode = "local"
 
-    # Persist state for reporter / debugging
     state = {
         "active": True,
         "port": port,
         "provider": provider,
         "mode": mode,
         "url": url,
+        "command": command,
+        "auth_enabled": auth_enabled,
+        "ttyd_pid": ttyd_pid,
         "tunnel_pid": tunnel_pid,
         "started_at": _now_iso(),
         "ttyd_log": str(TTYD_LOG),
