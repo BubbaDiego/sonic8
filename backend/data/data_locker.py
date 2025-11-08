@@ -19,6 +19,7 @@ from collections.abc import Mapping
 from typing import Any, Dict, Optional
 from backend.data.database import DatabaseManager
 from backend.data.dl_alerts import DLAlertManager
+from backend.data.dl_monitors import DLMonitorsManager
 from backend.data.dl_prices import DLPriceManager
 from backend.data.dl_positions import DLPositionManager
 from backend.data.dl_wallets import DLWalletManager
@@ -125,6 +126,7 @@ class DataLocker:
         self.portfolio = DLPortfolioManager(self.db)
 
         self.session = DLSessionManager(self.db)
+        self.monitors = DLMonitorsManager(self.db)   # <- first-class monitor status manager
         # Canonical wallet access (reuse existing DLWalletManager)
         self.wallets = DLWalletManager(self.db)
         self.raydium = DLRaydiumManager(self.db)

@@ -1,112 +1,77 @@
-# monitor_status.py
-# Author: BubbaDiego
-# 📌 Purpose: Defines the MonitorStatus model for tracking backend monitor statuses and freshness.
+# -*- coding: utf-8 -*-
+from __future__ import annotations
 
-from datetime import datetime
-from enum import Enum
-from typing import Dict, Optional
-try:
-    from pydantic import BaseModel, Field
-    if not hasattr(BaseModel, "__fields__"):
-        raise ImportError("stub")
-except Exception:  # pragma: no cover - optional dependency or stub detected
-    class BaseModel:  # type: ignore
-        def __init__(self, **data):
-            for k, v in data.items():
-                setattr(self, k, v)
+from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
-        def dict(self) -> dict:  # type: ignore[override]
-            return self.__dict__
 
-    def Field(default=None, default_factory=None, **_):  # type: ignore
-        if default_factory is not None:
-            return default_factory()
-        return default
+VALID_STATES = {"OK", "WARN", "BREACH", "SNOOZE"}
 
-class MonitorType(str, Enum):
-    SONIC = "Sonic Monitoring"
-    PRICE = "Price Monitoring"
-    POSITIONS = "Positions Monitoring"
-    XCOM = "XCom Communication"
 
-class MonitorHealth(str, Enum):
-    HEALTHY = "Healthy"
-    WARNING = "Warning"
-    ERROR = "Error"
-    OFFLINE = "Offline"
+@dataclass
+class MonitorStatus:
+    cycle_id: str
+    ts: str                         # ISO-8601 string
+    monitor: str                    # 'liquid' | 'profit' | 'market' | 'custom' | ...
+    label: str                      # human name e.g., 'BTC – Liq'
+    state: str                      # OK/WARN/BREACH/SNOOZE
+    value: Optional[float] = None
+    unit: str = ""                  # '%', '$', 'bp', etc.
+    thr_op: Optional[str] = None    # '<','<=','>=','>','=='
+    thr_value: Optional[float] = None
+    thr_unit: Optional[str] = None
+    source: Optional[str] = None    # short code: 'liq','profit','mkt','feed'
+    meta: Dict[str, Any] = None
 
-class MonitorDetail(BaseModel):
-    """
-    📌 Represents details of an individual monitor, including its status and last update timestamp.
-    """
-    status: MonitorHealth = Field(..., description="Current health status of the monitor")
-    last_updated: Optional[datetime] = Field(None, description="Timestamp of the last successful update")
-    metadata: Optional[Dict] = Field(default_factory=dict, description="Additional contextual metadata")
+    def to_row(self) -> Dict[str, Any]:
+        d = asdict(self)
+        # enforce state, coerce ts
+        st = (d["state"] or "OK").upper()
+        d["state"] = st if st in VALID_STATES else "OK"
+        if not d.get("ts"):
+            d["ts"] = datetime.now(timezone.utc).isoformat()
+        if d.get("meta") is None:
+            d["meta"] = {}
+        return d
 
-class MonitorStatus(BaseModel):
-    """
-    📌 Comprehensive status snapshot of all system monitors including countdown timers.
-    """
-    monitors: Dict[MonitorType, MonitorDetail] = Field(
-        default_factory=lambda: {
-            MonitorType.SONIC: MonitorDetail(status=MonitorHealth.OFFLINE),
-            MonitorType.PRICE: MonitorDetail(status=MonitorHealth.OFFLINE),
-            MonitorType.POSITIONS: MonitorDetail(status=MonitorHealth.OFFLINE),
-            MonitorType.XCOM: MonitorDetail(status=MonitorHealth.OFFLINE)
-        },
-        description="Current status of all monitored backend components"
-    )
-
-    sonic_next: Optional[int] = Field(0, description="Seconds until the next Sonic monitor run")
-    liquid_snooze: Optional[int] = Field(0, description="Seconds remaining for liquidation snooze timer")
-    sonic_last_complete: Optional[str] = Field(
-        None,
-        description="Timestamp of the last successful Sonic monitor completion in UTC ISO format",
-    )
-
-    def update_monitor(self, monitor_type: MonitorType, status: MonitorHealth, metadata: Dict = None):
-        """
-        ✅ Update a monitor's status and timestamp.
-
-        Args:
-            monitor_type (MonitorType): The specific monitor to update.
-            status (MonitorHealth): The new status of the monitor.
-            metadata (dict, optional): Any additional information to record.
-        """
-        self.monitors[monitor_type] = MonitorDetail(
-            status=status,
-            last_updated=datetime.utcnow(),
-            metadata=metadata or {}
+    @staticmethod
+    def from_status_dict(
+        cycle_id: str,
+        monitor: str,
+        item: Dict[str, Any],
+        default_label: Optional[str] = None,
+        now_iso: Optional[str] = None,
+        default_source: Optional[str] = None,
+    ) -> "MonitorStatus":
+        meta = item.get("meta") or {}
+        thr = item.get("threshold") or meta.get("threshold") or {}
+        ts = (
+            item.get("ts")
+            or meta.get("ts")
+            or now_iso
+            or datetime.now(timezone.utc).isoformat()
         )
-
-    def get_monitor_status(self, monitor_type: MonitorType) -> MonitorDetail:
-        """
-        📖 Retrieve the current status details for a specific monitor.
-
-        Args:
-            monitor_type (MonitorType): The monitor whose status is requested.
-
-        Returns:
-            MonitorDetail: Status detail object.
-        """
-        return self.monitors.get(monitor_type, MonitorDetail(status=MonitorHealth.OFFLINE))
-
-    def to_frontend_payload(self) -> Dict:
-        """
-        🌐 Formats the monitor status into a payload suitable for frontend display.
-
-        Returns:
-            dict: Frontend-friendly representation of the monitor statuses including timers.
-        """
-        return {
-            "monitors": {
-                monitor.value: {
-                    "status": detail.status.value,
-                    "last_updated": detail.last_updated.isoformat() if detail.last_updated else "Never",
-                    "metadata": detail.metadata
-                } for monitor, detail in self.monitors.items()
-            },
-            "sonic_next": self.sonic_next,
-            "liquid_snooze": self.liquid_snooze,
-            "sonic_last_complete": self.sonic_last_complete,
-        }
+        label = item.get("label") or item.get("name") or default_label or monitor
+        unit = item.get("unit") or meta.get("unit") or ""
+        state = (item.get("state") or item.get("status") or "OK").upper()
+        value = item.get("value")
+        # resolve threshold parts
+        thr_op = thr.get("op") or thr.get("operator")
+        thr_value = thr.get("value")
+        thr_unit = thr.get("unit")
+        source = meta.get("source") or default_source or monitor[:6]
+        return MonitorStatus(
+            cycle_id=cycle_id,
+            ts=str(ts),
+            monitor=str(monitor).lower(),
+            label=str(label),
+            state=state if state in VALID_STATES else "OK",
+            value=(float(value) if value is not None else None),
+            unit=str(unit),
+            thr_op=(str(thr_op) if thr_op else None),
+            thr_value=(float(thr_value) if thr_value is not None else None),
+            thr_unit=(str(thr_unit) if thr_unit else None),
+            source=source,
+            meta=(meta if isinstance(meta, dict) else {}),
+        )

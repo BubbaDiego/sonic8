@@ -4,8 +4,10 @@ from __future__ import annotations
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+from backend.models.monitor_status import MonitorStatus
 
 from .context import MonitorContext
 from .registry import get_enabled_monitors, get_enabled_services
@@ -103,21 +105,34 @@ class MonitorEngine:
         # 2) monitors (compute + persist status)
         monitors = get_enabled_monitors(self.cfg)
         for name, runner in monitors:
-            def _run_mon(runner=runner, name=name):
-                r = runner(self.ctx)  # expected contract: dict with optional 'statuses': List[dict]
+            def _run_mon(name=name, runner=runner):
+                r = runner(self.ctx) or {}
                 self.ledger.append_monitor_result(cycle_id, name, r)
-                # optional: persist normalized statuses if provided
+                # Persist via dl.monitors if statuses provided
                 try:
                     statuses = r.get("statuses") if isinstance(r, dict) else None
                     if isinstance(statuses, list) and statuses:
-                        try:
-                            from .storage.monitor_status_store import MonitorStatusStore
-
-                            MonitorStatusStore(self.dl, self.logger).append_many(cycle_id, name, statuses)
-                        except Exception:
-                            pass
+                        now_iso = datetime.now(timezone.utc).isoformat()
+                        mm = getattr(self.dl, "monitors", None)
+                        if mm is not None:
+                            ms_list: List[MonitorStatus] = []
+                            for it in statuses:
+                                if not isinstance(it, dict):
+                                    continue
+                                ms = MonitorStatus.from_status_dict(
+                                    cycle_id=cycle_id,
+                                    monitor=name,
+                                    item=it,
+                                    default_label=name,
+                                    now_iso=now_iso,
+                                    default_source=name[:6],
+                                )
+                                ms_list.append(ms)
+                            if ms_list:
+                                saved = mm.append_many(ms_list)
+                                self.dlog(f"[mon] persisted {saved} monitor statuses", monitor=name)
                 except Exception as e:
-                    self.logger.debug(f"status persist failed for {name}: {e}")
+                    self.logger.debug(f"dl.monitors persist failed for {name}: {e}")
                 # construct lightweight notes
                 note = ""
                 if isinstance(r, dict) and isinstance(r.get("statuses"), list):

@@ -170,6 +170,15 @@ def _load_from_ledger(cur, cid: str) -> List[Dict[str,Any]]:
     except: return []
 
 def _latest_rows(dl: Any) -> Tuple[List[Dict[str,Any]], str]:
+    # Prefer dl.monitors if present
+    try:
+        mm = getattr(dl, "monitors", None)
+        if mm is not None:
+            rs = mm.latest()
+            if rs:
+                return rs, "dl.monitors"
+    except Exception:
+        pass
     try:
         cur = dl.db.get_cursor()
     except: return [], "db.monitor_status"
