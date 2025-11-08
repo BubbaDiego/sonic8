@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 import importlib, traceback
 
 # ───────────────────── toggles ─────────────────────
@@ -12,6 +12,7 @@ ENABLE_POSITIONS    = True
 ENABLE_RAYDIUM      = True
 ENABLE_XCOM         = True
 ENABLE_WALLETS      = True
+ENABLE_CYCLE_FOOTER = True
 
 # Turn this ON so we can see ok/raised lines from panels
 DEBUG_SEQUENCER     = True
@@ -77,6 +78,39 @@ def _call_panel(panel_mod: str, *, dl, csum: Dict[str, Any], default_json_path: 
             _dbg(f"  {line}")
         return False
 
+
+def _call_footer_panel(*, csum: Dict[str, Any], default_json_path: Optional[str]) -> bool:
+    fq = "backend.core.reporting_core.sonic_reporting.cycle_footer_panel"
+    mod = _import(fq)
+    if not mod:
+        _dbg(f"skip: {fq} (module not found)"); return False
+    fn = getattr(mod, "render", None)
+    if not callable(fn):
+        _dbg(f"skip: {fq} (no callable `render`)"); return False
+    try:
+        csum_dict = csum or {}
+        result = fn(None, csum, default_json_path, context={"csum": csum_dict})
+        if result is None:
+            lines: List[str] = []
+        elif isinstance(result, (list, tuple)):
+            lines = list(result)
+        elif isinstance(result, str):
+            lines = [result]
+        else:
+            try:
+                lines = list(result)
+            except TypeError:
+                lines = [str(result)]
+        for line in lines:
+            print(line)
+        _dbg(f"ok: {fq}")
+        return True
+    except Exception as exc:
+        _dbg(f"{fq} raised: {exc.__class__.__name__}: {exc}")
+        for line in traceback.format_exc(limit=6).rstrip().splitlines():
+            _dbg(f"  {line}")
+        return False
+
 # ───────────────────── public API ─────────────────────
 def render_startup_banner(dl, default_json_path: Optional[str] = None, **_: Any) -> None:
     if not ENABLE_BANNER:
@@ -122,3 +156,6 @@ def render_cycle(dl, csum: Dict[str, Any] | None, *, default_json_path: Optional
 
     if ENABLE_WALLETS:
         _call_panel("wallets_panel",   dl=dl, csum=csum, default_json_path=default_json_path)
+
+    if ENABLE_CYCLE_FOOTER:
+        _call_footer_panel(csum=csum, default_json_path=default_json_path)
