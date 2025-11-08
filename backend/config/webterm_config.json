@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "autostart": true,
+  "provider": "cloudflare",
+  "port": 7681,
+  "command": "C:\\sonic7\\.venv\\Scripts\\python.exe C:\\sonic7\\launch_pad.py ; pwsh",
+  "auth": {
+    "basic_user": "geno",
+    "basic_pass": "change-this"
+  },
+  "cloudflare": {
+    "mode": "quick",
+    "hostname": null,
+    "tunnel_name": null
+  }
+}

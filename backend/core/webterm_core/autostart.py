@@ -1,26 +1,30 @@
+# backend/core/webterm_core/autostart.py
 from __future__ import annotations
 
-import os
+import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .manager import ensure_running, _read_json
+from .manager import ensure_running
 
-DEFAULT_CFG = {
+CONFIG_PATH = Path("backend/config/webterm_config.json")
+
+DEFAULT_CFG: Dict[str, Any] = {
     "enabled": True,
     "autostart": True,
-    "provider": "cloudflare",        # "cloudflare" | "tailscale" | "none"
+    "provider": "cloudflare",     # "cloudflare" | "tailscale" | "none"
     "port": 7681,
-    "command": r"C:\\sonic7\\.venv\\Scripts\\python.exe C:\\sonic7\\launch_pad.py",
+    "command": r"C:\\sonic7\\.venv\\Scripts\\python.exe C:\\sonic7\\launch_pad.py ; pwsh",
     "auth": {
-        "basic_user_env": "SONIC_WEBTERM_USER",
-        "basic_pass_env": "SONIC_WEBTERM_PASS",
+        "basic_user": "geno",
+        "basic_pass": "change-this"
     },
     "cloudflare": {
-        "mode": "named",             # "named" | "quick"
-        "hostname": None,            # e.g. "sonic.example.com"
-        "tunnel_name": None          # optional; if omitted, derived from hostname prefix
-    },
+        "mode": "quick",          # "quick" prints ephemeral trycloudflare URL automatically
+        "hostname": None,         # for named tunnels, set e.g. "sonic.example.com"
+        "tunnel_name": None
+    }
 }
 
 def _merge(a: dict, b: dict) -> dict:
@@ -32,60 +36,54 @@ def _merge(a: dict, b: dict) -> dict:
             out[k] = v
     return out
 
-def _load_cfg_from_dl(dl: Any) -> Optional[Dict]:
-    # Best-guess places people store feature flags;
-    # falls back to JSON state if not present.
+def _read_json_file(path: Path) -> Optional[Dict]:
     try:
-        if hasattr(dl, "system") and hasattr(dl.system, "get_var"):
-            cfg = dl.system.get_var("webterm_config")
-            if cfg:
-                return cfg
-        for name in ("get_system_var", "get_var"):
-            if hasattr(dl, name):
-                cfg = getattr(dl, name)("webterm_config")
-                if cfg:
-                    return cfg
+        if not path.exists():
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+def _write_json_file(path: Path, obj: Dict[str, Any]) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(obj, indent=2), encoding="utf-8")
     except Exception:
         pass
-    return _read_json(None, None)  # noop, kept for signature symmetry
+
+def _load_cfg_from_file() -> Dict[str, Any]:
+    cfg = _read_json_file(CONFIG_PATH)
+    if cfg is None:
+        # First run: create default config for the user to edit
+        _write_json_file(CONFIG_PATH, DEFAULT_CFG)
+        cfg = dict(DEFAULT_CFG)
+    return cfg
 
 def autostart(dl: Any = None, logger: Optional[logging.Logger] = None) -> Optional[str]:
     """
-    Read config (DataLocker or env), ensure web terminal is running, and
-    print a one-liner link to stdout (Rich if available).
+    Read ONLY from backend/config/webterm_config.json.
+    Start web terminal if enabled+autostart; print a link at startup.
     """
     log = logger or logging.getLogger("webterm")
 
-    # 1) Resolve config
-    cfg = _merge(DEFAULT_CFG, _load_cfg_from_dl(dl) or {})
-    # Env overrides (simple):
-    if os.environ.get("SONIC_WEBTERM_PROVIDER"):
-        cfg["provider"] = os.environ["SONIC_WEBTERM_PROVIDER"].strip().lower()
-    if os.environ.get("SONIC_WEBTERM_PORT"):
-        try:
-            cfg["port"] = int(os.environ["SONIC_WEBTERM_PORT"])
-        except Exception:
-            pass
-    if os.environ.get("SONIC_WEBTERM_AUTOSTART"):
-        val = os.environ["SONIC_WEBTERM_AUTOSTART"].strip().lower()
-        cfg["autostart"] = val in ("1", "true", "yes", "on")
+    file_cfg = _load_cfg_from_file()
+    cfg = _merge(DEFAULT_CFG, file_cfg or {})
 
     if not cfg.get("enabled", True) or not cfg.get("autostart", True):
         return None
 
-    # 2) Start & fetch URL
     url = ensure_running(cfg, dl=dl, logger=log)
 
-    # 3) Print the link line at startup
+    # Print a visible one-liner on startup
     try:
         from rich.console import Console
         from rich.panel import Panel
         from rich.text import Text
         c = Console()
-        if url:
-            c.print(Panel.fit(Text(f"🌐 Web Terminal: {url}", style="bold cyan"), title="Sonic", border_style="cyan"))
-        else:
-            c.print(Panel.fit(Text("🌐 Web Terminal: starting…", style="bold yellow"), title="Sonic", border_style="yellow"))
+        msg = f"🌐 Web Terminal: {url or 'starting…'}"
+        style = "bold cyan" if url else "bold yellow"
+        border = "cyan" if url else "yellow"
+        c.print(Panel.fit(Text(msg, style=style), title="Sonic", border_style=border))
     except Exception:
         print(f"[Sonic] Web Terminal: {url or 'starting…'}")
 
