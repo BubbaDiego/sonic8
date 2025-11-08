@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 # Consolidated (7-arg) compact reporter from console_reporter
-from backend.core.reporting_core.console_reporter import emit_compact_cycle as _emit_compact_cycle7
+from backend.core.reporting_core.console_reporter import emit_full_console as _emit_full_console7
 
 def emit_compact_cycle(
     summary: Dict[str, Any],
@@ -36,4 +36,22 @@ def emit_compact_cycle(
     slp = float(sleep_time) if sleep_time is not None else max(0.0, float(poll_interval_s or 0) - float(tot or 0))
 
     # Do not pass enable_color (the 7-arg reporter doesn't accept it)
-    _emit_compact_cycle7(summary, int(cyc_ms), int(poll_interval_s), int(lc), float(tot), float(slp))
+    width = None
+    dl = None
+    db_basename = None
+    if isinstance(cfg, dict):
+        width = cfg.get("console_width") or cfg.get("width")
+        dl = cfg.get("dl")
+        db_basename = cfg.get("db_basename")
+
+    _emit_full_console7(
+        summary,
+        int(cyc_ms),
+        int(poll_interval_s),
+        int(lc),
+        float(tot),
+        float(slp),
+        db_basename=db_basename,
+        dl=dl,
+        width=width,
+    )
