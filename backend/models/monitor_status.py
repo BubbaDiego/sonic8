@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 
 # -----------------------------
-# Enums exported for importers
+# Enums (public API)
 # -----------------------------
 
 class MonitorType(str, Enum):
@@ -33,16 +33,18 @@ class MonitorState(str, Enum):
     SNOOZE = "SNOOZE"
 
 
+# Back-compat: some older modules import MonitorHealth
+MonitorHealth = MonitorState
+
 _VALID_STATES = {s.value for s in MonitorState}
 
 
-def _ensure_iso(ts: Optional[str | float | int]) -> str:
+def _ensure_iso(ts: Any) -> str:
     """Return an ISO-8601 timestamp string (UTC) from iso/epoch/None."""
     if ts is None:
         return datetime.now(timezone.utc).isoformat()
     if isinstance(ts, (int, float)):
         return datetime.fromtimestamp(float(ts), tz=timezone.utc).isoformat()
-    # string-ish: accept plain ISO or ISO with 'Z'
     s = str(ts)
     if s.endswith("Z"):
         return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(timezone.utc).isoformat()
