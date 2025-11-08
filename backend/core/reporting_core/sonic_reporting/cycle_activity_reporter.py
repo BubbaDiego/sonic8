@@ -5,18 +5,24 @@ from datetime import datetime, timezone
 import os
 import unicodedata
 
-# ===== colors (title/header text only) =====
+# ===== colors (title/header text only; bars remain plain) =====
 USE_COLOR   = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
-TITLE_COLOR = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")
-HEAD_COLOR  = os.getenv("SONIC_HEAD_COLOR",  "\x1b[38;5;81m")
+TITLE_COLOR = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")  # cyan for title
+HEAD_COLOR  = os.getenv("SONIC_HEAD_COLOR",  "\x1b[38;5;81m")  # teal/blue for header labels
 def _c(s: str, color: str) -> str: return f"{color}{s}\x1b[0m" if USE_COLOR else s
 
-# ===== layout =====
+# ===== layout (78-col house width) =====
 HR_WIDTH = 78
 INDENT   = "  "
-W_ICON, W_ACTIVITY, W_OUTCOME, W_STATUS, W_ELAPSED = 3, 26, 36, 8, 7
 
-# emoji-safe padding
+# icon + 4 data columns (tight & consistent)
+W_ICON     = 3    # emoji + space
+W_ACTIVITY = 26
+W_OUTCOME  = 36
+W_STATUS   = 8
+W_ELAPSED  = 7
+
+# ===== emoji-safe padding =====
 _VAR={0xFE0F,0xFE0E}; _ZW={0x200D,0x200C}
 def _dl(s: str) -> int:
     t=0
@@ -26,7 +32,6 @@ def _dl(s: str) -> int:
         ew=unicodedata.east_asian_width(ch)
         t += 2 if ew in ("W","F") else 1
     return t
-
 def _pad(s: Any, w: int, *, right=False) -> str:
     t = "" if s is None else str(s)
     L = _dl(t)
@@ -35,7 +40,6 @@ def _pad(s: Any, w: int, *, right=False) -> str:
         return t
     pad = " " * (w - L)
     return (pad + t) if right else (t + pad)
-
 def _pad_center(s: Any, w: int) -> str:
     t = "" if s is None else str(s)
     L = _dl(t)
@@ -43,19 +47,18 @@ def _pad_center(s: Any, w: int) -> str:
         while t and _dl(t) > w: t = t[:-1]
         return t
     total = w - L
-    left = total // 2
+    left  = total // 2
     right = total - left
     return (" " * left) + t + (" " * right)
 
+# ===== title rule (color only the text; bars plain) =====
 def _hr(title: str) -> str:
-    label_text = f"🔁 {title}"
-    raw = f" {label_text} "
-    pad = HR_WIDTH - len(raw)
-    if pad < 0:
-        pad = 0
-    left = pad // 2
-    right = pad - left
-    return INDENT + ("─" * left) + " " + _c(label_text, TITLE_COLOR) + " " + ("─" * right)
+    plain   = f"  {title} "
+    colored = f" {_c('🔁  ' + title, TITLE_COLOR)} "
+    pad = HR_WIDTH - len(plain)
+    if pad < 0: pad = 0
+    L = pad // 2; R = pad - L
+    return INDENT + "─"*L + colored + "─"*R
 
 # ===== util =====
 def _secs(ms: Any) -> str:
@@ -64,14 +67,15 @@ def _secs(ms: Any) -> str:
         return f"{float(ms)/1000:.2f}"
     except: return ""
 
+# icons & status tokens (prices explicitly uses 💵)
 ICON = {
-    "prices": "💵",
+    "prices":    "💵",
     "positions": "📊",
-    "raydium": "🪙",
-    "hedges": "🪶",
-    "profit": "💰",
-    "liquid": "💧",
-    "market": "📈",
+    "raydium":   "🪙",
+    "hedges":    "🪶",
+    "profit":    "💰",
+    "liquid":    "💧",
+    "market":    "📈",
     "reporters": "🧭",
     "heartbeat": "💓",
 }
@@ -96,37 +100,37 @@ def _rows_for_cycle(dl: Any, cycle_id: str) -> List[Dict[str, Any]]:
 # ===== render =====
 def render(dl, *_unused, default_json_path=None):
     cid = _latest_cycle_id(dl)
+    print()
     print(_hr("Cycle Activity"))
     if not cid:
         print("  (no activity yet)")
         return
+
     rows = _rows_for_cycle(dl, cid)
 
-    # colored header text only
-    h_activity = _c("Activity", HEAD_COLOR)
-    h_outcome  = _c("Outcome", HEAD_COLOR)
-    h_status   = _c("Status", HEAD_COLOR)
-    h_elapsed  = _c("Elapsed", HEAD_COLOR)
-
+    # Header exactly as requested; header text colored, bars plain
     print(
         "    "
-        + _pad("", W_ICON)                              # icon column blank
-        + _pad(h_activity, W_ACTIVITY)
-        + _pad(h_outcome,  W_OUTCOME)
-        + _pad_center(h_status, W_STATUS)
-        + _pad_center(h_elapsed, W_ELAPSED)
+        + _pad("", W_ICON)
+        + _pad(_c("Activity", HEAD_COLOR), W_ACTIVITY)
+        + _pad(_c("Outcome",  HEAD_COLOR), W_OUTCOME)
+        + _pad_center(_c("Status",  HEAD_COLOR),  W_STATUS)
+        + _pad_center(_c("Elapsed", HEAD_COLOR), W_ELAPSED)
     )
 
     for r in rows:
-        icon = ICON.get(r["phase"], "⚙️") + " "
-        status = STAT.get(str(r.get("outcome") or "ok").lower(), "✅")
-        notes = str(r.get("notes") or "")
-        seconds = _secs(r.get("duration_ms"))
+        phase   = (r.get("phase") or "").strip().lower()
+        icon    = ICON.get(phase, "⚙️") + " "          # dedicated icon cell + trailing space
+        label   = str(r.get("label") or r.get("phase"))
+        outcome = str(r.get("notes") or "")
+        status  = STAT.get(str(r.get("outcome") or "ok").lower(), "✅")
+        elapsed = _secs(r.get("duration_ms"))
+
         print(
             "    "
-            + _pad(icon, W_ICON)
-            + _pad(str(r.get("label") or r.get("phase")), W_ACTIVITY)
-            + _pad(notes, W_OUTCOME)
-            + _pad_center(status, W_STATUS)
-            + _pad_center(seconds, W_ELAPSED)
+            + _pad(icon, W_ICON)                        # icon column
+            + _pad(label,   W_ACTIVITY)
+            + _pad(outcome, W_OUTCOME)
+            + _pad_center(status,  W_STATUS)           # centered Status
+            + _pad_center(elapsed, W_ELAPSED)          # centered Elapsed
         )

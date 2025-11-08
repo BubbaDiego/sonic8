@@ -3,10 +3,10 @@
   "autostart": true,
   "provider": "cloudflare",
   "port": 7681,
-  "command": "C:\\sonic7\\.venv\\Scripts\\python.exe C:\\sonic7\\launch_pad.py ; pwsh",
+  "command": "cmd.exe /K \"title Sonic WebTerm && cd /d C:\\sonic7 && C:\\sonic7\\.venv\\Scripts\\python.exe C:\\sonic7\\launch_pad.py\"",
   "auth": {
     "basic_user": "geno",
-    "basic_pass": "change-this"
+    "basic_pass": "geno"
   },
   "cloudflare": {
     "mode": "quick",
