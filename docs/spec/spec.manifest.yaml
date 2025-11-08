@@ -135,6 +135,26 @@ apis:
   method: POST
   path: /api/portfolio/update_snapshot
   response_schema: SCHEMA-API_PORTFOLIO_UPDATE_SNAPSHOT
+- id: API-AAVE-MARKETS
+  type: http
+  method: GET
+  path: /api/aave/markets
+  response_schema: SCHEMA-AAVE_MARKETS
+- id: API-AAVE-POSITIONS
+  type: http
+  method: GET
+  path: /api/aave/positions
+  response_schema: SCHEMA-POSITIONS
+- id: API-AAVE-PORTFOLIO
+  type: http
+  method: GET
+  path: /api/aave/portfolio
+  response_schema: SCHEMA-PORTFOLIO
+- id: API-AAVE-HEALTH
+  type: http
+  method: GET
+  path: /api/aave/health
+  response_schema: SCHEMA-AAVE_HEALTH
 - id: API-post-cyclone_run
   type: http
   method: POST
@@ -779,6 +799,10 @@ schemas:
   path: docs/spec/schemas/MonitorStatus.json
 - id: SCHEMA-PORTFOLIO
   path: docs/spec/schemas/Portfolio.json
+- id: SCHEMA-AAVE_MARKETS
+  path: docs/spec/schemas/AaveMarkets.json
+- id: SCHEMA-AAVE_HEALTH
+  path: docs/spec/schemas/AaveHealth.json
 - id: SCHEMA-POSITIONS_{POS_ID}
   path: docs/spec/schemas/positions_{pos_id}.json
 - id: SCHEMA-POSITIONS_SNAPSHOT
@@ -1023,6 +1047,19 @@ config:
   - MOD-API
   - MOD-AUTO
 - key: REDIS_URL
+  required: false
+  used_by:
+  - MOD-SVC
+- key: AAVE_CHAIN_ID
+  required: false
+  used_by:
+  - MOD-SVC
+- key: AAVE_GRAPHQL_URL
+  required: true
+  used_by:
+  - MOD-SVC
+  - MOD-API
+- key: EVM_RPC_URL
   required: false
   used_by:
   - MOD-SVC

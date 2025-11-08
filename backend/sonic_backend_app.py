@@ -149,6 +149,7 @@ from backend.api.debug_market_api import router as debug_market_router
 from backend.api.raydium_router import router as raydium_router
 from backend.routes.raydium_api import router as raydium_api_router
 from backend.api.liquid_settings_api import router as liquid_settings_router
+from backend.api.aave_api import router as aave_router
 from backend.middleware.response_validator import install_response_validator, schema_map_router
 from backend.routes import positions_snapshot_api
 
@@ -218,6 +219,7 @@ app.include_router(prices_router)
 app.include_router(solana_router)
 app.include_router(wallet_verify_router)
 app.include_router(wallet_send_router)
+app.include_router(aave_router)
 app.add_api_route("/api/jupiter/wallet/send", _wallet_send_token, methods=["POST"])
 app.add_api_route("/api/jupiter/wallet/preflight-send", _wallet_preflight_send, methods=["POST"])
 app.include_router(jupiter_router)

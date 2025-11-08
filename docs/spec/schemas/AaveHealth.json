@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AaveHealth",
+  "type": "object",
+  "required": ["total_collateral_usd", "total_debt_usd", "health_factor"],
+  "properties": {
+    "total_collateral_usd": {
+      "type": "number",
+      "description": "Total collateral value in USD"
+    },
+    "total_debt_usd": {
+      "type": "number",
+      "description": "Total debt value in USD"
+    },
+    "health_factor": {
+      "type": ["number", "null"],
+      "description": "Aave health factor (null if unavailable)"
+    }
+  },
+  "additionalProperties": false
+}

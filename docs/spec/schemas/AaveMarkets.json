@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AaveMarkets",
+  "type": "object",
+  "required": ["chain_id", "reserves"],
+  "properties": {
+    "chain_id": {
+      "type": "integer",
+      "description": "EVM chain ID for the market snapshot"
+    },
+    "reserves": {
+      "type": "array",
+      "description": "List of reserve configurations for the market",
+      "items": {
+        "type": "object",
+        "required": ["symbol", "address", "decimals"],
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Token symbol for the reserve"
+          },
+          "address": {
+            "type": "string",
+            "description": "Underlying asset address"
+          },
+          "decimals": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Token decimals"
+          },
+          "supply_apy": {
+            "type": ["number", "null"],
+            "description": "Current supply APY"
+          },
+          "variable_borrow_apy": {
+            "type": ["number", "null"],
+            "description": "Current variable borrow APY"
+          },
+          "ltv": {
+            "type": ["number", "null"],
+            "description": "Loan-to-value ratio"
+          },
+          "liquidation_threshold": {
+            "type": ["number", "null"],
+            "description": "Liquidation threshold"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
