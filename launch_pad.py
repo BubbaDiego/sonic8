@@ -19,6 +19,7 @@ import platform
 import webbrowser
 import time
 import importlib
+import importlib.util
 import json
 import traceback
 from datetime import datetime
@@ -550,26 +551,51 @@ def run_test_console():
         console.print("[yellow]Test Console UI not available.[/]")
 
 
-def run_fun_console():
-    import importlib, subprocess, sys
+def _has_module(dotted: str) -> bool:
+    """Return True if a module path is importable (without importing it)."""
 
+    try:
+        return importlib.util.find_spec(dotted) is not None
+    except Exception:
+        return False
+
+
+def run_fun_console() -> None:
+    """Robust launcher for the Fun Console."""
+
+    override = os.environ.get("SONIC_FUN_CONSOLE_MOD", "").strip()
     candidates = [
+        override,
         "backend.core.fun_core.console",
         "backend.core.fun_core.fun_console",
         "backend.core.fun_core",
     ]
-    target = None
+
+    seen: set[str] = set()
+    search: list[str] = []
     for mod in candidates:
-        try:
-            importlib.import_module(mod)
-            target = mod
-            break
-        except Exception:
-            continue
-    if target is None:
-        print("Fun Console module not found. Expected one of:", ", ".join(candidates))
+        if mod and mod not in seen:
+            seen.add(mod)
+            search.append(mod)
+
+    log_dir = repo_root() / "reports" / "launchpad_logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"Fun_Console_{time.strftime('%Y%m%d_%H%M%S')}.log"
+
+    target = next((mod for mod in search if _has_module(mod)), None)
+    if not target:
+        msg = "Fun Console module not found. Tried: " + ", ".join(search)
+        print(msg)
+        log_path.write_text(msg, encoding="utf-8")
         return
-    subprocess.run([sys.executable, "-m", target], check=False)
+
+    print(f"Launching Fun Console via: {target}")
+    try:
+        subprocess.run([sys.executable, "-m", target], check=False)
+    except Exception as exc:
+        err = f"Fun Console failed: {exc!r}"
+        print(err)
+        log_path.write_text(err, encoding="utf-8")
 
 
 def _get_dl_manager():
