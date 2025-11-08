@@ -1,14 +1,68 @@
 import sqlite3
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
 from backend.core.logging import log
 from backend.models.monitor_status import (
     MonitorStatus,
     MonitorType,
-    MonitorHealth,
-    MonitorDetail,
+    MonitorState,
 )
+
+
+@dataclass
+class LedgerMonitorDetail:
+    """Snapshot of a monitor's latest ledger-derived state."""
+
+    state: MonitorState
+    last_updated: Optional[datetime]
+    metadata: Dict[str, Any]
+
+    @property
+    def status(self) -> MonitorState:
+        """Backwards compatible alias returning the normalized state enum."""
+
+        return self.state
+
+    def to_monitor_status(
+        self,
+        *,
+        cycle_id: str,
+        monitor: MonitorType | str,
+        label: str,
+        source: Optional[str] = None,
+        value: Optional[float] = None,
+        unit: str = "",
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> MonitorStatus:
+        """Convert the detail into a normalized MonitorStatus row."""
+
+        ts_value = self.last_updated or datetime.now(timezone.utc)
+        mon_value = monitor.value if isinstance(monitor, MonitorType) else str(monitor)
+        return MonitorStatus(
+            cycle_id=cycle_id,
+            ts=ts_value.isoformat(),
+            monitor=mon_value,
+            label=label,
+            state=self.state.value,
+            value=value,
+            unit=unit,
+            source=source,
+            meta=meta or self.metadata,
+        )
+
+
+class LedgerMonitorStatusSummary:
+    """Container mirroring the legacy MonitorStatus API for the ledger."""
+
+    def __init__(self) -> None:
+        self.monitors: Dict[MonitorType, LedgerMonitorDetail] = {}
+
+    def get_monitor_status(self, monitor_type: MonitorType) -> Optional[LedgerMonitorDetail]:
+        return self.monitors.get(monitor_type)
 
 class DLMonitorLedgerManager:
     def __init__(self, db):
@@ -170,14 +224,15 @@ class DLMonitorLedgerManager:
             log.error(f"🧨 Failed to parse timestamp for {monitor_name}: {e}", source="DLMonitorLedger")
             return {"last_timestamp": None, "age_seconds": 9999, "metadata": {}}
 
-    def get_monitor_status_summary(self) -> MonitorStatus:
-        """Return a MonitorStatus populated with the latest ledger info."""
-        summary = MonitorStatus()
+    def get_monitor_status_summary(self) -> LedgerMonitorStatusSummary:
+        """Return a LedgerMonitorStatusSummary populated with the latest ledger info."""
+
+        summary = LedgerMonitorStatusSummary()
         mapping = {
-            "sonic_monitor": MonitorType.SONIC,
-            "price_monitor": MonitorType.PRICE,
+            "sonic_monitor": MonitorType.HEARTBEAT,
+            "price_monitor": MonitorType.PRICES,
             "position_monitor": MonitorType.POSITIONS,
-            "xcom_monitor": MonitorType.XCOM,
+            "xcom_monitor": MonitorType.REPORTERS,
         }
         for name, mtype in mapping.items():
             status_data = self.get_status(name)
@@ -192,18 +247,18 @@ class DLMonitorLedgerManager:
                     ts = None
 
             if ts is None:
-                health = MonitorHealth.OFFLINE
+                state = MonitorState.BREACH
             else:
                 status_str = (status_data.get("status") or "").lower()
                 if status_str == "success":
-                    health = MonitorHealth.HEALTHY
+                    state = MonitorState.OK
                 elif status_str == "error":
-                    health = MonitorHealth.ERROR
+                    state = MonitorState.BREACH
                 else:
-                    health = MonitorHealth.WARNING
+                    state = MonitorState.WARN
 
-            summary.monitors[mtype] = MonitorDetail(
-                status=health,
+            summary.monitors[mtype] = LedgerMonitorDetail(
+                state=state,
                 last_updated=ts,
                 metadata=status_data.get("metadata") or {},
             )
