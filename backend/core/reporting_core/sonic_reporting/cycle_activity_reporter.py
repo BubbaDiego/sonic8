@@ -14,7 +14,7 @@ def _c(s: str, color: str) -> str: return f"{color}{s}\x1b[0m" if USE_COLOR else
 # ===== layout =====
 HR_WIDTH = 78
 INDENT   = "  "
-W_ICON, W_ACTIVITY, W_NOTES, W_STATUS, W_SEC = 3, 22, 36, 8, 7
+W_ICON, W_ACTIVITY, W_OUTCOME, W_STATUS, W_ELAPSED = 3, 26, 36, 8, 7
 
 # emoji-safe padding
 _VAR={0xFE0F,0xFE0E}; _ZW={0x200D,0x200C}
@@ -48,12 +48,14 @@ def _pad_center(s: Any, w: int) -> str:
     return (" " * left) + t + (" " * right)
 
 def _hr(title: str) -> str:
-    plain = f"  {title} "
-    colored = f" {_c('🔁  ' + title, TITLE_COLOR)} "
-    pad = HR_WIDTH - len(plain)
-    if pad < 0: pad = 0
-    L = pad // 2; R = pad - L
-    return INDENT + "─"*L + colored + "─"*R
+    label_text = f"🔁 {title}"
+    raw = f" {label_text} "
+    pad = HR_WIDTH - len(raw)
+    if pad < 0:
+        pad = 0
+    left = pad // 2
+    right = pad - left
+    return INDENT + ("─" * left) + " " + _c(label_text, TITLE_COLOR) + " " + ("─" * right)
 
 # ===== util =====
 def _secs(ms: Any) -> str:
@@ -62,7 +64,17 @@ def _secs(ms: Any) -> str:
         return f"{float(ms)/1000:.2f}"
     except: return ""
 
-ICON = {"prices":"💵","positions":"📊","raydium":"🪙","hedges":"🪶","profit":"💰","liquid":"💧","market":"📈","reporters":"🧭","heartbeat":"💓"}
+ICON = {
+    "prices": "💵",
+    "positions": "📊",
+    "raydium": "🪙",
+    "hedges": "🪶",
+    "profit": "💰",
+    "liquid": "💧",
+    "market": "📈",
+    "reporters": "🧭",
+    "heartbeat": "💓",
+}
 STAT = {"ok":"✅","warn":"⚠️","error":"✖️","skip":"⚪"}
 
 # ===== data =====
@@ -84,7 +96,6 @@ def _rows_for_cycle(dl: Any, cycle_id: str) -> List[Dict[str, Any]]:
 # ===== render =====
 def render(dl, *_unused, default_json_path=None):
     cid = _latest_cycle_id(dl)
-    print()
     print(_hr("Cycle Activity"))
     if not cid:
         print("  (no activity yet)")
@@ -93,17 +104,17 @@ def render(dl, *_unused, default_json_path=None):
 
     # colored header text only
     h_activity = _c("Activity", HEAD_COLOR)
-    h_notes    = _c("Outcome / Notes", HEAD_COLOR)
+    h_outcome  = _c("Outcome", HEAD_COLOR)
     h_status   = _c("Status", HEAD_COLOR)
-    h_exec     = _c("Exec(s)", HEAD_COLOR)
+    h_elapsed  = _c("Elapsed", HEAD_COLOR)
 
     print(
         "    "
         + _pad("", W_ICON)                              # icon column blank
         + _pad(h_activity, W_ACTIVITY)
-        + _pad(h_notes,    W_NOTES)
+        + _pad(h_outcome,  W_OUTCOME)
         + _pad_center(h_status, W_STATUS)
-        + _pad_center(h_exec,   W_SEC)
+        + _pad_center(h_elapsed, W_ELAPSED)
     )
 
     for r in rows:
@@ -115,7 +126,7 @@ def render(dl, *_unused, default_json_path=None):
             "    "
             + _pad(icon, W_ICON)
             + _pad(str(r.get("label") or r.get("phase")), W_ACTIVITY)
-            + _pad(notes, W_NOTES)
+            + _pad(notes, W_OUTCOME)
             + _pad_center(status, W_STATUS)
-            + _pad_center(seconds, W_SEC)
+            + _pad_center(seconds, W_ELAPSED)
         )
