@@ -1,248 +1,177 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-"""
-wallets_panel — Wallets summary table
-
-Contract (sequencer):
-  render(dl, cycle_snapshot_unused, default_json_path=None)
-
-Behavior:
-- Source of truth: dl.wallets.get_wallets()
-- Robust field extraction for dicts and Pydantic/object rows
-- Columns: Name | Chain | Address | Balance | USD | Checked
-- Prints provenance line like: "[WALLETS] source: dl.wallets.get_wallets (N rows)"
-"""
-
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from datetime import datetime
-from pathlib import Path
+import unicodedata
+import os
 
-# ───────────────────────── small utils ─────────────────────────
+# ===== colors (only text is colored; rules stay plain) =====
+USE_COLOR     = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
+TITLE_COLOR   = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")
+TOTALS_COLOR  = os.getenv("SONIC_TOTALS_COLOR", "\x1b[38;5;214m")
+def _c(s: str, color: str) -> str:
+    return f"{color}{s}\x1b[0m" if USE_COLOR else s
 
-def _to_float(x: Any) -> Optional[float]:
-    try:
-        return float(x)
-    except Exception:
-        return None
+# ===== layout =====
+HR_WIDTH = 78
+INDENT   = "  "
+W_NAME, W_CHAIN, W_ADDR, W_BAL, W_USD, W_CHK = 12, 7, 24, 8, 9, 8
+SEP = "  "
+HEADER_IC = {"name":"👤","chain":"⛓","addr":"🔑","bal":"🪙","usd":"💵","chk":"⏱"}
 
-def _fmt_usd(x: Any) -> str:
-    f = _to_float(x)
-    if f is None:
-        return "—"
-    sgn = "-" if f < 0 else ""
-    f = abs(f)
-    if f >= 1_000_000:
-        return f"{sgn}${f/1_000_000:.1f}m"
-    if f >= 1_000:
-        return f"{sgn}${f/1_000:.1f}k"
-    return f"{sgn}${f:.0f}" if f >= 100 else f"{sgn}${f:.2f}"
-
-def _fmt_native(x: Any) -> str:
-    f = _to_float(x)
-    if f is None:
-        return "—"
-    if abs(f) >= 1_000_000:
-        return f"{f/1_000_000:.1f}m"
-    if abs(f) >= 1_000:
-        return f"{f/1_000:.1f}k"
-    return f"{f:.2f}"
-
-def _safe_getattr(obj: Any, name: str, default=None):
-    try:
-        return getattr(obj, name)
-    except Exception:
-        return default
-
-def _field(row: Any, *candidates: str) -> Any:
-    """Return first non-empty value across candidate keys; works for dicts and objects."""
-    # dict fast path
-    if isinstance(row, dict):
-        for k in candidates:
-            if k in row:
-                v = row[k]
-                if v not in (None, ""):
-                    return v
-        # fall through to attr path just in case
-    # Pydantic/object dump
-    mapper = _safe_getattr(row, "dict", None) or _safe_getattr(row, "model_dump", None)
-    data = None
-    if callable(mapper):
-        try:
-            data = mapper()
-        except Exception:
-            data = None
-    if isinstance(data, dict):
-        for k in candidates:
-            if k in data:
-                v = data[k]
-                if v not in (None, ""):
-                    return v
-    # attribute access
-    for k in candidates:
-        v = _safe_getattr(row, k, None)
-        if v not in (None, ""):
-            return v
-    # item access as final try
-    try:
-        for k in candidates:
-            v = row[k]  # type: ignore[index]
-            if v not in (None, ""):
-                return v
-    except Exception:
-        pass
-    return None
-
-def _fmt_checked(row: Any) -> str:
-    # prefer explicit age seconds
-    age = _field(row, "age_s", "age")
-    if isinstance(age, (int, float)):
-        s = float(age)
-        return f"{int(s)}s" if s < 60 else f"{int(s//60)}m"
-    # absolute timestamp string
-    ts = _field(row, "checked", "updated_at", "ts", "timestamp")
-    if isinstance(ts, (int, float)):
-        # epoch seconds → hh:mm
-        try:
-            return datetime.fromtimestamp(float(ts)).strftime("%-I:%M%p").lower()
-        except Exception:
-            return "(—)"
-    if isinstance(ts, str) and ts:
-        # show as hh:mm if parseable, else just "(0s)"
-        try:
-            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            return dt.strftime("%-I:%M%p").lower()
-        except Exception:
-            return "(0s)"
-    return "(0s)"
-
-# ───────────────────────── DL access ─────────────────────────
-
-def _read_wallets(dl: Any) -> Tuple[List[Any], str]:
-    """Return (rows, source_label)."""
-    # canonical manager path (aligns with LaunchPad/Cyclone)
-    try:
-        mgr = getattr(dl, "wallets", None)
-        if not mgr or not hasattr(mgr, "get_wallets"):
-            raise AttributeError("wallets manager missing or does not expose get_wallets()")
-        rows = mgr.get_wallets() or []
-        try:
-            n = len(rows)
-        except Exception:
-            rows = list(rows)
-            n = len(rows)
-        print(f"[WALLETS] source: dl.wallets.get_wallets ({n} rows)")
-        return rows, "dl.wallets.get_wallets"
-    except Exception as e:
-        print(f"[WALLETS] error: {type(e).__name__}: {e}")
-        return [], "error"
-
-# ───────────────────────── table builders ─────────────────────────
-
-def _normalize_row(row: Any) -> Tuple[str, str, str, str, str]:
-    """
-    Map various row schemas to: (name, chain, address, balance_native, usd)
-    """
-    name = _field(row, "name", "label", "title") or "—"
-    chain = _field(row, "chain", "network", "blockchain", "type") or "—"
-    # prefer public_address to match consoles; fall back to pubkey/address
-    addr = _field(row, "public_address", "pubkey", "address", "public_key") or "—"
-
-    native = _field(row, "balance", "amount", "native", "balance_native")
-    usd = _field(row, "usd", "usd_total", "balance_usd", "total_usd", "fiat_usd", "value_usd")
-
-    return (
-        str(name),
-        str(chain),
-        str(addr),
-        _fmt_native(native),
-        _fmt_usd(usd),
-    )
-
-def _total_usd(rows: List[Any]) -> float:
-    total = 0.0
-    for r in rows:
-        v = _field(r, "usd", "usd_total", "balance_usd", "total_usd", "fiat_usd", "value_usd")
-        f = _to_float(v)
-        if f is not None:
-            total += f
+# ===== emoji-safe padding =====
+_VAR = {0xFE0F, 0xFE0E}
+_ZW  = {0x200D, 0x200C}
+def _disp_len(s: str) -> int:
+    total = 0
+    for ch in s:
+        cp = ord(ch)
+        if cp in _VAR or cp in _ZW: continue
+        ew = unicodedata.east_asian_width(ch)
+        total += 2 if ew in ("W","F") else 1
     return total
 
-# ───────────────────────── rendering ─────────────────────────
+def _padw(text: Any, w: int, *, right=False) -> str:
+    s = "" if text is None else str(text)
+    cur = _disp_len(s)
+    if cur >= w:
+        while s and _disp_len(s) > w: s = s[:-1]
+        return s
+    pad = " " * (w - cur)
+    return (pad + s) if right else (s + pad)
 
-def _render_plain(rows: List[Any]) -> None:
-    width = 80
-    print("💼 Wallets")
-    print("─" * width)
-    hdr = f"{'Name':<16} {'Chain':<6} {'Address':<22} {'Balance':>10} {'USD':>8} {'Checked':>9}"
-    print(hdr)
-    print("─" * len(hdr))
-    if not rows:
-        total = _fmt_usd(0)
-        print(f"{'Total (USD):':>58} {total:>8}")
-        return
-    for r in rows:
-        name, chain, addr, bal, usd = _normalize_row(r)
-        chk = _fmt_checked(r)
-        print(f"{name:<16} {chain:<6} {addr:<22} {bal:>10} {usd:>8} {chk:>9}")
-    print()
-    print(f"{'Total (USD):':>58} {_fmt_usd(_total_usd(rows)):>8}")
+def _pad(s: Any, w: int, right: bool=False) -> str:
+    return _padw(s, w, right=right)
 
-def _render_rich(rows: List[Any]) -> None:
+# ===== visuals =====
+def _hr(title: str) -> str:
+    plain   = f"  {title} "
+    colored = f" {_c('💼  ' + title, TITLE_COLOR)} "
+    pad = HR_WIDTH - len(plain)
+    if pad < 0: pad = 0
+    L = pad // 2; R = pad - L
+    return INDENT + "─"*L + colored + "─"*R
+
+def _abbr_addr(a: Any) -> str:
+    s = "" if a is None else str(a)
+    return "—" if not s else (s if len(s) <= 12 else f"{s[:6]}…{s[-4:]}")
+
+def _fmt_usd(x: Any, w: int, *, right=True) -> str:
+    try: v = float(x)
+    except: return _pad("—", w, right=right)
+    if abs(v) >= 1e6: s = f"${v/1e6:.1f}m".replace(".0m","m")
+    elif abs(v) >= 1e3: s = f"${v/1e3:.1f}k".replace(".0k","k")
+    else: s = f"${v:,.2f}"
+    return _pad(s, w, right=right)
+
+def _fmt_bal(x: Any, w: int, *, right=True) -> str:
+    try: v = float(x)
+    except: return _pad("—", w, right=right)
+    if abs(v) >= 1e3: s = f"{int(round(v))}"
+    elif abs(v) >= 1: s = f"{v:.2f}"
+    elif abs(v) >= .01: s = f"{v:.3f}"
+    else: s = f"{v:.4f}"
+    return _pad(s, w, right=right)
+
+def _fmt_age(val: Any, w: int) -> str:
     try:
-        from rich.console import Console
-        from rich.text import Text
-        from rich.table import Table
-        from rich.box import SIMPLE_HEAD
-        from rich.measure import Measurement
-    except Exception:
-        _render_plain(rows)
-        return
+        if isinstance(val,(int,float)):
+            delta = float(val)
+        else:
+            t = str(val)
+            if t.endswith("Z"):
+                dt = datetime.fromisoformat(t.replace("Z","+00:00"))
+            else:
+                dt = datetime.fromisoformat(t)
+            delta = (datetime.now(dt.tzinfo or None) - dt).total_seconds()
+        if delta < 90: s = f"{int(delta)}s"
+        elif delta < 5400: s = f"{int(delta//60)}m"
+        else: s = f"{int(delta//3600)}h"
+        return _pad(s, w, right=True)
+    except:
+        return _pad("—", w, right=True)
 
-    console = Console()
+# ===== data =====
+def _get_wallets(dl: Any) -> List[Dict[str,Any]]:
+    mgr = getattr(dl, "wallets", None)
+    if mgr and hasattr(mgr, "get_wallets"):
+        try:
+            rows = mgr.get_wallets() or []
+            return [r if isinstance(r,dict) else (getattr(r,"dict",lambda:{})() or getattr(r,"__dict__",{}) or {}) for r in rows]
+        except Exception as e:
+            print(f"[REPORT] wallets_panel: dl.wallets.get_wallets failed: {e}")
+    fn = getattr(dl, "read_wallets", None)
+    if callable(fn):
+        try:
+            return fn() or []
+        except Exception as e:
+            print(f"[REPORT] wallets_panel: dl.read_wallets failed: {e}")
+    return []
 
-    table = Table(
-        show_header=True,
-        header_style="bold",
-        box=SIMPLE_HEAD,
-        show_edge=False,
-        show_lines=False,
-        expand=False,
-        pad_edge=False,
+# ===== render =====
+def render(dl, *_args, **_kw) -> None:
+    rows = _get_wallets(dl)
+
+    print()
+    print(_hr("Wallets"))
+    header = (
+        INDENT
+        + _pad(HEADER_IC["name"] + "Name",  W_NAME)
+        + SEP + _pad(HEADER_IC["chain"] + "Chain", W_CHAIN)
+        + SEP + _pad(HEADER_IC["addr"] + "Address", W_ADDR)
+        + SEP + _pad(HEADER_IC["bal"]  + "Balance", W_BAL)
+        + SEP + _pad(HEADER_IC["usd"]  + "USD",     W_USD)
+        + SEP + _pad(HEADER_IC["chk"]  + "Checked", W_CHK)
     )
-    table.add_column("Name")
-    table.add_column("Chain")
-    table.add_column("Address")
-    table.add_column("Balance", justify="right")
-    table.add_column("USD", justify="right")
-    table.add_column("Checked", justify="right")
+    print(header)
+    print(INDENT + "─"*HR_WIDTH)
 
     if not rows:
-        # Render an empty body but still show a total line below
-        pass
-    else:
-        for r in rows:
-            name, chain, addr, bal, usd = _normalize_row(r)
-            chk = _fmt_checked(r)
-            table.add_row(name, chain, addr, bal, usd, chk)
+        print(f"{INDENT}[WALLETS] source: dl.wallets.get_wallets (0 rows)")
+        print(f"{INDENT}(no wallets)")
+        print()
+        return
 
-    # Measure width to size the title rule without echoing
-    meas = Measurement.get(console, console.options, table)
-    width = max(60, meas.maximum)
+    norm: List[Dict[str,Any]] = []
+    for r in rows:
+        d = r if isinstance(r,dict) else (getattr(r,"dict",lambda:{})() or getattr(r,"__dict__",{}) or {})
+        norm.append({
+            "name":  d.get("name") or d.get("label") or "—",
+            "chain": d.get("chain") or d.get("network") or d.get("type") or "—",
+            "addr":  d.get("public_address") or d.get("address") or d.get("pubkey") or d.get("pub_key") or "",
+            "bal":   d.get("balance") or d.get("native") or d.get("sol") or d.get("amount"),
+            "usd":   d.get("usd") or d.get("balance_usd") or d.get("fiat_usd"),
+            "chk":   d.get("checked_at") or d.get("updated_at") or d.get("ts"),
+            "active": bool(d.get("is_active")),
+        })
 
-    console.print(Text("💼 Wallets".center(width), style="bold bright_cyan"))
-    console.print(Text("─" * width, style="bright_cyan"))
-    console.print(table)
+    total_bal = 0.0
+    total_usd = 0.0
+    for n in norm:
+        try: total_bal += float(n["bal"] or 0.0)
+        except: pass
+        try: total_usd += float(n["usd"] or 0.0)
+        except: pass
 
-    # Total line
-    console.print(
-        Text(
-            f"{'Total (USD):':>58} {_fmt_usd(_total_usd(rows)):>8}",
-            style="bold",
+    for n in norm:
+        star = "★ " if n["active"] else "  "
+        print(
+            INDENT
+            + _pad(star + n["name"], W_NAME)
+            + SEP + _pad(n["chain"], W_CHAIN)
+            + SEP + _pad(_abbr_addr(n["addr"]), W_ADDR)
+            + SEP + _fmt_bal(n["bal"], W_BAL, right=True)
+            + SEP + _fmt_usd(n["usd"], W_USD, right=True)
+            + SEP + _fmt_age(n["chk"], W_CHK)
         )
+
+    totals = (
+        INDENT
+        + _pad("", W_NAME) + SEP + _pad("Totals", W_CHAIN)
+        + SEP + _pad("—", W_ADDR)
+        + SEP + _fmt_bal(total_bal, W_BAL, right=False)
+        + SEP + _fmt_usd(total_usd, W_USD, right=False)
+        + SEP + _pad("", W_CHK)
     )
-
-# ───────────────────────── panel entry ─────────────────────────
-
-def render(dl, _cycle_snapshot_unused, default_json_path=None):
-    rows, _ = _read_wallets(dl)
-    _render_rich(rows)
+    print(_c(totals, TOTALS_COLOR))
+    print()
