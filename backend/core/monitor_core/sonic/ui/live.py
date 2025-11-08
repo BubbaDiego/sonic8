@@ -19,24 +19,23 @@ class _SpinnerThread(threading.Thread):
         i = 0
         while not self._stop.is_set():
             frame = _SPINNER_FRAMES[i % len(_SPINNER_FRAMES)]
-            msg = f"\r{frame}  {self.prefix:<22} {self.text:<48} "
+            msg = f"\r{frame}  {self.prefix:<22} {self.text:<56}"
             sys.stdout.write(msg)
             sys.stdout.flush()
             time.sleep(self.interval)
             i += 1
 
-    def stop(self, outcome_icon: str, final_text: str) -> None:
+    def stop(self) -> None:
         self._stop.set()
-        # clear line then print final status
+        # clear the animated line — no summary print here (table is the truth)
         sys.stdout.write("\r" + " " * 100 + "\r")
-        sys.stdout.write(f"{outcome_icon}  {self.prefix:<22} {final_text}\n")
         sys.stdout.flush()
 
 class SonicMonitorLive:
     """
     Minimal console live UI:
       - start_spinner(phase, label) -> handle
-      - stop_spinner(handle, outcome='ok', notes='', seconds=None)
+      - stop_spinner(handle)        # clears spinner, prints nothing
     """
     def __init__(self, enabled: bool = True) -> None:
         self.enabled = bool(enabled)
@@ -48,11 +47,7 @@ class SonicMonitorLive:
         t.start()
         return t
 
-    def stop_spinner(self, handle: Optional[_SpinnerThread], outcome: str, notes: str, seconds: Optional[float]) -> None:
+    def stop_spinner(self, handle: Optional[_SpinnerThread]) -> None:
         if handle is None:
             return
-        icon = {"ok":"✅", "warn":"⚠️", "error":"✖️", "skip":"⚪"}.get(outcome, "✅")
-        tail = notes
-        if seconds is not None:
-            tail = f"{notes}   ({seconds:.2f}s)"
-        handle.stop(icon, tail)
+        handle.stop()
