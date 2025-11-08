@@ -64,3 +64,4 @@ reports/*.html
 xcom_config.json
 xcom_congig.json
 /backend/core/xcom_core/.ngrok/ngrok.yml
+/signer - Copy.txt

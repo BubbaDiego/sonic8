@@ -1,0 +1,7 @@
+{
+  "aave": {
+    "graphql_url": "https://api.v3.aave.com/graphql",
+    "rpc_url": "https://polygon-rpc.com",
+    "chain_id": 137
+  }
+}
