@@ -1,9 +1,12 @@
-# Sonic — Raydium Core package
-__all__ = [
-    "constants",
-    "rpc",
-    "raydium_api",
-    "raydium_schema",
-    "nft_positions",
-    "raydium_core",
-]
+# makes `backend.core.raydium_core` a package and re-exports the expected symbols
+try:
+    from .dl_raydium import DLRaydiumManager  # type: ignore
+except Exception:
+    DLRaydiumManager = None  # type: ignore
+
+try:
+    from .nft import ClmmNFT  # type: ignore
+except Exception:
+    ClmmNFT = None  # type: ignore
+
+__all__ = ["DLRaydiumManager", "ClmmNFT"]
