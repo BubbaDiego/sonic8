@@ -12,5 +12,9 @@
     "mode": "quick",
     "hostname": null,
     "tunnel_name": null
+  },
+  "qr": {
+    "enabled": true,
+    "border": 1
   }
 }
