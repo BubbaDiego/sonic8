@@ -1,25 +1,23 @@
 from __future__ import annotations
-
 """
 raydium_panel.py
 Sonic Reporting — Raydium LPs panel (console)
 
-Style: same as other Sonic panels
+Style parity with other panels:
 - centered title rail
-- solid rule above the column headers
+- solid rule above column headers
 - tidy columns, total row, checked-at stamp
 
-This module is forgiving about call shapes:
-  render(ctx)
-  render(ctx, width)
-  render(dl, ctx)
-  render(ctx, **kwargs)
-  connector(...) is an alias to render(...).
+Call-shape safe:
+- connector(dl, ctx, width)  ← preferred by console_reporter
+- connector(ctx) / connector(ctx, width)
+- render(ctx, **kw)
+Both always return List[str].
 """
 
 import os
 import datetime as _dt
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 PANEL_KEY = "raydium_panel"
 PANEL_NAME = "Raydium LPs"
@@ -51,7 +49,7 @@ def _title_rail(title: str, width: Optional[int] = None, ch: str = "─") -> str
     return f"{ch * left}{t}{ch * right}"
 
 
-def _abbr_middle(s: str, front: int = 4, back: int = 4, min_len: int = 12) -> str:
+def _abbr_middle(s: Any, front: int = 6, back: int = 6, min_len: int = 12) -> str:
     s = ("" if s is None else str(s)).strip()
     if len(s) <= min_len or len(s) <= front + back + 3:
         return s
@@ -73,10 +71,8 @@ def _fmt_lp(v: Any) -> str:
         x = float(v)
         if x == 0:
             return "—"
-        if abs(x) < 0.001:
-            return f"{x:.4f}"
-        if abs(x) < 1:
-            return f"{x:.3f}"
+        if abs(x) < 0.001: return f"{x:.4f}"
+        if abs(x) < 1:     return f"{x:.3f}"
         return f"{x:.2f}"
     except Exception:
         return str(v)
@@ -117,14 +113,13 @@ def _fmt_time(ts: Any) -> str:
 def _norm_record(rec: Dict[str, Any]) -> Dict[str, Any]:
     if rec is None:
         rec = {}
-
-    pool = rec.get("pool") or rec.get("pool_name") or rec.get("amm") or rec.get("pair") or rec.get("symbol") or rec.get("collection") or ""
+    pool = rec.get("pool") or rec.get("pool_name") or rec.get("amm") or rec.get("pair") \
+           or rec.get("symbol") or rec.get("collection") or ""
     address = rec.get("address") or rec.get("owner") or rec.get("pubkey") or rec.get("mint") or ""
     lp_qty = rec.get("lp_qty") or rec.get("qty") or rec.get("balance") or rec.get("amount") or rec.get("raw_amount")
     usd_value = rec.get("usd_value") or rec.get("usd") or rec.get("value_usd") or rec.get("fiat_value") or 0.0
     apr = rec.get("apr") or rec.get("apy") or rec.get("est_apr")
     checked_ts = rec.get("checked_ts") or rec.get("ts") or rec.get("timestamp")
-
     return {
         "pool": str(pool) if pool is not None else "",
         "address": str(address) if address is not None else "",
@@ -143,7 +138,13 @@ def _coalesce(*vals, default=None):
 
 
 def _collect_records(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
-    # 1) direct on context
+    """
+    Try sources in order:
+      1) ctx['records'] or ctx['raydium'] (list/dict)
+      2) ctx['csum']['raydium']['records'|'lps']
+      3) dl.raydium.* helpers
+    """
+    # 1) direct feed
     direct = ctx.get("records")
     if isinstance(direct, list) and direct:
         return [_norm_record(r or {}) for r in direct], "ctx.records"
@@ -168,12 +169,13 @@ def _collect_records(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
     dl = ctx.get("dl")
     provider = getattr(dl, "raydium", None)
     if provider:
-        for name in ("get_latest_lp_positions", "get_lp_positions", "get_positions", "list_lp_nfts", "list_positions"):
+        for name in ("get_latest_lp_positions", "get_lp_positions", "get_positions",
+                     "list_lp_nfts", "list_positions"):
             fn = getattr(provider, name, None)
             if callable(fn):
                 try:
                     res = fn()
-                    arr = (res.get("records") if isinstance(res, dict) else res) or []
+                    arr = (res.get("records") if isinstance(res, dict) else res)
                     if isinstance(arr, list) and arr:
                         return [_norm_record(r or {}) for r in arr], f"dl.raydium.{name}()"
                 except Exception:
@@ -188,66 +190,59 @@ def _collect_records(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
 
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Rendering (positional-args tolerant)
+# Public API
 # ────────────────────────────────────────────────────────────────────────────────
 
-def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[str]:
+def connector(dl=None, ctx: Optional[Dict[str, Any]] = None, width: Optional[int] = None, **kw) -> List[str]:
     """
-    Accepted shapes:
-      render(ctx)
-      render(ctx, width)
-      render(dl, ctx)
-      render(ctx, csum={...})
-      render(..., width=92)
+    Preferred entrypoint from console_reporter.
+    Normalizes everything into a single ctx dict and delegates to render().
+    Always returns List[str].
+    """
+    # `ctx` might be passed positionally or via kw; reconcile:
+    if ctx is None and "context" in kw and isinstance(kw["context"], dict):
+        ctx = kw.pop("context")
+
+    ctx_dict: Dict[str, Any] = {}
+    if isinstance(ctx, dict):
+        ctx_dict.update(ctx)
+    # propagate dl/width and any extras
+    if dl is not None:
+        ctx_dict["dl"] = dl
+    if width is not None:
+        ctx_dict["width"] = width
+    ctx_dict.update(kw)
+    lines = render(ctx_dict)
+    return lines if isinstance(lines, list) else [str(lines)]
+
+
+def render(context: Optional[Dict[str, Any]] = None, **kwargs) -> List[str]:
+    """
+    Legacy-friendly renderer; accepts a single ctx dict (preferred).
+    Returns List[str].
     """
     ctx: Dict[str, Any] = {}
-    if context:
+    if isinstance(context, dict):
         ctx.update(context)
-
-    # absorb extra positionals commonly sent by the sequencer
-    if len(args) >= 1:
-        a0 = args[0]
-        if isinstance(a0, dict):
-            ctx.update(a0)
-        else:
-            # DataLocker instance or other helper
-            ctx.setdefault("dl", a0)
-    if len(args) >= 2:
-        a1 = args[1]
-        if isinstance(a1, dict):
-            ctx.update(a1)
-        elif isinstance(a1, (int, float)):
-            kwargs.setdefault("width", int(a1))
-
-    if kwargs:
-        ctx.update(kwargs)
+    ctx.update(kwargs)
 
     width = ctx.get("width") or _console_width()
 
     out: List[str] = []
     out.append(_title_rail("Raydium LPs", width))
-    out.append(_hr(width))  # solid rule above headers
+    out.append(_hr(width))
 
-    # Column spec (kept in sync with other panels)
-    col_pool = 22
-    col_addr = 34
-    col_lp = 9
-    col_usd = 12
-    col_apr = 7
-    col_chk = 10
+    # columns
+    col_pool, col_addr, col_lp, col_usd, col_apr, col_chk = 22, 34, 9, 12, 7, 10
 
     def fmt_row(pool, addr, lp, usd, apr, chk) -> str:
-        pool = _abbr_middle(pool or "", 6, 6, min_len=col_pool)
-        addr = _abbr_middle(addr or "", 6, 6, min_len=col_addr)
-        lp = (lp or "").rjust(col_lp)
-        usd = (usd or "").rjust(col_usd)
-        apr = (apr or "").rjust(col_apr)
-        chk = (chk or "").rjust(col_chk)
-        line = (
-            f"{pool:<{col_pool}}  "
-            f"{addr:<{col_addr}}  "
-            f"{lp}{' ' * 2}{usd}{' ' * 2}{apr}{' ' * 2}{chk}"
-        )
+        pool = _abbr_middle(pool, 6, 6, col_pool)
+        addr = _abbr_middle(addr, 6, 6, col_addr)
+        lp   = (lp or "").rjust(col_lp)
+        usd  = (usd or "").rjust(col_usd)
+        apr  = (apr or "").rjust(col_apr)
+        chk  = (chk or "").rjust(col_chk)
+        line = f"{pool:<{col_pool}}  {addr:<{col_addr}}  {lp}  {usd}  {apr}  {chk}"
         return line[:width] if len(line) > width else line
 
     out.append(fmt_row("Pool", "Address", "LP", "USD", "APR", "Checked"))
@@ -257,7 +252,7 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     total_usd = 0.0
     last_ts = None
 
-    if records:
+    if isinstance(records, list) and records:
         for rec in records:
             total_usd += float(rec.get("usd_value") or 0.0)
             ts = rec.get("checked_ts")
@@ -277,13 +272,8 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     out.append("")
     out.append(f"  Total (USD): {_fmt_usd(total_usd)}")
     out.append(f"  Checked: {_fmt_time(last_ts) if last_ts else _fmt_time(None)}")
-    out.append(f"[RAY] source={source} count={len(records)}")
+    out.append(f"[RAY] source={source} count={len(records) if isinstance(records, list) else 0}")
     return out
-
-
-def connector(*args, **kwargs) -> List[str]:
-    """Sequencer-friendly entrypoint; simply delegates to render."""
-    return render(*args, **kwargs)
 
 
 def name() -> str:
@@ -292,12 +282,12 @@ def name() -> str:
 
 if __name__ == "__main__":
     demo = [{
-        "pool": "So1111…/EPjF…",
+        "pool": "So111111…/EPjF…",
         "address": "2jn9ve…dSU9pj",
         "lp_qty": 1.23456,
         "usd_value": 106,
         "apr": None,
         "checked_ts": _dt.datetime.now().isoformat(timespec="seconds"),
     }]
-    for ln in render({"records": demo}):
+    for ln in connector(ctx={"records": demo}, width=92):
         print(ln)
