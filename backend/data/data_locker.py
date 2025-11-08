@@ -26,6 +26,7 @@ from backend.data.dl_wallets import DLWalletManager
 from backend.data.dl_portfolio import DLPortfolioManager
 from backend.data.dl_session import DLSessionManager
 from backend.data.dl_raydium import DLRaydiumManager
+from backend.data.dl_xcom import DLXComManager
 
 try:  # pragma: no cover - optional dependency
     from backend.data.dl_system_data import DLSystemDataManager
@@ -130,6 +131,7 @@ class DataLocker:
         # Canonical wallet access (reuse existing DLWalletManager)
         self.wallets = DLWalletManager(self.db)
         self.raydium = DLRaydiumManager(self.db)
+        self.xcom = DLXComManager(self.db)
         if DLTraderManager:
             try:
                 self.traders = DLTraderManager(self.db)
