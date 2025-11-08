@@ -2,7 +2,8 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
-W_ICON, W_ACTIVITY, W_NOTES, W_SEC = 2, 26, 46, 8
+# widths
+W_ICON, W_ACTIVITY, W_NOTES, W_STATUS, W_SEC = 2, 26, 44, 8, 8
 
 _ICON = {
     "prices": "💵",
@@ -39,6 +40,13 @@ def _rows_for_cycle(dl: Any, cycle_id: str) -> List[Dict[str, Any]]:
     cols = [d[0] for d in cur.description]
     return [dict(zip(cols, r)) for r in cur.fetchall()]
 
+def _secs(ms: Any) -> str:
+    try:
+        if ms is None: return ""
+        return f"{float(ms)/1000:.2f}"
+    except Exception:
+        return ""
+
 def render(dl, *_unused, default_json_path=None):
     cid = _latest_cycle_id(dl)
     print("\n  ---------------------- 🔁  Cycle Activity  -------------------")
@@ -53,24 +61,20 @@ def render(dl, *_unused, default_json_path=None):
           + _pad("", W_ICON)
           + _pad("Activity", W_ACTIVITY)
           + _pad("Outcome / Notes", W_NOTES)
+          + _pad("Status", W_STATUS)
           + _pad("Exec(s)", W_SEC, "right"))
 
     for r in rows:
         icon = _ICON.get(r["phase"], "⚙️")
         status = _STATUS.get(str(r.get("outcome") or "ok"), "✅")
         notes = str(r.get("notes") or "")
-        secs = ""
-        try:
-            ms = r.get("duration_ms")
-            if ms is not None:
-                secs = f"{float(ms)/1000:.2f}"
-        except Exception:
-            secs = ""
-        line = (
+        seconds = _secs(r.get("duration_ms"))
+
+        print(
             "    "
             + _pad(icon, W_ICON)
             + _pad(str(r.get("label") or r.get("phase")), W_ACTIVITY)
-            + _pad(f"{notes}  {status}", W_NOTES)
-            + _pad(secs, W_SEC, "right")
+            + _pad(notes, W_NOTES)
+            + _pad(status, W_STATUS)
+            + _pad(seconds, W_SEC, "right")
         )
-        print(line)

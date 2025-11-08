@@ -90,7 +90,8 @@ class MonitorEngine:
                     duration_ms=int(dt * 1000),
                     details=details,
                 )
-                self.live.stop_spinner(sp, outcome=outcome, notes=notes, seconds=dt)
+                # stop spinner silently; Cycle Activity table will show outcome/time
+                self.live.stop_spinner(sp)
 
         # 1) services (populate DB)
         services = get_enabled_services(self.cfg)
