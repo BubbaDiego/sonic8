@@ -79,7 +79,7 @@
 - **Purpose**: Persistence utilities and data models.
 - **Key files**
   - `backend/data/__init__.py`
-  - `backend/data/data_locker.py`
+  - `back[sonic_monitor.py](../../backend/core/monitor_core/sonic_monitor.py)end/data/data_locker.py`
   - `backend/data/database.py`
   - `backend/data/dl_alerts.py`
   - `backend/data/dl_hedges.py`
