@@ -518,14 +518,6 @@ def launch_cyclone_app(new_window: bool = True) -> int:
     return run_in_console(cmd, cwd=repo_root(), title="Cyclone App", new_window=new_window)
 
 
-def verify_database():
-    script = ROOT_DIR / "scripts" / "verify_all_tables_exist.py"
-    if script.exists():
-        subprocess.call([PYTHON_EXEC, str(script)])
-    else:
-        console.log("[yellow]scripts/verify_all_tables_exist.py not found.[/]")
-
-
 def run_tests_hub() -> None:
     console.log("🧪 Launching Tests Hub…")
     script = ROOT_DIR / "backend" / "scripts" / "tests_hub.py"
@@ -1072,24 +1064,23 @@ def main() -> None:
         banner()
         menu_body = "\n".join(
             [
-                f"1. {ICON['hog']} [bold]Full Sonic[/]",
-                f"2. {ICON['hog']} [bold]Full Sonic – Uno[/] (single window, split panes)",
-                f"3. {ICON['rocket']} Sonic - [bold]Full App[/] (Frontend + Backend)",
-                f"4. {ICON['frontend']} Launch [bold]Frontend[/] (Sonic/Vite)",
-                f"5. {ICON['backend']} Launch [bold]Backend[/] (FastAPI)",
-                f"6. {ICON['perps']} Launch Perps Console",
-                f"7. {ICON['verify_db']} Verify Database",
+                "1. 🌀 Start [bold]Sonic Monitor[/]",
+                f"2. {ICON['hog']} [bold]Full Sonic[/]",
+                f"3. {ICON['hog']} [bold]Full Sonic – Uno[/] (single window, split panes)",
+                f"4. {ICON['rocket']} Sonic - [bold]Full App[/] (Frontend + Backend)",
+                f"5. {ICON['frontend']} Launch [bold]Frontend[/] (Sonic/Vite)",
+                f"6. {ICON['backend']} Launch [bold]Backend[/] (FastAPI)",
+                f"7. {ICON['perps']} Launch Perps Console",
                 f"8. {ICON['verify_db']} Database Console",
                 f"9. {ICON['config']} Config Console",
-                f"10. {ICON['monitor']} Start [bold]Sonic Monitor[/]",
-                f"11. {ICON['tests']} Tests Hub",
-                f"12. 🃏 Fun Console (Jokes / Quotes / Trivia)",
-                f"13. {ICON['wallet']} Wallet Manager",
-                f"14. {ICON['cyclone']} Launch Cyclone App",
-                f"15. {ICON['goals']} Session / Goals",
-                f"16. {ICON['maintenance']} On-Demand Daily Maintenance",
-                f"17. {ICON['gmx']} GMX Solana Console",
-                f"18. {ICON['raydium']} Raydium Console (wallet + NFTs)",
+                f"10. {ICON['tests']} Tests Hub",
+                f"11. 🃏 Fun Console (Jokes / Quotes / Trivia)",
+                f"12. {ICON['wallet']} Wallet Manager",
+                f"13. {ICON['cyclone']} Launch Cyclone App",
+                f"14. {ICON['goals']} Session / Goals",
+                f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
+                f"16. {ICON['gmx']} GMX Solana Console",
+                f"17. {ICON['raydium']} Raydium Console (wallet + NFTs)",
                 f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window, [D] Database Console, [G] Config Console)",
             ]
         )
@@ -1098,40 +1089,38 @@ def main() -> None:
         choice = input("→ ").strip()
 
         if choice == "1":
-            run_menu_action("Full Sonic", launch_sonic_apps)
+            run_menu_action("🌀 Start Sonic Monitor", launch_sonic_monitor)
         elif choice == "2":
-            run_menu_action("Full Sonic – Uno", launch_full_sonic_uno)
+            run_menu_action("Full Sonic", launch_sonic_apps)
         elif choice == "3":
-            run_menu_action("Sonic - Full App", launch_full_stack)
+            run_menu_action("Full Sonic – Uno", launch_full_sonic_uno)
         elif choice == "4":
-            run_menu_action("Launch Frontend (Sonic/Vite)", launch_frontend)
+            run_menu_action("Sonic - Full App", launch_full_stack)
         elif choice == "5":
-            run_menu_action("Launch Backend (FastAPI)", launch_backend)
+            run_menu_action("Launch Frontend (Sonic/Vite)", launch_frontend)
         elif choice == "6":
-            run_menu_action("Launch Perps Console", launch_perps_console)
+            run_menu_action("Launch Backend (FastAPI)", launch_backend)
         elif choice == "7":
-            run_menu_action("Verify Database", verify_database)
+            run_menu_action("Launch Perps Console", launch_perps_console)
         elif choice == "8":
             run_menu_action("Database Console", _launch_db_console)
         elif choice == "9":
             run_menu_action("Config Console", _launch_config_console_inprocess)
         elif choice == "10":
-            run_menu_action("Start Sonic Monitor", launch_sonic_monitor)
-        elif choice == "11":
             run_menu_action("Tests Hub", run_tests_hub)
-        elif choice == "12":
+        elif choice == "11":
             run_menu_action("Fun Console", run_fun_console)
-        elif choice == "13":
+        elif choice == "12":
             run_menu_action("Wallet Manager", wallet_menu)
-        elif choice == "14":
+        elif choice == "13":
             run_menu_action("Launch Cyclone App", run_cyclone_console)
-        elif choice == "15":
+        elif choice == "14":
             run_menu_action("Session / Goals", goals_menu)
-        elif choice == "16":
+        elif choice == "15":
             run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
-        elif choice == "17":
+        elif choice == "16":
             run_menu_action("GMX Solana Console", launch_gmx_solana)
-        elif choice == "18":
+        elif choice == "17":
             run_menu_action("Raydium Console", launch_raydium_console)
         elif choice.upper() == "D":
             run_menu_action("Database Console", _launch_db_console)
