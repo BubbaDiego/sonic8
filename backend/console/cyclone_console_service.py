@@ -59,6 +59,7 @@ ICON: Dict[str, str] = {
     "err": "❌",
     "run_small": "🔄",
     "info": "ℹ️",
+    "wipe": "🧽",
 }
 
 def _clear() -> None:
@@ -133,9 +134,10 @@ class CycloneConsoleService:
                 f"7) {ICON['wallet']}  Wallets",
                 f"8) {ICON['reports']}  Reports",
                 f"9) {ICON['maintenance']}  Maintenance",
-                f"10) {ICON['logs']}  Logs",
-                f"11) {ICON['settings']}  Settings",
-                f"12) {ICON['help']}  Help",
+                f"10) {ICON['wipe']}  Clear Data",
+                f"11) {ICON['logs']}  Logs",
+                f"12) {ICON['settings']}  Settings",
+                f"13) {ICON['help']}  Help",
                 f"0) {ICON['stop']}  Exit",
             ):
                 menu.add_row(label)
@@ -150,9 +152,10 @@ class CycloneConsoleService:
             elif ch == "7": self._screen_wallets()
             elif ch == "8": self._screen_reports()
             elif ch == "9": self._screen_maintenance()
-            elif ch == "10": self._screen_logs()
-            elif ch == "11": self._screen_settings()
-            elif ch == "12": self._screen_help()
+            elif ch == "10": self._screen_clear_data()
+            elif ch == "11": self._screen_logs()
+            elif ch == "12": self._screen_settings()
+            elif ch == "13": self._screen_help()
             elif ch in {"0", "q", "Q", "quit", "exit"}:
                 self._stop_loop_if_running()
                 self.console.print("\nbye 👋\n"); return
@@ -359,6 +362,65 @@ class CycloneConsoleService:
         elif ch == "2": self._vacuum_db()
         elif ch == "3": self._reseed_configs()
         self._pause()
+
+    def _screen_clear_data(self) -> None:
+        while True:
+            _clear(); self._render_header()
+            self.console.print(f"{ICON['wipe']} [bold]Clear Data[/]\n")
+            self.console.print("1) 🗑️ Clear Positions")
+            self.console.print("2) 🗑️ Clear Prices")
+            self.console.print("3) 🧨 Clear ALL (alerts, prices, positions)")
+            self.console.print("0) Back\n")
+            ch = Prompt.ask("Select", default="0")
+
+            if ch == "1":
+                if Confirm.ask("Really delete ALL open positions?", default=False):
+                    try:
+                        self._call_sync("clear_positions_backend")
+                        self.console.print(f"{ICON['ok']} Positions cleared.")
+                    except Exception as exc:
+                        self.console.print(f"{ICON['err']} Failed to clear positions: {exc}")
+                else:
+                    self.console.print("↩️ Cancelled.")
+                self._pause()
+
+            elif ch == "2":
+                if Confirm.ask("Really delete ALL stored prices?", default=False):
+                    try:
+                        self._call_sync("clear_prices_backend")
+                        self.console.print(f"{ICON['ok']} Prices cleared.")
+                    except Exception as exc:
+                        self.console.print(f"{ICON['err']} Failed to clear prices: {exc}")
+                else:
+                    self.console.print("↩️ Cancelled.")
+                self._pause()
+
+            elif ch == "3":
+                if Confirm.ask("⚠️ IRREVERSIBLE: clear alerts, prices, positions — continue?", default=False):
+                    try:
+                        self._ensure_engine()
+                        engine = self.cyclone
+                        if engine and hasattr(engine, "run_clear_all_data"):
+                            self._call_async("run_clear_all_data")
+                            self.console.print(f"{ICON['ok']} Alerts, prices, and positions cleared.")
+                        elif engine and hasattr(engine, "run_delete_all_data"):
+                            self._call_sync("run_delete_all_data")
+                            self.console.print(f"{ICON['ok']} Alerts, prices, and positions cleared.")
+                        else:
+                            self.console.print(f"{ICON['warn']} Engine does not expose a clear-all operation.")
+                            self._pause()
+                            continue
+                    except Exception as exc:
+                        self.console.print(f"{ICON['err']} Clear All Data failed: {exc}")
+                else:
+                    self.console.print("↩️ Cancelled.")
+                self._pause()
+
+            elif ch in {"0", "back", "b"}:
+                return
+            else:
+                self.console.print(f"{ICON['warn']} Invalid selection.")
+                self._pause()
 
     def _screen_logs(self) -> None:
         _clear(); self._render_header()
