@@ -128,10 +128,48 @@ class MonitorEngine:
         }
         run_console_reporters(self.dl, self.debug, footer_ctx=footer_ctx)
 
+    def _run_panel_stack(self, loop_counter: int, interval: int, start_wall: float) -> None:
+        """Render the reporter panel stack with explicit debug traces."""
+        try:
+            from backend.core.reporting_core import console_reporter as _cr
+        except Exception as import_exc:
+            print(f"[REPORT] panel runner failed: {import_exc!r}", flush=True)
+            return
+
+        try:
+            width = int(os.environ.get("SONIC_CONSOLE_WIDTH", "92"))
+        except Exception:
+            width = 92
+
+        ctx = {
+            "loop_counter": int(loop_counter),
+            "poll_interval_s": int(interval),
+            "total_elapsed_s": float(max(0.0, time.time() - start_wall)),
+            "ts": time.time(),
+        }
+
+        try:
+            print("\n[REPORT] panel runner: BEGIN", flush=True)
+            mods = []
+            if hasattr(_cr, "_get_panel_modules"):
+                try:
+                    mods = list(_cr._get_panel_modules())
+                except Exception:
+                    mods = []
+            elif hasattr(_cr, "PANEL_MODULES"):
+                mods = list(getattr(_cr, "PANEL_MODULES") or [])
+            mods_line = ", ".join(str(m) for m in mods) if mods else "<none>"
+            print(f"[REPORT] panel modules: {mods_line}", flush=True)
+            _cr.render_panel_stack(ctx=ctx, dl=self.dl, width=width, writer=print)
+            print("[REPORT] panel runner: END\n", flush=True)
+        except Exception as exc:
+            print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
+
     def run_forever(self, interval_sec: int = 30) -> None:
         self.logger.info("Sonic Monitor engine starting (interval=%ss, debug=%s)", interval_sec, self.debug)
         self._loop_n = getattr(self, "_loop_n", 0)
         self._poll_interval_sec = interval_sec
+        start_wall = time.time()
         while True:
             try:
                 self._loop_n += 1
@@ -141,4 +179,6 @@ class MonitorEngine:
                 break
             except Exception as e:
                 self.logger.exception("Uncaught during run_once: %s", e)
+
+            self._run_panel_stack(self._loop_n, interval_sec, start_wall)
             time.sleep(interval_sec)
