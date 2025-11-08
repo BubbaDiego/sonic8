@@ -1,0 +1,17 @@
+{
+  "name": "sonic-perps-client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "probe": "tsx registration_test.ts probe",
+    "auth-check": "tsx registration_test.ts auth-check"
+  },
+  "dependencies": {
+    "bs58": "^5.0.0",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3"
+  }
+}
