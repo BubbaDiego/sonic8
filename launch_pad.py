@@ -551,10 +551,25 @@ def run_test_console():
 
 
 def run_fun_console():
-    try:
-        subprocess.run([PYTHON_EXEC, "-m", "backend.core.fun_core.console"], check=False)
-    except Exception:
-        console.print("[yellow]Fun Console not available.[/]")
+    import importlib, subprocess, sys
+
+    candidates = [
+        "backend.core.fun_core.console",
+        "backend.core.fun_core.fun_console",
+        "backend.core.fun_core",
+    ]
+    target = None
+    for mod in candidates:
+        try:
+            importlib.import_module(mod)
+            target = mod
+            break
+        except Exception:
+            continue
+    if target is None:
+        print("Fun Console module not found. Expected one of:", ", ".join(candidates))
+        return
+    subprocess.run([sys.executable, "-m", target], check=False)
 
 
 def _get_dl_manager():
