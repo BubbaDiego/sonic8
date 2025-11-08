@@ -51,8 +51,9 @@ def run_console_reporters(
       2) Positions
       3) Monitors
       4) Wallets
-      5) Raydium
-      6) Cycle footer (new)
+      5) XCom
+      6) Raydium
+      7) Cycle footer (new)
     """
     _safe_render(
         "backend.core.reporting_core.sonic_reporting.cycle_activity_reporter",
@@ -71,6 +72,11 @@ def run_console_reporters(
     )
     _safe_render(
         "backend.core.reporting_core.sonic_reporting.wallets_panel",
+        "render",
+        dl,
+    )
+    _safe_render(
+        "backend.core.reporting_core.sonic_reporting.xcom_panel",
         "render",
         dl,
     )
