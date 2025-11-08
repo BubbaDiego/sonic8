@@ -4,169 +4,132 @@ from __future__ import annotations
 import logging
 import os
 import time
+from typing import Any, Dict, List, Optional, Callable
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
-from backend.models.monitor_status import MonitorStatus
 
 from .context import MonitorContext
 from .registry import get_enabled_monitors, get_enabled_services
 from .storage.heartbeat_store import HeartbeatStore
 from .storage.ledger_store import LedgerStore
-from .storage.activity_store import ActivityStore
+from .storage.activity_store import ActivityStore  # keeps Cycle Activity panel fed
 from .reporting.console.runner import run_console_reporters
-from .ui.live import SonicMonitorLive
+from backend.models.monitor_status import MonitorStatus
+
 
 class MonitorEngine:
     """
-    Modular Sonic monitor engine.
-    - Runs services (prices/positions/raydium) to populate DB
-    - Runs monitor runners (liquid/profit/market) and persists results
-    - Calls console reporters at the end of each cycle
+    Sonic monitor engine (DB-first).
+      • runs services (prices/positions/raydium/hedges/…)
+      • runs monitors (profit/liquid/market/…)
+      • records activity rows for the Cycle Activity panel
+      • persists monitor statuses to DB (via dl.monitors)
+      • renders console reporters (DB reads)
 
-    DEBUG SWITCH (edit here or set env SONIC_DEBUG=1):
-        MonitorEngine.DEBUG = False
+    Spinners/debug are OFF by default to keep the console clean.
+    Toggle with SONIC_LIVE=1 if you want them back.
     """
-    DEBUG: bool = (os.getenv("SONIC_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"})
+    DEBUG: bool = os.getenv("SONIC_DEBUG", "0").strip().lower() in {"1","true","yes","on"}
 
     def __init__(self, dl: Any, cfg: Optional[Dict[str, Any]] = None, debug: Optional[bool] = None) -> None:
         self.dl = dl
         self.cfg = cfg or {}
         self.debug = self.DEBUG if debug is None else bool(debug)
+
         self.logger = logging.getLogger("sonic.engine")
         self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
         if not self.logger.handlers:
             h = logging.StreamHandler()
-            fmt = logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s")
-            h.setFormatter(fmt)
+            h.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s"))
             self.logger.addHandler(h)
 
         self.ctx = MonitorContext(dl=self.dl, cfg=self.cfg, logger=self.logger, debug=self.debug)
         self.heartbeat = HeartbeatStore(self.dl, self.logger)
         self.ledger = LedgerStore(self.dl, self.logger)
         self.activities = ActivityStore(self.dl, self.logger)
-        self.live = SonicMonitorLive(enabled=not bool(os.getenv("SONIC_NO_LIVE")))
 
-    # ───────────────────────── helpers ─────────────────────────
-
-    def dlog(self, msg: str, **kw) -> None:
-        if self.debug:
-            try:
-                self.logger.debug(msg + (" :: " + str(kw) if kw else ""))
-            except Exception:
-                self.logger.debug(msg)
+        # Keep console clean by default (no spinners)
+        self.live_enabled = os.getenv("SONIC_LIVE", "0").strip().lower() in {"1","true","yes","on"}
 
     # ───────────────────────── cycle ─────────────────────────
 
     def run_once(self) -> None:
         self.ctx.start_cycle()
-        cycle_t0 = time.monotonic() if hasattr(time, "monotonic") else time.time()
         cycle_id = self.ctx.cycle_id or "unknown"
+        cycle_t0 = time.monotonic()
 
-        # helper to run a phase with spinner + activity rows
-        def _run_phase(phase_key: str, label: str, fn):
+        def _run_phase(phase_key: str, label: str, fn: Callable[[], Dict[str, Any]]):
             tok = self.activities.begin(cycle_id, phase_key, label)
-            sp = self.live.start_spinner(phase_key, label)
-            t0 = time.time()
+            t0 = time.monotonic()
             outcome = "ok"
             notes = ""
             details: Dict[str, Any] = {}
             try:
-                res = fn()
+                res = fn() or {}
                 details = res if isinstance(res, dict) else {"result": str(res)}
-                # build a short note when possible
-                if "count" in details:
+                # build short note
+                if "count" in details and details["count"] is not None:
                     notes = f"count {details['count']}"
-                elif "result" in details and isinstance(details["result"], dict) and "count" in details["result"]:
+                elif isinstance(details.get("result"), dict) and "count" in details["result"]:
                     notes = f"count {details['result']['count']}"
-                elif "result" in details and isinstance(details["result"], dict) and "note" in details["result"]:
-                    notes = details["result"]["note"] or ""
+                elif "statuses" in details and isinstance(details["statuses"], list):
+                    notes = f"{len(details['statuses'])} status"
             except Exception as e:
                 outcome = "error"
                 notes = f"{type(e).__name__}: {e}"
                 self.logger.exception(f"[phase] {phase_key} failed: {e}")
             finally:
-                dt = time.time() - t0
-                self.activities.end(
-                    tok,
-                    outcome=outcome,
-                    notes=notes,
-                    duration_ms=int(dt * 1000),
-                    details=details,
-                )
-                # stop spinner silently; Cycle Activity table will show outcome/time
-                self.live.stop_spinner(sp)
+                dt_ms = int((time.monotonic() - t0) * 1000)
+                self.activities.end(tok, outcome=outcome, notes=notes, duration_ms=dt_ms, details=details)
 
-        # 1) services (populate DB)
-        services = get_enabled_services(self.cfg)
-        for name, svc in services:
-            _run_phase(name, f"{name.capitalize()} service", lambda svc=svc: svc(self.ctx))
+        # 1) services
+        for name, svc in get_enabled_services(self.cfg):
+            _run_phase(name, f"{name.capitalize()} service", lambda s=svc: s(self.ctx))
 
-        # 2) monitors (compute + persist status)
-        monitors = get_enabled_monitors(self.cfg)
-        for name, runner in monitors:
-            def _run_mon(name=name, runner=runner):
-                r = runner(self.ctx) or {}
-                self.ledger.append_monitor_result(cycle_id, name, r)
-                # Persist via dl.monitors if statuses provided
-                try:
-                    statuses = r.get("statuses") if isinstance(r, dict) else None
-                    if isinstance(statuses, list) and statuses:
-                        now_iso = datetime.now(timezone.utc).isoformat()
-                        mm = getattr(self.dl, "monitors", None)
-                        if mm is not None:
-                            ms_list: List[MonitorStatus] = []
-                            for it in statuses:
-                                if not isinstance(it, dict):
-                                    continue
-                                ms = MonitorStatus.from_status_dict(
-                                    cycle_id=cycle_id,
-                                    monitor=name,
-                                    item=it,
-                                    default_label=name,
-                                    now_iso=now_iso,
-                                    default_source=name[:6],
-                                )
-                                ms_list.append(ms)
-                            if ms_list:
-                                saved = mm.append_many(ms_list)
-                                self.dlog(f"[mon] persisted {saved} monitor statuses", monitor=name)
-                except Exception as e:
-                    self.logger.debug(f"dl.monitors persist failed for {name}: {e}")
-                # construct lightweight notes
-                note = ""
-                if isinstance(r, dict) and isinstance(r.get("statuses"), list):
-                    note = f"{len(r['statuses'])} status"
-                return {"result": {"note": note}}
+        # 2) monitors (persist normalized statuses)
+        for name, runner in get_enabled_monitors(self.cfg):
+            def _run_mon(n=name, r=runner):
+                out = r(self.ctx) or {}
+                self.ledger.append_monitor_result(cycle_id, n, out)
+
+                statuses = out.get("statuses") if isinstance(out, dict) else None
+                if isinstance(statuses, list) and statuses:
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    mm = getattr(self.dl, "monitors", None)
+                    if mm is not None:
+                        ms_rows = []
+                        for it in statuses:
+                            if not isinstance(it, dict):
+                                continue
+                            ms = MonitorStatus.from_status_dict(
+                                cycle_id=cycle_id,
+                                monitor=n,
+                                item=it,
+                                default_label=n,
+                                now_iso=now_iso,
+                                default_source=n,
+                            )
+                            ms_rows.append(ms)
+                        if ms_rows:
+                            mm.append_many(ms_rows)
+                return out
 
             _run_phase(name, f"{name.capitalize()} monitor", _run_mon)
 
         # 3) heartbeat
         _run_phase("heartbeat", "Heartbeat", lambda: (self.heartbeat.touch() or {"ok": True}))
 
-        # 4) reporters (console panels) — DB-first, no csum
-        def _reporters_call() -> Dict[str, Any]:
-            elapsed = (
-                time.monotonic() if hasattr(time, "monotonic") else time.time()
-            ) - cycle_t0
-            footer_ctx = {
-                "loop_counter": getattr(self, "_loop_n", 0),
-                "poll_interval_s": getattr(self, "_poll_interval_sec", 0),
-                "total_elapsed_s": round(float(elapsed), 3),
-                "ts": datetime.now().isoformat(timespec="seconds"),
-            }
-            run_console_reporters(self.dl, self.debug, footer_ctx=footer_ctx)
-            return {"ok": True}
-
-        _run_phase("reporters", "Reporters", _reporters_call)
+        # 4) reporters (DB-first, no csum)
+        elapsed = time.monotonic() - cycle_t0
+        footer_ctx = {
+            "loop_counter": getattr(self, "_loop_n", 0),
+            "poll_interval_s": getattr(self, "_poll_interval_sec", 0),
+            "total_elapsed_s": round(float(elapsed), 3),
+            "ts": datetime.now().isoformat(timespec="seconds"),
+        }
+        run_console_reporters(self.dl, self.debug, footer_ctx=footer_ctx)
 
     def run_forever(self, interval_sec: int = 30) -> None:
-        self.logger.info(
-            "Sonic Monitor engine starting (interval=%ss, debug=%s)",
-            interval_sec,
-            self.debug,
-        )
-        # track loop count and current poll interval for footer context
+        self.logger.info("Sonic Monitor engine starting (interval=%ss, debug=%s)", interval_sec, self.debug)
         self._loop_n = getattr(self, "_loop_n", 0)
         self._poll_interval_sec = interval_sec
         while True:

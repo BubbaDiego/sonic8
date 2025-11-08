@@ -8,11 +8,28 @@ from datetime import datetime, timezone
 from backend.models.monitor_status import MonitorStatus
 
 
+REQUIRED_COLUMNS = {
+    # name       : (sqlite_type, default_sql_literal)
+    "cycle_id":  ("TEXT",  None),
+    "ts":        ("TEXT",  None),
+    "monitor":   ("TEXT",  None),
+    "label":     ("TEXT",  None),
+    "state":     ("TEXT",  None),
+    "value":     ("REAL",  None),
+    "unit":      ("TEXT",  "''"),
+    "thr_op":    ("TEXT",  "NULL"),
+    "thr_value": ("REAL",  "NULL"),
+    "thr_unit":  ("TEXT",  "NULL"),
+    "source":    ("TEXT",  "NULL"),
+    "meta":      ("TEXT",  "'{}'"),
+}
+
+
 class DLMonitorsManager:
     """
     DB manager for monitor statuses (normalized table).
-    - monitor_status table holds row-per-item for each cycle.
-    - monitor_run (optional) can aggregate per-cycle counts (future use).
+    - monitor_status holds row-per-item for each cycle.
+    - monitor_run is reserved for future per-cycle summaries.
     """
 
     def __init__(self, db: Any):
@@ -25,6 +42,7 @@ class DLMonitorsManager:
         if not cur:
             return
 
+        # Create if missing (new schema)
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS monitor_status (
@@ -49,7 +67,18 @@ class DLMonitorsManager:
         cur.execute("CREATE INDEX IF NOT EXISTS idx_ms_monitor ON monitor_status(monitor)")
         self.db.commit()
 
-        # summary table (reserved for later)
+        # Add any missing columns (legacy DBs)
+        cur.execute("PRAGMA table_info(monitor_status)")
+        existing = {row[1] for row in cur.fetchall()}  # set of column names
+        for name, (col_type, default_sql) in REQUIRED_COLUMNS.items():
+            if name not in existing:
+                if default_sql is None:
+                    cur.execute(f"ALTER TABLE monitor_status ADD COLUMN {name} {col_type}")
+                else:
+                    cur.execute(f"ALTER TABLE monitor_status ADD COLUMN {name} {col_type} DEFAULT {default_sql}")
+        self.db.commit()
+
+        # Optional summary table
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS monitor_run (
