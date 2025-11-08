@@ -1,329 +1,522 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime
-import unicodedata
+
+"""
+positions_panel.py
+Sonic Reporting — Positions (ALL) panel with Raydium LP NFTs mixed into the table.
+
+Columns (match existing look):
+  Asset | Size | Value | PnL | Lev | Liq | Heat | Trave
+
+Behavior
+- Perp rows render as before.
+- Raydium LP NFTs are rendered as "position-like" rows with:
+    Size=0, Lev/Liq/Heat/Trave=—, Value=usd_total, PnL=delta since previous snapshot.
+- Totals row:
+    - value_sum  = perps + nfts
+    - pnl_sum    = perps + nfts
+    - size_sum   = perps only
+    - lev_avg    = size-weighted over perps only
+    - travel_avg = size-weighted over perps only
+    - liq total  = '—' (same as your prior behavior)
+
+Input contract (ctx dict; no csum):
+  loop_counter (int)        — optional
+  width (int)               — optional; default from SONIC_CONSOLE_WIDTH or 92
+  dl (DataLocker)           — optional; used to read perps & raydium
+  positions / perps (list)  — optional; pre-fetched perp positions
+  owner (str)               — optional; raydium wallet owner filter (preferred)
+  include_raydium_nfts (bool) — optional; default True
+  nft.pnl_mode (str)        — optional; "delta" (default) or "basis" (reserved)
+
+Return: List[str] lines ready for printing.
+"""
+
 import os
+import math
+import datetime as _dt
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-# ============================================================
-# CONFIG: colors (only text is colored; bars remain plain)
-USE_COLOR     = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0", "false", "no", "off"}
-TITLE_COLOR   = "\x1b[38;5;45m"   # cyan/teal for "Positions" text
-TOTALS_COLOR  = "\x1b[38;5;214m"  # amber/orange for totals row text
 
-def _c(s: str, color: str) -> str:
-    return f"{color}{s}\x1b[0m" if USE_COLOR else s
-# ============================================================
+PANEL_KEY = "positions_panel"
+PANEL_NAME = "Positions (ALL)"
 
-# ====== Layout ======
-HR_WIDTH = 78
-INDENT   = "  "
 
-# Compact column widths (~78 chars incl. separators)
-W_DIR   = 2      # 🔺/🔻
-W_ASSET = 7      # e.g., "🟣 SOL"
-W_SIZE  = 8
-W_VAL   = 9
-W_PNL   = 9
-W_LEV   = 5
-W_LIQ   = 7
-W_HEAT  = 6
-W_TRVL  = 7
-COL_SEP = "  "
+# ────────────────────────────────────────────────────────────────────────────────
+# Console helpers
+# ────────────────────────────────────────────────────────────────────────────────
 
-HEADER_ICONS = {
-    "dir":   "↕",
-    "asset": "🪙",
-    "size":  "📦",
-    "value": "💵",
-    "pnl":   "💹",
-    "lev":   "🧮",
-    "liq":   "💧",
-    "heat":  "🔥",
-    "trvl":  "🔁",
-}
+def _console_width(default: int = 92) -> int:
+    try:
+        w = int(os.environ.get("SONIC_CONSOLE_WIDTH", default))
+        return max(80, min(180, w))
+    except Exception:
+        return default
 
-# ====== Display-width aware padding (emoji-safe) ======
-_VARIATION_SELECTORS = {0xFE0F, 0xFE0E}
-_ZERO_WIDTH = {0x200D, 0x200C}
 
-def _disp_len(s: str) -> int:
-    """Approximate terminal cell width (treat East Asian Wide/Full as width 2; ignore ZWJ/VS)."""
-    total = 0
-    for ch in s:
-        cp = ord(ch)
-        if cp in _VARIATION_SELECTORS or cp in _ZERO_WIDTH:
-            continue
-        ew = unicodedata.east_asian_width(ch)  # <-- fixed typo here
-        total += 2 if ew in ("W", "F") else 1
-    return total
+def _hr(width: Optional[int] = None, ch: str = "─") -> str:
+    W = width or _console_width()
+    return ch * W
 
-def _padw(text: Any, width: int, *, right: bool = False) -> str:
-    s = "" if text is None else str(text)
-    cur = _disp_len(s)
-    if cur >= width:
-        # Trim to fit by removing trailing code points until width ok.
-        while s and _disp_len(s) > width:
-            s = s[:-1]
+
+def _title_rail(title: str, width: Optional[int] = None, ch: str = "─") -> str:
+    W = width or _console_width()
+    t = f"  {title.strip()}  "
+    fill = max(0, W - len(t))
+    left = fill // 2
+    right = fill - left
+    return f"{ch * left}{t}{ch * right}"
+
+
+def _abbr_middle(s: Any, front: int, back: int, min_len: int) -> str:
+    s = ("" if s is None else str(s)).strip()
+    if len(s) <= min_len or len(s) <= front + back + 3:
         return s
-    pad = " " * (width - cur)
-    return (pad + s) if right else (s + pad)
+    return f"{s[:front]}…{s[-back:]}"
 
-def _pad(s: Any, w: int, right: bool = False) -> str:
-    return _padw(s, w, right=right)
 
-# ====== Formatting ======
-def _hr(title: str) -> str:
-    # Color only the text; bars left/right remain plain
-    plain = f" 📊  {title} "
-    colored = f" {_c('📊  ' + title, TITLE_COLOR)} "
-    pad = HR_WIDTH - len(plain)
-    if pad < 0: pad = 0
-    L = pad // 2
-    R = pad - L
-    return INDENT + "─" * L + colored + "─" * R
-
-def _fmt_usd(x: Any, w: int, *, right: bool = True) -> str:
+def _fmt_num(x: Any, places: int = 2, dash: str = "—") -> str:
     try:
-        v = float(x)
+        f = float(x)
+        if math.isnan(f) or math.isinf(f):
+            return dash
+        if places == 0:
+            return f"{int(round(f)):,}"
+        if abs(f) >= 1:
+            return f"{f:,.2f}"
+        # smaller numbers keep more precision
+        return f"{f:,.{places}f}"
     except Exception:
-        return _pad("—", w, right=right)
-    sign = "-" if v < 0 else ""
-    v = abs(v)
-    if v >= 1e9:   s = f"{sign}${v/1e9:.1f}b".replace(".0b","b")
-    elif v >= 1e6: s = f"{sign}${v/1e6:.1f}m".replace(".0m","m")
-    elif v >= 1e3: s = f"{sign}${v/1e3:.1f}k".replace(".0k","k")
-    else:          s = f"{sign}${v:,.2f}"
-    return _pad(s, w, right=right)
+        return dash
 
-def _fmt_pnl(x: Any, *, right: bool = True) -> str:
+
+def _fmt_usd(x: Any) -> str:
+    s = _fmt_num(x, places=2, dash="—")
+    return "—" if s == "—" else f"${s}"
+
+
+def _fmt_pct(x: Any) -> str:
     try:
-        v = float(x)
+        f = float(x)
+        return f"{f:.0f}%"
     except Exception:
-        return _pad("—", W_PNL, right=right)
-    if v > 0:   s = f"+${v:,.2f}"
-    elif v < 0: s = f"−${abs(v):,.2f}"
-    else:       s = "$0.00"
-    return _pad(s, W_PNL, right=right)
+        return "—"
 
-def _fmt_lev(x: Any, *, right: bool = True) -> str:
-    try:
-        v = float(x); s = f"{v:.1f}×"
-    except Exception:
-        s = "—"
-    return _pad(s, W_LEV, right=right)
 
-def _fmt_liq(p: Any, d: Any) -> str:
-    try:
-        v = float(p)
-        if v > 0: return _pad(f"${int(round(v))}", W_LIQ, right=True)
-    except Exception:
-        pass
-    try:
-        dd = float(d); return _pad(f"d={int(round(dd))}%", W_LIQ, right=True)
-    except Exception:
-        return _pad("—", W_LIQ, right=True)
+def _right(text: str, width: int) -> str:
+    return (text or "").rjust(width)
 
-def _fmt_heat(x: Any, *, right: bool = False) -> str:
-    try:
-        v = float(x); return _pad(f"🔥{int(round(v))}%", W_HEAT, right=right)
-    except Exception:
-        return _pad("—", W_HEAT, right=right)
 
-def _fmt_travel(x: Any, *, right: bool = False) -> str:
-    try:
-        v = float(x); arrow = "⇡" if v > 0 else ("⇣" if v < 0 else "→")
-        return _pad(f"{arrow} {v:+.0f}%", W_TRVL, right=right)
-    except Exception:
-        return _pad("—", W_TRVL, right=right)
+def _left(text: str, width: int) -> str:
+    return (text or "").ljust(width)
 
-def _dir_arrow(side: Any) -> str:
-    s = (str(side) or "").upper()
-    if s.startswith("L"): return _pad("🔺", W_DIR)  # LONG
-    if s.startswith("S"): return _pad("🔻", W_DIR)  # SHORT
-    return _pad("·", W_DIR)
 
-def _asset_chip(asset: Optional[str]) -> str:
-    a = (asset or "").upper()
-    glyph = {"BTC":"🟡","ETH":"🔷","SOL":"🟣"}.get(a, "•")
-    return _pad(f"{glyph} {a}" if a else glyph, W_ASSET)
+# ────────────────────────────────────────────────────────────────────────────────
+# Normalization — Perps + NFTs
+# ────────────────────────────────────────────────────────────────────────────────
 
-def _normalize_size_for_display(asset: Optional[str], size: Any, value: Any) -> float:
+def _norm_perp_row(rec: Dict[str, Any]) -> Dict[str, Any]:
     """
-    If size is clearly over-scaled vs USD value (value/size < ~0.2),
-    progressively divide by 10 (max 1e6) until ratio looks sensible.
+    Normalize a Jupiter/Perps position-like record into the canonical shape.
+    Fields are best-effort; we probe a few common aliases.
     """
+    asset = (rec.get("asset") or rec.get("symbol") or rec.get("pair") or rec.get("base") or "").upper()
+    side = rec.get("side") or rec.get("direction") or ""
+    size = rec.get("size") or rec.get("qty") or rec.get("amount") or 0.0
+    value = rec.get("value") or rec.get("value_usd") or rec.get("usd_value") or rec.get("usd") or 0.0
+    pnl = rec.get("pnl") or rec.get("pnl_usd") or rec.get("delta_usd") or 0.0
+    lev = rec.get("lev") or rec.get("leverage") or rec.get("lev_x") or rec.get("x")
+    liq = rec.get("liq") or rec.get("liq_usd") or rec.get("liquidation")  # USD
+    heat = rec.get("heat") or rec.get("heat_pct")
+    travel = rec.get("travel") or rec.get("travel_pct") or rec.get("move_pct")
+
     try:
-        s = float(size)
+        size = float(size or 0.0)
     except Exception:
-        return 0.0
+        size = 0.0
     try:
-        v = float(value)
+        value = float(value or 0.0)
     except Exception:
-        return s
-    if s <= 0: return s
-    ratio = v / s
-    if ratio >= 0.2: return s
-    scale = 1.0
-    for _ in range(6):
-        t = s / scale
-        if t <= 0: break
-        if v / t >= 0.2:
-            return t
-        scale *= 10.0
-    return s / scale
-
-def _fmt_size(asset: Optional[str], size_adj: float, *, right: bool = False) -> str:
-    unit = {"BTC":"₿","XBT":"₿","ETH":"Ξ","SOL":"◎"}.get((asset or "").upper(), "")
-    s = size_adj
-    if s == 0:        txt = "0"
-    elif abs(s) >= 1e3: txt = f"{int(round(s))}"
-    elif abs(s) >= 1:   txt = f"{s:.2f}"
-    elif abs(s) >= .01: txt = f"{s:.3f}"
-    else:               txt = f"{s:.4f}"
-    return _pad(f"{txt}{unit}", W_SIZE, right=right)
-
-# ====== Data access ======
-def _fetch_from_manager(dl: Any) -> List[Dict[str, Any]]:
-    pmgr = getattr(dl, "positions", None)
-    if not pmgr: return []
-    for name in ("get_positions","list","get_all","positions"):
-        fn = getattr(pmgr, name, None)
-        try:
-            rows = fn() if callable(fn) else (fn if isinstance(fn,list) else None)
-        except TypeError:
-            try: rows = fn(None)
-            except Exception: rows = None
-        except Exception:
-            rows = None
-        if isinstance(rows, list) and rows:
-            return [r if isinstance(r,dict) else (getattr(r,"dict",lambda:{})() or getattr(r,"__dict__",{}) or {}) for r in rows]
-    return []
-
-def _fetch_from_db(dl: Any) -> List[Dict[str, Any]]:
+        value = 0.0
     try:
-        cur = dl.db.get_cursor()
-        cur.execute("SELECT * FROM positions")
-        cols = [c[0] for c in cur.description]
-        return [dict(zip(cols,row)) for row in cur.fetchall()]
+        pnl = float(pnl or 0.0)
     except Exception:
-        return []
+        pnl = 0.0
+    try:
+        lev = float(lev) if lev not in (None, "", "-") else None
+    except Exception:
+        lev = None
+    try:
+        liq = float(liq) if liq not in (None, "", "-") else None
+    except Exception:
+        liq = None
+    try:
+        heat = float(heat) if heat not in (None, "", "-") else None
+    except Exception:
+        heat = None
+    try:
+        travel = float(travel) if travel not in (None, "", "-") else None
+    except Exception:
+        travel = None
 
-def _read_positions_all(dl: Any) -> Tuple[List[Dict[str, Any]], str]:
-    rows = _fetch_from_manager(dl)
-    if rows: return rows, "dl.positions"
-    rows = _fetch_from_db(dl)
-    return (rows,"db.positions") if rows else ([], "none")
-
-# ====== Normalization & filtering ======
-def _is_open(d: Dict[str,Any]) -> bool:
-    st = (d.get("status") or "").lower()
-    if st in {"closed","settled","exited","liquidated"}: return False
-    if isinstance(d.get("is_open"), bool): return d["is_open"]
-    for k in ("closed","closed_at","exit_ts","exit_price"):
-        if d.get(k) not in (None,"",0): return False
-    return True
-
-def _normalize(d: Dict[str,Any]) -> Dict[str,Any]:
     return {
-        "asset": d.get("asset_type") or d.get("asset") or d.get("symbol") or d.get("token"),
-        "side":  d.get("position_type") or d.get("side") or d.get("direction"),
-        "size":  d.get("size") or d.get("qty") or d.get("quantity"),
-        "value": d.get("value") or d.get("value_usd") or d.get("usd"),
-        "pnl":   d.get("pnl_after_fees_usd") or d.get("pnl_usd") or d.get("pnl"),
-        "lev":   d.get("leverage") or d.get("lev"),
-        "liq_p": d.get("liquidation_price"),
-        "liq_d": d.get("liquidation_distance"),
-        "heat":  d.get("current_heat_index") or d.get("heat_index"),
-        "trav":  d.get("travel_percent") or d.get("travel"),
+        "origin": "perp",
+        "asset": asset,
+        "side": side,
+        "size": size,
+        "value": value,
+        "pnl": pnl,
+        "lev": lev,
+        "liq": liq,
+        "heat": heat,
+        "travel": travel,
     }
 
-# ====== Render ======
-def render(dl, *_args, **_kw) -> None:
-    raw, source = _read_positions_all(dl)
-    rows: List[Dict[str,Any]] = []
-    for r in raw:
-        d = r if isinstance(r,dict) else (getattr(r,"dict",lambda:{})() or getattr(r,"__dict__",{}) or {})
-        if _is_open(d):
-            rows.append(_normalize(d))
 
-    print()
-    print(_hr("Positions (ALL)"))
-    header = (
-        INDENT
-        + _pad(HEADER_ICONS["dir"],   W_DIR)                              + COL_SEP
-        + _pad(HEADER_ICONS["asset"] + "Asset",  W_ASSET)                 + COL_SEP
-        + _pad(HEADER_ICONS["size"]  + "Size",   W_SIZE)                  + COL_SEP
-        + _pad(HEADER_ICONS["value"] + "Value",  W_VAL)                   + COL_SEP
-        + _pad(HEADER_ICONS["pnl"]   + "PnL",    W_PNL)                   + COL_SEP
-        + _pad(HEADER_ICONS["lev"]   + "Lev",    W_LEV)                   + COL_SEP
-        + _pad(HEADER_ICONS["liq"]   + "Liq",    W_LIQ)                   + COL_SEP
-        + _pad(HEADER_ICONS["heat"]  + "Heat",   W_HEAT)                  + COL_SEP
-        + _pad(HEADER_ICONS["trvl"]  + "Travel", W_TRVL)
+def _norm_nft_row(nft: Dict[str, Any], pnl_usd: float) -> Dict[str, Any]:
+    """
+    Normalize a Raydium LP NFT record to the same row shape.
+    We show a diamond + pair code in the Asset column.
+    """
+    # Try to build a nice pair code if we have mint A/B symbols; else show pool or short mint.
+    pair = (
+        nft.get("pair") or
+        nft.get("pair_code") or
+        nft.get("pool") or
+        nft.get("pool_id") or
+        nft.get("symbol") or
+        nft.get("mint") or
+        "NFT"
     )
-    print(header)
-    print(INDENT + "─"*HR_WIDTH)
+    asset_label = f"◇ {pair}"
 
-    if not rows:
-        print(f"{INDENT}[POSITIONS] source: {source} (0 rows)")
-        print(f"{INDENT}(no positions)")
-        print()  # breathing room
-        return
+    usd_total = nft.get("usd_total") or nft.get("usd_value") or nft.get("value_usd") or nft.get("usd") or 0.0
+    try:
+        value = float(usd_total or 0.0)
+    except Exception:
+        value = 0.0
 
-    # sort by value desc
-    rows.sort(key=lambda z: float(z["value"] or 0) if z["value"] is not None else 0.0)
+    try:
+        pnl = float(pnl_usd or 0.0)
+    except Exception:
+        pnl = 0.0
 
-    # Totals accumulators (size-weighted for lev/heat/travel)
-    sum_size = sum_val = sum_pnl = 0.0
-    w_lev_n = w_heat_n = w_trv_n = w_den = 0.0
+    return {
+        "origin": "nft",
+        "asset": asset_label,
+        "side": "NFT",
+        "size": 0.0,          # never affects weighting
+        "value": value,
+        "pnl": pnl,
+        "lev": None,
+        "liq": None,
+        "heat": None,
+        "travel": None,
+        "mint": nft.get("mint"),
+    }
 
-    for d in reversed(rows):  # show biggest value last (like your screenshot)
-        size_adj = _normalize_size_for_display(d["asset"], d["size"], d["value"])
-        val = float(d["value"] or 0.0)
-        pnl = float(d["pnl"]   or 0.0)
 
-        sum_size += size_adj
-        sum_val  += val
-        sum_pnl  += pnl
+# ────────────────────────────────────────────────────────────────────────────────
+# Data collection
+# ────────────────────────────────────────────────────────────────────────────────
 
-        wt = max(0.0, size_adj)
-        try: w_lev_n  += float(d["lev"])  * wt
-        except Exception: pass
-        try: w_heat_n += float(d["heat"]) * wt
-        except Exception: pass
-        try: w_trv_n  += float(d["trav"]) * wt
-        except Exception: pass
-        w_den += wt
+def _collect_perp_rows(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
+    """
+    Try to assemble perp positions from (in order):
+      1) ctx['positions'] or ctx['perps'] (list of dicts)
+      2) DataLocker providers commonly used for perps (best-effort)
+    """
+    # 1) Direct
+    for key in ("positions", "perps", "perp_positions"):
+        arr = ctx.get(key)
+        if isinstance(arr, list) and arr:
+            rows = [_norm_perp_row(r or {}) for r in arr]
+            return rows, f"ctx.{key}"
 
-        print(
-            INDENT
-            + _dir_arrow(d["side"])                        + COL_SEP
-            + _asset_chip(d["asset"])                      + COL_SEP
-            + _fmt_size(d["asset"], size_adj, right=False) + COL_SEP
-            + _fmt_usd(val, W_VAL, right=True)             + COL_SEP
-            + _fmt_pnl(pnl, right=True)                    + COL_SEP
-            + _fmt_lev(d["lev"], right=True)               + COL_SEP
-            + _fmt_liq(d["liq_p"], d["liq_d"])             + COL_SEP
-            + _fmt_heat(d["heat"], right=False)            + COL_SEP
-            + _fmt_travel(d["trav"], right=False)
+    # 2) DataLocker providers (best-effort)
+    dl = ctx.get("dl")
+    if dl:
+        # Try a few plausible providers/names
+        candidates = [
+            getattr(dl, "perps", None),
+            getattr(dl, "jupiter", None),
+            getattr(dl, "positions", None),
+        ]
+        for prov in candidates:
+            if not prov:
+                continue
+            # common method names
+            for name in (
+                "get_open_positions",
+                "get_positions",
+                "list_positions",
+                "positions",
+            ):
+                fn = getattr(prov, name, None)
+                if callable(fn):
+                    try:
+                        res = fn()
+                        if isinstance(res, dict):
+                            arr = res.get("records") or res.get("positions") or res.get("items") or []
+                        else:
+                            arr = res
+                        if isinstance(arr, list) and arr:
+                            rows = [_norm_perp_row(r or {}) for r in arr]
+                            return rows, f"dl.{prov.__class__.__name__}.{name}()"
+                    except Exception:
+                        pass
+            # attributes fallback
+            for attr in ("records", "positions", "items"):
+                arr = getattr(prov, attr, None)
+                if isinstance(arr, list) and arr:
+                    rows = [_norm_perp_row(r or {}) for r in arr]
+                    return rows, f"dl.{prov.__class__.__name__}.{attr}"
+
+    return [], "none"
+
+
+def _collect_nft_rows(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
+    """
+    Fetch Raydium LP NFTs either from dl.raydium provider or via DLRaydiumManager.
+    Compute PnL as delta of last two history points (or 0.0 if first seen).
+    """
+    include = ctx.get("include_raydium_nfts", True)
+    if not include:
+        return [], "disabled"
+
+    owner = ctx.get("owner")  # optional wallet filter
+    dl = ctx.get("dl")
+
+    # 1) Try dl.raydium provider directly
+    provider = getattr(dl, "raydium", None) if dl else None
+    if provider:
+        # get current positions / NFTs
+        curr = None
+        for name in ("get_positions", "list_positions", "list_lp_nfts", "get_latest_lp_positions"):
+            fn = getattr(provider, name, None)
+            if callable(fn):
+                try:
+                    res = fn() if owner is None else fn(owner=owner)
+                    curr = (res.get("records") if isinstance(res, dict) else res) or []
+                    if isinstance(curr, list):
+                        break
+                except Exception:
+                    curr = None
+        # compute pnl via provider history, if available
+        rows: List[Dict[str, Any]] = []
+        if isinstance(curr, list):
+            for item in curr:
+                mint = (item or {}).get("mint")
+                latest = (item or {}).get("usd_total") or (item or {}).get("usd_value") or 0.0
+                prev = None
+                hist = None
+                for hname in ("history_for", "get_history", "nft_history"):
+                    fn = getattr(provider, hname, None)
+                    if callable(fn) and mint:
+                        try:
+                            hist = fn(mint, limit=2)
+                        except Exception:
+                            hist = None
+                        break
+                if isinstance(hist, list) and len(hist) >= 2:
+                    try:
+                        prev = (hist[-2].get("usd_total") or hist[-2].get("usd_value") or 0.0)
+                    except Exception:
+                        prev = None
+                pnl = float(latest or 0.0) - float(prev or latest or 0.0)
+                rows.append(_norm_nft_row(item or {}, pnl))
+            return rows, "dl.raydium"
+
+    # 2) Fallback to DLRaydiumManager over the same DB
+    #    We import lazily to avoid hard dependency when raydium isn't configured.
+    mgr = None
+    try:
+        from backend.core.raydium_core.dl_raydium import DLRaydiumManager as _Mgr  # primary path
+        mgr = _Mgr(getattr(getattr(dl, "db", None), "conn", None) if dl else None)
+    except Exception:
+        try:
+            # alternative relative paths used in some branches
+            from backend.core.raydium_core import dl_raydium as _dlr
+            mgr = getattr(_dlr, "DLRaydiumManager", None)
+            if callable(mgr):
+                mgr = mgr(getattr(getattr(dl, "db", None), "conn", None) if dl else None)
+        except Exception:
+            mgr = None
+
+    rows: List[Dict[str, Any]] = []
+    if mgr:
+        try:
+            curr = mgr.get_positions(owner=owner) if hasattr(mgr, "get_positions") else []
+        except Exception:
+            curr = []
+        for item in (curr or []):
+            mint = (item or {}).get("mint")
+            latest = (item or {}).get("usd_total") or (item or {}).get("usd_value") or 0.0
+            prev = None
+            hist = None
+            try:
+                if mint and hasattr(mgr, "history_for"):
+                    hist = mgr.history_for(mint, limit=2)
+            except Exception:
+                hist = None
+            if isinstance(hist, list) and len(hist) >= 2:
+                try:
+                    prev = (hist[-2].get("usd_total") or hist[-2].get("usd_value") or 0.0)
+                except Exception:
+                    prev = None
+            pnl = float(latest or 0.0) - float(prev or latest or 0.0)
+            rows.append(_norm_nft_row(item or {}, pnl))
+        return rows, "DLRaydiumManager"
+
+    return [], "none"
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Rendering
+# ────────────────────────────────────────────────────────────────────────────────
+
+def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[str]:
+    """
+    Accepted:
+      render(ctx)
+      render(dl, ctx)
+      render(ctx, width)
+      render(ctx, positions=[...], owner="wallet...")
+    """
+    ctx: Dict[str, Any] = {}
+    if context:
+        if isinstance(context, dict):
+            ctx.update(context)
+        else:
+            ctx["dl"] = context  # first arg might be DataLocker
+    if len(args) >= 1:
+        a0 = args[0]
+        if isinstance(a0, dict):
+            ctx.update(a0)
+        else:
+            ctx["dl"] = a0
+    if len(args) >= 2:
+        a1 = args[1]
+        if isinstance(a1, dict):
+            ctx.update(a1)
+        elif isinstance(a1, (int, float)):
+            kwargs.setdefault("width", int(a1))
+    if kwargs:
+        ctx.update(kwargs)
+
+    width = ctx.get("width") or _console_width()
+    out: List[str] = []
+    out.append(_title_rail("Positions (ALL)", width))
+    out.append(_hr(width))
+
+    # Column layout (kept close to your screenshot)
+    c_asset = 12
+    c_size  = 9
+    c_val   = 11
+    c_pnl   = 11
+    c_lev   = 7
+    c_liq   = 8
+    c_heat  = 6
+    c_trav  = 7
+
+    def fmt_row(asset, size, val, pnl, lev, liq, heat, trav) -> str:
+        line = (
+            f"{_left(asset, c_asset)}  "
+            f"{_right(size, c_size)}  "
+            f"{_right(val, c_val)}  "
+            f"{_right(pnl, c_pnl)}  "
+            f"{_right(lev, c_lev)}  "
+            f"{_right(liq, c_liq)}  "
+            f"{_right(heat, c_heat)}  "
+            f"{_right(trav, c_trav)}"
         )
+        return line[:width] if len(line) > width else line
 
-    # Totals (left-justified cells, colored text; no trailing rule, one blank line after)
-    avg_lev  = (w_lev_n  / w_den) if w_den > 0 else None
-    avg_heat = (w_heat_n / w_den) if w_den > 0 else None
-    avg_trav = (w_trv_n  / w_den) if w_den > 0 else None
+    header = fmt_row("🪙Asset", "📦Size", "🟩Value", "📈PnL", "🧷Lev", "💧Liq", "🔥Heat", "🧭Trave")
+    out.append(header)
 
-    totals_plain = (
-        INDENT
-        + _pad("", W_DIR)                                 + COL_SEP
-        + _pad("Totals", W_ASSET)                         + COL_SEP
-        + _fmt_size("", sum_size, right=False)            + COL_SEP
-        + _fmt_usd(sum_val, W_VAL, right=False)           + COL_SEP
-        + _fmt_pnl(sum_pnl, right=False)                  + COL_SEP
-        + _pad(f"{avg_lev:.1f}×" if avg_lev is not None else "—", W_LEV, right=False) + COL_SEP
-        + _pad("—", W_LIQ, right=False)                   + COL_SEP
-        + _fmt_heat(avg_heat, right=False)                + COL_SEP
-        + _fmt_travel(avg_trav, right=False)
-    )
-    print(_c(totals_plain, TOTALS_COLOR))
-    print()  # one blank line after totals
+    # Collect rows
+    perp_rows, perp_source = _collect_perp_rows(ctx)
+    nft_rows, nft_source = _collect_nft_rows(ctx)
+
+    # Render rows (perps first)
+    size_sum = 0.0
+    value_sum = 0.0
+    pnl_sum = 0.0
+    lev_weighted = 0.0
+    travel_weighted = 0.0
+    size_weight = 0.0  # perps only
+
+    def emit_row(row: Dict[str, Any]) -> None:
+        nonlocal size_sum, value_sum, pnl_sum, lev_weighted, travel_weighted, size_weight
+
+        asset = row.get("asset") or ""
+        size = float(row.get("size") or 0.0)
+        value = float(row.get("value") or 0.0)
+        pnl = float(row.get("pnl") or 0.0)
+        lev = row.get("lev")
+        liq = row.get("liq")
+        heat = row.get("heat")
+        trav = row.get("travel")
+
+        # totals
+        value_sum += value
+        pnl_sum += pnl
+        if row.get("origin") != "nft":
+            size_sum += size
+            if isinstance(lev, (int, float)):
+                lev_weighted += size * float(lev)
+            if isinstance(trav, (int, float)):
+                travel_weighted += size * float(trav)
+            size_weight += size
+
+        # strings
+        s_size = _fmt_num(size, places=2, dash="—")
+        s_val  = _fmt_usd(value)
+        s_pnl  = ("-" if pnl < 0 else "") + _fmt_usd(abs(pnl))
+        s_lev  = (f"{lev:.1f}x" if isinstance(lev, (int, float)) else "—")
+        s_liq  = (_fmt_usd(liq) if isinstance(liq, (int, float)) else "—")
+        s_heat = (_fmt_pct(heat) if isinstance(heat, (int, float)) else "—")
+        s_trav = (_fmt_pct(trav) if isinstance(trav, (int, float)) else "—")
+
+        out.append(fmt_row(asset, s_size, s_val, s_pnl, s_lev, s_liq, s_heat, s_trav))
+
+    for r in perp_rows:
+        emit_row(r)
+    for r in nft_rows:
+        emit_row(r)
+
+    # Totals row
+    out.append("")
+    tot_lev = (lev_weighted / size_weight) if size_weight > 0 else None
+    tot_trv = (travel_weighted / size_weight) if size_weight > 0 else None
+    s_tsize = _fmt_num(size_sum, places=2, dash="—")
+    s_tval  = _fmt_usd(value_sum)
+    s_tpnl  = ("-" if pnl_sum < 0 else "") + _fmt_usd(abs(pnl_sum))
+    s_tlev  = (f"{tot_lev:.1f}x" if isinstance(tot_lev, (int, float)) else "—")
+    s_tliq  = "—"
+    s_theat = "—"
+    s_ttrv  = (f"{tot_trv:.0f}%" if isinstance(tot_trv, (int, float)) else "—")
+
+    out.append(fmt_row("Totals", s_tsize, s_tval, s_tpnl, s_tlev, s_tliq, s_theat, s_ttrv))
+    out.append(f"[POSITIONS] perps={perp_source}({len(perp_rows)}) nfts={nft_source}({len(nft_rows)})")
+    return out
+
+
+def connector(*args, **kwargs) -> List[str]:
+    return render(*args, **kwargs)
+
+
+def name() -> str:
+    return PANEL_NAME
+
+
+if __name__ == "__main__":
+    # Demo: 1 perp + 1 nft
+    demo_ctx = {
+        "positions": [
+            {"asset": "SOL", "size": 178.35, "value_usd": 167.80, "pnl_usd": -9.87, "lev": 10.1, "liq_usd": 171, "heat_pct": 6, "travel_pct": -3},
+        ],
+        # "dl": ...  # optional DataLocker for Raydium
+    }
+    for ln in render(demo_ctx):
+        print(ln)
