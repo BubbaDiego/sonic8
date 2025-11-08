@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from web3 import Web3  # type: ignore
 
+from .aave_client import AaveGraphQLClient
 from .aave_config import AaveConfig
 
 log = logging.getLogger(__name__)
 
+
+# ---------------- data shapes ----------------
 
 @dataclass
 class TxRequest:
@@ -24,6 +28,33 @@ class ExecutionPlan:
     approval: Optional[TxRequest]
     primary: TxRequest
 
+
+# ---------------- mapping helpers ----------------
+
+def _map_tx(obj: Dict[str, Any]) -> TxRequest:
+    return TxRequest(
+        to=obj.get("to"),
+        data=obj.get("data"),
+        value=int(obj.get("value", 0)) if obj.get("value") is not None else None,
+    )
+
+
+def _map_plan(obj: Dict[str, Any]) -> ExecutionPlan:
+    t = obj.get("__typename")
+    if t == "TransactionRequest":
+        return ExecutionPlan(approval=None, primary=_map_tx(obj))
+    if t == "ApprovalRequired":
+        return ExecutionPlan(
+            approval=_map_tx(obj.get("approval", {})),
+            primary=_map_tx(obj.get("originalTransaction", {})),
+        )
+    if t == "InsufficientBalanceError":
+        required = ((obj.get("required") or {}).get("value"))
+        raise RuntimeError(f"Aave: Insufficient balance for requested operation (need {required}).")
+    raise RuntimeError(f"Aave: Unexpected plan typename: {t}")
+
+
+# ---------------- tx executor ----------------
 
 class EthereumTxExecutor:
     """Minimal tx sender for EVM networks (Polygon)."""
@@ -46,7 +77,7 @@ class EthereumTxExecutor:
             "gasPrice": self.w3.eth.gas_price,
         }
         est = self.w3.eth.estimate_gas({"to": tx["to"], "data": tx["data"], "from": self.acct.address, "value": tx["value"]})
-        tx["gas"] = int(est * 1.2)
+        tx["gas"] = int(est * 12 // 10)  # +20%
         signed = self.acct.sign_transaction(tx)
         tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
         return tx_hash.hex()
@@ -59,6 +90,64 @@ class EthereumTxExecutor:
         return hashes
 
 
-# NOTE: The actual preparation of ExecutionPlan objects comes from Aave GraphQL
-# (supply/borrow/withdraw/repay mutations). We keep this module focused on
-# signing/sending. Codex will wire the planner when we enable writes in Phase 2.
+# ---------------- public actions ----------------
+
+
+def _get_pk() -> str:
+    pk = os.getenv("EVM_PRIVATE_KEY")
+    if not pk or pk.strip() == "":
+        raise RuntimeError("EVM_PRIVATE_KEY not set; required for sending transactions.")
+    return pk
+
+
+def _ensure_market(cfg: AaveConfig, market: Optional[str]) -> Optional[str]:
+    return market or cfg.pool
+
+
+def plan_supply(cfg: AaveConfig, *, user: str, reserve: str, amount: str, market: Optional[str] = None) -> ExecutionPlan:
+    client = AaveGraphQLClient(cfg)
+    resp = client.plan_supply(market=_ensure_market(cfg, market), user=user, reserve=reserve, amount=amount)
+    return _map_plan(resp)
+
+
+def plan_withdraw(cfg: AaveConfig, *, user: str, reserve: str, amount: str, market: Optional[str] = None) -> ExecutionPlan:
+    client = AaveGraphQLClient(cfg)
+    resp = client.plan_withdraw(market=_ensure_market(cfg, market), user=user, reserve=reserve, amount=amount)
+    return _map_plan(resp)
+
+
+def plan_borrow(cfg: AaveConfig, *, user: str, reserve: str, amount: str, market: Optional[str] = None) -> ExecutionPlan:
+    client = AaveGraphQLClient(cfg)
+    resp = client.plan_borrow(market=_ensure_market(cfg, market), user=user, reserve=reserve, amount=amount)
+    return _map_plan(resp)
+
+
+def plan_repay(cfg: AaveConfig, *, user: str, reserve: str, amount: str, market: Optional[str] = None) -> ExecutionPlan:
+    client = AaveGraphQLClient(cfg)
+    resp = client.plan_repay(market=_ensure_market(cfg, market), user=user, reserve=reserve, amount=amount)
+    return _map_plan(resp)
+
+
+def send_plan(cfg: AaveConfig, plan: ExecutionPlan) -> List[str]:
+    pk = _get_pk()
+    execu = EthereumTxExecutor(cfg, pk)
+    return execu.execute_plan(plan)
+
+
+# Convenience: plan + send in one call
+
+
+def supply(cfg: AaveConfig, *, user: str, reserve: str, amount: str, market: Optional[str] = None) -> List[str]:
+    return send_plan(cfg, plan_supply(cfg, user=user, reserve=reserve, amount=amount, market=market))
+
+
+def withdraw(cfg: AaveConfig, *, user: str, reserve: str, amount: str, market: Optional[str] = None) -> List[str]:
+    return send_plan(cfg, plan_withdraw(cfg, user=user, reserve=reserve, amount=amount, market=market))
+
+
+def borrow(cfg: AaveConfig, *, user: str, reserve: str, amount: str, market: Optional[str] = None) -> List[str]:
+    return send_plan(cfg, plan_borrow(cfg, user=user, reserve=reserve, amount=amount, market=market))
+
+
+def repay(cfg: AaveConfig, *, user: str, reserve: str, amount: str, market: Optional[str] = None) -> List[str]:
+    return send_plan(cfg, plan_repay(cfg, user=user, reserve=reserve, amount=amount, market=market))

@@ -63,6 +63,9 @@ class AaveConfig:
     # —— Needed for writes (tx send); optional for reads ——
     evm_rpc_url: str                # Polygon RPC (can be 'MISSING' if not set)
 
+    # —— Optional: explicit Pool address for the market (recommended) ——
+    pool: Optional[str] = None      # Polygon V3 Pool; can be set in JSON or env
+
     # —— Tunables ——
     http_timeout_sec: int = 25
 
@@ -87,7 +90,8 @@ class AaveConfig:
             "graphql_url": "https://api.v3.aave.com/graphql",
             "rpc_url": "https://polygon-rpc.com",
             "chain_id": 137,
-            "http_timeout_sec": 25
+            "http_timeout_sec": 25,
+            "pool": "0x794a61358D6845594F94dc1DB02A252B5B4814aD"
           },
           "addresses": {
             "ui_pool_data_provider": null,
@@ -108,6 +112,7 @@ class AaveConfig:
             or _env("POLYGON_RPC_URL")
         )
         timeout = int(_env("AAVE_HTTP_TIMEOUT_SEC", str(aave.get("http_timeout_sec", 25))))
+        pool = _env("AAVE_POOL_ADDRESS", aave.get("pool"))
 
         if not graphql:
             raise RuntimeError(
@@ -121,6 +126,7 @@ class AaveConfig:
             chain_id=chain_id,
             graphql_url=graphql,
             evm_rpc_url=evm_rpc_url,
+            pool=pool,
             http_timeout_sec=timeout,
             ui_pool_data_provider=addrs.get("ui_pool_data_provider"),
             protocol_data_provider=addrs.get("protocol_data_provider"),
