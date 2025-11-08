@@ -12,6 +12,10 @@
   },
   "qr": {
     "enabled": true,
-    "border": 1
+    "border": 0,
+    "compact": true,
+    "max_cols": 40,
+    "color": "green",
+    "link_label": "Open Web Terminal"
   }
 }
