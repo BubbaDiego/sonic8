@@ -2,31 +2,29 @@ from __future__ import annotations
 
 """
 cycle_footer_panel.py
-Sonic Reporting — footer panel rendered last in the cycle output.
+Sonic Reporting — footer panel rendered last.
 
-Design B (requested):
-  A solid heavy-box with two rows:
-    1) 🌀 cycle #N • poll Xs • finished Ys • MM/DD • h:mm(am|pm)
-    2) 🎉 {fun_line}  (from fun_core or the cycle summary)
+Design B:
+  Heavy single box with two rows:
+    1) 🌀 cycle #N • poll Xs • finished Ys • MM/DD • h:mma/pm
+    2) 🎉 {fun_line}
 
-This module is dependency-light and resilient to different monitor contexts.
-It accepts either a single "context" dict (preferred by the Sonic sequencer)
-or keyword args. It returns a list[str] of console lines to print.
+This file is tolerant of different call signatures and includes a
+connector(...) alias for sequencer convenience.
 """
 
 import os
 import importlib
 import datetime as _dt
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-PANEL_KEY = "cycle_footer_panel"   # used by some sequencers
-PANEL_NAME = "Cycle Footer Panel"  # human label
+PANEL_KEY = "cycle_footer_panel"
+PANEL_NAME = "Cycle Footer Panel"
 
 
-# --------- utilities ---------
+# ── utils ───────────────────────────────────────────────────────────────────────
 
 def _console_width(default: int = 92) -> int:
-    """Read expected console width from env or fall back."""
     try:
         w = int(os.environ.get("SONIC_CONSOLE_WIDTH", default))
         return max(40, min(180, w))
@@ -35,24 +33,21 @@ def _console_width(default: int = 92) -> int:
 
 
 def _box_heavy(lines: Iterable[str], width: Optional[int] = None) -> List[str]:
-    """Wrap lines in a heavy Unicode box. No colors for reliability."""
     W = width or _console_width()
     inner = max(0, W - 2)
     top = "┏" + ("━" * inner) + "┓"
     bot = "┗" + ("━" * inner) + "┛"
     out: List[str] = [top]
     for raw in lines:
-        # ensure single-line, trim hard, then pad
         text = str(raw).replace("\n", " ").strip()
         if len(text) > inner:
-            text = text[: inner - 1] + "…" if inner >= 1 else ""
+            text = (text[: inner - 1] + "…") if inner >= 1 else ""
         out.append("┃" + text.ljust(inner, " ") + "┃")
     out.append(bot)
     return out
 
 
 def _parse_ts(ts: Any) -> _dt.datetime:
-    """Best-effort parse of a timestamp input to a local datetime."""
     if ts is None:
         return _dt.datetime.now()
     if isinstance(ts, (int, float)):
@@ -62,21 +57,18 @@ def _parse_ts(ts: Any) -> _dt.datetime:
             return _dt.datetime.now()
     if isinstance(ts, _dt.datetime):
         return ts
-    if isinstance(ts, str):
-        s = ts.strip()
-        try:
-            if s.endswith("Z"):
-                return _dt.datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone().replace(tzinfo=None)
-            return _dt.datetime.fromisoformat(s)
-        except Exception:
-            return _dt.datetime.now()
-    return _dt.datetime.now()
+    s = str(ts).strip()
+    try:
+        if s.endswith("Z"):
+            return _dt.datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone().replace(tzinfo=None)
+        return _dt.datetime.fromisoformat(s)
+    except Exception:
+        return _dt.datetime.now()
 
 
 def _fmt_stamp(ts: Any) -> str:
-    """Format as 'MM/DD • h:mmpm' (lowercased AM/PM)."""
     t = _parse_ts(ts)
-    hour = t.strftime("%I").lstrip("0") or "0"  # cross-platform
+    hour = t.strftime("%I").lstrip("0") or "0"
     return f"{t.strftime('%m/%d')} • {hour}:{t.strftime('%M%p').lower()}"
 
 
@@ -88,12 +80,10 @@ def _coalesce(*vals, default=None):
 
 
 def _get_from_tree(tree: Dict[str, Any], *keys: str, default=None):
-    """Try multiple dotted paths in a dict-of-dicts tree."""
     for key in keys:
         cur = tree
         try:
-            parts = key.split(".")
-            for p in parts:
+            for p in key.split("."):
                 cur = cur[p]
             return cur
         except Exception:
@@ -101,16 +91,18 @@ def _get_from_tree(tree: Dict[str, Any], *keys: str, default=None):
     return default
 
 
-# --------- fun_core integration ---------
+# ── fun_core integration ────────────────────────────────────────────────────────
 
-def _import_fun_core():
-    """Try to import backend.core.fun_core.* in a few common shapes."""
-    mods = [
-        "backend.core.fun_core",
-        "backend.core.fun_core.fun_core",
-        "backend.core.fun_core.__init__",
-    ]
-    for m in mods:
+def _import_fun_client():
+    """
+    Resolve the fun client in a few shapes.
+    Primary target is backend.core.fun_core.client (sonic6/sonic7 style).
+    """
+    for m in (
+        "backend.core.fun_core.client",
+        "backend.core.fun_core",               # package may re-export
+        "backend.core.fun_core.fun_core",      # older naming
+    ):
         try:
             return importlib.import_module(m)
         except Exception:
@@ -119,66 +111,83 @@ def _import_fun_core():
 
 
 def _resolve_fun_line(csum: Dict[str, Any], loop_counter: int) -> str:
-    # Prefer a line already carried by the monitor summary
+    # Prefer precomputed summary
     for k in ("fun_line", "fun", "fun_text"):
         v = csum.get(k)
         if isinstance(v, str) and v.strip():
             return v.strip()
 
-    fc = _import_fun_core()
-    if fc:
-        # 1) get_fun_line(loop_counter) -> str or dict
-        fn = getattr(fc, "get_fun_line", None)
-        if callable(fn):
+    mod = _import_fun_client()
+    if not mod:
+        return "—"
+
+    # get_fun_line(loop_counter) may return (text, meta) or dict or str
+    fn = getattr(mod, "get_fun_line", None)
+    if callable(fn):
+        try:
+            res = fn(int(loop_counter))
+            if isinstance(res, tuple) and res and isinstance(res[0], str):
+                return res[0].strip() or "—"
+            if isinstance(res, dict):
+                for k in ("text", "fun_line", "line"):
+                    if isinstance(res.get(k), str) and res[k].strip():
+                        return res[k].strip()
+            if isinstance(res, str) and res.strip():
+                return res.strip()
+        except Exception:
+            pass
+
+    # fallback: fun_random_text_sync()
+    for name in ("fun_random_text_sync", "fun_random_text"):
+        fn2 = getattr(mod, name, None)
+        if callable(fn2):
             try:
-                res = fn(loop_counter)
-                if isinstance(res, dict):
-                    for k in ("text", "fun_line", "line"):
-                        val = res.get(k)
-                        if isinstance(val, str) and val.strip():
-                            return val.strip()
-                elif isinstance(res, str) and res.strip():
-                    return res.strip()
+                txt = fn2()
+                if isinstance(txt, str) and txt.strip():
+                    return txt.strip()
             except Exception:
                 pass
-        # 2) fun_random_text_sync() -> str (fallback)
-        for name in ("fun_random_text_sync", "random_line", "get_fun", "get_fun_text"):
-            fn2 = getattr(fc, name, None)
-            if callable(fn2):
-                try:
-                    res = fn2()
-                    if isinstance(res, str) and res.strip():
-                        return res.strip()
-                except Exception:
-                    pass
-
     return "—"
 
 
-# --------- main render ---------
+# ── main render (positional-args tolerant) ──────────────────────────────────────
 
-def render(context: Optional[Dict[str, Any]] = None, **kwargs) -> List[str]:
+def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[str]:
     """
-    Returns a list of console lines containing the footer box.
-    Accepts either:
-      - context: a dict with 'csum' and optional fields
-      - kwargs: csum=..., loop_counter=..., poll_interval_s=..., total_elapsed_s=...
+    Accepted shapes:
+      render(ctx)
+      render(ctx, width)
+      render(dl, ctx)
+      render(ctx, csum={...})
+      render(..., width=92)
     """
     ctx: Dict[str, Any] = {}
     if context:
         ctx.update(context)
+
+    if len(args) >= 1:
+        a0 = args[0]
+        if isinstance(a0, dict):
+            ctx.update(a0)
+        else:
+            ctx.setdefault("dl", a0)
+    if len(args) >= 2:
+        a1 = args[1]
+        if isinstance(a1, dict):
+            ctx.update(a1)
+        elif isinstance(a1, (int, float)):
+            kwargs.setdefault("width", int(a1))
+
     if kwargs:
         ctx.update(kwargs)
 
     csum: Dict[str, Any] = ctx.get("csum") or ctx.get("summary") or {}
-    # Loop number: try several common keys
+
     loop_counter = _coalesce(
         ctx.get("loop_counter"),
         csum.get("loop_counter"),
         _get_from_tree(csum, "cycle.n", "cycle.number", "n"),
-        csum.get("cycle_no"),
-        csum.get("loop_no"),
-        default=0,
+        csum.get("cycle_no"), csum.get("loop_no"), default=0
     )
     try:
         loop_counter = int(loop_counter)
@@ -210,34 +219,33 @@ def render(context: Optional[Dict[str, Any]] = None, **kwargs) -> List[str]:
     except Exception:
         total_elapsed_s = 0.0
 
-    ts_value = _coalesce(
-        ctx.get("ts"),
-        csum.get("ts"),
-        _get_from_tree(csum, "time.ts", "timing.ts_iso"),
-        default=None,
-    )
+    ts_value = _coalesce(ctx.get("ts"), csum.get("ts"),
+                         _get_from_tree(csum, "time.ts", "timing.ts_iso"), default=None)
 
     header = f"🌀 cycle #{loop_counter} • poll {poll_interval_s}s • finished {total_elapsed_s:.2f}s • {_fmt_stamp(ts_value)}"
-    fun_line = _resolve_fun_line(csum, loop_counter)
+    fun_line = _resolve_fun_line(csum, int(loop_counter))
 
     width = ctx.get("width") or _console_width()
     body = [header, f"🎉 {fun_line}"]
     return _box_heavy(body, width=width)
 
 
-# Some sequencers may do a duck-typed `.name()` check
+def connector(*args, **kwargs) -> List[str]:
+    """Sequencer-friendly entrypoint; simply delegates to render."""
+    return render(*args, **kwargs)
+
+
 def name() -> str:
     return PANEL_NAME
 
 
 if __name__ == "__main__":
-    # manual preview
     demo_csum = {
-        "poll_seconds": 30,
-        "cycle_elapsed_s": 0.62,
+        "poll_seconds": 34,
+        "cycle_elapsed_s": 0.28,
         "ts": _dt.datetime.now().isoformat(timespec="seconds"),
-        "cycle": {"n": 12},
-        "fun_line": "In code we trust; in logs we verify.",
+        "cycle": {"n": 1},
+        # leave out fun_line to verify fun_core fallback
     }
-    for ln in render({"csum": demo_csum, "loop_counter": 12}):
+    for ln in render({"csum": demo_csum}):
         print(ln)
