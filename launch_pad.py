@@ -561,28 +561,26 @@ def _has_module(dotted: str) -> bool:
 
 
 def run_fun_console() -> None:
-    """Robust launcher for the Fun Console."""
+    """
+    Robust launch for the Fun Console.
+    Prefers fun_console; falls back to console or package __main__.
+    Respects SONIC_FUN_CONSOLE_MOD if you want to force a module.
+    """
 
     override = os.environ.get("SONIC_FUN_CONSOLE_MOD", "").strip()
     candidates = [
         override,
-        "backend.core.fun_core.console",
-        "backend.core.fun_core.fun_console",
-        "backend.core.fun_core",
+        "backend.core.fun_core.fun_console",  # ← prefer this (per sonic6 refactor)
+        "backend.core.fun_core.console",      # legacy name
+        "backend.core.fun_core",              # package __main__
     ]
+    search = [m for m in candidates if m]
 
-    seen: set[str] = set()
-    search: list[str] = []
-    for mod in candidates:
-        if mod and mod not in seen:
-            seen.add(mod)
-            search.append(mod)
-
-    log_dir = repo_root() / "reports" / "launchpad_logs"
+    log_dir = Path("reports/launchpad_logs")
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"Fun_Console_{time.strftime('%Y%m%d_%H%M%S')}.log"
 
-    target = next((mod for mod in search if _has_module(mod)), None)
+    target = next((m for m in search if _has_module(m)), None)
     if not target:
         msg = "Fun Console module not found. Tried: " + ", ".join(search)
         print(msg)
@@ -592,8 +590,8 @@ def run_fun_console() -> None:
     print(f"Launching Fun Console via: {target}")
     try:
         subprocess.run([sys.executable, "-m", target], check=False)
-    except Exception as exc:
-        err = f"Fun Console failed: {exc!r}"
+    except Exception as e:
+        err = f"Fun Console failed: {e!r}"
         print(err)
         log_path.write_text(err, encoding="utf-8")
 
