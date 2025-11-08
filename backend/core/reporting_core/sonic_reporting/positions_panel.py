@@ -9,7 +9,7 @@ import os
 # CONFIG: colors (only text is colored; bars remain plain)
 USE_COLOR     = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0", "false", "no", "off"}
 TITLE_COLOR   = "\x1b[38;5;45m"   # cyan/teal for "Positions" text
-TOTALS_COLOR  = "\xb3[38;5;214m"  # amber/orange for totals row text
+TOTALS_COLOR  = "\x1b[38;5;214m"  # amber/orange for totals row text
 
 def _c(s: str, color: str) -> str:
     return f"{color}{s}\x1b[0m" if USE_COLOR else s
