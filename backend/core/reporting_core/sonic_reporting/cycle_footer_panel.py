@@ -3,20 +3,22 @@ from __future__ import annotations
 cycle_footer_panel.py
 Sonic Reporting — footer panel (rendered last).
 
-Layout (inside a solid box, left-padded):
-  1) 🌀 cycle #N
-  2) ⏱ poll Xs • finished Ys
-  3) 📅 MM/DD • h:mmap/pm
-  4) 🎉 {fun_core line}
+Layout (inside a solid box):
+  1) 🌀  cycle #N
+  2) ⏱  poll Xs • finished Ys
+  3) 📅  MM/DD • h:mmap/pm
+  4) 🎉  {fun_core line}
   + two trailing blank lines for visual padding
 
 Knobs (read from env; Rich default is set in console_reporter):
-  SONIC_CONSOLE_WIDTH     -> console width (default 92)
-  SONIC_FOOTER_RICH       -> "1"/"true" to use Rich (preferred)
-  SONIC_FOOTER_BORDER     -> ANSI color code for fallback border (default "38;5;39")
+  SONIC_CONSOLE_WIDTH   -> console width (default 92)
+  SONIC_FOOTER_RICH     -> "1"/"true" to use Rich (preferred)
+  SONIC_FOOTER_BORDER   -> ANSI color code for fallback border (default "38;5;39")
+  SONIC_FOOTER_MARGIN   -> left margin (spaces) OUTSIDE the box (default 2)
 """
 
 import os
+import importlib
 import datetime as _dt
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -33,16 +35,19 @@ def _console_width(default: int = 92) -> int:
     except Exception:
         return default
 
+def _left_margin() -> int:
+    try:
+        return max(0, int(os.environ.get("SONIC_FOOTER_MARGIN", "2")))
+    except Exception:
+        return 2
 
 def _ansi(code: str, s: str) -> str:
     if not code:
         return s
     return f"\x1b[{code}m{s}\x1b[0m"
 
-
 def _border_code() -> str:
     return os.environ.get("SONIC_FOOTER_BORDER", "38;5;39")  # bright cyan
-
 
 def _parse_ts(ts: Any) -> _dt.datetime:
     if ts is None:
@@ -62,12 +67,10 @@ def _parse_ts(ts: Any) -> _dt.datetime:
     except Exception:
         return _dt.datetime.now()
 
-
 def _fmt_stamp(ts: Any) -> str:
     t = _parse_ts(ts)
     hour = t.strftime("%I").lstrip("0") or "0"
     return f"{t.strftime('%m/%d')} • {hour}:{t.strftime('%M%p').lower()}"
-
 
 def _coalesce(*vals, default=None):
     for v in vals:
@@ -76,98 +79,75 @@ def _coalesce(*vals, default=None):
     return default
 
 
-def _get_from_tree(tree: Optional[Dict[str, Any]], *keys: str, default=None):
-    if not isinstance(tree, dict):
-        return default
-    for key in keys:
-        cur: Any = tree
+# ─────────────────────── fun_core integration ────────────────────────
+
+def _import_fun():
+    for m in (
+        "backend.core.fun_core.client",   # preferred
+        "backend.core.fun_core",          # package re-exports
+        "backend.core.fun_core.fun_core"  # legacy
+    ):
         try:
-            for part in key.split("."):
-                cur = cur[part]
-            return cur
+            return importlib.import_module(m)
         except Exception:
             continue
-    return default
+    return None
 
+def _resolve_fun_line(loop_counter: int, ctx_fun: Optional[str] = None) -> str:
+    # prefer explicit line from ctx if given
+    if isinstance(ctx_fun, str) and ctx_fun.strip():
+        return ctx_fun.strip()
 
-try:  # pragma: no cover - optional dependency
-    from backend.core.fun_core.client import get_fun_line as _fun_core_get_fun_line
-except Exception:  # pragma: no cover - fallback when fun_core missing
-    _fun_core_get_fun_line = None
+    mod = _import_fun()
+    if not mod:
+        return "—"
 
-
-def _resolve_fun_line(ctx: Dict[str, Any], loop_counter: int) -> str:
-    """Return a fun line from ctx or fun_core; default to "–" when missing."""
-
-    def _extract_text(value: Any) -> Optional[str]:
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        if isinstance(value, (list, tuple)) and value:
-            head = value[0]
-            if isinstance(head, str) and head.strip():
-                return head.strip()
-        if isinstance(value, dict):
-            for key in ("text", "fun_line", "line", "value"):
-                val = value.get(key)
-                if isinstance(val, str) and val.strip():
-                    return val.strip()
-        return None
-
-    for key in ("fun_line", "fun", "fun_text"):
-        txt = _extract_text(ctx.get(key))
-        if txt:
-            return txt
-
-    summary = ctx.get("summary")
-    if isinstance(summary, dict):
-        for key in ("fun_line", "fun", "fun_text"):
-            txt = _extract_text(summary.get(key))
-            if txt:
-                return txt
-
-    if callable(_fun_core_get_fun_line):
+    # get_fun_line may return (text, meta) | dict | str
+    fn = getattr(mod, "get_fun_line", None)
+    if callable(fn):
         try:
-            res = _fun_core_get_fun_line(int(loop_counter))
-            txt = _extract_text(res)
-            if txt:
-                return txt
+            res = fn(int(loop_counter))
+            if isinstance(res, tuple) and res and isinstance(res[0], str) and res[0].strip():
+                return res[0].strip()
+            if isinstance(res, dict):
+                for k in ("text", "fun_line", "line"):
+                    val = res.get(k)
+                    if isinstance(val, str) and val.strip():
+                        return val.strip()
+            if isinstance(res, str) and res.strip():
+                return res.strip()
         except Exception:
             pass
 
-    return "–"
+    # fallback
+    for name in ("fun_random_text_sync", "fun_random_text"):
+        fn2 = getattr(mod, name, None)
+        if callable(fn2):
+            try:
+                txt = fn2()
+                if isinstance(txt, str) and txt.strip():
+                    return txt.strip()
+            except Exception:
+                pass
+    return "—"
 
 
 # ─────────────────────────── renderers ───────────────────────────────
 
-def _box_heavy_ansi(rows: Iterable[str], width: Optional[int] = None, indent: int = 2) -> List[str]:
+def _make_rows(loop_counter: int, poll_s: int, elapsed_s: float, ts: Any, fun_text: str) -> List[tuple]:
     """
-    Heavy Unicode box with colored rails; left indent inside box.
-    Returns list[str] plus two trailing blank lines.
+    Build icon/text pairs. Text is plain; columns handled by renderers.
     """
-    W = width or _console_width()
-    inner = max(0, W - 2)
-    color = _border_code()
+    return [
+        ("🌀", f"cycle #{loop_counter}"),
+        ("⏱", f"poll {poll_s}s • finished {elapsed_s:.2f}s"),
+        ("📅", f"{_fmt_stamp(ts)}"),
+        ("🎉", fun_text),
+    ]
 
-    top = _ansi(color, "┏" + ("━" * inner) + "┓")
-    bot = _ansi(color, "┗" + ("━" * inner) + "┛")
-
-    out: List[str] = [top]
-    pad = " " * max(0, indent)
-    for raw in rows:
-        text = pad + str(raw).replace("\n", " ").strip()
-        if len(text) > inner:
-            text = (text[: inner - 1] + "…") if inner >= 1 else ""
-        out.append(_ansi(color, "┃") + text.ljust(inner, " ") + _ansi(color, "┃"))
-    out.append(bot)
-    # two extra blank lines for spacing
-    out.append("")
-    out.append("")
-    return out
-
-
-def _try_rich_box(rows: List[str], width: int) -> Optional[List[str]]:
+def _try_rich_box(rows: List[tuple], width: int, margin: int) -> Optional[List[str]]:
     """
-    Optional rich.Panel rendering with left padding.
+    Optional rich.Panel(Table) with a left margin wrapper.
     Returns None if disabled/missing.
     """
     use_rich = os.environ.get("SONIC_FOOTER_RICH", "0").lower() in ("1", "true", "yes", "on")
@@ -176,25 +156,29 @@ def _try_rich_box(rows: List[str], width: int) -> Optional[List[str]]:
     try:
         from rich.console import Console
         from rich.panel import Panel
-        from rich.text import Text
+        from rich.table import Table
+        from rich.padding import Padding
         from rich import box as rbox
 
-        console = Console(width=width, record=True, color_system="truecolor")
-        body = Text()
-        # rows already contain icons; panel adds left indent via padding (0,2)
-        body.append(rows[0] + "\n")
-        body.append(rows[1] + "\n")
-        body.append(rows[2] + "\n")
-        body.append(rows[3])
+        console = Console(width=width + margin, record=True, color_system="truecolor")
 
-        p = Panel(
-            body,
+        tbl = Table.grid(padding=(0, 1))   # (row_pad, col_pad); gives a fixed gap between icon & text
+        tbl.add_column(justify="left", no_wrap=True)   # icon col
+        tbl.add_column(justify="left", no_wrap=False)  # text col (flex)
+        for icon, text in rows:
+            tbl.add_row(icon, text)
+
+        panel = Panel(
+            tbl,
             box=rbox.HEAVY,
             border_style="bright_cyan",
-            padding=(0, 2),  # left/right indent inside the box
+            padding=(0, 2),  # internal left/right indent
             expand=False,
         )
-        console.print(p)
+
+        renderable = panel if margin <= 0 else Padding(panel, (0, 0, 0, margin))
+        console.print(renderable)
+
         ansi = console.export_text(styles=True)
         lines = [ln.rstrip("\n") for ln in ansi.splitlines()]
         # append the two line padding
@@ -203,6 +187,39 @@ def _try_rich_box(rows: List[str], width: int) -> Optional[List[str]]:
         return lines
     except Exception:
         return None
+
+def _box_heavy_ansi(rows: List[tuple], width: int, margin: int, inner_indent: int = 0, icon_col: int = 2, gap: int = 1) -> List[str]:
+    """
+    ANSI fallback with colored rails and external left margin.
+    Two columns: icon (fixed width) + gap + text (fills).
+    """
+    color = _border_code()
+    # account for drawing the box at a given margin (spaces before every line)
+    left = " " * max(0, margin)
+
+    inner = max(0, width - 2)  # content width inside ┃ ┃
+    top = left + _ansi(color, "┏" + ("━" * inner) + "┓")
+    bot = left + _ansi(color, "┗" + ("━" * inner) + "┛")
+
+    out: List[str] = [top]
+    pad = " " * max(0, inner_indent)
+
+    # icon column width measured in characters; emojis render ~2 cells in most fonts,
+    # but length() = 1. This keeps alignment visually acceptable for our use.
+    for icon, text in rows:
+        icon_s = (icon or "")[:1]
+        col = (icon_s + " " * max(0, icon_col - 1))  # ensure a fixed column for text start
+        raw = pad + col + (" " * gap) + (text or "")
+        # truncate to inner width
+        if len(raw) > inner:
+            raw = raw[: inner - 1] + "…"
+        out.append(left + _ansi(color, "┃") + raw.ljust(inner, " ") + _ansi(color, "┃"))
+
+    out.append(bot)
+    # two extra blank lines for spacing
+    out.append("")
+    out.append("")
+    return out
 
 
 # ───────────────────────── public API ────────────────────────────────
@@ -213,15 +230,16 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
       render(ctx)
       render(dl, ctx)
       render(ctx, width)
-      render(ctx, csum={...})
+      render(ctx, loop_counter=..., poll_interval_s=..., total_elapsed_s=..., ts=...)
     """
     ctx: Dict[str, Any] = {}
     if context:
         if isinstance(context, dict):
             ctx.update(context)
         else:
-            ctx["dl"] = context  # someone passed DataLocker first
+            ctx["dl"] = context  # if someone passes DataLocker first
 
+    # absorb optional positionals
     if len(args) >= 1:
         a0 = args[0]
         if isinstance(a0, dict):
@@ -234,72 +252,27 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
             ctx.update(a1)
         elif isinstance(a1, (int, float)):
             kwargs.setdefault("width", int(a1))
-
     if kwargs:
         ctx.update(kwargs)
 
-    summary: Dict[str, Any] = ctx.get("summary") if isinstance(ctx.get("summary"), dict) else {}
+    # minimal context (no csum)
+    loop_counter = int(_coalesce(ctx.get("loop_counter"), 0) or 0)
+    poll_s       = int(_coalesce(ctx.get("poll_interval_s"), 0) or 0)
+    elapsed_s    = float(_coalesce(ctx.get("total_elapsed_s"), 0.0) or 0.0)
+    ts_value     = _coalesce(ctx.get("ts"), None)
 
-    loop_counter = _coalesce(
-        ctx.get("loop_counter"),
-        summary.get("loop_counter"),
-        _get_from_tree(summary, "cycle.n", "cycle.number", "n"),
-        summary.get("cycle_no"),
-        summary.get("loop_no"),
-        default=0,
-    )
-    try:
-        loop_counter = int(loop_counter)
-    except Exception:
-        loop_counter = 0
+    width  = int(ctx.get("width") or _console_width())
+    margin = _left_margin()
 
-    poll_interval_s = _coalesce(
-        ctx.get("poll_interval_s"),
-        ctx.get("poll_seconds"),
-        summary.get("poll_seconds"),
-        _get_from_tree(summary, "config.poll_seconds"),
-        default=0,
-    )
-    try:
-        poll_interval_s = int(poll_interval_s)
-    except Exception:
-        poll_interval_s = 0
+    fun_text = _resolve_fun_line(loop_counter, ctx_fun=ctx.get("fun_line"))
+    rows = _make_rows(loop_counter, poll_s, elapsed_s, ts_value, fun_text)
 
-    total_elapsed_s = _coalesce(
-        ctx.get("total_elapsed_s"),
-        ctx.get("elapsed_s"),
-        summary.get("cycle_elapsed_s"),
-        summary.get("elapsed_s"),
-        _get_from_tree(summary, "timing.elapsed_s"),
-        default=0.0,
-    )
-    try:
-        total_elapsed_s = float(total_elapsed_s)
-    except Exception:
-        total_elapsed_s = 0.0
-
-    ts_value = _coalesce(
-        ctx.get("ts"),
-        ctx.get("timestamp"),
-        summary.get("ts"),
-        _get_from_tree(summary, "time.ts", "timing.ts_iso"),
-        default=None,
-    )
-
-    # Build the four content rows (no manual indent here; Rich handles padding, ANSI adds it)
-    row1 = f"🌀 cycle #{loop_counter}"
-    row2 = f"⏱ poll {poll_interval_s}s • finished {total_elapsed_s:.2f}s"
-    row3 = f"📅 {_fmt_stamp(ts_value)}"
-    row4 = f"🎉 {_resolve_fun_line(ctx, int(loop_counter))}"
-
-    width = ctx.get("width") or _console_width()
-
-    # Try Rich first (padding built-in). Fallback to ANSI heavy box with left indent.
-    rich_lines = _try_rich_box([row1, row2, row3, row4], width)
+    # Prefer Rich panel with a left margin; fallback to ANSI box.
+    rich_lines = _try_rich_box(rows, width=width, margin=margin)
     if rich_lines is not None:
         return rich_lines
 
-    return _box_heavy_ansi([row1, row2, row3, row4], width=width, indent=2)
+    return _box_heavy_ansi(rows, width=width, margin=margin, inner_indent=0, icon_col=2, gap=1)
 
 
 def connector(*args, **kwargs) -> List[str]:
@@ -311,12 +284,13 @@ def name() -> str:
 
 
 if __name__ == "__main__":
-    demo_csum = {
-        "poll_seconds": 34,
-        "cycle_elapsed_s": 0.03,
+    demo_ctx = {
+        "loop_counter": 1,
+        "poll_interval_s": 34,
+        "total_elapsed_s": 0.11,
         "ts": _dt.datetime.now().isoformat(timespec="seconds"),
-        "cycle": {"n": 8},
-        # leave out fun_line to exercise fun_core fallback
+        # "fun_line": "In code we trust; in logs we verify.",  # optional override
+        "width": 92,
     }
-    for ln in render({"csum": demo_csum}):
+    for ln in render(demo_ctx):
         print(ln)
