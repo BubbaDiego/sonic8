@@ -1,28 +1,33 @@
 from __future__ import annotations
-
 """
 cycle_footer_panel.py
-Sonic Reporting — footer panel rendered last.
+Sonic Reporting — footer panel (rendered last).
 
-Design B:
-  Heavy single box with two rows:
+Design:
+  Heavy single box with two rows + two trailing blank lines:
     1) 🌀 cycle #N • poll Xs • finished Ys • MM/DD • h:mma/pm
     2) 🎉 {fun_line}
 
-This file is tolerant of different call signatures and includes a
-connector(...) alias for sequencer convenience.
+Enhancements in this version:
+- Colored borders (ANSI 256-color by default; cyan-ish).
+- Optional Rich-rendered box if SONIC_FOOTER_RICH=1 and 'rich' is installed.
+- Two blank lines appended for visual padding at the end.
+
+Env toggles:
+  SONIC_CONSOLE_WIDTH      -> console width (default 92)
+  SONIC_FOOTER_RICH=1      -> try rich.Panel rendering (fallback to ANSI if missing)
+  SONIC_FOOTER_BORDER=38;5;39 -> ANSI color code for border (default blue-cyan)
 """
 
 import os
 import importlib
 import datetime as _dt
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional
 
 PANEL_KEY = "cycle_footer_panel"
 PANEL_NAME = "Cycle Footer Panel"
 
-
-# ── utils ───────────────────────────────────────────────────────────────────────
+# ───────── utils ─────────
 
 def _console_width(default: int = 92) -> int:
     try:
@@ -31,21 +36,13 @@ def _console_width(default: int = 92) -> int:
     except Exception:
         return default
 
+def _ansi(code: str, s: str) -> str:
+    if not code:
+        return s
+    return f"\x1b[{code}m{s}\x1b[0m"
 
-def _box_heavy(lines: Iterable[str], width: Optional[int] = None) -> List[str]:
-    W = width or _console_width()
-    inner = max(0, W - 2)
-    top = "┏" + ("━" * inner) + "┓"
-    bot = "┗" + ("━" * inner) + "┛"
-    out: List[str] = [top]
-    for raw in lines:
-        text = str(raw).replace("\n", " ").strip()
-        if len(text) > inner:
-            text = (text[: inner - 1] + "…") if inner >= 1 else ""
-        out.append("┃" + text.ljust(inner, " ") + "┃")
-    out.append(bot)
-    return out
-
+def _border_code() -> str:
+    return os.environ.get("SONIC_FOOTER_BORDER", "38;5;39")  # cyan-ish, readable on dark bg
 
 def _parse_ts(ts: Any) -> _dt.datetime:
     if ts is None:
@@ -65,19 +62,16 @@ def _parse_ts(ts: Any) -> _dt.datetime:
     except Exception:
         return _dt.datetime.now()
 
-
 def _fmt_stamp(ts: Any) -> str:
     t = _parse_ts(ts)
     hour = t.strftime("%I").lstrip("0") or "0"
     return f"{t.strftime('%m/%d')} • {hour}:{t.strftime('%M%p').lower()}"
-
 
 def _coalesce(*vals, default=None):
     for v in vals:
         if v is not None:
             return v
     return default
-
 
 def _get_from_tree(tree: Dict[str, Any], *keys: str, default=None):
     for key in keys:
@@ -90,18 +84,13 @@ def _get_from_tree(tree: Dict[str, Any], *keys: str, default=None):
             continue
     return default
 
+# ───────── fun_core integration ─────────
 
-# ── fun_core integration ────────────────────────────────────────────────────────
-
-def _import_fun_client():
-    """
-    Resolve the fun client in a few shapes.
-    Primary target is backend.core.fun_core.client (sonic6/sonic7 style).
-    """
+def _import_fun():
     for m in (
-        "backend.core.fun_core.client",
-        "backend.core.fun_core",               # package may re-export
-        "backend.core.fun_core.fun_core",      # older naming
+        "backend.core.fun_core.client",   # preferred
+        "backend.core.fun_core",          # package re-exports
+        "backend.core.fun_core.fun_core"  # legacy
     ):
         try:
             return importlib.import_module(m)
@@ -109,35 +98,34 @@ def _import_fun_client():
             continue
     return None
 
-
 def _resolve_fun_line(csum: Dict[str, Any], loop_counter: int) -> str:
-    # Prefer precomputed summary
+    # prefer precomputed
     for k in ("fun_line", "fun", "fun_text"):
         v = csum.get(k)
         if isinstance(v, str) and v.strip():
             return v.strip()
 
-    mod = _import_fun_client()
+    mod = _import_fun()
     if not mod:
         return "—"
 
-    # get_fun_line(loop_counter) may return (text, meta) or dict or str
+    # get_fun_line may return tuple(dict, meta) | dict | str
     fn = getattr(mod, "get_fun_line", None)
     if callable(fn):
         try:
             res = fn(int(loop_counter))
-            if isinstance(res, tuple) and res and isinstance(res[0], str):
-                return res[0].strip() or "—"
+            if isinstance(res, tuple) and res and isinstance(res[0], str) and res[0].strip():
+                return res[0].strip()
             if isinstance(res, dict):
                 for k in ("text", "fun_line", "line"):
-                    if isinstance(res.get(k), str) and res[k].strip():
-                        return res[k].strip()
+                    val = res.get(k)
+                    if isinstance(val, str) and val.strip():
+                        return val.strip()
             if isinstance(res, str) and res.strip():
                 return res.strip()
         except Exception:
             pass
 
-    # fallback: fun_random_text_sync()
     for name in ("fun_random_text_sync", "fun_random_text"):
         fn2 = getattr(mod, name, None)
         if callable(fn2):
@@ -149,28 +137,90 @@ def _resolve_fun_line(csum: Dict[str, Any], loop_counter: int) -> str:
                 pass
     return "—"
 
+# ───────── renderers ─────────
 
-# ── main render (positional-args tolerant) ──────────────────────────────────────
+def _box_heavy_ansi(lines: Iterable[str], width: Optional[int] = None) -> List[str]:
+    """Heavy Unicode box with colored rails via ANSI; returns list[str]."""
+    W = width or _console_width()
+    inner = max(0, W - 2)
+    color = _border_code()
+
+    top = "┏" + ("━" * inner) + "┓"
+    bot = "┗" + ("━" * inner) + "┛"
+    top = _ansi(color, top)
+    bot = _ansi(color, bot)
+
+    out: List[str] = [top]
+    for raw in lines:
+        text = str(raw).replace("\n", " ").strip()
+        if len(text) > inner:
+            text = (text[: inner - 1] + "…") if inner >= 1 else ""
+        left = _ansi(color, "┃")
+        right = _ansi(color, "┃")
+        out.append(f"{left}{text.ljust(inner, ' ')}{right}")
+    out.append(bot)
+    # padding: two extra blank lines for spacing at the end of the panel
+    out.append("")
+    out.append("")
+    return out
+
+def _try_rich_box(header: str, fun_line: str, width: int) -> Optional[List[str]]:
+    """Optional rich.Panel rendering. Returns None on failure or if disabled."""
+    use_rich = os.environ.get("SONIC_FOOTER_RICH", "0").lower() in ("1", "true", "yes")
+    if not use_rich:
+        return None
+    try:
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
+        from rich import box as rbox
+
+        console = Console(width=width, record=True, color_system="truecolor")
+        body = Text()
+        body.append(header + "\n", style="bold cyan")
+        body.append("🎉 " + fun_line, style="bold magenta")
+
+        p = Panel(
+            body,
+            box=rbox.HEAVY,
+            border_style="bright_cyan",
+            padding=(0, 1),
+            expand=False,
+        )
+        console.print(p)
+        # Export with ANSI styles so colors survive plain print
+        ansi = console.export_text(styles=True)
+        lines = [ln.rstrip("\n") for ln in ansi.splitlines()]
+        # add the two-line padding
+        lines.append("")
+        lines.append("")
+        return lines
+    except Exception:
+        return None
+
+# ───────── public API ─────────
 
 def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[str]:
     """
-    Accepted shapes:
+    Accepted:
       render(ctx)
-      render(ctx, width)
       render(dl, ctx)
+      render(ctx, width)
       render(ctx, csum={...})
-      render(..., width=92)
     """
     ctx: Dict[str, Any] = {}
     if context:
-        ctx.update(context)
+        if isinstance(context, dict):
+            ctx.update(context)
+        else:
+            ctx["dl"] = context  # someone passed DataLocker first
 
     if len(args) >= 1:
         a0 = args[0]
         if isinstance(a0, dict):
             ctx.update(a0)
         else:
-            ctx.setdefault("dl", a0)
+            ctx["dl"] = a0
     if len(args) >= 2:
         a1 = args[1]
         if isinstance(a1, dict):
@@ -222,30 +272,32 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     ts_value = _coalesce(ctx.get("ts"), csum.get("ts"),
                          _get_from_tree(csum, "time.ts", "timing.ts_iso"), default=None)
 
+    # Blue swirl in header; we color the whole header via Rich or ANSI
     header = f"🌀 cycle #{loop_counter} • poll {poll_interval_s}s • finished {total_elapsed_s:.2f}s • {_fmt_stamp(ts_value)}"
     fun_line = _resolve_fun_line(csum, int(loop_counter))
 
     width = ctx.get("width") or _console_width()
-    body = [header, f"🎉 {fun_line}"]
-    return _box_heavy(body, width=width)
 
+    # try Rich first if enabled
+    rich_lines = _try_rich_box(header, fun_line, width)
+    if rich_lines is not None:
+        return rich_lines
+
+    # ANSI heavy box fallback
+    return _box_heavy_ansi([header, f"🎉 {fun_line}"], width=width)
 
 def connector(*args, **kwargs) -> List[str]:
-    """Sequencer-friendly entrypoint; simply delegates to render."""
     return render(*args, **kwargs)
-
 
 def name() -> str:
     return PANEL_NAME
 
-
 if __name__ == "__main__":
     demo_csum = {
         "poll_seconds": 34,
-        "cycle_elapsed_s": 0.28,
+        "cycle_elapsed_s": 0.34,
         "ts": _dt.datetime.now().isoformat(timespec="seconds"),
         "cycle": {"n": 1},
-        # leave out fun_line to verify fun_core fallback
     }
     for ln in render({"csum": demo_csum}):
         print(ln)
