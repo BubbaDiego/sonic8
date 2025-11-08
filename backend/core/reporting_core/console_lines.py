@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 # Consolidated (7-arg) compact reporter from console_reporter
 from backend.core.reporting_core.console_reporter import (
     emit_compact_cycle as _emit_compact_cycle7,
-    emit_full_console as _emit_panels,
+    render_panel_stack as _render_panels,
 )
 
 def emit_compact_cycle(
@@ -72,17 +72,21 @@ def emit_compact_cycle(
         except Exception:
             width_value = None
 
-    extra_ctx = {"summary": summary or {}}
+    ctx: Dict[str, Any] = {
+        "loop_counter": int(lc),
+        "poll_interval_s": int(poll_interval_s),
+        "total_elapsed_s": float(tot),
+        "ts": ts if ts is not None else time.time(),
+        "summary": summary or {},
+    }
+    if db_basename:
+        ctx["db_basename"] = db_basename
 
     try:
-        _emit_panels(
-            loop_counter=int(lc),
-            poll_interval_s=int(poll_interval_s),
-            total_elapsed_s=float(tot),
-            ts=ts if ts is not None else time.time(),
+        _render_panels(
+            ctx=ctx,
             dl=dl,
             width=width_value,
-            extra_ctx=extra_ctx,
         )
     except Exception as exc:
         print(f"[REPORT] panels failed: {exc}", flush=True)

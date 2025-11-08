@@ -1,27 +1,20 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import importlib
-import json
-import logging
-import os
-import sys
+import importlib, os, sys, json, logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# ────────────────────────────────────────────────────────────────────────────────
-# Panel configuration (order & overrides)
-#   • Default order below; can be overridden via env SONIC_REPORT_PANELS
-#     as a comma-separated list of module paths.
-# ────────────────────────────────────────────────────────────────────────────────
-
+# ---- Panel module order (override with SONIC_REPORT_PANELS) -------------------
 DEFAULT_PANEL_MODULES: List[str] = [
-    "backend.core.reporting_core.sonic_reporting.positions_panel",
+    "backend.core.reporting_core.sonic_reporting.positions_panel",  # ← ensure present
     "backend.core.reporting_core.sonic_reporting.price_panel",
     "backend.core.reporting_core.sonic_reporting.xcom_panel",
+    # both wallet variants tolerated; the runner will try each until one resolves
     "backend.core.reporting_core.sonic_reporting.wallets_panel",
+    "backend.core.reporting_core.sonic_reporting.wallet_panel",
     "backend.core.reporting_core.sonic_reporting.raydium_panel",
-    "backend.core.reporting_core.sonic_reporting.cycle_footer_panel",  # ← last
+    "backend.core.reporting_core.sonic_reporting.cycle_footer_panel",  # last
 ]
 
 # Back-compat symbol; some code may import PANEL_MODULES at import-time.
@@ -29,44 +22,95 @@ PANEL_MODULES: List[str] = list(DEFAULT_PANEL_MODULES)
 
 
 def _get_panel_modules() -> List[str]:
-    override = os.environ.get("SONIC_REPORT_PANELS", "").strip()
-    if override:
-        mods = [m.strip() for m in override.split(",") if m.strip()]
-        if mods:
-            return mods
+    env = os.environ.get("SONIC_REPORT_PANELS", "").strip()
+    if env:
+        return [m.strip() for m in env.split(",") if m.strip()]
     return list(DEFAULT_PANEL_MODULES)
 
 
-# ────────────────────────────────────────────────────────────────────────────────
-# Console style knobs (centralized here)
-#   • SONIC_CONSOLE_WIDTH: console width (default 92)
-#   • SONIC_FOOTER_RICH:   1/0 to use Rich for the footer panel (default ON)
-#   • SONIC_FOOTER_BORDER: ANSI code for footer box border when not using Rich
-#                          (default "38;5;39" = bright cyan)
-# These are read by panels (e.g., cycle_footer_panel) via os.environ.
-# ────────────────────────────────────────────────────────────────────────────────
-
-def _env_bool(key: str, default: bool) -> bool:
-    val = os.environ.get(key)
-    if val is None:
-        return default
-    return str(val).lower() in ("1", "true", "yes", "on")
-
-def _init_console_style_defaults() -> None:
-    # Default to Rich footer unless explicitly disabled.
-    os.environ.setdefault("SONIC_FOOTER_RICH", "1")
-    # Nice cyan-ish border for ANSI fallback.
-    os.environ.setdefault("SONIC_FOOTER_BORDER", "38;5;39")
-    # Width default (panels also read this).
-    os.environ.setdefault("SONIC_CONSOLE_WIDTH", "92")
-
-
+# ---- width + small utils ------------------------------------------------------
 def _console_width(default: int = 92) -> int:
     try:
         return max(60, min(180, int(os.environ.get("SONIC_CONSOLE_WIDTH", default))))
     except Exception:
         return default
 
+
+def _normalize_lines(obj: Any) -> List[str]:
+    if obj is None:
+        return []
+    if isinstance(obj, list):
+        return obj
+    if isinstance(obj, tuple):
+        return list(obj)
+    if isinstance(obj, str):
+        return [obj]
+    try:
+        return list(obj)
+    except Exception:
+        return [str(obj)]
+
+
+# ---- Panels runner ------------------------------------------------------------
+def render_panel_stack(*, ctx: Dict[str, Any], dl=None, width: Optional[int] = None, writer=print) -> List[str]:
+    width = width or _console_width()
+    ctx = dict(ctx or {})
+    ctx.setdefault("dl", dl)
+    ctx.setdefault("width", width)
+
+    modules = _get_panel_modules()
+    all_lines: List[str] = []
+
+    for mod_path in modules:
+        # skip duplicates and non-existent variations gracefully
+        try:
+            mod = importlib.import_module(mod_path)
+        except Exception:
+            continue  # try next module
+
+        try:
+            # prefer connector(dl, ctx, width); fallback to render(ctx, width=…)
+            lines_obj = None
+            if hasattr(mod, "connector") and callable(getattr(mod, "connector")):
+                try:
+                    lines_obj = mod.connector(dl, ctx, width)
+                except TypeError:
+                    lines_obj = mod.connector(ctx)
+            elif hasattr(mod, "render") and callable(getattr(mod, "render")):
+                try:
+                    lines_obj = mod.render(ctx, width=width)
+                except TypeError:
+                    lines_obj = mod.render(ctx)
+
+            out = _normalize_lines(lines_obj)
+            # small trace so you can see which panels actually ran
+            writer(f"[REPORT] ran: {mod_path} ({len(out)} lines)")
+            for ln in out:
+                writer(ln)
+            all_lines.extend(out)
+
+        except Exception as e:
+            msg = f"[REPORT] {mod_path}.render failed: {e}"
+            writer(msg)
+            all_lines.append(msg)
+
+    return all_lines
+
+
+# ---- public entry used by monitor after compact lines -------------------------
+def emit_full_console(*, loop_counter: int, poll_interval_s: int, total_elapsed_s: float, ts: Any, dl=None, width: Optional[int] = None, writer=print) -> None:
+    ctx = {
+        "loop_counter": int(loop_counter),
+        "poll_interval_s": int(poll_interval_s),
+        "total_elapsed_s": float(total_elapsed_s),
+        "ts": ts,
+    }
+    render_panel_stack(ctx=ctx, dl=dl, width=width or _console_width(), writer=writer)
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Logging filter & stdout wrapper
+# ────────────────────────────────────────────────────────────────────────────────
 
 def _write_line(writer, line: str, *, flush: bool = False) -> None:
     if writer is print:
@@ -81,125 +125,6 @@ def _write_line(writer, line: str, *, flush: bool = False) -> None:
             except Exception:
                 pass
 
-
-def _normalize_lines(obj: Any) -> List[str]:
-    if obj is None:
-        return []
-    if isinstance(obj, list):
-        return obj
-    if isinstance(obj, tuple):
-        return list(obj)
-    if isinstance(obj, str):
-        return [obj]
-    # last-resort coercion
-    try:
-        return list(obj)
-    except Exception:
-        return [str(obj)]
-
-
-# ────────────────────────────────────────────────────────────────────────────────
-# Panel runner
-# ────────────────────────────────────────────────────────────────────────────────
-
-def build_panel_context(
-    *,
-    loop_counter: int | float | None = None,
-    poll_interval_s: int | float | None = None,
-    total_elapsed_s: float | None = None,
-    ts: Any = None,
-    dl=None,
-    width: Optional[int] = None,
-    extra: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """Construct the minimal context dict expected by panel renderers."""
-    ctx: Dict[str, Any] = {}
-    if loop_counter is not None:
-        try:
-            ctx["loop_counter"] = int(loop_counter)
-        except Exception:
-            ctx["loop_counter"] = loop_counter
-    if poll_interval_s is not None:
-        try:
-            ctx["poll_interval_s"] = int(poll_interval_s)
-        except Exception:
-            ctx["poll_interval_s"] = poll_interval_s
-    if total_elapsed_s is not None:
-        try:
-            ctx["total_elapsed_s"] = float(total_elapsed_s)
-        except Exception:
-            ctx["total_elapsed_s"] = total_elapsed_s
-    if ts is not None:
-        ctx["ts"] = ts
-    if dl is not None:
-        ctx["dl"] = dl
-    if width is not None:
-        ctx["width"] = width
-    if extra:
-        ctx.update(extra)
-    return ctx
-
-
-def render_panel_stack(
-    *,
-    ctx: Dict[str, Any],
-    dl=None,
-    width: Optional[int] = None,
-    writer=print,
-) -> List[str]:
-    """
-    Import each panel and render it safely.
-    Preference order: panel.connector(dl, ctx, width) → panel.render(ctx, width=...)
-    Non-fatal on errors; prints a diagnostic line and continues.
-    Returns the concatenated list of lines.
-    """
-    width = width or _console_width()
-    base_ctx: Dict[str, Any] = dict(ctx or {})
-    base_ctx.setdefault("dl", dl)
-    base_ctx.setdefault("width", width)
-    all_lines: List[str] = []
-
-    modules = _get_panel_modules()
-    for mod_path in modules:
-        try:
-            mod = importlib.import_module(mod_path)
-
-            lines_obj = None
-            # Prefer connector(dl, ctx, width) if available.
-            fn_conn = getattr(mod, "connector", None)
-            if callable(fn_conn):
-                try:
-                    lines_obj = fn_conn(dl, base_ctx, width)
-                except TypeError:
-                    # Older connectors may accept just (ctx)
-                    lines_obj = fn_conn(base_ctx)
-
-            if lines_obj is None:
-                # Fall back to render(ctx, width=width)
-                fn_r = getattr(mod, "render", None)
-                if not callable(fn_r):
-                    raise AttributeError("no render/connector")
-                try:
-                    lines_obj = fn_r(base_ctx, width=width)
-                except TypeError:
-                    lines_obj = fn_r(base_ctx)
-
-            seq = _normalize_lines(lines_obj)
-            for ln in seq:
-                _write_line(writer, ln)
-            all_lines.extend(seq)
-
-        except Exception as e:
-            msg = f"[REPORT] {mod_path}.render failed: {e}"
-            _write_line(writer, msg)
-            all_lines.append(msg)
-
-    return all_lines
-
-
-# ────────────────────────────────────────────────────────────────────────────────
-# Logging filter & stdout wrapper
-# ────────────────────────────────────────────────────────────────────────────────
 
 def install_compact_console_filter(enable_color: bool = True) -> None:
     root = logging.getLogger()
@@ -272,40 +197,6 @@ def emit_compact_cycle(
     """
     line = f"✅ cycle #{loop_counter} done • {total_elapsed:.2f}s  (sleep {sleep_time:.1f}s)"
     _write_line(writer, line, flush=True)
-
-
-# ────────────────────────────────────────────────────────────────────────────────
-# Full console (compact line + panels)
-# ────────────────────────────────────────────────────────────────────────────────
-
-def emit_full_console(
-    *,
-    loop_counter: int,
-    poll_interval_s: int,
-    total_elapsed_s: float,
-    ts: Any,
-    dl=None,
-    width: Optional[int] = None,
-    writer=print,
-    extra_ctx: Optional[Dict[str, Any]] = None,
-) -> None:
-    """
-    Render the configured panel stack using the provided scalar context.
-    Compact cycle lines are emitted elsewhere (console_lines / monitor).
-    """
-    _init_console_style_defaults()
-
-    effective_width = width or _console_width()
-    ctx = build_panel_context(
-        loop_counter=loop_counter,
-        poll_interval_s=poll_interval_s,
-        total_elapsed_s=total_elapsed_s,
-        ts=ts,
-        dl=dl,
-        width=effective_width,
-        extra=extra_ctx,
-    )
-    render_panel_stack(ctx=ctx, dl=dl, width=effective_width, writer=writer)
 
 
 # ────────────────────────────────────────────────────────────────────────────────
