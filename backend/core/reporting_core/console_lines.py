@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+import os
+import time
 from typing import Any, Dict, Optional
 
 # Consolidated (7-arg) compact reporter from console_reporter
-from backend.core.reporting_core.console_reporter import emit_full_console as _emit_full_console7
+from backend.core.reporting_core.console_reporter import (
+    emit_compact_cycle as _emit_compact_cycle7,
+    emit_full_console as _emit_panels,
+)
 
 def emit_compact_cycle(
     summary: Dict[str, Any],
@@ -44,7 +49,7 @@ def emit_compact_cycle(
         dl = cfg.get("dl")
         db_basename = cfg.get("db_basename")
 
-    _emit_full_console7(
+    _emit_compact_cycle7(
         summary,
         int(cyc_ms),
         int(poll_interval_s),
@@ -52,6 +57,32 @@ def emit_compact_cycle(
         float(tot),
         float(slp),
         db_basename=db_basename,
-        dl=dl,
-        width=width,
     )
+
+    ts = summary.get("ts") if isinstance(summary, dict) else None
+    if ts is None and isinstance(summary, dict):
+        ts = summary.get("timestamp")
+        if ts is None:
+            ts = (summary.get("time") or {}).get("ts")
+
+    width_value = width
+    if width_value is None:
+        try:
+            width_value = int(os.environ.get("SONIC_CONSOLE_WIDTH", "92"))
+        except Exception:
+            width_value = None
+
+    extra_ctx = {"summary": summary or {}}
+
+    try:
+        _emit_panels(
+            loop_counter=int(lc),
+            poll_interval_s=int(poll_interval_s),
+            total_elapsed_s=float(tot),
+            ts=ts if ts is not None else time.time(),
+            dl=dl,
+            width=width_value,
+            extra_ctx=extra_ctx,
+        )
+    except Exception as exc:
+        print(f"[REPORT] panels failed: {exc}", flush=True)

@@ -17,7 +17,6 @@ Knobs (read from env; Rich default is set in console_reporter):
 """
 
 import os
-import importlib
 import datetime as _dt
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -77,72 +76,65 @@ def _coalesce(*vals, default=None):
     return default
 
 
-def _get_from_tree(tree: Dict[str, Any], *keys: str, default=None):
+def _get_from_tree(tree: Optional[Dict[str, Any]], *keys: str, default=None):
+    if not isinstance(tree, dict):
+        return default
     for key in keys:
-        cur = tree
+        cur: Any = tree
         try:
-            for p in key.split("."):
-                cur = cur[p]
+            for part in key.split("."):
+                cur = cur[part]
             return cur
         except Exception:
             continue
     return default
 
 
-# ─────────────────────── fun_core integration ────────────────────────
+try:  # pragma: no cover - optional dependency
+    from backend.core.fun_core.client import get_fun_line as _fun_core_get_fun_line
+except Exception:  # pragma: no cover - fallback when fun_core missing
+    _fun_core_get_fun_line = None
 
-def _import_fun():
-    for m in (
-        "backend.core.fun_core.client",   # preferred
-        "backend.core.fun_core",          # package re-exports
-        "backend.core.fun_core.fun_core"  # legacy
-    ):
+
+def _resolve_fun_line(ctx: Dict[str, Any], loop_counter: int) -> str:
+    """Return a fun line from ctx or fun_core; default to "–" when missing."""
+
+    def _extract_text(value: Any) -> Optional[str]:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, (list, tuple)) and value:
+            head = value[0]
+            if isinstance(head, str) and head.strip():
+                return head.strip()
+        if isinstance(value, dict):
+            for key in ("text", "fun_line", "line", "value"):
+                val = value.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val.strip()
+        return None
+
+    for key in ("fun_line", "fun", "fun_text"):
+        txt = _extract_text(ctx.get(key))
+        if txt:
+            return txt
+
+    summary = ctx.get("summary")
+    if isinstance(summary, dict):
+        for key in ("fun_line", "fun", "fun_text"):
+            txt = _extract_text(summary.get(key))
+            if txt:
+                return txt
+
+    if callable(_fun_core_get_fun_line):
         try:
-            return importlib.import_module(m)
-        except Exception:
-            continue
-    return None
-
-
-def _resolve_fun_line(csum: Dict[str, Any], loop_counter: int) -> str:
-    # prefer precomputed in the summary
-    for k in ("fun_line", "fun", "fun_text"):
-        v = csum.get(k)
-        if isinstance(v, str) and v.strip():
-            return v.strip()
-
-    mod = _import_fun()
-    if not mod:
-        return "—"
-
-    # get_fun_line may return (text, meta) | dict | str
-    fn = getattr(mod, "get_fun_line", None)
-    if callable(fn):
-        try:
-            res = fn(int(loop_counter))
-            if isinstance(res, tuple) and res and isinstance(res[0], str) and res[0].strip():
-                return res[0].strip()
-            if isinstance(res, dict):
-                for k in ("text", "fun_line", "line"):
-                    val = res.get(k)
-                    if isinstance(val, str) and val.strip():
-                        return val.strip()
-            if isinstance(res, str) and res.strip():
-                return res.strip()
+            res = _fun_core_get_fun_line(int(loop_counter))
+            txt = _extract_text(res)
+            if txt:
+                return txt
         except Exception:
             pass
 
-    # fallback
-    for name in ("fun_random_text_sync", "fun_random_text"):
-        fn2 = getattr(mod, name, None)
-        if callable(fn2):
-            try:
-                txt = fn2()
-                if isinstance(txt, str) and txt.strip():
-                    return txt.strip()
-            except Exception:
-                pass
-    return "—"
+    return "–"
 
 
 # ─────────────────────────── renderers ───────────────────────────────
@@ -246,13 +238,15 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     if kwargs:
         ctx.update(kwargs)
 
-    csum: Dict[str, Any] = ctx.get("csum") or ctx.get("summary") or {}
+    summary: Dict[str, Any] = ctx.get("summary") if isinstance(ctx.get("summary"), dict) else {}
 
     loop_counter = _coalesce(
         ctx.get("loop_counter"),
-        csum.get("loop_counter"),
-        _get_from_tree(csum, "cycle.n", "cycle.number", "n"),
-        csum.get("cycle_no"), csum.get("loop_no"), default=0
+        summary.get("loop_counter"),
+        _get_from_tree(summary, "cycle.n", "cycle.number", "n"),
+        summary.get("cycle_no"),
+        summary.get("loop_no"),
+        default=0,
     )
     try:
         loop_counter = int(loop_counter)
@@ -262,8 +256,8 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     poll_interval_s = _coalesce(
         ctx.get("poll_interval_s"),
         ctx.get("poll_seconds"),
-        csum.get("poll_seconds"),
-        _get_from_tree(csum, "config.poll_seconds"),
+        summary.get("poll_seconds"),
+        _get_from_tree(summary, "config.poll_seconds"),
         default=0,
     )
     try:
@@ -274,9 +268,9 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     total_elapsed_s = _coalesce(
         ctx.get("total_elapsed_s"),
         ctx.get("elapsed_s"),
-        csum.get("cycle_elapsed_s"),
-        csum.get("elapsed_s"),
-        _get_from_tree(csum, "timing.elapsed_s"),
+        summary.get("cycle_elapsed_s"),
+        summary.get("elapsed_s"),
+        _get_from_tree(summary, "timing.elapsed_s"),
         default=0.0,
     )
     try:
@@ -284,14 +278,19 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     except Exception:
         total_elapsed_s = 0.0
 
-    ts_value = _coalesce(ctx.get("ts"), csum.get("ts"),
-                         _get_from_tree(csum, "time.ts", "timing.ts_iso"), default=None)
+    ts_value = _coalesce(
+        ctx.get("ts"),
+        ctx.get("timestamp"),
+        summary.get("ts"),
+        _get_from_tree(summary, "time.ts", "timing.ts_iso"),
+        default=None,
+    )
 
     # Build the four content rows (no manual indent here; Rich handles padding, ANSI adds it)
     row1 = f"🌀 cycle #{loop_counter}"
     row2 = f"⏱ poll {poll_interval_s}s • finished {total_elapsed_s:.2f}s"
     row3 = f"📅 {_fmt_stamp(ts_value)}"
-    row4 = f"🎉 {_resolve_fun_line(csum, int(loop_counter))}"
+    row4 = f"🎉 {_resolve_fun_line(ctx, int(loop_counter))}"
 
     width = ctx.get("width") or _console_width()
 

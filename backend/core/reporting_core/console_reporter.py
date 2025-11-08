@@ -102,9 +102,48 @@ def _normalize_lines(obj: Any) -> List[str]:
 # Panel runner
 # ────────────────────────────────────────────────────────────────────────────────
 
-def render_panel_stack(
+def build_panel_context(
+    *,
+    loop_counter: int | float | None = None,
+    poll_interval_s: int | float | None = None,
+    total_elapsed_s: float | None = None,
+    ts: Any = None,
     dl=None,
-    csum: Optional[Dict[str, Any]] = None,
+    width: Optional[int] = None,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Construct the minimal context dict expected by panel renderers."""
+    ctx: Dict[str, Any] = {}
+    if loop_counter is not None:
+        try:
+            ctx["loop_counter"] = int(loop_counter)
+        except Exception:
+            ctx["loop_counter"] = loop_counter
+    if poll_interval_s is not None:
+        try:
+            ctx["poll_interval_s"] = int(poll_interval_s)
+        except Exception:
+            ctx["poll_interval_s"] = poll_interval_s
+    if total_elapsed_s is not None:
+        try:
+            ctx["total_elapsed_s"] = float(total_elapsed_s)
+        except Exception:
+            ctx["total_elapsed_s"] = total_elapsed_s
+    if ts is not None:
+        ctx["ts"] = ts
+    if dl is not None:
+        ctx["dl"] = dl
+    if width is not None:
+        ctx["width"] = width
+    if extra:
+        ctx.update(extra)
+    return ctx
+
+
+def render_panel_stack(
+    *,
+    ctx: Dict[str, Any],
+    dl=None,
     width: Optional[int] = None,
     writer=print,
 ) -> List[str]:
@@ -115,8 +154,9 @@ def render_panel_stack(
     Returns the concatenated list of lines.
     """
     width = width or _console_width()
-    summary = csum or {}
-    ctx = {"dl": dl, "csum": summary, "summary": summary, "width": width}
+    base_ctx: Dict[str, Any] = dict(ctx or {})
+    base_ctx.setdefault("dl", dl)
+    base_ctx.setdefault("width", width)
     all_lines: List[str] = []
 
     modules = _get_panel_modules()
@@ -129,10 +169,10 @@ def render_panel_stack(
             fn_conn = getattr(mod, "connector", None)
             if callable(fn_conn):
                 try:
-                    lines_obj = fn_conn(dl, ctx, width)
+                    lines_obj = fn_conn(dl, base_ctx, width)
                 except TypeError:
                     # Older connectors may accept just (ctx)
-                    lines_obj = fn_conn(ctx)
+                    lines_obj = fn_conn(base_ctx)
 
             if lines_obj is None:
                 # Fall back to render(ctx, width=width)
@@ -140,9 +180,9 @@ def render_panel_stack(
                 if not callable(fn_r):
                     raise AttributeError("no render/connector")
                 try:
-                    lines_obj = fn_r(ctx, width=width)
+                    lines_obj = fn_r(base_ctx, width=width)
                 except TypeError:
-                    lines_obj = fn_r(ctx)
+                    lines_obj = fn_r(base_ctx)
 
             seq = _normalize_lines(lines_obj)
             for ln in seq:
@@ -239,36 +279,33 @@ def emit_compact_cycle(
 # ────────────────────────────────────────────────────────────────────────────────
 
 def emit_full_console(
-    csum: Dict[str, Any],
-    cyc_ms: int,
-    interval: int,
-    loop_counter: int,
-    total_elapsed: float,
-    sleep_time: float,
-    db_basename: str | None = None,
     *,
+    loop_counter: int,
+    poll_interval_s: int,
+    total_elapsed_s: float,
+    ts: Any,
     dl=None,
     width: Optional[int] = None,
     writer=print,
+    extra_ctx: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
-    Prints the compact cycle output, then all panels in order.
-    Style knobs default here (Rich footer ON; ANSI fallback available).
+    Render the configured panel stack using the provided scalar context.
+    Compact cycle lines are emitted elsewhere (console_lines / monitor).
     """
-    # Ensure style defaults (Rich for footer, border color, width)
     _init_console_style_defaults()
 
-    emit_compact_cycle(
-        csum,
-        cyc_ms,
-        interval,
-        loop_counter,
-        total_elapsed,
-        sleep_time,
-        db_basename=db_basename,
-        writer=writer,
+    effective_width = width or _console_width()
+    ctx = build_panel_context(
+        loop_counter=loop_counter,
+        poll_interval_s=poll_interval_s,
+        total_elapsed_s=total_elapsed_s,
+        ts=ts,
+        dl=dl,
+        width=effective_width,
+        extra=extra_ctx,
     )
-    render_panel_stack(dl=dl, csum=csum, width=width or _console_width(), writer=writer)
+    render_panel_stack(ctx=ctx, dl=dl, width=effective_width, writer=writer)
 
 
 # ────────────────────────────────────────────────────────────────────────────────
