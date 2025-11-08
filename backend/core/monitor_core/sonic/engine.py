@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .context import MonitorContext
@@ -57,6 +58,7 @@ class MonitorEngine:
 
     def run_once(self) -> None:
         self.ctx.start_cycle()
+        cycle_t0 = time.monotonic() if hasattr(time, "monotonic") else time.time()
         cycle_id = self.ctx.cycle_id or "unknown"
 
         # helper to run a phase with spinner + activity rows
@@ -128,12 +130,33 @@ class MonitorEngine:
         _run_phase("heartbeat", "Heartbeat", lambda: (self.heartbeat.touch() or {"ok": True}))
 
         # 4) reporters (console panels) — DB-first, no csum
-        _run_phase("reporters", "Reporters", lambda: (run_console_reporters(self.dl, self.debug) or {"ok": True}))
+        def _reporters_call() -> Dict[str, Any]:
+            elapsed = (
+                time.monotonic() if hasattr(time, "monotonic") else time.time()
+            ) - cycle_t0
+            footer_ctx = {
+                "loop_counter": getattr(self, "_loop_n", 0),
+                "poll_interval_s": getattr(self, "_poll_interval_sec", 0),
+                "total_elapsed_s": round(float(elapsed), 3),
+                "ts": datetime.now().isoformat(timespec="seconds"),
+            }
+            run_console_reporters(self.dl, self.debug, footer_ctx=footer_ctx)
+            return {"ok": True}
+
+        _run_phase("reporters", "Reporters", _reporters_call)
 
     def run_forever(self, interval_sec: int = 30) -> None:
-        self.logger.info("Sonic Monitor engine starting (interval=%ss, debug=%s)", interval_sec, self.debug)
+        self.logger.info(
+            "Sonic Monitor engine starting (interval=%ss, debug=%s)",
+            interval_sec,
+            self.debug,
+        )
+        # track loop count and current poll interval for footer context
+        self._loop_n = getattr(self, "_loop_n", 0)
+        self._poll_interval_sec = interval_sec
         while True:
             try:
+                self._loop_n += 1
                 self.run_once()
             except KeyboardInterrupt:
                 self.logger.info("Sonic Monitor interrupted — exiting.")
