@@ -14,16 +14,12 @@ slip10 = "0.4"
 thiserror = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
-# Solana crates (force rustls, no OpenSSL)
+# Solana types are enough for key handling; don't pin solana-client here.
 solana-sdk = "2"
-solana-client = { version = "2", default-features = false, features = ["rustls-tls"] }
 
-# Make sure any HTTP the graph uses picks rustls, not OpenSSL.
-# (This also influences transitive deps that rely on reqwest.)
-reqwest = { version = "0.12", default-features = false, features = ["json", "http2", "rustls-tls"] }
-
-# ✅ GMX-Solana SDK (no default features; we explicitly opt into client + solana-client)
-gmsol-sdk = { version = "0.8", default-features = false, features = ["client", "solana-client", "serde", "serde_json", "tokio"] }
+# GMX-Solana client crate (we'll wire calls next). Keep features minimal.
+# If your crate name is `gmsol-sdk` in your lockfile, keep it; if it's `gmsol`, swap the name below.
+gmsol-sdk = { version = "0.8", default-features = false, features = ["client", "serde", "serde_json", "tokio"] }
 
 [profile.release]
 lto = "thin"

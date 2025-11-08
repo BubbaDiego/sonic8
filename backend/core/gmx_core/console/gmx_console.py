@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+from pathlib import Path
 
-# use absolute import so both `-m` and direct-path runs work cleanly
-from backend.core.gmx_core.services import gmx_service
+# Allow direct-path runs: add repo root (the dir that contains "backend") to sys.path
+if __package__ in (None, ""):
+    p = Path(__file__).resolve()
+    for up in p.parents:
+        if (up / "backend").exists():
+            sys.path.insert(0, str(up))
+            break
+
+from backend.core.gmx_core.services import gmx_service  # absolute import
 
 
 def main() -> None:
