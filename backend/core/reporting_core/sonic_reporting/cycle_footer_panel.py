@@ -82,15 +82,15 @@ def _coalesce(*vals, default=None):
 # ─────────────────────── fun_core integration ────────────────────────
 
 def _import_fun():
-    for m in (
-        "backend.core.fun_core.client",   # preferred
-        "backend.core.fun_core",          # package re-exports
-        "backend.core.fun_core.fun_core"  # legacy
-    ):
+    # Probe like the Fun Console does: client → fun_core → api; tolerate any.
+    for m in ("backend.core.fun_core.client",
+              "backend.core.fun_core",
+              "backend.core.fun_core.fun_core",
+              "backend.core.fun_core.api"):
         try:
             return importlib.import_module(m)
         except Exception:
-            continue
+            pass
     return None
 
 def _resolve_fun_line(loop_counter: int, ctx_fun: Optional[str] = None) -> str:
@@ -102,7 +102,21 @@ def _resolve_fun_line(loop_counter: int, ctx_fun: Optional[str] = None) -> str:
     if not mod:
         return "—"
 
-    # get_fun_line may return (text, meta) | dict | str
+    # First prefer loop-safe sync helper (works inside running event loops).
+    for name in ("fun_random_text_sync", "fun_random_text"):
+        fn = getattr(mod, name, None)
+        if callable(fn):
+            try:
+                try:
+                    txt = fn("auto")   # some impls accept a mode
+                except TypeError:
+                    txt = fn()
+                if isinstance(txt, str) and txt.strip():
+                    return txt.strip()
+            except Exception:
+                pass
+
+    # Then try get_fun_line (may internally use asyncio.run)
     fn = getattr(mod, "get_fun_line", None)
     if callable(fn):
         try:
@@ -118,17 +132,6 @@ def _resolve_fun_line(loop_counter: int, ctx_fun: Optional[str] = None) -> str:
                 return res.strip()
         except Exception:
             pass
-
-    # fallback
-    for name in ("fun_random_text_sync", "fun_random_text"):
-        fn2 = getattr(mod, name, None)
-        if callable(fn2):
-            try:
-                txt = fn2()
-                if isinstance(txt, str) and txt.strip():
-                    return txt.strip()
-            except Exception:
-                pass
     return "—"
 
 
