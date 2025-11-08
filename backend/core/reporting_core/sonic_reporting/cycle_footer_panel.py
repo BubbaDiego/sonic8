@@ -157,47 +157,27 @@ def _resolve_fun_line(csum: Dict[str, Any], loop_counter: int) -> str:
 
 # --------- main render ---------
 
-def render(
-    _dl: Any = None,
-    csum: Optional[Dict[str, Any]] = None,
-    _default_json_path: Optional[str] = None,
-    *,
-    context: Optional[Dict[str, Any]] = None,
-    **kwargs,
-) -> List[str]:
+def render(context: Optional[Dict[str, Any]] = None, **kwargs) -> List[str]:
     """
     Returns a list of console lines containing the footer box.
     Accepts either:
-      - a context dict as the first positional argument or via `context`
-      - keyword args (csum=..., loop_counter=..., poll_interval_s=..., total_elapsed_s=...)
-      - the sequencer-style `(dl, csum, default_json_path)` call signature
+      - context: a dict with 'csum' and optional fields
+      - kwargs: csum=..., loop_counter=..., poll_interval_s=..., total_elapsed_s=...
     """
-    inferred_context: Optional[Dict[str, Any]] = None
-    if isinstance(_dl, dict) and csum is None and context is None:
-        inferred_context = _dl
-
     ctx: Dict[str, Any] = {}
-    if inferred_context:
-        ctx.update(inferred_context)
     if context:
         ctx.update(context)
     if kwargs:
         ctx.update(kwargs)
 
-    if csum is not None:
-        ctx.setdefault("csum", csum)
-    else:
-        ctx.setdefault("csum", {})
-
-    csum_dict: Dict[str, Any] = ctx.get("csum") or {}
-
+    csum: Dict[str, Any] = ctx.get("csum") or ctx.get("summary") or {}
     # Loop number: try several common keys
     loop_counter = _coalesce(
         ctx.get("loop_counter"),
-        csum_dict.get("loop_counter"),
-        _get_from_tree(csum_dict, "cycle.n", "cycle.number", "n"),
-        csum_dict.get("cycle_no"),
-        csum_dict.get("loop_no"),
+        csum.get("loop_counter"),
+        _get_from_tree(csum, "cycle.n", "cycle.number", "n"),
+        csum.get("cycle_no"),
+        csum.get("loop_no"),
         default=0,
     )
     try:
@@ -208,8 +188,8 @@ def render(
     poll_interval_s = _coalesce(
         ctx.get("poll_interval_s"),
         ctx.get("poll_seconds"),
-        csum_dict.get("poll_seconds"),
-        _get_from_tree(csum_dict, "config.poll_seconds"),
+        csum.get("poll_seconds"),
+        _get_from_tree(csum, "config.poll_seconds"),
         default=0,
     )
     try:
@@ -220,9 +200,9 @@ def render(
     total_elapsed_s = _coalesce(
         ctx.get("total_elapsed_s"),
         ctx.get("elapsed_s"),
-        csum_dict.get("cycle_elapsed_s"),
-        csum_dict.get("elapsed_s"),
-        _get_from_tree(csum_dict, "timing.elapsed_s"),
+        csum.get("cycle_elapsed_s"),
+        csum.get("elapsed_s"),
+        _get_from_tree(csum, "timing.elapsed_s"),
         default=0.0,
     )
     try:
@@ -232,13 +212,13 @@ def render(
 
     ts_value = _coalesce(
         ctx.get("ts"),
-        csum_dict.get("ts"),
-        _get_from_tree(csum_dict, "time.ts", "timing.ts_iso"),
+        csum.get("ts"),
+        _get_from_tree(csum, "time.ts", "timing.ts_iso"),
         default=None,
     )
 
     header = f"🌀 cycle #{loop_counter} • poll {poll_interval_s}s • finished {total_elapsed_s:.2f}s • {_fmt_stamp(ts_value)}"
-    fun_line = _resolve_fun_line(csum_dict, loop_counter)
+    fun_line = _resolve_fun_line(csum, loop_counter)
 
     width = ctx.get("width") or _console_width()
     body = [header, f"🎉 {fun_line}"]
