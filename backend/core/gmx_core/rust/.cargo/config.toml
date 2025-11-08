@@ -1,0 +1,7 @@
+[build]
+# Make 'cargo run' from our Python wrapper resolve correctly from this crate
+target-dir = "target"
+
+# (Optional) If you ever see a git fetch warning, this uses your local git exe.
+# [net]
+# git-fetch-with-cli = true
