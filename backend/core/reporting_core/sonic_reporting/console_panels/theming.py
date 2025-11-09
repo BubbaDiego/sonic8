@@ -224,3 +224,13 @@ def get_panel_body_config(slug: str) -> Dict[str, str]:
         "body_text_color": pick("body_text_color"),
         "totals_row_color": pick("totals_row_color"),
     }
+
+
+def want_outer_hr(slug: str, *, default_string: str) -> bool:
+    """
+    True => caller should print hr() above/below the title.
+    False => title is a self-contained block (rounded/rectangle), so no outer hr.
+    """
+    tcfg = get_panel_title_config(slug, default_string=default_string)
+    style = (tcfg.get("border_style") or "lines").lower()
+    return style not in {"rounded", "rectangle"}

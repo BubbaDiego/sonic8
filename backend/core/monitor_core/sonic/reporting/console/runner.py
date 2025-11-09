@@ -2,10 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Optional
-import importlib
-import json
-import os
-import time
+import importlib, time, json, os
 from pathlib import Path
 
 
@@ -41,6 +38,41 @@ def _render_footer_panel(footer_ctx: Optional[dict]) -> None:
                 print(res)
     except Exception as e:
         print(f"[REPORT] cycle_footer_panel.render failed: {e}")
+
+
+def _load_latest_csum(default_path: str = "reports/sonic_summary.jsonl") -> dict:
+    path = Path(os.getenv("SONIC_SUMMARY_PATH", default_path))
+    if not path.exists():
+        return {}
+    try:
+        with path.open("rb") as f:
+            f.seek(0, os.SEEK_END)
+            pos = max(0, f.tell() - 8192)
+            f.seek(pos)
+            tail = f.read().decode("utf-8", errors="ignore")
+        lines = [ln.strip() for ln in tail.splitlines() if ln.strip()]
+        for ln in reversed(lines):
+            try:
+                obj = json.loads(ln)
+                if isinstance(obj, dict):
+                    return obj
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return {}
+
+
+def _fallback_monitors_enabled() -> dict:
+    # sensible defaults so the panel isn’t empty when summaries aren’t ready yet
+    return {
+        "sonic": True,
+        "liquid": True,
+        "profit": True,
+        "market": True,
+        "price": True,
+        "xcom": True,
+    }
 
 
 def run_console_reporters(
@@ -93,11 +125,12 @@ def run_console_reporters(
         fn = getattr(mod, "render", None)
         if callable(fn):
             latest = _load_latest_csum()
+            enabled = latest.get("monitors_enabled") or _fallback_monitors_enabled()
             ctx = {
                 "dl": dl,
                 "csum": latest,
                 "monitors": latest.get("monitors", {}),
-                "monitors_enabled": latest.get("monitors_enabled", {}),
+                "monitors_enabled": enabled,
                 "loop_counter": int((footer_ctx or {}).get("loop_counter", 0)),
                 "poll_interval_s": int((footer_ctx or {}).get("poll_interval_s", 0)),
                 "total_elapsed_s": float((footer_ctx or {}).get("total_elapsed_s", 0.0)),
@@ -125,27 +158,3 @@ def run_console_reporters(
 
     # Footer box at the very end
     _render_footer_panel(footer_ctx)
-
-
-def _load_latest_csum(default_path: str = "reports/sonic_summary.jsonl") -> dict:
-    """Best-effort: read the last JSON object from the summary JSONL file."""
-    path = Path(os.getenv("SONIC_SUMMARY_PATH", default_path))
-    if not path.exists():
-        return {}
-    try:
-        with path.open("rb") as f:
-            f.seek(0, os.SEEK_END)
-            pos = max(0, f.tell() - 8192)
-            f.seek(pos)
-            tail = f.read().decode("utf-8", errors="ignore")
-        lines = [ln.strip() for ln in tail.splitlines() if ln.strip()]
-        for ln in reversed(lines):
-            try:
-                obj = json.loads(ln)
-                if isinstance(obj, dict):
-                    return obj
-            except Exception:
-                continue
-    except Exception:
-        pass
-    return {}

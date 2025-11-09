@@ -7,6 +7,7 @@ from .theming import (
     console_width as _theme_width,
     hr as _theme_hr,
     title_lines as _theme_title,
+    want_outer_hr,
 )
 
 PANEL_KEY = "monitors_panel"
@@ -135,18 +136,20 @@ def render_lines(context: Dict[str, Any], width: Optional[int] = None) -> List[s
     W = width or _console_width()
     out: List[str] = []
 
-    # 3-line header series
-    out.append(_hr(W))
+    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
+    if wrap:
+        out.append(_hr(W))
     out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=W))
-    out.append(_hr(W))
+    if wrap:
+        out.append(_hr(W))
 
     enabled_map = _enabled_map(context)
     status = _status_summary(context)
 
     if not enabled_map and not status:
-        # Nothing to show; keep the panel compact and honest.
         out.append("  (no monitor data)")
         return out
+    # If we only have toggles, still print the table
 
     # Table header
     out.append("")

@@ -10,6 +10,7 @@ from .console_panels.theming import (
     console_width as _theme_width,
     hr as _theme_hr,
     title_lines as _theme_title,
+    want_outer_hr,
 )
 PANEL_SLUG = "wallets"
 PANEL_NAME = "Wallets"
@@ -114,11 +115,14 @@ def render(dl, *_args, **_kw) -> None:
     rows = _get_wallets(dl)
 
     width = _theme_width()
+    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
     print()
-    print(_theme_hr(width))
+    if wrap:
+        print(_theme_hr(width))
     for ln in _theme_title(PANEL_SLUG, PANEL_NAME, width=width):
         print(ln)
-    print(_theme_hr(width))
+    if wrap:
+        print(_theme_hr(width))
     header = (
         INDENT
         + _pad(HEADER_IC["name"] + "Name",  W_NAME)
