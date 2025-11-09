@@ -6,6 +6,11 @@
       "border_style": "lines",
       "border_color": "default",
       "text_color": "cyan"
+    },
+    "body": {
+      "column_header_text_color": "default",
+      "body_text_color": "default",
+      "totals_row_color": "default"
     }
   },
   "panels": {
@@ -16,21 +21,30 @@
         "border_style": "lines",
         "border_color": "default",
         "text_color": "cyan"
-      }
-    },
-    "monitors": {
-      "title": {
-        "string": "Monitors",
-        "icon": "🔎",
-        "border_style": "lines",
-        "border_color": "default",
-        "text_color": "cyan"
+      },
+      "body": {
+        "column_header_text_color": "cyan",
+        "body_text_color": "default"
       }
     },
     "positions": {
       "title": {
         "string": "Positions",
         "icon": "📊",
+        "border_style": "lines",
+        "border_color": "default",
+        "text_color": "cyan"
+      },
+      "body": {
+        "column_header_text_color": "cyan",
+        "body_text_color": "default",
+        "totals_row_color": "grey50"
+      }
+    },
+    "monitors": {
+      "title": {
+        "string": "Monitors",
+        "icon": "🔎",
         "border_style": "lines",
         "border_color": "default",
         "text_color": "cyan"
@@ -58,7 +72,7 @@
       "title": {
         "string": "Cycle Activity",
         "icon": "🔁",
-        "border_style": "lines",
+        "border_style": "rounded",
         "border_color": "default",
         "text_color": "cyan"
       }

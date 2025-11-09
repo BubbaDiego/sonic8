@@ -16,7 +16,14 @@ Goals
 import datetime as _dt
 from typing import Any, Dict, List, Optional, Tuple
 
-from .theming import console_width as _theme_width, hr as _theme_hr, title_lines as _theme_title
+from .theming import (
+    console_width as _theme_width,
+    hr as _theme_hr,
+    title_lines as _theme_title,
+    get_panel_body_config,
+    color_if_plain,
+    paint_line,
+)
 
 
 PANEL_KEY = "price_panel"
@@ -361,14 +368,16 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
         line = f"{_abbr_mid(sym, 4, 3, c_sym):<{c_sym}}  {px:>{c_px}}  {ts:>{c_ts}}"
         return line[:width] if len(line) > width else line
 
-    out.append(fmt_row("Asset", "Price", "Checked"))
+    body_cfg = get_panel_body_config(PANEL_SLUG)
+    out.append(paint_line(fmt_row("Asset", "Price", "Checked"), body_cfg["column_header_text_color"]))
 
     items, source = _collect_prices(ctx)
     if items:
         for r in items:
-            out.append(fmt_row(r.get("symbol",""), _fmt_price(r.get("price")), _fmt_time(r.get("ts"))))
+            line = fmt_row(r.get("symbol",""), _fmt_price(r.get("price")), _fmt_time(r.get("ts")))
+            out.append(color_if_plain(line, body_cfg["body_text_color"]))
     else:
-        out.append("(no prices)")
+        out.append(color_if_plain("(no prices)", body_cfg["body_text_color"]))
     # Single trailing blank line for padding (no provenance/debug)
     out.append("")
     return out
