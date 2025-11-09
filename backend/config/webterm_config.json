@@ -1,10 +1,16 @@
 {
   "enabled": true,
   "autostart": true,
+  "launcher": {
+    "type": "script",
+    "path": "C:\\sonic7\\webterm_up.ps1",
+    "args": "-Sonic -Shell auto -Port 0",
+    "wait_ms": 0
+  },
   "provider": "cloudflare",
   "port": 7681,
   "command": "cmd.exe /K \"title Sonic WebTerm && cd /d C:\\sonic7 && C:\\sonic7\\.venv\\Scripts\\python.exe C:\\sonic7\\launch_pad.py\"",
-  "auth": null,
+  "auth": {},
   "cloudflare": {
     "mode": "quick",
     "hostname": null,
@@ -14,8 +20,7 @@
     "enabled": true,
     "border": 0,
     "compact": true,
-    "max_cols": 40,
-    "color": "green",
-    "link_label": "Open Web Terminal"
+    "max_cols": 44,
+    "color": "green"
   }
 }
