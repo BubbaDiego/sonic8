@@ -10,6 +10,7 @@ from .console_panels.theming import (
     console_width as _theme_width,
     hr as _theme_hr,
     title_lines as _theme_title,
+    want_outer_hr,
     get_panel_body_config as _theme_body_cfg,
     color_if_plain as _theme_color_if_plain,
     paint_line as _theme_paint_line,
@@ -21,9 +22,13 @@ PANEL_NAME = "XCom"
 
 def _header_lines() -> List[str]:
     w = _theme_width()
-    out = [_theme_hr(w)]
-    out += _theme_title(PANEL_SLUG, PANEL_NAME, width=w)
-    out.append(_theme_hr(w))
+    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
+    out: List[str] = []
+    if wrap:
+        out.append(_theme_hr(w))
+    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=w))
+    if wrap:
+        out.append(_theme_hr(w))
     return out
 
 # ===== colors (title text only; bars remain plain) =====

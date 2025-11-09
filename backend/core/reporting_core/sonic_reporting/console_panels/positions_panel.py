@@ -22,6 +22,7 @@ from .theming import (
     console_width as _theme_width,
     hr as _theme_hr,
     title_lines as _theme_title,
+    want_outer_hr,
     get_panel_body_config,
     color_if_plain,
     paint_line,
@@ -241,9 +242,13 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     width = ctx.get("width") or _console_width()
 
     out: List[str] = []
-    out.append(_hr(width))
-    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=width))
-    out.append(_hr(width))
+    W = width or _theme_width()
+    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
+    if wrap:
+        out.append(_hr(W))
+    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=W))
+    if wrap:
+        out.append(_hr(W))
 
     # Columns (unchanged layout)
     c_asset = 12; c_size = 9; c_val = 11; c_pnl = 11; c_lev = 7; c_liq = 8; c_heat = 6; c_trav = 7

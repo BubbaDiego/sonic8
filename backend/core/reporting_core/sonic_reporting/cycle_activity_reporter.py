@@ -11,6 +11,7 @@ from .console_panels.theming import (
     console_width as _theme_width,
     hr as _theme_hr,
     title_lines as _theme_title,
+    want_outer_hr,
 )
 PANEL_SLUG = "activity"
 PANEL_NAME = "Cycle Activity"
@@ -130,11 +131,14 @@ def _rows_for_cycle(dl: Any, cycle_id: str) -> List[Dict[str, Any]]:
 def render(dl, *_unused, default_json_path=None):
     cid = _latest_cycle_id(dl)
     width = _theme_width()
+    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
     print()
-    print(_theme_hr(width))
+    if wrap:
+        print(_theme_hr(width))
     for ln in _theme_title(PANEL_SLUG, PANEL_NAME, width=width):
         print(ln)
-    print(_theme_hr(width))
+    if wrap:
+        print(_theme_hr(width))
     if not cid:
         print("  (no activity yet)")
         return
