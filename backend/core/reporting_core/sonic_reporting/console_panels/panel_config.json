@@ -1,9 +1,10 @@
 {
   "version": 1,
+
   "defaults": {
     "title": {
       "icon": "",
-      "border_style": "rounded",
+      "border_style": "lines",
       "border_color": "default",
       "text_color": "cyan"
     },
@@ -12,16 +13,18 @@
       "title_padding_above": 1,
       "title_padding_below": 1,
       "title_width": null,
+
       "body_indent": 0,
       "body_padding_above": 1,
       "body_padding_below": 1
     },
     "body": {
-      "column_header_text_color": "default",
-      "body_text_color": "default",
-      "totals_row_color": "default"
+      "column_header_text_color": "cyan",
+      "body_text_color": "white",
+      "totals_row_color": "grey50"
     }
   },
+
   "panels": {
     "prices": {
       "title": {
@@ -32,15 +35,21 @@
         "text_color": "cyan"
       },
       "layout": {
-        "title_width": null,
         "title_indent": 0,
-        "body_indent": 0
+        "title_padding_above": 1,
+        "title_padding_below": 1,
+        "title_width": null,
+
+        "body_indent": 0,
+        "body_padding_above": 1,
+        "body_padding_below": 1
       },
       "body": {
         "column_header_text_color": "cyan",
-        "body_text_color": "default"
+        "body_text_color": "white"
       }
     },
+
     "positions": {
       "title": {
         "string": "Positions",
@@ -50,14 +59,22 @@
         "text_color": "cyan"
       },
       "layout": {
-        "title_width": null
+        "title_indent": 0,
+        "title_padding_above": 1,
+        "title_padding_below": 1,
+        "title_width": null,
+
+        "body_indent": 0,
+        "body_padding_above": 1,
+        "body_padding_below": 1
       },
       "body": {
         "column_header_text_color": "cyan",
-        "body_text_color": "default",
+        "body_text_color": "white",
         "totals_row_color": "grey50"
       }
     },
+
     "monitors": {
       "title": {
         "string": "Monitors",
@@ -65,8 +82,23 @@
         "border_style": "lines",
         "border_color": "default",
         "text_color": "cyan"
+      },
+      "layout": {
+        "title_indent": 0,
+        "title_padding_above": 1,
+        "title_padding_below": 1,
+        "title_width": null,
+
+        "body_indent": 0,
+        "body_padding_above": 1,
+        "body_padding_below": 1
+      },
+      "body": {
+        "column_header_text_color": "cyan",
+        "body_text_color": "white"
       }
     },
+
     "xcom": {
       "title": {
         "string": "XCom",
@@ -76,11 +108,21 @@
         "text_color": "cyan"
       },
       "layout": {
-        "title_width": null,
         "title_indent": 0,
-        "body_indent": 0
+        "title_padding_above": 1,
+        "title_padding_below": 1,
+        "title_width": null,
+
+        "body_indent": 0,
+        "body_padding_above": 1,
+        "body_padding_below": 1
+      },
+      "body": {
+        "column_header_text_color": "cyan",
+        "body_text_color": "white"
       }
     },
+
     "wallets": {
       "title": {
         "string": "Wallets",
@@ -90,23 +132,43 @@
         "text_color": "cyan"
       },
       "layout": {
-        "title_width": null,
         "title_indent": 0,
-        "body_indent": 0
+        "title_padding_above": 1,
+        "title_padding_below": 1,
+        "title_width": null,
+
+        "body_indent": 0,
+        "body_padding_above": 1,
+        "body_padding_below": 1
+      },
+      "body": {
+        "column_header_text_color": "cyan",
+        "body_text_color": "white",
+        "totals_row_color": "yellow"
       }
     },
+
     "activity": {
       "title": {
         "string": "Cycle Activity",
         "icon": "🔁",
         "border_style": "rounded",
         "border_color": "default",
-        "text_color": "blue"
+        "text_color": "cyan"
       },
       "layout": {
-        "title_width": null,
         "title_indent": 0,
-        "body_indent": 0
+        "title_padding_above": 1,
+        "title_padding_below": 1,
+        "title_width": null,
+
+        "body_indent": 0,
+        "body_padding_above": 1,
+        "body_padding_below": 1
+      },
+      "body": {
+        "column_header_text_color": "cyan",
+        "body_text_color": "white"
       }
     }
   }

@@ -7,7 +7,6 @@ from .theming import (
     console_width as _theme_width,
     emit_title_block,
     get_panel_body_config,
-    get_panel_layout_config,
     body_pad_above, body_pad_below, body_indent_lines,
     color_if_plain, paint_line,
 )
@@ -44,10 +43,6 @@ _MONITOR_LABELS = {
 
 def _console_width(default: int = 92) -> int:
     return _theme_width(default)
-
-
-def _hr(width: Optional[int] = None, ch: str = "─") -> str:
-    return _theme_hr(width, ch)
 
 
 def _safe_dict(d: Any) -> Dict[str, Any]:
@@ -136,13 +131,16 @@ def render_lines(context: Dict[str, Any], width: Optional[int] = None) -> List[s
     Returns a list[str] safe to print directly.
     """
     W = width or _console_width()
+
+    def _clip(line: str) -> str:
+        return line if len(line) <= W else line[:W]
+
     out: List[str] = []
     out.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
 
     enabled_map = _enabled_map(context)
     status = _status_summary(context)
     body_cfg = get_panel_body_config(PANEL_SLUG)
-    lcfg = get_panel_layout_config(PANEL_SLUG)
 
     if not enabled_map and not status:
         out += body_pad_above(PANEL_SLUG)
@@ -152,12 +150,10 @@ def render_lines(context: Dict[str, Any], width: Optional[int] = None) -> List[s
     # If we only have toggles, still print the table
 
     # Table header
-    header = f"{'Monitor':<18} {'Enabled':<10} Status"
+    header = _clip(f"{'Monitor':<18} {'Enabled':<10} Status")
     hdr = paint_line(header, body_cfg["column_header_text_color"])
     out += body_pad_above(PANEL_SLUG)
     out += body_indent_lines(PANEL_SLUG, [hdr])
-    dash_len = max(0, W - lcfg["body_indent"])
-    out += body_indent_lines(PANEL_SLUG, ["-" * dash_len])
 
     for key in _sorted_monitor_keys(enabled_map, status):
         label = _MONITOR_LABELS.get(key, key.capitalize())
@@ -166,10 +162,12 @@ def render_lines(context: Dict[str, Any], width: Optional[int] = None) -> List[s
         left = f"{label:<18}"
         mid = f"{('ON' if is_on else 'OFF'):<10}"
         right = _row_status(counts)
+        row_line = _clip(f"{left} {mid} {right}")
+        toggle_line = _clip(_row_enabled(key, is_on, label))
         # Also show a checkbox line under each row for quick scanning
         out += body_indent_lines(PANEL_SLUG, [
-            color_if_plain(f"{left} {mid} {right}", body_cfg["body_text_color"]),
-            color_if_plain(_row_enabled(key, is_on, label), body_cfg["body_text_color"]),
+            color_if_plain(row_line, body_cfg["body_text_color"]),
+            color_if_plain(toggle_line, body_cfg["body_text_color"]),
         ])
 
     out += body_pad_below(PANEL_SLUG)
