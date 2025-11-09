@@ -1,6 +1,7 @@
+# backend/core/reporting_core/sonic_reporting/console_panels/monitors_panel.py
 from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Optional
-import os
+import os, time, datetime
 
 from .theming import (
     emit_title_block,
@@ -30,112 +31,109 @@ def _nz(v: Any, dash: str = "-") -> str:
         return dash
     return str(v)
 
-# ---- primary: dl_monitors (or aliases) ---------------------------------------
-
-def _rows_from_dl_monitors(ctx: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
-    dl = ctx.get("dl")
-    if not dl:
-        return None
-    mgr = None
-    for attr in ("dl_monitors", "monitors", "monitor_manager", "dl_monitor"):
-        if hasattr(dl, attr):
-            mgr = getattr(dl, attr)
-            break
-    if mgr:
-        # common method names
-        got = None
-        for name in ("get_rows", "get_monitor_rows", "rows", "list", "all", "items"):
-            fn = getattr(mgr, name, None)
-            if callable(fn):
-                try:
-                    got = fn()
-                    break
-                except Exception:
-                    pass
-            elif isinstance(getattr(mgr, name, None), list):
-                got = getattr(mgr, name)
-                break
-        if isinstance(got, list) and (not got or isinstance(got[0], dict)):
-            return got
-
-    # dl-level helpers
-    for name in ("get_monitor_rows", "get_monitors_table", "get_monitor_table"):
-        fn = getattr(dl, name, None)
-        if callable(fn):
-            try:
-                got = fn()
-                if isinstance(got, list) and (not got or isinstance(got[0], dict)):
-                    return got
-            except Exception:
-                pass
-    return None
-
-# ---- fallbacks (if dl not ready) ---------------------------------------------
-
-def _rows_from_ctx(ctx: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
-    for key in ("monitor_rows", "monitors_table", "monitor_table"):
-        val = _sd(ctx).get(key)
-        if isinstance(val, list) and (not val or isinstance(val[0], dict)):
-            return val
-    return None
-
-def _rows_from_csum(ctx: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
-    # only as a last resort
-    csum = _sd(ctx.get("csum"))
-    for key in ("monitors_detail", "monitors_items", "monitor_rows", "monitors_table"):
-        val = csum.get(key)
-        if isinstance(val, list) and (not val or isinstance(val[0], dict)):
-            return val
-    return None
-
-# ---- normalize to legacy columns ---------------------------------------------
-
-def _normalize(rows: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, str]]:
-    for r in rows:
-        d = _sd(r)
-        mon    = _nz(_first(d.get("mon"), d.get("name"), d.get("monitor"), d.get("label")))
-        thresh = _nz(_first(d.get("thresh"), d.get("threshold")))
-        value  = _nz(d.get("value"))
-        state0 = _nz(d.get("state"))
-        age    = _nz(_first(d.get("age"), d.get("age_s"), d.get("age_str")))
-        src    = _nz(_first(d.get("source"), d.get("src"), d.get("origin"), d.get("monitor_key")))
-        u = state0.upper()
-        if u.startswith("OK"):
-            state = f"{ICON_OK} {state0}"
-        elif u.startswith("WARN"):
-            state = f"{ICON_WARN} {state0}"
-        elif u.startswith("ERR") or u.startswith("FAIL"):
-            state = f"{ICON_ERR} {state0}"
+def _age_from_ts(ts: Any) -> str:
+    # ts may be epoch float/int or iso string
+    try:
+        if isinstance(ts, (int, float)):
+            dt = datetime.datetime.utcfromtimestamp(float(ts))
         else:
-            state = state0 or "-"
-        yield {"mon": mon, "thresh": thresh, "value": value, "state": state, "age": age, "source": src}
+            dt = datetime.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        secs = max(0, int((datetime.datetime.utcnow() - dt.replace(tzinfo=None)).total_seconds()))
+        return f"{secs}s"
+    except Exception:
+        return "—"
 
-# ---- render ------------------------------------------------------------------
+# ---------- hard source: dl.dl_monitors (or dl.monitors) ----------
+def _get_monitors_manager(dl: Any):
+    for attr in ("dl_monitors", "monitors"):
+        if hasattr(dl, attr):
+            return getattr(dl, attr)
+    return None
 
+def _iter_rows_from_mgr(mgr: Any) -> Iterable[Dict[str, Any]]:
+    """
+    Strict manager read—NO fallbacks.
+    Accepts:
+      - method: get_rows()
+      - attribute: rows / items
+    Each row is expected to be MonitorStatus-like:
+      { monitor|mon|label, state, value, unit, thr_op, thr_value, thr_unit, source, ts }
+    """
+    fn = getattr(mgr, "get_rows", None)
+    if callable(fn):
+        try:
+            got = fn()
+            if isinstance(got, list):
+                for r in got:
+                    if isinstance(r, dict):
+                        yield r
+                return
+        except Exception:
+            pass
+
+    for attr in ("rows", "items"):
+        arr = getattr(mgr, attr, None)
+        if isinstance(arr, list):
+            for r in arr:
+                if isinstance(r, dict):
+                    yield r
+            return
+
+def _fmt_thr(op: Any, val: Any, unit: Any) -> str:
+    op_s = str(op or "").strip()
+    val_s = _nz(val)
+    unit_s = str(unit or "").strip()
+    if op_s and op_s not in {"=", "=="}:
+        s = f"{op_s} {val_s}"
+    else:
+        s = f"{val_s}"
+    return f"{s}{unit_s if unit_s else ''}"
+
+def _fmt_state(s: Any) -> str:
+    us = str(s or "").upper()
+    if us.startswith("OK"):
+        return f"{ICON_OK} {s}"
+    if us.startswith("WARN"):
+        return f"{ICON_WARN} {s}"
+    if us.startswith("ERR") or us.startswith("FAIL") or us.startswith("BREACH"):
+        return f"{ICON_ERR} {s}"
+    return str(s or "-")
+
+# ---------- render ----------
 def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     out: List[str] = []
     try:
         out += emit_title_block(PANEL_SLUG, PANEL_NAME)
-
         body = get_panel_body_config(PANEL_SLUG)
-        hdr  = f"{'Monitor':<22} {'Thresh':>8}  {'Value':>8}  {'State':>10}  {'Age':>6}  {'Source'}"
-        out += body_indent_lines(PANEL_SLUG, [paint_line(hdr, body["column_header_text_color"])])
 
-        rows = (
-            _rows_from_dl_monitors(context)
-            or _rows_from_ctx(context)
-            or _rows_from_csum(context)
-            or []
-        )
-
-        if not rows:
-            out += body_indent_lines(PANEL_SLUG, ["(no monitor checks)"])
+        dl = context.get("dl")
+        mgr = _get_monitors_manager(dl) if dl is not None else None
+        if mgr is None:
+            out += body_indent_lines(PANEL_SLUG, ["[MONITORS] missing dl.dl_monitors / dl.monitors — fix pipeline"])
             out += body_pad_below(PANEL_SLUG)
             return out
 
-        for r in _normalize(rows):
-            line = f"{r['mon']:<22} {r['thresh']:>8}  {r['value']:>8}  {r['state']:>10}  {r['age']:>6}  {r['source']}"
+        hdr = f"{'Monitor':<22} {'Thresh':>10}  {'Value':>10}  {'State':>10}  {'Age':>6}  {'Source'}"
+        out += body_indent_lines(PANEL_SLUG, [paint_line(hdr, body["column_header_text_color"])])
+
+        any_row = False
+        for r in _iter_rows_from_mgr(mgr):
+            d = _sd(r)
+            mon = _nz(_first(d.get("monitor"), d.get("mon"), d.get("label")))
+            thr = _fmt_thr(d.get("thr_op"), d.get("thr_value"), d.get("thr_unit"))
+            val = _nz(_first(d.get("value"), d.get("val")))
+            unit = _nz(d.get("unit"), "")
+            if unit and unit != "-":
+                val = f"{val}{unit}"
+            st  = _fmt_state(d.get("state"))
+            age = _age_from_ts(_first(d.get("age_s"), d.get("ts")))
+            src = _nz(_first(d.get("source"), d.get("origin")))
+            line = f"{mon:<22} {thr:>10}  {val:>10}  {st:>10}  {age:>6}  {src}"
             out += body_indent_lines(PANEL_SLUG, [color_if_plain(line, body["body_text_color"])])
+            any_row = True
+
+        if not any_row:
+            out += body_indent_lines(PANEL_SLUG, ["(no monitor checks)"])
 
         out += body_pad_below(PANEL_SLUG)
         return out
