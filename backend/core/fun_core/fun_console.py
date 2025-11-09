@@ -28,6 +28,8 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import Dict, List, Tuple
 
+from backend.core.fun_core.transitions.lab_console import main as transitions_lab
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # resolve fun_core implementation
@@ -125,6 +127,7 @@ MENU = """
   5) 🧭  Provider status (reachability & latency)
   6) 🔥  Pre-warm caches (pull N items per type)
   7) 🧰  Offline mode (seeds only): {offline}
+  T) 🌀  Transitions Lab (animations)
   0) 🚪  Quit
 """
 
@@ -273,6 +276,8 @@ async def main_loop() -> None:
         elif sel == "7":
             offline = not offline
             print(f"\nOffline mode is now {'ON' if offline else 'OFF'}.\n")
+        elif sel in ("t", "transitions", "lab"):
+            transitions_lab()
         elif sel in ("0", "q", "quit", "exit"):
             print("\nbye 👋\n")
             return
