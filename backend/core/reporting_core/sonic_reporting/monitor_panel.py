@@ -4,24 +4,22 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 import json, os, unicodedata
 
-# ===== colors (title text only) =====
+# ===== colors (title text only; rails/bars plain) =====
 USE_COLOR   = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
-TITLE_COLOR = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")
+TITLE_COLOR = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")  # cyan
 def _c(s: str, color: str) -> str: return f"{color}{s}\x1b[0m" if USE_COLOR else s
 
-# ===== layout (78-col house width) =====
+# ===== layout =====
 HR_WIDTH = 78
 INDENT   = "  "
-
-# dedicated icon col + 5 data cols (tight)
+# icon + 6 compact columns
 W_ICON, W_MON, W_TH, W_VAL, W_ST, W_AGE, W_SRC = 3, 21, 10, 10, 8, 6, 8
-SEP = " "  # single space keeps it slim
+SEP = " "
 
-STATE_ICON = {"OK":"✅","WARN":"⚠︎","BREACH":"🔥","SNOOZE":"🔕"}
-MON_ICON   = {"liquid":"💧","profit":"💹","market":"📈","custom":"🧪","prices":"💵","positions":"📊","raydium":"🪙","hedges":"🪶","reporters":"🧭","heartbeat":"💓"}
-
-SEVERITY_RANK = {"BREACH":0,"SNOOZE":1,"WARN":2,"OK":3}
-MON_RANK      = {"liquid":0,"profit":1,"market":2,"custom":3,"prices":4,"positions":5,"raydium":6,"hedges":7,"reporters":8,"heartbeat":9}
+STATE_ICON   = {"OK":"✅","WARN":"⚠︎","BREACH":"🔥","SNOOZE":"🔕"}
+MON_ICON     = {"liquid":"💧","profit":"💹","market":"📈","custom":"🧪","prices":"💵","positions":"📊","raydium":"🪙","hedges":"🪶","reporters":"🧭","heartbeat":"💓"}
+SEVERITY_RANK= {"BREACH":0,"SNOOZE":1,"WARN":2,"OK":3}
+MON_RANK     = {"liquid":0,"profit":1,"market":2,"custom":3,"prices":4,"positions":5,"raydium":6,"hedges":7,"reporters":8,"heartbeat":9}
 
 # ===== emoji-safe padding =====
 _VAR={0xFE0F,0xFE0E}; _ZW={0x200D,0x200C}
@@ -51,15 +49,14 @@ def _pad_center(s: Any, w: int) -> str:
     return (" "*left)+t+(" "*right)
 
 def _hr(title: str) -> str:
-    # color only the title text; bars remain plain
     plain = f"  {title} "
-    colored = f" {_c('🔎  ' + title, TITLE_COLOR)} "
+    col   = f" {_c('🔎  ' + title, TITLE_COLOR)} "
     pad = HR_WIDTH - len(plain)
     if pad < 0: pad = 0
-    L = pad // 2; R = pad - L
-    return INDENT + "─"*L + colored + "─"*R
+    L=pad//2; R=pad-L
+    return INDENT + "─"*L + col + "─"*R
 
-# ===== metrics (no % symbols in output) =====
+# ===== metrics (no '%' symbol in output) =====
 def _fmt_metric(v: Any, unit: str) -> str:
     try: x=float(v)
     except: return "—"
@@ -68,16 +65,17 @@ def _fmt_metric(v: Any, unit: str) -> str:
         if abs(x)>=1e6: return f"{x/1e6:.1f}m".replace(".0m","m")
         if abs(x)>=1e3: return f"{x/1e3:.1f}k".replace(".0k","k")
         return f"{x:,.2f}"
-    # percent or other → number only
+    # percent/other → show number only
     if abs(x)>=1000: return f"{x:,.0f}"
     if abs(x)>=1:    return f"{x:.2f}"
     return f"{x:.3f}"
 
 def _fmt_threshold_row(row: Dict[str,Any]) -> str:
-    thr=(row.get("meta") or {}).get("threshold") or {}
-    op=(row.get("thr_op") or thr.get("op") or thr.get("operator") or "").strip()
-    val=row.get("thr_value") if row.get("thr_value") is not None else thr.get("value")
-    unit=row.get("thr_unit")  if row.get("thr_unit")  is not None else thr.get("unit") or ""
+    """Prefer columns thr_op/thr_value/thr_unit; if unit is missing, fall back to meta.threshold.unit."""
+    thr = (row.get("meta") or {}).get("threshold") or {}
+    op  = (row.get("thr_op") or thr.get("op") or thr.get("operator") or "").strip()
+    val = row.get("thr_value") if row.get("thr_value") is not None else thr.get("value")
+    unit= row.get("thr_unit")  if row.get("thr_unit")  is not None else (thr.get("unit") or "")
     if val is None: return "—"
     sym={"<":"＜","<=":"≤",">":"＞",">=":"≥","==":"＝"}.get(op,"")
     txt=_fmt_metric(val, unit)
@@ -90,8 +88,10 @@ def _fmt_state(s: str) -> str:
 def _fmt_age(ts: Any) -> str:
     if not ts: return "—"
     try:
-        if isinstance(ts,(int,float)): dt = datetime.fromtimestamp(float(ts), tz=timezone.utc)
-        else: dt = datetime.fromisoformat(str(ts).replace("Z","+00:00"))
+        if isinstance(ts,(int,float)):
+            dt = datetime.fromtimestamp(float(ts), tz=timezone.utc)
+        else:
+            dt = datetime.fromisoformat(str(ts).replace("Z","+00:00"))
         d=(datetime.now(timezone.utc)-dt).total_seconds()
         if d<0: d=0
         return f"{int(d)}s" if d<90 else (f"{int(d//60)}m" if d<5400 else f"{int(d//3600)}h")
@@ -104,7 +104,8 @@ def _latest_rows_via_manager(dl: Any) -> Optional[List[Dict[str,Any]]]:
         if mm is not None:
             rs=mm.latest()
             if rs: return rs
-    except: pass
+    except Exception:
+        pass
     return None
 
 def _get_latest_cycle(cur) -> Optional[str]:
@@ -144,7 +145,9 @@ def _load_status_table(cur, table: str, cid: str) -> List[Dict[str,Any]]:
         cur.execute(f"SELECT {', '.join(select)} FROM {table} WHERE cycle_id=?", (cid,))
         out=[]
         for row in cur.fetchall():
-            base={"monitor":row[0] or "custom","label":row[1] or "","state":(row[2] or "OK"),"value":row[3],"unit":row[4] or "","meta":{},"ts":row[6] if len(row)>=7 else None,"source":"", "thr_op":None,"thr_value":None,"thr_unit":None}
+            base={"monitor":row[0] or "custom","label":row[1] or "","state":(row[2] or "OK"),
+                  "value":row[3],"unit":row[4] or "","meta":{},"ts":row[6] if len(row)>=7 else None,
+                  "source":"","thr_op":None,"thr_value":None,"thr_unit":None}
             md=row[5]
             if isinstance(md,str):
                 try: md=json.loads(md)
@@ -204,19 +207,30 @@ def _load_from_ledger(cur, cid: str) -> List[Dict[str,Any]]:
         return out
     except: return []
 
-def _latest_rows(dl: Any) -> List[Dict[str,Any]]:
-    rs=_latest_rows_via_manager(dl)
-    if rs: return rs
+def _latest_rows(dl: Any) -> Tuple[List[Dict[str,Any]], str]:
+    # 1) manager-first (dl.monitors)
+    rs = _latest_rows_via_manager(dl)
+    if rs:
+        return rs, "dl.monitors"
+
+    # 2) normalized tables
     try:
-        cur=dl.db.get_cursor()
-        cid=_get_latest_cycle(cur)
-        if not cid: return []
-        for t in ("monitor_status","monitor_statuses","monitor_status_log"):
-            rows=_load_status_table(cur,t,cid)
-            if rows: return rows
-        rows=_load_from_ledger(cur,cid)
-        return rows
-    except: return []
+        cur = dl.db.get_cursor()
+        cid = _get_latest_cycle(cur)
+        if cid:
+            for t in ("monitor_status","monitor_statuses","monitor_status_log"):
+                rows = _load_status_table(cur, t, cid)
+                if rows:
+                    return rows, t
+        # 3) ledger fallback
+        if cid:
+            rows = _load_from_ledger(cur, cid)
+            if rows:
+                return rows, "monitor_ledger"
+    except Exception:
+        pass
+
+    return [], "none"
 
 def _norm(r: Dict[str,Any]) -> Dict[str,Any]:
     m=(r.get("monitor") or "custom").lower()
@@ -240,23 +254,25 @@ def _norm(r: Dict[str,Any]) -> Dict[str,Any]:
 def _sort_key(r: Dict[str,Any]) -> Tuple[int,int,str]:
     return (SEVERITY_RANK.get(r["state"],4), MON_RANK.get(r["monitor"],9), r["label"])
 
+# ===== render =====
 def render(dl, *_args, **_kw) -> None:
-    rows=[_norm(r) for r in _latest_rows(dl)]
+    raw, src = _latest_rows(dl)
+    rows=[_norm(r) for r in raw]
     rows.sort(key=_sort_key)
 
     print()
     print(_hr("Monitors"))
 
-    # colored header text only
+    # header (icons + text; no row coloring)
     print(
         INDENT
         + _pad("", W_ICON)
-        + _pad("Mon",    W_MON)
-        + SEP + _pad("Thresh", W_TH)
-        + SEP + _pad("Value",  W_VAL, right=True)
-        + SEP + _pad_center("State",  W_ST)
-        + SEP + _pad("Age",    W_AGE, right=True)
-        + SEP + _pad("Source", W_SRC)
+        + _pad("Mon",     W_MON)
+        + SEP + _pad("Thresh",  W_TH)
+        + SEP + _pad("Value",   W_VAL, right=True)
+        + SEP + _pad_center("State",   W_ST)
+        + SEP + _pad("Age",     W_AGE, right=True)
+        + SEP + _pad("Source",  W_SRC)
     )
     print(INDENT + "─"*HR_WIDTH)
 
@@ -272,7 +288,7 @@ def render(dl, *_args, **_kw) -> None:
         val  = _fmt_metric(r["value"], r["unit"])
         stxt = _fmt_state(r["state"])
         age  = _fmt_age(r["ts"])
-        src  = r["source"]
+        srcv = r["source"]
 
         print(
             INDENT
@@ -280,17 +296,19 @@ def render(dl, *_args, **_kw) -> None:
             + _pad(mon, W_MON)
             + SEP + _pad(thr, W_TH)
             + SEP + _pad(val, W_VAL, right=True)
-            + SEP + _pad_center(stxt, W_ST)     # tight gap before age
+            + SEP + _pad_center(stxt, W_ST)       # tight gap before age
             + SEP + _pad(age, W_AGE, right=True)
-            + SEP + _pad(src, W_SRC)
+            + SEP + _pad(srcv, W_SRC)
         )
 
-    # summary
+    # summary (plain)
     n_ok   = sum(1 for x in rows if x["state"]=="OK")
     n_warn = sum(1 for x in rows if x["state"]=="WARN")
     n_snz  = sum(1 for x in rows if x["state"]=="SNOOZE")
     n_br   = sum(1 for x in rows if x["state"]=="BREACH")
-    ages   = [_fmt_age(x.get("ts")) for x in rows if x.get("ts")]
+
+    ages = [_fmt_age(x.get("ts")) for x in rows if x.get("ts")]
     last_age = ages[0] if ages else "—"
+
     print(INDENT + f"Summary:  {STATE_ICON['OK']} {n_ok}  {STATE_ICON['WARN']} {n_warn}  {STATE_ICON['SNOOZE']} {n_snz}  {STATE_ICON['BREACH']} {n_br}   last update {last_age}")
     print()

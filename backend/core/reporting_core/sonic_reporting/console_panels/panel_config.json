@@ -3,7 +3,7 @@
   "defaults": {
     "title": {
       "icon": "",
-      "border_style": "lines",
+      "border_style": "rounded",
       "border_color": "default",
       "text_color": "cyan"
     },
@@ -74,7 +74,7 @@
         "icon": "🔁",
         "border_style": "rounded",
         "border_color": "default",
-        "text_color": "cyan"
+        "text_color": "blue"
       }
     }
   }
