@@ -176,11 +176,10 @@ class MonitorStatus:
         )
 
 
-try:
-    __all__
-except NameError:
-    __all__ = []
-
-for _sym in ("MonitorDetail",):
-    if _sym not in __all__:
-        __all__.append(_sym)
+__all__ = [
+    "MonitorType",
+    "MonitorState",
+    "MonitorHealth",
+    "MonitorDetail",
+    "MonitorStatus",
+]
