@@ -222,105 +222,129 @@ def _collect_nft_rows(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
 
 # ── rendering ───────────────────────────────────────────────────────────────────
 def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[str]:
+    """Render the positions panel with resilient error handling."""
     ctx: Dict[str, Any] = {}
     if context:
-        if isinstance(context, dict): ctx.update(context)
-        else: ctx["dl"] = context
+        if isinstance(context, dict):
+            ctx.update(context)
+        else:
+            ctx["dl"] = context
     if len(args) >= 1:
-        a0 = args[0];  ctx.update(a0) if isinstance(a0, dict) else ctx.setdefault("dl", a0)
+        a0 = args[0]
+        if isinstance(a0, dict):
+            ctx.update(a0)
+        else:
+            ctx.setdefault("dl", a0)
     if len(args) >= 2:
         a1 = args[1]
-        if isinstance(a1, dict): ctx.update(a1)
-        elif isinstance(a1, (int, float)): kwargs.setdefault("width", int(a1))
-    if kwargs: ctx.update(kwargs)
+        if isinstance(a1, dict):
+            ctx.update(a1)
+        elif isinstance(a1, (int, float)):
+            kwargs.setdefault("width", int(a1))
+    if kwargs:
+        ctx.update(kwargs)
 
     width = ctx.get("width") or _console_width()
 
     out: List[str] = []
-    out.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
+    try:
+        out.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
 
-    # Columns (unchanged layout)
-    c_asset = 12; c_size = 9; c_val = 11; c_pnl = 11; c_lev = 7; c_liq = 8; c_heat = 6; c_trav = 7
+        # Columns (unchanged layout)
+        c_asset = 12; c_size = 9; c_val = 11; c_pnl = 11; c_lev = 7; c_liq = 8; c_heat = 6; c_trav = 7
 
-    def fmt_row(asset, size, val, pnl, lev, liq, heat, trav) -> str:
-        return (
-            f"{_left(asset, c_asset)}  "
-            f"{_right(size, c_size)}  "
-            f"{_right(val, c_val)}  "
-            f"{_right(pnl, c_pnl)}  "
-            f"{_right(lev, c_lev)}  "
-            f"{_right(liq, c_liq)}  "
-            f"{_right(heat, c_heat)}  "
-            f"{_right(trav, c_trav)}"
-        )[:width]
+        def fmt_row(asset, size, val, pnl, lev, liq, heat, trav) -> str:
+            return (
+                f"{_left(asset, c_asset)}  "
+                f"{_right(size, c_size)}  "
+                f"{_right(val, c_val)}  "
+                f"{_right(pnl, c_pnl)}  "
+                f"{_right(lev, c_lev)}  "
+                f"{_right(liq, c_liq)}  "
+                f"{_right(heat, c_heat)}  "
+                f"{_right(trav, c_trav)}"
+            )[:width]
 
-    body_cfg = get_panel_body_config(PANEL_SLUG)
-    header = fmt_row("🪙Asset", "📦Size", "🟩Value", "📈PnL", "🧷Lev", "💧Liq", "🔥Heat", "🧭Trave")
-    body_header = paint_line(header, body_cfg["column_header_text_color"])
-    out += body_pad_above(PANEL_SLUG)
-    out += body_indent_lines(PANEL_SLUG, [body_header])
+        body_cfg = get_panel_body_config(PANEL_SLUG)
+        header = fmt_row("🪙Asset", "📦Size", "🟩Value", "📈PnL", "🧷Lev", "💧Liq", "🔥Heat", "🧭Trave")
+        body_header = paint_line(header, body_cfg["column_header_text_color"])
+        out += body_pad_above(PANEL_SLUG)
+        out += body_indent_lines(PANEL_SLUG, [body_header])
 
-    # Gather rows
-    perp_rows, _ = _collect_perp_rows(ctx)
-    nft_rows, _ = _collect_nft_rows(ctx)
+        # Gather rows
+        perp_rows, _ = _collect_perp_rows(ctx)
+        nft_rows, _ = _collect_nft_rows(ctx)
 
-    # Iconize asset (BTC/ETH/SOL only; leave NFT rows as-is)
-    def _sym_with_icon(asset_text: str) -> str:
-        s = (asset_text or "").upper()
-        if s.startswith("NFT"): return asset_text
-        if s == "BTC": return f"🟡 {s}"
-        if s == "ETH": return f"🔷 {s}"
-        if s == "SOL": return f"🟣 {s}"
-        return asset_text
+        # Iconize asset (BTC/ETH/SOL only; leave NFT rows as-is)
+        def _sym_with_icon(asset_text: str) -> str:
+            s = (asset_text or "").upper()
+            if s.startswith("NFT"):
+                return asset_text
+            if s == "BTC":
+                return f"🟡 {s}"
+            if s == "ETH":
+                return f"🔷 {s}"
+            if s == "SOL":
+                return f"🟣 {s}"
+            return asset_text
 
-    # Totals
-    size_sum = value_sum = pnl_sum = 0.0
-    lev_weighted = travel_weighted = size_weight = 0.0
+        # Totals
+        size_sum = value_sum = pnl_sum = 0.0
+        lev_weighted = travel_weighted = size_weight = 0.0
 
-    def emit_row(row: Dict[str, Any]) -> None:
-        nonlocal size_sum, value_sum, pnl_sum, lev_weighted, travel_weighted, size_weight
-        asset = _sym_with_icon(row.get("asset") or "")
-        size = float(row.get("size") or 0.0)
-        value = float(row.get("value") or 0.0)
-        pnl = float(row.get("pnl") or 0.0)
-        lev = row.get("lev"); liq = row.get("liq"); heat = row.get("heat"); trav = row.get("travel")
+        def emit_row(row: Dict[str, Any]) -> None:
+            nonlocal size_sum, value_sum, pnl_sum, lev_weighted, travel_weighted, size_weight
+            asset = _sym_with_icon(row.get("asset") or "")
+            size = float(row.get("size") or 0.0)
+            value = float(row.get("value") or 0.0)
+            pnl = float(row.get("pnl") or 0.0)
+            lev = row.get("lev"); liq = row.get("liq"); heat = row.get("heat"); trav = row.get("travel")
 
-        value_sum += value; pnl_sum += pnl
-        if row.get("origin") != "nft":
-            size_sum += size
-            if isinstance(lev, (int, float)):   lev_weighted += size * float(lev)
-            if isinstance(trav, (int, float)):  travel_weighted += size * float(trav)
-            size_weight += size
+            value_sum += value
+            pnl_sum += pnl
+            if row.get("origin") != "nft":
+                size_sum += size
+                if isinstance(lev, (int, float)):
+                    lev_weighted += size * float(lev)
+                if isinstance(trav, (int, float)):
+                    travel_weighted += size * float(trav)
+                size_weight += size
 
-        s_size = _fmt_num(size, places=2, dash="—")
-        s_val  = _fmt_usd(value)
-        s_pnl  = ("-" if pnl < 0 else "") + _fmt_usd(abs(pnl))
-        s_lev  = f"{lev:.1f}x" if isinstance(lev, (int, float)) else "—"
-        s_liq  = _fmt_usd(liq) if isinstance(liq, (int, float)) else "—"
-        s_heat = _fmt_pct(heat) if isinstance(heat, (int, float)) else "—"
-        s_trav = _fmt_pct(trav) if isinstance(trav, (int, float)) else "—"
+            s_size = _fmt_num(size, places=2, dash="—")
+            s_val = _fmt_usd(value)
+            s_pnl = ("-" if pnl < 0 else "") + _fmt_usd(abs(pnl))
+            s_lev = f"{lev:.1f}x" if isinstance(lev, (int, float)) else "—"
+            s_liq = _fmt_usd(liq) if isinstance(liq, (int, float)) else "—"
+            s_heat = _fmt_pct(heat) if isinstance(heat, (int, float)) else "—"
+            s_trav = _fmt_pct(trav) if isinstance(trav, (int, float)) else "—"
 
-        line = fmt_row(asset, s_size, s_val, s_pnl, s_lev, s_liq, s_heat, s_trav)
-        out += body_indent_lines(PANEL_SLUG, [color_if_plain(line, body_cfg["body_text_color"])])
+            line = fmt_row(asset, s_size, s_val, s_pnl, s_lev, s_liq, s_heat, s_trav)
+            out += body_indent_lines(PANEL_SLUG, [color_if_plain(line, body_cfg["body_text_color"])])
 
-    for r in perp_rows: emit_row(r)
-    for r in nft_rows:  emit_row(r)
+        for r in perp_rows:
+            emit_row(r)
+        for r in nft_rows:
+            emit_row(r)
 
-    # Totals row
-    out += body_pad_below(PANEL_SLUG)
-    tot_lev = (lev_weighted / size_weight) if size_weight > 0 else None
-    tot_trv = (travel_weighted / size_weight) if size_weight > 0 else None
-    s_tsize = _fmt_num(size_sum, places=2, dash="—")
-    s_tval  = _fmt_usd(value_sum)
-    s_tpnl  = ("-" if pnl_sum < 0 else "") + _fmt_usd(abs(pnl_sum))
-    s_tlev  = f"{tot_lev:.1f}x" if isinstance(tot_lev, (int, float)) else "—"
-    s_tliq  = "—"; s_theat = "—"
-    s_ttrv  = f"{tot_trv:.0f}%" if isinstance(tot_trv, (int, float)) else "—"
+        # Totals row
+        out += body_pad_below(PANEL_SLUG)
+        tot_lev = (lev_weighted / size_weight) if size_weight > 0 else None
+        tot_trv = (travel_weighted / size_weight) if size_weight > 0 else None
+        s_tsize = _fmt_num(size_sum, places=2, dash="—")
+        s_tval = _fmt_usd(value_sum)
+        s_tpnl = ("-" if pnl_sum < 0 else "") + _fmt_usd(abs(pnl_sum))
+        s_tlev = f"{tot_lev:.1f}x" if isinstance(tot_lev, (int, float)) else "—"
+        s_tliq = "—"
+        s_theat = "—"
+        s_ttrv = f"{tot_trv:.0f}%" if isinstance(tot_trv, (int, float)) else "—"
 
-    totals_line = fmt_row("Totals", s_tsize, s_tval, s_tpnl, s_tlev, s_tliq, s_theat, s_ttrv)
-    out += body_indent_lines(PANEL_SLUG, [paint_line(totals_line, body_cfg["totals_row_color"])])
-    out += body_pad_below(PANEL_SLUG)
-    return out
+        totals_line = fmt_row("Totals", s_tsize, s_tval, s_tpnl, s_tlev, s_tliq, s_theat, s_ttrv)
+        out += body_indent_lines(PANEL_SLUG, [paint_line(totals_line, body_cfg["totals_row_color"])])
+        out += body_pad_below(PANEL_SLUG)
+        return out
+    except Exception as exc:  # pragma: no cover - best effort reporting guard
+        out.append(f"[REPORT] positions panel failed: {exc}")
+        return out
 
 def connector(*args, **kwargs) -> List[str]:
     return render(*args, **kwargs)
