@@ -1,21 +1,19 @@
 {
   "version": 1,
-
   "defaults": {
     "title": {
       "icon": "",
-      "border_style": "lines",
+      "border_style": "rounded",
       "border_color": "default",
       "text_color": "cyan"
     },
     "layout": {
       "title_indent": 0,
-      "title_padding_above": 1,
-      "title_padding_below": 1,
-      "title_width": null,
-
+      "title_padding_above": 0,
+      "title_padding_below": 0,
+      "title_width": 140,
       "body_indent": 0,
-      "body_padding_above": 1,
+      "body_padding_above": 0,
       "body_padding_below": 1
     },
     "body": {
@@ -24,151 +22,47 @@
       "totals_row_color": "grey50"
     }
   },
-
   "panels": {
-    "prices": {
-      "title": {
-        "string": "Prices",
-        "icon": "💵",
-        "border_style": "lines",
-        "border_color": "default",
-        "text_color": "cyan"
-      },
-      "layout": {
-        "title_indent": 0,
-        "title_padding_above": 1,
-        "title_padding_below": 1,
-        "title_width": null,
-
-        "body_indent": 0,
-        "body_padding_above": 1,
-        "body_padding_below": 1
-      },
-      "body": {
-        "column_header_text_color": "cyan",
-        "body_text_color": "white"
-      }
-    },
-
-    "positions": {
-      "title": {
-        "string": "Positions",
-        "icon": "📊",
-        "border_style": "lines",
-        "border_color": "default",
-        "text_color": "cyan"
-      },
-      "layout": {
-        "title_indent": 0,
-        "title_padding_above": 1,
-        "title_padding_below": 1,
-        "title_width": null,
-
-        "body_indent": 0,
-        "body_padding_above": 1,
-        "body_padding_below": 1
-      },
-      "body": {
-        "column_header_text_color": "cyan",
-        "body_text_color": "white",
-        "totals_row_color": "grey50"
-      }
-    },
-
-    "monitors": {
-      "title": {
-        "string": "Monitors",
-        "icon": "🔎",
-        "border_style": "lines",
-        "border_color": "default",
-        "text_color": "cyan"
-      },
-      "layout": {
-        "title_indent": 0,
-        "title_padding_above": 1,
-        "title_padding_below": 1,
-        "title_width": null,
-
-        "body_indent": 0,
-        "body_padding_above": 1,
-        "body_padding_below": 1
-      },
-      "body": {
-        "column_header_text_color": "cyan",
-        "body_text_color": "white"
-      }
-    },
-
-    "xcom": {
-      "title": {
-        "string": "XCom",
-        "icon": "✉️",
-        "border_style": "rounded",
-        "border_color": "default",
-        "text_color": "cyan"
-      },
-      "layout": {
-        "title_indent": 0,
-        "title_padding_above": 1,
-        "title_padding_below": 1,
-        "title_width": null,
-
-        "body_indent": 0,
-        "body_padding_above": 1,
-        "body_padding_below": 1
-      },
-      "body": {
-        "column_header_text_color": "cyan",
-        "body_text_color": "white"
-      }
-    },
-
-    "wallets": {
-      "title": {
-        "string": "Wallets",
-        "icon": "💼",
-        "border_style": "lines",
-        "border_color": "default",
-        "text_color": "cyan"
-      },
-      "layout": {
-        "title_indent": 0,
-        "title_padding_above": 1,
-        "title_padding_below": 1,
-        "title_width": null,
-
-        "body_indent": 0,
-        "body_padding_above": 1,
-        "body_padding_below": 1
-      },
-      "body": {
-        "column_header_text_color": "cyan",
-        "body_text_color": "white",
-        "totals_row_color": "yellow"
-      }
-    },
-
     "activity": {
       "title": {
         "string": "Cycle Activity",
-        "icon": "🔁",
-        "border_style": "rounded",
-        "border_color": "default",
-        "text_color": "cyan"
-      },
-      "layout": {
-        "title_indent": 0,
-        "title_padding_above": 1,
-        "title_padding_below": 1,
-        "title_width": null,
-
-        "body_indent": 0,
-        "body_padding_above": 1,
-        "body_padding_below": 1
+        "icon": "\ud83d\udcd8"
+      }
+    },
+    "prices": {
+      "title": {
+        "string": "Prices",
+        "icon": "\ud83d\udcb5"
+      }
+    },
+    "positions": {
+      "title": {
+        "string": "Positions",
+        "icon": "\ud83d\udcca"
       },
       "body": {
-        "column_header_text_color": "cyan",
-        "body_text_color": "white"
+        "totals_row_color": "grey50"
+      }
+    },
+    "monitors": {
+      "title": {
+        "string": "Monitors",
+        "icon": "\ud83d\udd0e"
+      }
+    },
+    "xcom": {
+      "title": {
+        "string": "XCom",
+        "icon": "\u2709\ufe0f"
+      }
+    },
+    "wallets": {
+      "title": {
+        "string": "Wallets",
+        "icon": "\ud83d\udcbc"
+      },
+      "body": {
+        "totals_row_color": "yellow"
       }
     }
   }

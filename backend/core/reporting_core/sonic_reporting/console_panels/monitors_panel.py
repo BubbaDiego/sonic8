@@ -1,179 +1,177 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from .theming import (
     console_width as _theme_width,
-    emit_title_block,
+    title_lines as _theme_title,
     get_panel_body_config,
-    body_pad_above, body_pad_below, body_indent_lines,
-    color_if_plain, paint_line,
+    color_if_plain,
+    paint_line,
+    body_pad_below,
+    body_indent_lines,
 )
 
 PANEL_KEY = "monitors_panel"
 PANEL_NAME = "Monitors"
 PANEL_SLUG = "monitors"
 
-# Icons for enabled/disabled and status; fall back to plain text if terminals are grumpy.
-ICON_ENABLED = os.getenv("SONIC_ICON_ENABLED", "✅")
-ICON_DISABLED = os.getenv("SONIC_ICON_DISABLED", "◻️")
-ICON_OK = os.getenv("SONIC_ICON_OK", "🟩")
-ICON_WARN = os.getenv("SONIC_ICON_WARN", "🟨")
-ICON_ERR = os.getenv("SONIC_ICON_ERR", "🟥")
-
-# Order and friendly names for common monitors; unknown keys will be appended in alpha order.
-_MONITOR_ORDER = [
-    "sonic",      # umbrella / heartbeat group if present
-    "liquid",
-    "profit",
-    "market",
-    "price",
-    "xcom",
-]
-_MONITOR_LABELS = {
-    "sonic": "Sonic",
-    "liquid": "Liquid",
-    "profit": "Profit",
-    "market": "Market",
-    "price": "Price",
-    "xcom": "XCom",
-}
+ICON_OK = os.getenv("ICON_OK", "🟩")
+ICON_WARN = os.getenv("ICON_WARN", "🟨")
+ICON_ERR = os.getenv("ICON_ERR", "🟥")
 
 
-def _console_width(default: int = 92) -> int:
-    return _theme_width(default)
+def _safe_dict(x: Any) -> Dict[str, Any]:
+    return x if isinstance(x, dict) else {}
 
 
-def _safe_dict(d: Any) -> Dict[str, Any]:
-    return d if isinstance(d, dict) else {}
+def _as_str(x: Any) -> str:
+    if x is None:
+        return "-"
+    return str(x)
 
 
-def _enabled_map(context: Dict[str, Any]) -> Dict[str, bool]:
-    """
-    Expected sources (any may exist):
-      - context["csum"]["monitors_enabled"] : {"liquid": True, "profit": False, ...}
-      - context["monitors_enabled"]
-      - context["config"]["monitor"]["enabled"]
-    We merge truthy values; missing keys default to False.
-    """
-    csum = _safe_dict(context.get("csum"))
-    enabled = {}
-    # priority: csum -> top-level -> config
-    enabled.update(_safe_dict(csum.get("monitors_enabled")))
-    enabled.update(_safe_dict(context.get("monitors_enabled")))
-    cfg_enabled = _safe_dict(_safe_dict(context.get("config")).get("monitor", {})).get("enabled")
-    enabled.update(_safe_dict(cfg_enabled))
-
-    # boolean-cast
-    return {k: bool(v) for k, v in enabled.items()}
+def _first_nonempty(*vals):
+    for v in vals:
+        if v not in (None, "", [], {}, ()):  # pragma: no cover - simple guard
+            return v
+    return None
 
 
-def _status_summary(context: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
-    """
-    Gather per-monitor counts by status bucket. We try a few shapes:
-      - context["csum"]["monitors"]: { "liquid": {"ok": 3, "warn": 1, "err": 0}, ... }
-      - context["monitors"]: same shape
-      - context["monitor_status"]: array/dict -> we reduce to ok/warn/err
-    If nothing is available, return {} and the panel will only show enabled toggles.
-    """
-    csum = _safe_dict(context.get("csum"))
-    src = (
-        _safe_dict(csum.get("monitors"))
-        or _safe_dict(context.get("monitors"))
-        or _safe_dict(context.get("monitor_status"))
+# --- data sourcing -----------------------------------------------------------
+
+
+def _from_legacy_rows(obj: Any) -> Optional[List[Dict[str, Any]]]:
+    """Look for pre-flattened monitor rows in a few historical keys."""
+    cand = _first_nonempty(
+        _safe_dict(obj).get("monitor_rows"),
+        _safe_dict(obj).get("monitors_table"),
+        _safe_dict(obj).get("monitor_table"),
     )
-
-    # Normalize to {name: {ok, warn, err}}
-    norm: Dict[str, Dict[str, int]] = {}
-    for name, payload in _safe_dict(src).items():
-        if isinstance(payload, dict):
-            ok = int(payload.get("ok", 0))
-            warn = int(payload.get("warn", 0))
-            err = int(payload.get("err", 0))
-        else:
-            # Fallback: unknown shape → put everything as ok=0/warn=0/err=0
-            ok = warn = err = 0
-        norm[name] = {"ok": ok, "warn": warn, "err": err}
-    return norm
+    if isinstance(cand, list) and cand and isinstance(cand[0], dict):
+        return cand
+    return None
 
 
-def _row_enabled(name: str, enabled: bool, label: str) -> str:
-    box = ICON_ENABLED if enabled else ICON_DISABLED
-    return f"  {box} {label}"
+def _from_dl(context: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    """Ask DataLocker helpers for a monitors table if available."""
+    dl = context.get("dl")
+    if not dl:
+        return None
+    for name in ("get_monitor_rows", "get_monitors_table", "get_monitor_table"):
+        fn = getattr(dl, name, None)
+        if callable(fn):
+            try:
+                rows = fn()
+                if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+                    return rows
+            except Exception:
+                pass
+    return None
 
 
-def _row_status(counts: Dict[str, int]) -> str:
-    ok = counts.get("ok", 0)
-    warn = counts.get("warn", 0)
-    err = counts.get("err", 0)
-    parts: List[str] = []
-    # Only show buckets that are nonzero to reduce noise; if all zero, show 0 OK.
-    if ok or (not warn and not err):
-        parts.append(f"{ICON_OK} {ok}")
-    if warn:
-        parts.append(f"{ICON_WARN} {warn}")
-    if err:
-        parts.append(f"{ICON_ERR} {err}")
-    return "  ".join(parts)
+def _from_csum(context: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    """Rehydrate monitor rows from the summary object when possible."""
+    csum = _safe_dict(context.get("csum"))
+    cand = _first_nonempty(
+        csum.get("monitors_detail"),
+        csum.get("monitors_items"),
+        csum.get("monitor_rows"),
+        csum.get("monitors_table"),
+    )
+    if isinstance(cand, list) and cand and isinstance(cand[0], dict):
+        return cand
+    return None
 
 
-def _sorted_monitor_keys(enabled_map: Dict[str, bool], status: Dict[str, Dict[str, int]]) -> List[str]:
-    keys = set(enabled_map.keys()) | set(status.keys())
-    ordered = [k for k in _MONITOR_ORDER if k in keys]
-    tail = sorted(keys - set(ordered))
-    return ordered + tail
+def _iter_checks(context: Dict[str, Any]) -> Iterable[Dict[str, str]]:
+    rows = (
+        _from_legacy_rows(context)
+        or _from_csum(context)
+        or _from_dl(context)
+    )
+    if not rows:
+        return []
+
+    normed: List[Dict[str, str]] = []
+    for r in rows:
+        d = _safe_dict(r)
+        mon = _as_str(
+            _first_nonempty(d.get("mon"), d.get("name"), d.get("monitor"), d.get("label"))
+        )
+        thresh = _as_str(_first_nonempty(d.get("thresh"), d.get("threshold")))
+        value = _as_str(d.get("value"))
+        state = _as_str(d.get("state"))
+        age = _as_str(_first_nonempty(d.get("age"), d.get("age_s"), d.get("age_str")))
+        src = _as_str(
+            _first_nonempty(d.get("source"), d.get("src"), d.get("origin"), d.get("monitor_key"))
+        )
+        normed.append(
+            {
+                "mon": mon,
+                "thresh": thresh,
+                "value": value,
+                "state": state,
+                "age": age,
+                "source": src,
+            }
+        )
+    return normed
 
 
-def render_lines(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
-    """
-    Public entrypoint for console_reporter panel stack.
-    Returns a list[str] safe to print directly.
-    """
-    W = width or _console_width()
+# --- render ------------------------------------------------------------------
 
-    def _clip(line: str) -> str:
-        return line if len(line) <= W else line[:W]
 
+def _clip(text: str, width: int) -> str:
+    return text if len(text) <= width else text[:width]
+
+
+def _format_state(raw: str) -> str:
+    if not raw:
+        return "-"
+    upper = raw.upper()
+    if upper.startswith("OK"):
+        return f"{ICON_OK} {raw}"
+    if upper.startswith("WARN"):
+        return f"{ICON_WARN} {raw}"
+    return f"{ICON_ERR} {raw}"
+
+
+def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
+    W = width or _theme_width()
     out: List[str] = []
-    out.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
 
-    enabled_map = _enabled_map(context)
-    status = _status_summary(context)
+    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=W))
     body_cfg = get_panel_body_config(PANEL_SLUG)
 
-    if not enabled_map and not status:
-        out += body_pad_above(PANEL_SLUG)
-        out += body_indent_lines(PANEL_SLUG, [color_if_plain("(no monitor data)", body_cfg["body_text_color"])])
-        out += body_pad_below(PANEL_SLUG)
-        return out
-    # If we only have toggles, still print the table
+    header = f"{'Monitor':<22} {'Thresh':>8}  {'Value':>8}  {'State':>7}  {'Age':>6}  {'Source'}"
+    out.extend(
+        body_indent_lines(
+            PANEL_SLUG, [paint_line(_clip(header, W), body_cfg["column_header_text_color"])]
+        )
+    )
 
-    # Table header
-    header = _clip(f"{'Monitor':<18} {'Enabled':<10} Status")
-    hdr = paint_line(header, body_cfg["column_header_text_color"])
-    out += body_pad_above(PANEL_SLUG)
-    out += body_indent_lines(PANEL_SLUG, [hdr])
+    divider = "-" * min(W, max(len(header), 10))
+    out.extend(body_indent_lines(PANEL_SLUG, [_clip(divider, W)]))
 
-    for key in _sorted_monitor_keys(enabled_map, status):
-        label = _MONITOR_LABELS.get(key, key.capitalize())
-        is_on = bool(enabled_map.get(key, False))
-        counts = status.get(key, {})
-        left = f"{label:<18}"
-        mid = f"{('ON' if is_on else 'OFF'):<10}"
-        right = _row_status(counts)
-        row_line = _clip(f"{left} {mid} {right}")
-        toggle_line = _clip(_row_enabled(key, is_on, label))
-        # Also show a checkbox line under each row for quick scanning
-        out += body_indent_lines(PANEL_SLUG, [
-            color_if_plain(row_line, body_cfg["body_text_color"]),
-            color_if_plain(toggle_line, body_cfg["body_text_color"]),
-        ])
+    rows = list(_iter_checks(context))
+    if rows:
+        body_lines: List[str] = []
+        for row in rows:
+            state = _format_state(row.get("state", ""))
+            left = f"{row['mon']:<22}"
+            col2 = f"{row['thresh']:>8}"
+            col3 = f"{row['value']:>8}"
+            col4 = f"{state:>7}"
+            col5 = f"{row['age']:>6}"
+            col6 = row.get("source") or "-"
+            line = f"{left} {col2}  {col3}  {col4}  {col5}  {col6}"
+            body_lines.append(color_if_plain(_clip(line, W), body_cfg["body_text_color"]))
+        out.extend(body_indent_lines(PANEL_SLUG, body_lines))
+    else:
+        msg = color_if_plain("(no monitor checks)", body_cfg["body_text_color"])
+        out.extend(body_indent_lines(PANEL_SLUG, [msg]))
 
-    out += body_pad_below(PANEL_SLUG)
+    out.extend(body_pad_below(PANEL_SLUG))
     return out
-
-
-# Optional alias used by reporter stacks that import .render
-def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
-    return render_lines(context, width)
