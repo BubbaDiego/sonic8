@@ -83,12 +83,31 @@ def run_console_reporters(
     except Exception as exc:
         print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 
-    # New standardized Monitors panel (console_panels)
-    _safe_render(
-        "backend.core.reporting_core.sonic_reporting.console_panels.monitors_panel",
-        "render",
-        dl,
-    )
+    # Use new standardized monitors panel with a context dict (not dl)
+    try:
+        import time, importlib
+
+        mod = importlib.import_module(
+            "backend.core.reporting_core.sonic_reporting.console_panels.monitors_panel"
+        )
+        fn = getattr(mod, "render", None)
+        if callable(fn):
+            ctx = {
+                "dl": dl,
+                "loop_counter": int((footer_ctx or {}).get("loop_counter", 0)),
+                "poll_interval_s": int((footer_ctx or {}).get("poll_interval_s", 0)),
+                "total_elapsed_s": float((footer_ctx or {}).get("total_elapsed_s", 0.0)),
+                "ts": (footer_ctx or {}).get("ts", time.time()),
+            }
+            lines = fn(ctx)
+            if isinstance(lines, (list, tuple)):
+                for ln in lines:
+                    print(ln)
+            elif isinstance(lines, str):
+                print(lines)
+    except Exception as e:
+        print(f"[REPORT] console_panels.monitors_panel.render failed: {e}")
+
     _safe_render(
         "backend.core.reporting_core.sonic_reporting.xcom_panel",
         "render",
