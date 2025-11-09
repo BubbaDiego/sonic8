@@ -18,7 +18,14 @@ Totals behavior unchanged:
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
-from .theming import console_width as _theme_width, hr as _theme_hr, title_lines as _theme_title
+from .theming import (
+    console_width as _theme_width,
+    hr as _theme_hr,
+    title_lines as _theme_title,
+    get_panel_body_config,
+    color_if_plain,
+    paint_line,
+)
 
 PANEL_KEY = "positions_panel"
 PANEL_NAME = "Positions"
@@ -253,8 +260,9 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
             f"{_right(trav, c_trav)}"
         )[:width]
 
+    body_cfg = get_panel_body_config(PANEL_SLUG)
     header = fmt_row("🪙Asset", "📦Size", "🟩Value", "📈PnL", "🧷Lev", "💧Liq", "🔥Heat", "🧭Trave")
-    out.append(header)
+    out.append(paint_line(header, body_cfg["column_header_text_color"]))
 
     # Gather rows
     perp_rows, _ = _collect_perp_rows(ctx)
@@ -296,7 +304,8 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
         s_heat = _fmt_pct(heat) if isinstance(heat, (int, float)) else "—"
         s_trav = _fmt_pct(trav) if isinstance(trav, (int, float)) else "—"
 
-        out.append(fmt_row(asset, s_size, s_val, s_pnl, s_lev, s_liq, s_heat, s_trav))
+        line = fmt_row(asset, s_size, s_val, s_pnl, s_lev, s_liq, s_heat, s_trav)
+        out.append(color_if_plain(line, body_cfg["body_text_color"]))
 
     for r in perp_rows: emit_row(r)
     for r in nft_rows:  emit_row(r)
@@ -312,7 +321,8 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     s_tliq  = "—"; s_theat = "—"
     s_ttrv  = f"{tot_trv:.0f}%" if isinstance(tot_trv, (int, float)) else "—"
 
-    out.append(fmt_row("Totals", s_tsize, s_tval, s_tpnl, s_tlev, s_tliq, s_theat, s_ttrv))
+    totals_line = fmt_row("Totals", s_tsize, s_tval, s_tpnl, s_tlev, s_tliq, s_theat, s_ttrv)
+    out.append(paint_line(totals_line, body_cfg["totals_row_color"]))
 
     # Single trailing blank line for padding (no provenance/debug)
     out.append("")
