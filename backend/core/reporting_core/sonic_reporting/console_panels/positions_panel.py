@@ -234,6 +234,7 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     width = ctx.get("width") or _console_width()
 
     out: List[str] = []
+    out.append(_hr(width))
     out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=width))
     out.append(_hr(width))
 
