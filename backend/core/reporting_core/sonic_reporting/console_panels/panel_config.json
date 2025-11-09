@@ -18,6 +18,15 @@
         "text_color": "cyan"
       }
     },
+    "monitors": {
+      "title": {
+        "string": "Monitors",
+        "icon": "🔎",
+        "border_style": "lines",
+        "border_color": "default",
+        "text_color": "cyan"
+      }
+    },
     "positions": {
       "title": {
         "string": "Positions",
