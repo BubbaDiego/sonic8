@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "defaults": {
+    "title": {
+      "icon": "",
+      "border_style": "lines",
+      "border_color": "default",
+      "text_color": "cyan"
+    }
+  },
+  "panels": {
+    "prices": {
+      "title": {
+        "string": "Prices",
+        "icon": "💵",
+        "border_style": "lines",
+        "border_color": "default",
+        "text_color": "cyan"
+      }
+    },
+    "positions": {
+      "title": {
+        "string": "Positions",
+        "icon": "📊",
+        "border_style": "lines",
+        "border_color": "default",
+        "text_color": "cyan"
+      }
+    }
+  }
+}

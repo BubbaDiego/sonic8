@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Optional
 # ---- Panel module order (override with SONIC_REPORT_PANELS) -------------------
 DEFAULT_PANEL_MODULES: List[str] = [
     # Reporter prints ONLY these two between Activity and Monitors:
-    "backend.core.reporting_core.sonic_reporting.price_panel",      # 2) Prices
-    "backend.core.reporting_core.sonic_reporting.positions_panel",  # 3) Positions
+    "backend.core.reporting_core.sonic_reporting.console_panels.price_panel",      # 2) Prices
+    "backend.core.reporting_core.sonic_reporting.console_panels.positions_panel",  # 3) Positions
 ]
 
 # Back-compat symbol; some code may import PANEL_MODULES at import-time.

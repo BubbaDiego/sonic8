@@ -15,38 +15,20 @@ Totals behavior unchanged:
 - Lev/Travel are size-weighted over perps only
 """
 
-import os
 import math
-import re
 from typing import Any, Dict, List, Optional, Tuple
+
+from .theming import console_width as _theme_width, hr as _theme_hr, title_lines as _theme_title
 
 PANEL_KEY = "positions_panel"
 PANEL_NAME = "Positions"
-
-# ── ANSI + console helpers ──────────────────────────────────────────────────────
-_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
-
-def _ansi(code: str, s: str) -> str:
-    return f"\x1b[{code}m{s}\x1b[0m" if code else s
+PANEL_SLUG = "positions"
 
 def _console_width(default: int = 92) -> int:
-    try:
-        return max(80, min(180, int(os.environ.get("SONIC_CONSOLE_WIDTH", default))))
-    except Exception:
-        return default
+    return _theme_width(default)
 
 def _hr(width: Optional[int] = None, ch: str = "─") -> str:
-    W = width or _console_width()
-    return ch * W
-
-def _title_rail_cyan(title: str, width: Optional[int] = None, ch: str = "─") -> str:
-    """Center '  Title  ' with only the word cyan-colored; rails uncolored."""
-    W = width or _console_width()
-    plain = f"  {title.strip()}  "
-    colored = f"  {_ansi('36;1', title.strip())}  "  # bright cyan
-    fill = max(0, W - len(plain))
-    left, right = fill // 2, fill - (fill // 2)
-    return f"{ch * left}{colored}{ch * right}"
+    return _theme_hr(width, ch)
 
 def _right(text: str, width: int) -> str:
     return (text or "").rjust(width)
@@ -252,9 +234,7 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     width = ctx.get("width") or _console_width()
 
     out: List[str] = []
-    # Top bar + cyan title + lower bar
-    out.append(_hr(width))
-    out.append(_title_rail_cyan("Positions", width))
+    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=width))
     out.append(_hr(width))
 
     # Columns (unchanged layout)
