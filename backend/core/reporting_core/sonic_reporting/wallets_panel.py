@@ -5,6 +5,15 @@ from datetime import datetime
 import unicodedata
 import os
 
+# standardized title via console_panels.theming
+from .console_panels.theming import (
+    console_width as _theme_width,
+    hr as _theme_hr,
+    title_lines as _theme_title,
+)
+PANEL_SLUG = "wallets"
+PANEL_NAME = "Wallets"
+
 # ===== colors (only text is colored; rules stay plain) =====
 USE_COLOR     = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
 TITLE_COLOR   = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")
@@ -44,14 +53,6 @@ def _pad(s: Any, w: int, right: bool=False) -> str:
     return _padw(s, w, right=right)
 
 # ===== visuals =====
-def _hr(title: str) -> str:
-    plain   = f"  {title} "
-    colored = f" {_c('💼  ' + title, TITLE_COLOR)} "
-    pad = HR_WIDTH - len(plain)
-    if pad < 0: pad = 0
-    L = pad // 2; R = pad - L
-    return INDENT + "─"*L + colored + "─"*R
-
 def _abbr_addr(a: Any) -> str:
     s = "" if a is None else str(a)
     return "—" if not s else (s if len(s) <= 12 else f"{s[:6]}…{s[-4:]}")
@@ -112,8 +113,12 @@ def _get_wallets(dl: Any) -> List[Dict[str,Any]]:
 def render(dl, *_args, **_kw) -> None:
     rows = _get_wallets(dl)
 
+    width = _theme_width()
     print()
-    print(_hr("Wallets"))
+    print(_theme_hr(width))
+    for ln in _theme_title(PANEL_SLUG, PANEL_NAME, width=width):
+        print(ln)
+    print(_theme_hr(width))
     header = (
         INDENT
         + _pad(HEADER_IC["name"] + "Name",  W_NAME)

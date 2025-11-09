@@ -5,6 +5,15 @@ from datetime import datetime, timezone
 import json
 import os, unicodedata
 
+# standardized title via console_panels.theming
+from .console_panels.theming import (
+    console_width as _theme_width,
+    hr as _theme_hr,
+    title_lines as _theme_title,
+)
+PANEL_SLUG = "xcom"
+PANEL_NAME = "XCom"
+
 # ===== colors (title text only; bars remain plain) =====
 USE_COLOR   = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
 TITLE_COLOR = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")
@@ -43,14 +52,6 @@ def _pad_center(s: Any, w: int) -> str:
         return t
     total=w-L; left=total//2; right=total-left
     return (" "*left) + t + (" "*right)
-
-def _hr(title: str) -> str:
-    plain = f"  {title} "
-    col   = f" {_c('✉️  ' + title, TITLE_COLOR)} "
-    pad = HR_WIDTH - len(plain)
-    if pad < 0: pad = 0
-    L=pad//2; R=pad-L
-    return INDENT + "─"*L + col + "─"*R
 
 # icons
 PROV_ICON = {
@@ -140,8 +141,12 @@ def render(dl, *_args, **_kw) -> None:
     raw = _latest_rows(dl)
     rows = [_norm(r) for r in raw]
 
+    width = _theme_width()
     print()
-    print(_hr("XCom"))
+    print(_theme_hr(width))
+    for ln in _theme_title(PANEL_SLUG, PANEL_NAME, width=width):
+        print(ln)
+    print(_theme_hr(width))
 
     # Header (icons + text; no row coloring)
     print(

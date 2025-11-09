@@ -35,6 +35,33 @@
         "border_color": "default",
         "text_color": "cyan"
       }
+    },
+    "xcom": {
+      "title": {
+        "string": "XCom",
+        "icon": "✉️",
+        "border_style": "lines",
+        "border_color": "default",
+        "text_color": "cyan"
+      }
+    },
+    "wallets": {
+      "title": {
+        "string": "Wallets",
+        "icon": "💼",
+        "border_style": "lines",
+        "border_color": "default",
+        "text_color": "cyan"
+      }
+    },
+    "activity": {
+      "title": {
+        "string": "Cycle Activity",
+        "icon": "🔁",
+        "border_style": "lines",
+        "border_color": "default",
+        "text_color": "cyan"
+      }
     }
   }
 }

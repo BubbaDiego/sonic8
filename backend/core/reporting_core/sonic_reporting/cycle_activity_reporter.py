@@ -6,6 +6,15 @@ import os
 import re
 import unicodedata
 
+# ===== standardized title via console_panels.theming =====
+from .console_panels.theming import (
+    console_width as _theme_width,
+    hr as _theme_hr,
+    title_lines as _theme_title,
+)
+PANEL_SLUG = "activity"
+PANEL_NAME = "Cycle Activity"
+
 # ===== colors (title/header text only; bars remain plain) =====
 USE_COLOR   = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
 TITLE_COLOR = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")  # cyan for title text
@@ -67,16 +76,6 @@ def _pad_center(s: Any, w: int) -> str:
     right = total - left
     return (" " * left) + t + (" " * right)
 
-# ===== title rule (color only title text; bars plain) =====
-def _hr(title: str) -> str:
-    plain   = f"  {title} "
-    colored = f" {_c('🔁  ' + title, TITLE_COLOR)} "
-    pad = HR_WIDTH - len(plain)
-    if pad < 0: pad = 0
-    L = pad // 2
-    R = pad - L
-    return INDENT + "─" * L + colored + "─" * R
-
 # ===== util =====
 def _secs(ms: Any) -> str:
     try:
@@ -130,8 +129,12 @@ def _rows_for_cycle(dl: Any, cycle_id: str) -> List[Dict[str, Any]]:
 # ===== render =====
 def render(dl, *_unused, default_json_path=None):
     cid = _latest_cycle_id(dl)
+    width = _theme_width()
     print()
-    print(_hr("Cycle Activity"))
+    print(_theme_hr(width))
+    for ln in _theme_title(PANEL_SLUG, PANEL_NAME, width=width):
+        print(ln)
+    print(_theme_hr(width))
     if not cid:
         print("  (no activity yet)")
         return
