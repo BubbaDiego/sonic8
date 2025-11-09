@@ -3,6 +3,22 @@ import json, os, re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+__all__ = [
+    "console_width",
+    "hr",
+    "emit_title_block",
+    "want_outer_hr",
+    "get_panel_title_config",
+    "title_lines",
+    "get_panel_layout_config",
+    "get_panel_body_config",
+    "body_pad_above",
+    "body_pad_below",
+    "body_indent_lines",
+    "color_if_plain",
+    "paint_line",
+]
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Width / rules
 # ──────────────────────────────────────────────────────────────────────────────
