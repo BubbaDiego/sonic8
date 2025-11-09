@@ -7,19 +7,9 @@ from typing import Any, Dict, List, Optional
 
 # ---- Panel module order (override with SONIC_REPORT_PANELS) -------------------
 DEFAULT_PANEL_MODULES: List[str] = [
-    # 2) Prices
-    "backend.core.reporting_core.sonic_reporting.price_panel",
-    # 3) Positions
-    "backend.core.reporting_core.sonic_reporting.positions_panel",  # ← ensure present
-    # 5) XCom  (monitor prints admin later too; reporter version is light)
-    "backend.core.reporting_core.sonic_reporting.xcom_panel",
-    # 6) Wallets (tolerate singular/plural module name)
-    "backend.core.reporting_core.sonic_reporting.wallets_panel",
-    "backend.core.reporting_core.sonic_reporting.wallet_panel",
-    # (Raydium hidden by default; can be re-enabled via SONIC_REPORT_PANELS)
-    # "backend.core.reporting_core.sonic_reporting.raydium_panel",
-    # Footer (always last)
-    "backend.core.reporting_core.sonic_reporting.cycle_footer_panel",
+    # Reporter prints ONLY these two between Activity and Monitors:
+    "backend.core.reporting_core.sonic_reporting.price_panel",      # 2) Prices
+    "backend.core.reporting_core.sonic_reporting.positions_panel",  # 3) Positions
 ]
 
 # Back-compat symbol; some code may import PANEL_MODULES at import-time.
