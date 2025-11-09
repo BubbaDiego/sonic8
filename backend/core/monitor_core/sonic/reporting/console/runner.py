@@ -106,14 +106,17 @@ def run_console_reporters(
         except Exception:
             width = 92
 
+        cfg_obj = getattr(dl, "global_config", None)
         ctx = {
+            "dl": dl,
+            "cfg": cfg_obj,
             "loop_counter": int((footer_ctx or {}).get("loop_counter", 0)),
             "poll_interval_s": int((footer_ctx or {}).get("poll_interval_s", 0)),
             "total_elapsed_s": float((footer_ctx or {}).get("total_elapsed_s", 0.0)),
             "ts": (footer_ctx or {}).get("ts", time.time()),
         }
 
-        _cr.render_panel_stack(ctx=ctx, dl=dl, width=width, writer=print)
+        _cr.render_panel_stack(ctx=ctx, dl=dl, cfg=cfg_obj, width=width, writer=print)
     except Exception as exc:
         print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 

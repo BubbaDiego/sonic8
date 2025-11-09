@@ -44,10 +44,11 @@ def emit_compact_cycle(
     width = None
     dl = None
     db_basename = None
-    if isinstance(cfg, dict):
-        width = cfg.get("console_width") or cfg.get("width")
-        dl = cfg.get("dl")
-        db_basename = cfg.get("db_basename")
+    cfg_dict: Optional[Dict[str, Any]] = cfg if isinstance(cfg, dict) else None
+    if cfg_dict is not None:
+        width = cfg_dict.get("console_width") or cfg_dict.get("width")
+        dl = cfg_dict.get("dl")
+        db_basename = cfg_dict.get("db_basename")
 
     _emit_compact_cycle7(
         summary,
@@ -73,6 +74,8 @@ def emit_compact_cycle(
             width_value = None
 
     ctx: Dict[str, Any] = {
+        "dl": dl,
+        "cfg": cfg_dict,
         "loop_counter": int(lc),
         "poll_interval_s": int(poll_interval_s),
         "total_elapsed_s": float(tot),
@@ -86,6 +89,7 @@ def emit_compact_cycle(
         _render_panels(
             ctx=ctx,
             dl=dl,
+            cfg=cfg_dict,
             width=width_value,
         )
     except Exception as exc:
