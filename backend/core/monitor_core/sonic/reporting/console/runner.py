@@ -83,8 +83,9 @@ def run_console_reporters(
     except Exception as exc:
         print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 
+    # New standardized Monitors panel (console_panels)
     _safe_render(
-        "backend.core.reporting_core.sonic_reporting.monitor_panel",
+        "backend.core.reporting_core.sonic_reporting.console_panels.monitors_panel",
         "render",
         dl,
     )
