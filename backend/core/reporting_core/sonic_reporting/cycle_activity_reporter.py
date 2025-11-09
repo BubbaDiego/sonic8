@@ -2,34 +2,21 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
-import os
 import re
 import unicodedata
 
 # ===== standardized title via console_panels.theming =====
 from .console_panels.theming import (
-    console_width as _theme_width,
-    hr as _theme_hr,
-    title_lines as _theme_title,
-    want_outer_hr,
+    emit_title_block,
     get_panel_body_config,
+    body_pad_above, body_pad_below, body_indent_lines,
     color_if_plain,
     paint_line,
 )
-_ = (get_panel_body_config, color_if_plain, paint_line)
 PANEL_SLUG = "activity"
 PANEL_NAME = "Cycle Activity"
 
-# ===== colors (title/header text only; bars remain plain) =====
-USE_COLOR   = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
-TITLE_COLOR = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")  # cyan for title text
-HEAD_COLOR  = os.getenv("SONIC_HEAD_COLOR",  "\x1b[38;5;81m")  # teal/blue for header text only
-
-def _c(s: str, color: str) -> str:
-    return f"{color}{s}\x1b[0m" if USE_COLOR else s
-
 # ===== layout (78-col house width) =====
-HR_WIDTH = 78
 INDENT   = "  "
 
 # icon + 4 tight data columns
@@ -134,30 +121,31 @@ def _rows_for_cycle(dl: Any, cycle_id: str) -> List[Dict[str, Any]]:
 # ===== render =====
 def render(dl, *_unused, default_json_path=None):
     cid = _latest_cycle_id(dl)
-    width = _theme_width()
-    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
     print()
-    if wrap:
-        print(_theme_hr(width))
-    for ln in _theme_title(PANEL_SLUG, PANEL_NAME, width=width):
+    for ln in emit_title_block(PANEL_SLUG, PANEL_NAME):
         print(ln)
-    if wrap:
-        print(_theme_hr(width))
+    body_cfg = get_panel_body_config(PANEL_SLUG)
     if not cid:
-        print("  (no activity yet)")
+        for ln in body_pad_above(PANEL_SLUG) + body_indent_lines(PANEL_SLUG, [color_if_plain("(no activity yet)", body_cfg["body_text_color"])]):
+            print(ln)
+        for ln in body_pad_below(PANEL_SLUG):
+            print(ln)
         return
 
     rows = _rows_for_cycle(dl, cid)
 
     # Header exactly as requested; header text colored (bars plain)
-    print(
+    header = (
         "    "
         + _pad("", W_ICON)
-        + _pad(_c("Activity", HEAD_COLOR), W_ACTIVITY)
-        + _pad(_c("Outcome",  HEAD_COLOR), W_OUTCOME)
-        + _pad_center(_c("Status",  HEAD_COLOR),  W_STATUS)
-        + _pad_center(_c("Elapsed", HEAD_COLOR),  W_ELAPSED)
+        + _pad("Activity", W_ACTIVITY)
+        + _pad("Outcome",  W_OUTCOME)
+        + _pad_center("Status",  W_STATUS)
+        + _pad_center("Elapsed", W_ELAPSED)
     )
+    header_line = paint_line(header, body_cfg["column_header_text_color"])
+    for ln in body_pad_above(PANEL_SLUG) + body_indent_lines(PANEL_SLUG, [header_line]):
+        print(ln)
 
     for r in rows:
         phase   = _canon_phase((r.get("phase") or ""))
@@ -167,11 +155,16 @@ def render(dl, *_unused, default_json_path=None):
         status  = STAT.get(str(r.get("outcome") or "ok").lower(), "✅")
         elapsed = _secs(r.get("duration_ms"))
 
-        print(
+        line = (
             "    "
-            + _pad(icon, W_ICON)                          # icon column
+            + _pad(icon, W_ICON)
             + _pad(label,   W_ACTIVITY)
             + _pad(outcome, W_OUTCOME)
-            + _pad_center(status,  W_STATUS)             # centered Status
-            + _pad_center(elapsed, W_ELAPSED)            # centered Elapsed
+            + _pad_center(status,  W_STATUS)
+            + _pad_center(elapsed, W_ELAPSED)
         )
+        for ln in body_indent_lines(PANEL_SLUG, [color_if_plain(line, body_cfg["body_text_color"])]):
+            print(ln)
+
+    for ln in body_pad_below(PANEL_SLUG):
+        print(ln)

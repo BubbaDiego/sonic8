@@ -3,41 +3,21 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 import json
-import os, unicodedata
+import unicodedata
 
 # standardized title via console_panels.theming
 from .console_panels.theming import (
-    console_width as _theme_width,
-    hr as _theme_hr,
-    title_lines as _theme_title,
-    want_outer_hr,
+    emit_title_block,
     get_panel_body_config as _theme_body_cfg,
+    body_pad_above, body_pad_below, body_indent_lines,
     color_if_plain as _theme_color_if_plain,
     paint_line as _theme_paint_line,
 )
-_ = (_theme_body_cfg, _theme_color_if_plain, _theme_paint_line)
 PANEL_SLUG = "xcom"
 PANEL_NAME = "XCom"
 
 
-def _header_lines() -> List[str]:
-    w = _theme_width()
-    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
-    out: List[str] = []
-    if wrap:
-        out.append(_theme_hr(w))
-    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=w))
-    if wrap:
-        out.append(_theme_hr(w))
-    return out
-
-# ===== colors (title text only; bars remain plain) =====
-USE_COLOR   = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
-TITLE_COLOR = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")
-def _c(s: str, color: str) -> str: return f"{color}{s}\x1b[0m" if USE_COLOR else s
-
 # ===== layout =====
-HR_WIDTH = 78
 INDENT   = "  "
 # icon + 6 tight columns
 W_ICON, W_CH, W_DIR, W_TYPE, W_PEER, W_ST, W_AGE, W_SRC = 3, 10, 4, 8, 26, 9, 6, 8
@@ -159,11 +139,11 @@ def render(dl, *_args, **_kw) -> None:
     rows = [_norm(r) for r in raw]
 
     print()
-    for ln in _header_lines():
+    for ln in emit_title_block(PANEL_SLUG, PANEL_NAME):
         print(ln)
 
-    # Header (icons + text; no row coloring, no underline)
-    print(
+    body_cfg = _theme_body_cfg(PANEL_SLUG)
+    header_line = (
         INDENT
         + _pad("", W_ICON)
         + _pad("📡 Chan", W_CH)
@@ -174,9 +154,15 @@ def render(dl, *_args, **_kw) -> None:
         + SEP + _pad("⏱ Age", W_AGE, right=True)
         + SEP + _pad("🪪 Source", W_SRC)
     )
+    header_colored = _theme_paint_line(header_line, body_cfg['column_header_text_color'])
+    for ln in body_pad_above(PANEL_SLUG) + body_indent_lines(PANEL_SLUG, [header_colored]):
+        print(ln)
 
     if not rows:
-        print(f"{INDENT}(no xcom messages)")
+        for ln in body_indent_lines(PANEL_SLUG, [_theme_color_if_plain(f"{INDENT}(no xcom messages)", body_cfg['body_text_color'])]):
+            print(ln)
+        for ln in body_pad_below(PANEL_SLUG):
+            print(ln)
         print()
         return
 
@@ -191,7 +177,7 @@ def render(dl, *_args, **_kw) -> None:
         age  = _fmt_age(r["ts"])
         src  = r["source"]
 
-        print(
+        line = (
             INDENT
             + _pad(icon, W_ICON)
             + _pad(chan, W_CH)
@@ -202,4 +188,9 @@ def render(dl, *_args, **_kw) -> None:
             + SEP + _pad(age,  W_AGE, right=True)
             + SEP + _pad(src,  W_SRC)
         )
+        for ln in body_indent_lines(PANEL_SLUG, [_theme_color_if_plain(line, body_cfg['body_text_color'])]):
+            print(ln)
+
+    for ln in body_pad_below(PANEL_SLUG):
+        print(ln)
     print()

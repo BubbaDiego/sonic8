@@ -3,31 +3,19 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 import unicodedata
-import os
 
 # standardized title via console_panels.theming
 from .console_panels.theming import (
-    console_width as _theme_width,
-    hr as _theme_hr,
-    title_lines as _theme_title,
-    want_outer_hr,
+    emit_title_block,
     get_panel_body_config,
+    body_pad_above, body_pad_below, body_indent_lines,
     color_if_plain,
     paint_line,
 )
-_ = (get_panel_body_config, color_if_plain, paint_line)
 PANEL_SLUG = "wallets"
 PANEL_NAME = "Wallets"
 
-# ===== colors (only text is colored; rules stay plain) =====
-USE_COLOR     = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
-TITLE_COLOR   = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")
-TOTALS_COLOR  = os.getenv("SONIC_TOTALS_COLOR", "\x1b[38;5;214m")
-def _c(s: str, color: str) -> str:
-    return f"{color}{s}\x1b[0m" if USE_COLOR else s
-
 # ===== layout =====
-HR_WIDTH = 78
 INDENT   = "  "
 W_NAME, W_CHAIN, W_ADDR, W_BAL, W_USD, W_CHK = 12, 7, 24, 8, 9, 8
 SEP = "  "
@@ -118,15 +106,11 @@ def _get_wallets(dl: Any) -> List[Dict[str,Any]]:
 def render(dl, *_args, **_kw) -> None:
     rows = _get_wallets(dl)
 
-    width = _theme_width()
-    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
     print()
-    if wrap:
-        print(_theme_hr(width))
-    for ln in _theme_title(PANEL_SLUG, PANEL_NAME, width=width):
+    for ln in emit_title_block(PANEL_SLUG, PANEL_NAME):
         print(ln)
-    if wrap:
-        print(_theme_hr(width))
+
+    body_cfg = get_panel_body_config(PANEL_SLUG)
     header = (
         INDENT
         + _pad(HEADER_IC["name"] + "Name",  W_NAME)
@@ -136,11 +120,19 @@ def render(dl, *_args, **_kw) -> None:
         + SEP + _pad(HEADER_IC["usd"]  + "USD",     W_USD)
         + SEP + _pad(HEADER_IC["chk"]  + "Checked", W_CHK)
     )
-    print(header)
+    header_line = paint_line(header, body_cfg["column_header_text_color"])
+    for ln in body_pad_above(PANEL_SLUG) + body_indent_lines(PANEL_SLUG, [header_line]):
+        print(ln)
 
     if not rows:
-        print(f"{INDENT}[WALLETS] source: dl.wallets.get_wallets (0 rows)")
-        print(f"{INDENT}(no wallets)")
+        missing = [
+            color_if_plain(f"{INDENT}[WALLETS] source: dl.wallets.get_wallets (0 rows)", body_cfg["body_text_color"]),
+            color_if_plain(f"{INDENT}(no wallets)", body_cfg["body_text_color"]),
+        ]
+        for ln in body_indent_lines(PANEL_SLUG, missing):
+            print(ln)
+        for ln in body_pad_below(PANEL_SLUG):
+            print(ln)
         print()
         return
 
@@ -167,7 +159,7 @@ def render(dl, *_args, **_kw) -> None:
 
     for n in norm:
         star = "★ " if n["active"] else "  "
-        print(
+        line = (
             INDENT
             + _pad(star + n["name"], W_NAME)
             + SEP + _pad(n["chain"], W_CHAIN)
@@ -176,6 +168,8 @@ def render(dl, *_args, **_kw) -> None:
             + SEP + _fmt_usd(n["usd"], W_USD, right=True)
             + SEP + _fmt_age(n["chk"], W_CHK)
         )
+        for ln in body_indent_lines(PANEL_SLUG, [color_if_plain(line, body_cfg["body_text_color"])]):
+            print(ln)
 
     totals = (
         INDENT
@@ -185,5 +179,8 @@ def render(dl, *_args, **_kw) -> None:
         + SEP + _fmt_usd(total_usd, W_USD, right=False)
         + SEP + _pad("", W_CHK)
     )
-    print(_c(totals, TOTALS_COLOR))
+    for ln in body_indent_lines(PANEL_SLUG, [paint_line(totals, body_cfg["totals_row_color"])]):
+        print(ln)
+    for ln in body_pad_below(PANEL_SLUG):
+        print(ln)
     print()

@@ -5,9 +5,11 @@ from typing import Any, Dict, List, Optional
 
 from .theming import (
     console_width as _theme_width,
-    hr as _theme_hr,
-    title_lines as _theme_title,
-    want_outer_hr,
+    emit_title_block,
+    get_panel_body_config,
+    get_panel_layout_config,
+    body_pad_above, body_pad_below, body_indent_lines,
+    color_if_plain, paint_line,
 )
 
 PANEL_KEY = "monitors_panel"
@@ -135,26 +137,27 @@ def render_lines(context: Dict[str, Any], width: Optional[int] = None) -> List[s
     """
     W = width or _console_width()
     out: List[str] = []
-
-    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
-    if wrap:
-        out.append(_hr(W))
-    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=W))
-    if wrap:
-        out.append(_hr(W))
+    out.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
 
     enabled_map = _enabled_map(context)
     status = _status_summary(context)
+    body_cfg = get_panel_body_config(PANEL_SLUG)
+    lcfg = get_panel_layout_config(PANEL_SLUG)
 
     if not enabled_map and not status:
-        out.append("  (no monitor data)")
+        out += body_pad_above(PANEL_SLUG)
+        out += body_indent_lines(PANEL_SLUG, [color_if_plain("(no monitor data)", body_cfg["body_text_color"])])
+        out += body_pad_below(PANEL_SLUG)
         return out
     # If we only have toggles, still print the table
 
     # Table header
-    out.append("")
-    out.append(f"{'Monitor':<18} {'Enabled':<10} Status")
-    out.append("-" * W)
+    header = f"{'Monitor':<18} {'Enabled':<10} Status"
+    hdr = paint_line(header, body_cfg["column_header_text_color"])
+    out += body_pad_above(PANEL_SLUG)
+    out += body_indent_lines(PANEL_SLUG, [hdr])
+    dash_len = max(0, W - lcfg["body_indent"])
+    out += body_indent_lines(PANEL_SLUG, ["-" * dash_len])
 
     for key in _sorted_monitor_keys(enabled_map, status):
         label = _MONITOR_LABELS.get(key, key.capitalize())
@@ -164,11 +167,12 @@ def render_lines(context: Dict[str, Any], width: Optional[int] = None) -> List[s
         mid = f"{('ON' if is_on else 'OFF'):<10}"
         right = _row_status(counts)
         # Also show a checkbox line under each row for quick scanning
-        out.append(f"{left} {mid} {right}")
-        out.append(_row_enabled(key, is_on, label))
+        out += body_indent_lines(PANEL_SLUG, [
+            color_if_plain(f"{left} {mid} {right}", body_cfg["body_text_color"]),
+            color_if_plain(_row_enabled(key, is_on, label), body_cfg["body_text_color"]),
+        ])
 
-    # Panel footer spacing
-    out.append("")
+    out += body_pad_below(PANEL_SLUG)
     return out
 
 

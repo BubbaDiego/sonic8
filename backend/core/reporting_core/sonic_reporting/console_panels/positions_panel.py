@@ -20,12 +20,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .theming import (
     console_width as _theme_width,
-    hr as _theme_hr,
-    title_lines as _theme_title,
-    want_outer_hr,
+    emit_title_block,
     get_panel_body_config,
-    color_if_plain,
-    paint_line,
+    body_pad_above, body_pad_below, body_indent_lines,
+    color_if_plain, paint_line,
 )
 
 PANEL_KEY = "positions_panel"
@@ -34,9 +32,6 @@ PANEL_SLUG = "positions"
 
 def _console_width(default: int = 92) -> int:
     return _theme_width(default)
-
-def _hr(width: Optional[int] = None, ch: str = "─") -> str:
-    return _theme_hr(width, ch)
 
 def _right(text: str, width: int) -> str:
     return (text or "").rjust(width)
@@ -242,13 +237,7 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     width = ctx.get("width") or _console_width()
 
     out: List[str] = []
-    W = width or _theme_width()
-    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
-    if wrap:
-        out.append(_hr(W))
-    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=W))
-    if wrap:
-        out.append(_hr(W))
+    out.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
 
     # Columns (unchanged layout)
     c_asset = 12; c_size = 9; c_val = 11; c_pnl = 11; c_lev = 7; c_liq = 8; c_heat = 6; c_trav = 7
@@ -267,7 +256,9 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
 
     body_cfg = get_panel_body_config(PANEL_SLUG)
     header = fmt_row("🪙Asset", "📦Size", "🟩Value", "📈PnL", "🧷Lev", "💧Liq", "🔥Heat", "🧭Trave")
-    out.append(paint_line(header, body_cfg["column_header_text_color"]))
+    body_header = paint_line(header, body_cfg["column_header_text_color"])
+    out += body_pad_above(PANEL_SLUG)
+    out += body_indent_lines(PANEL_SLUG, [body_header])
 
     # Gather rows
     perp_rows, _ = _collect_perp_rows(ctx)
@@ -310,13 +301,13 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
         s_trav = _fmt_pct(trav) if isinstance(trav, (int, float)) else "—"
 
         line = fmt_row(asset, s_size, s_val, s_pnl, s_lev, s_liq, s_heat, s_trav)
-        out.append(color_if_plain(line, body_cfg["body_text_color"]))
+        out += body_indent_lines(PANEL_SLUG, [color_if_plain(line, body_cfg["body_text_color"])])
 
     for r in perp_rows: emit_row(r)
     for r in nft_rows:  emit_row(r)
 
     # Totals row
-    out.append("")
+    out += body_pad_below(PANEL_SLUG)
     tot_lev = (lev_weighted / size_weight) if size_weight > 0 else None
     tot_trv = (travel_weighted / size_weight) if size_weight > 0 else None
     s_tsize = _fmt_num(size_sum, places=2, dash="—")
@@ -327,10 +318,8 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     s_ttrv  = f"{tot_trv:.0f}%" if isinstance(tot_trv, (int, float)) else "—"
 
     totals_line = fmt_row("Totals", s_tsize, s_tval, s_tpnl, s_tlev, s_tliq, s_theat, s_ttrv)
-    out.append(paint_line(totals_line, body_cfg["totals_row_color"]))
-
-    # Single trailing blank line for padding (no provenance/debug)
-    out.append("")
+    out += body_indent_lines(PANEL_SLUG, [paint_line(totals_line, body_cfg["totals_row_color"])])
+    out += body_pad_below(PANEL_SLUG)
     return out
 
 def connector(*args, **kwargs) -> List[str]:
