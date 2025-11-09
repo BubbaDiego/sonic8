@@ -58,6 +58,19 @@ def _ensure_iso(ts: Any) -> str:
 # Dataclass
 # -----------------------------
 
+
+@dataclass
+class MonitorDetail:
+    """Detailed information about a single monitor entry."""
+
+    name: str
+    enabled: bool
+    status: MonitorState
+    last_run: Optional[datetime] = None
+    next_run: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
 @dataclass
 class MonitorStatus:
     """
@@ -161,3 +174,13 @@ class MonitorStatus:
             source=source,
             meta=(meta if isinstance(meta, dict) else {}),
         )
+
+
+try:
+    __all__
+except NameError:
+    __all__ = []
+
+for _sym in ("MonitorDetail",):
+    if _sym not in __all__:
+        __all__.append(_sym)
