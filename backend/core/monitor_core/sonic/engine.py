@@ -169,7 +169,6 @@ class MonitorEngine:
         self.logger.info("Sonic Monitor engine starting (interval=%ss, debug=%s)", interval_sec, self.debug)
         self._loop_n = getattr(self, "_loop_n", 0)
         self._poll_interval_sec = interval_sec
-        start_wall = time.time()
         while True:
             try:
                 self._loop_n += 1
@@ -180,5 +179,4 @@ class MonitorEngine:
             except Exception as e:
                 self.logger.exception("Uncaught during run_once: %s", e)
 
-            self._run_panel_stack(self._loop_n, interval_sec, start_wall)
             time.sleep(interval_sec)

@@ -7,14 +7,19 @@ from typing import Any, Dict, List, Optional
 
 # ---- Panel module order (override with SONIC_REPORT_PANELS) -------------------
 DEFAULT_PANEL_MODULES: List[str] = [
-    "backend.core.reporting_core.sonic_reporting.positions_panel",  # ← ensure present
+    # 2) Prices
     "backend.core.reporting_core.sonic_reporting.price_panel",
+    # 3) Positions
+    "backend.core.reporting_core.sonic_reporting.positions_panel",  # ← ensure present
+    # 5) XCom  (monitor prints admin later too; reporter version is light)
     "backend.core.reporting_core.sonic_reporting.xcom_panel",
-    # both wallet variants tolerated; the runner will try each until one resolves
+    # 6) Wallets (tolerate singular/plural module name)
     "backend.core.reporting_core.sonic_reporting.wallets_panel",
     "backend.core.reporting_core.sonic_reporting.wallet_panel",
-    "backend.core.reporting_core.sonic_reporting.raydium_panel",
-    "backend.core.reporting_core.sonic_reporting.cycle_footer_panel",  # last
+    # (Raydium hidden by default; can be re-enabled via SONIC_REPORT_PANELS)
+    # "backend.core.reporting_core.sonic_reporting.raydium_panel",
+    # Footer (always last)
+    "backend.core.reporting_core.sonic_reporting.cycle_footer_panel",
 ]
 
 # Back-compat symbol; some code may import PANEL_MODULES at import-time.
@@ -85,8 +90,9 @@ def render_panel_stack(*, ctx: Dict[str, Any], dl=None, width: Optional[int] = N
             out = _normalize_lines(lines_obj)
             # Always trace in-process so we can see this inside the Monitor screen
             writer(f"[REPORT] ran: {mod_path} ({len(out)} lines)")
-            for ln in out:
-                writer(ln)
+            if out:
+                for ln in out:
+                    writer(ln)
             all_lines.extend(out)
 
         except Exception as e:
