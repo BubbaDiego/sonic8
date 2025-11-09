@@ -3,21 +3,24 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 import json
-import os, unicodedata
+import unicodedata
 
-# standardized title via console_panels.theming
 from .console_panels.theming import (
     console_width as _theme_width,
     hr as _theme_hr,
     title_lines as _theme_title,
 )
+
 PANEL_SLUG = "xcom"
 PANEL_NAME = "XCom"
 
-# ===== colors (title text only; bars remain plain) =====
-USE_COLOR   = os.getenv("SONIC_COLOR", "1").strip().lower() not in {"0","false","no","off"}
-TITLE_COLOR = os.getenv("SONIC_TITLE_COLOR", "\x1b[38;5;45m")
-def _c(s: str, color: str) -> str: return f"{color}{s}\x1b[0m" if USE_COLOR else s
+
+def _header_lines() -> List[str]:
+    width = _theme_width()
+    lines = [_theme_hr(width)]
+    lines.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=width))
+    lines.append(_theme_hr(width))
+    return lines
 
 # ===== layout =====
 HR_WIDTH = 78
@@ -141,12 +144,9 @@ def render(dl, *_args, **_kw) -> None:
     raw = _latest_rows(dl)
     rows = [_norm(r) for r in raw]
 
-    width = _theme_width()
     print()
-    print(_theme_hr(width))
-    for ln in _theme_title(PANEL_SLUG, PANEL_NAME, width=width):
+    for ln in _header_lines():
         print(ln)
-    print(_theme_hr(width))
 
     # Header (icons + text; no row coloring)
     print(

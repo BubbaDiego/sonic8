@@ -164,7 +164,7 @@ def install_compact_console_filter(enable_color: bool = True) -> None:
 
 
 def emit_config_banner(dl, interval: Optional[int] = None) -> None:
-    # Banner moved to sonic_reporting.banner_panel
+    # Banner moved to sonic_reporting.console_panels.banner_panel
     return
 
 

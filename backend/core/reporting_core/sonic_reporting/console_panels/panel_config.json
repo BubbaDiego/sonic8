@@ -40,7 +40,7 @@
       "title": {
         "string": "XCom",
         "icon": "✉️",
-        "border_style": "lines",
+        "border_style": "rounded",
         "border_color": "default",
         "text_color": "cyan"
       }
