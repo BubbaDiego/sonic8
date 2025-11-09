@@ -120,7 +120,7 @@ def run_console_reporters(
     # Use new standardized monitors panel with a context dict (not dl)
     try:
         mod = importlib.import_module(
-            "backend.core.reporting_core.sonic_reporting.console_panels.monitors_panel"
+            "backend.core.reporting_core.sonic_reporting.console_panels.monitor_panel"
         )
         fn = getattr(mod, "render", None)
         if callable(fn):
@@ -144,7 +144,7 @@ def run_console_reporters(
             elif isinstance(lines, str):
                 print(lines)
     except Exception as e:
-        print(f"[REPORT] console_panels.monitors_panel.render failed: {e}")
+        print(f"[REPORT] console_panels.monitor_panel.render failed: {e}")
 
     _safe_render(
         "backend.core.reporting_core.sonic_reporting.xcom_panel",
