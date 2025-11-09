@@ -12,7 +12,11 @@ from .console_panels.theming import (
     hr as _theme_hr,
     title_lines as _theme_title,
     want_outer_hr,
+    get_panel_body_config,
+    color_if_plain,
+    paint_line,
 )
+_ = (get_panel_body_config, color_if_plain, paint_line)
 PANEL_SLUG = "activity"
 PANEL_NAME = "Cycle Activity"
 
@@ -154,8 +158,6 @@ def render(dl, *_unused, default_json_path=None):
         + _pad_center(_c("Status",  HEAD_COLOR),  W_STATUS)
         + _pad_center(_c("Elapsed", HEAD_COLOR),  W_ELAPSED)
     )
-    # keep visual consistency with other panels
-    print(INDENT + "─" * HR_WIDTH)
 
     for r in rows:
         phase   = _canon_phase((r.get("phase") or ""))
