@@ -11,7 +11,11 @@ from .console_panels.theming import (
     hr as _theme_hr,
     title_lines as _theme_title,
     want_outer_hr,
+    get_panel_body_config,
+    color_if_plain,
+    paint_line,
 )
+_ = (get_panel_body_config, color_if_plain, paint_line)
 PANEL_SLUG = "wallets"
 PANEL_NAME = "Wallets"
 
@@ -133,7 +137,6 @@ def render(dl, *_args, **_kw) -> None:
         + SEP + _pad(HEADER_IC["chk"]  + "Checked", W_CHK)
     )
     print(header)
-    print(INDENT + "─"*HR_WIDTH)
 
     if not rows:
         print(f"{INDENT}[WALLETS] source: dl.wallets.get_wallets (0 rows)")

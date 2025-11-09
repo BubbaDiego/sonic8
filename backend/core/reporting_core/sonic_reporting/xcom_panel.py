@@ -162,7 +162,7 @@ def render(dl, *_args, **_kw) -> None:
     for ln in _header_lines():
         print(ln)
 
-    # Header (icons + text; no row coloring)
+    # Header (icons + text; no row coloring, no underline)
     print(
         INDENT
         + _pad("", W_ICON)
@@ -174,7 +174,6 @@ def render(dl, *_args, **_kw) -> None:
         + SEP + _pad("⏱ Age", W_AGE, right=True)
         + SEP + _pad("🪪 Source", W_SRC)
     )
-    print(INDENT + "─"*HR_WIDTH)
 
     if not rows:
         print(f"{INDENT}(no xcom messages)")
