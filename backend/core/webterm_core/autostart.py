@@ -174,14 +174,17 @@ def autostart(dl: Any = None, logger: Optional[logging.Logger] = None) -> Option
         console = Console()
 
         if url:
-            qr_cfg = cfg.get("qr", {}) or {}
-            border  = int(qr_cfg.get("border", 0))
-            compact = bool(qr_cfg.get("compact", True))
+            qr_cfg   = cfg.get("qr", {}) or {}
+            qr_on    = bool(qr_cfg.get("enabled", True))
+            border   = int(qr_cfg.get("border", 0))
+            compact  = bool(qr_cfg.get("compact", True))
             max_cols = int(qr_cfg.get("max_cols", 44))
-            color   = str(qr_cfg.get("color", "green"))
-            label   = str(qr_cfg.get("link_label", "Open Web Terminal"))
+            color    = str(qr_cfg.get("color", "green"))
+            label    = str(qr_cfg.get("link_label", "Open Web Terminal"))
 
-            qr_txt = _make_qr_ascii(url, border=border, compact=compact, max_cols=max_cols)
+            qr_txt = None
+            if qr_on:
+                qr_txt = _make_qr_ascii(url, border=border, compact=compact, max_cols=max_cols)
 
             # Clickable hyperlink (OSC-8). Most modern terminals (Windows Terminal/VSCode/iTerm) support it.
             link = Text.assemble((label + " → ", "bold"), (url, f"bold underline link {url}"))
