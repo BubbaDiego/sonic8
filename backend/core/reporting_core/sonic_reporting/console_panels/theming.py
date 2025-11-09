@@ -41,6 +41,38 @@ def _ansi(name: str, s: str) -> str:
     return f"\x1b[{code}m{s}\x1b[0m" if (_USE_COLOR and code) else s
 
 
+# ── Rich integration (for true rounded boxes) ──────────────────────────────────
+_RICH_ROUNDED: Dict[str, str]
+try:
+    from rich.box import ROUNDED as _RB  # type: ignore
+
+    def _rb_get(obj: Any, *names: str, default: str = "") -> str:
+        for name in names:
+            if hasattr(obj, name):
+                value = getattr(obj, name)
+                if isinstance(value, str):
+                    return value
+        return default
+
+    _RICH_ROUNDED = {
+        "tl": _rb_get(_RB, "upper_left", "tl", "UL", default="╭"),
+        "tr": _rb_get(_RB, "upper_right", "tr", "UR", default="╮"),
+        "bl": _rb_get(_RB, "lower_left", "bl", "LL", default="╰"),
+        "br": _rb_get(_RB, "lower_right", "br", "LR", default="╯"),
+        "h": _rb_get(_RB, "horizontal", "h", default="─"),
+        "v": _rb_get(_RB, "vertical", "v", default="│"),
+    }
+except Exception:
+    _RICH_ROUNDED = {
+        "tl": "╭",
+        "tr": "╮",
+        "bl": "╰",
+        "br": "╯",
+        "h": "─",
+        "v": "│",
+    }
+
+
 def _display_len(s: str) -> int:
     return len(_ANSI_RE.sub("", s))
 
@@ -135,6 +167,33 @@ def _rectangle_style(text: str, *, width: int, border_color: str, text_color: st
     return [pad + top, pad + mid, pad + bot]
 
 
+def _rounded_style(text: str, *, width: int, border_color: str, text_color: str) -> List[str]:
+    tl = _RICH_ROUNDED["tl"]
+    tr = _RICH_ROUNDED["tr"]
+    bl = _RICH_ROUNDED["bl"]
+    br = _RICH_ROUNDED["br"]
+    h = _RICH_ROUNDED["h"]
+    v = _RICH_ROUNDED["v"]
+
+    text_len = _display_len(text)
+    inner_width = text_len + 2
+    box_w = min(width, max(10, inner_width + 2))
+    top = tl + (h * (box_w - 2)) + tr
+    available = box_w - 2
+    pad_total = max(0, available - text_len)
+    pad_left = pad_total // 2
+    pad_right = pad_total - pad_left
+    mid = v + (" " * pad_left) + _ansi(text_color, text) + (" " * pad_right) + v
+    bot = bl + (h * (box_w - 2)) + br
+    left_pad, _ = _center_piece(top, width)
+    pad = " " * left_pad
+    if border_color and border_color != "default":
+        top = _ansi(border_color, top)
+        mid = _ansi(border_color, mid)
+        bot = _ansi(border_color, bot)
+    return [pad + top, pad + mid, pad + bot]
+
+
 def _none_style(text: str, *, width: int, border_color: str, text_color: str) -> List[str]:
     # centered plain title, no rails/box
     left_pad, right_pad = _center_piece(text, width)
@@ -151,6 +210,8 @@ def title_lines(slug: str, default_string: str, *, width: Optional[int] = None) 
     style = tcfg["border_style"]
     if style == "rectangle":
         return _rectangle_style(text, width=W, border_color=tcfg["border_color"], text_color=tcfg["text_color"])
+    if style == "rounded":
+        return _rounded_style(text, width=W, border_color=tcfg["border_color"], text_color=tcfg["text_color"])
     if style == "none":
         return _none_style(text, width=W, border_color=tcfg["border_color"], text_color=tcfg["text_color"])
     return _lines_style(text, width=W, border_color=tcfg["border_color"], text_color=tcfg["text_color"])
