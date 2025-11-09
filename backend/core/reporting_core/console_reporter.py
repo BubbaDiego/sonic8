@@ -47,10 +47,24 @@ def _normalize_lines(obj: Any) -> List[str]:
 
 
 # ---- Panels runner ------------------------------------------------------------
-def render_panel_stack(*, ctx: Dict[str, Any], dl=None, width: Optional[int] = None, writer=print) -> List[str]:
+def render_panel_stack(
+    *,
+    ctx: Dict[str, Any],
+    dl=None,
+    cfg: Optional[Dict[str, Any]] = None,
+    width: Optional[int] = None,
+    writer=print,
+) -> List[str]:
     width = width or _console_width()
     ctx = dict(ctx or {})
+
+    if cfg is None:
+        cfg = ctx.get("cfg")
+    if cfg is None and dl is not None:
+        cfg = getattr(dl, "global_config", None)
+
     ctx.setdefault("dl", dl)
+    ctx.setdefault("cfg", cfg)
     ctx.setdefault("width", width)
 
     modules = _get_panel_modules()
@@ -92,13 +106,16 @@ def render_panel_stack(*, ctx: Dict[str, Any], dl=None, width: Optional[int] = N
 
 # ---- public entry used by monitor after compact lines -------------------------
 def emit_full_console(*, loop_counter: int, poll_interval_s: int, total_elapsed_s: float, ts: Any, dl=None, width: Optional[int] = None, writer=print) -> None:
+    cfg = getattr(dl, "global_config", None) if dl is not None else None
     ctx = {
         "loop_counter": int(loop_counter),
         "poll_interval_s": int(poll_interval_s),
         "total_elapsed_s": float(total_elapsed_s),
         "ts": ts,
+        "dl": dl,
+        "cfg": cfg,
     }
-    render_panel_stack(ctx=ctx, dl=dl, width=width or _console_width(), writer=writer)
+    render_panel_stack(ctx=ctx, dl=dl, cfg=cfg, width=width or _console_width(), writer=writer)
 
 
 # ────────────────────────────────────────────────────────────────────────────────
