@@ -149,19 +149,7 @@ class MonitorEngine:
         }
 
         try:
-            print("\n[REPORT] panel runner: BEGIN", flush=True)
-            mods = []
-            if hasattr(_cr, "_get_panel_modules"):
-                try:
-                    mods = list(_cr._get_panel_modules())
-                except Exception:
-                    mods = []
-            elif hasattr(_cr, "PANEL_MODULES"):
-                mods = list(getattr(_cr, "PANEL_MODULES") or [])
-            mods_line = ", ".join(str(m) for m in mods) if mods else "<none>"
-            print(f"[REPORT] panel modules: {mods_line}", flush=True)
             _cr.render_panel_stack(ctx=ctx, dl=self.dl, width=width, writer=print)
-            print("[REPORT] panel runner: END\n", flush=True)
         except Exception as exc:
             print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 

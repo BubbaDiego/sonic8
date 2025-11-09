@@ -379,9 +379,8 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
             out.append(fmt_row(r.get("symbol",""), _fmt_price(r.get("price")), _fmt_time(r.get("ts"))))
     else:
         out.append("(no prices)")
-
+    # Single trailing blank line for padding (no provenance/debug)
     out.append("")
-    out.append(f"[PRICES] source={source} count={len(items)}")
     return out
 
 def connector(*args, **kwargs) -> List[str]:

@@ -79,19 +79,7 @@ def run_console_reporters(
             "ts": (footer_ctx or {}).get("ts", time.time()),
         }
 
-        print("\n[REPORT] panel runner: BEGIN", flush=True)
-        modules: list[str] = []
-        if hasattr(_cr, "_get_panel_modules"):
-            try:
-                modules = list(_cr._get_panel_modules())
-            except Exception:
-                modules = []
-        elif hasattr(_cr, "PANEL_MODULES"):
-            modules = list(getattr(_cr, "PANEL_MODULES") or [])
-        modules_line = ", ".join(str(m) for m in modules) if modules else "<none>"
-        print(f"[REPORT] panel modules: {modules_line}", flush=True)
         _cr.render_panel_stack(ctx=ctx, dl=dl, width=width, writer=print)
-        print("[REPORT] panel runner: END\n", flush=True)
     except Exception as exc:
         print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 
