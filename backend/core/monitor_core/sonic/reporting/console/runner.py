@@ -126,6 +126,7 @@ def run_console_reporters(
         if callable(fn):
             latest = _load_latest_csum()
             enabled = latest.get("monitors_enabled") or _fallback_monitors_enabled()
+            # Monitors panel expects a context dict with the freshest csum attached.
             ctx = {
                 "dl": dl,
                 "csum": latest,
