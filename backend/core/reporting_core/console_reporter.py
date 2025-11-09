@@ -78,11 +78,8 @@ def render_panel_stack(*, ctx: Dict[str, Any], dl=None, width: Optional[int] = N
                     lines_obj = mod.render(ctx)
 
             out = _normalize_lines(lines_obj)
-            # Always trace in-process so we can see this inside the Monitor screen
-            writer(f"[REPORT] ran: {mod_path} ({len(out)} lines)")
-            if out:
-                for ln in out:
-                    writer(ln)
+            for ln in out:
+                writer(ln)
             all_lines.extend(out)
 
         except Exception as e:
