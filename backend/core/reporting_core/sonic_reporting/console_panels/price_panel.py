@@ -13,35 +13,24 @@ Goals
 - Render even when empty (header + provenance).
 """
 
-import os
 import datetime as _dt
 from typing import Any, Dict, List, Optional, Tuple
+
+from .theming import console_width as _theme_width, hr as _theme_hr, title_lines as _theme_title
 
 
 PANEL_KEY = "price_panel"
 PANEL_NAME = "Prices"
+PANEL_SLUG = "prices"
 
 
 # ───────────────────────────────────── helpers ─────────────────────────────────────
 
 def _console_width(default: int = 92) -> int:
-    try:
-        w = int(os.environ.get("SONIC_CONSOLE_WIDTH", default))
-        return max(60, min(180, w))
-    except Exception:
-        return default
+    return _theme_width(default)
 
 def _hr(width: Optional[int] = None, ch: str = "─") -> str:
-    W = width or _console_width()
-    return ch * W
-
-def _title_rail(title: str, width: Optional[int] = None, ch: str = "─") -> str:
-    W = width or _console_width()
-    t = f"  {title.strip()}  "
-    fill = max(0, W - len(t))
-    left = fill // 2
-    right = fill - left
-    return f"{ch * left}{t}{ch * right}"
+    return _theme_hr(width, ch)
 
 def _fmt_price(v: Any) -> str:
     try:
@@ -362,7 +351,7 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     width = ctx.get("width") or _console_width()
 
     out: List[str] = []
-    out.append(_title_rail("Prices", width))
+    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=width))
     out.append(_hr(width))
 
     # columns
