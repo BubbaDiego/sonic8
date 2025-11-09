@@ -166,10 +166,10 @@ def _kill_ttyd_by_port(port: int) -> bool:
         return False
 
 
-# ---- Cloudflare helpers ----
-_URL_RE = re.compile(
-    r"https?://[A-Za-z0-9\.\-]+(?:trycloudflare\.com|\.link|\.cfargotunnel\.com|[A-Za-z0-9\.\-]+)/?",
-    re.I,
+# ---- Cloudflare helpers (STRICT: quick tunnel URLs only) ----
+_TRYCF_URL_RE = re.compile(
+    r"https?://[a-z0-9\-]+(?:\.[a-z0-9\-]+)*\.trycloudflare\.com(?:/[^\s]*)?",
+    re.IGNORECASE,
 )
 
 
@@ -177,8 +177,8 @@ def _parse_cloudflared_url_from_log(path: Path) -> Optional[str]:
     if not path.exists():
         return None
     try:
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        m = _URL_RE.search(text)
+        txt = path.read_text(encoding="utf-8", errors="ignore")
+        m = _TRYCF_URL_RE.search(txt)
         return m.group(0) if m else None
     except Exception:
         return None
@@ -248,9 +248,9 @@ def ensure_running(
     config: Dict[str, Any], dl: Any = None, logger: Optional[logging.Logger] = None
 ) -> Optional[str]:
     """
-    Idempotently ensure web terminal + tunnel are up using ONLY values from `config`.
+    Idempotently ensure web terminal + tunnel are up using ONLY `config`.
     Detects config drift (auth/command) and restarts ttyd when needed.
-    Returns public (or local) URL if available.
+    Returns the reachable URL if available.
     """
     log = logger or logging.getLogger("webterm")
     if not bool(config.get("enabled", True)):
