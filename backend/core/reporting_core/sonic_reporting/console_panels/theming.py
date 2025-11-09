@@ -194,6 +194,110 @@ def _none_style(title_txt: str, *, width: int, border_color: str) -> List[str]:
     return [(" " * L) + shown + (" " * R)]
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Layout config (indent/padding) and title width override
+# ──────────────────────────────────────────────────────────────────────────────
+
+def get_panel_layout_config(slug: str) -> Dict[str, int | None]:
+    """
+    Returns ints (>=0) or None for title_width:
+      {
+        "title_indent": 0,
+        "title_padding_above": 1,
+        "title_padding_below": 1,
+        "title_width": null,           # if set, use this width when centering the title
+        "body_indent": 0,
+        "body_padding_above": 1,
+        "body_padding_below": 1
+      }
+    """
+    cfg = _cfg()
+    defaults = (cfg.get("defaults") or {}).get("layout") or {}
+    panels = cfg.get("panels") or {}
+    panel = (panels.get(slug) or {}).get("layout") or {}
+
+    def pick_int(key: str, default: int) -> int:
+        try:
+            val = panel.get(key, defaults.get(key, default))
+            val = int(val)
+            return max(0, val)
+        except Exception:
+            return default
+
+    def pick_opt_int(key: str) -> Optional[int]:
+        val = panel.get(key, defaults.get(key, None))
+        if val in (None, ""):
+            return None
+        try:
+            return max(10, int(val))
+        except Exception:
+            return None
+
+    return {
+        "title_indent":          pick_int("title_indent", 0),
+        "title_padding_above":   pick_int("title_padding_above", 1),
+        "title_padding_below":   pick_int("title_padding_below", 1),
+        "title_width":           pick_opt_int("title_width"),
+        "body_indent":           pick_int("body_indent", 0),
+        "body_padding_above":    pick_int("body_padding_above", 1),
+        "body_padding_below":    pick_int("body_padding_below", 1),
+    }
+
+
+def indent_line(s: str, n: int) -> str:
+    return (" " * max(0, n)) + s
+
+
+def apply_indent(lines: List[str], n: int) -> List[str]:
+    if n <= 0:
+        return lines
+    pad = " " * n
+    return [pad + ln if ln else ln for ln in lines]
+
+
+def want_outer_hr(slug: str, *, default_string: str) -> bool:
+    """True => caller should draw hr above/below title block (used for 'lines' style)."""
+    tcfg = get_panel_title_config(slug, default_string=default_string)
+    style = (tcfg.get("border_style") or "lines").lower()
+    return style not in {"rounded", "rectangle"}
+
+
+def emit_title_block(slug: str, default_string: str) -> List[str]:
+    """
+    Builds the full title segment including:
+      - optional outer hr (for 'lines' style)
+      - title padding above/below
+      - title indent
+      - optional title width override
+    """
+    lcfg = get_panel_layout_config(slug)
+    width_override = lcfg["title_width"]
+    W = width_override or console_width()
+    wrap = want_outer_hr(slug, default_string=default_string)
+    out: List[str] = []
+    out += [""] * lcfg["title_padding_above"]
+    if wrap:
+        out.append(hr(W))
+    tlines = title_lines(slug, default_string=default_string, width=W)
+    tlines = apply_indent(tlines, lcfg["title_indent"])
+    out += tlines
+    if wrap:
+        out.append(hr(W))
+    out += [""] * lcfg["title_padding_below"]
+    return out
+
+
+def body_pad_above(slug: str) -> List[str]:
+    return [""] * get_panel_layout_config(slug)["body_padding_above"]
+
+
+def body_pad_below(slug: str) -> List[str]:
+    return [""] * get_panel_layout_config(slug)["body_padding_below"]
+
+
+def body_indent_lines(slug: str, lines: List[str]) -> List[str]:
+    return apply_indent(lines, get_panel_layout_config(slug)["body_indent"])
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Body config + helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -224,13 +328,3 @@ def get_panel_body_config(slug: str) -> Dict[str, str]:
         "body_text_color": pick("body_text_color"),
         "totals_row_color": pick("totals_row_color"),
     }
-
-
-def want_outer_hr(slug: str, *, default_string: str) -> bool:
-    """
-    True => caller should print hr() above/below the title.
-    False => title is a self-contained block (rounded/rectangle), so no outer hr.
-    """
-    tcfg = get_panel_title_config(slug, default_string=default_string)
-    style = (tcfg.get("border_style") or "lines").lower()
-    return style not in {"rounded", "rectangle"}

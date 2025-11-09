@@ -7,6 +7,15 @@
       "border_color": "default",
       "text_color": "cyan"
     },
+    "layout": {
+      "title_indent": 0,
+      "title_padding_above": 1,
+      "title_padding_below": 1,
+      "title_width": null,
+      "body_indent": 0,
+      "body_padding_above": 1,
+      "body_padding_below": 1
+    },
     "body": {
       "column_header_text_color": "default",
       "body_text_color": "default",
@@ -22,6 +31,11 @@
         "border_color": "default",
         "text_color": "cyan"
       },
+      "layout": {
+        "title_width": null,
+        "title_indent": 0,
+        "body_indent": 0
+      },
       "body": {
         "column_header_text_color": "cyan",
         "body_text_color": "default"
@@ -34,6 +48,9 @@
         "border_style": "lines",
         "border_color": "default",
         "text_color": "cyan"
+      },
+      "layout": {
+        "title_width": null
       },
       "body": {
         "column_header_text_color": "cyan",
@@ -57,6 +74,11 @@
         "border_style": "rounded",
         "border_color": "default",
         "text_color": "cyan"
+      },
+      "layout": {
+        "title_width": null,
+        "title_indent": 0,
+        "body_indent": 0
       }
     },
     "wallets": {
@@ -66,6 +88,11 @@
         "border_style": "lines",
         "border_color": "default",
         "text_color": "cyan"
+      },
+      "layout": {
+        "title_width": null,
+        "title_indent": 0,
+        "body_indent": 0
       }
     },
     "activity": {
@@ -75,6 +102,11 @@
         "border_style": "rounded",
         "border_color": "default",
         "text_color": "blue"
+      },
+      "layout": {
+        "title_width": null,
+        "title_indent": 0,
+        "body_indent": 0
       }
     }
   }

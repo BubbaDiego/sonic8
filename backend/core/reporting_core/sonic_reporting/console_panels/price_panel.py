@@ -18,12 +18,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .theming import (
     console_width as _theme_width,
-    hr as _theme_hr,
-    title_lines as _theme_title,
-    want_outer_hr,
+    emit_title_block,
     get_panel_body_config,
-    color_if_plain,
-    paint_line,
+    body_pad_above, body_pad_below, body_indent_lines,
+    color_if_plain, paint_line,
 )
 
 
@@ -36,9 +34,6 @@ PANEL_SLUG = "prices"
 
 def _console_width(default: int = 92) -> int:
     return _theme_width(default)
-
-def _hr(width: Optional[int] = None, ch: str = "─") -> str:
-    return _theme_hr(width, ch)
 
 def _fmt_price(v: Any) -> str:
     try:
@@ -359,13 +354,7 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     width = ctx.get("width") or _console_width()
 
     out: List[str] = []
-    W = width or _theme_width()
-    wrap = want_outer_hr(PANEL_SLUG, default_string=PANEL_NAME)
-    if wrap:
-        out.append(_hr(W))
-    out.extend(_theme_title(PANEL_SLUG, PANEL_NAME, width=W))
-    if wrap:
-        out.append(_hr(W))
+    out.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
 
     # columns
     c_sym, c_px, c_ts = 12, 14, 14
@@ -374,17 +363,18 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
         return line[:width] if len(line) > width else line
 
     body_cfg = get_panel_body_config(PANEL_SLUG)
-    out.append(paint_line(fmt_row("Asset", "Price", "Checked"), body_cfg["column_header_text_color"]))
+    body_header = paint_line(fmt_row("Asset", "Price", "Checked"), body_cfg["column_header_text_color"])
+    out += body_pad_above(PANEL_SLUG)
+    out += body_indent_lines(PANEL_SLUG, [body_header])
 
     items, source = _collect_prices(ctx)
     if items:
         for r in items:
             line = fmt_row(r.get("symbol",""), _fmt_price(r.get("price")), _fmt_time(r.get("ts")))
-            out.append(color_if_plain(line, body_cfg["body_text_color"]))
+            out += body_indent_lines(PANEL_SLUG, [color_if_plain(line, body_cfg["body_text_color"])])
     else:
-        out.append(color_if_plain("(no prices)", body_cfg["body_text_color"]))
-    # Single trailing blank line for padding (no provenance/debug)
-    out.append("")
+        out += body_indent_lines(PANEL_SLUG, [color_if_plain("(no prices)", body_cfg["body_text_color"])])
+    out += body_pad_below(PANEL_SLUG)
     return out
 
 def connector(*args, **kwargs) -> List[str]:
