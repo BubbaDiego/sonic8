@@ -302,15 +302,5 @@ def render(context: Dict[str,Any], width: Optional[int] = None) -> List[str]:
         )
         out += body_indent_lines(PANEL_SLUG, [color_if_plain(line, body["body_text_color"])])
 
-    # Optional summary line (use totals_row_color if you want it highlighted)
-    n_ok   = sum(1 for x in rows if x["state"]=="OK")
-    n_warn = sum(1 for x in rows if x["state"]=="WARN")
-    n_snz  = sum(1 for x in rows if x["state"]=="SNOOZE")
-    n_br   = sum(1 for x in rows if x["state"]=="BREACH")
-    ages = [_fmt_age(x.get("ts")) for x in rows if x.get("ts")]
-    last_age = ages[0] if ages else "—"
-    summary = INDENT + f"Summary:  {STATE_ICON['OK']} {n_ok}  {STATE_ICON['WARN']} {n_warn}  {STATE_ICON['SNOOZE']} {n_snz}  {STATE_ICON['BREACH']} {n_br}   last update {last_age}"
-    out += body_indent_lines(PANEL_SLUG, [paint_line(summary, body.get("totals_row_color","default"))])
-
     out += body_pad_below(PANEL_SLUG)
     return out
