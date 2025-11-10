@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 class MonitorContext:
     dl: Any
     cfg: Dict[str, Any] = field(default_factory=dict)
+    cfg_path_hint: Optional[str] = None
     logger: logging.Logger = field(default_factory=lambda: logging.getLogger("sonic.engine"))
     debug: bool = False
     cycle_started_at: Optional[str] = None
@@ -35,11 +36,17 @@ class MonitorContext:
             if not self.resolve_traces:
                 self.resolve_traces = []
             return self.resolve_traces
+        if key == "cfg_path_hint":
+            if self.cfg_path_hint is None:
+                self.cfg_path_hint = default
+            return self.cfg_path_hint
         return self.extras.setdefault(key, default)
 
     def get(self, key: str, default: Any = None) -> Any:
         if key == "resolve_traces":
             return self.resolve_traces if self.resolve_traces else default
+        if key == "cfg_path_hint":
+            return self.cfg_path_hint if self.cfg_path_hint is not None else default
         return self.extras.get(key, default)
 
     def add_resolve_traces(self, traces: List[Dict[str, Any]]) -> None:

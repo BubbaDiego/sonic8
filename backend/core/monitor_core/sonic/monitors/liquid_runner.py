@@ -99,7 +99,15 @@ def _ensure_resolver(ctx: Any) -> ThresholdResolver:
     if isinstance(res, ThresholdResolver):
         return res
     cfg = getattr(ctx, "cfg", {}) or {}
-    res = ThresholdResolver(cfg, getattr(ctx, "dl", None))
+    cfg_path_hint = getattr(ctx, "cfg_path_hint", None)
+    if cfg_path_hint is None:
+        getter = getattr(ctx, "get", None)
+        if callable(getter):
+            try:
+                cfg_path_hint = getter("cfg_path_hint")
+            except Exception:
+                cfg_path_hint = None
+    res = ThresholdResolver(cfg, getattr(ctx, "dl", None), cfg_path_hint=cfg_path_hint)
     setattr(ctx, "resolver", res)
     return res
 
@@ -108,6 +116,9 @@ def _register_trace(ctx: Any, trace: ResolutionTrace) -> None:
     if trace is None:
         return
     trace_dict = asdict(trace)
+    if isinstance(ctx, dict):
+        ctx.setdefault("resolve_traces", []).append(dict(trace_dict))
+        return
     adder = getattr(ctx, "add_resolve_traces", None)
     if callable(adder):
         adder([trace_dict])
@@ -116,7 +127,13 @@ def _register_trace(ctx: Any, trace: ResolutionTrace) -> None:
     if isinstance(bucket, list):
         bucket.append(trace_dict)
     else:
-        setattr(ctx, "resolve_traces", [trace_dict])
+        try:
+            setattr(ctx, "resolve_traces", [trace_dict])
+        except Exception:
+            try:
+                ctx.__dict__["resolve_traces"] = [trace_dict]
+            except Exception:
+                pass
 
 
 def _state_from_comparator(op: str, value: Optional[float], thr: float) -> MonitorState:
@@ -162,7 +179,7 @@ def run_liquid_monitors(ctx: Any) -> Dict[str, Any]:
         _register_trace(ctx, trace)
         op, thr_unit = "<=", "%"
         state = _state_from_comparator(op, value, thr_value)
-        statuses.append({
+        status = {
             "label": f"{asset} – Liq",
             "state": state.value,
             "value": value,
@@ -174,10 +191,14 @@ def run_liquid_monitors(ctx: Any) -> Dict[str, Any]:
                 "source": "liq",
                 "limit_source": trace.source,
                 "limit_layer": trace.layer,
-                "limit_value": trace.value,
+                "limit_value": thr_value,
                 "limit_evidence": trace.evidence,
             },
-        })
+        }
+        status["thr_op"] = op
+        status["thr_value"] = thr_value
+        status["thr_unit"] = ""
+        statuses.append(status)
 
     return {
         "source": "liquid",

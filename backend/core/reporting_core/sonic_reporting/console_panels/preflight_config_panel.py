@@ -17,10 +17,11 @@ PANEL_NAME = "Pre-Flight Config"
 W_SYM = 6
 W_KEY = 22
 W_RES = 8
-W_SRC = 8
+W_SRC = 28
 W_JSON = 8
 W_DB = 8
 W_ENV = 8
+W_DEF = 8
 
 # color mapping for source tokens
 _SRC_COLOR = {"JSON": "cyan", "DB": "yellow", "ENV": "magenta", "DEFAULT": "grey50"}
@@ -41,7 +42,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     cfg = context.get("cfg") or context.get("config") or {}
     dl = context.get("dl")
-    res = ThresholdResolver(cfg, dl)
+    res = ThresholdResolver(cfg, dl, cfg_path_hint=context.get("cfg_path_hint"))
 
     # title
     out += emit_title_block(PANEL_SLUG, PANEL_NAME)
@@ -57,7 +58,8 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         f"{'Source':<{W_SRC}} "
         f"{'JSON':>{W_JSON}} "
         f"{'DB':>{W_DB}} "
-        f"{'ENV':>{W_ENV}}"
+        f"{'ENV':>{W_ENV}} "
+        f"{'Default':>{W_DEF}}"
     )
     out += body_indent_lines(PANEL_SLUG, [paint_line("Liquid thresholds", body["column_header_text_color"])])
     out += body_indent_lines(PANEL_SLUG, [paint_line(header_liq, body["column_header_text_color"])])
@@ -72,13 +74,18 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     for sym in sorted(syms):
         layers = res.inspect_liquid(sym)
         resolved, trace = res.liquid_threshold(sym)
+        src_txt = trace.source or ""
+        src_colored = _src_colored(src_txt) if src_txt else ""
+        if trace.layer and src_colored:
+            src_colored = f"{src_colored} · {trace.layer}"
         row = (
             f"{sym:<{W_SYM}} "
             f"{_fmt(resolved):>{W_RES}} "
-            f"{_src_colored(trace.source):<{W_SRC}} "
+            f"{src_colored:<{W_SRC}} "
             f"{_fmt(layers.get('json') if layers.get('json') is not None else layers.get('json_legacy')):>{W_JSON}} "
             f"{_fmt(layers.get('db')):>{W_DB}} "
-            f"{_fmt(layers.get('env')):>{W_ENV}}"
+            f"{_fmt(layers.get('env')):>{W_ENV}} "
+            f"{_fmt(layers.get('default')):>{W_DEF}}"
         )
         out += body_indent_lines(PANEL_SLUG, [row])
 
@@ -91,7 +98,8 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         f"{'Source':<{W_SRC}} "
         f"{'JSON':>{W_JSON}} "
         f"{'DB':>{W_DB}} "
-        f"{'ENV':>{W_ENV}}"
+        f"{'ENV':>{W_ENV}} "
+        f"{'Default':>{W_DEF}}"
     )
     out += body_indent_lines(PANEL_SLUG, [paint_line("Profit monitor", body["column_header_text_color"])])
     out += body_indent_lines(PANEL_SLUG, [paint_line(header_pr, body["column_header_text_color"])])
@@ -99,13 +107,18 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     for key in ("position_profit_usd", "portfolio_profit_usd"):
         layers = res.inspect_profit(key)
         resolved, trace = res.profit_limit(key)
+        src_txt = trace.source or ""
+        src_colored = _src_colored(src_txt) if src_txt else ""
+        if trace.layer and src_colored:
+            src_colored = f"{src_colored} · {trace.layer}"
         row = (
             f"{key:<{W_KEY}} "
             f"{_fmt(resolved):>{W_RES}} "
-            f"{_src_colored(trace.source):<{W_SRC}} "
+            f"{src_colored:<{W_SRC}} "
             f"{_fmt(layers.get('json')):>{W_JSON}} "
             f"{_fmt(layers.get('db')):>{W_DB}} "
-            f"{_fmt(layers.get('env')):>{W_ENV}}"
+            f"{_fmt(layers.get('env')):>{W_ENV}} "
+            f"{_fmt(layers.get('default')):>{W_DEF}}"
         )
         out += body_indent_lines(PANEL_SLUG, [row])
 

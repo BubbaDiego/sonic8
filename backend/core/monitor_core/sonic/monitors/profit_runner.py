@@ -82,7 +82,15 @@ def _ensure_resolver(ctx: Any) -> ThresholdResolver:
     if isinstance(res, ThresholdResolver):
         return res
     cfg = getattr(ctx, "cfg", {}) or {}
-    res = ThresholdResolver(cfg, getattr(ctx, "dl", None))
+    cfg_path_hint = getattr(ctx, "cfg_path_hint", None)
+    if cfg_path_hint is None:
+        getter = getattr(ctx, "get", None)
+        if callable(getter):
+            try:
+                cfg_path_hint = getter("cfg_path_hint")
+            except Exception:
+                cfg_path_hint = None
+    res = ThresholdResolver(cfg, getattr(ctx, "dl", None), cfg_path_hint=cfg_path_hint)
     setattr(ctx, "resolver", res)
     return res
 
@@ -91,6 +99,9 @@ def _register_trace(ctx: Any, trace: ResolutionTrace) -> None:
     if trace is None:
         return
     trace_dict = asdict(trace)
+    if isinstance(ctx, dict):
+        ctx.setdefault("resolve_traces", []).append(dict(trace_dict))
+        return
     adder = getattr(ctx, "add_resolve_traces", None)
     if callable(adder):
         adder([trace_dict])
@@ -99,7 +110,13 @@ def _register_trace(ctx: Any, trace: ResolutionTrace) -> None:
     if isinstance(bucket, list):
         bucket.append(trace_dict)
     else:
-        setattr(ctx, "resolve_traces", [trace_dict])
+        try:
+            setattr(ctx, "resolve_traces", [trace_dict])
+        except Exception:
+            try:
+                ctx.__dict__["resolve_traces"] = [trace_dict]
+            except Exception:
+                pass
 
 
 def _state_from_comparator(op: str, value: float, thr: float) -> MonitorState:
@@ -135,7 +152,7 @@ def run_profit_monitors(ctx: Any) -> Dict[str, Any]:
     port_pnl = _sum_portfolio_pnl(pos)
     op_p, unit_p = ">=", "$"
     state_p = _state_from_comparator(op_p, port_pnl, port_lim)
-    statuses: List[Dict[str, Any]] = [{
+    port_status: Dict[str, Any] = {
         "label": "Portfolio PnL",
         "state": state_p.value,
         "value": port_pnl,
@@ -147,17 +164,21 @@ def run_profit_monitors(ctx: Any) -> Dict[str, Any]:
             "source": "profit",
             "limit_source": port_trace.source,
             "limit_layer": port_trace.layer,
-            "limit_value": port_trace.value,
+            "limit_value": port_lim,
             "limit_evidence": port_trace.evidence,
         },
-    }]
+    }
+    port_status["thr_op"] = op_p
+    port_status["thr_value"] = port_lim
+    port_status["thr_unit"] = unit_p
+    statuses: List[Dict[str, Any]] = [port_status]
 
     # Singles
     singles = _sum_single_pnl(pos)  # asset -> pnl
     for asset, pnl in sorted(singles.items(), key=lambda kv: abs(kv[1]), reverse=True):
         op_s, unit_s = ">=", "$"
         state_s = _state_from_comparator(op_s, pnl, pos_lim)
-        statuses.append({
+        status = {
             "label": f"{asset} PnL",
             "state": state_s.value,
             "value": pnl,
@@ -169,10 +190,14 @@ def run_profit_monitors(ctx: Any) -> Dict[str, Any]:
                 "source": "profit",
                 "limit_source": pos_trace.source,
                 "limit_layer": pos_trace.layer,
-                "limit_value": pos_trace.value,
+                "limit_value": pos_lim,
                 "limit_evidence": pos_trace.evidence,
             },
-        })
+        }
+        status["thr_op"] = op_s
+        status["thr_value"] = pos_lim
+        status["thr_unit"] = unit_s
+        statuses.append(status)
 
     return {
         "source": "profit",

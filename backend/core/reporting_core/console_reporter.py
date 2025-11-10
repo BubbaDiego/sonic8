@@ -5,6 +5,22 @@ import importlib, os, sys, json, logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+logger = logging.getLogger("sonic.engine")
+
+MON_CFG_PATH = Path(r"C:\\sonic7\\backend\\config\\sonic_monitor_config.json")
+
+
+def _load_monitor_cfg():
+    try:
+        with MON_CFG_PATH.open("r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        logger.info("[resolve] cfg path: %s", MON_CFG_PATH)
+        return cfg, str(MON_CFG_PATH)
+    except Exception as e:
+        logger.info("[resolve] cfg load failed: %s", e)
+        return {}, "<unknown>"
+
+
 # ---- Panel module order (override with SONIC_REPORT_PANELS) -------------------
 DEFAULT_PANEL_MODULES: List[str] = [
     "backend.core.reporting_core.sonic_reporting.console_panels.price_panel",
@@ -60,14 +76,14 @@ def render_panel_stack(
     width = width or _console_width()
     ctx = dict(ctx or {})
 
-    if cfg is None:
-        cfg = ctx.get("cfg")
-    if cfg is None and dl is not None:
-        cfg = getattr(dl, "global_config", None)
+    loaded_cfg, cfg_path_hint = _load_monitor_cfg()
+    cfg = loaded_cfg
 
     ctx.setdefault("dl", dl)
-    ctx.setdefault("cfg", cfg)
+    ctx["cfg"] = cfg
+    ctx["cfg_path_hint"] = cfg_path_hint
     ctx.setdefault("width", width)
+    ctx.setdefault("resolve_traces", [])
 
     modules = _get_panel_modules()
     all_lines: List[str] = []
@@ -108,7 +124,7 @@ def render_panel_stack(
 
 # ---- public entry used by monitor after compact lines -------------------------
 def emit_full_console(*, loop_counter: int, poll_interval_s: int, total_elapsed_s: float, ts: Any, dl=None, width: Optional[int] = None, writer=print) -> None:
-    cfg = getattr(dl, "global_config", None) if dl is not None else None
+    cfg, cfg_path_hint = _load_monitor_cfg()
     ctx = {
         "loop_counter": int(loop_counter),
         "poll_interval_s": int(poll_interval_s),
@@ -116,6 +132,7 @@ def emit_full_console(*, loop_counter: int, poll_interval_s: int, total_elapsed_
         "ts": ts,
         "dl": dl,
         "cfg": cfg,
+        "cfg_path_hint": cfg_path_hint,
     }
     render_panel_stack(ctx=ctx, dl=dl, cfg=cfg, width=width or _console_width(), writer=writer)
 
