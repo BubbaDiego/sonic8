@@ -140,6 +140,17 @@ def _sym(d: Dict[str, Any]) -> str:
     # PositionDB: asset_type
     return str(_first(d.get("asset_type"), d.get("symbol"), d.get("asset"), d.get("name"), "—"))
 
+
+W_ASSET = 8
+W_SIZE  = 10
+W_VAL   = 11
+W_PNL   = 10
+W_LEV   = 6
+W_LIQ   = 6
+W_HEAT  = 6
+W_TRV   = 6
+
+
 def _row_from_item(item: Any) -> str:
     """
     PositionDB-aware row:
@@ -153,10 +164,19 @@ def _row_from_item(item: Any) -> str:
     pnl   = _fmt_money(_first(d.get("pnl_after_fees_usd"), d.get("pnl"), d.get("unrealizedPnl")))
     lev   = _fmt_lev(d.get("leverage"))
     # show distance raw; if you later store a percent we can swap to pct
-    liq   = _fmt_pct(d.get("liquidation_distance")) if "liquidation_distance" in d else "-"
+    liq   = _fmt_pct(_first(d.get("liquidation_distance_pct"), d.get("liquidation_distance")))
     heat  = _fmt_pct(_first(d.get("current_heat_index"), d.get("heat_index")))
     trav  = _fmt_pct(_first(d.get("travel_percent"), d.get("travel")))
-    return f"{asset:<8} {size:>9} {val:>10} {pnl:>9} {lev:>6} {liq:>6} {heat:>6} {trav:>6}"
+    return (
+        f"{asset:<{W_ASSET}} "
+        f"{size:>{W_SIZE}} "
+        f"{val:>{W_VAL}} "
+        f"{pnl:>{W_PNL}} "
+        f"{lev:>{W_LEV}} "
+        f"{liq:>{W_LIQ}} "
+        f"{heat:>{W_HEAT}} "
+        f"{trav:>{W_TRV}}"
+    )
 
 def _totals(items: List[Any]) -> Tuple[str, str, str, str, str, str, str, str]:
     size = value = pnl = 0.0
@@ -176,7 +196,16 @@ def _totals(items: List[Any]) -> Tuple[str, str, str, str, str, str, str, str]:
 
 def _format_totals(items: List[Any]) -> str:
     t = _totals(items)
-    return f"{t[0]:<8} {t[1]:>9} {t[2]:>10} {t[3]:>9} {t[4]:>6} {t[5]:>6} {t[6]:>6} {t[7]:>6}"
+    return (
+        f"{t[0]:<{W_ASSET}} "
+        f"{t[1]:>{W_SIZE}} "
+        f"{t[2]:>{W_VAL}} "
+        f"{t[3]:>{W_PNL}} "
+        f"{t[4]:>{W_LEV}} "
+        f"{t[5]:>{W_LIQ}} "
+        f"{t[6]:>{W_HEAT}} "
+        f"{t[7]:>{W_TRV}}"
+    )
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Render (PositionCore only; no fallbacks)
@@ -187,7 +216,16 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         out += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
         body = get_panel_body_config(PANEL_SLUG)
-        header = f"{'🪙Asset':<8} {'📦Size':>9} {'🟩Value':>10} {'📈PnL':>9} {'🧷Lev':>6} {'💧Liq':>6} {'🔥Heat':>6} {'🧭Trave':>6}"
+        header = (
+            f"{'🪙Asset':<{W_ASSET}} "
+            f"{'📦Size':>{W_SIZE}} "
+            f"{'🟩Value':>{W_VAL}} "
+            f"{'📈PnL':>{W_PNL}} "
+            f"{'🧷Lev':>{W_LEV}} "
+            f"{'💧Liq':>{W_LIQ}} "
+            f"{'🔥Heat':>{W_HEAT}} "
+            f"{'🧭Trave':>{W_TRV}}"
+        )
         out += body_indent_lines(PANEL_SLUG, [paint_line(header, body["column_header_text_color"])])
 
         # Strict source: PositionCore.get_active_positions()

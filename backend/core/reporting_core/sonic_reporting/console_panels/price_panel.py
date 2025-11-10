@@ -16,6 +16,14 @@ Goals
 import datetime as _dt
 from typing import Any, Dict, List, Optional, Tuple
 
+try:
+    # Reuse a shared icon mapping when available.
+    from backend.core.reporting_core.sonic_reporting.positions_icons import icon_for  # type: ignore
+except Exception:
+    def icon_for(sym: str) -> str:
+        mapping = {"BTC": "🟠", "ETH": "🔷", "SOL": "🟣"}
+        return mapping.get((sym or "").upper(), "🪙")
+
 from .theming import (
     console_width as _theme_width,
     emit_title_block,
@@ -357,9 +365,14 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     out.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
 
     # columns
-    c_sym, c_px, c_ts = 12, 14, 14
-    def fmt_row(sym, px, ts) -> str:
-        line = f"{_abbr_mid(sym, 4, 3, c_sym):<{c_sym}}  {px:>{c_px}}  {ts:>{c_ts}}"
+    c_sym, c_px, c_ts = 14, 14, 14
+
+    def fmt_row(sym, px, ts, with_icon: bool = False) -> str:
+        label = sym or ""
+        if with_icon:
+            label = f"{icon_for(label)} {label}".strip()
+        label = _abbr_mid(label, 4, 3, c_sym)
+        line = f"{label:<{c_sym}}  {px:>{c_px}}  {ts:>{c_ts}}"
         return line[:width] if len(line) > width else line
 
     body_cfg = get_panel_body_config(PANEL_SLUG)
@@ -370,7 +383,8 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     items, source = _collect_prices(ctx)
     if items:
         for r in items:
-            line = fmt_row(r.get("symbol",""), _fmt_price(r.get("price")), _fmt_time(r.get("ts")))
+            symbol = r.get("symbol", "")
+            line = fmt_row(symbol, _fmt_price(r.get("price")), _fmt_time(r.get("ts")), with_icon=True)
             out += body_indent_lines(PANEL_SLUG, [color_if_plain(line, body_cfg["body_text_color"])])
     else:
         out += body_indent_lines(PANEL_SLUG, [color_if_plain("(no prices)", body_cfg["body_text_color"])])
