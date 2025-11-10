@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import logging
 
 from .theming import (
@@ -129,74 +129,6 @@ def _format_totals(items: List[Any]) -> str:
         f"{_fmt_pct(avg_trav):>{W_TRV}}"
     )
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Source selection: PositionCore (preferred) → DL manager (fallback)
-# ──────────────────────────────────────────────────────────────────────────────
-
-def _import_position_core() -> Tuple[Any, str]:
-    """
-    Try several common module paths for PositionCore and return (class, module_path).
-    We log which one succeeded to help diagnose.
-    """
-    candidates = (
-        "backend.core.positions_core.position_core",
-        "backend.core.positions_core.core",
-        "backend.core.position_core",
-        "backend.positions.position_core",
-        "backend.core.portfolio_core.position_core",
-    )
-    last_err = None
-    for mod in candidates:
-        try:
-            m = __import__(mod, fromlist=["PositionCore"])
-            if hasattr(m, "PositionCore"):
-                return m.PositionCore, mod
-        except Exception as e:
-            last_err = e
-            continue
-    raise ImportError(f"PositionCore not found; tried {candidates}; last error: {last_err}")
-
-def _get_items_from_core(context: Dict[str, Any]) -> Tuple[List[Any], Optional[str]]:
-    """
-    Try PositionCore.get_active_positions() as classmethod or instance method.
-    Returns (items, module_path or None).
-    """
-    try:
-        PositionCore, modpath = _import_position_core()
-    except Exception as e:
-        log.info("[positions] PositionCore import failed: %s", e)
-        return [], None
-
-    dl  = context.get("dl")
-    cfg = context.get("cfg") or context.get("config")
-
-    # classmethod styles
-    for arg in (dl, cfg, None):
-        try:
-            if hasattr(PositionCore, "get_active_positions"):
-                res = PositionCore.get_active_positions(arg) if arg is not None else PositionCore.get_active_positions()  # type: ignore
-                if isinstance(res, list) and res:
-                    return res, modpath
-        except TypeError:
-            pass
-        except Exception as e:
-            log.info("[positions] PositionCore.get_active_positions class-method error: %s", e)
-            break
-
-    # instance styles
-    for arg in (dl, cfg, None):
-        try:
-            core = PositionCore(arg) if arg is not None else PositionCore()  # type: ignore
-            if hasattr(core, "get_active_positions"):
-                res = core.get_active_positions()  # type: ignore
-                if isinstance(res, list) and res:
-                    return res, modpath
-        except Exception as e:
-            log.info("[positions] PositionCore instance error: %s", e)
-            continue
-
-    return [], modpath
-
 def _get_items_from_manager(context: Dict[str, Any]) -> List[Any]:
     dl = context.get("dl")
     if not dl:
@@ -204,20 +136,27 @@ def _get_items_from_manager(context: Dict[str, Any]) -> List[Any]:
     mgr = getattr(dl, "positions", None) or getattr(dl, "dl_positions", None)
     if not mgr:
         return []
-    # prefer explicit getters; fall back to attributes
-    for name in ("get_all_positions", "get_active_positions", "list", "all"):
-        f = getattr(mgr, name, None)
-        if callable(f):
-            try:
-                items = f()
-                if isinstance(items, list) and items:
-                    return items
-            except Exception as e:
-                log.info("[positions] positions manager %s() error: %s", name, e)
-                # try next
-                continue
-    arr = getattr(mgr, "items", None) or getattr(mgr, "open", None)
-    return arr if isinstance(arr, list) else []
+
+    items: Any = []
+    getter = getattr(mgr, "get_all_positions", None)
+    if callable(getter):
+        try:
+            items = getter()
+        except Exception as e:
+            log.info("[positions] positions manager get_all_positions() error: %s", e)
+            items = []
+    elif callable(getattr(mgr, "get_active_positions", None)):
+        try:
+            items = mgr.get_active_positions()  # type: ignore[call-arg]
+        except Exception as e:
+            log.info("[positions] positions manager get_active_positions() error: %s", e)
+            items = []
+    elif hasattr(mgr, "items"):
+        items = getattr(mgr, "items") or []
+
+    if not isinstance(items, list):
+        return []
+    return items
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Render
@@ -244,19 +183,9 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     )
     out += body_indent_lines(PANEL_SLUG, [paint_line(header, body["column_header_text_color"])])
 
-    # Fetch from Core first, then DL manager
-    core_items, modpath = _get_items_from_core(context)
-    source = None
-    items: List[Any] = []
-
-    if core_items:
-        items = core_items
-        source = f"CORE({modpath})"
-    else:
-        mgr_items = _get_items_from_manager(context)
-        if mgr_items:
-            items = mgr_items
-            source = "DL"
+    # Fetch strictly from DL manager
+    items = _get_items_from_manager(context)
+    source = "DL" if items else None
 
     log.info("[positions] source=%s count=%d", source or "NONE", len(items))
 
