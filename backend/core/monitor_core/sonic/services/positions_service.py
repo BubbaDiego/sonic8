@@ -1,24 +1,36 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 from typing import Any, Dict
+import time
+
+from backend.core.cyclone import CyclonePositionService
+
 
 def sync_positions_service(ctx: Any) -> Dict[str, Any]:
-    """
-    Adapter for your positions sync (DL-backed).
-    """
+    """Run Cyclone positions sync before monitors and report the result."""
+
     dl = ctx.dl
+    logger = getattr(ctx, "logger", None)
+    start = time.time()
     try:
-        mod = __import__("backend.core.positions_core.position_sync_service", fromlist=["sync_positions"])
-        sync_positions = getattr(mod, "sync_positions", None)
-        if callable(sync_positions):
-            res = sync_positions(dl)
-            return {"ok": True, "source": "position_sync_service", "result": res}
-    except Exception:
-        pass
-    # As a fallback, just report what the DB currently has
-    try:
-        mgr = getattr(dl, "positions", None)
-        cnt = len(mgr.get_positions()) if mgr else 0
-        return {"ok": True, "source": "dl.positions", "count": cnt}
-    except Exception:
-        return {"ok": False, "source": "dl.positions", "count": 0}
+        cnt = CyclonePositionService.run_full(dl, source="sonic")
+        duration = time.time() - start
+        if logger:
+            logger.info(
+                "📊 Positions service  count %s  (%.2fs)  cycle=%s",
+                cnt,
+                duration,
+                getattr(ctx, "cycle_id", "unknown"),
+            )
+        return {"ok": True, "source": "CyclonePositionService", "count": cnt, "duration": duration}
+    except Exception as exc:
+        duration = time.time() - start
+        if logger:
+            logger.exception("Cyclone positions sync failed: %s", exc)
+        # Fallback to manager count if available
+        try:
+            mgr = getattr(dl, "positions", None)
+            cnt = len(mgr.get_positions()) if mgr else 0
+        except Exception:
+            cnt = 0
+        return {"ok": False, "source": "CyclonePositionService", "count": cnt, "duration": duration, "error": str(exc)}
