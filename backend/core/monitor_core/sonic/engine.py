@@ -170,4 +170,11 @@ class MonitorEngine:
             except Exception as e:
                 self.logger.exception("Uncaught during run_once: %s", e)
 
-            time.sleep(interval_sec)
+            try:
+                from backend.core.reporting_core.sonic_reporting.console_panels import transition_panel as _trans
+
+                _trans.run({
+                    "poll_interval_s": interval_sec,
+                })
+            except Exception:
+                time.sleep(interval_sec)

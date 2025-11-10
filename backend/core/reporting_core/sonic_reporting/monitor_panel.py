@@ -301,14 +301,4 @@ def render(dl, *_args, **_kw) -> None:
             + SEP + _pad(srcv, W_SRC)
         )
 
-    # summary (plain)
-    n_ok   = sum(1 for x in rows if x["state"]=="OK")
-    n_warn = sum(1 for x in rows if x["state"]=="WARN")
-    n_snz  = sum(1 for x in rows if x["state"]=="SNOOZE")
-    n_br   = sum(1 for x in rows if x["state"]=="BREACH")
-
-    ages = [_fmt_age(x.get("ts")) for x in rows if x.get("ts")]
-    last_age = ages[0] if ages else "—"
-
-    print(INDENT + f"Summary:  {STATE_ICON['OK']} {n_ok}  {STATE_ICON['WARN']} {n_warn}  {STATE_ICON['SNOOZE']} {n_snz}  {STATE_ICON['BREACH']} {n_br}   last update {last_age}")
     print()
