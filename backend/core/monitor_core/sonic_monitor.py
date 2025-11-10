@@ -23,26 +23,18 @@ def main():
     _launched = False
     if _webterm_launch_script:
         try:
-            logger_obj = globals().get("logger", None)
-            pid = _webterm_launch_script(logger=logger_obj)
+            pid = _webterm_launch_script(logger=globals().get("logger", None))
             _launched = bool(pid)
             if _launched:
                 msg = f"[WebTerm] launcher script started (PID={pid}). See reports\\webterm_launcher.log"
-                if logger_obj:
-                    try:
-                        logger_obj.info(msg)
-                    except Exception:
-                        print(msg)
-                else:
+                try:
+                    logger.info(msg)  # type: ignore[name-defined]
+                except Exception:
                     print(msg)
         except Exception as _e:
-            logger_obj = globals().get("logger", None)
-            if logger_obj:
-                try:
-                    logger_obj.warning(f"[WebTerm] launcher script failed: {_e}")
-                except Exception:
-                    print(f"[WebTerm] launcher script failed: {_e}")
-            else:
+            try:
+                logger.warning(f"[WebTerm] launcher script failed: {_e}")  # type: ignore[name-defined]
+            except Exception:
                 print(f"[WebTerm] launcher script failed: {_e}")
 
     if not _launched and webterm_autostart:
