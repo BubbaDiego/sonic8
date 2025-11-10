@@ -3,15 +3,15 @@
   "defaults": {
     "title": {
       "icon": "",
-      "border_style": "rounded",
-      "border_color": "default",
+      "border_style": "lines",
+      "border_color": "pink",
       "text_color": "cyan"
     },
     "layout": {
       "title_indent": 0,
       "title_padding_above": 0,
       "title_padding_below": 0,
-      "title_width": 140,
+      "title_width": 85,
       "body_indent": 0,
       "body_padding_above": 0,
       "body_padding_below": 1
