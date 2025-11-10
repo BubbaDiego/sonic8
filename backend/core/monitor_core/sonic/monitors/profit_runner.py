@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 from datetime import datetime, timezone
 from collections import defaultdict
 
-from backend.models.monitor_status import MonitorStatus, MonitorType, MonitorState
+from backend.models.monitor_status import MonitorState
+from backend.core.monitor_core.resolver import ThresholdResolver, ResolutionTrace
 
 
 def _safe_float(x: Any) -> float:
@@ -75,36 +76,29 @@ def _sum_single_pnl(rows: List[Dict[str, Any]]) -> Dict[str, float]:
     return dict(by)
 
 
-def _resolve_threshold_portfolio(dl: Any) -> Tuple[str, float, str]:
-    # system var: thresholds.profit.portfolio_usd (default $40)
-    sys = getattr(dl, "system", None)
-    if sys and hasattr(sys, "get_var"):
-        try:
-            v = sys.get_var("thresholds.profit.portfolio_usd")
-            if v is not None:
-                return (">=", float(v), "$")
-        except Exception:
-            pass
-    return (">=", 40.0, "$")
+def _ensure_resolver(ctx: Any) -> ThresholdResolver:
+    res = getattr(ctx, "resolver", None)
+    if isinstance(res, ThresholdResolver):
+        return res
+    cfg = getattr(ctx, "cfg", {}) or {}
+    logger = getattr(ctx, "logger", None)
+    res = ThresholdResolver(cfg, getattr(ctx, "dl", None), logger=logger)
+    setattr(ctx, "resolver", res)
+    return res
 
 
-def _resolve_threshold_single(dl: Any, asset: str) -> Tuple[str, float, str]:
-    # thresholds.profit.single_usd or thresholds.profit.<ASSET>_usd
-    sys = getattr(dl, "system", None)
-    if sys and hasattr(sys, "get_var"):
-        try:
-            v = sys.get_var(f"thresholds.profit.{asset}_usd")
-            if v is not None:
-                return (">=", float(v), "$")
-        except Exception:
-            pass
-        try:
-            v = sys.get_var("thresholds.profit.single_usd")
-            if v is not None:
-                return (">=", float(v), "$")
-        except Exception:
-            pass
-    return (">=", 10.0, "$")
+def _register_trace(ctx: Any, trace: ResolutionTrace) -> None:
+    if trace is None:
+        return
+    adder = getattr(ctx, "add_resolve_traces", None)
+    if callable(adder):
+        adder([trace])
+        return
+    bucket = getattr(ctx, "resolve_traces", None)
+    if isinstance(bucket, list):
+        bucket.append(trace)
+    else:
+        setattr(ctx, "resolve_traces", [trace])
 
 
 def _state_from_comparator(op: str, value: float, thr: float) -> MonitorState:
@@ -130,33 +124,53 @@ def run_profit_monitors(ctx: Any) -> Dict[str, Any]:
     now_iso = datetime.now(timezone.utc).isoformat()
     pos = _open_positions(dl)
 
+    resolver = _ensure_resolver(ctx)
+    port_lim, port_trace = resolver.profit_limit("portfolio_profit_usd")
+    pos_lim, pos_trace = resolver.profit_limit("position_profit_usd")
+    for tr in (port_trace, pos_trace):
+        _register_trace(ctx, tr)
+
     # Portfolio
     port_pnl = _sum_portfolio_pnl(pos)
-    op_p, thr_p, unit_p = _resolve_threshold_portfolio(dl)
-    state_p = _state_from_comparator(op_p, port_pnl, thr_p)
+    op_p, unit_p = ">=", "$"
+    state_p = _state_from_comparator(op_p, port_pnl, port_lim)
     statuses: List[Dict[str, Any]] = [{
         "label": "Portfolio PnL",
         "state": state_p.value,
         "value": port_pnl,
         "unit": unit_p,
-        "threshold": {"op": op_p, "value": thr_p, "unit": unit_p},
+        "threshold": {"op": op_p, "value": port_lim, "unit": unit_p},
         "ts": now_iso,
-        "meta": {"scope": "portfolio", "source": "profit"},
+        "meta": {
+            "scope": "portfolio",
+            "source": "profit",
+            "limit_source": port_trace.source,
+            "limit_layer": port_trace.layer,
+            "limit_value": port_trace.value,
+            "limit_evidence": port_trace.evidence,
+        },
     }]
 
     # Singles
     singles = _sum_single_pnl(pos)  # asset -> pnl
     for asset, pnl in sorted(singles.items(), key=lambda kv: abs(kv[1]), reverse=True):
-        op_s, thr_s, unit_s = _resolve_threshold_single(dl, asset)
-        state_s = _state_from_comparator(op_s, pnl, thr_s)
+        op_s, unit_s = ">=", "$"
+        state_s = _state_from_comparator(op_s, pnl, pos_lim)
         statuses.append({
             "label": f"{asset} PnL",
             "state": state_s.value,
             "value": pnl,
             "unit": unit_s,
-            "threshold": {"op": op_s, "value": thr_s, "unit": unit_s},
+            "threshold": {"op": op_s, "value": pos_lim, "unit": unit_s},
             "ts": now_iso,
-            "meta": {"asset": asset, "source": "profit"},
+            "meta": {
+                "asset": asset,
+                "source": "profit",
+                "limit_source": pos_trace.source,
+                "limit_layer": pos_trace.layer,
+                "limit_value": pos_trace.value,
+                "limit_evidence": pos_trace.evidence,
+            },
         })
 
     return {

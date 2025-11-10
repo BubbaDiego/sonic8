@@ -288,7 +288,11 @@ def render(context: Dict[str,Any], width: Optional[int] = None) -> List[str]:
         val  = _fmt_metric(r["value"], r["unit"])
         stxt = _fmt_state(r["state"])
         age  = _fmt_age(r["ts"])
-        srcv = r["source"]
+        meta = r.get("meta") or {}
+        srcv = meta.get("limit_source") or r.get("source") or ""
+        layer = meta.get("limit_layer")
+        if layer and srcv:
+            srcv = f"{srcv} · {layer}"
 
         line = (
             INDENT

@@ -14,6 +14,7 @@ from .storage.ledger_store import LedgerStore
 from .storage.activity_store import ActivityStore  # keeps Cycle Activity panel fed
 from .reporting.console.runner import run_console_reporters
 from backend.models.monitor_status import MonitorStatus
+from backend.core.monitor_core.resolver import ThresholdResolver
 
 
 class MonitorEngine:
@@ -56,6 +57,7 @@ class MonitorEngine:
         self.ctx.start_cycle()
         cycle_id = self.ctx.cycle_id or "unknown"
         cycle_t0 = time.monotonic()
+        self.ctx.resolver = ThresholdResolver(self.cfg, self.dl, logger=self.logger)
 
         def _run_phase(phase_key: str, label: str, fn: Callable[[], Dict[str, Any]]):
             tok = self.activities.begin(cycle_id, phase_key, label)
@@ -88,7 +90,19 @@ class MonitorEngine:
         # 2) monitors (persist normalized statuses)
         for name, runner in get_enabled_monitors(self.cfg):
             def _run_mon(n=name, r=runner):
+                pre_trace_len = len(getattr(self.ctx, "resolve_traces", []) or [])
                 out = r(self.ctx) or {}
+                if not isinstance(out, dict):
+                    out = {"result": out}
+                post_traces = getattr(self.ctx, "resolve_traces", []) or []
+                new_traces = post_traces[pre_trace_len:]
+                if new_traces:
+                    trace_dicts = [dict(t.__dict__) for t in new_traces]
+                    existing = out.get("resolve_traces")
+                    if isinstance(existing, list):
+                        existing.extend(trace_dicts)
+                    else:
+                        out["resolve_traces"] = trace_dicts
                 self.ledger.append_monitor_result(cycle_id, n, out)
 
                 statuses = out.get("statuses") if isinstance(out, dict) else None

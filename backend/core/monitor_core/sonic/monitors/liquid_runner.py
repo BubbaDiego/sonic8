@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
-from backend.models.monitor_status import MonitorStatus, MonitorType, MonitorState
+from backend.models.monitor_status import MonitorState
+from backend.core.monitor_core.resolver import ThresholdResolver, ResolutionTrace
 
 
 def _safe_float(x: Any) -> Optional[float]:
@@ -92,33 +93,29 @@ def _asset(d: Dict[str, Any]) -> str:
     return str(d.get("asset_type") or d.get("asset") or d.get("symbol") or d.get("token") or "").upper()
 
 
-def _resolve_threshold_liq(dl: Any, asset: str) -> Tuple[str, float, str]:
-    """
-    Resolve liquid threshold (distance to liq, %) from dl.system or config.
-    Contract: (op, value, unit)
-    """
-    # system vars first: thresholds.liquid.<ASSET> or thresholds.liquid.default_pct
-    sys = getattr(dl, "system", None)
-    if sys and hasattr(sys, "get_var"):
-        try:
-            v = sys.get_var(f"thresholds.liquid.{asset}.percent")
-            if v is not None:
-                return ("<=", float(v), "%")
-        except Exception:
-            pass
-        try:
-            v = sys.get_var("thresholds.liquid.default_percent")
-            if v is not None:
-                return ("<=", float(v), "%")
-        except Exception:
-            pass
-    # config JSON fallback
-    try:
-        cur = dl.db.get_cursor()  # ensure locker is alive; not used here
-    except Exception:
-        pass
-    # sane default if nothing present
-    return ("<=", 1.0, "%")
+def _ensure_resolver(ctx: Any) -> ThresholdResolver:
+    res = getattr(ctx, "resolver", None)
+    if isinstance(res, ThresholdResolver):
+        return res
+    cfg = getattr(ctx, "cfg", {}) or {}
+    logger = getattr(ctx, "logger", None)
+    res = ThresholdResolver(cfg, getattr(ctx, "dl", None), logger=logger)
+    setattr(ctx, "resolver", res)
+    return res
+
+
+def _register_trace(ctx: Any, trace: ResolutionTrace) -> None:
+    if trace is None:
+        return
+    adder = getattr(ctx, "add_resolve_traces", None)
+    if callable(adder):
+        adder([trace])
+        return
+    bucket = getattr(ctx, "resolve_traces", None)
+    if isinstance(bucket, list):
+        bucket.append(trace)
+    else:
+        setattr(ctx, "resolve_traces", [trace])
 
 
 def _state_from_comparator(op: str, value: Optional[float], thr: float) -> MonitorState:
@@ -155,11 +152,14 @@ def run_liquid_monitors(ctx: Any) -> Dict[str, Any]:
         by_asset.setdefault(a, []).append(d)
 
     statuses: List[Dict[str, Any]] = []
+    resolver = _ensure_resolver(ctx)
     for asset, items in by_asset.items():
         # pick the worst (smallest) distance % among open positions for that asset
         distances = [x for x in (_liquid_distance_pct(d) for d in items) if x is not None]
         value = min(distances) if distances else None
-        op, thr_value, thr_unit = _resolve_threshold_liq(dl, asset)
+        thr_value, trace = resolver.liquid_threshold(asset)
+        _register_trace(ctx, trace)
+        op, thr_unit = "<=", "%"
         state = _state_from_comparator(op, value, thr_value)
         statuses.append({
             "label": f"{asset} – Liq",
@@ -168,7 +168,14 @@ def run_liquid_monitors(ctx: Any) -> Dict[str, Any]:
             "unit": "%",
             "threshold": {"op": op, "value": thr_value, "unit": thr_unit},
             "ts": now_iso,
-            "meta": {"asset": asset, "source": "liq"},
+            "meta": {
+                "asset": asset,
+                "source": "liq",
+                "limit_source": trace.source,
+                "limit_layer": trace.layer,
+                "limit_value": trace.value,
+                "limit_evidence": trace.evidence,
+            },
         })
 
     return {
