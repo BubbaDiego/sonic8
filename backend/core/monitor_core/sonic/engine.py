@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Callable
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Callable, Tuple
 from datetime import datetime, timezone
 
 from .context import MonitorContext
@@ -15,6 +17,20 @@ from .storage.activity_store import ActivityStore  # keeps Cycle Activity panel 
 from .reporting.console.runner import run_console_reporters
 from backend.models.monitor_status import MonitorStatus
 from backend.core.monitor_core.resolver import ThresholdResolver
+
+
+MON_CFG_PATH = Path(r"C:\\sonic7\\backend\\config\\sonic_monitor_config.json")
+
+
+def _load_monitor_cfg() -> Tuple[Dict[str, Any], str]:
+    try:
+        with MON_CFG_PATH.open("r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        logging.getLogger("sonic.engine").info("[resolve] cfg path: %s", MON_CFG_PATH)
+        return cfg, str(MON_CFG_PATH)
+    except Exception as e:
+        logging.getLogger("sonic.engine").info("[resolve] cfg load failed: %s", e)
+        return {}, "<unknown>"
 
 
 class MonitorEngine:
@@ -57,7 +73,11 @@ class MonitorEngine:
         self.ctx.start_cycle()
         cycle_id = self.ctx.cycle_id or "unknown"
         cycle_t0 = time.monotonic()
-        self.ctx.resolver = ThresholdResolver(self.cfg, self.dl)
+        cfg, cfg_path_hint = _load_monitor_cfg()
+        self.cfg = cfg
+        self.ctx.cfg = cfg
+        self.ctx.cfg_path_hint = cfg_path_hint
+        self.ctx.resolver = ThresholdResolver(self.cfg, self.dl, cfg_path_hint=cfg_path_hint)
         self.logger.info("[resolve] cfg path: %s", self.ctx.resolver.cfg_path_hint or "<unknown>")
 
         def _run_phase(phase_key: str, label: str, fn: Callable[[], Dict[str, Any]]):
@@ -161,10 +181,11 @@ class MonitorEngine:
         except Exception:
             width = 92
 
-        cfg_obj = getattr(self.dl, "global_config", None)
+        cfg_obj, cfg_path_hint = _load_monitor_cfg()
         ctx = {
             "dl": self.dl,
             "cfg": cfg_obj,
+            "cfg_path_hint": cfg_path_hint,
             "loop_counter": int(loop_counter),
             "poll_interval_s": int(interval),
             "total_elapsed_s": float(max(0.0, time.time() - start_wall)),
