@@ -83,9 +83,33 @@ def _get_active_positions(context: Dict[str, Any]) -> List[Dict[str, Any]]:
 # ──────────────────────────────────────────────────────────────────────────────
 def _first(*vals):
     for v in vals:
-        if v not in (None, "", [], {}, ()): 
+        if v not in (None, "", [], {}, ()):
             return v
     return None
+
+def _to_mapping(item: Any) -> Dict[str, Any]:
+    """
+    Coerce PositionDB/Position (pydantic) or any model-like object into a dict.
+    """
+    if item is None:
+        return {}
+    # pydantic v2
+    md = getattr(item, "model_dump", None)
+    if callable(md):
+        try:
+            return md()
+        except Exception:
+            pass
+    # pydantic v1
+    md = getattr(item, "dict", None)
+    if callable(md):
+        try:
+            return md()
+        except Exception:
+            pass
+    # generic
+    d = getattr(item, "__dict__", None)
+    return d if isinstance(d, dict) else {}
 
 def _num(x: Any) -> Optional[float]:
     try:
@@ -113,45 +137,44 @@ def _fmt_size(v: Any) -> str:
     return f"{n:,.2f}" if n is not None else "-" if v in (None, "") else str(v)
 
 def _sym(d: Dict[str, Any]) -> str:
-    return str(_first(d.get("symbol"), d.get("asset"), d.get("sym"), d.get("name"), "—"))
+    # PositionDB: asset_type
+    return str(_first(d.get("asset_type"), d.get("symbol"), d.get("asset"), d.get("name"), "—"))
 
-def _row_from_item(d: Dict[str, Any]) -> str:
-    # columns: Asset | Size | Value | PnL | Lev | Liq | Heat | Trave
+def _row_from_item(item: Any) -> str:
+    """
+    PositionDB-aware row:
+      asset_type, size, value, pnl_after_fees_usd, leverage,
+      liquidation_distance, (current_)heat_index, travel_percent
+    """
+    d = _to_mapping(item)
     asset = _sym(d)
-    size  = _fmt_size(_first(d.get("size"), d.get("sizeUsd"), d.get("qty")))
-    val   = _fmt_money(_first(d.get("valueUsd"), d.get("value"), d.get("notionalUsd")))
-    pnl   = _fmt_money(_first(d.get("pnlUsd"), d.get("pnl"), d.get("unrealizedPnl")))
-    lev   = _fmt_lev(_first(d.get("lev"), d.get("leverage")))
-    liq   = _fmt_pct(_first(d.get("liqPct"), d.get("liquidationDistancePct"), d.get("liq_pct")))
-    heat  = _fmt_pct(_first(d.get("heatPct"), d.get("heat"), d.get("riskPct")))
-    trav  = _fmt_pct(_first(d.get("travelPct"), d.get("travel"), d.get("travePct"), d.get("trave")))
+    size  = _fmt_size(d.get("size"))
+    val   = _fmt_money(d.get("value"))
+    pnl   = _fmt_money(_first(d.get("pnl_after_fees_usd"), d.get("pnl"), d.get("unrealizedPnl")))
+    lev   = _fmt_lev(d.get("leverage"))
+    # show distance raw; if you later store a percent we can swap to pct
+    liq   = _fmt_pct(d.get("liquidation_distance")) if "liquidation_distance" in d else "-"
+    heat  = _fmt_pct(_first(d.get("current_heat_index"), d.get("heat_index")))
+    trav  = _fmt_pct(_first(d.get("travel_percent"), d.get("travel")))
     return f"{asset:<8} {size:>9} {val:>10} {pnl:>9} {lev:>6} {liq:>6} {heat:>6} {trav:>6}"
 
-def _totals(items: List[Dict[str, Any]]) -> Tuple[str, str, str, str, str, str, str, str]:
+def _totals(items: List[Any]) -> Tuple[str, str, str, str, str, str, str, str]:
     size = value = pnl = 0.0
-    n = 0
     levs: List[float] = []
     travs: List[float] = []
-    for d in items:
-        n += 1
-        v = _num(_first(d.get("size"), d.get("sizeUsd")));          size  += 0.0 if v is None else v
-        v = _num(_first(d.get("valueUsd"), d.get("value")));        value += 0.0 if v is None else v
-        v = _num(_first(d.get("pnlUsd"), d.get("pnl")));            pnl   += 0.0 if v is None else v
-        v = _num(_first(d.get("lev"), d.get("leverage")));          levs.append(v) if v is not None else None
-        v = _num(_first(d.get("travelPct"), d.get("travel")));      travs.append(v) if v is not None else None
+    for it in items:
+        d = _to_mapping(it)
+        v = _num(d.get("size"));                 size  += 0.0 if v is None else v
+        v = _num(d.get("value"));                value += 0.0 if v is None else v
+        v = _num(_first(d.get("pnl_after_fees_usd"), d.get("pnl"))); pnl += 0.0 if v is None else v
+        v = _num(d.get("leverage"));             levs.append(v) if v is not None else None
+        v = _num(_first(d.get("travel_percent"), d.get("travel"))); travs.append(v) if v is not None else None
     avg_lev  = sum(levs)/len(levs)   if levs  else None
     avg_trav = sum(travs)/len(travs) if travs else None
-    return (
-        "Totals",
-        _fmt_size(size),
-        _fmt_money(value),
-        _fmt_money(pnl),
-        _fmt_lev(avg_lev),
-        "—", "—",
-        _fmt_pct(avg_trav),
-    )
+    return ("Totals", _fmt_size(size), _fmt_money(value), _fmt_money(pnl),
+            _fmt_lev(avg_lev), "—", "—", _fmt_pct(avg_trav))
 
-def _format_totals(items: List[Dict[str, Any]]) -> str:
+def _format_totals(items: List[Any]) -> str:
     t = _totals(items)
     return f"{t[0]:<8} {t[1]:>9} {t[2]:>10} {t[3]:>9} {t[4]:>6} {t[5]:>6} {t[6]:>6} {t[7]:>6}"
 
@@ -180,9 +203,6 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             return out
 
         for d in items:
-            if not isinstance(d, dict):
-                # try model-like object
-                d = getattr(d, "__dict__", {}) or {}
             out += body_indent_lines(PANEL_SLUG, [color_if_plain(_row_from_item(d), body["body_text_color"])])
 
         out += body_indent_lines(PANEL_SLUG, [paint_line(_format_totals(items), body["totals_row_color"])])
