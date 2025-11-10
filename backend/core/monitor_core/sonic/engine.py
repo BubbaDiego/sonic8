@@ -17,6 +17,7 @@ from .storage.activity_store import ActivityStore  # keeps Cycle Activity panel 
 from .reporting.console.runner import run_console_reporters
 from backend.models.monitor_status import MonitorStatus
 from backend.core.monitor_core.resolver import ThresholdResolver
+from backend.core.monitor_core.xcom_bridge import dispatch_breaches_from_dl
 
 
 MON_CFG_PATH = Path(r"C:\\sonic7\\backend\\config\\sonic_monitor_config.json")
@@ -154,6 +155,16 @@ class MonitorEngine:
                 return out
 
             _run_phase(name, f"{name.capitalize()} monitor", _run_mon)
+
+        sent = dispatch_breaches_from_dl(self.dl, self.cfg)
+        self.logger.info("[xcom] sent %d notifications", len(sent))
+
+        sysmgr = getattr(self.dl, "system", None)
+        if sysmgr and hasattr(sysmgr, "set_var"):
+            try:
+                sysmgr.set_var("xcom_last_sent", sent)
+            except Exception as exc:
+                self.logger.info("[xcom] failed to record last sent: %s", exc)
 
         # 3) heartbeat
         _run_phase("heartbeat", "Heartbeat", lambda: (self.heartbeat.touch() or {"ok": True}))
