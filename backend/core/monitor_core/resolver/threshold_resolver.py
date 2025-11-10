@@ -17,6 +17,13 @@ class ResolutionTrace:
     evidence: str
 
 
+def _maybe_float(v: Any) -> Optional[float]:
+    try:
+        return None if v is None else float(v)
+    except Exception:
+        return None
+
+
 class ThresholdResolver:
     """Centralized resolver for monitor thresholds with trace logging."""
 
@@ -24,6 +31,7 @@ class ThresholdResolver:
         self.cfg = cfg or {}
         self.dl = dl
         self.logger = logger or logging.getLogger("sonic.resolver")
+        self.cfg_path_hint = self._discover_cfg_path_hint()
 
     # --------- helpers
     def _file_obj(self, path: Tuple[str, ...]) -> Optional[Any]:
@@ -33,6 +41,28 @@ class ThresholdResolver:
                 return None
             cur = cur[p]
         return cur
+
+    def _cfg_get(self, *path: str) -> Optional[Any]:
+        return self._file_obj(path)
+
+    def _discover_cfg_path_hint(self) -> Optional[str]:
+        try:
+            if isinstance(self.cfg, dict):
+                for key in ("_path_hint", "_cfg_path_hint", "config_path", "config_file"):
+                    val = self.cfg.get(key)
+                    if val:
+                        return str(val)
+        except Exception:
+            pass
+
+        for attr in ("config_path", "config_file", "config_path_hint"):
+            try:
+                val = getattr(self.dl, attr, None)
+                if val:
+                    return str(val)
+            except Exception:
+                continue
+        return None
 
     def _db_alert_thresholds(self) -> Dict[str, Any]:
         """Best-effort read of DB alert thresholds JSON (if present)."""
@@ -49,6 +79,35 @@ class ThresholdResolver:
         except Exception:
             pass
         return {}
+
+    # ---------- inspectors (for UI) ----------
+    def inspect_liquid(self, sym: str) -> Dict[str, Optional[float]]:
+        layers: Dict[str, Optional[float]] = {"json": None, "json_legacy": None, "db": None, "env": None, "default": None}
+        v = self._cfg_get("liquid_monitor", "thresholds")
+        if isinstance(v, dict) and sym in v:
+            layers["json"] = _maybe_float(v[sym])
+        v = self._cfg_get("liquid", "thresholds")
+        if isinstance(v, dict) and sym in v:
+            layers["json_legacy"] = _maybe_float(v[sym])
+        dbt = self._db_alert_thresholds()
+        layers["db"] = _maybe_float((dbt.get("thresholds") or {}).get(sym))
+        env = os.getenv(f"LIQ_{sym}_THRESH")
+        layers["env"] = _maybe_float(env)
+        defaults = {"BTC": 5.3, "ETH": 111.0, "SOL": 11.5}
+        layers["default"] = _maybe_float(defaults.get(sym))
+        return layers
+
+    def inspect_profit(self, key: str) -> Dict[str, Optional[float]]:
+        layers: Dict[str, Optional[float]] = {"json": None, "db": None, "env": None, "default": None}
+        v = self._cfg_get("profit_monitor", key)
+        layers["json"] = _maybe_float(v)
+        dbt = self._db_alert_thresholds()
+        layers["db"] = _maybe_float((dbt.get("profit") or {}).get(key))
+        env = os.getenv(f"PROFIT_{key}".upper())
+        layers["env"] = _maybe_float(env)
+        defaults = {"position_profit_usd": 10.0, "portfolio_profit_usd": 40.0}
+        layers["default"] = _maybe_float(defaults.get(key))
+        return layers
 
     def _emit(self, trace: ResolutionTrace) -> ResolutionTrace:
         try:

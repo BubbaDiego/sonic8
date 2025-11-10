@@ -44,6 +44,15 @@
         "totals_row_color": "grey50"
       }
     },
+    "preflight": {
+      "title": {
+        "string": "Pre-Flight Config",
+        "icon": "\ud83e\uddea",
+        "border_style": "rounded",
+        "border_color": "default",
+        "text_color": "cyan"
+      }
+    },
     "monitors": {
       "title": {
         "string": "Monitors",
