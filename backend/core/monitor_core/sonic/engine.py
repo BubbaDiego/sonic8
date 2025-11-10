@@ -57,7 +57,8 @@ class MonitorEngine:
         self.ctx.start_cycle()
         cycle_id = self.ctx.cycle_id or "unknown"
         cycle_t0 = time.monotonic()
-        self.ctx.resolver = ThresholdResolver(self.cfg, self.dl, logger=self.logger)
+        self.ctx.resolver = ThresholdResolver(self.cfg, self.dl)
+        self.logger.info("[resolve] cfg path: %s", self.ctx.resolver.cfg_path_hint or "<unknown>")
 
         def _run_phase(phase_key: str, label: str, fn: Callable[[], Dict[str, Any]]):
             tok = self.activities.begin(cycle_id, phase_key, label)
@@ -97,7 +98,12 @@ class MonitorEngine:
                 post_traces = getattr(self.ctx, "resolve_traces", []) or []
                 new_traces = post_traces[pre_trace_len:]
                 if new_traces:
-                    trace_dicts = [dict(t.__dict__) for t in new_traces]
+                    trace_dicts = []
+                    for t in new_traces:
+                        if isinstance(t, dict):
+                            trace_dicts.append(dict(t))
+                        else:
+                            trace_dicts.append(dict(getattr(t, "__dict__", {}) or {}))
                     existing = out.get("resolve_traces")
                     if isinstance(existing, list):
                         existing.extend(trace_dicts)

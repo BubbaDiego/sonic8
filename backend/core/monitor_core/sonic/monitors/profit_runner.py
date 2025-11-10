@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any, Dict, List
 from datetime import datetime, timezone
 from collections import defaultdict
@@ -81,8 +82,7 @@ def _ensure_resolver(ctx: Any) -> ThresholdResolver:
     if isinstance(res, ThresholdResolver):
         return res
     cfg = getattr(ctx, "cfg", {}) or {}
-    logger = getattr(ctx, "logger", None)
-    res = ThresholdResolver(cfg, getattr(ctx, "dl", None), logger=logger)
+    res = ThresholdResolver(cfg, getattr(ctx, "dl", None))
     setattr(ctx, "resolver", res)
     return res
 
@@ -90,15 +90,16 @@ def _ensure_resolver(ctx: Any) -> ThresholdResolver:
 def _register_trace(ctx: Any, trace: ResolutionTrace) -> None:
     if trace is None:
         return
+    trace_dict = asdict(trace)
     adder = getattr(ctx, "add_resolve_traces", None)
     if callable(adder):
-        adder([trace])
+        adder([trace_dict])
         return
     bucket = getattr(ctx, "resolve_traces", None)
     if isinstance(bucket, list):
-        bucket.append(trace)
+        bucket.append(trace_dict)
     else:
-        setattr(ctx, "resolve_traces", [trace])
+        setattr(ctx, "resolve_traces", [trace_dict])
 
 
 def _state_from_comparator(op: str, value: float, thr: float) -> MonitorState:

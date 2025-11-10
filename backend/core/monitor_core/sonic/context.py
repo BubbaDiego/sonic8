@@ -8,10 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from backend.core.monitor_core.resolver.threshold_resolver import (
-        ResolutionTrace,
-        ThresholdResolver,
-    )
+    from backend.core.monitor_core.resolver.threshold_resolver import ThresholdResolver
 
 @dataclass
 class MonitorContext:
@@ -22,7 +19,7 @@ class MonitorContext:
     cycle_started_at: Optional[str] = None
     cycle_id: Optional[str] = None
     resolver: Optional["ThresholdResolver"] = None
-    resolve_traces: List["ResolutionTrace"] = field(default_factory=list)
+    resolve_traces: List[Dict[str, Any]] = field(default_factory=list)
     extras: Dict[str, Any] = field(default_factory=dict)
 
     def start_cycle(self) -> None:
@@ -45,7 +42,7 @@ class MonitorContext:
             return self.resolve_traces if self.resolve_traces else default
         return self.extras.get(key, default)
 
-    def add_resolve_traces(self, traces: List["ResolutionTrace"]) -> None:
+    def add_resolve_traces(self, traces: List[Dict[str, Any]]) -> None:
         for tr in traces or []:
             if tr is not None:
                 self.resolve_traces.append(tr)
