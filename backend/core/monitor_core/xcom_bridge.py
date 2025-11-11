@@ -105,8 +105,12 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
 
             log.info("[xcom] aggregator missing; using voice-only fallback")
 
+    if not isinstance(cfg, dict):
+        cfg = {}
+
     rows = _latest_dl_rows(dl)
     log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
+    log.info("[xcom] channels(liquid)=%s", _channels_for_monitor(cfg or {}, "liquid"))
     if not rows:
         return []
 

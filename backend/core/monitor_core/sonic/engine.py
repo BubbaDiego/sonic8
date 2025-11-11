@@ -176,7 +176,7 @@ class MonitorEngine:
             "total_elapsed_s": round(float(elapsed), 3),
             "ts": datetime.now().isoformat(timespec="seconds"),
         }
-        run_console_reporters(self.dl, self.debug, footer_ctx=footer_ctx)
+        run_console_reporters(self.dl, self.debug, footer_ctx=footer_ctx, cfg=self.cfg)
 
     def _run_panel_stack(self, loop_counter: int, interval: int, start_wall: float) -> None:
         """Render the reporter panel stack with explicit debug traces."""

@@ -23,9 +23,9 @@ def _load_monitor_cfg():
 
 # ---- Panel module order (override with SONIC_REPORT_PANELS) -------------------
 DEFAULT_PANEL_MODULES: List[str] = [
+    "backend.core.reporting_core.sonic_reporting.console_panels.preflight_config_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.price_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.positions_panel",
-    "backend.core.reporting_core.sonic_reporting.console_panels.preflight_config_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.monitor_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.resolve_log_panel",
 ]
@@ -77,11 +77,17 @@ def render_panel_stack(
     ctx = dict(ctx or {})
 
     loaded_cfg, cfg_path_hint = _load_monitor_cfg()
-    cfg = loaded_cfg
+    if isinstance(cfg, dict):
+        cfg_dict = cfg
+    else:
+        cfg_dict = loaded_cfg
+
+    if not isinstance(cfg_dict, dict):
+        cfg_dict = {}
 
     ctx.setdefault("dl", dl)
-    ctx["cfg"] = cfg
-    ctx["cfg_path_hint"] = cfg_path_hint
+    ctx.setdefault("cfg_path_hint", cfg_path_hint)
+    ctx["cfg"] = cfg_dict
     ctx.setdefault("width", width)
     ctx.setdefault("resolve_traces", [])
 
