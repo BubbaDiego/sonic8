@@ -13,7 +13,11 @@ from uuid import uuid4
 import traceback  # PATCH: for full stack info
 
 from backend.data.data_locker import DataLocker
-from backend.core.core_constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
+from backend.core.core_constants import (
+    MOTHER_DB_PATH,
+    ALERT_THRESHOLDS_PATH,
+    SONIC_MONITOR_CONFIG_PATH,
+)
 from backend.core.alert_core.config.loader import load_thresholds
 from backend.core.logging import log, configure_console_log
 from core.core_constants import CYCLONE_LOG_FILE
@@ -114,6 +118,11 @@ class Cyclone:
             )
             try:
                 self.config = load_thresholds(ALERT_THRESHOLDS_PATH)
+                self.logger.info(
+                    "[cyclone] thresholds in use: legacy=%s  monitor=%s",
+                    str(ALERT_THRESHOLDS_PATH),
+                    str(SONIC_MONITOR_CONFIG_PATH),
+                )
                 self.data_locker.system.set_var("alert_thresholds", self.config)
             except Exception as exc:
                 # self.system_core.death(
