@@ -155,6 +155,36 @@ class MonitorEngine:
 
             _run_phase(name, f"{name.capitalize()} monitor", _run_mon)
 
+        self.logger.info("[mon] dl_monitors updated")
+        mm = getattr(self.dl, "dl_monitors", None) or getattr(self.dl, "monitors", None)
+        rows_obj: Any = []
+        if mm is not None:
+            try:
+                getter = getattr(mm, "get_rows", None)
+                if callable(getter):
+                    rows_obj = getter()
+                else:
+                    rows_obj = getattr(mm, "rows", None) or getattr(mm, "items", None) or []
+            except Exception as exc:
+                self.logger.info("[mon] dl_monitors rows read failed: %s", exc)
+                rows_obj = []
+
+        if isinstance(rows_obj, list):
+            rows: List[Any] = rows_obj
+        elif isinstance(rows_obj, tuple):
+            rows = list(rows_obj)
+        elif isinstance(rows_obj, dict):
+            rows = list(rows_obj.values())
+        elif rows_obj and hasattr(rows_obj, "__iter__"):
+            try:
+                rows = list(rows_obj)
+            except TypeError:
+                rows = []
+        else:
+            rows = []
+
+        self.logger.info("[mon] dl_monitors rows after evaluate = %d", len(rows))
+
         sent = dispatch_breaches_from_dl(self.dl, self.cfg)
         self.logger.info("[xcom] sent %d notifications", len(sent))
 

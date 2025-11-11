@@ -110,7 +110,8 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     rows = _latest_dl_rows(dl)
     log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
-    log.info("[xcom] channels(liquid)=%s", _channels_for_monitor(cfg or {}, "liquid"))
+    log.info("[xcom] channels(liquid)=%s", _channels_for_monitor(cfg, "liquid"))
+    log.info("[xcom] channels(profit)=%s", _channels_for_monitor(cfg, "profit"))
     if not rows:
         return []
 
