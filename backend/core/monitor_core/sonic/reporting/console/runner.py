@@ -80,6 +80,7 @@ def run_console_reporters(
     debug: bool = False,
     *,
     footer_ctx: Optional[dict] = None,
+    cfg: Optional[dict] = None,
 ) -> None:
     """
     Final ordering:
@@ -106,7 +107,12 @@ def run_console_reporters(
         except Exception:
             width = 92
 
-        cfg_obj = getattr(dl, "global_config", None)
+        cfg_obj: Optional[dict]
+        if isinstance(cfg, dict):
+            cfg_obj = cfg
+        else:
+            gc = getattr(dl, "global_config", None)
+            cfg_obj = gc if isinstance(gc, dict) else None
         ctx = {
             "dl": dl,
             "cfg": cfg_obj,
@@ -119,35 +125,6 @@ def run_console_reporters(
         _cr.render_panel_stack(ctx=ctx, dl=dl, cfg=cfg_obj, width=width, writer=print)
     except Exception as exc:
         print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
-
-    # Use new standardized monitors panel with a context dict (not dl)
-    try:
-        mod = importlib.import_module(
-            "backend.core.reporting_core.sonic_reporting.console_panels.monitor_panel"
-        )
-        fn = getattr(mod, "render", None)
-        if callable(fn):
-            latest = _load_latest_csum()
-            enabled = latest.get("monitors_enabled") or _fallback_monitors_enabled()
-            # Monitors panel expects a context dict with the freshest csum attached.
-            ctx = {
-                "dl": dl,
-                "csum": latest,
-                "monitors": latest.get("monitors", {}),
-                "monitors_enabled": enabled,
-                "loop_counter": int((footer_ctx or {}).get("loop_counter", 0)),
-                "poll_interval_s": int((footer_ctx or {}).get("poll_interval_s", 0)),
-                "total_elapsed_s": float((footer_ctx or {}).get("total_elapsed_s", 0.0)),
-                "ts": (footer_ctx or {}).get("ts", time.time()),
-            }
-            lines = fn(ctx)
-            if isinstance(lines, (list, tuple)):
-                for ln in lines:
-                    print(ln)
-            elif isinstance(lines, str):
-                print(lines)
-    except Exception as e:
-        print(f"[REPORT] console_panels.monitor_panel.render failed: {e}")
 
     _safe_render(
         "backend.core.reporting_core.sonic_reporting.xcom_panel",
