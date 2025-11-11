@@ -94,28 +94,30 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     # import dispatcher late to avoid hard dep if disabled
     try:
-        from backend.core.xcom_core import dispatch_notifications  # type: ignore
+        from backend.core.xcom_core.xcom_core import dispatch_notifications  # type: ignore
     except Exception:  # pragma: no cover - compatibility shim
         try:
-            # older path
             from backend.core.xcom_core.dispatcher import dispatch_notifications  # type: ignore
-        except Exception as e:  # pragma: no cover - compatibility shim
-            log.info("[xcom] dispatcher import failed: %s", e)
-            return []
+        except Exception:
+            from backend.core.xcom_core.dispatch import (
+                dispatch_voice_if_needed as dispatch_notifications,
+            )  # type: ignore
+
+            log.info("[xcom] aggregator missing; using voice-only fallback")
 
     rows = _latest_dl_rows(dl)
+    log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
     if not rows:
         return []
 
     now = time.time()
     out: List[Dict[str, Any]] = []
 
+    breaches = [r for r in rows if str(r.get("state", "")).upper() == "BREACH"]
+    log.info("[xcom] breaches=%d", len(breaches))
+
     # process newest-first for determinism
-    for r in rows:
-        # only BREACH items go out
-        state = (r.get("state") or "").upper()
-        if state != "BREACH":
-            continue
+    for r in breaches:
 
         mon = (r.get("monitor") or "").lower()
         if mon not in ("liquid", "profit", "market", "price"):
@@ -162,6 +164,8 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
         }
         out.append(summary)
         log.info("[xcom] dispatched %s %s -> %s", mon, r.get("label"), json.dumps(channels))
+
+    log.info("[xcom] sent %d notifications", len(out))
 
     return out
 

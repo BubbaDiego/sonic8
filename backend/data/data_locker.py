@@ -17,8 +17,8 @@ import json
 import sqlite3
 from collections.abc import Mapping
 from typing import Any, Dict, Optional
+
 from backend.data.database import DatabaseManager
-from backend.data.dl_alerts import DLAlertManager
 from backend.data.dl_monitors import DLMonitorsManager
 from backend.data.dl_prices import DLPriceManager
 from backend.data.dl_positions import DLPositionManager
@@ -67,6 +67,10 @@ from backend.core.core_constants import (
 
 from backend.core.logging import log  # Corrected clearly
 from backend.utils.env_utils import _resolve_env
+
+ALERTS_ENABLED = (
+    os.getenv("SONIC_ALERTS_ENABLED", "0").strip().lower() not in {"0", "false", "no", "off"}
+)
 
 try:
     from system.death_nail_service import DeathNailService
@@ -120,7 +124,22 @@ class DataLocker:
         if not isinstance(self.db, DatabaseManager):
             raise TypeError("db must be a DatabaseManager instance")
 
-        self.alerts = DLAlertManager(self.db)
+        self.alerts = None
+        if ALERTS_ENABLED:
+            try:
+                from backend.data.dl_alerts import DLAlertManager, ensure_schema  # local import
+
+                ensure_schema(self.db)
+                self.alerts = DLAlertManager(self.db)
+                log.info("[dl] alerts enabled", source="DataLocker")
+            except Exception as exc:
+                log.warning(
+                    f"[dl] alerts disabled (init error): {exc}",
+                    source="DataLocker",
+                )
+                self.alerts = None
+        else:
+            log.info("[dl] alerts disabled by env", source="DataLocker")
         self.prices = DLPriceManager(self.db)
         self.positions = DLPositionManager(self.db)
         self.hedges = DLHedgeManager(self.db) if DLHedgeManager else None
@@ -151,7 +170,8 @@ class DataLocker:
             self.initialize_database()
             self._seed_modifiers_if_empty()
             self._seed_wallets_if_empty()
-            self._seed_alerts_if_empty()
+            if self.alerts is not None:
+                self._seed_alerts_if_empty()
             self._seed_traders_if_empty()
             self._seed_thresholds_if_empty()
             self._ensure_travel_percent_threshold()
@@ -703,6 +723,12 @@ class DataLocker:
     def get_system_alerts(self, limit: int = 20) -> list:
         """Return recent alerts belonging to the System class."""
         try:
+            if self.alerts is None:
+                log.info(
+                    "[dl] alerts unavailable; get_system_alerts returning empty list",
+                    source="DataLocker",
+                )
+                return []
             alerts = self.alerts.get_all_alerts()
             system_alerts = [a for a in alerts if a.get("alert_class") == "System"]
             return system_alerts[:limit]
@@ -990,6 +1016,13 @@ class DataLocker:
 
     def _seed_alerts_if_empty(self):
         """Seed the alerts table from sample_alerts.json if no alerts exist."""
+        if self.alerts is None:
+            log.info(
+                "[dl] alerts unavailable; skipping alert seed",
+                source="DataLocker",
+            )
+            return
+
         cursor = self.db.get_cursor()
         if not cursor:
             log.error("❌ DB unavailable, skipping alert seed", source="DataLocker")

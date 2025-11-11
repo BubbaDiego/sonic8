@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Callable, Tuple
 from datetime import datetime, timezone
 
@@ -18,17 +17,17 @@ from .reporting.console.runner import run_console_reporters
 from backend.models.monitor_status import MonitorStatus
 from backend.core.monitor_core.resolver import ThresholdResolver
 from backend.core.monitor_core.xcom_bridge import dispatch_breaches_from_dl
-
-
-MON_CFG_PATH = Path(r"C:\\sonic7\\backend\\config\\sonic_monitor_config.json")
+from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH
 
 
 def _load_monitor_cfg() -> Tuple[Dict[str, Any], str]:
     try:
-        with MON_CFG_PATH.open("r", encoding="utf-8") as f:
+        with SONIC_MONITOR_CONFIG_PATH.open("r", encoding="utf-8") as f:
             cfg = json.load(f)
-        logging.getLogger("sonic.engine").info("[resolve] cfg path: %s", MON_CFG_PATH)
-        return cfg, str(MON_CFG_PATH)
+        logging.getLogger("sonic.engine").info(
+            "[resolve] cfg path: %s", SONIC_MONITOR_CONFIG_PATH
+        )
+        return cfg, str(SONIC_MONITOR_CONFIG_PATH)
     except Exception as e:
         logging.getLogger("sonic.engine").info("[resolve] cfg load failed: %s", e)
         return {}, "<unknown>"
