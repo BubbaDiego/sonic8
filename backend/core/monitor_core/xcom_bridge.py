@@ -3,9 +3,58 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 log = logging.getLogger("sonic.engine")
+
+
+# ---------- dispatcher adapter ----------
+# We always expose a local "send" function with a uniform signature:
+#     send(monitor: str, payload: dict, channels: dict, context: dict) -> Any
+# It maps to the best available XCom dispatcher implementation at runtime.
+
+
+def _bind_dispatcher() -> Tuple[Callable[[str, dict, dict, dict], Any], str]:
+    """Bind dispatcher implementation with graceful fallbacks."""
+
+    # 1) New aggregator path
+    try:
+        from backend.core.xcom_core.xcom_core import dispatch_notifications as _agg  # type: ignore
+
+        def _send(mon: str, payload: dict, channels: dict, context: dict):
+            return _agg(mon, payload, channels, context)
+
+        return _send, "aggregator:xcom_core"
+    except Exception:
+        pass
+
+    # 2) Older aggregator path
+    try:
+        from backend.core.xcom_core.dispatcher import dispatch_notifications as _agg2  # type: ignore
+
+        def _send(mon: str, payload: dict, channels: dict, context: dict):
+            return _agg2(mon, payload, channels, context)
+
+        return _send, "aggregator:dispatcher"
+    except Exception:
+        pass
+
+    # 3) Voice-only shim; adapt to our uniform call
+    try:
+        from backend.core.xcom_core.dispatch import dispatch_voice_if_needed as _voice  # type: ignore
+
+        def _send(mon: str, payload: dict, channels: dict, context: dict):
+            return _voice(payload=payload, channels=channels, context=context)
+
+        return _send, "voice-only"
+    except Exception:
+        pass
+
+    # 4) Nothing available; no-op
+    def _noop(mon: str, payload: dict, channels: dict, context: dict):
+        return {"ok": False, "reason": "no-dispatcher"}
+
+    return _noop, "noop"
 
 
 # ---- helper: read dl_monitors rows for the latest cycle ----
@@ -110,18 +159,8 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     and dispatches via xcom_core.dispatch_notifications(...).
     Returns a list of dispatch summaries.
     """
-    # import dispatcher late to avoid hard dep if disabled
-    try:
-        from backend.core.xcom_core import dispatch_notifications  # type: ignore
-    except Exception:  # pragma: no cover - compatibility shim
-        try:
-            from backend.core.xcom_core.dispatcher import dispatch_notifications  # type: ignore
-        except Exception:
-            from backend.core.xcom_core.dispatch import (
-                dispatch_voice_if_needed as dispatch_notifications,
-            )  # type: ignore
-
-            log.info("[xcom] aggregator missing; using voice-only fallback")
+    send, mode = _bind_dispatcher()
+    log.info("[xcom] dispatcher mode=%s", mode)
 
     if not isinstance(cfg, dict):
         cfg = {}
@@ -178,7 +217,7 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
         }
 
         try:
-            result = dispatch_notifications(mon, payload, channels, context)
+            result = send(mon, payload, channels, context)
         except Exception as e:  # pragma: no cover - dispatch is external
             log.info("[xcom] dispatch error for %s %s: %s", mon, r.get("label"), e)
             continue
