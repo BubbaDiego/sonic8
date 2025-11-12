@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import time
@@ -20,6 +21,32 @@ def _bind_dispatcher() -> Tuple[Callable[[str, dict, dict, dict], Any], str]:
     # 1) New aggregator path
     try:
         from backend.core.xcom_core.xcom_core import dispatch_notifications as _agg  # type: ignore
+
+        try:
+            import backend.core.xcom_core.dispatch as vmod  # type: ignore
+
+            fn = getattr(vmod, "dispatch_voice_if_needed", None)
+            if callable(fn):
+                params = tuple(inspect.signature(fn).parameters.keys())
+                if "monitor_name" not in params:
+                    _orig = fn
+
+                    def _patched(
+                        *,
+                        monitor_name=None,
+                        payload=None,
+                        channels=None,
+                        context=None,
+                        **kw,
+                    ):
+                        return _orig(payload=payload, channels=channels, context=context)
+
+                    setattr(vmod, "dispatch_voice_if_needed", _patched)
+                    log.info(
+                        "[xcom] patched voice shim for aggregator compatibility (added monitor_name kw)"
+                    )
+        except Exception:
+            pass
 
         def _send(mon: str, payload: dict, channels: dict, context: dict):
             return _agg(mon, payload, channels, context)
