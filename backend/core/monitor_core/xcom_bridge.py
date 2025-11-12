@@ -30,11 +30,17 @@ def _latest_dl_rows(dl) -> List[Dict[str, Any]]:
 def _channels_for_monitor(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
     """
     name: 'liquid' | 'profit' | 'market' | 'price'
-    Config layout (from sonic_monitor_config.json):
-      <name> or <name>_monitor -> notifications: {system, voice, sms, tts}
+    Look in BOTH places and prefer the one that actually defines notifications:
+      - <name>_monitor.notifications (if present)
+      - <name>.notifications (fallback)
     """
-    root = cfg.get(f"{name}_monitor") or cfg.get(name) or {}
-    notif = (root or {}).get("notifications") or {}
+    root1 = cfg.get(f"{name}_monitor") or {}
+    root2 = cfg.get(name) or {}
+    notif: Dict[str, Any] = {}
+    if isinstance(root1, dict) and "notifications" in root1:
+        notif = root1.get("notifications") or {}
+    elif isinstance(root2, dict) and "notifications" in root2:
+        notif = root2.get("notifications") or {}
     return {
         "system": bool(notif.get("system")),
         "voice": bool(notif.get("voice")),
@@ -112,6 +118,12 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
     log.info("[xcom] channels(liquid)=%s", _channels_for_monitor(cfg, "liquid"))
     log.info("[xcom] channels(profit)=%s", _channels_for_monitor(cfg, "profit"))
+    log.info(
+        "[xcom] cfg.liquid has notifications? %s  | cfg.liquid_monitor has? %s",
+        isinstance(cfg.get("liquid"), dict) and "notifications" in cfg.get("liquid"),
+        isinstance(cfg.get("liquid_monitor"), dict)
+        and "notifications" in cfg.get("liquid_monitor"),
+    )
     if not rows:
         return []
 
