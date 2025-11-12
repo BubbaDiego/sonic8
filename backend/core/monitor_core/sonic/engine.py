@@ -17,6 +17,7 @@ from .reporting.console.runner import run_console_reporters
 from backend.models.monitor_status import MonitorStatus
 from backend.core.monitor_core.resolver import ThresholdResolver
 from backend.core.monitor_core.xcom_bridge import dispatch_breaches_from_dl
+from backend.core.monitor_core.mon_bus_utils import ensure_bus_has_current_cycle
 from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH
 
 
@@ -157,33 +158,43 @@ class MonitorEngine:
 
         self.logger.info("[mon] dl_monitors updated")
         mm = getattr(self.dl, "dl_monitors", None) or getattr(self.dl, "monitors", None)
-        rows_obj: Any = []
-        if mm is not None:
+
+        def _rows_from_mgr(mgr: Any) -> List[Any]:
+            if mgr is None:
+                return []
             try:
-                getter = getattr(mm, "get_rows", None)
+                getter = getattr(mgr, "get_rows", None)
                 if callable(getter):
-                    rows_obj = getter()
+                    rows_val = getter()
                 else:
-                    rows_obj = getattr(mm, "rows", None) or getattr(mm, "items", None) or []
+                    rows_val = getattr(mgr, "rows", None) or getattr(mgr, "items", None) or []
             except Exception as exc:
                 self.logger.info("[mon] dl_monitors rows read failed: %s", exc)
-                rows_obj = []
+                return []
 
-        if isinstance(rows_obj, list):
-            rows: List[Any] = rows_obj
-        elif isinstance(rows_obj, tuple):
-            rows = list(rows_obj)
-        elif isinstance(rows_obj, dict):
-            rows = list(rows_obj.values())
-        elif rows_obj and hasattr(rows_obj, "__iter__"):
-            try:
-                rows = list(rows_obj)
-            except TypeError:
-                rows = []
-        else:
-            rows = []
+            if isinstance(rows_val, list):
+                return list(rows_val)
+            if isinstance(rows_val, tuple):
+                return list(rows_val)
+            if isinstance(rows_val, dict):
+                return list(rows_val.values())
+            if rows_val and hasattr(rows_val, "__iter__"):
+                try:
+                    return list(rows_val)
+                except TypeError:
+                    return []
+            return []
 
-        self.logger.info("[mon] dl_monitors rows after evaluate = %d", len(rows))
+        rows = _rows_from_mgr(mm)
+        injected = 0
+        if not rows:
+            injected = ensure_bus_has_current_cycle(self.dl, self.logger)
+            rows = _rows_from_mgr(mm)
+        self.logger.info(
+            "[mon] dl_monitors rows after evaluate = %d, backfilled=%d",
+            len(rows),
+            injected,
+        )
 
         sent = dispatch_breaches_from_dl(self.dl, self.cfg)
         self.logger.info("[xcom] sent %d notifications", len(sent))

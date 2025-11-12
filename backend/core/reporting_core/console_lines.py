@@ -76,6 +76,7 @@ def emit_compact_cycle(
     ctx: Dict[str, Any] = {
         "dl": dl,
         "cfg": cfg_dict,
+        "csum": summary or {},
         "loop_counter": int(lc),
         "poll_interval_s": int(poll_interval_s),
         "total_elapsed_s": float(tot),

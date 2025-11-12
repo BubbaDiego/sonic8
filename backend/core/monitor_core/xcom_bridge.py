@@ -3,27 +3,39 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 log = logging.getLogger("sonic.engine")
 
 
 # ---- helper: read dl_monitors rows for the latest cycle ----
+def _iter_rows_from_mgr(mgr: Any) -> Iterable[Dict[str, Any]]:
+    for meth in ("get_rows", "latest", "list", "all"):
+        fn = getattr(mgr, meth, None)
+        if callable(fn):
+            try:
+                got = fn()
+                if isinstance(got, list):
+                    for r in got:
+                        if isinstance(r, dict):
+                            yield r
+                    return
+            except Exception:
+                pass
+    for attr in ("rows", "items"):
+        arr = getattr(mgr, attr, None)
+        if isinstance(arr, list):
+            for r in arr:
+                if isinstance(r, dict):
+                    yield r
+            return
+
+
 def _latest_dl_rows(dl) -> List[Dict[str, Any]]:
     mm = getattr(dl, "dl_monitors", None) or getattr(dl, "monitors", None)
     if not mm:
         return []
-    # prefer get_rows() on manager; otherwise "rows" attr
-    getter = getattr(mm, "get_rows", None)
-    if callable(getter):
-        try:
-            rows = getter()
-            return rows if isinstance(rows, list) else []
-        except Exception as e:  # pragma: no cover - defensive logging
-            log.info("[xcom] dl_monitors.get_rows error: %s", e)
-            return []
-    rows = getattr(mm, "rows", None) or getattr(mm, "items", None)
-    return rows if isinstance(rows, list) else []
+    return list(_iter_rows_from_mgr(mm))
 
 
 # ---- helper: channel selection from JSON config ----
