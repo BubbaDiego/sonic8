@@ -94,7 +94,7 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     # import dispatcher late to avoid hard dep if disabled
     try:
-        from backend.core.xcom_core.xcom_core import dispatch_notifications  # type: ignore
+        from backend.core.xcom_core import dispatch_notifications  # type: ignore
     except Exception:  # pragma: no cover - compatibility shim
         try:
             from backend.core.xcom_core.dispatcher import dispatch_notifications  # type: ignore
