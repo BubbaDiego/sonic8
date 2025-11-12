@@ -1,64 +1,93 @@
 from __future__ import annotations
-import time, json, logging, inspect
+import time, json, logging, inspect, importlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Callable
 
 log = logging.getLogger("sonic.engine")
 
-# ====== Dispatcher adapter ======
-# Uniform local call: send(monitor, payload, channels, context) -> Any
-def _bind_dispatcher() -> Tuple[Callable[[str, dict, dict, dict], Any], str]:
-    # 1) Preferred multi-channel aggregator
+# ====== dispatcher adapter (uniform local API) ======
+# send_agg(mon, payload, channels, context) -> Any  (non-voice only)
+# send_voice(payload, channels, context) -> Any     (voice only; legacy signature)
+def _bind_dispatchers() -> Tuple[Callable[[str,dict,dict,dict],Any], Callable[[dict,dict,dict],Any], str]:
+    """
+    Returns (send_agg, send_voice, mode)
+      - send_agg handles system/sms/tts via aggregator (voice removed)
+      - send_voice calls the legacy voice shim directly with the *old* signature
+      - mode is for logging/diagnostics
+    """
+
+    # -------- voice shim (old signature we can always call) --------
+    _voice_fn = None
+    _voice_mode = "none"
+
+    # most trees
     try:
-        from backend.core.xcom_core.xcom_core import dispatch_notifications as _agg  # type: ignore
-        # Patch older voice shim to accept monitor_name if needed
+        vmod = importlib.import_module("backend.core.xcom_core.dispatch")
+        fn = getattr(vmod, "dispatch_voice_if_needed", None)
+        if callable(fn):
+            params = tuple(inspect.signature(fn).parameters.keys())
+            # legacy shim does NOT have 'monitor_name'
+            if "monitor_name" in params:
+                # wrap to ignore monitor_name if someone calls with it
+                _orig = fn
+                def _voice_compat(*, monitor_name=None, payload=None, channels=None, context=None, **kw):
+                    return _orig(payload=payload, channels=channels, context=context)
+                setattr(vmod, "dispatch_voice_if_needed", _voice_compat)
+                _voice_fn = getattr(vmod, "dispatch_voice_if_needed")
+                _voice_mode = "voice:wrapped"
+                log.info("[xcom] patched voice shim (ignored monitor_name)")
+            else:
+                _voice_fn = fn
+                _voice_mode = "voice:legacy"
+    except Exception:
+        pass
+
+    # if still none, install a no-op voice fn (so calling code is simple)
+    if not callable(_voice_fn):
+        def _voice_fn(payload=None, channels=None, context=None):  # type: ignore
+            return {"ok": False, "reason": "no-voice-shim"}
+        _voice_mode = "voice:noop"
+
+    # -------- aggregator (for non-voice) --------
+    _agg_fn = None
+    _mode = "noop"
+    try:
+        amod = importlib.import_module("backend.core.xcom_core.xcom_core")
+        agg = getattr(amod, "dispatch_notifications", None)
+        if callable(agg):
+            _agg_fn = agg
+            _mode = "aggregator:xcom_core"
+        else:
+            raise ImportError
+    except Exception:
         try:
-            import backend.core.xcom_core.dispatch as vmod  # type: ignore
-            fn = getattr(vmod, "dispatch_voice_if_needed", None)
-            if callable(fn):
-                params = tuple(inspect.signature(fn).parameters.keys())
-                if "monitor_name" not in params:
-                    _orig = fn
-                    def _patched(*, monitor_name=None, payload=None, channels=None, context=None, **kw):
-                        return _orig(payload=payload, channels=channels, context=context)
-                    setattr(vmod, "dispatch_voice_if_needed", _patched)
-                    log.info("[xcom] patched voice shim for aggregator compatibility (added monitor_name kw)")
+            dmod = importlib.import_module("backend.core.xcom_core.dispatcher")
+            agg2 = getattr(dmod, "dispatch_notifications", None)
+            if callable(agg2):
+                _agg_fn = agg2
+                _mode = "aggregator:dispatcher"
         except Exception:
-            pass
-        def _send(mon: str, payload: dict, channels: dict, context: dict):
-            return _agg(mon, payload, channels, context)
-        return _send, "aggregator:xcom_core"
-    except Exception:
-        pass
+            _agg_fn = None
+            _mode = "noop"
 
-    # 2) Older aggregator path
-    try:
-        from backend.core.xcom_core.dispatcher import dispatch_notifications as _agg2  # type: ignore
-        def _send(mon: str, payload: dict, channels: dict, context: dict):
-            return _agg2(mon, payload, channels, context)
-        return _send, "aggregator:dispatcher"
-    except Exception:
-        pass
+    # normalize to our local APIs
+    def send_agg(mon: str, payload: dict, channels: dict, context: dict):
+        if not callable(_agg_fn):
+            return {"ok": False, "reason": "no-aggregator"}
+        # enforce non-voice for aggregator (split path)
+        ch = dict(channels or {})
+        ch["voice"] = False
+        return _agg_fn(mon, payload, ch, context)
 
-    # 3) Voice-only shim; adapt signature
-    try:
-        from backend.core.xcom_core.dispatch import dispatch_voice_if_needed as _voice  # type: ignore
-        def _send(mon: str, payload: dict, channels: dict, context: dict):
-            return _voice(payload=payload, channels=channels, context=context)
-        return _send, "voice-only"
-    except Exception:
-        pass
+    def send_voice(payload: dict, channels: dict, context: dict):
+        # pass *only* the legacy signature
+        return _voice_fn(payload=payload, channels=channels, context=context)  # type: ignore
 
-    # 4) No dispatcher available
-    def _noop(mon: str, payload: dict, channels: dict, context: dict):
-        return {"ok": False, "reason": "no-dispatcher"}
-    return _noop, "noop"
+    log.info("[xcom] dispatcher mode=%s %s", _mode, _voice_mode)
+    return send_agg, send_voice, f"{_mode}|{_voice_mode}"
 
-# ====== Config helpers ======
+# ====== config helpers ======
 def _channels_for_monitor(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
-    """
-    Prefer <name>_monitor.notifications when present; otherwise <name>.notifications.
-    """
     root1 = cfg.get(f"{name}_monitor") or {}
     root2 = cfg.get(name) or {}
     if isinstance(root1, dict) and "notifications" in root1:
@@ -75,20 +104,16 @@ def _channels_for_monitor(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
     }
 
 def _global_snooze_seconds(cfg: Dict[str, Any]) -> int:
-    """
-    One global snooze window (seconds). Default = 0 (OFF) for 'amazingly simple'.
-    """
     mon = cfg.get("monitor") or {}
     try:
-        return int(mon.get("global_snooze_seconds", 0))
+        return int(mon.get("global_snooze_seconds", 0))  # 0 = OFF
     except Exception:
         return 0
 
 # ====== DL helpers ======
 def _latest_dl_rows(dl) -> List[Dict[str, Any]]:
     mm = getattr(dl, "dl_monitors", None) or getattr(dl, "monitors", None)
-    if not mm:
-        return []
+    if not mm: return []
     for meth in ("get_rows", "latest", "list", "all"):
         fn = getattr(mm, meth, None)
         if callable(fn):
@@ -114,7 +139,6 @@ def _get_last_sent_ts(dl) -> Optional[float]:
     if isinstance(v, (int,float)):
         return float(v)
     if isinstance(v, str):
-        # tolerate persisted string (epoch)
         try: return float(v)
         except Exception: return None
     return None
@@ -124,7 +148,7 @@ def _set_last_sent_ts(dl, ts: float) -> None:
     if sysmgr and hasattr(sysmgr, "set_var"):
         sysmgr.set_var("xcom_last_sent_ts", ts)
 
-# ====== Bridge ======
+# ====== bridge ======
 def _compose_text(row: Dict[str, Any]) -> Tuple[str, str, str]:
     mon  = (row.get("monitor") or "").lower()
     lab  = row.get("label","")
@@ -140,21 +164,15 @@ def _compose_text(row: Dict[str, Any]) -> Tuple[str, str, str]:
     return subj, body, tts
 
 def _pick_event(breaches: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Pick one event to announce (simple & predictable):
-    priority by monitor: liquid > profit > market > price, preserve row order otherwise.
-    """
     priority = {"liquid": 0, "profit": 1, "market": 2, "price": 3}
     return sorted(breaches, key=lambda r: (priority.get((r.get("monitor") or "").lower(), 99)))[0]
 
 def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
-    send, mode = _bind_dispatcher()
-    log.info("[xcom] dispatcher mode=%s", mode)
+    send_agg, send_voice, mode = _bind_dispatchers()
 
     rows = _latest_dl_rows(dl)
     log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
 
-    # filter BREACH rows
     breaches = [r for r in rows if (str(r.get("state") or "").upper() == "BREACH")]
     log.info("[xcom] breaches=%d", len(breaches))
     if not breaches:
@@ -172,42 +190,54 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
                      _to_iso(last), elapsed, snooze)
             return []
 
-    # pick one event and channels (from JSON)
+    # pick one event; select channels from JSON
     evt = _pick_event(breaches)
     mon = (evt.get("monitor") or "").lower()
-
     channels = _channels_for_monitor(cfg, mon)
     log.info("[xcom] channels(%s)=%s", mon, channels)
     if not any(channels.values()):
         log.info("[xcom] channels disabled -> SKIP")
         return []
 
-    # Compose and send once
     subj, body, tts = _compose_text(evt)
     payload = {
-        "breach": True,
-        "monitor": mon,
-        "label": evt.get("label"),
+        "breach": True, "monitor": mon, "label": evt.get("label"),
         "value": evt.get("value"),
         "threshold": {"op": evt.get("thr_op"), "value": evt.get("thr_value")},
         "source": (evt.get("meta") or {}).get("limit_source") or evt.get("source"),
         "cycle_id": evt.get("cycle_id"),
-        "subject": subj,
-        "body": body,
+        "subject": subj, "body": body,
     }
-    context = {
-        "voice": {"tts": tts},
-        "dl": dl,
-    }
+    context = {"voice": {"tts": tts}, "dl": dl}
 
-    try:
-        result = send(mon, payload, channels, context)
-        # mark global last-sent on success path (don't overthink result shape)
+    # split send: aggregator for non-voice, shim for voice
+    sent_any = False
+
+    # non-voice bundle
+    non_voice = {k: v for k, v in channels.items() if k != "voice"}
+    if any(non_voice.values()):
+        try:
+            res = send_agg(mon, payload, non_voice, context)
+            log.info("[xcom] dispatched(non-voice) %s %s -> %s", mon, evt.get("label"), json.dumps(non_voice))
+            sent_any = True
+        except Exception as e:
+            log.info("[xcom] dispatch(non-voice) error: %s", e)
+
+    # voice separately (legacy signature)
+    if channels.get("voice", False):
+        try:
+            res_v = send_voice(payload, {"voice": True}, context)
+            log.info("[xcom] dispatched(voice) %s %s", mon, evt.get("label"))
+            sent_any = True
+        except Exception as e:
+            log.info("[xcom] dispatch(voice) error: %s", e)
+
+    if sent_any:
         _set_last_sent_ts(dl, now)
-        log.info("[xcom] dispatched %s %s -> %s", mon, evt.get("label"), json.dumps(channels))
-        return [{"monitor": mon, "label": evt.get("label"), "channels": channels, "result": result}]
-    except Exception as e:
-        log.info("[xcom] dispatch error for %s %s: %s", mon, evt.get("label"), e)
+        log.info("[xcom] sent 1 notifications")  # one umbrella send per cycle by design
+        return [{"monitor": mon, "label": evt.get("label"), "channels": channels, "result": True}]
+    else:
+        log.info("[xcom] sent 0 notifications")
         return []
 
 
