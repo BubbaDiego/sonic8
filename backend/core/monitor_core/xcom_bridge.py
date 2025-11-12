@@ -1,56 +1,32 @@
 from __future__ import annotations
-
-import inspect
-import json
-import logging
-import time
-from typing import Any, Callable, Dict, Iterable, List, Tuple
+import time, json, logging, inspect
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple, Callable
 
 log = logging.getLogger("sonic.engine")
 
-
-# ---------- dispatcher adapter ----------
-# We always expose a local "send" function with a uniform signature:
-#     send(monitor: str, payload: dict, channels: dict, context: dict) -> Any
-# It maps to the best available XCom dispatcher implementation at runtime.
-
-
+# ====== Dispatcher adapter ======
+# Uniform local call: send(monitor, payload, channels, context) -> Any
 def _bind_dispatcher() -> Tuple[Callable[[str, dict, dict, dict], Any], str]:
-    """Bind dispatcher implementation with graceful fallbacks."""
-
-    # 1) New aggregator path
+    # 1) Preferred multi-channel aggregator
     try:
         from backend.core.xcom_core.xcom_core import dispatch_notifications as _agg  # type: ignore
-
+        # Patch older voice shim to accept monitor_name if needed
         try:
             import backend.core.xcom_core.dispatch as vmod  # type: ignore
-
             fn = getattr(vmod, "dispatch_voice_if_needed", None)
             if callable(fn):
                 params = tuple(inspect.signature(fn).parameters.keys())
                 if "monitor_name" not in params:
                     _orig = fn
-
-                    def _patched(
-                        *,
-                        monitor_name=None,
-                        payload=None,
-                        channels=None,
-                        context=None,
-                        **kw,
-                    ):
+                    def _patched(*, monitor_name=None, payload=None, channels=None, context=None, **kw):
                         return _orig(payload=payload, channels=channels, context=context)
-
                     setattr(vmod, "dispatch_voice_if_needed", _patched)
-                    log.info(
-                        "[xcom] patched voice shim for aggregator compatibility (added monitor_name kw)"
-                    )
+                    log.info("[xcom] patched voice shim for aggregator compatibility (added monitor_name kw)")
         except Exception:
             pass
-
         def _send(mon: str, payload: dict, channels: dict, context: dict):
             return _agg(mon, payload, channels, context)
-
         return _send, "aggregator:xcom_core"
     except Exception:
         pass
@@ -58,211 +34,181 @@ def _bind_dispatcher() -> Tuple[Callable[[str, dict, dict, dict], Any], str]:
     # 2) Older aggregator path
     try:
         from backend.core.xcom_core.dispatcher import dispatch_notifications as _agg2  # type: ignore
-
         def _send(mon: str, payload: dict, channels: dict, context: dict):
             return _agg2(mon, payload, channels, context)
-
         return _send, "aggregator:dispatcher"
     except Exception:
         pass
 
-    # 3) Voice-only shim; adapt to our uniform call
+    # 3) Voice-only shim; adapt signature
     try:
         from backend.core.xcom_core.dispatch import dispatch_voice_if_needed as _voice  # type: ignore
-
         def _send(mon: str, payload: dict, channels: dict, context: dict):
             return _voice(payload=payload, channels=channels, context=context)
-
         return _send, "voice-only"
     except Exception:
         pass
 
-    # 4) Nothing available; no-op
+    # 4) No dispatcher available
     def _noop(mon: str, payload: dict, channels: dict, context: dict):
         return {"ok": False, "reason": "no-dispatcher"}
-
     return _noop, "noop"
 
-
-# ---- helper: read dl_monitors rows for the latest cycle ----
-def _iter_rows_from_mgr(mgr: Any) -> Iterable[Dict[str, Any]]:
-    for meth in ("get_rows", "latest", "list", "all"):
-        fn = getattr(mgr, meth, None)
-        if callable(fn):
-            try:
-                got = fn()
-                if isinstance(got, list):
-                    for r in got:
-                        if isinstance(r, dict):
-                            yield r
-                    return
-            except Exception:
-                pass
-    for attr in ("rows", "items"):
-        arr = getattr(mgr, attr, None)
-        if isinstance(arr, list):
-            for r in arr:
-                if isinstance(r, dict):
-                    yield r
-            return
-
-
-def _latest_dl_rows(dl) -> List[Dict[str, Any]]:
-    mm = getattr(dl, "dl_monitors", None) or getattr(dl, "monitors", None)
-    if not mm:
-        return []
-    return list(_iter_rows_from_mgr(mm))
-
-
-# ---- helper: channel selection from JSON config ----
+# ====== Config helpers ======
 def _channels_for_monitor(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
     """
-    name: 'liquid' | 'profit' | 'market' | 'price'
-    Look in BOTH places and prefer the one that actually defines notifications:
-      - <name>_monitor.notifications (if present)
-      - <name>.notifications (fallback)
+    Prefer <name>_monitor.notifications when present; otherwise <name>.notifications.
     """
     root1 = cfg.get(f"{name}_monitor") or {}
     root2 = cfg.get(name) or {}
-    notif: Dict[str, Any] = {}
     if isinstance(root1, dict) and "notifications" in root1:
         notif = root1.get("notifications") or {}
     elif isinstance(root2, dict) and "notifications" in root2:
         notif = root2.get("notifications") or {}
+    else:
+        notif = {}
     return {
         "system": bool(notif.get("system")),
-        "voice": bool(notif.get("voice")),
-        "sms": bool(notif.get("sms")),
-        "tts": bool(notif.get("tts")),
+        "voice":  bool(notif.get("voice")),
+        "sms":    bool(notif.get("sms")),
+        "tts":    bool(notif.get("tts")),
     }
 
-
-def _snooze_seconds(cfg: Dict[str, Any], name: str) -> int:
-    root = cfg.get(f"{name}_monitor") or cfg.get(name) or {}
-    # many configs only set snooze for profit; default others to 600s
-    return int((root or {}).get("snooze_seconds", 600 if name != "profit" else 1200))
-
-
-# ---- helper: DL.system-backed snooze ledger ----
-def _should_fire_and_mark(dl, key: str, now: float, snooze_s: int) -> bool:
+def _global_snooze_seconds(cfg: Dict[str, Any]) -> int:
     """
-    key: unique event key, e.g. 'liquid|SOL – Liq'
-    Returns True iff enough time has passed; updates ledger when firing.
+    One global snooze window (seconds). Default = 0 (OFF) for 'amazingly simple'.
     """
+    mon = cfg.get("monitor") or {}
+    try:
+        return int(mon.get("global_snooze_seconds", 0))
+    except Exception:
+        return 0
+
+# ====== DL helpers ======
+def _latest_dl_rows(dl) -> List[Dict[str, Any]]:
+    mm = getattr(dl, "dl_monitors", None) or getattr(dl, "monitors", None)
+    if not mm:
+        return []
+    for meth in ("get_rows", "latest", "list", "all"):
+        fn = getattr(mm, meth, None)
+        if callable(fn):
+            try:
+                got = fn()
+                return got if isinstance(got, list) else []
+            except Exception:
+                continue
+    arr = getattr(mm, "rows", None) or getattr(mm, "items", None)
+    return list(arr) if isinstance(arr, list) else []
+
+def _now_ts() -> float:
+    return time.time()
+
+def _to_iso(ts: float) -> str:
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+
+def _get_last_sent_ts(dl) -> Optional[float]:
     sysmgr = getattr(dl, "system", None)
-    if not sysmgr or not hasattr(sysmgr, "get_var") or not hasattr(sysmgr, "set_var"):
-        return True  # no ledger available; allow fire
+    if not sysmgr or not hasattr(sysmgr, "get_var"):
+        return None
+    v = sysmgr.get_var("xcom_last_sent_ts")
+    if isinstance(v, (int,float)):
+        return float(v)
+    if isinstance(v, str):
+        # tolerate persisted string (epoch)
+        try: return float(v)
+        except Exception: return None
+    return None
 
-    ledger = sysmgr.get_var("xcom_snooze") or {}
-    last_ts = float(ledger.get(key, 0))
-    if (now - last_ts) < snooze_s:
-        return False
-    ledger[key] = now
-    sysmgr.set_var("xcom_snooze", ledger)
-    return True
+def _set_last_sent_ts(dl, ts: float) -> None:
+    sysmgr = getattr(dl, "system", None)
+    if sysmgr and hasattr(sysmgr, "set_var"):
+        sysmgr.set_var("xcom_last_sent_ts", ts)
 
-
-# ---- helper: compose a friendly subject/body/tts from a monitor row ----
+# ====== Bridge ======
 def _compose_text(row: Dict[str, Any]) -> Tuple[str, str, str]:
-    mon = row.get("monitor", "")
-    lab = row.get("label", "")
-    val = row.get("value")
+    mon  = (row.get("monitor") or "").lower()
+    lab  = row.get("label","")
+    val  = row.get("value")
     thrv = row.get("thr_value")
     thro = row.get("thr_op") or ""
-    src = (row.get("meta") or {}).get("limit_source") or row.get("source") or mon
-    vtxt = f"{val:.2f}" if isinstance(val, (int, float)) else str(val or "-")
-    ttxt = f"{thro} {thrv:.2f}" if isinstance(thrv, (int, float)) else "-"
+    src  = (row.get("meta") or {}).get("limit_source") or row.get("source") or mon
+    vtxt = f"{val:.2f}" if isinstance(val,(int,float)) else str(val or "-")
+    ttxt = f"{thro} {thrv:.2f}" if isinstance(thrv,(int,float)) else "-"
     subj = f"[{mon.upper()}] {lab} BREACH"
     body = f"{lab}: value={vtxt} threshold={ttxt} source={src}"
-    tts = f"{lab} breach. Value {vtxt} vs threshold {ttxt}."
+    tts  = f"{lab} breach. Value {vtxt} vs threshold {ttxt}."
     return subj, body, tts
 
+def _pick_event(breaches: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Pick one event to announce (simple & predictable):
+    priority by monitor: liquid > profit > market > price, preserve row order otherwise.
+    """
+    priority = {"liquid": 0, "profit": 1, "market": 2, "price": 3}
+    return sorted(breaches, key=lambda r: (priority.get((r.get("monitor") or "").lower(), 99)))[0]
 
-# ---- main entry: dispatch BREACH rows from dl_monitors ----
 def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Reads dl_monitors latest rows, selects BREACH entries,
-    resolves channels from JSON config, respects per-monitor snooze,
-    and dispatches via xcom_core.dispatch_notifications(...).
-    Returns a list of dispatch summaries.
-    """
     send, mode = _bind_dispatcher()
     log.info("[xcom] dispatcher mode=%s", mode)
 
-    if not isinstance(cfg, dict):
-        cfg = {}
-
     rows = _latest_dl_rows(dl)
     log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
-    log.info("[xcom] channels(liquid)=%s", _channels_for_monitor(cfg, "liquid"))
-    log.info("[xcom] channels(profit)=%s", _channels_for_monitor(cfg, "profit"))
-    log.info(
-        "[xcom] cfg.liquid has notifications? %s  | cfg.liquid_monitor has? %s",
-        isinstance(cfg.get("liquid"), dict) and "notifications" in cfg.get("liquid"),
-        isinstance(cfg.get("liquid_monitor"), dict)
-        and "notifications" in cfg.get("liquid_monitor"),
-    )
-    if not rows:
+
+    # filter BREACH rows
+    breaches = [r for r in rows if (str(r.get("state") or "").upper() == "BREACH")]
+    log.info("[xcom] breaches=%d", len(breaches))
+    if not breaches:
+        log.info("[xcom] no-breach")
         return []
 
-    now = time.time()
-    out: List[Dict[str, Any]] = []
+    # global snooze (simple & reliable)
+    snooze = _global_snooze_seconds(cfg)
+    now = _now_ts()
+    last = _get_last_sent_ts(dl)
+    if snooze > 0 and last is not None:
+        elapsed = now - last
+        if elapsed < snooze:
+            log.info("[xcom] global-snooze active: last_sent=%s elapsed=%.0fs min=%ds -> SKIP",
+                     _to_iso(last), elapsed, snooze)
+            return []
 
-    breaches = [r for r in rows if str(r.get("state", "")).upper() == "BREACH"]
-    log.info("[xcom] breaches=%d", len(breaches))
+    # pick one event and channels (from JSON)
+    evt = _pick_event(breaches)
+    mon = (evt.get("monitor") or "").lower()
 
-    # process newest-first for determinism
-    for r in breaches:
+    channels = _channels_for_monitor(cfg, mon)
+    log.info("[xcom] channels(%s)=%s", mon, channels)
+    if not any(channels.values()):
+        log.info("[xcom] channels disabled -> SKIP")
+        return []
 
-        mon = (r.get("monitor") or "").lower()
-        if mon not in ("liquid", "profit", "market", "price"):
-            continue
+    # Compose and send once
+    subj, body, tts = _compose_text(evt)
+    payload = {
+        "breach": True,
+        "monitor": mon,
+        "label": evt.get("label"),
+        "value": evt.get("value"),
+        "threshold": {"op": evt.get("thr_op"), "value": evt.get("thr_value")},
+        "source": (evt.get("meta") or {}).get("limit_source") or evt.get("source"),
+        "cycle_id": evt.get("cycle_id"),
+        "subject": subj,
+        "body": body,
+    }
+    context = {
+        "voice": {"tts": tts},
+        "dl": dl,
+    }
 
-        channels = _channels_for_monitor(cfg, mon)
-        if not any(channels.values()):
-            continue  # nothing enabled
-
-        # snooze / cooldown per monitor
-        snooze_s = _snooze_seconds(cfg, mon)
-        key = f"{mon}|{r.get('label', '?')}"
-        if not _should_fire_and_mark(dl, key, now, snooze_s):
-            continue
-
-        subj, body, tts = _compose_text(r)
-        payload = {
-            "breach": True,
-            "monitor": mon,
-            "label": r.get("label"),
-            "value": r.get("value"),
-            "threshold": {"op": r.get("thr_op"), "value": r.get("thr_value")},
-            "source": (r.get("meta") or {}).get("limit_source") or r.get("source"),
-            "cycle_id": r.get("cycle_id"),
-        }
-        context = {
-            "voice": {"tts": tts},
-            "dl": dl,  # allow dispatcher to pull creds/providers
-        }
-
-        try:
-            result = send(mon, payload, channels, context)
-        except Exception as e:  # pragma: no cover - dispatch is external
-            log.info("[xcom] dispatch error for %s %s: %s", mon, r.get("label"), e)
-            continue
-
-        summary = {
-            "monitor": mon,
-            "label": r.get("label"),
-            "channels": {k: bool(v) for k, v in channels.items()},
-            "result": result,
-            "subject": subj,
-            "body": body,
-        }
-        out.append(summary)
-        log.info("[xcom] dispatched %s %s -> %s", mon, r.get("label"), json.dumps(channels))
-
-    log.info("[xcom] sent %d notifications", len(out))
-
-    return out
+    try:
+        result = send(mon, payload, channels, context)
+        # mark global last-sent on success path (don't overthink result shape)
+        _set_last_sent_ts(dl, now)
+        log.info("[xcom] dispatched %s %s -> %s", mon, evt.get("label"), json.dumps(channels))
+        return [{"monitor": mon, "label": evt.get("label"), "channels": channels, "result": result}]
+    except Exception as e:
+        log.info("[xcom] dispatch error for %s %s: %s", mon, evt.get("label"), e)
+        return []
 
 
 __all__ = ["dispatch_breaches_from_dl"]

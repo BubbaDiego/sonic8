@@ -1,6 +1,7 @@
 {
   "monitor": {
     "loop_seconds": 30,
+    "global_snooze_seconds": 120,
     "enabled": {
       "sonic": true,
       "liquid": true,
