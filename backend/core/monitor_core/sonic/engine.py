@@ -17,7 +17,6 @@ from .reporting.console.runner import run_console_reporters
 from backend.models.monitor_status import MonitorStatus
 from backend.core.monitor_core.resolver import ThresholdResolver
 from backend.core.monitor_core.xcom_bridge import dispatch_breaches_from_dl
-from backend.core.monitor_core.mon_bus_utils import ensure_bus_has_current_cycle
 from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH
 
 
@@ -81,6 +80,8 @@ class MonitorEngine:
         self.ctx.resolver = ThresholdResolver(self.cfg, self.dl, cfg_path_hint=cfg_path_hint)
         self.logger.info("[resolve] cfg path: %s", self.ctx.resolver.cfg_path_hint or "<unknown>")
 
+        bus_rows: List[Dict[str, Any]] = []
+
         def _run_phase(phase_key: str, label: str, fn: Callable[[], Dict[str, Any]]):
             tok = self.activities.begin(cycle_id, phase_key, label)
             t0 = time.monotonic()
@@ -136,65 +137,47 @@ class MonitorEngine:
                 if isinstance(statuses, list) and statuses:
                     now_iso = datetime.now(timezone.utc).isoformat()
                     mm = getattr(self.dl, "monitors", None)
-                    if mm is not None:
-                        ms_rows = []
-                        for it in statuses:
-                            if not isinstance(it, dict):
-                                continue
-                            ms = MonitorStatus.from_status_dict(
-                                cycle_id=cycle_id,
-                                monitor=n,
-                                item=it,
-                                default_label=n,
-                                now_iso=now_iso,
-                                default_source=n,
-                            )
-                            ms_rows.append(ms)
-                        if ms_rows:
-                            mm.append_many(ms_rows)
+                    ms_rows: List[MonitorStatus] = []
+                    bus_payload: List[Dict[str, Any]] = []
+                    for it in statuses:
+                        if not isinstance(it, dict):
+                            continue
+                        ms = MonitorStatus.from_status_dict(
+                            cycle_id=cycle_id,
+                            monitor=n,
+                            item=it,
+                            default_label=n,
+                            now_iso=now_iso,
+                            default_source=n,
+                        )
+                        ms_rows.append(ms)
+                        bus_payload.append(ms.to_row())
+                    if ms_rows and mm is not None:
+                        mm.append_many(ms_rows)
+                    if bus_payload:
+                        bus_rows.extend(bus_payload)
                 return out
 
             _run_phase(name, f"{name.capitalize()} monitor", _run_mon)
 
-        self.logger.info("[mon] dl_monitors updated")
-        mm = getattr(self.dl, "dl_monitors", None) or getattr(self.dl, "monitors", None)
-
-        def _rows_from_mgr(mgr: Any) -> List[Any]:
-            if mgr is None:
-                return []
-            try:
-                getter = getattr(mgr, "get_rows", None)
-                if callable(getter):
-                    rows_val = getter()
-                else:
-                    rows_val = getattr(mgr, "rows", None) or getattr(mgr, "items", None) or []
-            except Exception as exc:
-                self.logger.info("[mon] dl_monitors rows read failed: %s", exc)
-                return []
-
-            if isinstance(rows_val, list):
-                return list(rows_val)
-            if isinstance(rows_val, tuple):
-                return list(rows_val)
-            if isinstance(rows_val, dict):
-                return list(rows_val.values())
-            if rows_val and hasattr(rows_val, "__iter__"):
+        mgr = getattr(self.dl, "dl_monitors", None) or getattr(self.dl, "monitors", None)
+        payload = list(bus_rows)
+        if mgr is not None:
+            for meth in ("replace", "set_rows", "reset", "update_rows"):
+                fn = getattr(mgr, meth, None)
+                if callable(fn):
+                    fn(payload)
+                    break
+            else:
                 try:
-                    return list(rows_val)
-                except TypeError:
-                    return []
-            return []
+                    setattr(mgr, "rows", payload)
+                except Exception:
+                    pass
+        else:
+            self.logger.info("[mon] no dl_monitors manager on DataLocker; cannot publish")
 
-        rows = _rows_from_mgr(mm)
-        injected = 0
-        if not rows:
-            injected = ensure_bus_has_current_cycle(self.dl, self.logger)
-            rows = _rows_from_mgr(mm)
-        self.logger.info(
-            "[mon] dl_monitors rows after evaluate = %d, backfilled=%d",
-            len(rows),
-            injected,
-        )
+        self.logger.info("[mon] dl_monitors updated")
+        self.logger.info("[mon] dl_monitors rows after evaluate = %d", len(payload))
 
         sent = dispatch_breaches_from_dl(self.dl, self.cfg)
         self.logger.info("[xcom] sent %d notifications", len(sent))
