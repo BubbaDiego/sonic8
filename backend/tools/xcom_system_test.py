@@ -22,7 +22,7 @@ try:
     from backend.core.core_constants import MOTHER_DB_PATH
     from backend.core.logging import log
     from backend.data.data_locker import DataLocker
-    from backend.core.xcom_core.dispatch import dispatch_voice_if_needed as dispatch_notifications
+    from backend.core.xcom_core import dispatch_notifications
     from backend.core.xcom_core.xcom_config_service import XComConfigService
     from backend.core.reporting_core.sonic_reporting.xcom_extras import (
         xcom_ready,

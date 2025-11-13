@@ -30,9 +30,9 @@ except Exception:
 from backend.data import dl_alerts
 
 try:
-    from backend.core.xcom_core.dispatch import dispatch_voice_if_needed
+    from backend.core.xcom_core.dispatch import dispatch_voice
 except Exception:
-    def dispatch_voice_if_needed(*_a, **_k):  # type: ignore
+    def dispatch_voice(*_a, **_k):  # type: ignore
         raise RuntimeError("XCOM dispatch not available")
 
 def _is_num(x: Any) -> bool:
@@ -158,17 +158,30 @@ def _run_impl(dl: Any, *, default_json_path: Optional[str]) -> Dict[str, Any]:
                 value=float(val), threshold=float(thr),
             )
             try:
-                dispatch_voice_if_needed(
-                    dl,
-                    breach=True,
-                    to_number=getattr(dl, "twilio_to", None),
-                    from_number=getattr(dl, "twilio_from", None),
-                    reason_ctx={
-                        "source": "liquid", "intent": "liquid-breach",
-                        "symbol": sym, "distance": float(val), "threshold": float(thr),
-                        "alert_id": alert["id"], "twiml_url": getattr(dl, "twiml_url", None),
+                body = f"{sym} distance={float(val):.4f} threshold={float(thr):.4f}"
+                payload = {
+                    "breach": True,
+                    "monitor": "liquid",
+                    "label": sym,
+                    "subject": f"[LIQUID] {sym} BREACH",
+                    "body": body,
+                    "tts": f"{sym} breach. Distance {float(val):.2f} threshold {float(thr):.2f}.",
+                    "alert_id": alert["id"],
+                }
+                context = {
+                    "dl": dl,
+                    "voice": {"tts": payload["tts"]},
+                    "alert": {
+                        "source": "liquid",
+                        "intent": "liquid-breach",
+                        "symbol": sym,
+                        "distance": float(val),
+                        "threshold": float(thr),
+                        "alert_id": alert["id"],
+                        "twiml_url": getattr(dl, "twiml_url", None),
                     },
-                )
+                }
+                dispatch_voice(payload, {"voice": True}, context)
             except Exception as e:
                 log.debug("liquidation_monitor: dispatch error", extra={"error": str(e), "symbol": sym})
         else:

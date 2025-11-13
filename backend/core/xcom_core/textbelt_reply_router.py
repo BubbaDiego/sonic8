@@ -11,7 +11,7 @@ import time
 from pydantic import BaseModel
 
 try:
-    from backend.core.xcom_core.dispatch import dispatch_voice_if_needed as dispatch_notifications  # type: ignore
+    from backend.core.xcom_core import dispatch_notifications  # type: ignore
 except Exception:  # pragma: no cover
     dispatch_notifications = None  # type: ignore
 
