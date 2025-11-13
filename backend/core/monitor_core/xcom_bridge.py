@@ -294,7 +294,6 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
 
     _body_cfg = cfg.get("liquid_monitor", {})
     out: List[Dict[str, Any]] = []
-    now = time.time()
 
     breaches = [r for r in (rows or []) if str(r.get("state", "")).upper() == "BREACH"]
     log.info("[xcom] breaches=%d", len(breaches))
@@ -323,13 +322,29 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
             last_ts = float(last_raw)
         except (TypeError, ValueError):
             last_ts = 0.0
-        if now - last_ts < max(0, _global_saturation):
+        now_ts = time.time()
+        min_seconds = max(0, _global_saturation)
+        elapsed = now_ts - last_ts
+        if elapsed < min_seconds:
             if sysmgr and hasattr(sysmgr, "set_var"):
-                sysmgr.set_var("xcom_last_skip", {
-                    "monitor": mon, "label": label, "ts": now,
-                    "reason": "global-snooze", "remaining": int(max(0, _global_saturation - (now - last_ts)))
-                })
-            log.info("[xcom] skip %s %s due to snooze (remaining=%ss)", mon, label, int(max(0, _global_saturation - (now - last_ts))))
+                remaining = int(max(0, min_seconds - elapsed))
+                sysmgr.set_var(
+                    "xcom_last_skip",
+                    {
+                        "monitor": mon,
+                        "label": label,
+                        "ts": now_ts,
+                        "reason": "global-snooze",
+                        "remaining_seconds": remaining,
+                        "min_seconds": int(min_seconds),
+                    },
+                )
+            log.info(
+                "[xcom] skip %s %s due to snooze (remaining=%ss)",
+                mon,
+                label,
+                int(max(0, min_seconds - elapsed)),
+            )
             continue
 
         subj, body, tts = _compose_text(r)
@@ -343,15 +358,18 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
                 log.error("[xcom] voice provider missing keys: %s", ", ".join(sorted(set(missing))))
 
                 sysmgr = getattr(dl, "system", None)
-                now = time.time()
+                error_ts = time.time()
                 if sysmgr and hasattr(sysmgr, "set_var"):
-                    sysmgr.set_var("xcom_last_error", {
-                        "ts": now,
-                        "monitor": mon,
-                        "label": label,
-                        "reason": "provider-missing",
-                        "missing": sorted(set(missing)),
-                    })
+                    sysmgr.set_var(
+                        "xcom_last_error",
+                        {
+                            "ts": error_ts,
+                            "monitor": mon,
+                            "label": label,
+                            "reason": "provider-missing",
+                            "missing": sorted(set(missing)),
+                        },
+                    )
 
                 try:
                     send_agg = _load_aggregator()
@@ -390,13 +408,34 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
             out.append({"monitor": mon, "label": label, "channels": channels, "result": result})
             log.info("[xcom] dispatched %s %s -> %s", mon, label, json.dumps(channels))
             if sysmgr and hasattr(sysmgr, "set_var") and (isinstance(result, dict) or result):
+                sent_ts = time.time()
                 ledger = ledger or {}
-                ledger[f"{mon}|{label}"] = now
+                ledger[f"{mon}|{label}"] = sent_ts
                 sysmgr.set_var("xcom_snooze", ledger)
+                sysmgr.set_var(
+                    "xcom_last_sent",
+                    {
+                        "ts": sent_ts,
+                        "monitor": mon,
+                        "label": label,
+                        "channels": channels,
+                        "result": result,
+                        "subject": subj,
+                    },
+                )
         except Exception as e:
             log.error("[xcom] dispatch error for %s %s: %s", mon, label, e)
             if sysmgr and hasattr(sysmgr, "set_var"):
-                sysmgr.set_var("xcom_last_error", {"monitor": mon, "label": label, "ts": now, "reason": f"dispatch-exception: {e}"})
+                err_ts = time.time()
+                sysmgr.set_var(
+                    "xcom_last_error",
+                    {
+                        "monitor": mon,
+                        "label": label,
+                        "ts": err_ts,
+                        "reason": f"dispatch-exception: {e}",
+                    },
+                )
             try:
                 send(mon, {**payload, "error": str(e)}, {"system": True, "voice": False, "sms": False, "tts": False}, {"dl": dl})
             except Exception:
