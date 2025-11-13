@@ -1,10 +1,82 @@
 from __future__ import annotations
-import json, logging, time
+import json, logging, os, time
 from datetime import datetime, timezone
 from importlib import import_module
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 log = logging.getLogger("sonic.engine")
+
+
+def _mask(s: Optional[str], *, kind: str = "sid") -> str:
+    if not s:
+        return "-"
+    s = str(s)
+    if kind == "sid":
+        return s[:2] + "…" + s[-4:] if len(s) > 6 else "…"
+    if kind == "token":
+        return "…" + s[-4:] if len(s) > 4 else "…"
+    if kind == "phone":
+        return s
+    return s
+
+
+def _dl_voice_snapshot(dl) -> tuple[dict, list[str]]:
+    """
+    Read DL.system['xcom_providers'].voice and report missing keys for Twilio.
+    """
+
+    sysmgr = getattr(dl, "system", None)
+    prov = sysmgr.get_var("xcom_providers") if sysmgr and hasattr(sysmgr, "get_var") else None
+    voice = (prov or {}).get("voice") or {}
+    missing: list[str] = []
+    provider = (voice.get("provider") or "").strip().lower()
+    if not provider:
+        missing.append("provider")
+    if not voice.get("from"):
+        missing.append("from")
+    if provider == "twilio":
+        if not voice.get("account_sid"):
+            missing.append("account_sid")
+        if not voice.get("auth_token"):
+            missing.append("auth_token")
+        to = voice.get("to")
+        if not to or (isinstance(to, list) and not to) or (isinstance(to, str) and not to.strip()):
+            missing.append("to")
+    return voice, missing
+
+
+def _env_voice_snapshot() -> tuple[dict, list[str]]:
+    """
+    Build a Twilio-style voice dict from ENV (SONIC_XCOM_LIVE, TWILIO_*), report missing keys.
+    """
+
+    live = str(os.getenv("SONIC_XCOM_LIVE", "0")).strip().lower() in {"1", "true", "yes", "on"}
+    sid = os.getenv("TWILIO_SID")
+    tok = os.getenv("TWILIO_AUTH_TOKEN")
+    frm = os.getenv("TWILIO_FROM")
+    to = os.getenv("TWILIO_TO")
+    flow = os.getenv("TWILIO_FLOW_SID")
+    voice = {
+        "enabled": live,
+        "provider": "twilio" if any([sid, tok, frm, to]) else "",
+        "account_sid": sid,
+        "auth_token": tok,
+        "from": frm,
+        "to": [t.strip() for t in (to or "").split(",") if t.strip()] if to else [],
+        "flow_sid": flow,
+    }
+    missing: list[str] = []
+    if not voice["provider"]:
+        missing.append("provider")
+    if not voice["from"]:
+        missing.append("from")
+    if not voice["account_sid"]:
+        missing.append("account_sid")
+    if not voice["auth_token"]:
+        missing.append("auth_token")
+    if not voice["to"]:
+        missing.append("to")
+    return voice, missing
 
 
 def _load_aggregator():
@@ -192,6 +264,33 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
 
     rows = _latest_dl_rows(dl)
     log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
+
+    dl_voice, dl_missing = _dl_voice_snapshot(dl)
+    env_voice, env_missing = _env_voice_snapshot()
+
+    log.info(
+        "[xcom] voice(DL)  enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
+        bool(dl_voice.get("enabled", True)),
+        (dl_voice.get("provider") or "-"),
+        _mask(dl_voice.get("from"), kind="phone"),
+        dl_voice.get("to") or [],
+        _mask(dl_voice.get("account_sid"), kind="sid"),
+        (dl_voice.get("flow_sid") or "-"),
+        dl_missing or [],
+    )
+    log.info(
+        "[xcom] voice(ENV) enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
+        bool(env_voice.get("enabled")),
+        (env_voice.get("provider") or "-"),
+        _mask(env_voice.get("from"), kind="phone"),
+        env_voice.get("to") or [],
+        _mask(env_voice.get("account_sid"), kind="sid"),
+        (env_voice.get("flow_sid") or "-"),
+        env_missing or [],
+    )
+
+    source_used = "DL.system" if not dl_missing else ("ENV" if not env_missing else "NONE")
+    log.info("[xcom] voice provider source used: %s", source_used)
 
     _body_cfg = cfg.get("liquid_monitor", {})
     out: List[Dict[str, Any]] = []
