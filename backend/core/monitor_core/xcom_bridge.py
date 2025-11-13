@@ -119,8 +119,18 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     now = _now_ts()
     last = _get_last_sent_ts(dl)
     if snooze > 0 and last is not None and (now - last) < snooze:
+        remaining = int(snooze - (now - last))
         log.info("[xcom] global-snooze active: last_sent=%s elapsed=%.0fs min=%ds -> SKIP",
                  _to_iso(last), now - last, snooze)
+        # record skip reason for panel
+        sysmgr = getattr(dl, "system", None)
+        if sysmgr and hasattr(sysmgr, "set_var"):
+            sysmgr.set_var("xcom_last_skip", {
+                "ts": now,
+                "reason": "global-snooze",
+                "min_seconds": snooze,
+                "remaining_seconds": max(0, remaining),
+            })
         return []
 
     evt = _pick_event(breaches)
@@ -173,11 +183,11 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
         sysmgr = getattr(dl, "system", None)
         if sysmgr and hasattr(sysmgr, "set_var"):
             sysmgr.set_var("xcom_last_sent", {
-                "ts": time.time(),
+                "ts": now,
                 "monitor": mon,
                 "label": evt.get("label"),
                 "channels": ch,
-                "summary": f"{mon}:{evt.get('label')} — system={ch.get('system')} voice={ch.get('voice')} sms={ch.get('sms')} tts={ch.get('tts')}"
+                "summary": f"{mon}:{evt.get('label')} — sys={bool(ch.get('system'))} voice={bool(ch.get('voice'))} sms={bool(ch.get('sms'))} tts={bool(ch.get('tts'))}"
             })
         log.info("[xcom] sent 1 notifications")
         return [{"monitor": mon, "label": evt.get("label"), "channels": ch, "result": True}]
