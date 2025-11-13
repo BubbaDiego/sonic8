@@ -37,6 +37,7 @@ except Exception:
     pass
 
 from backend.console.cyclone_console_service import run_cyclone_console
+from backend.console.database_console_service import run_database_console
 from backend.console.db_console_service import run_db_console  # use entry with db_path
 # Do NOT import the config console at module import time; import lazily so we can show inline errors.
 
@@ -124,6 +125,7 @@ ICON = {
     "hog": "🦔",
     "rocket": "🚀",
     "verify_db": "🗄️",
+    "xcom": "📞",
     "tests": "🧪",
     "topic": "🔎",
     "wallet": "💼",
@@ -1081,6 +1083,7 @@ def main() -> None:
                 f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
                 f"16. {ICON['gmx']} GMX Solana Console",
                 f"17. {ICON['raydium']} Raydium Console (wallet + NFTs)",
+                f"18. {ICON['xcom']} Seed XCom Providers (ENV)",
                 f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window, [D] Database Console, [G] Config Console)",
             ]
         )
@@ -1122,6 +1125,8 @@ def main() -> None:
             run_menu_action("GMX Solana Console", launch_gmx_solana)
         elif choice == "17":
             run_menu_action("Raydium Console", launch_raydium_console)
+        elif choice == "18":
+            run_menu_action("Seed XCom Providers", run_database_console)
         elif choice.upper() == "D":
             run_menu_action("Database Console", _launch_db_console)
         elif choice.upper() == "G":
