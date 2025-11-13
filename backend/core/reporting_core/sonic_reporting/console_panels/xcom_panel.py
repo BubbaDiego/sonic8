@@ -1,3 +1,4 @@
+# backend/core/reporting_core/sonic_reporting/console_panels/xcom_panel.py
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import time
@@ -22,10 +23,9 @@ def _fmt_age(ts: Optional[float]) -> str:
     except Exception:
         return "—"
 
-def _read_var(dl, key: str):
+def _get_sys(dl):
     sysmgr = getattr(dl, "system", None)
-    if not sysmgr or not hasattr(sysmgr, "get_var"): return None
-    return sysmgr.get_var(key)
+    return sysmgr if sysmgr and hasattr(sysmgr, "get_var") else None
 
 def _live_channels(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
     root1 = cfg.get(f"{name}_monitor") or {}
@@ -43,17 +43,37 @@ def _live_channels(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
         "tts":    bool(src.get("tts")),
     }
 
+def _dl_provider_snapshot(dl) -> Dict[str, Any]:
+    sysmgr = _get_sys(dl)
+    pro = sysmgr.get_var("xcom_providers") if sysmgr else None
+    v = (pro or {}).get("voice") or {}
+    # mask only sid/token
+    sid = v.get("account_sid"); token = v.get("auth_token")
+    if sid:   v["account_sid"] = sid[:2] + "…" + sid[-4:] if len(sid) > 6 else "…"
+    if token: v["auth_token"]  = "…" + token[-4:] if len(token) > 4 else "…"
+    return {"voice": v or {}, **{k: pro[k] for k in (pro or {}) if k != "voice"}}
+
 def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     out: List[str] = []
     body = get_panel_body_config(PANEL_SLUG)
-
     dl  = context.get("dl")
     cfg = context.get("cfg") or {}
+    sysmgr = _get_sys(dl)
 
     out += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
-    # Live channels
-    out += body_indent_lines(PANEL_SLUG, [paint_line("Live channels", body["column_header_text_color"])])
+    # Providers (from DL.system)
+    out += body_indent_lines(PANEL_SLUG, [paint_line("Providers (DL.system)", body["column_header_text_color"])])
+    prov = _dl_provider_snapshot(dl)
+    v = prov.get("voice", {}) or {}
+    out += body_indent_lines(PANEL_SLUG, [
+        f"  voice.enabled={bool(v.get('enabled', True))} provider={v.get('provider','-')}",
+        f"  from={v.get('from','-')} to={v.get('to') or []} sid={v.get('account_sid','-')} flow={v.get('flow_sid','-')}",
+        "",
+    ])
+
+    # Live channels (from cfg)
+    out += body_indent_lines(PANEL_SLUG, [paint_line("Live channels (cfg)", body["column_header_text_color"])])
     liq = _live_channels(cfg, "liquid")
     pro = _live_channels(cfg, "profit")
     out += body_indent_lines(PANEL_SLUG, [
@@ -64,7 +84,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     # Last send
     out += body_indent_lines(PANEL_SLUG, [paint_line("Last send", body["column_header_text_color"])])
-    sent = _read_var(dl, "xcom_last_sent")
+    sent = sysmgr.get_var("xcom_last_sent") if sysmgr else None
     if not sent:
         out += body_indent_lines(PANEL_SLUG, ["  (none)"])
     else:
@@ -81,36 +101,31 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     # Last skip (e.g., global snooze)
     out += body_indent_lines(PANEL_SLUG, [paint_line("Last skip", body["column_header_text_color"])])
-    skip = _read_var(dl, "xcom_last_skip")
-    if not skip:
+    sk = sysmgr.get_var("xcom_last_skip") if sysmgr else None
+    if not sk:
         out += body_indent_lines(PANEL_SLUG, ["  (none)"])
     else:
-        age = _fmt_age(skip.get("ts"))
-        reason = (skip.get("reason") or "").upper()
-        remaining = skip.get("remaining_seconds")
-        window    = skip.get("min_seconds")
+        age = _fmt_age(sk.get("ts"))
         out += body_indent_lines(PANEL_SLUG, [
             f"  when: {age} ago",
-            f"  why : {reason} (remaining={remaining}s / window={window}s)",
+            f"  why : {(sk.get('reason') or '').upper()} (remaining={sk.get('remaining_seconds','-')}s / window={sk.get('min_seconds','-')}s)",
+            "",
         ])
 
-    # Errors section (provider missing, dispatch exception, etc.)
-    err = None
-    sysmgr = getattr(dl, "system", None)
-    if sysmgr and hasattr(sysmgr, "get_var"):
-        err = sysmgr.get_var("xcom_last_error")
-
-    out += body_indent_lines(PANEL_SLUG, [""])
+    # Last error (provider missing, dispatch exception, etc.)
     out += body_indent_lines(PANEL_SLUG, [paint_line("Last error", body["column_header_text_color"])])
+    err = sysmgr.get_var("xcom_last_error") if sysmgr else None
     if not err:
         out += body_indent_lines(PANEL_SLUG, ["  (none)"])
     else:
-        mon = err.get("monitor","-")
-        lab = err.get("label","-")
-        reason = err.get("reason","-")
-        missing = err.get("missing")
-        rem = f" (missing: {', '.join(missing)})" if missing else ""
-        out += body_indent_lines(PANEL_SLUG, [f"  {mon}:{lab} — {reason}{rem}"])
+        age = _fmt_age(err.get("ts"))
+        miss = err.get("missing")
+        extra = f" (missing: {', '.join(miss)})" if miss else ""
+        out += body_indent_lines(PANEL_SLUG, [
+            f"  when: {age} ago",
+            f"  what: {err.get('monitor','-')}:{err.get('label','-')}",
+            f"  why : {(err.get('reason') or '-').upper()}{extra}",
+        ])
 
     out += body_pad_below(PANEL_SLUG)
     return out
