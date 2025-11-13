@@ -14,6 +14,8 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.prompt import Prompt, IntPrompt, Confirm
 
+from backend.console.database_console_service import seed_xcom_providers_from_env
+
 # Optional: DataLocker (DL) is used when available for convenience actions
 try:
     from backend.data.data_locker import DataLocker  # type: ignore
@@ -455,48 +457,10 @@ class DbConsoleService:
         if DataLocker is None:
             self.console.print(f"{ICON['warn']} DataLocker not available."); return
         dl = DataLocker.get_instance()
-        sysm = getattr(dl, "system", None)
-        if not sysm or not hasattr(sysm, "set_var") or not hasattr(sysm, "get_var"):
-            self.console.print(f"{ICON['warn']} System var manager unavailable."); return
-
-        sid = os.getenv("TWILIO_SID")
-        tok = os.getenv("TWILIO_AUTH_TOKEN")
-        frm = os.getenv("TWILIO_FROM")
-        dest = os.getenv("TWILIO_TO")
-        flow = os.getenv("TWILIO_FLOW_SID")
-        live_flag = str(os.getenv("SONIC_XCOM_LIVE", "0")).strip().lower() in {"1", "true", "yes", "on"}
-        large_profile = os.getenv("SONIC_XCOM_LARGE")
-
-        if not sid or not tok or not frm or not dest:
-            self.console.print(f"{ICON['err']} Missing one or more required env vars: TWILIO_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, TWILIO_TO")
-            return
-
-        dest_list = [d.strip() for d in dest.split(",") if d.strip()]
-        if not dest_list:
-            self.console.print(f"{ICON['err']} TWILIO_TO must contain at least one phone number (comma separated).")
-            return
-
-        providers: Dict[str, Any] = {
-            "voice": {
-                "enabled": bool(live_flag),
-                "provider": "twilio",
-                "account_sid": sid,
-                "auth_token": tok,
-                "from": frm,
-                "to": dest_list,
-            }
-        }
-        if flow:
-            providers["voice"]["flow_sid"] = flow
-        if large_profile:
-            providers["voice"]["profile"] = large_profile
-
-        sysm.set_var("xcom_providers", providers)
-        self.console.print(f"{ICON['ok']} xcom_providers saved to DL.system")
         try:
-            self.console.print_json(providers)
-        except Exception:
-            self.console.print(str(providers))
+            seed_xcom_providers_from_env(console_obj=self.console, dl=dl)
+        except Exception as exc:
+            self.console.print(f"{ICON['warn']} Failed to seed providers: {exc}")
 
     # ----------------- maintenance -----------------
 

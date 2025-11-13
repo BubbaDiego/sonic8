@@ -170,7 +170,8 @@ def _require_voice_provider(dl) -> Tuple[Dict[str, Any], List[str]]:
             missing.append("account_sid")
         if not voice.get("auth_token"):
             missing.append("auth_token")
-        if not voice.get("to"):
+        dest = voice.get("to")
+        if not dest or (isinstance(dest, list) and not dest) or (isinstance(dest, str) and not dest.strip()):
             missing.append("to")
 
     return voice, missing
@@ -234,40 +235,43 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
 
         subj, body, tts = _compose_text(r)
 
+        voice_cfg: Dict[str, Any] = {}
         voice_needed = bool(channels.get("voice"))
-        voice_cfg, missing = _require_voice_provider(dl) if voice_needed else ({}, [])
-        if voice_needed and missing:
-            msg = f"Voice provider missing/invalid keys: {', '.join(sorted(set(missing)))}. Seed DL.system['xcom_providers']['voice'] via DB Console."
-            log.error("[xcom] %s", msg)
-            if sysmgr and hasattr(sysmgr, "set_var"):
-                sysmgr.set_var("xcom_last_error", {
-                    "monitor": mon, "label": label, "ts": now,
-                    "reason": "provider-missing", "missing": sorted(set(missing))
-                })
-            payload = {
-                "breach": True,
-                "monitor": mon,
-                "label": label,
-                "value": r.get("value"),
-                "threshold": {"op": r.get("thr_op"), "value": r.get("thr_value")},
-                "source": (r.get("meta") or {}).get("limit_source") or r.get("source"),
-                "cycle_id": r.get("cycle_id"),
-                "subject": subj,
-                "body": body,
-                "error": msg,
-            }
-            sys_channels = {"system": True, "voice": False, "sms": False, "tts": False}
-            try:
-                send(mon, payload, sys_channels, {"voice": {"tts": tts}, "dl": dl})
-                out.append({"monitor": mon, "label": label, "channels": sys_channels, "result": {"ok": True, "note": "provider-missing"}})
-                log.info("[xcom] provider error surfaced via system channel")
-            except Exception as e:
-                log.error("[xcom] failed to emit provider error notice: %s", e)
-            if sysmgr and hasattr(sysmgr, "set_var"):
-                ledger = ledger or {}
-                ledger[f"{mon}|{label}"] = now
-                sysmgr.set_var("xcom_snooze", ledger)
-            continue
+
+        if voice_needed:
+            voice_cfg, missing = _require_voice_provider(dl)
+            if missing:
+                log.error("[xcom] voice provider missing keys: %s", ", ".join(sorted(set(missing))))
+
+                sysmgr = getattr(dl, "system", None)
+                now = time.time()
+                if sysmgr and hasattr(sysmgr, "set_var"):
+                    sysmgr.set_var("xcom_last_error", {
+                        "ts": now,
+                        "monitor": mon,
+                        "label": label,
+                        "reason": "provider-missing",
+                        "missing": sorted(set(missing)),
+                    })
+
+                try:
+                    send_agg = _load_aggregator()
+                    if callable(send_agg):
+                        payload = {
+                            "breach": True,
+                            "monitor": mon,
+                            "label": label,
+                            "value": r.get("value"),
+                            "threshold": {"op": r.get("thr_op"), "value": r.get("thr_value")},
+                            "source": (r.get("meta") or {}).get("limit_source") or r.get("source"),
+                            "cycle_id": r.get("cycle_id"),
+                            "error": f"voice provider missing keys: {', '.join(sorted(set(missing)))}",
+                        }
+                        send_agg(mon, payload, {"system": True, "voice": False, "sms": False, "tts": False}, {"dl": dl})
+                except Exception:
+                    pass
+
+                continue
 
         payload = {
             "breach": True,
