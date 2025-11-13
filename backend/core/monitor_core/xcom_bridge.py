@@ -1,5 +1,9 @@
 from __future__ import annotations
-import json, logging, os, time
+
+import json
+import logging
+import os
+import time
 from datetime import datetime, timezone
 from importlib import import_module
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -7,22 +11,23 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 log = logging.getLogger("sonic.engine")
 
 
-def _mask(s: Optional[str], *, kind: str = "sid") -> str:
-    if not s:
+def _mask(val: str | None, *, kind: str = "sid") -> str:
+    if not val:
         return "-"
-    s = str(s)
+    s = str(val)
     if kind == "sid":
         return s[:2] + "…" + s[-4:] if len(s) > 6 else "…"
     if kind == "token":
         return "…" + s[-4:] if len(s) > 4 else "…"
     if kind == "phone":
-        return s
+        return s  # safe to print E.164 numbers in ops logs
     return s
 
 
-def _dl_voice_snapshot(dl) -> tuple[dict, list[str]]:
+def _snapshot_dl_voice(dl) -> tuple[dict, list[str]]:
     """
-    Read DL.system['xcom_providers'].voice and report missing keys for Twilio.
+    Take a snapshot of DL.system['xcom_providers'].voice and report missing keys
+    for a Twilio-style provider.
     """
 
     sysmgr = getattr(dl, "system", None)
@@ -45,9 +50,9 @@ def _dl_voice_snapshot(dl) -> tuple[dict, list[str]]:
     return voice, missing
 
 
-def _env_voice_snapshot() -> tuple[dict, list[str]]:
+def _snapshot_env_voice() -> tuple[dict, list[str]]:
     """
-    Build a Twilio-style voice dict from ENV (SONIC_XCOM_LIVE, TWILIO_*), report missing keys.
+    Build a Twilio-style voice dict from ENV (SONIC_XCOM_LIVE, TWILIO_*), and report missing keys.
     """
 
     live = str(os.getenv("SONIC_XCOM_LIVE", "0")).strip().lower() in {"1", "true", "yes", "on"}
@@ -56,6 +61,7 @@ def _env_voice_snapshot() -> tuple[dict, list[str]]:
     frm = os.getenv("TWILIO_FROM")
     to = os.getenv("TWILIO_TO")
     flow = os.getenv("TWILIO_FLOW_SID")
+
     voice = {
         "enabled": live,
         "provider": "twilio" if any([sid, tok, frm, to]) else "",
@@ -265,8 +271,9 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
     rows = _latest_dl_rows(dl)
     log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
 
-    dl_voice, dl_missing = _dl_voice_snapshot(dl)
-    env_voice, env_missing = _env_voice_snapshot()
+    # Provider snapshots: DL + ENV
+    dl_voice, dl_missing = _snapshot_dl_voice(dl)
+    env_voice, env_missing = _snapshot_env_voice()
 
     log.info(
         "[xcom] voice(DL)  enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
