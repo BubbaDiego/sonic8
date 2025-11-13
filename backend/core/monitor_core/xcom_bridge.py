@@ -1,262 +1,177 @@
 from __future__ import annotations
-
-import logging
-import time
+import json, logging, time
+from datetime import datetime, timezone
 from importlib import import_module
 from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger("sonic.engine")
 
 
-# --------- Provider discovery (NO shim imports) ---------
 def _load_aggregator():
-    """Load the multi-channel aggregator directly from xcom_core.xcom_core."""
     try:
         mod = import_module("backend.core.xcom_core.xcom_core")
-        fn = getattr(mod, "dispatch_notifications", None)
-        if callable(fn):
-            return fn
-    except Exception as exc:
-        log.info("[xcom] aggregator import failed: %s", exc)
-    return None
+        fn  = getattr(mod, "dispatch_notifications", None)
+        return fn if callable(fn) else None
+    except Exception as e:
+        log.info("[xcom] aggregator import failed: %s", e)
+        return None
 
 
-def _load_voice_sender():
-    """Load the low-level voice sender (not the shim)."""
+def _load_voice():
     try:
         mod = import_module("backend.core.xcom_core.dispatch")
-        for name in ("voice_call", "send_voice", "dispatch_voice", "dispatch_voice_if_needed"):
-            fn = getattr(mod, name, None)
-            if callable(fn):
-                return fn
-    except Exception as exc:
-        log.info("[xcom] voice sender import failed: %s", exc)
-    return None
+        fn  = getattr(mod, "dispatch_voice", None)
+        return fn if callable(fn) else None
+    except Exception as e:
+        log.info("[xcom] voice import failed: %s", e)
+        return None
 
 
-# --------- Config helpers ---------
 def _channels_for_monitor(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
-    channels = {"system": False, "voice": False, "sms": False, "tts": False}
-    for key in (f"{name}_monitor", name):
-        root = cfg.get(key)
-        if not isinstance(root, dict):
-            continue
-        notif = root.get("notifications")
-        if not isinstance(notif, dict):
-            continue
-        for channel in channels:
-            if channel in notif:
-                channels[channel] = bool(notif[channel])
-    return channels
+    root1 = cfg.get(f"{name}_monitor") or {}
+    root2 = cfg.get(name) or {}
+    if isinstance(root1, dict) and "notifications" in root1:
+        notif = root1.get("notifications") or {}
+    elif isinstance(root2, dict) and "notifications" in root2:
+        notif = root2.get("notifications") or {}
+    else:
+        notif = {}
+    return {"system": bool(notif.get("system")),
+            "voice":  bool(notif.get("voice")),
+            "sms":    bool(notif.get("sms")),
+            "tts":    bool(notif.get("tts"))}
 
 
-def _snooze_seconds(cfg: Dict[str, Any], mon: str) -> int:
-    for key in (f"{mon}_monitor", mon):
-        root = cfg.get(key)
-        if not isinstance(root, dict):
-            continue
-        raw = root.get("snooze_seconds")
-        if raw is None:
-            continue
-        try:
-            return int(raw)
-        except (TypeError, ValueError):
-            continue
-    return 1200 if mon == "profit" else 600
-
-
-def _cfg_path_hint(ctx: Dict[str, Any]) -> str:
-    path = ctx.get("cfg_path_hint")
-    return str(path) if path else "<unknown>"
-
-
-# --------- DL helpers ---------
 def _latest_dl_rows(dl) -> List[Dict[str, Any]]:
     mgr = getattr(dl, "dl_monitors", None) or getattr(dl, "monitors", None)
-    if not mgr:
-        return []
-
-    for attr in ("get_rows", "latest", "list", "all"):
-        fn = getattr(mgr, attr, None)
-        if callable(fn):
-            try:
-                rows = fn()
-                if isinstance(rows, list):
-                    return rows
-            except Exception as exc:
-                log.info("[xcom] dl_monitors.%s error: %s", attr, exc)
+    if not mgr: return []
+    getr = getattr(mgr, "get_rows", None)
+    if callable(getr):
+        try:
+            rows = getr()
+            return rows if isinstance(rows, list) else []
+        except Exception as e:
+            log.info("[xcom] dl_monitors.get_rows error: %s", e)
+            return []
     rows = getattr(mgr, "rows", None) or getattr(mgr, "items", None)
     return rows if isinstance(rows, list) else []
 
 
-def _snooze_gate(dl, key: str, seconds: int) -> bool:
-    """Return True if we should fire (i.e., snooze window has elapsed)."""
-    if seconds <= 0:
-        return True
+def _global_snooze_seconds(cfg: Dict[str, Any]) -> int:
+    mon = cfg.get("monitor") or {}
+    try: return int(mon.get("global_snooze_seconds", 0))
+    except Exception: return 0
 
+
+def _now_ts() -> float: return time.time()
+def _to_iso(ts: float) -> str: return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+
+
+def _get_last_sent_ts(dl) -> Optional[float]:
     sysmgr = getattr(dl, "system", None)
-    if not sysmgr or not hasattr(sysmgr, "get_var") or not hasattr(sysmgr, "set_var"):
-        return True
-
-    try:
-        ledger = sysmgr.get_var("xcom_snooze") or {}
-    except Exception as exc:
-        log.info("[xcom] snooze ledger load failed: %s", exc)
-        return True
-
-    if not isinstance(ledger, dict):
-        ledger = {}
-
-    now = time.time()
-    try:
-        last = float(ledger.get(key, 0.0))
-    except (TypeError, ValueError):
-        last = 0.0
-
-    if now - last < float(seconds):
-        return False
-
-    ledger[key] = now
-    try:
-        sysmgr.set_var("xcom_snooze", ledger)
-    except Exception as exc:
-        log.info("[xcom] snooze ledger persist failed: %s", exc)
-    return True
+    if not sysmgr or not hasattr(sysmgr, "get_var"): return None
+    v = sysmgr.get_var("xcom_last_sent_ts")
+    if isinstance(v, (int,float)): return float(v)
+    if isinstance(v, str):
+        try: return float(v)
+        except Exception: return None
+    return None
 
 
-# --------- Formatting helpers ---------
-def _fmt(value: Any) -> str:
-    if isinstance(value, (int, float)):
-        return f"{value:.2f}"
-    return str(value) if value is not None else "-"
+def _set_last_sent_ts(dl, ts: float) -> None:
+    sysmgr = getattr(dl, "system", None)
+    if sysmgr and hasattr(sysmgr, "set_var"):
+        sysmgr.set_var("xcom_last_sent_ts", ts)
 
 
 def _compose_text(row: Dict[str, Any]) -> Tuple[str, str, str]:
-    monitor = (row.get("monitor") or "").upper()
-    label = row.get("label") or ""
-    value = _fmt(row.get("value"))
-    thr_val = _fmt(row.get("thr_value"))
-    thr_op = row.get("thr_op") or ""
-    source = (row.get("meta") or {}).get("limit_source") or row.get("source") or ""
+    mon  = (row.get("monitor") or "").lower()
+    lab  = row.get("label","")
+    val  = row.get("value")
+    thrv = row.get("thr_value")
+    thro = row.get("thr_op") or ""
+    src  = (row.get("meta") or {}).get("limit_source") or row.get("source") or mon
+    vtxt = f"{val:.2f}" if isinstance(val,(int,float)) else str(val or "-")
+    ttxt = f"{thro} {thrv:.2f}" if isinstance(thrv,(int,float)) else "-"
+    subj = f"[{mon.upper()}] {lab} BREACH"
+    body = f"{lab}: value={vtxt} threshold={ttxt} source={src}"
+    tts  = f"{lab} breach. Value {vtxt} vs threshold {ttxt}."
+    return subj, body, tts
 
-    subject = f"[{monitor}] {label} BREACH" if monitor else f"{label} BREACH"
-    body = f"{label}: value={value} threshold={thr_op} {thr_val} (src={source})"
-    tts = f"{label} breach. Value {value} versus threshold {thr_op} {thr_val}."
-    return subject, body, tts
+
+def _pick_event(breaches: List[Dict[str, Any]]) -> Dict[str, Any]:
+    priority = {"liquid": 0, "profit": 1, "market": 2, "price": 3}
+    return sorted(breaches, key=lambda r: (priority.get((r.get("monitor") or "").lower(), 99)))[0]
 
 
-# --------- Main bridge (no shim) ---------
-def dispatch_breaches_from_dl(
-    dl,
-    cfg: Dict[str, Any],
-    *,
-    ctx: Optional[Dict[str, Any]] = None,
-) -> List[Dict[str, Any]]:
-    ctx = ctx or {}
-    log.info("[xcom] cfg path: %s", _cfg_path_hint(ctx))
-
-    aggregator = _load_aggregator()
-    voice_fn = _load_voice_sender()
-    if not aggregator and not voice_fn:
-        log.info("[xcom] no xcom providers available")
-        return []
-
+def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
+    agg = _load_aggregator()
+    voice = _load_voice()
     rows = _latest_dl_rows(dl)
-    log.info("[xcom] dl rows: %d", len(rows))
-    breaches = [row for row in rows if str(row.get("state", "")).upper() == "BREACH"]
+    log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
+
+    breaches = [r for r in rows if str(r.get("state","" )).upper() == "BREACH"]
+    log.info("[xcom] breaches=%d", len(breaches))
     if not breaches:
-        log.info("[xcom] no BREACH rows")
+        log.info("[xcom] no-breach"); return []
+
+    snooze = _global_snooze_seconds(cfg)
+    now = _now_ts()
+    last = _get_last_sent_ts(dl)
+    if snooze > 0 and last is not None and (now - last) < snooze:
+        log.info("[xcom] global-snooze active: last_sent=%s elapsed=%.0fs min=%ds -> SKIP",
+                 _to_iso(last), now - last, snooze)
         return []
 
-    sent: List[Dict[str, Any]] = []
-    for row in breaches:
-        monitor = (row.get("monitor") or "").lower()
-        if not monitor:
-            log.info("[xcom] skip row with missing monitor: %s", row)
-            continue
+    evt = _pick_event(breaches)
+    mon = (evt.get("monitor") or "").lower()
+    ch  = _channels_for_monitor(cfg, mon)
+    log.info("[xcom] channels(%s)=%s", mon, ch)
 
-        channels = _channels_for_monitor(cfg, monitor)
-        if not any(channels.values()):
-            log.info("[xcom] %s:%s no channels enabled; skip", monitor, row.get("label"))
-            continue
+    if not any(ch.values()):
+        log.info("[xcom] channels disabled -> SKIP")
+        return []
 
-        snooze_window = _snooze_seconds(cfg, monitor)
-        key = f"{monitor}|{row.get('label', '')}"
-        if not _snooze_gate(dl, key, snooze_window):
-            log.info("[xcom] snoozed %s for %ss", key, snooze_window)
-            continue
+    subj, body, tts = _compose_text(evt)
+    payload = {
+        "breach": True, "monitor": mon, "label": evt.get("label"),
+        "value": evt.get("value"),
+        "threshold": {"op": evt.get("thr_op"), "value": evt.get("thr_value")},
+        "source": (evt.get("meta") or {}).get("limit_source") or evt.get("source"),
+        "cycle_id": evt.get("cycle_id"),
+        "subject": subj, "body": body,
+        "channels": {"system": ch.get("system"), "sms": ch.get("sms"), "tts": ch.get("tts"), "voice": False},
+    }
+    context = {"voice": {"tts": tts}, "dl": dl}
 
-        subject, body, tts = _compose_text(row)
-        payload = {
-            "breach": True,
-            "monitor": monitor,
-            "label": row.get("label"),
-            "value": row.get("value"),
-            "threshold": {"op": row.get("thr_op"), "value": row.get("thr_value")},
-            "source": (row.get("meta") or {}).get("limit_source") or row.get("source"),
-            "subject": subject,
-            "body": body,
-        }
-        context = {"subject": subject, "body": body, "source": payload["source"], "tts": tts}
+    sent_any = False
 
-        entry: Dict[str, Any] = {"monitor": monitor, "label": row.get("label"), "channels": dict(channels)}
+    # non-voice via aggregator
+    if agg:
+        non_voice = {"system": bool(ch.get("system")),
+                     "sms":    bool(ch.get("sms")),
+                     "tts":    bool(ch.get("tts")),
+                     "voice":  False}
+        try:
+            agg(mon, payload, non_voice, context)
+            log.info("[xcom] dispatched(non-voice) %s %s -> %s", mon, evt.get("label"), json.dumps(non_voice))
+            sent_any = sent_any or any(non_voice.values())
+        except Exception as e:
+            log.info("[xcom] dispatch(non-voice) error: %s", e)
 
-        if aggregator:
-            channel_map = {
-                "system": bool(channels.get("system")),
-                "sms": bool(channels.get("sms")),
-                "tts": bool(channels.get("tts")),
-                "voice": False,
-            }
-            try:
-                agg_result = aggregator(monitor, payload, channel_map, context)
-                entry["aggregator_result"] = agg_result
-                log.info("[xcom] %s:%s non-voice -> %s", monitor, row.get("label"), agg_result)
-            except Exception as exc:
-                log.info("[xcom] %s:%s non-voice error: %s", monitor, row.get("label"), exc)
+    # voice via explicit voice function (POSitional only)
+    if ch.get("voice") and voice:
+        try:
+            voice(payload, {"voice": True}, context)  # positional
+            log.info("[xcom] dispatched(voice) %s %s", mon, evt.get("label"))
+            sent_any = True
+        except Exception as e:
+            log.info("[xcom] dispatch(voice) error: %s", e)
 
-        if channels.get("voice") and voice_fn:
-            reason_ctx = {
-                "subject": subject,
-                "body": body,
-                "source": monitor,
-                "label": row.get("label"),
-                "intent": f"{monitor}-breach",
-                "tts": tts,
-            }
-            try:
-                try:
-                    voice_fn(
-                        dl,
-                        breach=True,
-                        to_number=None,
-                        from_number=None,
-                        reason_ctx=reason_ctx,
-                    )
-                    entry["voice_result"] = True
-                    log.info("[xcom] %s:%s voice -> OK", monitor, row.get("label"))
-                except TypeError:
-                    try:
-                        voice_fn(monitor, row.get("label"), body)
-                        entry["voice_result"] = True
-                        log.info(
-                            "[xcom] %s:%s voice -> OK (monitor,label,text)",
-                            monitor,
-                            row.get("label"),
-                        )
-                    except TypeError:
-                        voice_fn({"voice": True}, body)
-                        entry["voice_result"] = True
-                        log.info(
-                            "[xcom] %s:%s voice -> OK (channels,text)",
-                            monitor,
-                            row.get("label"),
-                        )
-            except Exception as exc:
-                entry["voice_result"] = False
-                log.info("[xcom] %s:%s voice error: %s", monitor, row.get("label"), exc)
-
-        sent.append(entry)
-
-    log.info("[xcom] sent %d notifications", len(sent))
-    return sent
+    if sent_any:
+        _set_last_sent_ts(dl, now)
+        log.info("[xcom] sent 1 notifications")
+        return [{"monitor": mon, "label": evt.get("label"), "channels": ch, "result": True}]
+    else:
+        log.info("[xcom] sent 0 notifications")
+        return []

@@ -78,7 +78,7 @@ except Exception:
 # Import your XCom core exactly like the backend does
 try:
     # xcom_core.__init__ re-exports dispatch_notifications safely
-    from backend.core.xcom_core.dispatch import dispatch_voice_if_needed as dispatch_notifications  # type: ignore
+    from backend.core.xcom_core import dispatch_notifications  # type: ignore
 except Exception as e:  # pragma: no cover
     print("⚠️  XCom not importable; some actions will be disabled:", e, flush=True)
     dispatch_notifications = None  # type: ignore
