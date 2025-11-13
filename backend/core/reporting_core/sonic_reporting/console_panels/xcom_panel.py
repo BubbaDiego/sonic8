@@ -94,5 +94,29 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             f"  why : {reason} (remaining={remaining}s / window={window}s)",
         ])
 
+    # Last error (provider missing, dispatch exception, etc.)
+    err = _read_var(dl, "xcom_last_error")
+    out += body_indent_lines(PANEL_SLUG, [""])
+    out += body_indent_lines(PANEL_SLUG, [paint_line("Last error", body["column_header_text_color"])])
+    if err:
+        mon = err.get("monitor") or "-"
+        lab = err.get("label") or "-"
+        msg = err.get("reason") or "-"
+        when = err.get("ts")
+        when_s = f"{int(time.time() - when)}s ago" if isinstance(when, (int, float)) else "-"
+        missing_raw = err.get("missing")
+        if isinstance(missing_raw, (list, tuple)):
+            missing_list = [str(x) for x in missing_raw if str(x)]
+        else:
+            missing_list = []
+        extra = f" (missing: {', '.join(missing_list)})" if missing_list else ""
+        out += body_indent_lines(PANEL_SLUG, [
+            f"  what: {mon}:{lab}",
+            f"  why : {msg}{extra}",
+            f"  when: {when_s}",
+        ])
+    else:
+        out += body_indent_lines(PANEL_SLUG, ["  No recent XCom errors logged."])
+
     out += body_pad_below(PANEL_SLUG)
     return out
