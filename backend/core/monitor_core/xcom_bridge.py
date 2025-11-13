@@ -170,6 +170,15 @@ def dispatch_breaches_from_dl(dl, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     if sent_any:
         _set_last_sent_ts(dl, now)
+        sysmgr = getattr(dl, "system", None)
+        if sysmgr and hasattr(sysmgr, "set_var"):
+            sysmgr.set_var("xcom_last_sent", {
+                "ts": time.time(),
+                "monitor": mon,
+                "label": evt.get("label"),
+                "channels": ch,
+                "summary": f"{mon}:{evt.get('label')} — system={ch.get('system')} voice={ch.get('voice')} sms={ch.get('sms')} tts={ch.get('tts')}"
+            })
         log.info("[xcom] sent 1 notifications")
         return [{"monitor": mon, "label": evt.get("label"), "channels": ch, "result": True}]
     else:
