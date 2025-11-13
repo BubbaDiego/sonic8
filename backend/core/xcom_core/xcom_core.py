@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 # Route all legacy uses of XComCore -> consolidated dispatcher
-from backend.core.xcom_core.dispatch import dispatch_voice_if_needed as _dispatch_notifications
+from backend.core.xcom_core.dispatcher import (
+    dispatch_notifications as _dispatch_notifications,
+)
 
 def dispatch_notifications(
     monitor_name: str,
