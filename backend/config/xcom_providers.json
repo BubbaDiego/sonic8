@@ -1,0 +1,11 @@
+{
+  "voice": {
+    "enabled": true,
+    "provider": "twilio",
+    "account_sid": "ACb606788ada5dccbfeeebed0f440099b3",
+    "auth_token": "05a424538435f00cb2e39a1917087d85",
+    "from": "+18336913467",
+    "to": [ "+16199804758" ],
+    "flow_sid": "FWbc0ac9a340985c39b6e0d0fa578c52c7"
+  }
+}

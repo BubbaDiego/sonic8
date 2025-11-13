@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import time
 
+from backend.core.core_constants import XCOM_PROVIDERS_PATH
+
 from .theming import (
     emit_title_block,
     get_panel_body_config,
@@ -46,12 +48,14 @@ def _live_channels(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
 def _dl_provider_snapshot(dl) -> Dict[str, Any]:
     sysmgr = _get_sys(dl)
     pro = sysmgr.get_var("xcom_providers") if sysmgr else None
-    v = (pro or {}).get("voice") or {}
-    # mask only sid/token
-    sid = v.get("account_sid"); token = v.get("auth_token")
-    if sid:   v["account_sid"] = sid[:2] + "…" + sid[-4:] if len(sid) > 6 else "…"
-    if token: v["auth_token"]  = "…" + token[-4:] if len(token) > 4 else "…"
-    return {"voice": v or {}, **{k: pro[k] for k in (pro or {}) if k != "voice"}}
+    v = dict((pro or {}).get("voice") or {})
+    sid = v.get("account_sid")
+    tok = v.get("auth_token")
+    if sid:
+        v["account_sid"] = sid[:2] + "…" + sid[-4:] if len(sid) > 6 else "…"
+    if tok:
+        v["auth_token"] = "…" + tok[-4:] if len(tok) > 4 else "…"
+    return {"voice": v or {}, "path": str(XCOM_PROVIDERS_PATH)}
 
 def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     out: List[str] = []
@@ -62,11 +66,12 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     out += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
-    # Providers (from DL.system)
-    out += body_indent_lines(PANEL_SLUG, [paint_line("Providers (DL.system)", body["column_header_text_color"])])
+    # Providers (from file)
+    out += body_indent_lines(PANEL_SLUG, [paint_line("Providers (file)", body["column_header_text_color"])])
     prov = _dl_provider_snapshot(dl)
     v = prov.get("voice", {}) or {}
     out += body_indent_lines(PANEL_SLUG, [
+        f"  file: {prov.get('path','-')}",
         f"  voice.enabled={bool(v.get('enabled', True))} provider={v.get('provider','-')}",
         f"  from={v.get('from','-')} to={v.get('to') or []} sid={v.get('account_sid','-')} flow={v.get('flow_sid','-')}",
         "",
@@ -121,11 +126,16 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         age = _fmt_age(err.get("ts"))
         miss = err.get("missing")
         extra = f" (missing: {', '.join(miss)})" if miss else ""
-        out += body_indent_lines(PANEL_SLUG, [
+        lines = [
             f"  when: {age} ago",
             f"  what: {err.get('monitor','-')}:{err.get('label','-')}",
             f"  why : {(err.get('reason') or '-').upper()}{extra}",
-        ])
+        ]
+        path = err.get("path")
+        if path:
+            lines.append(f"  file: {path}")
+        lines.append("")
+        out += body_indent_lines(PANEL_SLUG, lines)
 
     out += body_pad_below(PANEL_SLUG)
     return out

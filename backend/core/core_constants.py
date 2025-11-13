@@ -13,6 +13,10 @@ SONIC_MONITOR_CONFIG_PATH = Path(
     os.getenv("SONIC_MONITOR_CONFIG_PATH", str(_CONFIG_DIR / "sonic_monitor_config.json"))
 )
 
+XCOM_PROVIDERS_PATH = Path(
+    os.getenv("SONIC_XCOM_PROVIDERS_PATH", str(_CONFIG_DIR / "xcom_providers.json"))
+)
+
 BASE_DIR = _BACKEND_DIR
 # Look for MOTHER_BRAIN_DB_PATH first for backward compatibility with
 # environments still using MOTHER_DB_PATH.
@@ -39,6 +43,7 @@ __all__ = [
     "SONIC_SAUCE_PATH",
     "ALERT_THRESHOLDS_PATH",
     "SONIC_MONITOR_CONFIG_PATH",
+    "XCOM_PROVIDERS_PATH",
     "CONFIG_DIR",
     "LOG_DIR",
     "CYCLONE_LOG_FILE",

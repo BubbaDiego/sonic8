@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from datetime import datetime, timezone
 from importlib import import_module
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from backend.core.core_constants import XCOM_PROVIDERS_PATH
+
 log = logging.getLogger("sonic.engine")
+
+
+def _load_providers_file() -> dict:
+    p = XCOM_PROVIDERS_PATH
+    with open(p, "r", encoding="utf-8") as f:
+        return json.load(f) or {}
 
 
 def _mask(val: str | None, *, kind: str = "sid") -> str:
@@ -17,22 +24,13 @@ def _mask(val: str | None, *, kind: str = "sid") -> str:
     s = str(val)
     if kind == "sid":
         return s[:2] + "…" + s[-4:] if len(s) > 6 else "…"
-    if kind == "token":
-        return "…" + s[-4:] if len(s) > 4 else "…"
     if kind == "phone":
-        return s  # safe to print E.164 numbers in ops logs
-    return s
+        return s
+    return "…" + s[-4:] if len(s) > 4 else "…"
 
 
-def _snapshot_dl_voice(dl) -> tuple[dict, list[str]]:
-    """
-    Take a snapshot of DL.system['xcom_providers'].voice and report missing keys
-    for a Twilio-style provider.
-    """
-
-    sysmgr = getattr(dl, "system", None)
-    prov = sysmgr.get_var("xcom_providers") if sysmgr and hasattr(sysmgr, "get_var") else None
-    voice = (prov or {}).get("voice") or {}
+def _snapshot_file_voice() -> tuple[dict, list[str]]:
+    voice = ((_load_providers_file() or {}).get("voice")) or {}
     missing: list[str] = []
     provider = (voice.get("provider") or "").strip().lower()
     if not provider:
@@ -44,44 +42,9 @@ def _snapshot_dl_voice(dl) -> tuple[dict, list[str]]:
             missing.append("account_sid")
         if not voice.get("auth_token"):
             missing.append("auth_token")
-        to = voice.get("to")
-        if not to or (isinstance(to, list) and not to) or (isinstance(to, str) and not to.strip()):
+        dest = voice.get("to")
+        if not dest or (isinstance(dest, list) and not dest) or (isinstance(dest, str) and not dest.strip()):
             missing.append("to")
-    return voice, missing
-
-
-def _snapshot_env_voice() -> tuple[dict, list[str]]:
-    """
-    Build a Twilio-style voice dict from ENV (SONIC_XCOM_LIVE, TWILIO_*), and report missing keys.
-    """
-
-    live = str(os.getenv("SONIC_XCOM_LIVE", "0")).strip().lower() in {"1", "true", "yes", "on"}
-    sid = os.getenv("TWILIO_SID")
-    tok = os.getenv("TWILIO_AUTH_TOKEN")
-    frm = os.getenv("TWILIO_FROM")
-    to = os.getenv("TWILIO_TO")
-    flow = os.getenv("TWILIO_FLOW_SID")
-
-    voice = {
-        "enabled": live,
-        "provider": "twilio" if any([sid, tok, frm, to]) else "",
-        "account_sid": sid,
-        "auth_token": tok,
-        "from": frm,
-        "to": [t.strip() for t in (to or "").split(",") if t.strip()] if to else [],
-        "flow_sid": flow,
-    }
-    missing: list[str] = []
-    if not voice["provider"]:
-        missing.append("provider")
-    if not voice["from"]:
-        missing.append("from")
-    if not voice["account_sid"]:
-        missing.append("account_sid")
-    if not voice["auth_token"]:
-        missing.append("auth_token")
-    if not voice["to"]:
-        missing.append("to")
     return voice, missing
 
 
@@ -226,35 +189,6 @@ def _pick_event(breaches: List[Dict[str, Any]]) -> Dict[str, Any]:
     return sorted(breaches, key=lambda r: (priority.get((r.get("monitor") or "").lower(), 99)))[0]
 
 
-def _require_voice_provider(dl) -> Tuple[Dict[str, Any], List[str]]:
-    """
-    Load voice provider from DL.system['xcom_providers'] and validate required keys.
-    Returns (voice_cfg, missing_keys_list).
-    """
-    sysmgr = getattr(dl, "system", None)
-    prov = sysmgr.get_var("xcom_providers") if sysmgr and hasattr(sysmgr, "get_var") else None
-    voice = (prov or {}).get("voice") or {}
-    missing: List[str] = []
-
-    provider = (voice.get("provider") or "").strip().lower()
-    if not provider:
-        missing.append("provider")
-
-    if not voice.get("from"):
-        missing.append("from")
-
-    if provider == "twilio":
-        if not voice.get("account_sid"):
-            missing.append("account_sid")
-        if not voice.get("auth_token"):
-            missing.append("auth_token")
-        dest = voice.get("to")
-        if not dest or (isinstance(dest, list) and not dest) or (isinstance(dest, str) and not dest.strip()):
-            missing.append("to")
-
-    return voice, missing
-
-
 def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
     """
     DL-first XCom bridge.
@@ -271,33 +205,36 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
     rows = _latest_dl_rows(dl)
     log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
 
-    # Provider snapshots: DL + ENV
-    dl_voice, dl_missing = _snapshot_dl_voice(dl)
-    env_voice, env_missing = _snapshot_env_voice()
+    try:
+        voice_file, file_missing = _snapshot_file_voice()
+    except FileNotFoundError:
+        log.error("[xcom] voice provider file missing: %s", XCOM_PROVIDERS_PATH)
+        voice_file, file_missing = {}, ["file-missing"]
+    except json.JSONDecodeError as e:
+        log.error("[xcom] voice provider file invalid (%s): %s", XCOM_PROVIDERS_PATH, e)
+        voice_file, file_missing = {}, ["file-invalid"]
+    except Exception as e:
+        log.error("[xcom] voice provider file error (%s): %s", XCOM_PROVIDERS_PATH, e)
+        voice_file, file_missing = {}, ["file-error"]
 
     log.info(
-        "[xcom] voice(DL)  enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
-        bool(dl_voice.get("enabled", True)),
-        (dl_voice.get("provider") or "-"),
-        _mask(dl_voice.get("from"), kind="phone"),
-        dl_voice.get("to") or [],
-        _mask(dl_voice.get("account_sid"), kind="sid"),
-        (dl_voice.get("flow_sid") or "-"),
-        dl_missing or [],
-    )
-    log.info(
-        "[xcom] voice(ENV) enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
-        bool(env_voice.get("enabled")),
-        (env_voice.get("provider") or "-"),
-        _mask(env_voice.get("from"), kind="phone"),
-        env_voice.get("to") or [],
-        _mask(env_voice.get("account_sid"), kind="sid"),
-        (env_voice.get("flow_sid") or "-"),
-        env_missing or [],
+        "[xcom] voice(FILE %s) enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
+        str(XCOM_PROVIDERS_PATH),
+        bool(voice_file.get("enabled", True)),
+        (voice_file.get("provider") or "-"),
+        _mask(voice_file.get("from"), kind="phone"),
+        voice_file.get("to") or [],
+        _mask(voice_file.get("account_sid"), kind="sid"),
+        (voice_file.get("flow_sid") or "-"),
+        file_missing or [],
     )
 
-    source_used = "DL.system" if not dl_missing else ("ENV" if not env_missing else "NONE")
-    log.info("[xcom] voice provider source used: %s", source_used)
+    sysmgr = getattr(dl, "system", None)
+    if sysmgr and hasattr(sysmgr, "set_var"):
+        try:
+            sysmgr.set_var("xcom_providers", {"voice": voice_file})
+        except Exception:
+            pass
 
     _body_cfg = cfg.get("liquid_monitor", {})
     out: List[Dict[str, Any]] = []
@@ -356,42 +293,52 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
 
         subj, body, tts = _compose_text(r)
 
-        voice_cfg: Dict[str, Any] = {}
-        voice_needed = bool(channels.get("voice"))
+        voice_needed = bool(channels.get("voice")) and bool(voice_file.get("enabled", True))
+        if bool(channels.get("voice")) != voice_needed:
+            channels = {**channels, "voice": voice_needed}
 
+        voice_cfg: Dict[str, Any] = {}
         if voice_needed:
-            voice_cfg, missing = _require_voice_provider(dl)
+            try:
+                voice_cfg, missing = _snapshot_file_voice()
+            except FileNotFoundError:
+                voice_cfg, missing = {}, ["file-missing"]
+            except json.JSONDecodeError:
+                voice_cfg, missing = {}, ["file-invalid"]
+            except Exception:
+                voice_cfg, missing = {}, ["file-error"]
+
             if missing:
-                log.error("[xcom] voice provider missing keys: %s", ", ".join(sorted(set(missing))))
+                msg = f"voice provider missing keys (file): {', '.join(missing)} @ {XCOM_PROVIDERS_PATH}"
+                log.error("[xcom] %s", msg)
 
                 sysmgr = getattr(dl, "system", None)
-                error_ts = time.time()
+                now = time.time()
                 if sysmgr and hasattr(sysmgr, "set_var"):
                     sysmgr.set_var(
                         "xcom_last_error",
                         {
-                            "ts": error_ts,
+                            "ts": now,
                             "monitor": mon,
                             "label": label,
-                            "reason": "provider-missing",
+                            "reason": "provider-missing-file",
                             "missing": sorted(set(missing)),
+                            "path": str(XCOM_PROVIDERS_PATH),
                         },
                     )
 
                 try:
-                    send_agg = _load_aggregator()
-                    if callable(send_agg):
-                        payload = {
-                            "breach": True,
-                            "monitor": mon,
-                            "label": label,
-                            "value": r.get("value"),
-                            "threshold": {"op": r.get("thr_op"), "value": r.get("thr_value")},
-                            "source": (r.get("meta") or {}).get("limit_source") or r.get("source"),
-                            "cycle_id": r.get("cycle_id"),
-                            "error": f"voice provider missing keys: {', '.join(sorted(set(missing)))}",
-                        }
-                        send_agg(mon, payload, {"system": True, "voice": False, "sms": False, "tts": False}, {"dl": dl})
+                    payload_err = {
+                        "breach": True,
+                        "monitor": mon,
+                        "label": label,
+                        "value": r.get("value"),
+                        "threshold": {"op": r.get("thr_op"), "value": r.get("thr_value")},
+                        "source": (r.get("meta") or {}).get("limit_source") or r.get("source"),
+                        "cycle_id": r.get("cycle_id"),
+                        "error": msg,
+                    }
+                    send(mon, payload_err, {"system": True, "voice": False, "sms": False, "tts": False}, {"dl": dl})
                 except Exception:
                     pass
 
@@ -407,6 +354,12 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
             "cycle_id": r.get("cycle_id"),
             "subject": subj,
             "body": body,
+            "channels": {
+                "system": channels.get("system"),
+                "sms": channels.get("sms"),
+                "tts": channels.get("tts"),
+                "voice": False,
+            },
         }
         context = {"voice": {"tts": tts, "provider": voice_cfg}, "dl": dl}
 
