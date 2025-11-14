@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -36,7 +37,9 @@ def _load_monitor_cfg() -> Tuple[Dict[str, Any], str]:
 class MonitorEngine:
     """
     Sonic monitor engine (DB-first).
-      • runs services (prices/positions/raydium/hedges/…)
+
+      • runs Cyclone (prices/positions/hedges/…)
+      • runs services (raydium/…)
       • runs monitors (profit/liquid/market/…)
       • records activity rows for the Cycle Activity panel
       • persists monitor statuses to DB (via dl.monitors)
@@ -45,7 +48,8 @@ class MonitorEngine:
     Spinners/debug are OFF by default to keep the console clean.
     Toggle with SONIC_LIVE=1 if you want them back.
     """
-    DEBUG: bool = os.getenv("SONIC_DEBUG", "0").strip().lower() in {"1","true","yes","on"}
+
+    DEBUG: bool = os.getenv("SONIC_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
 
     def __init__(self, dl: Any, cfg: Optional[Dict[str, Any]] = None, debug: Optional[bool] = None) -> None:
         self.dl = dl
@@ -56,7 +60,9 @@ class MonitorEngine:
         self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
         if not self.logger.handlers:
             h = logging.StreamHandler()
-            h.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s"))
+            h.setFormatter(
+                logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s")
+            )
             self.logger.addHandler(h)
 
         self.ctx = MonitorContext(dl=self.dl, cfg=self.cfg, logger=self.logger, debug=self.debug)
@@ -65,7 +71,43 @@ class MonitorEngine:
         self.activities = ActivityStore(self.dl, self.logger)
 
         # Keep console clean by default (no spinners)
-        self.live_enabled = os.getenv("SONIC_LIVE", "0").strip().lower() in {"1","true","yes","on"}
+        self.live_enabled = os.getenv("SONIC_LIVE", "0").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+
+        # Lazily created Cyclone engine (shared across cycles)
+        self._cyclone: Optional[Any] = None
+
+    # ───────────────────────── helpers ─────────────────────────
+
+    def _ensure_cyclone(self) -> Any:
+        """
+        Lazily create a Cyclone engine wired to the same DataLocker as Sonic Monitor.
+        """
+        if self._cyclone is not None:
+            return self._cyclone
+
+        try:
+            # Import module so we can patch its global_data_locker
+            from backend.core.cyclone_core import cyclone_engine as _ce  # type: ignore
+
+            dl_obj = self.dl
+            try:
+                # Force Cyclone to share the same DataLocker instance
+                if hasattr(_ce, "global_data_locker") and dl_obj is not None:
+                    _ce.global_data_locker = dl_obj  # type: ignore[assignment]
+            except Exception:
+                # Best-effort; Cyclone will fall back to its own DataLocker if this fails
+                self.logger.debug("[cyclone] failed to patch global_data_locker", exc_info=True)
+
+            self._cyclone = _ce.Cyclone(debug=self.debug)
+            return self._cyclone
+        except Exception as exc:
+            self.logger.exception("[cyclone] failed to initialize Cyclone engine: %s", exc)
+            raise
 
     # ───────────────────────── cycle ─────────────────────────
 
@@ -78,7 +120,10 @@ class MonitorEngine:
         self.ctx.cfg = cfg
         self.ctx.cfg_path_hint = cfg_path_hint
         self.ctx.resolver = ThresholdResolver(self.cfg, self.dl, cfg_path_hint=cfg_path_hint)
-        self.logger.info("[resolve] cfg path: %s", self.ctx.resolver.cfg_path_hint or "<unknown>")
+        self.logger.info(
+            "[resolve] cfg path: %s",
+            self.ctx.resolver.cfg_path_hint or "<unknown>",
+        )
 
         bus_rows: List[Dict[str, Any]] = []
 
@@ -104,14 +149,50 @@ class MonitorEngine:
                 self.logger.exception(f"[phase] {phase_key} failed: {e}")
             finally:
                 dt_ms = int((time.monotonic() - t0) * 1000)
-                self.activities.end(tok, outcome=outcome, notes=notes, duration_ms=dt_ms, details=details)
+                self.activities.end(
+                    tok,
+                    outcome=outcome,
+                    notes=notes,
+                    duration_ms=dt_ms,
+                    details=details,
+                )
 
-        # 1) services
+        # 0) Cyclone engine (authoritative prices/positions/hedges pipeline)
+        def _run_cyclone() -> Dict[str, Any]:
+            start = time.monotonic()
+            try:
+                cyclone = self._ensure_cyclone()
+                asyncio.run(cyclone.run_cycle())  # async pipeline
+                duration = time.monotonic() - start
+                self.logger.info(
+                    "🌀 Cyclone.run_cycle completed in %.2fs (cycle=%s)",
+                    duration,
+                    cycle_id,
+                )
+                return {
+                    "ok": True,
+                    "source": "Cyclone.run_cycle",
+                    "duration": duration,
+                }
+            except Exception as exc:
+                duration = time.monotonic() - start
+                self.logger.exception("[cyclone] run_cycle failed: %s", exc)
+                return {
+                    "ok": False,
+                    "source": "Cyclone.run_cycle",
+                    "duration": duration,
+                    "error": str(exc),
+                }
+
+        _run_phase("cyclone", "Cyclone run_cycle", _run_cyclone)
+
+        # 1) services (raydium/hedges/… — prices & positions are handled by Cyclone now)
         for name, svc in get_enabled_services(self.cfg):
             _run_phase(name, f"{name.capitalize()} service", lambda s=svc: s(self.ctx))
 
         # 2) monitors (persist normalized statuses)
         for name, runner in get_enabled_monitors(self.cfg):
+
             def _run_mon(n=name, r=runner):
                 pre_trace_len = len(getattr(self.ctx, "resolve_traces", []) or [])
                 out = r(self.ctx) or {}
@@ -227,12 +308,22 @@ class MonitorEngine:
         }
 
         try:
-            _cr.render_panel_stack(ctx=ctx, dl=self.dl, cfg=cfg_obj, width=width, writer=print)
+            _cr.render_panel_stack(
+                ctx=ctx,
+                dl=self.dl,
+                cfg=cfg_obj,
+                width=width,
+                writer=print,
+            )
         except Exception as exc:
             print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 
     def run_forever(self, interval_sec: int = 30) -> None:
-        self.logger.info("Sonic Monitor engine starting (interval=%ss, debug=%s)", interval_sec, self.debug)
+        self.logger.info(
+            "Sonic Monitor engine starting (interval=%ss, debug=%s)",
+            interval_sec,
+            self.debug,
+        )
         self._loop_n = getattr(self, "_loop_n", 0)
         self._poll_interval_sec = interval_sec
         while True:
@@ -246,10 +337,17 @@ class MonitorEngine:
                 self.logger.exception("Uncaught during run_once: %s", e)
 
             try:
-                from backend.core.reporting_core.sonic_reporting.console_panels import transition_panel as _trans
+                from backend.core.reporting_core.sonic_reporting.console_panels import (
+                    transition_panel as _trans,
+                )
 
-                _trans.run({
-                    "poll_interval_s": interval_sec,
-                })
+                _trans.run(
+                    {
+                        "poll_interval_s": interval_sec,
+                    }
+                )
             except Exception:
                 time.sleep(interval_sec)
+
+
+engine
