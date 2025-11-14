@@ -96,6 +96,7 @@ ICON = {
     "profit":    "💰",
     "liquid":    "💧",
     "market":    "📈",
+    "cyclone":   "🌀",   # ← new: Cyclone engine pass
     "reporters": "🧭",
     "heartbeat": "💓",
 }
