@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🌀 Sonic Launch Pad (sonic7)
+🌀 Sonic Launch Pad (sonic8)
 Feature-parity with sonic6: venv re-exec, menu order, background launches,
 and optional integrations (Perps, Cyclone, Fun Console, Wallet UI).
 """
@@ -390,7 +390,7 @@ def launch_gmx_solana():
     with the Launch Pad. Tries .cmd → .ps1 → python module fallback.
     """
     # 1) .cmd shim: start a new console window
-    cmd_shim = Path(r"C:\\sonic7\\gmx_solana_console.cmd")
+    cmd_shim = Path(r"C:\\sonic8\\gmx_solana_console.cmd")
     if cmd_shim.exists():
         try:
             # Use cmd /c start "" "<path>" to spawn a new window
@@ -404,7 +404,7 @@ def launch_gmx_solana():
             print(f"Note: .cmd launch failed: {e}")
 
     # 2) .ps1 launcher: also new console window
-    ps1 = Path(r"C:\\sonic7\\gmx_solana_console.ps1")
+    ps1 = Path(r"C:\\sonic8\\gmx_solana_console.ps1")
     if ps1.exists():
         try:
             # Start a new PowerShell window using cmd /c start
@@ -420,10 +420,10 @@ def launch_gmx_solana():
 
     # 3) Python module fallback: force a NEW console
     try:
-        repo = Path(r"C:\\sonic7")
+        repo = Path(r"C:\\sonic8")
         if repo.exists():
             env = os.environ.copy()
-            env["PYTHONPATH"] = r"C:\\sonic7" + os.pathsep + env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = r"C:\\sonic8" + os.pathsep + env.get("PYTHONPATH", "")
             py = sys.executable or "python"
             subprocess.Popen(
                 [py, "-m", "backend.core.gmx_solana_core.console.menu_console"],
@@ -435,7 +435,7 @@ def launch_gmx_solana():
             print("Launched GMX-Solana console via python module (new window)")
             return
         else:
-            print("C:\\sonic7 not found; cannot launch GMX-Solana console.")
+            print("C:\\sonic8 not found; cannot launch GMX-Solana console.")
     except Exception as e:
         print(f"GMX-Solana launch failed: {e}")
 
@@ -616,7 +616,7 @@ def _get_dl_manager():
 
 def wallet_menu():
     """Interactive, capability-aware Wallet Manager (works with whatever wallet_core provides)."""
-    # Lazy imports; we don't assume all modules exist in sonic7
+    # Lazy imports; we don't assume all modules exist in sonic8
     svc = None
     core = None
     try:
@@ -954,7 +954,7 @@ def run_daily_maintenance():
         print(f"{title:<32} [{status}]")
         return proc.returncode
 
-    # ── run available steps (exists-check protects sonic7 state) ────────────
+    # ── run available steps (exists-check protects sonic8 state) ────────────
     results = []
     results.append(_run_spec_step("Export OpenAPI",            "backend/scripts/export_openapi.py"))
     results.append(_run_spec_step("Build UI Components doc",   "backend/scripts/build_ui_components_doc.py"))

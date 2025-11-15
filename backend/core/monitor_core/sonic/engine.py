@@ -38,8 +38,8 @@ class MonitorEngine:
     """
     Sonic monitor engine (DB-first).
 
-      • runs Cyclone (prices/positions/hedges/…)
-      • runs services (raydium/…)
+      • runs Cyclone.run_cycle() (prices/positions/hedges/etc)
+      • runs services (raydium/hedges/…)
       • runs monitors (profit/liquid/market/…)
       • records activity rows for the Cycle Activity panel
       • persists monitor statuses to DB (via dl.monitors)
@@ -91,7 +91,6 @@ class MonitorEngine:
             return self._cyclone
 
         try:
-            # Import module so we can patch its global_data_locker
             from backend.core.cyclone_core import cyclone_engine as _ce  # type: ignore
 
             dl_obj = self.dl
@@ -100,8 +99,9 @@ class MonitorEngine:
                 if hasattr(_ce, "global_data_locker") and dl_obj is not None:
                     _ce.global_data_locker = dl_obj  # type: ignore[assignment]
             except Exception:
-                # Best-effort; Cyclone will fall back to its own DataLocker if this fails
-                self.logger.debug("[cyclone] failed to patch global_data_locker", exc_info=True)
+                self.logger.debug(
+                    "[cyclone] failed to patch global_data_locker", exc_info=True
+                )
 
             self._cyclone = _ce.Cyclone(debug=self.debug)
             return self._cyclone
@@ -162,7 +162,7 @@ class MonitorEngine:
             start = time.monotonic()
             try:
                 cyclone = self._ensure_cyclone()
-                asyncio.run(cyclone.run_cycle())  # async pipeline
+                asyncio.run(cyclone.run_cycle())
                 duration = time.monotonic() - start
                 self.logger.info(
                     "🌀 Cyclone.run_cycle completed in %.2fs (cycle=%s)",
@@ -186,7 +186,7 @@ class MonitorEngine:
 
         _run_phase("cyclone", "Cyclone run_cycle", _run_cyclone)
 
-        # 1) services (raydium/hedges/… — prices & positions are handled by Cyclone now)
+        # 1) services (raydium/hedges – prices & positions handled by Cyclone now)
         for name, svc in get_enabled_services(self.cfg):
             _run_phase(name, f"{name.capitalize()} service", lambda s=svc: s(self.ctx))
 
@@ -308,13 +308,7 @@ class MonitorEngine:
         }
 
         try:
-            _cr.render_panel_stack(
-                ctx=ctx,
-                dl=self.dl,
-                cfg=cfg_obj,
-                width=width,
-                writer=print,
-            )
+            _cr.render_panel_stack(ctx=ctx, dl=self.dl, cfg=cfg_obj, width=width, writer=print)
         except Exception as exc:
             print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 
@@ -348,6 +342,3 @@ class MonitorEngine:
                 )
             except Exception:
                 time.sleep(interval_sec)
-
-
-engine

@@ -1,0 +1,14 @@
+{
+  "active": true,
+  "port": 7681,
+  "provider": "cloudflare",
+  "mode": "quick",
+  "url": "https://revision-easy-junior-avoid.trycloudflare.com",
+  "command": "C:\\\\sonic7\\\\.venv\\\\Scripts\\\\python.exe C:\\\\sonic7\\\\launch_pad.py ; pwsh",
+  "auth_enabled": false,
+  "ttyd_pid": 32892,
+  "tunnel_pid": 28996,
+  "started_at": "2025-11-15T16:44:27.392096+00:00",
+  "ttyd_log": "reports\\ttyd.log",
+  "cloudflared_log": "reports\\cloudflared.log"
+}

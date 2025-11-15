@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "autostart": true,
+  "provider": "cloudflare",
+  "port": 7681,
+  "command": "C:\\\\sonic7\\\\.venv\\\\Scripts\\\\python.exe C:\\\\sonic7\\\\launch_pad.py ; pwsh",
+  "auth": {},
+  "cloudflare": {
+    "mode": "quick",
+    "hostname": null,
+    "tunnel_name": null
+  },
+  "qr": {
+    "enabled": true,
+    "border": 0,
+    "compact": true,
+    "max_cols": 44,
+    "color": "green",
+    "link_label": "Open Web Terminal"
+  }
+}

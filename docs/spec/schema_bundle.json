@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generated_at": "2025-11-07 22:59:35 UTC",
-    "count": 117
+    "generated_at": "2025-11-14 01:30:42 UTC",
+    "count": 119
   },
   "schemas": {
     "SCHEMA-POSITION": {
@@ -226,6 +226,106 @@
           }
         }
       ]
+    },
+    "SCHEMA-AAVE_MARKETS": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AaveMarkets",
+      "type": "object",
+      "required": [
+        "chain_id",
+        "reserves"
+      ],
+      "properties": {
+        "chain_id": {
+          "type": "integer",
+          "description": "EVM chain ID for the market snapshot"
+        },
+        "reserves": {
+          "type": "array",
+          "description": "List of reserve configurations for the market",
+          "items": {
+            "type": "object",
+            "required": [
+              "symbol",
+              "address",
+              "decimals"
+            ],
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "description": "Token symbol for the reserve"
+              },
+              "address": {
+                "type": "string",
+                "description": "Underlying asset address"
+              },
+              "decimals": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Token decimals"
+              },
+              "supply_apy": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "Current supply APY"
+              },
+              "variable_borrow_apy": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "Current variable borrow APY"
+              },
+              "ltv": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "Loan-to-value ratio"
+              },
+              "liquidation_threshold": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "Liquidation threshold"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "SCHEMA-AAVE_HEALTH": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AaveHealth",
+      "type": "object",
+      "required": [
+        "total_collateral_usd",
+        "total_debt_usd",
+        "health_factor"
+      ],
+      "properties": {
+        "total_collateral_usd": {
+          "type": "number",
+          "description": "Total collateral value in USD"
+        },
+        "total_debt_usd": {
+          "type": "number",
+          "description": "Total debt value in USD"
+        },
+        "health_factor": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Aave health factor (null if unavailable)"
+        }
+      },
+      "additionalProperties": false
     },
     "SCHEMA-POSITIONS_{POS_ID}": {
       "type": "object",
@@ -4989,6 +5089,11 @@
         "method": "POST",
         "path": "/portfolio/",
         "id": "API-post-portfolio"
+      },
+      {
+        "method": "GET",
+        "path": "/api/aave/portfolio",
+        "id": "API-AAVE-PORTFOLIO"
       }
     ],
     "SCHEMA-POSITIONS": [
@@ -5001,6 +5106,11 @@
         "method": "POST",
         "path": "/positions/",
         "id": "API-post-positions"
+      },
+      {
+        "method": "GET",
+        "path": "/api/aave/positions",
+        "id": "API-AAVE-POSITIONS"
       }
     ],
     "SCHEMA-POSITIONS_{POS_ID}": [
@@ -5055,6 +5165,20 @@
         "method": "POST",
         "path": "/api/portfolio/update_snapshot",
         "id": "API-post-api_portfolio_update_snapshot"
+      }
+    ],
+    "SCHEMA-AAVE_MARKETS": [
+      {
+        "method": "GET",
+        "path": "/api/aave/markets",
+        "id": "API-AAVE-MARKETS"
+      }
+    ],
+    "SCHEMA-AAVE_HEALTH": [
+      {
+        "method": "GET",
+        "path": "/api/aave/health",
+        "id": "API-AAVE-HEALTH"
       }
     ],
     "SCHEMA-CYCLONE_RUN": [

@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 # Services
-from .services.prices_service import sync_prices_service      # kept for external callers
-from .services.positions_service import sync_positions_service  # kept for external callers
+# These imports are kept so other callers can still use the helpers directly,
+# but Sonic Monitor no longer calls prices/positions as services; Cyclone
+# handles those via run_cycle().
+from .services.prices_service import sync_prices_service        # noqa: F401
+from .services.positions_service import sync_positions_service  # noqa: F401
 from .services.raydium_service import sync_raydium_service
 from .services.hedges_service import sync_hedges_service
 
@@ -17,8 +21,9 @@ Service = Callable[[Any], Dict[str, Any]]
 Runner = Callable[[Any], Dict[str, Any]]
 
 # NOTE:
-#   Prices & positions are now driven via Cyclone.run_cycle() inside MonitorEngine.
-#   Sonic Monitor no longer calls sync_prices_service / sync_positions_service as services.
+#   Prices & positions are now driven via Cyclone.run_cycle() inside
+#   MonitorEngine (engine.py). Sonic Monitor no longer invokes the
+#   old sync_prices_service / sync_positions_service in its service loop.
 DEFAULT_SERVICES: List[Tuple[str, Service]] = [
     ("raydium", sync_raydium_service),
     ("hedges",  sync_hedges_service),
@@ -31,23 +36,40 @@ DEFAULT_MONITORS: List[Tuple[str, Runner]] = [
 ]
 
 
-def _enabled(names: Iterable[str] | None, default: List[Tuple[str, Any]]) -> List[Tuple[str, Any]]:
+def _enabled(names: Iterable[str] | None,
+             default: List[Tuple[str, Any]]) -> List[Tuple[str, Any]]:
+    """Filter default list by an optional list of enabled names."""
     name_set = {n.strip().lower() for n in (names or [])}
+    if not name_set:
+        return list(default)
     out: List[Tuple[str, Any]] = []
     for n, fn in default:
-        if not name_set or n in name_set:
+        if n in name_set:
             out.append((n, fn))
     return out
 
 
 def get_enabled_services(cfg: Dict[str, Any]) -> List[Tuple[str, Service]]:
+    """
+    Resolve which services are enabled for this Sonic Monitor run.
+
+    Config shapes supported:
+      - { "services.enabled": ["raydium", "hedges"] }
+      - { "services": ["raydium", "hedges"] }
+      - if neither key is present → all DEFAULT_SERVICES
+    """
     names = cfg.get("services.enabled") or cfg.get("services") or []
     return _enabled(names, DEFAULT_SERVICES)
 
 
 def get_enabled_monitors(cfg: Dict[str, Any]) -> List[Tuple[str, Runner]]:
+    """
+    Resolve which monitors are enabled.
+
+    Config shapes supported:
+      - { "monitors.enabled": ["liquid", "profit", "market"] }
+      - { "monitors": ["liquid", "profit", "market"] }
+      - if neither key is present → all DEFAULT_MONITORS
+    """
     names = cfg.get("monitors.enabled") or cfg.get("monitors") or []
     return _enabled(names, DEFAULT_MONITORS)
-
-
-registry

@@ -1,6 +1,6 @@
 # Sonic Schema Book — Teaching Bundle
 
-> Generated: 2025-11-07 22:59:35 UTC  
+> Generated: 2025-11-14 01:30:42 UTC  
 > Source: `docs/spec/spec.manifest.yaml`  
 > Note: This file consolidates many repo schemas into one for *teaching*. In the repository, each schema lives as its own JSON file.
 
@@ -8,6 +8,8 @@
 
 | Method | Path | Schema ID |
 |---|---|---|
+| `GET` | `/api/aave/health` | `SCHEMA-AAVE_HEALTH` |
+| `GET` | `/api/aave/markets` | `SCHEMA-AAVE_MARKETS` |
 | `GET` | `/alert_thresholds/` | `SCHEMA-ALERT_THRESHOLDS` |
 | `POST` | `/alert_thresholds/` | `SCHEMA-ALERT_THRESHOLDS` |
 | `GET` | `/alert_thresholds/bulk` | `SCHEMA-ALERT_THRESHOLDS_BULK` |
@@ -121,10 +123,12 @@
 | `GET` | `/portfolio/latest` | `SCHEMA-PORTFOLIO` |
 | `GET` | `/portfolio/` | `SCHEMA-PORTFOLIO` |
 | `POST` | `/portfolio/` | `SCHEMA-PORTFOLIO` |
+| `GET` | `/api/aave/portfolio` | `SCHEMA-PORTFOLIO` |
 | `PUT` | `/portfolio/{entry_id}` | `SCHEMA-PORTFOLIO_{ENTRY_ID}` |
 | `DELETE` | `/portfolio/{entry_id}` | `SCHEMA-PORTFOLIO_{ENTRY_ID}` |
 | `GET` | `/positions/` | `SCHEMA-POSITIONS` |
 | `POST` | `/positions/` | `SCHEMA-POSITIONS` |
+| `GET` | `/api/aave/positions` | `SCHEMA-POSITIONS` |
 | `POST` | `/positions/enrich` | `SCHEMA-POSITIONS_ENRICH` |
 | `POST` | `/positions/snapshot` | `SCHEMA-POSITIONS_SNAPSHOT` |
 | `POST` | `/positions/update` | `SCHEMA-POSITIONS_UPDATE` |
@@ -149,6 +153,8 @@
 | `POST` | `/xcom/test` | `SCHEMA-XCOM_TEST` |
 
 ## Table of Contents
+- [SCHEMA-AAVE_HEALTH](#schema-aave-health)
+- [SCHEMA-AAVE_MARKETS](#schema-aave-markets)
 - [SCHEMA-ALERT](#schema-alert)
 - [SCHEMA-ALERT_THRESHOLDS](#schema-alert-thresholds)
 - [SCHEMA-ALERT_THRESHOLDS_BULK](#schema-alert-thresholds-bulk)
@@ -266,6 +272,124 @@
 - [SCHEMA-XCOM_PROVIDERS](#schema-xcom-providers)
 - [SCHEMA-XCOM_STATUS](#schema-xcom-status)
 - [SCHEMA-XCOM_TEST](#schema-xcom-test)
+
+---
+
+### SCHEMA-AAVE_HEALTH
+**Used by:** `GET /api/aave/health`
+
+**Schema**
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AaveHealth",
+  "type": "object",
+  "required": [
+    "total_collateral_usd",
+    "total_debt_usd",
+    "health_factor"
+  ],
+  "properties": {
+    "total_collateral_usd": {
+      "type": "number",
+      "description": "Total collateral value in USD"
+    },
+    "total_debt_usd": {
+      "type": "number",
+      "description": "Total debt value in USD"
+    },
+    "health_factor": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Aave health factor (null if unavailable)"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+---
+
+### SCHEMA-AAVE_MARKETS
+**Used by:** `GET /api/aave/markets`
+
+**Schema**
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AaveMarkets",
+  "type": "object",
+  "required": [
+    "chain_id",
+    "reserves"
+  ],
+  "properties": {
+    "chain_id": {
+      "type": "integer",
+      "description": "EVM chain ID for the market snapshot"
+    },
+    "reserves": {
+      "type": "array",
+      "description": "List of reserve configurations for the market",
+      "items": {
+        "type": "object",
+        "required": [
+          "symbol",
+          "address",
+          "decimals"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Token symbol for the reserve"
+          },
+          "address": {
+            "type": "string",
+            "description": "Underlying asset address"
+          },
+          "decimals": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Token decimals"
+          },
+          "supply_apy": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Current supply APY"
+          },
+          "variable_borrow_apy": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Current variable borrow APY"
+          },
+          "ltv": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Loan-to-value ratio"
+          },
+          "liquidation_threshold": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Liquidation threshold"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
+```
 
 ---
 
@@ -6935,7 +7059,7 @@
 ---
 
 ### SCHEMA-PORTFOLIO
-**Used by:** `GET /portfolio/latest`, `GET /portfolio/`, `POST /portfolio/`
+**Used by:** `GET /portfolio/latest`, `GET /portfolio/`, `POST /portfolio/`, `GET /api/aave/portfolio`
 
 **Example**
 ```json
@@ -7141,7 +7265,7 @@
 ---
 
 ### SCHEMA-POSITIONS
-**Used by:** `GET /positions/`, `POST /positions/`
+**Used by:** `GET /positions/`, `POST /positions/`, `GET /api/aave/positions`
 
 **Example**
 ```json
