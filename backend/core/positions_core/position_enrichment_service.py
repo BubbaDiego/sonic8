@@ -20,7 +20,10 @@ class PositionEnrichmentService:
 
     def enrich(self, position):
         from core.logging import log
-        from utils.fuzzy_wuzzy import fuzzy_match_key
+        try:
+            from utils.fuzzy_wuzzy import fuzzy_match_key  # type: ignore
+        except ModuleNotFoundError:
+            from backend.utils.fuzzy_wuzzy import fuzzy_match_key
 
         pos_id = position.get('id', 'UNKNOWN')
         # Ensure the asset type is present and normalized
