@@ -1,5 +1,5 @@
 
-cd \sonic7
+cd \sonic8
 call .venv\Scripts\activate
 
 

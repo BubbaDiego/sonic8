@@ -25,9 +25,9 @@ param(
   [ValidateSet('auto','pwsh','powershell','cmd')]
   [string]$Shell = 'auto',
   [switch]$Sonic,                     # if set: auto-run Sonic in the shell
-  [string]$SonicRoot = 'C:\sonic7',
-  [string]$SonicPy  = 'C:\sonic7\.venv\Scripts\python.exe',
-  [string]$SonicEntrypoint = 'C:\sonic7\launch_pad.py',
+  [string]$SonicRoot = 'C:\sonic8',
+  [string]$SonicPy  = 'C:\sonic8\.venv\Scripts\python.exe',
+  [string]$SonicEntrypoint = 'C:\sonic8\launch_pad.py',
 
   [switch]$NoTunnel,                  # skip Cloudflare; local only
   [string]$Provider = 'cloudflare',   # future: 'tailscale' support
