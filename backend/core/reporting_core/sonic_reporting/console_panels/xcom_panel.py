@@ -1,29 +1,19 @@
-_safe_render(
-    "backend.core.reporting_core.sonic_reporting.xcom_panel",
-    "render",
-    dl,
-)
-``` :contentReference[oaicite:0]{index=0}
-
-…and that `xcom_panel.py` currently prints exactly what your screenshot shows. :contentReference[oaicite:1]{index=1}
-
-Let’s replace **that** file (`backend/core/reporting_core/sonic_reporting/xcom_panel.py`) with the new design we agreed on: status bar + recent attempts + snooze/cooldown.
-
-Here’s the **full updated file** for Codex to drop in.
-
----
-
-### File: `backend/core/reporting_core/sonic_reporting/xcom_panel.py`
-
-```python
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 import time
 
-from .console_panels.theming import emit_title_block
-from .xcom_extras import (
+from .theming import (
+    emit_title_block,
+    get_panel_body_config,
+    body_pad_above,
+    body_pad_below,
+    body_indent_lines,
+    color_if_plain,
+)
+
+from backend.core.reporting_core.sonic_reporting.xcom_extras import (
     xcom_live_status,
     read_snooze_remaining,
     read_voice_cooldown_remaining,
@@ -224,24 +214,31 @@ def _cooldown_summary(dl: Any, cfg: Optional[Dict[str, Any]]) -> str:
     return f"voice cooldown: idle (window={default_cd}s)"
 
 
-# ───────────────────────── panel entry ─────────────────────────────────────
+# ───────────────────────── render (console_panels style) ───────────────────
 
-def render(dl, *_args, **_kw) -> None:
+def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     """
-    Simple XCom text panel used by the Sonic console runner.
-
-    Layout:
-      1) Status line (live + channels + last attempt/error ages)
-      2) Recent attempts table (latest first)
-      3) Snooze / cooldown summary
+    Accepted:
+      render(ctx)
+      render(dl, ctx)
+      render(ctx, width)
+    Returns a list of lines; console_reporter will print them.
     """
-    rec_send = _get_receipt(dl, "xcom_last_sent")
-    rec_skip = _get_receipt(dl, "xcom_last_skip")
-    rec_err = _get_receipt(dl, "xcom_last_error")
+    # Normalize context to always have a dict with dl + cfg
+    ctx: Dict[str, Any] = {}
+    if isinstance(context, dict):
+        ctx.update(context)
+    else:
+        ctx["dl"] = context
 
-    cfg_obj = getattr(dl, "global_config", None)
+    dl = ctx.get("dl")
+    cfg_obj = ctx.get("cfg") or ctx.get("config") or getattr(dl, "global_config", None)
     if not isinstance(cfg_obj, dict):
         cfg_obj = {}
+
+    rec_send = _get_receipt(dl, "xcom_last_sent") if dl else None
+    rec_skip = _get_receipt(dl, "xcom_last_skip") if dl else None
+    rec_err  = _get_receipt(dl, "xcom_last_error") if dl else None
 
     try:
         live_on, live_src = xcom_live_status(dl, cfg=cfg_obj)
@@ -251,36 +248,53 @@ def render(dl, *_args, **_kw) -> None:
     status_label = "🟢 LIVE" if live_on else "🔴 OFF"
 
     attempts = _recent_attempts(rec_send, rec_skip, rec_err)
-    snooze_line = _snooze_summary(dl, rec_skip)
-    cooldown_line = _cooldown_summary(dl, cfg_obj)
+    snooze_line = _snooze_summary(dl, rec_skip) if dl else "global snooze: OFF"
+    cooldown_line = _cooldown_summary(dl, cfg_obj) if dl else "voice cooldown: idle (window=180s)"
 
-    print()
-    for ln in emit_title_block(PANEL_SLUG, PANEL_NAME):
-        print(ln)
-    print()
+    body_cfg = get_panel_body_config(PANEL_SLUG)
+    out: List[str] = []
 
-    # Status bar
-    print(f"  🛰 Status: {status_label}  [src={live_src}]")
+    # Title
+    out += emit_title_block(PANEL_SLUG, PANEL_NAME)
+
+    # Status lines
+    status_lines: List[str] = []
+    status_lines.append(f"  🛰 Status: {status_label}  [src={live_src}]")
     if attempts:
         newest = attempts[0]
         last_err = next((a for a in attempts if a["type"] == "error"), None)
         last_attempt_txt = f"{newest['type']} {newest['age']} ago"
         last_error_txt = f"{last_err['age']} ago" if last_err else "none"
-        print(f"     last attempt: {last_attempt_txt}   last error: {last_error_txt}")
+        status_lines.append(f"     last attempt: {last_attempt_txt}   last error: {last_error_txt}")
     else:
-        print("     last attempt: none   last error: none")
-    print()
+        status_lines.append("     last attempt: none   last error: none")
+
+    out += body_indent_lines(
+        PANEL_SLUG,
+        [color_if_plain(ln, body_cfg["body_text_color"]) for ln in status_lines],
+    )
+    out.append("")
 
     # Recent attempts table
-    print("  📡 Recent XCom attempts (latest first)")
+    out += body_indent_lines(
+        PANEL_SLUG,
+        [color_if_plain("  📡 Recent XCom attempts (latest first)", body_cfg["column_header_text_color"])],
+    )
+
     if not attempts:
-        print("    (no recent send/skip/error receipts)")
+        out += body_indent_lines(
+            PANEL_SLUG,
+            [color_if_plain("    (no recent send/skip/error receipts)", body_cfg["body_text_color"])],
+        )
     else:
         header = (
             "    #  ⏱ Age  🧾 Type  🎯 Target               "
             "🧮 Result / Reason                  📢 Channels"
         )
-        print(header)
+        out += body_indent_lines(
+            PANEL_SLUG,
+            [color_if_plain(header, body_cfg["column_header_text_color"])],
+        )
         for idx, ev in enumerate(attempts, 1):
             num = f"{idx:<2}"
             age = f"{ev['age']:<6}"
@@ -288,11 +302,31 @@ def render(dl, *_args, **_kw) -> None:
             target = f"{ev['target'][:22]:<22}"
             result = f"{ev['result'][:30]:<30}"
             chans = ev["channels"]
-            print(f"    {num} {age} {typ} {target} {result} {chans}")
-    print()
+            line = f"    {num} {age} {typ} {target} {result} {chans}"
+            out += body_indent_lines(
+                PANEL_SLUG,
+                [color_if_plain(line, body_cfg["body_text_color"])],
+            )
+
+    out.append("")
 
     # Snooze / cooldown block
-    print("  🔕 Snooze / cooldown")
-    print(f"    {snooze_line}")
-    print(f"    {cooldown_line}")
-    print()
+    out += body_indent_lines(
+        PANEL_SLUG,
+        [color_if_plain("  🔕 Snooze / cooldown", body_cfg["column_header_text_color"])],
+    )
+    out += body_indent_lines(
+        PANEL_SLUG,
+        [
+            color_if_plain(f"    {snooze_line}", body_cfg["body_text_color"]),
+            color_if_plain(f"    {cooldown_line}", body_cfg["body_text_color"]),
+        ],
+    )
+
+    out += body_pad_below(PANEL_SLUG)
+    return out
+
+
+def connector(*args, **kwargs) -> List[str]:
+    """console_reporter prefers connector(); delegate to render()."""
+    return render(*args, **kwargs)
