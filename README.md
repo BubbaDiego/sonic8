@@ -176,6 +176,18 @@ python backend/scripts/create_virtual_env.py
 pytest
 ```
 
+### 🧹 Clear stale XCom snooze state (PowerShell)
+
+If the XCom bridge gets stuck thinking every alert is snoozed, delete the
+ledger stored in `global_config.xcom_snooze`. Run this once from the repo root
+with `sqlite3.exe` on your `PATH`:
+
+```powershell
+pwsh -NoProfile -Command "\$db = Join-Path (Resolve-Path .) 'mother.db'; \$sql = \"DELETE FROM global_config WHERE key='xcom_snooze';\"; & sqlite3 \$db \$sql"
+```
+
+The next Sonic cycle will rebuild `xcom_snooze` on demand.
+
 ### 📈 Observability (quick)
 
 - Logs: “CYCLONE ENGINE STARTUP”, “Loaded N positions :: [PositionStore] …”
