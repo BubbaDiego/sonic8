@@ -119,10 +119,11 @@ def clear_all_data():
 @cyclone_bp.route("/run_create_alerts", methods=["POST"])
 def run_create_alerts():
     try:
-        run_in_background(lambda: asyncio.run(current_app.cyclone.alert_core.create_all_alerts()),
-                          name="CreateAlerts")
-        current_app.data_locker.db.close()  # refresh connection for new data
-        return jsonify({"message": "Alert creation started."}), 202
+        log.info(
+            "Alert service disabled; skipping explicit alert creation request.",
+            source="CycloneAPI",
+        )
+        return jsonify({"message": "Alert service disabled; no alerts created."}), 200
     except Exception as e:
         log.error(f"Create Alerts Error: {e}", source="CycloneAPI")
         return jsonify({"error": str(e)}), 500
