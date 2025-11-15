@@ -57,13 +57,18 @@ class MonitorEngine:
         self.debug = self.DEBUG if debug is None else bool(debug)
 
         self.logger = logging.getLogger("sonic.engine")
-        self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
+        # DEBUG when explicitly enabled, otherwise WARNING so INFO noise is hidden
+        self.logger.setLevel(logging.DEBUG if self.debug else logging.WARNING)
+
         if not self.logger.handlers:
             h = logging.StreamHandler()
             h.setFormatter(
                 logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s")
             )
             self.logger.addHandler(h)
+
+        # Don’t double-log through the root logger
+        self.logger.propagate = False
 
         self.ctx = MonitorContext(dl=self.dl, cfg=self.cfg, logger=self.logger, debug=self.debug)
         self.heartbeat = HeartbeatStore(self.dl, self.logger)
