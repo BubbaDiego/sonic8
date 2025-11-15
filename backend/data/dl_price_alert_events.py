@@ -9,12 +9,18 @@ from __future__ import annotations
 
 from uuid import uuid4
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict, Any
 
 import sqlite3
+from enum import Enum
 
 from backend.core.logging import log
-from backend.models.price_alert_event import PriceAlertEvent
+from backend.models.price_alert import (
+    PriceAlertDirection,
+    PriceAlertMode,
+    PriceAlertStateEnum,
+)
+from backend.models.price_alert_event import PriceAlertEvent, PriceAlertEventType
 
 
 class DLPriceAlertEventsManager:
@@ -44,22 +50,22 @@ class DLPriceAlertEventsManager:
             f"""
             CREATE TABLE IF NOT EXISTS {DLPriceAlertEventsManager.TABLE_NAME} (
                 id TEXT PRIMARY KEY,
-                alert_id TEXT,
-                symbol TEXT,
+                alert_id INTEGER,
+                asset TEXT,
                 event_type TEXT,
                 state_after TEXT,
-                price_at_event REAL,
-                anchor_at_event REAL,
-                movement_value REAL,
-                movement_percent REAL,
-                threshold_value REAL,
-                rule_type TEXT,
+                mode TEXT,
                 direction TEXT,
-                recurrence_mode TEXT,
-                source TEXT,
+                price REAL,
+                anchor_price REAL,
+                movement_abs REAL,
+                movement_pct REAL,
+                threshold_value REAL,
+                distance_to_target REAL,
+                proximity_ratio REAL,
+                metadata TEXT,
                 note TEXT,
-                channels_result TEXT,
-                created_at TEXT
+                created_at TEXT NOT NULL
             )
             """
         )
@@ -110,6 +116,14 @@ class DLPriceAlertEventsManager:
             )
             return payload
 
+    @staticmethod
+    def _normalize_value(value: Any) -> Any:
+        if isinstance(value, Enum):
+            return value.value
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
+
     # -------------------------------------------------------------- CRUD-ish --
 
     def record_event(
@@ -122,37 +136,35 @@ class DLPriceAlertEventsManager:
         Insert a new event row.
 
         ``event`` can be a PriceAlertEvent or a plain dict. Missing fields like
-        ``id`` and ``created_at`` will be filled automatically.
+        ``id`` and ``created_at`` are auto-filled.
         """
         from json import dumps
-        import traceback
 
         if ensure_schema_first:
             self.ensure_schema(self.db)
 
         try:
-            if not isinstance(event, dict):
-                event = (
-                    event.model_dump()
-                    if hasattr(event, "model_dump")
-                    else event.dict()
-                )
+            if isinstance(event, PriceAlertEvent):
+                payload: Dict[str, Any] = event.dict()
+            elif hasattr(event, "dict"):
+                payload = event.dict()
+            else:
+                payload = dict(event)
 
-            event.setdefault("id", str(uuid4()))
-            event.setdefault(
-                "created_at", datetime.utcnow().isoformat()
-            )
+            payload.setdefault("id", str(uuid4()))
+            payload.setdefault("created_at", datetime.utcnow())
 
-            # channels_result goes through JSON serialization
-            channels = event.get("channels_result")
-            if channels is not None and not isinstance(channels, str):
+            for key, value in list(payload.items()):
+                payload[key] = self._normalize_value(value)
+
+            metadata = payload.get("metadata")
+            if metadata is not None and not isinstance(metadata, str):
                 try:
-                    event["channels_result"] = dumps(channels)
+                    payload["metadata"] = dumps(metadata)
                 except Exception:
-                    # best-effort serialization
-                    event["channels_result"] = str(channels)
+                    payload["metadata"] = str(metadata)
 
-            sanitized = self._sanitize_payload(event)
+            sanitized = self._sanitize_payload(payload)
             if not sanitized:
                 log.warning(
                     "Attempted to record empty price_alert_event payload.",
@@ -182,6 +194,8 @@ class DLPriceAlertEventsManager:
                 source="DLPriceAlertEventsManager",
             )
         except Exception as e:
+            import traceback
+
             tb = traceback.format_exc()
             log.error(
                 f"❌ Failed to record price_alert_event: {e}",
@@ -213,7 +227,7 @@ class DLPriceAlertEventsManager:
             params: list = []
 
             if symbol:
-                clauses.append("symbol = ?")
+                clauses.append("asset = ?")
                 params.append(symbol)
             if alert_id:
                 clauses.append("alert_id = ?")
@@ -231,14 +245,34 @@ class DLPriceAlertEventsManager:
 
             out: List[PriceAlertEvent] = []
             for row in rows:
-                data = dict(row)
-                ch_raw = data.get("channels_result")
-                if isinstance(ch_raw, str) and ch_raw:
+                data: Dict[str, Any] = dict(row)
+                metadata_raw = data.get("metadata")
+                if isinstance(metadata_raw, str) and metadata_raw:
                     try:
-                        data["channels_result"] = loads(ch_raw)
+                        data["metadata"] = loads(metadata_raw)
                     except Exception:
-                        # keep raw string on parse failure
                         pass
+
+                created_at = data.get("created_at")
+                if isinstance(created_at, str):
+                    try:
+                        data["created_at"] = datetime.fromisoformat(created_at)
+                    except ValueError:
+                        data["created_at"] = datetime.utcnow()
+
+                for enum_field, enum_cls in (
+                    ("state_after", PriceAlertStateEnum),
+                    ("mode", PriceAlertMode),
+                    ("direction", PriceAlertDirection),
+                    ("event_type", PriceAlertEventType),
+                ):
+                    value = data.get(enum_field)
+                    if value is not None and not isinstance(value, enum_cls):
+                        try:
+                            data[enum_field] = enum_cls(value)
+                        except ValueError:
+                            data[enum_field] = value
+
                 out.append(PriceAlertEvent(**data))
             return out
         except Exception as e:
@@ -260,10 +294,7 @@ class DLPriceAlertEventsManager:
                 return
             cursor.execute(f"DELETE FROM {self.TABLE_NAME}")
             self.db.commit()
-            log.success(
-                "🧹 All price_alert_events wiped",
-                source="DLPriceAlertEventsManager",
-            )
+            log.warning("🧹 All price_alert_events wiped", source="DLPriceAlertEventsManager")
         except Exception as e:
             log.error(
                 f"❌ Failed to wipe price_alert_events: {e}",

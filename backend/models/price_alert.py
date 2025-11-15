@@ -2,116 +2,107 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field, asdict, replace
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, Optional
 
-# Pydantic v1/v2 compatible fallback (same pattern as backend/models/position.py)
-try:
-    from pydantic import BaseModel, Field, constr, ConfigDict
 
-    if not hasattr(BaseModel, "__fields__"):
-        # Some stub pydantic builds don't behave like real models
-        raise ImportError("stub")
-except Exception:  # pragma: no cover - fallback when pydantic isn't available
-    class BaseModel:  # type: ignore[override]
-        def __init__(self, **data):
-            for k, v in data.items():
-                setattr(self, k, v)
+class _DataModelMixin:
+    """Utility mixin that provides ``dict`` and ``copy`` helpers for dataclasses."""
 
-        def model_dump(self) -> dict:  # type: ignore
-            return self.__dict__
+    def dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
-        # pydantic v1 compatibility used in tests
-        def dict(self) -> dict:  # type: ignore[override]
-            return self.__dict__
-
-    def Field(default=None, **_):  # type: ignore
-        return default
-
-    def constr(*_, **__):  # type: ignore
-        return str
-
-    ConfigDict = dict  # type: ignore
+    def copy(self, *, update: Optional[Dict[str, Any]] = None):  # type: ignore[override]
+        return replace(self, **(update or {}))
 
 
-class PriceAlert(BaseModel):
-    """
-    Configuration + live state for a single price alert.
+class PriceAlertMode(str, Enum):
+    MOVE_PERCENT = "move_percent"
+    MOVE_ABSOLUTE = "move_absolute"
+    PRICE_TARGET = "price_target"
 
-    This model is intentionally self-contained so we can serialize it directly
-    into the ``price_alerts`` table (JSON or flattened columns) and also return
-    it via API / console without extra adapters.
-    """
 
-    # ---- Identity / scope ----------------------------------------------------
+class PriceAlertDirection(str, Enum):
+    UP = "up"
+    DOWN = "down"
+    ABOVE = "above"
+    BELOW = "below"
+    BOTH = "both"
 
-    id: constr(min_length=1)
-    symbol: str  # e.g. "SPX", "BTC", "ETH", "SOL"
-    label: Optional[str] = None  # user-facing label for UI/XCom
 
-    # ---- Rule definition (what the user asked for) --------------------------
+class PriceAlertRecurrence(str, Enum):
+    SINGLE = "single"
+    RESET = "reset"
+    LADDER = "ladder"
 
-    # "move_pct"  -> percent move from anchor
-    # "move_abs"  -> dollar move from anchor
-    # "price_target" -> fixed target price (>= or <=)
-    rule_type: str = "move_pct"
 
-    # For movement rules: "up" / "down" / "both"
-    # For price targets: "above" / "below"
-    direction: str = "both"
+class PriceAlertStateEnum(str, Enum):
+    OK = "OK"
+    WARN = "WARN"
+    BREACH = "BREACH"
+    DISARMED = "DISARMED"
 
-    # Original threshold specified by the user:
-    #   move_pct     -> percent (e.g. 5.0 for 5%)
-    #   move_abs     -> dollars (e.g. 500.0)
-    #   price_target -> target price (e.g. 5200.0)
-    base_threshold_value: float
 
-    # Recurrence behaviour:
-    #   "single" -> fire once then disarm until reset
-    #   "reset"  -> fire, then anchor jumps to current price
-    #   "ladder" -> fire on each step of size threshold in the chosen direction
-    recurrence_mode: str = "single"
-
-    # Per-alert cooldown (seconds) on top of global XCom snooze (optional)
+@dataclass
+class PriceAlertConfig(_DataModelMixin):
+    id: Optional[int] = None
+    asset: str = ""
+    name: Optional[str] = None
+    enabled: bool = True
+    mode: PriceAlertMode = PriceAlertMode.MOVE_PERCENT
+    direction: PriceAlertDirection = PriceAlertDirection.BOTH
+    threshold_value: float = 0.0
+    original_threshold_value: Optional[float] = None
+    recurrence: PriceAlertRecurrence = PriceAlertRecurrence.SINGLE
     cooldown_seconds: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
 
-    enabled: bool = True  # if False, alert is ignored
 
-    # ---- Anchor & recurrence state ------------------------------------------
-
-    # Anchor at creation (or last "hard reset to original")
+@dataclass
+class PriceAlertState(_DataModelMixin):
     original_anchor_price: Optional[float] = None
-    original_anchor_ts: Optional[str] = None  # ISO 8601
-
-    # Current anchor used for evaluation (may move in reset/ladder modes)
+    original_anchor_time: Optional[datetime] = None
     current_anchor_price: Optional[float] = None
-    current_anchor_ts: Optional[str] = None  # ISO 8601
-
-    # Effective threshold currently in force (may walk in ladder mode).
-    effective_threshold_value: Optional[float] = None
-
-    # Armed vs disarmed (single-shot alerts disarm after breach)
+    current_anchor_time: Optional[datetime] = None
     armed: bool = True
-
-    # ---- Runtime telemetry ---------------------------------------------------
-
-    last_state: Optional[str] = None  # "OK" | "WARN" | "BREACH" | "SKIP"
+    fired_count: int = 0
+    last_state: PriceAlertStateEnum = PriceAlertStateEnum.OK
     last_price: Optional[float] = None
     last_move_abs: Optional[float] = None
     last_move_pct: Optional[float] = None
-    last_evaluated_at: Optional[str] = None  # ISO 8601
-
-    last_fired_at: Optional[str] = None  # ISO 8601
-    fired_count: int = 0
-
-    # ---- Misc / audit --------------------------------------------------------
-
-    metadata: Optional[Dict[str, Any]] = None
-
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-
-    model_config = ConfigDict(from_attributes=True)
+    last_distance_to_target: Optional[float] = None
+    last_proximity_ratio: Optional[float] = None
+    last_evaluated_at: Optional[datetime] = None
+    last_triggered_at: Optional[datetime] = None
+    last_reset_at: Optional[datetime] = None
 
 
-__all__ = ["PriceAlert"]
+@dataclass
+class PriceAlert(_DataModelMixin):
+    config: PriceAlertConfig
+    state: PriceAlertState = field(default_factory=PriceAlertState)
+
+    def copy_with(
+        self,
+        *,
+        config_updates: Optional[Dict[str, Any]] = None,
+        state_updates: Optional[Dict[str, Any]] = None,
+    ) -> "PriceAlert":
+        cfg = self.config.copy(update=config_updates or {})
+        st = self.state.copy(update=state_updates or {})
+        return PriceAlert(config=cfg, state=st)
+
+
+__all__ = [
+    "PriceAlert",
+    "PriceAlertConfig",
+    "PriceAlertState",
+    "PriceAlertMode",
+    "PriceAlertDirection",
+    "PriceAlertRecurrence",
+    "PriceAlertStateEnum",
+]

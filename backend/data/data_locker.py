@@ -28,6 +28,7 @@ from backend.data.dl_session import DLSessionManager
 from backend.data.dl_raydium import DLRaydiumManager
 from backend.data.dl_xcom import DLXComManager
 from backend.data.dl_price_alert_events import DLPriceAlertEventsManager
+from backend.data.dl_price_alerts import DLPriceAlertManager
 
 try:  # pragma: no cover - optional dependency
     from backend.data.dl_system_data import DLSystemDataManager
@@ -166,6 +167,8 @@ class DataLocker:
         self.system = DLSystemDataManager(self.db) if DLSystemDataManager else None
         self.ledger = DLMonitorLedgerManager(self.db)
         self.modifiers = DLModifierManager(self.db)
+        # Price alert configs/state (Market Core)
+        self.price_alerts = DLPriceAlertManager(self.db)
         # Price alert event history (Market Core)
         self.price_alert_events = DLPriceAlertEventsManager(self.db)
 
@@ -397,22 +400,54 @@ class DataLocker:
             "price_alert_events": """
                 CREATE TABLE IF NOT EXISTS price_alert_events (
                     id TEXT PRIMARY KEY,
-                    alert_id TEXT,
-                    symbol TEXT,
+                    alert_id INTEGER,
+                    asset TEXT,
                     event_type TEXT,
                     state_after TEXT,
-                    price_at_event REAL,
-                    anchor_at_event REAL,
-                    movement_value REAL,
-                    movement_percent REAL,
-                    threshold_value REAL,
-                    rule_type TEXT,
+                    mode TEXT,
                     direction TEXT,
-                    recurrence_mode TEXT,
-                    source TEXT,
+                    price REAL,
+                    anchor_price REAL,
+                    movement_abs REAL,
+                    movement_pct REAL,
+                    threshold_value REAL,
+                    distance_to_target REAL,
+                    proximity_ratio REAL,
+                    metadata TEXT,
                     note TEXT,
-                    channels_result TEXT,
-                    created_at TEXT
+                    created_at TEXT NOT NULL
+                )
+            """,
+            "price_alerts": """
+                CREATE TABLE IF NOT EXISTS price_alerts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    asset TEXT NOT NULL,
+                    name TEXT,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    mode TEXT NOT NULL,
+                    direction TEXT NOT NULL,
+                    threshold_value REAL NOT NULL,
+                    original_threshold_value REAL,
+                    recurrence TEXT NOT NULL,
+                    cooldown_seconds INTEGER NOT NULL DEFAULT 0,
+                    original_anchor_price REAL,
+                    original_anchor_time TEXT,
+                    current_anchor_price REAL,
+                    current_anchor_time TEXT,
+                    armed INTEGER NOT NULL DEFAULT 1,
+                    fired_count INTEGER NOT NULL DEFAULT 0,
+                    last_state TEXT,
+                    last_price REAL,
+                    last_move_abs REAL,
+                    last_move_pct REAL,
+                    last_distance_to_target REAL,
+                    last_proximity_ratio REAL,
+                    last_evaluated_at TEXT,
+                    last_triggered_at TEXT,
+                    last_reset_at TEXT,
+                    metadata TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
                 )
             """,
             "monitor_heartbeat": """

@@ -138,6 +138,7 @@ ICON = {
     "gmx": "🪙",
     "raydium": "💎",
     "config": "🧩",
+    "market": "📈",
 }
 
 def repo_root() -> Path:
@@ -511,6 +512,14 @@ def launch_perps_console(new_window: bool = False) -> int:
     cmd = [PYTHON_EXEC, str(script)]
     console.print("\n[bold cyan][Perps][/bold cyan] Launching Unified Perps Menu…\n")
     return run_in_console(cmd, cwd=repo_root(), title="Perps Console", new_window=new_window)
+
+
+def launch_market_console(new_window: bool = True) -> int:
+    """Launch the Market Core console."""
+
+    console.print("\n[bold cyan][Market][/bold cyan] Launching Market Core Console…\n")
+    cmd = [PYTHON_EXEC, "-m", "backend.console.market_console"]
+    return run_in_console(cmd, cwd=repo_root(), title="Market Console", new_window=new_window)
 
 
 def launch_cyclone_app(new_window: bool = True) -> int:
@@ -1084,7 +1093,8 @@ def main() -> None:
                 f"16. {ICON['gmx']} GMX Solana Console",
                 f"17. {ICON['raydium']} Raydium Console (wallet + NFTs)",
                 f"18. {ICON['xcom']} Seed XCom Providers (ENV)",
-                f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window, [D] Database Console, [G] Config Console)",
+                f"19. {ICON['market']} Market Console (Market Core)",
+                f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window, [D] Database Console, [G] Config Console, [M] Market Console)",
             ]
         )
         _print_panel(menu_body, title="Main Menu")
@@ -1127,12 +1137,16 @@ def main() -> None:
             run_menu_action("Raydium Console", launch_raydium_console)
         elif choice == "18":
             run_menu_action("Seed XCom Providers", run_database_console)
+        elif choice == "19":
+            run_menu_action("Market Console", launch_market_console)
         elif choice.upper() == "D":
             run_menu_action("Database Console", _launch_db_console)
         elif choice.upper() == "G":
             run_menu_action("Config Console", _launch_config_console_inprocess)
         elif choice.upper() == "C":
             run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
+        elif choice.upper() == "M":
+            run_menu_action("Market Console", launch_market_console)
         elif choice in {"0", "q", "quit", "exit"}:
             print("bye 👋")
             return
