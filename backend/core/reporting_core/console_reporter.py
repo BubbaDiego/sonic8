@@ -5,19 +5,22 @@ import importlib, os, sys, json, logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH  # NEW
+
 logger = logging.getLogger("sonic.engine")
 
-MON_CFG_PATH = Path(r"C:\\sonic7\\backend\\config\\sonic_monitor_config.json")
+# Follow the same dynamic config path as the engine / API
+MON_CFG_PATH = SONIC_MONITOR_CONFIG_PATH
 
 
 def _load_monitor_cfg():
     try:
         with MON_CFG_PATH.open("r", encoding="utf-8") as f:
             cfg = json.load(f)
-        logger.info("[resolve] cfg path: %s", MON_CFG_PATH)
+        logger.debug("[resolve] cfg path: %s", MON_CFG_PATH)
         return cfg, str(MON_CFG_PATH)
     except Exception as e:
-        logger.info("[resolve] cfg load failed: %s", e)
+        logger.debug("[resolve] cfg load failed: %s", e)
         return {}, "<unknown>"
 
 

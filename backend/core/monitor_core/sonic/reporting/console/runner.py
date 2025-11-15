@@ -124,7 +124,7 @@ def run_console_reporters(
         print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 
     _safe_render(
-        "backend.core.reporting_core.sonic_reporting.wallets_panel",
+        "backend.core.reporting_core.sonic_reporting.console_panels.wallets_panel",
         "render",
         dl,
     )
