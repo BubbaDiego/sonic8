@@ -139,6 +139,8 @@ class Cyclone:
                 )
 
         self.position_core = PositionCore(self.data_locker)
+        # Last summary returned by PositionSyncService.update_jupiter_positions()
+        self.last_position_sync_result: dict | None = None
         self.wallet_service = CycloneWalletService(self.data_locker)
         self.maintenance_service = CycloneMaintenanceService(self.data_locker)
         self.hedge_core = HedgeCore(self.data_locker)
@@ -174,13 +176,35 @@ class Cyclone:
         log.info("Starting Position Updates", source="Cyclone")
         log.start_timer("position_update")
         try:
-            await asyncio.to_thread(self.position_core.update_positions_from_jupiter)
+            summary = await asyncio.to_thread(self.position_core.update_positions_from_jupiter)
+            self.last_position_sync_result = summary or {}
             log.end_timer("position_update", source="Cyclone")
-            log.success("🪐 Position updates completed", source="Cyclone")
+
+            errors = int((self.last_position_sync_result or {}).get("errors", 0) or 0)
+            success = bool((self.last_position_sync_result or {}).get("success", True))
+            preview = (self.last_position_sync_result or {}).get("error_preview")
+
+            if errors:
+                # Non‑fatal, but we want a WARN with context
+                msg = f"🪐 Position updates completed with {errors} errors"
+                if preview:
+                    msg = f"{msg} – {preview}"
+                log.warning(msg, source="Cyclone")
+            elif success:
+                log.success("🪐 Position updates completed", source="Cyclone")
+            else:
+                log.warning("🪐 Position updates completed with issues", source="Cyclone")
+
             self._mark_position_monitor_synced()
         except Exception as e:
             log.error(f"Position Updates crashed: {e}", source="Cyclone")
             log.end_timer("position_update", source="Cyclone")
+            # Preserve a minimal failure summary so callers can see *something*
+            self.last_position_sync_result = {
+                "success": False,
+                "errors": 1,
+                "error": str(e),
+            }
 
     async def run_composite_position_pipeline(self):
         await asyncio.to_thread(self.position_core.update_positions_from_jupiter)
