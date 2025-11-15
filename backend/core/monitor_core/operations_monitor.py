@@ -21,7 +21,24 @@ from backend.core.logging import log
 from backend.core.core_constants import MOTHER_DB_PATH, ALERT_THRESHOLDS_PATH
 from backend.config.config_loader import load_config
 from backend.utils.schema_validation_service import SchemaValidationService
-from jsonschema import validate
+# Make jsonschema validation optional so OperationsMonitor never blocks imports.
+try:
+    from jsonschema import validate as _js_validate  # type: ignore
+except Exception:
+    _js_validate = None
+
+    def validate(instance, schema, *args, **kwargs):
+        """
+        Fallback no-op validator if jsonschema is missing or broken.
+
+        This effectively disables OperationsMonitor schema validation,
+        but keeps the rest of the monitor infrastructure running.
+        """
+        return None
+else:
+    def validate(instance, schema, *args, **kwargs):
+        # Tiny wrapper so callers in this module always see the same symbol.
+        return _js_validate(instance, schema, *args, **kwargs)
 
 
 class OperationsMonitor(BaseMonitor):
