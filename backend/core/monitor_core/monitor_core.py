@@ -13,7 +13,10 @@ from data.data_locker import DataLocker
 # Import your monitor classes here
 from backend.core.monitor_core.price_monitor import PriceMonitor
 from backend.core.monitor_core.position_monitor import PositionMonitor
-from backend.core.monitor_core.operations_monitor import OperationsMonitor
+try:
+    from backend.core.monitor_core.operations_monitor import OperationsMonitor
+except Exception:
+    OperationsMonitor = None  # type: ignore[assignment]
 from backend.core.monitor_core.xcom_monitor import XComMonitor
 from backend.core.monitor_core.twilio_monitor import TwilioMonitor
 from backend.core.monitor_core.profit_monitor import ProfitMonitor  # Added ProfitMonitor
@@ -43,7 +46,8 @@ class MonitorCore:
             # Register default monitors when no custom registry is supplied
             self.registry.register("price_monitor", PriceMonitor())
             self.registry.register("position_monitor", PositionMonitor())
-            self.registry.register("operations_monitor", OperationsMonitor())
+            if OperationsMonitor is not None:
+                self.registry.register("operations_monitor", OperationsMonitor())
             self.registry.register("xcom_monitor", XComMonitor())
             self.registry.register("twilio_monitor", TwilioMonitor())
             self.registry.register("profit_monitor", ProfitMonitor())  # Registered ProfitMonitor
