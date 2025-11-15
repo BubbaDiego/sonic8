@@ -152,14 +152,21 @@ class PositionSyncService:
                 raise
 
             errors = sync.get("errors", 0)
-            fetch_note = None
+            fetch_note: str | None = None
             verdict = "ok"
+
+            # Use richer error info from update_jupiter_positions()
             if "error" in sync:
                 verdict = "fail"
                 fetch_note = sync.get("error")
             elif errors:
                 verdict = "warn"
-                fetch_note = f"{errors} errors"
+                preview = sync.get("error_preview")
+                if preview:
+                    fetch_note = f"{errors} errors – {preview}"
+                else:
+                    fetch_note = f"{errors} errors"
+
             phase_end("positions_fetch", verdict, note=fetch_note)
 
             if "error" in sync:
@@ -250,7 +257,11 @@ class PositionSyncService:
             phase_start("sync_summary", "Sync summary")
             try:
                 verdict = "ok" if errors == 0 else "warn"
-                note = f"{errors} errors" if errors else None
+                if errors:
+                    preview = sync.get("error_preview")
+                    note = f"{errors} errors" if not preview else f"{errors} errors – {preview}"
+                else:
+                    note = None
                 phase_end("sync_summary", verdict, note=note)
             except Exception:
                 phase_end("sync_summary", "warn")
@@ -286,6 +297,8 @@ class PositionSyncService:
         fetched_positions: list[dict] = []
         fallback_positions: list[dict] | None = None
         timeout_triggered = False
+        # New: accumulate short, human-friendly error explanations
+        error_details: list[str] = []
 
         # probe DB schema to pass only valid columns on upsert
         cur = self.dl.db.get_cursor()
@@ -343,15 +356,21 @@ class PositionSyncService:
             except requests.Timeout as e:
                 errors += 1
                 timeout_triggered = True
+                msg = f"timeout for wallet '{name}': {e}"
+                error_details.append(msg)
                 log.error(f"API timeout for {name}: {e}", source="JupiterAPI")
                 fallback_positions = self._positions_fallback()
                 break
             except requests.RequestException as e:
                 errors += 1
+                msg = f"request error for wallet '{name}': {e}"
+                error_details.append(msg)
                 log.error(f"API error for {name}: {e}", source="JupiterAPI")
                 continue
             except Exception as e:
                 errors += 1
+                msg = f"unexpected API error for wallet '{name}': {e}"
+                error_details.append(msg)
                 log.error(f"API error for {name}: {e}", source="JupiterAPI")
                 continue
 
@@ -362,6 +381,8 @@ class PositionSyncService:
                 payload = res.json() or {}
             except Exception as e:
                 errors += 1
+                msg = f"JSON parse error for wallet '{name}': {e}"
+                error_details.append(msg)
                 log.error(f"JSON parse error for {name}: {e}", source="JupiterAPI")
                 continue
 
@@ -426,6 +447,8 @@ class PositionSyncService:
                     jup_ids.add(pos_id)
                 except Exception as e:
                     errors += 1
+                    msg = f"upsert failed for {pos_id}: {e}"
+                    error_details.append(msg)
                     log.error(f"Upsert failed for {pos_id}: {e}", source="Upsert")
 
         if timeout_triggered:
@@ -440,6 +463,9 @@ class PositionSyncService:
                 "fallback": True,
                 "success": False,
             }
+            if error_details:
+                summary["error_details"] = error_details
+                summary["error_preview"] = "; ".join(error_details[:3])
             if fallback_positions:
                 fetched_positions = fallback_positions
             self._stash_last_positions(fetched_positions)
@@ -454,6 +480,10 @@ class PositionSyncService:
             "position_ids": list(jup_ids),
             "success": True,
         }
+        if error_details:
+            summary["error_details"] = error_details
+            summary["error_preview"] = "; ".join(error_details[:3])
+
         log.info(
             f"📦 Perps Sync Result → Imported:{imported} Updated:{updated} Skipped:{skipped} Errors:{errors}",
             source="SyncSummary",

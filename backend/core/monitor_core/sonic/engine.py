@@ -136,13 +136,39 @@ class MonitorEngine:
             try:
                 res = fn() or {}
                 details = res if isinstance(res, dict) else {"result": str(res)}
-                # build short note
+
+                # Build a generic note first (counts / status lists)
                 if "count" in details and details["count"] is not None:
                     notes = f"count {details['count']}"
                 elif isinstance(details.get("result"), dict) and "count" in details["result"]:
                     notes = f"count {details['result']['count']}"
                 elif "statuses" in details and isinstance(details["statuses"], list):
                     notes = f"{len(details['statuses'])} status"
+
+                # Allow callers to override outcome explicitly
+                severity = details.get("severity")
+                if severity in {"ok", "warn", "error"}:
+                    if severity == "warn":
+                        outcome = "warn"
+                    elif severity == "error":
+                        outcome = "error"
+
+                ok_flag = details.get("ok")
+                if isinstance(ok_flag, bool) and not ok_flag and outcome == "ok":
+                    # Explicit failure without severity → treat as error
+                    outcome = "error"
+
+                # If we still have no note, prefer any explicit error text/preview
+                if not notes:
+                    for key in ("error_note", "error_preview", "error"):
+                        val = details.get(key)
+                        if val:
+                            notes = str(val)
+                            break
+
+                # Final fallback: show errors count if present
+                if not notes and isinstance(details.get("errors"), int) and details["errors"] > 0:
+                    notes = f"{details['errors']} errors"
             except Exception as e:
                 outcome = "error"
                 notes = f"{type(e).__name__}: {e}"
@@ -164,21 +190,47 @@ class MonitorEngine:
                 cyclone = self._ensure_cyclone()
                 asyncio.run(cyclone.run_cycle())
                 duration = time.monotonic() - start
+
+                details: Dict[str, Any] = {
+                    "source": "Cyclone.run_cycle",
+                    "duration": duration,
+                }
+
+                # Bubble up position-sync summary so the Cycle Activity panel
+                # can reflect non‑fatal errors from the Jupiter sync.
+                pos_sync = getattr(cyclone, "last_position_sync_result", None)
+                if isinstance(pos_sync, dict):
+                    details["position_sync"] = pos_sync
+                    errors = int(pos_sync.get("errors", 0) or 0)
+                    details["errors"] = errors
+                    preview = pos_sync.get("error_preview") or pos_sync.get("error")
+                    success = bool(pos_sync.get("success", True))
+
+                    if errors:
+                        details["ok"] = False
+                        details["severity"] = "warn"
+                        label = "position sync error" if errors == 1 else "position sync errors"
+                        note = f"{errors} {label}"
+                        if preview:
+                            note = f"{note} – {preview}"
+                        details["error_note"] = note
+                    else:
+                        details["ok"] = success
+                else:
+                    details["ok"] = True
+
                 self.logger.info(
                     "🌀 Cyclone.run_cycle completed in %.2fs (cycle=%s)",
                     duration,
                     cycle_id,
                 )
-                return {
-                    "ok": True,
-                    "source": "Cyclone.run_cycle",
-                    "duration": duration,
-                }
+                return details
             except Exception as exc:
                 duration = time.monotonic() - start
                 self.logger.exception("[cyclone] run_cycle failed: %s", exc)
                 return {
                     "ok": False,
+                    "severity": "error",
                     "source": "Cyclone.run_cycle",
                     "duration": duration,
                     "error": str(exc),
