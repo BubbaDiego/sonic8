@@ -1,3 +1,21 @@
+_safe_render(
+    "backend.core.reporting_core.sonic_reporting.xcom_panel",
+    "render",
+    dl,
+)
+``` :contentReference[oaicite:0]{index=0}
+
+…and that `xcom_panel.py` currently prints exactly what your screenshot shows. :contentReference[oaicite:1]{index=1}
+
+Let’s replace **that** file (`backend/core/reporting_core/sonic_reporting/xcom_panel.py`) with the new design we agreed on: status bar + recent attempts + snooze/cooldown.
+
+Here’s the **full updated file** for Codex to drop in.
+
+---
+
+### File: `backend/core/reporting_core/sonic_reporting/xcom_panel.py`
+
+```python
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -16,7 +34,7 @@ PANEL_SLUG = "xcom"
 PANEL_NAME = "XCom"
 
 
-# ───────────────────────── helpers: receipts & age ──────────────────────────
+# ───────────────────────── receipts + age helpers ──────────────────────────
 
 def _get_receipt(dl: Any, key: str) -> Optional[Dict[str, Any]]:
     sysmgr = getattr(dl, "system", None)
@@ -51,12 +69,14 @@ def _fmt_age(age_s: int) -> str:
     return f"{h}h" if m == 0 else f"{h}h{m}m"
 
 
-# ───────────────────────── helpers: formatting fields ───────────────────────
+# ───────────────────────── attempt formatting ──────────────────────────────
 
 def _target_from_rec(rec: Dict[str, Any]) -> str:
-    mon = rec.get("monitor") or "-"
+    mon = rec.get("monitor") or ""
     lab = rec.get("label") or ""
-    return f"{mon}:{lab}" if lab else str(mon)
+    if mon or lab:
+        return f"{mon}:{lab}".strip(":")
+    return "-"
 
 
 def _format_channels_compact(ch: Dict[str, Any]) -> str:
@@ -78,7 +98,6 @@ def _format_channels_compact(ch: Dict[str, Any]) -> str:
 
 
 def _result_for_send(rec: Dict[str, Any]) -> str:
-    # Prefer explicit summary if present, else infer simple OK/FAIL.
     summary = rec.get("summary")
     if isinstance(summary, str) and summary.strip():
         return summary.strip()
@@ -107,7 +126,6 @@ def _result_for_skip(rec: Dict[str, Any]) -> str:
 def _result_for_error(rec: Dict[str, Any]) -> str:
     reason = (rec.get("reason") or "-").upper()
     missing = rec.get("missing")
-    detail = ""
     if missing:
         try:
             detail = "missing=" + ", ".join(missing)
@@ -117,8 +135,6 @@ def _result_for_error(rec: Dict[str, Any]) -> str:
         detail = str(rec.get("detail") or "").strip()
     return f"{reason} {detail}".strip()
 
-
-# ───────────────────────── helpers: attempts list ───────────────────────────
 
 def _build_attempt(kind: str, rec: Dict[str, Any]) -> Dict[str, Any]:
     age_s = _compute_age_seconds(rec)
@@ -145,9 +161,12 @@ def _build_attempt(kind: str, rec: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _recent_attempts(rec_send: Optional[Dict[str, Any]],
-                     rec_skip: Optional[Dict[str, Any]],
-                     rec_err: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _recent_attempts(
+    rec_send: Optional[Dict[str, Any]],
+    rec_skip: Optional[Dict[str, Any]],
+    rec_err: Optional[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Build a small list of recent attempts from the last send/skip/error receipts."""
     events: List[Dict[str, Any]] = []
     if rec_send:
         events.append(_build_attempt("send", rec_send))
@@ -155,18 +174,18 @@ def _recent_attempts(rec_send: Optional[Dict[str, Any]],
         events.append(_build_attempt("skip", rec_skip))
     if rec_err:
         events.append(_build_attempt("error", rec_err))
-    # Sort by age_s ascending → newest first
+    # Sort by age ascending → newest first
     events.sort(key=lambda e: e["age_s"])
     return events
 
 
-# ───────────────────────── helpers: snooze / cooldown ───────────────────────
+# ───────────────────────── snooze / cooldown summaries ─────────────────────
 
 def _snooze_summary(dl: Any, rec_skip: Optional[Dict[str, Any]]) -> str:
     remaining = None
     minimum = None
 
-    if isinstance(rec_skip, Dict):
+    if isinstance(rec_skip, dict):
         remaining = rec_skip.get("remaining_seconds")
         minimum = rec_skip.get("min_seconds")
 
@@ -181,7 +200,7 @@ def _snooze_summary(dl: Any, rec_skip: Optional[Dict[str, Any]]) -> str:
     if remaining is None and minimum is None:
         return "global snooze: OFF"
 
-    parts = ["global snooze:"]
+    parts: List[str] = ["global snooze:"]
     if remaining is not None:
         parts.append(f"remaining={int(remaining)}s")
     if minimum is not None:
@@ -195,7 +214,6 @@ def _cooldown_summary(dl: Any, cfg: Optional[Dict[str, Any]]) -> str:
     except Exception:
         rem = 0
 
-    default_cd = 0
     try:
         default_cd = int(get_default_voice_cooldown(cfg or {}))
     except Exception:
@@ -206,30 +224,35 @@ def _cooldown_summary(dl: Any, cfg: Optional[Dict[str, Any]]) -> str:
     return f"voice cooldown: idle (window={default_cd}s)"
 
 
-# ───────────────────────── panel entry ──────────────────────────────────────
+# ───────────────────────── panel entry ─────────────────────────────────────
 
 def render(dl, *_args, **_kw) -> None:
-    # Receipts
+    """
+    Simple XCom text panel used by the Sonic console runner.
+
+    Layout:
+      1) Status line (live + channels + last attempt/error ages)
+      2) Recent attempts table (latest first)
+      3) Snooze / cooldown summary
+    """
     rec_send = _get_receipt(dl, "xcom_last_sent")
     rec_skip = _get_receipt(dl, "xcom_last_skip")
     rec_err = _get_receipt(dl, "xcom_last_error")
 
-    # Config for live/cooldown helpers
-    cfg = getattr(dl, "global_config", None)
-    if not isinstance(cfg, dict):
-        cfg = {}
+    cfg_obj = getattr(dl, "global_config", None)
+    if not isinstance(cfg_obj, dict):
+        cfg_obj = {}
 
-    # Live status
     try:
-        live_on, live_src = xcom_live_status(dl, cfg)
+        live_on, live_src = xcom_live_status(dl, cfg=cfg_obj)
     except Exception:
         live_on, live_src = False, "—"
 
-    status_icon = "🟢 LIVE" if live_on else "🔴 OFF"
+    status_label = "🟢 LIVE" if live_on else "🔴 OFF"
 
     attempts = _recent_attempts(rec_send, rec_skip, rec_err)
     snooze_line = _snooze_summary(dl, rec_skip)
-    cooldown_line = _cooldown_summary(dl, cfg)
+    cooldown_line = _cooldown_summary(dl, cfg_obj)
 
     print()
     for ln in emit_title_block(PANEL_SLUG, PANEL_NAME):
@@ -237,13 +260,15 @@ def render(dl, *_args, **_kw) -> None:
     print()
 
     # Status bar
-    print(f"  🛰 Status: {status_icon}  [src={live_src}]")
+    print(f"  🛰 Status: {status_label}  [src={live_src}]")
     if attempts:
         newest = attempts[0]
         last_err = next((a for a in attempts if a["type"] == "error"), None)
         last_attempt_txt = f"{newest['type']} {newest['age']} ago"
         last_error_txt = f"{last_err['age']} ago" if last_err else "none"
         print(f"     last attempt: {last_attempt_txt}   last error: {last_error_txt}")
+    else:
+        print("     last attempt: none   last error: none")
     print()
 
     # Recent attempts table
@@ -251,7 +276,10 @@ def render(dl, *_args, **_kw) -> None:
     if not attempts:
         print("    (no recent send/skip/error receipts)")
     else:
-        header = "    #  ⏱ Age  🧾 Type  🎯 Target               🧮 Result / Reason                  📢 Channels"
+        header = (
+            "    #  ⏱ Age  🧾 Type  🎯 Target               "
+            "🧮 Result / Reason                  📢 Channels"
+        )
         print(header)
         for idx, ev in enumerate(attempts, 1):
             num = f"{idx:<2}"
