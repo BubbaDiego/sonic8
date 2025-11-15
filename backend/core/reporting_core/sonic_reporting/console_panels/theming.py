@@ -118,6 +118,7 @@ def get_panel_title_config(slug: str, *, default_string: str) -> Dict[str, Any]:
         "border_style": str(pick("border_style", default="lines")).lower(),
         "border_color": pick("border_color", default="default"),
         "text_color":   pick("text_color", default="cyan"),
+        "align":        str(pick("align", default="center")).lower(),
     }
 
 def _center_piece(piece: str, width: int) -> Tuple[int, int]:
@@ -126,9 +127,30 @@ def _center_piece(piece: str, width: int) -> Tuple[int, int]:
     right = fill - left
     return left, right
 
-def _lines_style(title_txt: str, *, width: int, border_color: str, text_color: str) -> List[str]:
+def _align_offsets(piece: str, width: int, align: str) -> Tuple[int, int]:
+    """
+    Compute left/right padding to place `piece` in a field of `width`
+    according to `align` ("left" or "center").
+    """
+    fill = max(0, width - len(piece))
+    align = (align or "center").lower()
+    if align == "left":
+        return 0, fill
+    # default: center
+    left = fill // 2
+    right = fill - left
+    return left, right
+
+def _lines_style(
+    title_txt: str,
+    *,
+    width: int,
+    border_color: str,
+    text_color: str,
+    align: str,
+) -> List[str]:
     shown = f"  {title_txt}  "
-    L, R = _center_piece(shown, width)
+    L, R = _align_offsets(shown, width, align)
     left = "─" * L
     right = "─" * R
     if border_color and border_color != "default":
@@ -136,17 +158,35 @@ def _lines_style(title_txt: str, *, width: int, border_color: str, text_color: s
         right = _ansi(border_color, right)
     return [f"{left}{_ansi(text_color, shown)}{right}"]
 
-def _rectangle_style(title_txt: str, *, width: int, border_color: str, text_color: str) -> List[str]:
+def _rectangle_style(
+    title_txt: str,
+    *,
+    width: int,
+    border_color: str,
+    text_color: str,
+    align: str,
+) -> List[str]:
     inner = f" {title_txt} "
-    box_w = min(width, max(10, len(inner) + 2))
-    top = "┌" + "─" * (box_w - 2) + "┐"
-    mid = "│" + inner.center(box_w - 2) + "│"
-    bot = "└" + "─" * (box_w - 2) + "┘"
-    L, _ = _center_piece(top, width)
-    pad = " " * L
+    box_w = max(10, width)
+    content_w = max(1, box_w - 2)
+
+    align = (align or "center").lower()
+    if align == "left":
+        inner_line = inner.ljust(content_w)
+    else:
+        inner_line = inner.center(content_w)
+
+    top = "┌" + "─" * content_w + "┐"
+    mid = "│" + inner_line + "│"
+    bot = "└" + "─" * content_w + "┘"
+
     if border_color and border_color != "default":
-        top = _ansi(border_color, top); mid = _ansi(border_color, mid); bot = _ansi(border_color, bot)
-    return [pad + top, pad + _ansi(text_color, mid), pad + bot]
+        top = _ansi(border_color, top)
+        mid = _ansi(border_color, mid)
+        bot = _ansi(border_color, bot)
+
+    # Caller (emit_title_block) will handle indent; these are already box_w wide
+    return [top, _ansi(text_color, mid), bot]
 
 # Rich rounded support
 _RICH_ROUNDED: Optional[dict] = None
@@ -168,36 +208,54 @@ try:
 except Exception:
     _RICH_ROUNDED = dict(tl="╭", tr="╮", bl="╰", br="╯", h="─", v="│")
 
-def _rounded_style(title_txt: str, *, width: int, border_color: str, text_color: str) -> List[str]:
+def _rounded_style(
+    title_txt: str,
+    *,
+    width: int,
+    border_color: str,
+    text_color: str,
+    align: str,
+) -> List[str]:
     tl = _RICH_ROUNDED["tl"]; tr = _RICH_ROUNDED["tr"]
     bl = _RICH_ROUNDED["bl"]; br = _RICH_ROUNDED["br"]
     h  = _RICH_ROUNDED["h"];  v  = _RICH_ROUNDED["v"]
 
-    # Base text with a little padding
+    box_w = max(10, width)  # full configured title width
     inner = f" {title_txt} "
-    text_len = len(inner)
+    avail = max(0, box_w - 2)
+    inner_len = len(inner)
+    pad_total = max(0, avail - inner_len)
 
-    # Make the rounded box more substantial: target ~3x the text width,
-    # but don't exceed the overall title width or go below a sane minimum.
-    target_width = max(10, text_len * 3)
-    box_w = min(width, target_width)
+    align = (align or "center").lower()
+    if align == "left":
+        pad_left = 0
+        pad_right = pad_total
+    else:
+        pad_left = pad_total // 2
+        pad_right = pad_total - pad_left
 
     top = tl + (h * (box_w - 2)) + tr
-    avail = box_w - 2
-    pad_total = max(0, avail - len(inner))
-    pad_left = pad_total // 2
-    pad_right = pad_total - pad_left
     mid = v + (" " * pad_left) + _ansi(text_color, inner) + (" " * pad_right) + v
     bot = bl + (h * (box_w - 2)) + br
 
-    L, _ = _center_piece(top, width)
-    pad = " " * L
     if border_color and border_color != "default":
         top = _ansi(border_color, top)
         mid = _ansi(border_color, mid)
         bot = _ansi(border_color, bot)
 
-    return [pad + top, pad + mid, pad + bot]
+    # No centering here: box already spans box_w; emit_title_block will indent
+    return [top, mid, bot]
+
+def _none_style(
+    title_txt: str,
+    *,
+    width: int,
+    border_color: str,
+    align: str,
+) -> List[str]:
+    shown = title_txt
+    L, R = _align_offsets(shown, width, align)
+    return [(" " * L) + shown + (" " * R)]
 
 def title_lines(slug: str, default_string: str, *, width: Optional[int] = None) -> List[str]:
     W = width or console_width()
@@ -207,18 +265,38 @@ def title_lines(slug: str, default_string: str, *, width: Optional[int] = None) 
         text = f"{tcfg['icon']} {text} {tcfg['icon']}"
 
     style = tcfg["border_style"]
-    if style == "rectangle":
-        return _rectangle_style(text, width=W, border_color=tcfg["border_color"], text_color=tcfg["text_color"])
-    if style == "rounded":
-        return _rounded_style(text, width=W, border_color=tcfg["border_color"], text_color=tcfg["text_color"])
-    if style == "none":
-        return _none_style(text, width=W, border_color=tcfg["border_color"])
-    return _lines_style(text, width=W, border_color=tcfg["border_color"], text_color=tcfg["text_color"])
+    align = tcfg.get("align", "center")
 
-def _none_style(title_txt: str, *, width: int, border_color: str) -> List[str]:
-    shown = title_txt
-    L, R = _center_piece(shown, width)
-    return [(" " * L) + shown + (" " * R)]
+    if style == "rectangle":
+        return _rectangle_style(
+            text,
+            width=W,
+            border_color=tcfg["border_color"],
+            text_color=tcfg["text_color"],
+            align=align,
+        )
+    if style == "rounded":
+        return _rounded_style(
+            text,
+            width=W,
+            border_color=tcfg["border_color"],
+            text_color=tcfg["text_color"],
+            align=align,
+        )
+    if style == "none":
+        return _none_style(
+            text,
+            width=W,
+            border_color=tcfg["border_color"],
+            align=align,
+        )
+    return _lines_style(
+        text,
+        width=W,
+        border_color=tcfg["border_color"],
+        text_color=tcfg["text_color"],
+        align=align,
+    )
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Layout config (indent/padding) and title width override
