@@ -2,81 +2,52 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field, asdict, replace
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, Optional
 
-# Same pydantic fallback pattern as other models
-try:
-    from pydantic import BaseModel, Field, constr, ConfigDict
-
-    if not hasattr(BaseModel, "__fields__"):
-        raise ImportError("stub")
-except Exception:  # pragma: no cover
-    class BaseModel:  # type: ignore[override]
-        def __init__(self, **data):
-            for k, v in data.items():
-                setattr(self, k, v)
-
-        def model_dump(self) -> dict:  # type: ignore
-            return self.__dict__
-
-        def dict(self) -> dict:  # type: ignore[override]
-            return self.__dict__
-
-    def Field(default=None, **_):  # type: ignore
-        return default
-
-    def constr(*_, **__):  # type: ignore
-        return str
-
-    ConfigDict = dict  # type: ignore
+from backend.models.price_alert import (
+    PriceAlertDirection,
+    PriceAlertMode,
+    PriceAlertStateEnum,
+)
 
 
-class PriceAlertEvent(BaseModel):
-    """
-    Append-only history of what happened to price alerts.
+class _DataModelMixin:
+    def dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
-    This backs the ``dl_price_alert_events`` table and is used by:
-      - Market Core (writes events)
-      - Market Console (reads recent history)
-      - any future web dashboards.
-    """
+    def copy(self, *, update: Optional[Dict[str, Any]] = None):  # type: ignore[override]
+        return replace(self, **(update or {}))
 
-    id: constr(min_length=1)
-    alert_id: constr(min_length=1)
 
-    symbol: str  # e.g. "BTC", "ETH", "SOL", "SPX"
+class PriceAlertEventType(str, Enum):
+    BREACH = "breach"
+    WARN = "warn"
+    RESET = "reset"
+    INFO = "info"
 
-    # "breach", "warn", "skip_snooze", "reset", "rearm", "created", "updated", ...
-    event_type: str
 
-    # Monitor-style state snapshot: "OK" | "WARN" | "BREACH" | "SKIP"
-    state_after: Optional[str] = None
-
-    # Price context at the time of the event
-    price_at_event: Optional[float] = None
-    anchor_at_event: Optional[float] = None
-    movement_value: Optional[float] = None
-    movement_percent: Optional[float] = None
+@dataclass
+class PriceAlertEvent(_DataModelMixin):
+    id: Optional[str] = None
+    alert_id: Optional[int] = None
+    asset: Optional[str] = None
+    event_type: PriceAlertEventType = PriceAlertEventType.INFO
+    state_after: PriceAlertStateEnum = PriceAlertStateEnum.OK
+    mode: Optional[PriceAlertMode] = None
+    direction: Optional[PriceAlertDirection] = None
+    price: Optional[float] = None
+    anchor_price: Optional[float] = None
+    movement_abs: Optional[float] = None
+    movement_pct: Optional[float] = None
     threshold_value: Optional[float] = None
-
-    # Copy of rule metadata (so history is still readable if rules change later)
-    rule_type: Optional[str] = None
-    direction: Optional[str] = None
-    recurrence_mode: Optional[str] = None
-
-    # Where did this event come from? (market_core / console / api / xcom_bridge)
-    source: Optional[str] = None
-
-    # Free-form detail (e.g. "global snooze active", "manual reset to original")
+    distance_to_target: Optional[float] = None
+    proximity_ratio: Optional[float] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
     note: Optional[str] = None
-
-    # Optional summary of XCom delivery outcome for breach events
-    channels_result: Optional[Dict[str, Any]] = None
-
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-
-    model_config = ConfigDict(from_attributes=True)
+    created_at: datetime = field(default_factory=datetime.utcnow)
 
 
-__all__ = ["PriceAlertEvent"]
+__all__ = ["PriceAlertEvent", "PriceAlertEventType"]
