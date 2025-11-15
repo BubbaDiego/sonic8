@@ -5,7 +5,7 @@ from datetime import datetime
 import unicodedata
 
 # standardized title via console_panels.theming
-from .console_panels.theming import (
+from backend.core.reporting_core.sonic_reporting.console_panels.theming import (
     emit_title_block,
     get_panel_body_config,
     body_pad_above, body_pad_below, body_indent_lines,
