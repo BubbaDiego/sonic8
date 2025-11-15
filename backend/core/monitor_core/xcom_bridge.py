@@ -401,5 +401,5 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
             except Exception:
                 pass
 
-    log.info("[xcom] sent %d notifications (including error notifies)", len(out))
+    log.debug("[xcom] sent %d notifications (including error notifies)", len(out))
     return out
