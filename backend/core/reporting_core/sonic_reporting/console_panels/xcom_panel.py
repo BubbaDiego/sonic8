@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 import time
+from datetime import datetime
 
 from .theming import (
     emit_title_block,
@@ -57,6 +58,21 @@ def _fmt_age(age_s: int) -> str:
     h = age_s // 3600
     m = (age_s % 3600) // 60
     return f"{h}h" if m == 0 else f"{h}h{m}m"
+
+
+def _fmt_time_from_ts(ts_value: Any) -> str:
+    """
+    Format a timestamp into a short local time string like '2:44pm'.
+    Falls back to '--:--' on error.
+    """
+    try:
+        ts = float(ts_value)
+        dt = datetime.fromtimestamp(ts)
+        # '02:44PM' -> '2:44pm'
+        t = dt.strftime("%I:%M%p").lstrip("0").lower()
+        return t
+    except Exception:
+        return "--:--"
 
 
 # ───────────────────────── attempt formatting ──────────────────────────────
@@ -129,6 +145,7 @@ def _result_for_error(rec: Dict[str, Any]) -> str:
 def _build_attempt(kind: str, rec: Dict[str, Any]) -> Dict[str, Any]:
     age_s = _compute_age_seconds(rec)
     target = _target_from_rec(rec)
+    when = _fmt_time_from_ts(rec.get("ts"))
 
     if kind == "send":
         result = _result_for_send(rec)
@@ -145,6 +162,7 @@ def _build_attempt(kind: str, rec: Dict[str, Any]) -> Dict[str, Any]:
         "type": kind,
         "age_s": age_s,
         "age": _fmt_age(age_s),
+        "time": when,
         "target": target,
         "result": result,
         "channels": chan,
@@ -263,7 +281,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     if attempts:
         newest = attempts[0]
         last_err = next((a for a in attempts if a["type"] == "error"), None)
-        last_attempt_txt = f"{newest['type']} {newest['age']} ago"
+        last_attempt_txt = f"{newest['type']} {newest['result']} {newest['age']} ago"
         last_error_txt = f"{last_err['age']} ago" if last_err else "none"
         status_lines.append(f"     last attempt: {last_attempt_txt}   last error: {last_error_txt}")
     else:
@@ -288,21 +306,22 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         )
     else:
         header = (
-            "    #  ⏱ Age  🧾 Type  🎯 Target               "
-            "🧮 Result / Reason                  📢 Channels"
+            "    #  ⏱ Age  🕒 Time  🧾 Type  🎯 Target            "
+            "🧮 Result                      📢 Channels"
         )
         out += body_indent_lines(
             PANEL_SLUG,
             [color_if_plain(header, body_cfg["column_header_text_color"])],
         )
         for idx, ev in enumerate(attempts, 1):
-            num = f"{idx:<2}"
-            age = f"{ev['age']:<6}"
-            typ = f"{ev['type']:<6}"
-            target = f"{ev['target'][:22]:<22}"
-            result = f"{ev['result'][:30]:<30}"
+            num = f"{idx:<2}"                       # e.g. '1 '
+            age = f"{ev['age']:<5}"                # '0s', '5s', '2m', '2h3m'
+            when = f"{ev['time']:<7}"              # '2:44pm'
+            typ = f"{ev['type']:<6}"               # 'send', 'skip', 'error'
+            target = f"{ev['target'][:20]:<20}"    # 'liquid:SOL – Liq'
+            result = f"{ev['result'][:26]:<26}"    # 'OK', 'FAIL ...', 'GLOBAL-SNOOZE …'
             chans = ev["channels"]
-            line = f"    {num} {age} {typ} {target} {result} {chans}"
+            line = f"    {num} {age} {when} {typ} {target} {result} {chans}"
             out += body_indent_lines(
                 PANEL_SLUG,
                 [color_if_plain(line, body_cfg["body_text_color"])],
