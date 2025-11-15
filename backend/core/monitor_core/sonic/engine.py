@@ -327,13 +327,15 @@ class MonitorEngine:
             results = dispatch_breaches_from_dl(self.dl, self.cfg) or []
             count = len(results)
 
-            # Persist for introspection / XCom console
+            # Optional: persist last batch under a separate key so we
+            # don't clobber the per-send receipt that the XCom panel uses.
             sysmgr = getattr(self.dl, "system", None)
             if sysmgr and hasattr(sysmgr, "set_var"):
                 try:
-                    sysmgr.set_var("xcom_last_sent", results)
-                except Exception as exc:
-                    self.logger.info("[xcom] failed to record last sent: %s", exc)
+                    sysmgr.set_var("xcom_last_batch", results)
+                except Exception:
+                    # Best-effort only; don't spam logs if this fails
+                    pass
 
             errors = 0
             auth_errors = 0
