@@ -85,12 +85,9 @@ def run_console_reporters(
     """
     Final ordering:
       1) Cycle Activity
-      2) Prices (reporter stack)
-      3) Positions (reporter stack)
-      4) Monitors
-      5) XCom
-      6) Wallets
-      7) Cycle footer (always last)
+      2) Reporter stack (Preflight, Prices, Positions, Monitors, XCom, Resolve log)
+      3) Wallets
+      4) Cycle footer (always last)
     """
     _safe_render(
         "backend.core.reporting_core.sonic_reporting.cycle_activity_reporter",
@@ -126,11 +123,6 @@ def run_console_reporters(
     except Exception as exc:
         print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 
-    _safe_render(
-        "backend.core.reporting_core.sonic_reporting.xcom_panel",
-        "render",
-        dl,
-    )
     _safe_render(
         "backend.core.reporting_core.sonic_reporting.wallets_panel",
         "render",
