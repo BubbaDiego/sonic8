@@ -19,9 +19,6 @@ class PositionEnrichmentService:
         self.calc_core = CalculationCore(data_locker)
 
     def enrich(self, position):
-        from core.logging import log
-        from utils.fuzzy_wuzzy import fuzzy_match_key
-
         pos_id = position.get('id', 'UNKNOWN')
         # Ensure the asset type is present and normalized
         asset = position.get('asset_type') or position.get('asset')
