@@ -146,7 +146,65 @@ def get_price_assets() -> list[str]:
     return result
 
 def get_profit_config() -> Dict[str, Any]:
-    return dict(load().get("profit", {}))
+    """
+    Profit monitor thresholds (FILE-origin).
+
+    Returns a dict that always exposes:
+        - position_usd
+        - portfolio_usd
+
+    Values are derived from, in order:
+        1) profit_monitor.position_profit_usd / portfolio_profit_usd
+        2) profit.position_profit_usd / portfolio_profit_usd
+        3) profit.position_usd / portfolio_usd
+
+    This mirrors how the runtime monitor resolves thresholds, but is
+    FILE-only (no DB access) so it is safe for the startup banner.
+    """
+    cfg = load()
+
+    # Start from the raw "profit" block so existing fields (notifications,
+    # snooze_seconds, etc.) are preserved.
+    profit_cfg: Dict[str, Any] = {}
+    raw_profit = cfg.get("profit") or {}
+    if isinstance(raw_profit, dict):
+        profit_cfg.update(raw_profit)
+
+    pm = cfg.get("profit_monitor") or {}
+
+    pos_val: Any = None
+    pf_val: Any = None
+
+    # 1) Canonical config: profit_monitor.*
+    if isinstance(pm, dict):
+        pos_val = pm.get("position_profit_usd")
+        pf_val = pm.get("portfolio_profit_usd")
+
+    # 2) Legacy-style keys under "profit"
+    if pos_val is None and isinstance(raw_profit, dict):
+        pos_val = raw_profit.get("position_profit_usd")
+    if pf_val is None and isinstance(raw_profit, dict):
+        pf_val = raw_profit.get("portfolio_profit_usd") or raw_profit.get("portfolio_usd")
+
+    # 3) Generic position_usd/portfolio_usd if present
+    if pos_val is None and isinstance(raw_profit, dict):
+        pos_val = raw_profit.get("position_usd")
+    if pf_val is None and isinstance(raw_profit, dict):
+        pf_val = raw_profit.get("portfolio_usd")
+
+    # Normalize to floats on the keys the banner expects
+    try:
+        if pos_val is not None:
+            profit_cfg["position_usd"] = float(pos_val)
+    except Exception:
+        pass
+    try:
+        if pf_val is not None:
+            profit_cfg["portfolio_usd"] = float(pf_val)
+    except Exception:
+        pass
+
+    return profit_cfg
 
 def get_twilio() -> Dict[str, str]:
     cfg = dict(load().get("twilio", {}))
