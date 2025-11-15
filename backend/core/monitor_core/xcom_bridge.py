@@ -200,10 +200,10 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
     - Uses multi-channel dispatcher via _bind_dispatcher()
     """
     send, mode = _bind_dispatcher()
-    log.info("[xcom] dispatcher mode=%s", mode)
+    log.debug("[xcom] dispatcher mode=%s", mode)
 
     rows = _latest_dl_rows(dl)
-    log.info("[xcom] bridge starting; dl_rows=%d", len(rows))
+    log.debug("[xcom] bridge starting; dl_rows=%d", len(rows))
 
     try:
         voice_file, file_missing = _snapshot_file_voice()
@@ -217,7 +217,7 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
         log.error("[xcom] voice provider file error (%s): %s", XCOM_PROVIDERS_PATH, e)
         voice_file, file_missing = {}, ["file-error"]
 
-    log.info(
+    log.debug(
         "[xcom] voice(FILE %s) enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
         str(XCOM_PROVIDERS_PATH),
         bool(voice_file.get("enabled", True)),
@@ -240,7 +240,7 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
 
     breaches = [r for r in (rows or []) if str(r.get("state", "")).upper() == "BREACH"]
-    log.info("[xcom] breaches=%d", len(breaches))
+    log.debug("[xcom] breaches=%d", len(breaches))
 
     for r in breaches:
         mon = (r.get("monitor") or "").lower()
