@@ -312,20 +312,93 @@ class MonitorEngine:
         self.logger.info("[mon] dl_monitors updated")
         self.logger.info("[mon] dl_monitors rows after evaluate = %d", len(payload))
 
-        sent = dispatch_breaches_from_dl(self.dl, self.cfg)
-        self.logger.info("[xcom] sent %d notifications", len(sent))
+        def _run_xcom() -> Dict[str, Any]:
+            """
+            XCom bridge phase.
 
-        sysmgr = getattr(self.dl, "system", None)
-        if sysmgr and hasattr(sysmgr, "set_var"):
-            try:
-                sysmgr.set_var("xcom_last_sent", sent)
-            except Exception as exc:
-                self.logger.info("[xcom] failed to record last sent: %s", exc)
+            Runs DL-first XCom dispatcher and returns a summary used by the
+            Cycle Activity panel.
+            """
+            results = dispatch_breaches_from_dl(self.dl, self.cfg) or []
+            count = len(results)
 
-        # 3) heartbeat
+            # Persist for introspection / XCom console
+            sysmgr = getattr(self.dl, "system", None)
+            if sysmgr and hasattr(sysmgr, "set_var"):
+                try:
+                    sysmgr.set_var("xcom_last_sent", results)
+                except Exception as exc:
+                    self.logger.info("[xcom] failed to record last sent: %s", exc)
+
+            errors = 0
+            auth_errors = 0
+            last_error: str | None = None
+
+            # Walk result payloads looking for error / reason flags
+            for item in results:
+                if not isinstance(item, dict):
+                    continue
+                r = item.get("result") or {}
+                if not isinstance(r, dict):
+                    continue
+
+                candidates = [r]
+                for key in ("voice", "non_voice"):
+                    sub = r.get(key)
+                    if isinstance(sub, dict):
+                        candidates.append(sub)
+
+                for node in candidates:
+                    err = node.get("error") or node.get("reason")
+                    if not err:
+                        continue
+                    errors += 1
+                    last_error = str(err)
+                    low = last_error.lower()
+                    if "auth" in low or "authenticate" in low or "missing-config" in low:
+                        auth_errors += 1
+
+            details: Dict[str, Any] = {
+                "count": count,
+                "errors": errors,
+                "auth_errors": auth_errors,
+                "last_error": last_error,
+                "ok": errors == 0,
+            }
+
+            if errors:
+                # Treat any send error as a WARN; the panel will render this
+                # with a yellow status icon and an informative note.
+                details["severity"] = "warn"
+                base_note = f"{count} notifications, {errors} errors"
+                if auth_errors:
+                    base_note += " (Twilio auth/config)"
+                if last_error:
+                    details["error_note"] = f"{base_note} — {last_error}"
+                else:
+                    details["error_note"] = base_note
+            else:
+                # No errors: keep the activity row concise
+                details["severity"] = "ok"
+                details["error_note"] = f"{count} notifications sent" if count else "no notifications"
+
+            # Also keep a short log line for grep / external logs
+            self.logger.info(
+                "[xcom] notifications=%d errors=%d auth_errors=%d",
+                count,
+                errors,
+                auth_errors,
+            )
+
+            return details
+
+        # 3) XCom bridge (notifications phase)
+        _run_phase("xcom", "XCom", _run_xcom)
+
+        # 4) heartbeat
         _run_phase("heartbeat", "Heartbeat", lambda: (self.heartbeat.touch() or {"ok": True}))
 
-        # 4) reporters (DB-first, no csum)
+        # 5) reporters (DB-first, no csum)
         elapsed = time.monotonic() - cycle_t0
         footer_ctx = {
             "loop_counter": getattr(self, "_loop_n", 0),

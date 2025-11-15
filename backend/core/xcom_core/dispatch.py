@@ -98,8 +98,21 @@ def dispatch_voice(payload: Dict[str, Any],
                     results.append({"to": to, "sid": call.sid, "ok": True, "mode": "twiml"})
                     log.info("[xcom.voice] call OK to=%s sid=%s", to, call.sid)
             except Exception as e:
-                results.append({"to": to, "ok": False, "error": str(e)})
-                log.info("[xcom.voice] call FAIL to=%s err=%s", to, e)
+                # Compress noisy Twilio HTTP errors into a short reason
+                status = getattr(e, "status", None)
+                code = getattr(e, "code", None)
+                msg = getattr(e, "msg", None) or getattr(e, "message", None)
+                reason_bits = []
+                if status is not None:
+                    reason_bits.append(f"http={status}")
+                if code is not None:
+                    reason_bits.append(f"code={code}")
+                if msg:
+                    reason_bits.append(str(msg))
+                reason = "; ".join(reason_bits) or str(e)
+
+                results.append({"to": to, "ok": False, "error": reason})
+                log.info("[xcom.voice] call FAIL to=%s reason=%s", to, reason)
 
         return {"ok": any(r.get("ok") for r in results), "results": results}
     except Exception as e:
