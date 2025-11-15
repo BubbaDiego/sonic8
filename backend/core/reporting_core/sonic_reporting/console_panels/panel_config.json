@@ -3,9 +3,10 @@
   "defaults": {
     "title": {
       "icon": "",
-      "border_style": "lines",
-      "border_color": "pink",
-      "text_color": "cyan"
+      "border_style": "rounded",
+      "border_color": "default",
+      "text_color": "cyan",
+      "align": "center"
     },
     "layout": {
       "title_indent": 0,
