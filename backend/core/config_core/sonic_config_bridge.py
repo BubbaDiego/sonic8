@@ -84,15 +84,42 @@ def get_channels() -> Dict[str, Dict[str, bool]]:
     return dict(load().get("channels", {}))
 
 def get_liquid_thresholds() -> Dict[str, float]:
-    raw = load().get("liquid", {}).get("thresholds", {})
-    output: Dict[str, float] = {}
-    if isinstance(raw, dict):
-        for key, value in raw.items():
+    """
+    Return per-asset liquidation thresholds from config.
+
+    Preference order:
+        1) liquid_monitor.thresholds   (new Sonic monitor schema)
+        2) liquid.thresholds           (legacy schema)
+    Values are normalized to uppercase keys (e.g. "BTC", "ETH", "SOL").
+    """
+    cfg = load()
+
+    # 1) Prefer new layout: liquid_monitor.thresholds.{SYMBOL}
+    src: Dict[str, Any] = {}
+    liquid_monitor = cfg.get("liquid_monitor") or {}
+    if isinstance(liquid_monitor, dict):
+        cand = liquid_monitor.get("thresholds")
+        if isinstance(cand, dict):
+            src = cand
+
+    # 2) Fallback: legacy layout liquid.thresholds.{SYMBOL}
+    if not src:
+        liquid_legacy = cfg.get("liquid") or {}
+        if isinstance(liquid_legacy, dict):
+            cand = liquid_legacy.get("thresholds")
+            if isinstance(cand, dict):
+                src = cand
+
+    out: Dict[str, float] = {}
+    if isinstance(src, dict):
+        for key, value in src.items():
             try:
-                output[str(key).upper()] = float(value)
+                out[str(key).upper()] = float(value)
             except Exception:
+                # Ignore malformed values, keep rest
                 continue
-    return output
+
+    return out
 
 def get_liquid_blasts() -> Dict[str, int]:
     raw = load().get("liquid", {}).get("blast", {})
