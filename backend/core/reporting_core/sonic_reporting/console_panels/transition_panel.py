@@ -1,56 +1,81 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import importlib
 import os
-from typing import Any, Dict
+import shutil
+import sys
+import time
+from typing import Any, Dict, Optional
+
+DEFAULT_POLL_SECONDS = 30
 
 
-def _int(x, default: int = 0) -> int:
+def _get_interval_s(ctx: Optional[Dict[str, Any]]) -> int:
+    """
+    Resolve the poll interval (seconds) from:
+      1) ctx["poll_interval_s"], if present
+      2) env SONIC_POLL_SECONDS
+      3) DEFAULT_POLL_SECONDS
+    """
+    val = None
+    if isinstance(ctx, dict):
+        val = ctx.get("poll_interval_s")
+
+    if val is None:
+        val = os.getenv("SONIC_POLL_SECONDS")
+
     try:
-        return int(x)
+        interval = int(val)
     except Exception:
-        return default
+        interval = DEFAULT_POLL_SECONDS
+
+    return max(0, interval)
 
 
-def _get_interval_s(ctx: Dict[str, Any]) -> int:
-    """Resolve the poll interval from context or environment."""
-    return (
-        _int(ctx.get("poll_interval_s"))
-        or _int(os.getenv("SONIC_POLL_SECONDS"))
-        or 30
-    )
-
-
-def run(ctx: Dict[str, Any]) -> None:
-    """Run the ping-pong transition for the current poll interval."""
+def _term_width() -> int:
     try:
-        duration = _get_interval_s(ctx)
-        if duration <= 0:
-            return
-
-        mod = importlib.import_module(
-            "backend.core.fun_core.transitions.runners.ping_pong_bar"
-        )
-        Runner = getattr(mod, "Runner")
-        runner = Runner()
-
-        from backend.core.fun_core.transitions.base import TransitionContext
-        from backend.core.fun_core.transitions import themes as T
-
-        fps = _int(ctx.get("transition_fps") or os.getenv("SONIC_TRANSITION_FPS", 15), 15)
-
-        tctx = TransitionContext(
-            duration_s=duration,
-            fps=fps,
-            width=_int(ctx.get("width"), 0),
-            height=_int(ctx.get("height"), 0),
-            title="",
-            emoji=True,
-            theme=getattr(T, "DEFAULT_THEME"),
-            get_fun_line=None,
-        )
-        runner.run(tctx)
+        return shutil.get_terminal_size((80, 20)).columns
     except Exception:
-        import time
+        return 80
 
-        time.sleep(_get_interval_s(ctx))
+
+def run(ctx: Optional[Dict[str, Any]] = None) -> None:
+    """
+    Simple countdown used between Sonic Monitor cycles.
+
+    Prints a single line and updates it each second:
+        ⏱ next poll in 23s …
+
+    This is called from the Sonic engine between cycles, and can also be
+    invoked directly for testing:
+
+        python -m backend.core.reporting_core.sonic_reporting.console_panels.transition_panel
+    """
+    duration = _get_interval_s(ctx)
+    if duration <= 0:
+        return
+
+    width = _term_width()
+    # Use carriage return to rewrite the same line
+    for remaining in range(duration, 0, -1):
+        msg = f"⏱ next poll in {remaining:>2d}s"
+        line = msg.ljust(width)
+        try:
+            sys.stdout.write("\r" + line)
+            sys.stdout.flush()
+        except Exception:
+            # If stdout gets weird, just bail gracefully
+            break
+        time.sleep(1)
+
+    # Clear the line before the next cycle draws panels
+    try:
+        sys.stdout.write("\r" + (" " * width) + "\r")
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
+if __name__ == "__main__":
+    # Quick manual test: 5-second countdown
+    run({"poll_interval_s": 5})
