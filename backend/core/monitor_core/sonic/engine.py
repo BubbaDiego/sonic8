@@ -25,12 +25,12 @@ def _load_monitor_cfg() -> Tuple[Dict[str, Any], str]:
     try:
         with SONIC_MONITOR_CONFIG_PATH.open("r", encoding="utf-8") as f:
             cfg = json.load(f)
-        logging.getLogger("sonic.engine").info(
+        logging.getLogger("sonic.engine").debug(
             "[resolve] cfg path: %s", SONIC_MONITOR_CONFIG_PATH
         )
         return cfg, str(SONIC_MONITOR_CONFIG_PATH)
     except Exception as e:
-        logging.getLogger("sonic.engine").info("[resolve] cfg load failed: %s", e)
+        logging.getLogger("sonic.engine").debug("[resolve] cfg load failed: %s", e)
         return {}, "<unknown>"
 
 
@@ -120,7 +120,7 @@ class MonitorEngine:
         self.ctx.cfg = cfg
         self.ctx.cfg_path_hint = cfg_path_hint
         self.ctx.resolver = ThresholdResolver(self.cfg, self.dl, cfg_path_hint=cfg_path_hint)
-        self.logger.info(
+        self.logger.debug(
             "[resolve] cfg path: %s",
             self.ctx.resolver.cfg_path_hint or "<unknown>",
         )
@@ -219,7 +219,7 @@ class MonitorEngine:
                 else:
                     details["ok"] = True
 
-                self.logger.info(
+                self.logger.debug(
                     "🌀 Cyclone.run_cycle completed in %.2fs (cycle=%s)",
                     duration,
                     cycle_id,
@@ -309,8 +309,8 @@ class MonitorEngine:
         else:
             self.logger.info("[mon] no dl_monitors manager on DataLocker; cannot publish")
 
-        self.logger.info("[mon] dl_monitors updated")
-        self.logger.info("[mon] dl_monitors rows after evaluate = %d", len(payload))
+        self.logger.debug("[mon] dl_monitors updated")
+        self.logger.debug("[mon] dl_monitors rows after evaluate = %d", len(payload))
 
         def _run_xcom() -> Dict[str, Any]:
             """
@@ -383,7 +383,7 @@ class MonitorEngine:
                 details["error_note"] = f"{count} notifications sent" if count else "no notifications"
 
             # Also keep a short log line for grep / external logs
-            self.logger.info(
+            self.logger.debug(
                 "[xcom] notifications=%d errors=%d auth_errors=%d",
                 count,
                 errors,
@@ -438,7 +438,7 @@ class MonitorEngine:
             print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 
     def run_forever(self, interval_sec: int = 30) -> None:
-        self.logger.info(
+        self.logger.debug(
             "Sonic Monitor engine starting (interval=%ss, debug=%s)",
             interval_sec,
             self.debug,
