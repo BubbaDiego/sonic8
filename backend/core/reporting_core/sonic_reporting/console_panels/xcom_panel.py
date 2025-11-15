@@ -1,141 +1,270 @@
-# backend/core/reporting_core/sonic_reporting/console_panels/xcom_panel.py
+# -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
+
+from typing import Any, Dict, Optional, List
 import time
 
-from backend.core.core_constants import XCOM_PROVIDERS_PATH
-
-from .theming import (
-    emit_title_block,
-    get_panel_body_config,
-    body_pad_below, body_indent_lines,
-    paint_line,
+from .console_panels.theming import emit_title_block
+from .xcom_extras import (
+    xcom_live_status,
+    read_snooze_remaining,
+    read_voice_cooldown_remaining,
+    get_default_voice_cooldown,
 )
 
 PANEL_SLUG = "xcom"
 PANEL_NAME = "XCom"
 
-def _fmt_age(ts: Optional[float]) -> str:
-    if not ts: return "—"
+
+# ───────────────────────── helpers: receipts & age ──────────────────────────
+
+def _get_receipt(dl: Any, key: str) -> Optional[Dict[str, Any]]:
+    sysmgr = getattr(dl, "system", None)
+    if not sysmgr or not hasattr(sysmgr, "get_var"):
+        return None
     try:
-        d = max(0, int(time.time() - float(ts)))
-        if d < 90:   return f"{d}s"
-        if d < 5400: return f"{d//60}m"
-        return f"{d//3600}h"
+        rec = sysmgr.get_var(key)
     except Exception:
+        return None
+    return rec if isinstance(rec, dict) else None
+
+
+def _compute_age_seconds(rec: Dict[str, Any]) -> int:
+    try:
+        ts = float(rec.get("ts", 0) or 0)
+    except Exception:
+        return 0
+    age = int(time.time() - ts)
+    return age if age >= 0 else 0
+
+
+def _fmt_age(age_s: int) -> str:
+    """Compact age string: 5s, 3m, 2h, 2h3m."""
+    if age_s <= 0:
+        return "0s"
+    if age_s < 90:
+        return f"{age_s}s"
+    if age_s < 5400:
+        return f"{age_s // 60}m"
+    h = age_s // 3600
+    m = (age_s % 3600) // 60
+    return f"{h}h" if m == 0 else f"{h}h{m}m"
+
+
+# ───────────────────────── helpers: formatting fields ───────────────────────
+
+def _target_from_rec(rec: Dict[str, Any]) -> str:
+    mon = rec.get("monitor") or "-"
+    lab = rec.get("label") or ""
+    return f"{mon}:{lab}" if lab else str(mon)
+
+
+def _format_channels_compact(ch: Dict[str, Any]) -> str:
+    """sys✅ voice❌ sms— tts—"""
+    def flag(name: str) -> str:
+        val = ch.get(name)
+        if val is True:
+            return "✅"
+        if val is False:
+            return "❌"
         return "—"
 
-def _get_sys(dl):
-    sysmgr = getattr(dl, "system", None)
-    return sysmgr if sysmgr and hasattr(sysmgr, "get_var") else None
+    return (
+        f"sys{flag('system')} "
+        f"voice{flag('voice')} "
+        f"sms{flag('sms')} "
+        f"tts{flag('tts')}"
+    )
 
-def _live_channels(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
-    root1 = cfg.get(f"{name}_monitor") or {}
-    root2 = cfg.get(name) or {}
-    if isinstance(root1, dict) and "notifications" in root1:
-        src = root1.get("notifications") or {}
-    elif isinstance(root2, dict) and "notifications" in root2:
-        src = root2.get("notifications") or {}
+
+def _result_for_send(rec: Dict[str, Any]) -> str:
+    # Prefer explicit summary if present, else infer simple OK/FAIL.
+    summary = rec.get("summary")
+    if isinstance(summary, str) and summary.strip():
+        return summary.strip()
+
+    res = rec.get("result")
+    if isinstance(res, dict):
+        if res.get("success") is False:
+            return "FAIL"
+        if res.get("success") is True:
+            return "OK"
+    return "OK"
+
+
+def _result_for_skip(rec: Dict[str, Any]) -> str:
+    reason = (rec.get("reason") or "-").upper()
+    remaining = rec.get("remaining_seconds")
+    minimum = rec.get("min_seconds")
+    parts: List[str] = [reason]
+    if remaining is not None:
+        parts.append(f"remaining={int(remaining)}s")
+    if minimum is not None:
+        parts.append(f"min={int(minimum)}s")
+    return " ".join(parts)
+
+
+def _result_for_error(rec: Dict[str, Any]) -> str:
+    reason = (rec.get("reason") or "-").upper()
+    missing = rec.get("missing")
+    detail = ""
+    if missing:
+        try:
+            detail = "missing=" + ", ".join(missing)
+        except Exception:
+            detail = f"missing={missing}"
     else:
-        src = {}
+        detail = str(rec.get("detail") or "").strip()
+    return f"{reason} {detail}".strip()
+
+
+# ───────────────────────── helpers: attempts list ───────────────────────────
+
+def _build_attempt(kind: str, rec: Dict[str, Any]) -> Dict[str, Any]:
+    age_s = _compute_age_seconds(rec)
+    target = _target_from_rec(rec)
+
+    if kind == "send":
+        result = _result_for_send(rec)
+        ch_map = rec.get("channels") or {}
+        chan = _format_channels_compact(ch_map) if isinstance(ch_map, dict) else "—"
+    elif kind == "skip":
+        result = _result_for_skip(rec)
+        chan = "—"
+    else:  # "error"
+        result = _result_for_error(rec)
+        chan = "—"
+
     return {
-        "system": bool(src.get("system")),
-        "voice":  bool(src.get("voice")),
-        "sms":    bool(src.get("sms")),
-        "tts":    bool(src.get("tts")),
+        "type": kind,
+        "age_s": age_s,
+        "age": _fmt_age(age_s),
+        "target": target,
+        "result": result,
+        "channels": chan,
     }
 
-def _dl_provider_snapshot(dl) -> Dict[str, Any]:
-    sysmgr = _get_sys(dl)
-    pro = sysmgr.get_var("xcom_providers") if sysmgr else None
-    v = dict((pro or {}).get("voice") or {})
-    sid = v.get("account_sid")
-    tok = v.get("auth_token")
-    if sid:
-        v["account_sid"] = sid[:2] + "…" + sid[-4:] if len(sid) > 6 else "…"
-    if tok:
-        v["auth_token"] = "…" + tok[-4:] if len(tok) > 4 else "…"
-    return {"voice": v or {}, "path": str(XCOM_PROVIDERS_PATH)}
 
-def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
-    out: List[str] = []
-    body = get_panel_body_config(PANEL_SLUG)
-    dl  = context.get("dl")
-    cfg = context.get("cfg") or {}
-    sysmgr = _get_sys(dl)
+def _recent_attempts(rec_send: Optional[Dict[str, Any]],
+                     rec_skip: Optional[Dict[str, Any]],
+                     rec_err: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    events: List[Dict[str, Any]] = []
+    if rec_send:
+        events.append(_build_attempt("send", rec_send))
+    if rec_skip:
+        events.append(_build_attempt("skip", rec_skip))
+    if rec_err:
+        events.append(_build_attempt("error", rec_err))
+    # Sort by age_s ascending → newest first
+    events.sort(key=lambda e: e["age_s"])
+    return events
 
-    out += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
-    # Providers (from file)
-    out += body_indent_lines(PANEL_SLUG, [paint_line("Providers (file)", body["column_header_text_color"])])
-    prov = _dl_provider_snapshot(dl)
-    v = prov.get("voice", {}) or {}
-    out += body_indent_lines(PANEL_SLUG, [
-        f"  file: {prov.get('path','-')}",
-        f"  voice.enabled={bool(v.get('enabled', True))} provider={v.get('provider','-')}",
-        f"  from={v.get('from','-')} to={v.get('to') or []} sid={v.get('account_sid','-')} flow={v.get('flow_sid','-')}",
-        "",
-    ])
+# ───────────────────────── helpers: snooze / cooldown ───────────────────────
 
-    # Live channels (from cfg)
-    out += body_indent_lines(PANEL_SLUG, [paint_line("Live channels (cfg)", body["column_header_text_color"])])
-    liq = _live_channels(cfg, "liquid")
-    pro = _live_channels(cfg, "profit")
-    out += body_indent_lines(PANEL_SLUG, [
-        f"  liquid: system={liq['system']} voice={liq['voice']} sms={liq['sms']} tts={liq['tts']}",
-        f"  profit: system={pro['system']} voice={pro['voice']} sms={pro['sms']} tts={pro['tts']}",
-        "",
-    ])
+def _snooze_summary(dl: Any, rec_skip: Optional[Dict[str, Any]]) -> str:
+    remaining = None
+    minimum = None
 
-    # Last send
-    out += body_indent_lines(PANEL_SLUG, [paint_line("Last send", body["column_header_text_color"])])
-    sent = sysmgr.get_var("xcom_last_sent") if sysmgr else None
-    if not sent:
-        out += body_indent_lines(PANEL_SLUG, ["  (none)"])
+    if isinstance(rec_skip, Dict):
+        remaining = rec_skip.get("remaining_seconds")
+        minimum = rec_skip.get("min_seconds")
+
+    if remaining is None:
+        try:
+            rem, _ = read_snooze_remaining(dl)
+            if rem > 0:
+                remaining = rem
+        except Exception:
+            pass
+
+    if remaining is None and minimum is None:
+        return "global snooze: OFF"
+
+    parts = ["global snooze:"]
+    if remaining is not None:
+        parts.append(f"remaining={int(remaining)}s")
+    if minimum is not None:
+        parts.append(f"min={int(minimum)}s")
+    return " ".join(parts)
+
+
+def _cooldown_summary(dl: Any, cfg: Optional[Dict[str, Any]]) -> str:
+    try:
+        rem, _ = read_voice_cooldown_remaining(dl)
+    except Exception:
+        rem = 0
+
+    default_cd = 0
+    try:
+        default_cd = int(get_default_voice_cooldown(cfg or {}))
+    except Exception:
+        default_cd = 180
+
+    if rem > 0:
+        return f"voice cooldown: ACTIVE (remaining={int(rem)}s / window={default_cd}s)"
+    return f"voice cooldown: idle (window={default_cd}s)"
+
+
+# ───────────────────────── panel entry ──────────────────────────────────────
+
+def render(dl, *_args, **_kw) -> None:
+    # Receipts
+    rec_send = _get_receipt(dl, "xcom_last_sent")
+    rec_skip = _get_receipt(dl, "xcom_last_skip")
+    rec_err = _get_receipt(dl, "xcom_last_error")
+
+    # Config for live/cooldown helpers
+    cfg = getattr(dl, "global_config", None)
+    if not isinstance(cfg, dict):
+        cfg = {}
+
+    # Live status
+    try:
+        live_on, live_src = xcom_live_status(dl, cfg)
+    except Exception:
+        live_on, live_src = False, "—"
+
+    status_icon = "🟢 LIVE" if live_on else "🔴 OFF"
+
+    attempts = _recent_attempts(rec_send, rec_skip, rec_err)
+    snooze_line = _snooze_summary(dl, rec_skip)
+    cooldown_line = _cooldown_summary(dl, cfg)
+
+    print()
+    for ln in emit_title_block(PANEL_SLUG, PANEL_NAME):
+        print(ln)
+    print()
+
+    # Status bar
+    print(f"  🛰 Status: {status_icon}  [src={live_src}]")
+    if attempts:
+        newest = attempts[0]
+        last_err = next((a for a in attempts if a["type"] == "error"), None)
+        last_attempt_txt = f"{newest['type']} {newest['age']} ago"
+        last_error_txt = f"{last_err['age']} ago" if last_err else "none"
+        print(f"     last attempt: {last_attempt_txt}   last error: {last_error_txt}")
+    print()
+
+    # Recent attempts table
+    print("  📡 Recent XCom attempts (latest first)")
+    if not attempts:
+        print("    (no recent send/skip/error receipts)")
     else:
-        age = _fmt_age(sent.get("ts"))
-        mon = sent.get("monitor","")
-        lab = sent.get("label","")
-        ch  = sent.get("channels",{}) or {}
-        out += body_indent_lines(PANEL_SLUG, [
-            f"  when: {age} ago",
-            f"  what: {mon}:{lab}",
-            f"  chan: system={ch.get('system')} voice={ch.get('voice')} sms={ch.get('sms')} tts={ch.get('tts')}",
-            "",
-        ])
+        header = "    #  ⏱ Age  🧾 Type  🎯 Target               🧮 Result / Reason                  📢 Channels"
+        print(header)
+        for idx, ev in enumerate(attempts, 1):
+            num = f"{idx:<2}"
+            age = f"{ev['age']:<6}"
+            typ = f"{ev['type']:<6}"
+            target = f"{ev['target'][:22]:<22}"
+            result = f"{ev['result'][:30]:<30}"
+            chans = ev["channels"]
+            print(f"    {num} {age} {typ} {target} {result} {chans}")
+    print()
 
-    # Last skip (e.g., global snooze)
-    out += body_indent_lines(PANEL_SLUG, [paint_line("Last skip", body["column_header_text_color"])])
-    sk = sysmgr.get_var("xcom_last_skip") if sysmgr else None
-    if not sk:
-        out += body_indent_lines(PANEL_SLUG, ["  (none)"])
-    else:
-        age = _fmt_age(sk.get("ts"))
-        out += body_indent_lines(PANEL_SLUG, [
-            f"  when: {age} ago",
-            f"  why : {(sk.get('reason') or '').upper()} (remaining={sk.get('remaining_seconds','-')}s / window={sk.get('min_seconds','-')}s)",
-            "",
-        ])
-
-    # Last error (provider missing, dispatch exception, etc.)
-    out += body_indent_lines(PANEL_SLUG, [paint_line("Last error", body["column_header_text_color"])])
-    err = sysmgr.get_var("xcom_last_error") if sysmgr else None
-    if not err:
-        out += body_indent_lines(PANEL_SLUG, ["  (none)"])
-    else:
-        age = _fmt_age(err.get("ts"))
-        miss = err.get("missing")
-        extra = f" (missing: {', '.join(miss)})" if miss else ""
-        lines = [
-            f"  when: {age} ago",
-            f"  what: {err.get('monitor','-')}:{err.get('label','-')}",
-            f"  why : {(err.get('reason') or '-').upper()}{extra}",
-        ]
-        path = err.get("path")
-        if path:
-            lines.append(f"  file: {path}")
-        lines.append("")
-        out += body_indent_lines(PANEL_SLUG, lines)
-
-    out += body_pad_below(PANEL_SLUG)
-    return out
+    # Snooze / cooldown block
+    print("  🔕 Snooze / cooldown")
+    print(f"    {snooze_line}")
+    print(f"    {cooldown_line}")
+    print()
