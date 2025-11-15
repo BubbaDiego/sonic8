@@ -6,7 +6,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 import asyncio
-import inspect
 import logging
 from datetime import datetime
 from uuid import uuid4
@@ -29,7 +28,6 @@ from backend.data.learning_database.learning_event_logger import log_learning_ev
 #from backend.core.system.system_core import SystemCore
 
 # Cores and Services
-from backend.core.cyclone_core.cyclone_alert_service import CycloneAlertService
 from backend.core.monitor_core.monitor_core import MonitorCore
 from backend.core.positions_core.position_core import PositionCore
 from backend.core.positions_core.position_core_service import PositionCoreService
@@ -141,9 +139,6 @@ class Cyclone:
                 )
 
         self.position_core = PositionCore(self.data_locker)
-        # Initialize CycloneAlertService which respects the "enabled" flags in
-        # ``alert_thresholds.json`` when creating alerts
-        self.alert_core = CycloneAlertService(self.data_locker)
         self.wallet_service = CycloneWalletService(self.data_locker)
         self.maintenance_service = CycloneMaintenanceService(self.data_locker)
         self.hedge_core = HedgeCore(self.data_locker)
@@ -191,19 +186,12 @@ class Cyclone:
         await asyncio.to_thread(self.position_core.update_positions_from_jupiter)
         self._mark_position_monitor_synced()
 
-    async def _call_create_global_alerts(self) -> None:
-        """Invoke the alert service, supporting both sync and async implementations."""
-        fn = getattr(self.alert_core, "create_global_alerts", None)
-        if fn is None:
-            return
-        if inspect.iscoroutinefunction(fn):
-            await fn()
-        else:
-            await asyncio.to_thread(fn)
-
     async def run_create_market_alerts(self):
-        """Create global market alerts via CycloneAlertService."""
-        await self._call_create_global_alerts()
+        """Placeholder for legacy alert creation pipeline."""
+        log.info(
+            "Alert service disabled; skipping market alert creation.",
+            source="Cyclone",
+        )
 
     async def run_clear_all_data(self):
         log.warning("⚠️ Starting Clear All Data", source="Cyclone")
@@ -229,7 +217,6 @@ class Cyclone:
             "enrich_positions": self.run_enrich_positions,
             "aggregate_positions": self.run_aggregate_positions,
         #    "enrich_alerts": self.run_alert_enrichment,
-            "update_evaluated_value": self.run_update_evaluated_value,
             "create_market_alerts": self.run_create_market_alerts,
         #    "create_portfolio_alerts": self.run_create_portfolio_alerts,
        #     "create_position_alerts": self.run_create_position_alerts,
@@ -285,26 +272,31 @@ class Cyclone:
         await asyncio.to_thread(self.hedge_core.update_hedges)
 
     async def run_alert_evaluation(self):
-        await self.alert_core.run_alert_evaluation()
+        log.info("Alert service disabled; skipping alert evaluation.", source="Cyclone")
 
     async def run_create_position_alerts(self):
-        await self.alert_core.create_position_alerts()
+        log.info("Alert service disabled; skipping position alert creation.", source="Cyclone")
 
     async def run_create_portfolio_alerts(self):
-        await self.alert_core.create_portfolio_alerts()
+        log.info("Alert service disabled; skipping portfolio alert creation.", source="Cyclone")
 
     async def run_create_global_alerts(self):
-        """Generate default global market alerts."""
-        await self._call_create_global_alerts()
+        log.info(
+            "Alert service disabled; skipping global market alert creation.",
+            source="Cyclone",
+        )
 
     def clear_alerts_backend(self):
         """Clear all alerts using :class:`CycloneMaintenanceService`."""
         self.maintenance_service.clear_alerts()
 
     async def run_cleanse_ids(self):
-        log.info("🧹 Running cleanse_ids: clearing stale alerts", source="Cyclone")
-        self.alert_core.clear_stale_alerts()
-        log.success("✅ Alert IDs cleansed", source="Cyclone")
+        log.info(
+            "🧹 Alert service disabled; clearing alerts via maintenance service.",
+            source="Cyclone",
+        )
+        await asyncio.to_thread(self.maintenance_service.clear_alerts)
+        log.success("✅ Alert cleanup complete", source="Cyclone")
 
     async def run_prune_stale_positions(self):
         """Remove positions that have missed multiple update cycles."""
@@ -372,18 +364,13 @@ class Cyclone:
         log.success("✅ Position aggregation complete", source="Cyclone")
 
     async def run_alert_enrichment(self):
-        await self.alert_core.enrich_all_alerts()
-        log.success("✅ Alert enrichment complete", source="Cyclone")
-
-    async def run_update_evaluated_value(self):
-        await self.alert_core.update_evaluated_values()
-        log.success("✅ Evaluated alert values updated", source="Cyclone")
+        log.info("Alert service disabled; skipping alert enrichment.", source="Cyclone")
 
     async def run_alert_updates(self):
-        """Process all alerts using :class:`CycloneAlertService`."""
+        """Legacy placeholder for the alert update pipeline (now disabled)."""
         try:
-            await self.alert_core.run_alert_updates()
-            log.success("✅ Alert pipeline completed", source="Cyclone")
+            log.info("Alert service disabled; skipping alert update pipeline.", source="Cyclone")
+            log.success("✅ Alert pipeline skipped", source="Cyclone")
         except Exception as exc:  # pragma: no cover - defensive
             log.error(f"Alert updates failed: {exc}", source="Cyclone")
 

@@ -281,7 +281,10 @@ class CycloneConsoleService:
         self.console.print(f"2) 🎚️ Risk View (if available)")
         self.console.print("0) Back\n")
         ch = Prompt.ask("Select", default="1")
-        if ch == "1": self._call_async("run_update_evaluated_value")
+        if ch == "1":
+            self.console.print(
+                f"{ICON['warn']} Evaluated value updates are no longer available."
+            )
         elif ch == "2": self.console.print(f"{ICON['warn']} Risk view not yet implemented.")
         self._pause()
 
