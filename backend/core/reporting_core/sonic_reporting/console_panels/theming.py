@@ -172,9 +172,16 @@ def _rounded_style(title_txt: str, *, width: int, border_color: str, text_color:
     tl = _RICH_ROUNDED["tl"]; tr = _RICH_ROUNDED["tr"]
     bl = _RICH_ROUNDED["bl"]; br = _RICH_ROUNDED["br"]
     h  = _RICH_ROUNDED["h"];  v  = _RICH_ROUNDED["v"]
+
+    # Base text with a little padding
     inner = f" {title_txt} "
     text_len = len(inner)
-    box_w = min(width, max(10, text_len + 2))
+
+    # Make the rounded box more substantial: target ~3x the text width,
+    # but don't exceed the overall title width or go below a sane minimum.
+    target_width = max(10, text_len * 3)
+    box_w = min(width, target_width)
+
     top = tl + (h * (box_w - 2)) + tr
     avail = box_w - 2
     pad_total = max(0, avail - len(inner))
@@ -182,10 +189,14 @@ def _rounded_style(title_txt: str, *, width: int, border_color: str, text_color:
     pad_right = pad_total - pad_left
     mid = v + (" " * pad_left) + _ansi(text_color, inner) + (" " * pad_right) + v
     bot = bl + (h * (box_w - 2)) + br
+
     L, _ = _center_piece(top, width)
     pad = " " * L
     if border_color and border_color != "default":
-        top = _ansi(border_color, top); mid = _ansi(border_color, mid); bot = _ansi(border_color, bot)
+        top = _ansi(border_color, top)
+        mid = _ansi(border_color, mid)
+        bot = _ansi(border_color, bot)
+
     return [pad + top, pad + mid, pad + bot]
 
 def title_lines(slug: str, default_string: str, *, width: Optional[int] = None) -> List[str]:
