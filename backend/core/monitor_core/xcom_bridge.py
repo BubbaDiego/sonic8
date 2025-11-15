@@ -252,10 +252,27 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
         if not any(channels.values()):
             continue
 
+        # Per-monitor snooze config with global default.
+        # Precedence:
+        #   1) <monitor>_monitor.snooze_seconds
+        #   2) <monitor>.snooze_seconds
+        #   3) monitor.global_snooze_seconds (global default)
+        #   4) fallback: 600s (non-profit) or 1200s (profit)
         snooze_cfg = (cfg.get(f"{mon}_monitor") or cfg.get(mon) or {})
-        default_snooze = 600 if mon != "profit" else 1200
+
+        # Global default from monitor.global_snooze_seconds (may be 0 / unset)
+        global_default = _global_snooze_seconds(cfg)
+
+        # Fallback defaults if nothing is configured anywhere
+        hard_default = 600 if mon != "profit" else 1200
+
+        # Use global default if present, otherwise the hard default
+        default_snooze = global_default or hard_default
+
         try:
-            snooze_s = _global_saturation = int(snooze_cfg.get("snooze_seconds", default_snooze))
+            snooze_s = _global_saturation = int(
+                snooze_cfg.get("snooze_seconds", default_snooze)
+            )
         except (TypeError, ValueError):
             snooze_s = _global_saturation = default_snooze
         sysmgr = getattr(dl, "system", None)
