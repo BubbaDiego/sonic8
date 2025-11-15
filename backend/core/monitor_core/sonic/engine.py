@@ -327,14 +327,16 @@ class MonitorEngine:
             results = dispatch_breaches_from_dl(self.dl, self.cfg) or []
             count = len(results)
 
-            # Optional: persist last batch under a separate key so we
-            # don't clobber the per-send receipt that the XCom panel uses.
+            # Optional: persist the last batch for debugging / consoles.
+            # IMPORTANT: do NOT overwrite xcom_last_sent here; that is owned
+            # by xcom_bridge.dispatch_breaches_from_dl when a send actually
+            # occurs. The XCom panel expects xcom_last_sent to be a dict.
             sysmgr = getattr(self.dl, "system", None)
             if sysmgr and hasattr(sysmgr, "set_var"):
                 try:
                     sysmgr.set_var("xcom_last_batch", results)
                 except Exception:
-                    # Best-effort only; don't spam logs if this fails
+                    # Best-effort only; ignore failures quietly
                     pass
 
             errors = 0
@@ -374,8 +376,8 @@ class MonitorEngine:
             }
 
             if errors:
-                # Treat any send error as a WARN; the panel will render this
-                # with a yellow status icon and an informative note.
+                # Treat any send error as a WARN; the Cycle Activity panel will
+                # render this with a yellow status icon and an informative note.
                 details["severity"] = "warn"
                 base_note = f"{count} notifications, {errors} errors"
                 if auth_errors:
@@ -387,9 +389,11 @@ class MonitorEngine:
             else:
                 # No errors: keep the activity row concise
                 details["severity"] = "ok"
-                details["error_note"] = f"{count} notifications sent" if count else "no notifications"
+                details["error_note"] = (
+                    f"{count} notifications sent" if count else "no notifications"
+                )
 
-            # Also keep a short log line for grep / external logs
+            # Keep a short line for logs at DEBUG level
             self.logger.debug(
                 "[xcom] notifications=%d errors=%d auth_errors=%d",
                 count,
