@@ -27,6 +27,7 @@ from backend.data.dl_portfolio import DLPortfolioManager
 from backend.data.dl_session import DLSessionManager
 from backend.data.dl_raydium import DLRaydiumManager
 from backend.data.dl_xcom import DLXComManager
+from backend.data.dl_price_alert_events import DLPriceAlertEventsManager
 
 try:  # pragma: no cover - optional dependency
     from backend.data.dl_system_data import DLSystemDataManager
@@ -165,6 +166,8 @@ class DataLocker:
         self.system = DLSystemDataManager(self.db) if DLSystemDataManager else None
         self.ledger = DLMonitorLedgerManager(self.db)
         self.modifiers = DLModifierManager(self.db)
+        # Price alert event history (Market Core)
+        self.price_alert_events = DLPriceAlertEventsManager(self.db)
 
         try:
             self.initialize_database()
@@ -389,6 +392,27 @@ class DataLocker:
                     last_update_time REAL,
                     previous_update_time REAL,
                     source TEXT
+                )
+            """,
+            "price_alert_events": """
+                CREATE TABLE IF NOT EXISTS price_alert_events (
+                    id TEXT PRIMARY KEY,
+                    alert_id TEXT,
+                    symbol TEXT,
+                    event_type TEXT,
+                    state_after TEXT,
+                    price_at_event REAL,
+                    anchor_at_event REAL,
+                    movement_value REAL,
+                    movement_percent REAL,
+                    threshold_value REAL,
+                    rule_type TEXT,
+                    direction TEXT,
+                    recurrence_mode TEXT,
+                    source TEXT,
+                    note TEXT,
+                    channels_result TEXT,
+                    created_at TEXT
                 )
             """,
             "monitor_heartbeat": """
