@@ -192,11 +192,20 @@ def emit_config_banner(env_path: str, db_path_hint: str, dl: Any | None = None) 
         print(f"  {icon} {asset:<3} Threshold: {thr:.2f}    Blast: {bl}")
 
     print()
-    print("💰 Profit Monitor           [source: DB (runtime)]")
+    print("💰 Profit Monitor           [source: FILE (config)]")
     pos = profit.get("position_usd", None)
     pf  = profit.get("portfolio_usd", None)
-    print(f"  Position Profit (USD) : {pos if pos is not None else '–'}")
-    print(f"  Portfolio Profit (USD): {pf if pf is not None else '–'}")
+
+    def _fmt_profit(val: Any) -> str:
+        if val is None:
+            return "–"
+        try:
+            return f"{float(val):.2f}"
+        except Exception:
+            return str(val)
+
+    print(f"  Position Profit (USD) : {_fmt_profit(pos)}")
+    print(f"  Portfolio Profit (USD): {_fmt_profit(pf)}")
 
     print()
     print("📈 Market Monitor          [source: DB (runtime)]")
