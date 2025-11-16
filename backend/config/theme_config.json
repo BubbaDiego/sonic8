@@ -1,9 +1,3 @@
 {
-  "config": {},
-  "sdfasdfasdf": {
-    "background": "#ffffff",
-    "text": "#111111",
-    "card": "#f0f0f0",
-    "navbar": "#fafafa"
-  }
+  "theme": "default"
 }
