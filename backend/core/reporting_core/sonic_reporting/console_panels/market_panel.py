@@ -31,7 +31,7 @@ def _get_monitor_rows(dl: Any) -> List[Dict[str, Any]]:
     """
     Robustly pull monitor rows from dl.monitors / dl_dl_monitors.
 
-    This is your original logic – DO NOT TOUCH – it already works.
+    This is the original logic that worked; do not mess with behavior here.
     """
     if dl is None:
         return []
@@ -122,17 +122,6 @@ def _fmt_price(val: Any) -> str:
         return f"{str(val)[:8]:>8}"
 
 
-def _fmt_move(val: Any) -> str:
-    if val is None:
-        return "–".rjust(8)
-    try:
-        v = float(val)
-        sign = "+" if v >= 0 else ""
-        return f"{sign}{v:>7.2f}"
-    except Exception:
-        return f"{str(val)[:8]:>8}"
-
-
 def _fmt_pct(val: Any) -> str:
     if val is None:
         return "–".rjust(8)
@@ -204,21 +193,6 @@ def _current_price(meta: Dict[str, Any]) -> Any:
     return meta.get("price") or meta.get("current_price")
 
 
-def _move_abs(meta: Dict[str, Any]) -> Any:
-    mv = meta.get("move_abs")
-    if mv is not None:
-        return mv
-    # derive from price / entry if needed
-    price = meta.get("price") or meta.get("current_price")
-    anchor = _entry_price(meta)
-    try:
-        if price is not None and anchor is not None:
-            return float(price) - float(anchor)
-    except Exception:
-        pass
-    return None
-
-
 def _move_pct(meta: Dict[str, Any]) -> Any:
     mv = meta.get("move_pct")
     if mv is not None:
@@ -238,7 +212,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     body_cfg = get_panel_body_config(PANEL_SLUG)
     lines: List[str] = []
 
-    # title
+    # Title
     lines += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
     if dl is None:
@@ -252,12 +226,11 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     rows = _market_rows(_get_monitor_rows(dl))
 
-    # header with icon + label columns
+    # Header with icon + label columns (NO Move $ column)
     header = (
         "  🪙  Asset   "
         "💵  Entry     "
         "💹  Current   "
-        "📉  Move      "
         "📊  Move%     "
         "🎯  Thr              "
         "🔋  Prox        "
@@ -275,14 +248,13 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         lines += body_pad_below(PANEL_SLUG)
         return lines
 
-    # data rows
+    # Data rows
     for row in rows:
         meta = row.get("meta") or {}
         asset = _asset_from_row(row)
 
         entry = _entry_price(meta)
         current = _current_price(meta)
-        move_abs = _move_abs(meta)
         move_pct = _move_pct(meta)
 
         thr_val = row.get("thr_value")
@@ -293,7 +265,6 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             f"  🪙  {asset:<5}  "
             f"💵  {_fmt_price(entry)}  "
             f"💹  {_fmt_price(current)}  "
-            f"📉  {_fmt_move(move_abs)}  "
             f"📊  {_fmt_pct(move_pct)}  "
             f"🎯  {_fmt_threshold(meta, thr_val)}  "
             f"🔋  {bar:<10}  "
