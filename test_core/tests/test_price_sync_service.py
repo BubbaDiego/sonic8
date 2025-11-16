@@ -1,7 +1,7 @@
 import importlib
 
 from data.data_locker import DataLocker
-from backend.core.market_core.price_sync_service import PriceSyncService
+from backend.core.monitor_core.sonic.services.prices_service import PricesService
 
 
 def _setup_datalocker(tmp_path, monkeypatch):
@@ -20,7 +20,7 @@ def test_price_tick_logged(monkeypatch, tmp_path):
     logger = importlib.reload(logger)
 
     dl = _setup_datalocker(tmp_path, monkeypatch)
-    svc = PriceSyncService(dl)
+    svc = PricesService(dl)
     monkeypatch.setattr(svc.service, "fetch_prices", lambda: {"BTC": 1.0, "ETH": 2.0})
 
     svc.run_full_price_sync(source="test")
@@ -36,7 +36,7 @@ def test_price_tick_logged(monkeypatch, tmp_path):
 
 def test_sp500_price_saved(monkeypatch, tmp_path):
     dl = _setup_datalocker(tmp_path, monkeypatch)
-    svc = PriceSyncService(dl)
+    svc = PricesService(dl)
     monkeypatch.setattr(
         svc.service,
         "fetch_prices",
@@ -52,7 +52,7 @@ def test_sp500_price_saved(monkeypatch, tmp_path):
 
 def test_missing_price_skipped(monkeypatch, tmp_path):
     dl = _setup_datalocker(tmp_path, monkeypatch)
-    svc = PriceSyncService(dl)
+    svc = PricesService(dl)
     monkeypatch.setattr(
         svc.service,
         "fetch_prices",

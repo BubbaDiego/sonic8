@@ -1,7 +1,7 @@
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -9,7 +9,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
-from backend.core.market_core.price_sync_service import PriceSyncService
+from backend.core.monitor_core.sonic.services.prices_service import PricesService
 from backend.data.data_locker import DataLocker
 from backend.core.monitor_core.base_monitor import BaseMonitor
 from backend.core.monitor_core.monitor_service import MonitorService
@@ -25,14 +25,20 @@ class PriceMonitor(BaseMonitor):
     Uses CoinGecko via MonitorService.
     """
 
-    def __init__(self):
+    def __init__(self, dl: Optional[DataLocker] = None, cfg: Optional[Dict[str, Any]] = None):
         super().__init__(
             name="price_monitor",
             ledger_filename="price_ledger.json",  # still optional, safe to retain
             timer_config_path=None  # leave in for compatibility
         )
-        self.dl = DataLocker(str(MOTHER_DB_PATH))
+        self.cfg = cfg or {}
+        self.dl = dl or DataLocker(str(MOTHER_DB_PATH))
         self.service = MonitorService()
+        self.prices_service = PricesService(
+            dl=self.dl,
+            cfg=self.cfg,
+            monitor_service=self.service,
+        )
         self._last_cycle_sync: Optional[datetime] = None
 
     @staticmethod
@@ -85,7 +91,7 @@ class PriceMonitor(BaseMonitor):
             log.info("⏭ Price data fresh; skipping sync", source=self.name)
             return {"skipped": True, "reason": "fresh"}
 
-        result = PriceSyncService(self.dl).run_full_price_sync(source="price_monitor")
+        result = self.prices_service.run_full_price_sync(source=self.name)
         if isinstance(result, dict):
             if result.get("success"):
                 self.mark_cycle_synced()
