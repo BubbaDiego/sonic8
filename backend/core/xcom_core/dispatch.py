@@ -114,7 +114,18 @@ def dispatch_voice(payload: Dict[str, Any],
                 results.append({"to": to, "ok": False, "error": reason})
                 log.info("[xcom.voice] call FAIL to=%s reason=%s", to, reason)
 
-        return {"ok": any(r.get("ok") for r in results), "results": results}
+        ok = any(item.get("ok") for item in results)
+        error_msg = "; ".join(
+            str(item.get("error"))
+            for item in results
+            if not item.get("ok", True) and item.get("error")
+        ) or None
+
+        return {
+            "ok": ok,
+            "results": results,
+            "error": error_msg,
+        }
     except Exception as e:
         log.info("[xcom.voice] error: %s", e)
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "error": str(e)}
