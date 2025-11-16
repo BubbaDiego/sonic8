@@ -9,6 +9,9 @@ from rich.table import Table
 from rich import box
 
 from backend.core.reporting_core.sonic_reporting.console_panels import data_access
+from backend.core.reporting_core.sonic_reporting.positions_snapshot import (
+    build_positions_snapshot,
+)
 from .theming import (
     emit_title_block,
     get_panel_body_config,
@@ -165,33 +168,72 @@ def _compute_totals_row(items: Iterable[Any]) -> Dict[str, str]:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _get_items_from_manager(context: Any) -> List[Any]:
+def _get_items_from_manager(context: dict | None) -> list[dict]:
     """
-    Pull normalized position rows from DataLocker via the existing snapshot.
-    We keep this tolerant and reuse the existing locker/snapshot logic.
+    Load live positions for the Positions panel.
+
+    Priority:
+      1) dl.positions.get_all_positions()  (new 2025 DL layer)
+      2) legacy build_positions_snapshot() fallback
     """
-    # Try the DL helper first (same pattern as other panels)
-    try:
-        dl = data_access.dl_or_context(context)
-        mgr = getattr(dl, "positions_snapshot", None)
-        if mgr is not None and hasattr(mgr, "rows"):
-            rows = list(getattr(mgr, "rows"))
-            return rows
-    except Exception:
-        pass
+    dl = data_access.dl_or_context(context)
+    if dl is None:
+        return []
 
-    # Fallback: use the public snapshot builder
+    # ---- Primary: DataLocker.positions manager (new architecture) ----
     try:
-        from backend.core.reporting_core.sonic_reporting.positions_snapshot import (  # type: ignore
-            build_positions_snapshot,
-        )
+        mgr = getattr(dl, "positions", None)
+        if mgr is not None:
+            # Prefer the rich helper if present
+            getter = None
+            for name in ("get_all_positions", "get_positions", "list", "get_all"):
+                fn = getattr(mgr, name, None)
+                if callable(fn):
+                    getter = fn
+                    break
 
+            rows: list | None = None
+            if getter is not None:
+                try:
+                    rows = getter()
+                except TypeError:
+                    # Some variants expect a dummy argument; best-effort call
+                    try:
+                        rows = getter(None)  # type: ignore[arg-type]
+                    except Exception:
+                        rows = None
+            else:
+                # Some DLPositionManager versions expose a .positions list
+                raw = getattr(mgr, "positions", None)
+                if isinstance(raw, list):
+                    rows = raw
+
+            if isinstance(rows, list) and rows:
+                normalized: list[dict] = []
+                for row in rows:
+                    if isinstance(row, dict):
+                        normalized.append(dict(row))
+                    else:
+                        # pydantic model / simple object → turn into dict
+                        data = getattr(row, "model_dump", None)
+                        if callable(data):
+                            normalized.append(data())
+                        else:
+                            normalized.append(dict(getattr(row, "__dict__", {})))
+                return normalized
+    except Exception as exc:  # pragma: no cover - defensive only
+        log.warning(f"[positions_panel] dl.positions lookup failed: {exc}")
+
+    # ---- Fallback: legacy snapshot helper (older consoles / CLIs) ----
+    try:
         snap = build_positions_snapshot()
         rows = snap.get("rows") or []
-        return list(rows)
-    except Exception:
-        log.exception("positions_panel: failed to build positions snapshot")
-        return []
+        if isinstance(rows, list):
+            return rows
+    except Exception as exc:  # pragma: no cover - defensive only
+        log.warning(f"[positions_panel] snapshot fallback failed: {exc}")
+
+    return []
 
 
 # ──────────────────────────────────────────────────────────────────────────────
