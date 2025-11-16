@@ -7,6 +7,8 @@ import os
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from backend.core import config_oracle as ConfigOracle
+
 
 logger = logging.getLogger("sonic.engine")
 
@@ -16,7 +18,7 @@ class ResolutionTrace:
     monitor: str     # "liquid" | "profit" | ...
     key: str         # e.g. "SOL", "portfolio_profit_usd"
     value: float
-    source: str      # "JSON" | "DB" | "ENV" | "DEFAULT"
+    source: str      # "ORACLE" | "JSON" | "DB" | "ENV" | "DEFAULT"
     layer: str       # exact path: "liquid_monitor.thresholds.SOL"
     evidence: str    # file path / env var / table
 
@@ -35,7 +37,7 @@ def _maybe_float(v: Any) -> Optional[float]:
 class ThresholdResolver:
     """
     Single place to resolve monitor limits with a full audit trail.
-    JSON -> DB -> ENV -> DEFAULT, with logging and a ResolutionTrace.
+    Oracle/JSON -> DB -> ENV -> DEFAULT, with logging and a ResolutionTrace.
     """
 
     def __init__(self, cfg: Dict[str, Any] | Any, dl: Any, *, cfg_path_hint: Optional[str] = None):
@@ -121,13 +123,42 @@ class ThresholdResolver:
     # ------------------ Liquid ------------------
 
     def liquid_threshold(self, sym: str) -> Tuple[float, ResolutionTrace]:
+        # 0) ConfigOracle (preferred JSON view)
+        try:
+            oracle_map = ConfigOracle.get_liquid_thresholds()
+        except Exception as e:
+            logger.debug("[resolve] Oracle liquid thresholds failed: %s", e)
+            oracle_map = {}
+
+        if oracle_map and sym in oracle_map and _maybe_float(oracle_map[sym]) is not None:
+            val = float(oracle_map[sym])
+            try:
+                evidence_path = getattr(ConfigOracle.get_oracle(), "monitor_json_path", None)
+            except Exception:
+                evidence_path = None
+            tr = ResolutionTrace(
+                "liquid",
+                sym,
+                val,
+                "ORACLE",
+                f"ConfigOracle.liquid_thresholds[{sym}]",
+                evidence_path or "<ConfigOracle>",
+            )
+            self._log_trace(tr)
+            return val, tr
+
         # 1) JSON (preferred): liquid_monitor.thresholds.SOL
         v = self._cfg_get("liquid_monitor", "thresholds")
         if _is_dict(v) and sym in v and _maybe_float(v[sym]) is not None:
             val = float(v[sym])
-            tr = ResolutionTrace("liquid", sym, val, "JSON",
-                                 f"liquid_monitor.thresholds.{sym}",
-                                 self.cfg_path_hint or "<unknown json>")
+            tr = ResolutionTrace(
+                "liquid",
+                sym,
+                val,
+                "JSON",
+                f"liquid_monitor.thresholds.{sym}",
+                self.cfg_path_hint or "<unknown json>",
+            )
             self._log_trace(tr)
             return val, tr
 
@@ -135,9 +166,14 @@ class ThresholdResolver:
         v = self._cfg_get("liquid", "thresholds")
         if _is_dict(v) and sym in v and _maybe_float(v[sym]) is not None:
             val = float(v[sym])
-            tr = ResolutionTrace("liquid", sym, val, "JSON",
-                                 f"liquid.thresholds.{sym}",
-                                 self.cfg_path_hint or "<unknown json>")
+            tr = ResolutionTrace(
+                "liquid",
+                sym,
+                val,
+                "JSON",
+                f"liquid.thresholds.{sym}",
+                self.cfg_path_hint or "<unknown json>",
+            )
             self._log_trace(tr)
             return val, tr
 
@@ -146,8 +182,14 @@ class ThresholdResolver:
         t = (dbt.get("thresholds") or {}).get(sym)
         if _maybe_float(t) is not None:
             val = float(t)
-            tr = ResolutionTrace("liquid", sym, val, "DB",
-                                 f"alert_thresholds.thresholds.{sym}", "DB: alert_thresholds")
+            tr = ResolutionTrace(
+                "liquid",
+                sym,
+                val,
+                "DB",
+                f"alert_thresholds.thresholds.{sym}",
+                "DB: alert_thresholds",
+            )
             self._log_trace(tr)
             return val, tr
 
@@ -155,27 +197,70 @@ class ThresholdResolver:
         env = os.getenv(f"LIQ_{sym}_THRESH")
         if _maybe_float(env) is not None:
             val = float(env)
-            tr = ResolutionTrace("liquid", sym, val, "ENV",
-                                 f"LIQ_{sym}_THRESH", "process env")
+            tr = ResolutionTrace(
+                "liquid",
+                sym,
+                val,
+                "ENV",
+                f"LIQ_{sym}_THRESH",
+                "process env",
+            )
             self._log_trace(tr)
             return val, tr
 
         # 5) DEFAULT (last resort only)
         defaults = {"BTC": 5.3, "ETH": 111.0, "SOL": 11.5}
         val = float(defaults.get(sym, 1.0))
-        tr = ResolutionTrace("liquid", sym, val, "DEFAULT", f"default.{sym}", "coded default")
+        tr = ResolutionTrace(
+            "liquid",
+            sym,
+            val,
+            "DEFAULT",
+            f"default.{sym}",
+            "coded default",
+        )
         self._log_trace(tr)
         return val, tr
 
     # ------------------ Profit ------------------
 
     def profit_limit(self, key: str) -> Tuple[float, ResolutionTrace]:
+        # 0) ConfigOracle (preferred JSON view)
+        try:
+            oracle_profit = ConfigOracle.get_profit_thresholds()
+        except Exception as e:
+            logger.debug("[resolve] Oracle profit thresholds failed: %s", e)
+            oracle_profit = {}
+
+        if oracle_profit and key in oracle_profit and _maybe_float(oracle_profit[key]) is not None:
+            val = float(oracle_profit[key])
+            try:
+                evidence_path = getattr(ConfigOracle.get_oracle(), "monitor_json_path", None)
+            except Exception:
+                evidence_path = None
+            tr = ResolutionTrace(
+                "profit",
+                key,
+                val,
+                "ORACLE",
+                f"ConfigOracle.profit_thresholds[{key}]",
+                evidence_path or "<ConfigOracle>",
+            )
+            self._log_trace(tr)
+            return val, tr
+
         # 1) JSON profit_monitor.<key>
         v = self._cfg_get("profit_monitor", key)
         if _maybe_float(v) is not None:
             val = float(v)
-            tr = ResolutionTrace("profit", key, val, "JSON",
-                                 f"profit_monitor.{key}", self.cfg_path_hint or "<unknown json>")
+            tr = ResolutionTrace(
+                "profit",
+                key,
+                val,
+                "JSON",
+                f"profit_monitor.{key}",
+                self.cfg_path_hint or "<unknown json>",
+            )
             self._log_trace(tr)
             return val, tr
 
@@ -184,8 +269,14 @@ class ThresholdResolver:
         t = (dbt.get("profit") or {}).get(key)
         if _maybe_float(t) is not None:
             val = float(t)
-            tr = ResolutionTrace("profit", key, val, "DB",
-                                 f"alert_thresholds.profit.{key}", "DB: alert_thresholds")
+            tr = ResolutionTrace(
+                "profit",
+                key,
+                val,
+                "DB",
+                f"alert_thresholds.profit.{key}",
+                "DB: alert_thresholds",
+            )
             self._log_trace(tr)
             return val, tr
 
@@ -193,15 +284,28 @@ class ThresholdResolver:
         env = os.getenv(f"PROFIT_{key}".upper())
         if _maybe_float(env) is not None:
             val = float(env)
-            tr = ResolutionTrace("profit", key, val, "ENV",
-                                 f"PROFIT_{key}".upper(), "process env")
+            tr = ResolutionTrace(
+                "profit",
+                key,
+                val,
+                "ENV",
+                f"PROFIT_{key}".upper(),
+                "process env",
+            )
             self._log_trace(tr)
             return val, tr
 
         # 4) DEFAULT
         defaults = {"position_profit_usd": 10.0, "portfolio_profit_usd": 40.0}
         val = float(defaults[key])
-        tr = ResolutionTrace("profit", key, val, "DEFAULT", f"default.{key}", "coded default")
+        tr = ResolutionTrace(
+            "profit",
+            key,
+            val,
+            "DEFAULT",
+            f"default.{key}",
+            "coded default",
+        )
         self._log_trace(tr)
         return val, tr
 
