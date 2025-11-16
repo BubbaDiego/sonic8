@@ -83,14 +83,13 @@ def _target_from_rec(rec: Dict[str, Any]) -> str:
     Compact target label for XCom rows.
 
     Examples:
-      monitor='liquid', label='SOL – Liq'  -> '💧 SOL'
-      monitor='price',  label='BTC price'  -> '💲 BTC'
-      monitor='market', label='SOL depth'  -> '📈 SOL'
+      monitor='liquid', label='SOL – Liq' -> '💧 SOL'
+      monitor='price',  label='BTC price' -> '💲 BTC'
+      monitor='market', label='SOL depth' -> '📈 SOL'
     """
     monitor = (rec.get("monitor") or "").lower()
     label = (rec.get("label") or "").strip()
 
-    # Try to grab a short symbol from the label (e.g. 'SOL – Liq' -> 'SOL').
     symbol = ""
     if label:
         symbol = label.split()[0]
@@ -111,22 +110,56 @@ def _target_from_rec(rec: Dict[str, Any]) -> str:
     return text
 
 
-def _format_channels_compact(ch: Dict[str, Any]) -> str:
-    """sys✅ voice❌ sms— tts—"""
-    def flag(name: str) -> str:
-        val = ch.get(name)
-        if val is True:
-            return "✅"
-        if val is False:
-            return "❌"
-        return "—"
+def _details_from_attempt(ev: Dict[str, Any]) -> str:
+    """
+    Short detail string for the Details column.
 
-    return (
-        f"sys{flag('system')} "
-        f"voice{flag('voice')} "
-        f"sms{flag('sms')} "
-        f"tts{flag('tts')}"
-    )
+    Keeps output concise so the table doesn't thrash.
+    """
+    kind = (ev.get("type") or "").lower()
+    raw_result = ev.get("result") or ""
+    if not isinstance(raw_result, str):
+        raw_result = str(raw_result)
+
+    if kind == "send":
+        return "OK" if raw_result.upper() == "OK" or not raw_result else str(raw_result)[:20]
+    if kind == "skip":
+        if "snooze" in raw_result.lower():
+            parts = raw_result.split("remaining=", 1)
+            if len(parts) == 2:
+                rem = parts[1].split()[0]
+                return f"snooze {rem}"
+        return "snooze"
+    if kind == "error":
+        low = raw_result.lower()
+        if "auth" in low or "authenticate" in low:
+            return "auth error"
+        return "error" if not raw_result else str(raw_result)[:20]
+
+    return str(raw_result)[:20] if raw_result else "-"
+
+
+def _channels_from_attempt(ev: Dict[str, Any]) -> str:
+    """
+    Build a compact channels string of icons only for enabled channels.
+
+    system → 🖥, voice → 📞, sms → 💬, tts → 🔊
+    """
+    ch = ev.get("channels") or {}
+    if not isinstance(ch, dict):
+        ch = {}
+
+    icons: List[str] = []
+    if ch.get("system"):
+        icons.append("🖥")
+    if ch.get("voice"):
+        icons.append("📞")
+    if ch.get("sms"):
+        icons.append("💬")
+    if ch.get("tts"):
+        icons.append("🔊")
+
+    return " ".join(icons) if icons else "–"
 
 
 def _result_for_send(rec: Dict[str, Any]) -> str:
@@ -170,28 +203,27 @@ def _result_for_error(rec: Dict[str, Any]) -> str:
 
 def _build_attempt(kind: str, rec: Dict[str, Any]) -> Dict[str, Any]:
     age_s = _compute_age_seconds(rec)
-    target = _target_from_rec(rec)
     when = _fmt_time_from_ts(rec.get("ts"))
 
     if kind == "send":
         result = _result_for_send(rec)
-        ch_map = rec.get("channels") or {}
-        chan = _format_channels_compact(ch_map) if isinstance(ch_map, dict) else "—"
+        ch_map = rec.get("channels") if isinstance(rec.get("channels"), dict) else {}
     elif kind == "skip":
         result = _result_for_skip(rec)
-        chan = "—"
+        ch_map = {}
     else:  # "error"
         result = _result_for_error(rec)
-        chan = "—"
+        ch_map = {}
 
     return {
         "type": kind,
         "age_s": age_s,
         "age": _fmt_age(age_s),
         "time": when,
-        "target": target,
         "result": result,
-        "channels": chan,
+        "channels": ch_map,
+        "monitor": rec.get("monitor"),
+        "label": rec.get("label"),
     }
 
 
@@ -326,8 +358,8 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         )
     else:
         header = (
-            "    #  ⏱ Age  🕒 Time  🧾 Result  🎯 Target            "
-            "🧮 Details                     📢 Channels"
+            "    #  ⏱ Age  🕒 Time  🧾 Result  🎯 Target   "
+            "🧮 Details     📢 Channels"
         )
         out += body_indent_lines(
             PANEL_SLUG,
@@ -337,25 +369,32 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         base_color = body_cfg["body_text_color"]
         for idx, ev in enumerate(attempts, 1):
             num = f"{idx:<2}"
-            age = f"{(ev.get('age') or '–'):>4}"
-            when = f"{(ev.get('time') or '–'):>6}"
+            age = f"{ev.get('age', '–'):<5}"
+            when = f"{ev.get('time', '–'):<7}"
             kind = (ev.get("type") or "").lower()
-            kind_label = f"{kind:<6}"
-            target_text = (ev.get("target") or "-")
-            target = f"{target_text[:18]:<18}"
-            result_text = (ev.get("result") or "–")
-            result = f"{result_text[:25]:<25}"
-            chans = ev.get("channels", "")
-            line = f"    {num} {age} {when} {kind_label} {target} {result} {chans}"
+            result_word = kind or "-"
+            target = f"{_target_from_rec(ev):<10}"
+            details = f"{_details_from_attempt(ev):<12}"
+            channels = _channels_from_attempt(ev)
+
+            prefix = f"    {num} {age} {when} "
+            suffix = f"{target} {details} {channels}"
 
             if kind == "error":
-                row_color = "red"
+                result_color = "red"
             elif kind == "send":
-                row_color = "green"
+                result_color = "green"
             else:
-                row_color = base_color
+                result_color = base_color
 
-            rows.append(paint_line(line, row_color))
+            colored_result = paint_line(f"{result_word:<7}", result_color)
+            full_line = (
+                color_if_plain(prefix, base_color)
+                + colored_result
+                + " "
+                + color_if_plain(suffix, base_color)
+            )
+            rows.append(full_line)
 
         out += body_indent_lines(PANEL_SLUG, rows)
 
