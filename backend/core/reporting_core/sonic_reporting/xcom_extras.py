@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # Optional: repo-local DataLocker. Keep guarded to avoid hard import failures.
 try:
@@ -51,6 +51,32 @@ def _parse_epoch_or_iso(val: Any) -> Optional[float]:
         return dt.timestamp()
     except Exception:
         return None
+
+
+def append_xcom_history(dl: Any, event: Dict[str, Any], max_len: int = 20) -> None:
+    """Persist a rolling buffer of the most recent XCom events in system vars."""
+
+    sysmgr = getattr(dl, "system", None)
+    if not sysmgr or not hasattr(sysmgr, "get_var") or not hasattr(sysmgr, "set_var"):
+        return
+
+    try:
+        history = sysmgr.get_var("xcom_history")
+    except Exception:
+        history = None
+
+    if not isinstance(history, list):
+        history = []
+
+    history.append(event)
+    if len(history) > max_len:
+        history = history[-max_len:]
+
+    try:
+        sysmgr.set_var("xcom_history", history)
+    except Exception:
+        # Never let history persistence break the dispatcher / bridge.
+        pass
 
 def _as_bool(val) -> tuple[bool, bool]:
     if isinstance(val, bool): return True, val
