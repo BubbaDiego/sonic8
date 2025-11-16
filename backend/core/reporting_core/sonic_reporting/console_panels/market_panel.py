@@ -354,7 +354,7 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
             state,
         )
 
-    console = Console(record=True, width=HR_WIDTH, force_terminal=True, color_system=None)
+    console = Console(record=True, width=HR_WIDTH, force_terminal=True)
     console.print(table)
     text = console.export_text().rstrip("\n")
     lines = text.splitlines() if text else []

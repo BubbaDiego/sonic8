@@ -406,20 +406,23 @@ def body_indent_lines(slug: str, lines: List[str]) -> List[str]:
 # Body config + helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
-def get_panel_body_config(slug: str) -> Dict[str, str]:
+def get_panel_body_config(slug: str) -> Dict[str, Any]:
     """
     Returns:
       {
         "column_header_text_color": "...",
         "body_text_color": "...",
         "totals_row_color": "..."
-      }
-    All keys optional; defaults fall back to `defaults.body` or "default".
+        "table": {"style": "...", "table_justify": "...", "header_justify": "..."}
+    All keys optional; defaults fall back to `defaults.body` (and
+    `defaults.body.table`) or "default".
     """
     cfg = _cfg()
     defaults = (cfg.get("defaults") or {}).get("body") or {}
     panels = cfg.get("panels") or {}
     panel_body = (panels.get(slug) or {}).get("body") or {}
+    defaults_table = (defaults.get("table") or {}) if isinstance(defaults.get("table"), dict) else {}
+    panel_table = (panel_body.get("table") or {}) if isinstance(panel_body.get("table"), dict) else {}
 
     def pick(key: str, default: str = "default") -> str:
         if key in panel_body and panel_body[key] not in (None, ""):
@@ -428,8 +431,22 @@ def get_panel_body_config(slug: str) -> Dict[str, str]:
             return str(defaults[key])
         return default
 
+    def pick_table(key: str, default: str) -> str:
+        if key in panel_table and panel_table[key] not in (None, ""):
+            return str(panel_table[key])
+        if key in defaults_table and defaults_table[key] not in (None, ""):
+            return str(defaults_table[key])
+        return default
+
+    table_cfg = {
+        "style": pick_table("style", "invisible").lower(),
+        "table_justify": pick_table("table_justify", "left").lower(),
+        "header_justify": pick_table("header_justify", "left").lower(),
+    }
+
     return {
         "column_header_text_color": pick("column_header_text_color"),
         "body_text_color": pick("body_text_color"),
         "totals_row_color": pick("totals_row_color"),
+        "table": table_cfg,
     }
