@@ -1135,7 +1135,8 @@ def main() -> None:
                 f"18. {ICON['xcom']} Seed XCom Providers (ENV)",
                 f"19. {ICON['market']} Market Console (Market Core)",
                 f"0. {ICON['exit']} Exit",
-                "    hotkeys: [S] 🌀 Sonic  [C] 🌀 Cyclone  [D] 🗄️ Database  [G] 🧩 Config  [M] 📈 Market",
+                "",
+                "🔥 Hotkeys: [S] 🌀 Sonic  [C] 🌀 Cyclone  [M] 📈 Market  [T] ✅ Twilio",
             ]
         )
         _print_panel(menu_body, title="Main Menu")
@@ -1180,14 +1181,12 @@ def main() -> None:
             run_menu_action("Seed XCom Providers", run_database_console)
         elif choice == "19":
             run_menu_action("Market Console", launch_market_console)
-        elif choice.upper() == "D":
-            run_menu_action("Database Console", _launch_db_console)
-        elif choice.upper() == "G":
-            run_menu_action("Config Console", _launch_config_console_inprocess)
         elif choice.upper() == "C":
             run_menu_action("Cyclone Console", lambda: launch_cyclone_app(new_window=True))
         elif choice.upper() == "M":
             run_menu_action("Market Console", launch_market_console)
+        elif choice.upper() == "T":
+            run_menu_action("Verify_Twilio_hotkey", verify_twilio_menu)
         elif choice in {"0", "q", "quit", "exit"}:
             print("bye 👋")
             return
