@@ -1129,7 +1129,7 @@ def main() -> None:
                 f"12. {ICON['wallet']} Wallet Manager",
                 f"13. {ICON['cyclone']} Launch Cyclone App",
                 f"14. {ICON['goals']} Session / Goals",
-                f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
+                f"15. {ICON['maintenance']} Generate Specs / Teaching Pack",
                 f"16. {ICON['gmx']} GMX Solana Console",
                 f"17. {ICON['raydium']} Raydium Console (wallet + NFTs)",
                 f"18. {ICON['xcom']} Seed XCom Providers (ENV)",
@@ -1171,7 +1171,7 @@ def main() -> None:
         elif choice == "14":
             run_menu_action("Session / Goals", goals_menu)
         elif choice == "15":
-            run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
+            run_menu_action("Generate Specs / Teaching Pack", run_daily_maintenance)
         elif choice == "16":
             run_menu_action("GMX Solana Console", launch_gmx_solana)
         elif choice == "17":
