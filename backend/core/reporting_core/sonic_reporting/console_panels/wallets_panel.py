@@ -17,9 +17,9 @@ PANEL_NAME = "Wallets"
 
 # ===== layout =====
 INDENT   = ""
-W_NAME, W_CHAIN, W_ADDR, W_BAL, W_USD, W_CHK = 12, 7, 24, 8, 9, 8
+# Narrower columns so the panel isn't crazy wide
+W_NAME, W_CHAIN, W_ADDR, W_BAL, W_USD, W_CHK = 10, 7, 20, 7, 7, 7
 SEP = "  "
-HEADER_IC = {"name":"👤","chain":"⛓","addr":"🔑","bal":"🪙","usd":"💵","chk":"⏱"}
 
 # ===== emoji-safe padding =====
 _VAR = {0xFE0F, 0xFE0E}
@@ -113,12 +113,12 @@ def render(dl, *_args, **_kw) -> None:
     body_cfg = get_panel_body_config(PANEL_SLUG)
     header = (
         INDENT
-        + _pad(HEADER_IC["name"] + "Name",  W_NAME)
-        + SEP + _pad(HEADER_IC["chain"] + "Chain", W_CHAIN)
-        + SEP + _pad(HEADER_IC["addr"] + "Address", W_ADDR)
-        + SEP + _pad(HEADER_IC["bal"]  + "Balance", W_BAL)
-        + SEP + _pad(HEADER_IC["usd"]  + "USD",     W_USD)
-        + SEP + _pad(HEADER_IC["chk"]  + "Checked", W_CHK)
+        + f"{'👤 Name':<{W_NAME}} "
+        + f"{'⛓ Chain':<{W_CHAIN}} "
+        + f"{'🔑 Address':<{W_ADDR}} "
+        + f"{'🪙 Bal':>{W_BAL}} "
+        + f"{'💵 USD':>{W_USD}} "
+        + f"{'🕒 Checked':>{W_CHK}}"
     )
     header_line = paint_line(header, body_cfg["column_header_text_color"])
     for ln in body_pad_above(PANEL_SLUG) + body_indent_lines(PANEL_SLUG, [header_line]):
