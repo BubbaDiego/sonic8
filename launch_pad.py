@@ -1081,27 +1081,26 @@ def main() -> None:
                 f"4. {ICON['rocket']} Sonic - [bold]Full App[/] (Frontend + Backend)",
                 f"5. {ICON['frontend']} Launch [bold]Frontend[/] (Sonic/Vite)",
                 f"6. {ICON['backend']} Launch [bold]Backend[/] (FastAPI)",
-                f"7. {ICON['perps']} Launch Perps Console",
-                f"8. {ICON['verify_db']} Database Console",
-                f"9. {ICON['config']} Config Console",
-                f"10. {ICON['tests']} Tests Hub",
-                f"11. 🃏 Fun Console (Jokes / Quotes / Trivia)",
-                f"12. {ICON['wallet']} Wallet Manager",
-                f"13. {ICON['cyclone']} Launch Cyclone App",
-                f"14. {ICON['goals']} Session / Goals",
-                f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
-                f"16. {ICON['gmx']} GMX Solana Console",
-                f"17. {ICON['raydium']} Raydium Console (wallet + NFTs)",
-                f"18. {ICON['xcom']} Seed XCom Providers (ENV)",
-                f"19. {ICON['market']} Market Console (Market Core)",
-                f"0. {ICON['exit']} Exit   (hotkey: [C] Cyclone in a new window, [D] Database Console, [G] Config Console, [M] Market Console)",
+                f"7. {ICON['verify_db']} Database Console",
+                f"8. {ICON['config']} Config Console",
+                f"9. {ICON['tests']} Tests Hub",
+                f"10. 🃏 Fun Console (Jokes / Quotes / Trivia)",
+                f"11. {ICON['wallet']} Wallet Manager",
+                f"12. {ICON['cyclone']} Launch Cyclone App",
+                f"13. {ICON['goals']} Session / Goals",
+                f"14. {ICON['maintenance']} On-Demand Daily Maintenance",
+                f"15. {ICON['gmx']} GMX Solana Console",
+                f"16. {ICON['raydium']} Raydium Console (wallet + NFTs)",
+                f"17. {ICON['xcom']} Seed XCom Providers (ENV)",
+                f"18. {ICON['market']} Market Console (Market Core)",
+                f"0. {ICON['exit']} Exit   (hotkey: [S] Sonic Monitor, [C] Cyclone Console, [D] Database Console, [G] Config Console, [M] Market Console)",
             ]
         )
         _print_panel(menu_body, title="Main Menu")
 
         choice = input("→ ").strip()
 
-        if choice == "1":
+        if choice == "1" or choice.upper() == "S":
             run_menu_action("🌀 Start Sonic Monitor", launch_sonic_monitor)
         elif choice == "2":
             run_menu_action("Full Sonic", launch_sonic_apps)
@@ -1114,37 +1113,35 @@ def main() -> None:
         elif choice == "6":
             run_menu_action("Launch Backend (FastAPI)", launch_backend)
         elif choice == "7":
-            run_menu_action("Launch Perps Console", launch_perps_console)
-        elif choice == "8":
             run_menu_action("Database Console", _launch_db_console)
-        elif choice == "9":
+        elif choice == "8":
             run_menu_action("Config Console", _launch_config_console_inprocess)
-        elif choice == "10":
+        elif choice == "9":
             run_menu_action("Tests Hub", run_tests_hub)
-        elif choice == "11":
+        elif choice == "10":
             run_menu_action("Fun Console", run_fun_console)
-        elif choice == "12":
+        elif choice == "11":
             run_menu_action("Wallet Manager", wallet_menu)
-        elif choice == "13":
+        elif choice == "12":
             run_menu_action("Launch Cyclone App", run_cyclone_console)
-        elif choice == "14":
+        elif choice == "13":
             run_menu_action("Session / Goals", goals_menu)
-        elif choice == "15":
+        elif choice == "14":
             run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
-        elif choice == "16":
+        elif choice == "15":
             run_menu_action("GMX Solana Console", launch_gmx_solana)
-        elif choice == "17":
+        elif choice == "16":
             run_menu_action("Raydium Console", launch_raydium_console)
-        elif choice == "18":
+        elif choice == "17":
             run_menu_action("Seed XCom Providers", run_database_console)
-        elif choice == "19":
+        elif choice == "18":
             run_menu_action("Market Console", launch_market_console)
         elif choice.upper() == "D":
             run_menu_action("Database Console", _launch_db_console)
         elif choice.upper() == "G":
             run_menu_action("Config Console", _launch_config_console_inprocess)
         elif choice.upper() == "C":
-            run_menu_action("Launch Cyclone App (new window)", lambda: launch_cyclone_app(new_window=True))
+            run_menu_action("Cyclone Console", lambda: launch_cyclone_app(new_window=True))
         elif choice.upper() == "M":
             run_menu_action("Market Console", launch_market_console)
         elif choice in {"0", "q", "quit", "exit"}:
