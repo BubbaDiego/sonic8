@@ -283,13 +283,13 @@ def _build_rich_table_lines(rows: List[Dict[str, Any]], *, width: Optional[int])
         expand=False,
     )
 
-    table.add_column("Asset", justify="left", no_wrap=True)
-    table.add_column("Entry", justify="right")
-    table.add_column("Current", justify="right")
-    table.add_column("Move", justify="right")
-    table.add_column("Thr", justify="left")
-    table.add_column("Prox", justify="left", no_wrap=True)
-    table.add_column("State", justify="left")
+    table.add_column("🪙\nAsset", justify="left", no_wrap=True)
+    table.add_column("💵\nEntry", justify="right")
+    table.add_column("💹\nCurrent", justify="right")
+    table.add_column("📊\nMove", justify="right")
+    table.add_column("🎯\nThr", justify="left")
+    table.add_column("🔋\nProx", justify="left", no_wrap=True)
+    table.add_column("🧾\nState", justify="left")
 
     for row in rows:
         meta = row.get("meta") or {}
@@ -328,16 +328,8 @@ def _build_rich_table_lines(rows: List[Dict[str, Any]], *, width: Optional[int])
 
 
 def _build_plain_table_lines(rows: List[Dict[str, Any]]) -> List[str]:
-    """
-    Fallback layout when Rich is not available.
-
-    Simple, aligned ASCII table:
-      Asset  Entry      Current     Move      Thr          Prox       State
-    """
+    """Fallback layout when Rich is not available (data rows only)."""
     lines: List[str] = []
-    header = "Asset   Entry      Current     Move      Thr          Prox       State"
-    lines.append(header)
-    lines.append("-" * len(header))
 
     for row in rows:
         meta = row.get("meta") or {}
@@ -364,6 +356,29 @@ def _build_plain_table_lines(rows: List[Dict[str, Any]]) -> List[str]:
     return lines
 
 
+def _plain_header_lines() -> List[str]:
+    """Return the two-line header (icons + labels) for the plain table."""
+    header = (
+        "Asset   "
+        "Entry      "
+        "Current     "
+        "Move       "
+        "Thr           "
+        "Prox       "
+        "State"
+    )
+    header_icons = (
+        "🪙      "
+        "💵         "
+        "💹          "
+        "📊        "
+        "🎯            "
+        "🔋        "
+        "🧾"
+    )
+    return [header_icons, header]
+
+
 # ───────────────────────── panel API ─────────────────────────
 
 
@@ -386,12 +401,17 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     rows = _market_rows(_get_monitor_rows(dl))
 
+    header_lines = _plain_header_lines()
+
     if not rows:
-        header = color_if_plain(
-            "  Asset   Entry      Current     Move      Thr          Prox       State",
-            body_cfg["column_header_text_color"],
-        )
-        lines += body_indent_lines(PANEL_SLUG, [header])
+        header_colored = [
+            color_if_plain(
+                f"  {header_line}",
+                body_cfg["column_header_text_color"],
+            )
+            for header_line in header_lines
+        ]
+        lines += body_indent_lines(PANEL_SLUG, header_colored)
         note = color_if_plain(
             "  (no active market alerts)",
             body_cfg["body_text_color"],
@@ -402,18 +422,35 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     # Prefer Rich table; fall back to plain layout if Rich is unavailable
     table_lines: List[str]
+    using_rich = False
     if RICH_AVAILABLE:
         table_lines = _build_rich_table_lines(rows, width=width)
-        if not table_lines:
+        if table_lines:
+            using_rich = True
+        else:
             table_lines = _build_plain_table_lines(rows)
     else:
         table_lines = _build_plain_table_lines(rows)
 
-    # Apply body color + indentation
-    colored_lines = [
-        color_if_plain(f"  {ln}", body_cfg["body_text_color"])
-        for ln in table_lines
-    ]
+    if using_rich:
+        colored_lines = [
+            color_if_plain(f"  {ln}", body_cfg["body_text_color"])
+            for ln in table_lines
+        ]
+    else:
+        header_colored = [
+            color_if_plain(
+                f"  {header_line}",
+                body_cfg["column_header_text_color"],
+            )
+            for header_line in header_lines
+        ]
+        body_colored = [
+            color_if_plain(f"  {ln}", body_cfg["body_text_color"])
+            for ln in table_lines
+        ]
+        colored_lines = header_colored + body_colored
+
     lines += body_indent_lines(PANEL_SLUG, colored_lines)
 
     lines += body_pad_below(PANEL_SLUG)
