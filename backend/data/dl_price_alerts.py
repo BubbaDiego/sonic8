@@ -21,9 +21,13 @@ class DLPriceAlertManager:
     def initialize_schema(db) -> None:
         cursor = db.get_cursor()
         if cursor is None:
-            log.error("DB unavailable creating price_alerts", source="DLPriceAlertManager")
+            log.error(
+                "DB unavailable creating price_alerts",
+                source="DLPriceAlertManager",
+            )
             return
 
+        # Base table definition – includes the latest set of columns
         cursor.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {DLPriceAlertManager.TABLE_NAME} (
@@ -43,7 +47,6 @@ class DLPriceAlertManager:
                 current_anchor_time TEXT,
                 effective_threshold_value REAL,
                 armed INTEGER NOT NULL DEFAULT 1,
-                fired_count INTEGER NOT NULL DEFAULT 0,
 
                 last_state TEXT,
                 last_price REAL,
@@ -67,6 +70,7 @@ class DLPriceAlertManager:
         cursor.execute(f"PRAGMA table_info({DLPriceAlertManager.TABLE_NAME})")
         existing = {row[1] for row in cursor.fetchall()}
 
+        # name, sql-type, default SQL literal (or None)
         expected_cols = [
             ("label", "TEXT", None),
             ("effective_threshold_value", "REAL", None),
