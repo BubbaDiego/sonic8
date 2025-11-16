@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Market Alerts panel."""
+"""Market Alerts panel (Rich-powered thin table with safe fallback)."""
 from __future__ import annotations
 
 import json
+from io import StringIO
 from typing import Any, Dict, Iterable, List, Optional
 
 from .theming import (
@@ -13,8 +14,28 @@ from .theming import (
     color_if_plain,
 )
 
+# HR_WIDTH is used to bound the Rich table width; fall back if missing
+try:
+    from .theming import HR_WIDTH
+except Exception:  # pragma: no cover
+    HR_WIDTH = 80
+
+# Try to import Rich – if missing, we fall back to plain string layout
+try:
+    from rich.console import Console
+    from rich.table import Table
+    RICH_AVAILABLE = True
+except Exception:  # pragma: no cover
+    Console = None  # type: ignore
+    Table = None    # type: ignore
+    RICH_AVAILABLE = False
+
+
 PANEL_SLUG = "market"
 PANEL_NAME = "Market Alerts"
+
+
+# ───────────────────────── DL + monitor rows ──────────────────────────
 
 
 def _resolve_dl(ctx: Any) -> Any:
@@ -31,7 +52,7 @@ def _get_monitor_rows(dl: Any) -> List[Dict[str, Any]]:
     """
     Robustly pull monitor rows from dl.monitors / dl_dl_monitors.
 
-    This is the original logic that worked; do not mess with behavior here.
+    This mirrors the original logic you had – no behavior changes here.
     """
     if dl is None:
         return []
@@ -111,55 +132,55 @@ def _market_rows(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-# ===== value formatting helpers =====
+# ───────────────────────── formatting helpers ─────────────────────────
+
 
 def _fmt_price(val: Any) -> str:
     if val is None:
-        return "–".rjust(8)
+        return "–"
     try:
-        return f"{float(val):>8.2f}"
+        return f"{float(val):.2f}"
     except Exception:
-        return f"{str(val)[:8]:>8}"
+        return str(val)
 
 
 def _fmt_move_abs(val: Any) -> str:
     """Signed absolute move in price units."""
     if val is None:
-        return "–".rjust(8)
+        return "–"
     try:
         v = float(val)
-        sign = "+" if v >= 0 else ""
-        # width 8 including sign
-        return f"{sign}{abs(v):>7.2f}"
+        sign = "+" if v >= 0 else "-"
+        return f"{sign}{abs(v):.2f}"
     except Exception:
-        return f"{str(val)[:8]:>8}"
+        return str(val)
 
 
 def _fmt_pct(val: Any) -> str:
     if val is None:
-        return "–".rjust(8)
+        return "–"
     try:
         v = float(val)
-        sign = "+" if v >= 0 else ""
-        return f"{sign}{abs(v):>6.2f}%"
+        sign = "+" if v >= 0 else "-"
+        return f"{sign}{abs(v):.2f}%"
     except Exception:
-        return f"{str(val)[:8]:>8}"
+        return str(val)
 
 
 def _fmt_threshold(meta: Dict[str, Any], thr_value: Any) -> str:
     # Prefer explicit description if present
     desc = meta.get("threshold_desc") or meta.get("desc")
     if isinstance(desc, str) and desc.strip():
-        txt = desc.strip()
-    else:
-        try:
-            v = float(thr_value)
-            txt = f"${v:.2f} move"
-        except Exception:
-            txt = str(thr_value or "–")
-    if len(txt) > 14:
-        return txt[:13] + "…"
-    return txt.ljust(14)
+        return desc.strip()
+
+    if thr_value is None:
+        return "–"
+
+    try:
+        v = float(thr_value)
+        return f"${v:.2f} move"
+    except Exception:
+        return str(thr_value)
 
 
 def _fmt_bar(meta: Dict[str, Any]) -> str:
@@ -177,9 +198,7 @@ def _asset_from_row(row: Dict[str, Any]) -> str:
     meta = row.get("meta") or {}
     asset = row.get("asset") or meta.get("asset") or row.get("label") or ""
     asset = str(asset).strip()
-    if not asset:
-        return "—"
-    return asset[:5].ljust(5)
+    return asset or "—"
 
 
 def _entry_price(meta: Dict[str, Any]) -> Any:
@@ -187,19 +206,15 @@ def _entry_price(meta: Dict[str, Any]) -> Any:
     Entry (anchor) price:
 
     We trust Market Core to give us an explicit anchor from PriceAlert:
-      • meta["anchor_price"]      -> current_anchor_price
-      • meta["original_anchor_price"] as a fallback
-
-    No heuristic reconstruction from price/move here if possible.
+      • meta["anchor_price"]        (current anchor)
+      • meta["original_anchor_price"] as fallback
     """
     anchor = meta.get("anchor_price")
     if anchor is not None:
         return anchor
-
     origin = meta.get("original_anchor_price")
     if origin is not None:
         return origin
-
     return None
 
 
@@ -239,8 +254,8 @@ def _fmt_move_value(meta: Dict[str, Any]) -> str:
     """
     Generic 'Move' column:
 
-    - If rule_type is percent (e.g. move_pct), show a percent move.
-    - Otherwise, show absolute price move.
+    - If rule_type is percent (e.g. move_pct), show percent.
+    - Otherwise, show dollar move.
     """
     rule_type = (meta.get("rule_type") or "").lower()
     if "pct" in rule_type:
@@ -248,12 +263,116 @@ def _fmt_move_value(meta: Dict[str, Any]) -> str:
     return _fmt_move_abs(_move_abs(meta))
 
 
+# ───────────────────────── rich table builder ─────────────────────────
+
+
+def _build_rich_table_lines(rows: List[Dict[str, Any]], *, width: Optional[int]) -> List[str]:
+    """
+    Build a thin Rich table and return its rendered lines as plain strings.
+    If Rich isn't available, returns an empty list.
+    """
+    if not RICH_AVAILABLE or Table is None or Console is None:
+        return []
+
+    table = Table(
+        show_header=True,
+        header_style="bold cyan",
+        show_lines=False,
+        box=None,          # thin, borderless table
+        pad_edge=False,
+        expand=False,
+    )
+
+    table.add_column("Asset", justify="left", no_wrap=True)
+    table.add_column("Entry", justify="right")
+    table.add_column("Current", justify="right")
+    table.add_column("Move", justify="right")
+    table.add_column("Thr", justify="left")
+    table.add_column("Prox", justify="left", no_wrap=True)
+    table.add_column("State", justify="left")
+
+    for row in rows:
+        meta = row.get("meta") or {}
+        asset = _asset_from_row(row)
+
+        entry = _fmt_price(_entry_price(meta))
+        current = _fmt_price(_current_price(meta))
+        move_str = _fmt_move_value(meta)
+        thr_str = _fmt_threshold(meta, row.get("thr_value"))
+        bar = _fmt_bar(meta)
+        state = str(row.get("state") or "").upper()
+
+        table.add_row(
+            asset,
+            entry,
+            current,
+            move_str,
+            thr_str,
+            bar,
+            state,
+        )
+
+    buf = StringIO()
+    console = Console(
+        file=buf,
+        width=width or HR_WIDTH,
+        force_terminal=False,
+        color_system=None,
+    )
+    console.print(table)
+    text = buf.getvalue().rstrip("\n")
+    return text.splitlines() if text else []
+
+
+# ───────────────────────── fallback string table ──────────────────────
+
+
+def _build_plain_table_lines(rows: List[Dict[str, Any]]) -> List[str]:
+    """
+    Fallback layout when Rich is not available.
+
+    Simple, aligned ASCII table:
+      Asset  Entry      Current     Move      Thr          Prox       State
+    """
+    lines: List[str] = []
+    header = "Asset   Entry      Current     Move      Thr          Prox       State"
+    lines.append(header)
+    lines.append("-" * len(header))
+
+    for row in rows:
+        meta = row.get("meta") or {}
+
+        asset = _asset_from_row(row)
+        entry = _fmt_price(_entry_price(meta))
+        current = _fmt_price(_current_price(meta))
+        move_str = _fmt_move_value(meta)
+        thr_str = _fmt_threshold(meta, row.get("thr_value"))
+        bar = _fmt_bar(meta)
+        state = str(row.get("state") or "").upper()
+
+        line = (
+            f"{asset:<6} "
+            f"{entry:>10} "
+            f"{current:>10} "
+            f"{move_str:>10} "
+            f"{thr_str:<12} "
+            f"{bar:<11} "
+            f"{state:<6}"
+        )
+        lines.append(line)
+
+    return lines
+
+
+# ───────────────────────── panel API ─────────────────────────
+
+
 def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     dl = _resolve_dl(context)
     body_cfg = get_panel_body_config(PANEL_SLUG)
     lines: List[str] = []
 
-    # Title
+    # Title (icons only in title; table itself is clean)
     lines += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
     if dl is None:
@@ -267,20 +386,12 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     rows = _market_rows(_get_monitor_rows(dl))
 
-    # Header with icon + label columns
-    header = (
-        "  🪙  Asset   "
-        "💵  Entry     "
-        "💹  Current   "
-        "📊  Move      "
-        "🎯  Thr              "
-        "🔋  Prox        "
-        "🧾  State"
-    )
-    header_colored = color_if_plain(header, body_cfg["column_header_text_color"])
-    lines += body_indent_lines(PANEL_SLUG, [header_colored])
-
     if not rows:
+        header = color_if_plain(
+            "  Asset   Entry      Current     Move      Thr          Prox       State",
+            body_cfg["column_header_text_color"],
+        )
+        lines += body_indent_lines(PANEL_SLUG, [header])
         note = color_if_plain(
             "  (no active market alerts)",
             body_cfg["body_text_color"],
@@ -289,34 +400,21 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         lines += body_pad_below(PANEL_SLUG)
         return lines
 
-    # Data rows
-    for row in rows:
-        meta = row.get("meta") or {}
-        asset = _asset_from_row(row)
+    # Prefer Rich table; fall back to plain layout if Rich is unavailable
+    table_lines: List[str]
+    if RICH_AVAILABLE:
+        table_lines = _build_rich_table_lines(rows, width=width)
+        if not table_lines:
+            table_lines = _build_plain_table_lines(rows)
+    else:
+        table_lines = _build_plain_table_lines(rows)
 
-        entry = _entry_price(meta)
-        current = _current_price(meta)
-
-        thr_val = row.get("thr_value")
-        bar = _fmt_bar(meta)
-        state = str(row.get("state") or "").upper()
-
-        move_str = _fmt_move_value(meta)
-
-        line = (
-            f"  🪙  {asset:<5}  "
-            f"💵  {_fmt_price(entry)}  "
-            f"💹  {_fmt_price(current)}  "
-            f"📊  {move_str}  "
-            f"🎯  {_fmt_threshold(meta, thr_val)}  "
-            f"🔋  {bar:<10}  "
-            f"🧾  {state:<7}"
-        )
-
-        lines += body_indent_lines(
-            PANEL_SLUG,
-            [color_if_plain(line, body_cfg["body_text_color"])],
-        )
+    # Apply body color + indentation
+    colored_lines = [
+        color_if_plain(f"  {ln}", body_cfg["body_text_color"])
+        for ln in table_lines
+    ]
+    lines += body_indent_lines(PANEL_SLUG, colored_lines)
 
     lines += body_pad_below(PANEL_SLUG)
     return lines

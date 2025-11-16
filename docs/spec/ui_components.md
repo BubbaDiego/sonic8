@@ -1,7 +1,7 @@
 # Sonic UI Components — Catalog (auto-generated)
 
 > Source of truth: `docs/spec/ui.manifest.yaml`  
-> Generated: 2025-11-16 07:09:08
+> Generated: 2025-11-16 07:57:18
 
 Use this catalog to discover components, props, and example usage.  
 To regenerate: `python backend/scripts/build_ui_components_doc.py`
