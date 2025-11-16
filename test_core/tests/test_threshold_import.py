@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from utils.time_utils import PACIFIC_TZ
+from backend.utils.time_utils import PACIFIC_TZ
 from data.data_locker import DataLocker
 from data.dl_thresholds import DLThresholdManager
 from data.models import AlertThreshold

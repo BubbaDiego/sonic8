@@ -8,7 +8,7 @@ Default DB Path: /data/learning_database.db
 import random
 import uuid
 from datetime import datetime, timedelta
-from utils.time_utils import PACIFIC_TZ
+from backend.utils.time_utils import PACIFIC_TZ
 import os
 from learning_database.learning_data_locker import LearningDataLocker
 from dotenv import load_dotenv

@@ -2,7 +2,7 @@ import logging
 import json
 import time
 import inspect
-from utils.time_utils import now_pst
+from backend.utils.time_utils import now_pst
 from typing import Dict, List, Optional
 try:
     from rich.logging import RichHandler  # type: ignore
@@ -263,7 +263,7 @@ class RichLogger:
 
     def print_dashboard_link(self, host: str = "127.0.0.1", port: int = 5001, route: str = "/dashboard"):
         """Print hyperlinks for both localhost and LAN dashboard URLs."""
-        from utils.net_utils import get_local_ip
+        from backend.utils.net_utils import get_local_ip
 
         url_local = f"http://{host}:{port}{route}"
         lan_ip = get_local_ip()
