@@ -122,13 +122,26 @@ def _fmt_price(val: Any) -> str:
         return f"{str(val)[:8]:>8}"
 
 
+def _fmt_move_abs(val: Any) -> str:
+    """Signed absolute move in price units."""
+    if val is None:
+        return "–".rjust(8)
+    try:
+        v = float(val)
+        sign = "+" if v >= 0 else ""
+        # width 8 including sign
+        return f"{sign}{abs(v):>7.2f}"
+    except Exception:
+        return f"{str(val)[:8]:>8}"
+
+
 def _fmt_pct(val: Any) -> str:
     if val is None:
         return "–".rjust(8)
     try:
         v = float(val)
         sign = "+" if v >= 0 else ""
-        return f"{sign}{v:>6.2f}%"
+        return f"{sign}{abs(v):>6.2f}%"
     except Exception:
         return f"{str(val)[:8]:>8}"
 
@@ -177,7 +190,7 @@ def _entry_price(meta: Dict[str, Any]) -> Any:
       • meta["anchor_price"]      -> current_anchor_price
       • meta["original_anchor_price"] as a fallback
 
-    No heuristic reconstruction from price/move here.
+    No heuristic reconstruction from price/move here if possible.
     """
     anchor = meta.get("anchor_price")
     if anchor is not None:
@@ -187,7 +200,6 @@ def _entry_price(meta: Dict[str, Any]) -> Any:
     if origin is not None:
         return origin
 
-    # If Market Core didn't give us an anchor, we report "no entry"
     return None
 
 
@@ -195,11 +207,25 @@ def _current_price(meta: Dict[str, Any]) -> Any:
     return meta.get("price") or meta.get("current_price")
 
 
+def _move_abs(meta: Dict[str, Any]) -> Any:
+    mv = meta.get("move_abs")
+    if mv is not None:
+        return mv
+    price = _current_price(meta)
+    anchor = _entry_price(meta)
+    try:
+        if price is not None and anchor not in (None, 0):
+            return float(price) - float(anchor)
+    except Exception:
+        pass
+    return None
+
+
 def _move_pct(meta: Dict[str, Any]) -> Any:
     mv = meta.get("move_pct")
     if mv is not None:
         return mv
-    price = meta.get("price") or meta.get("current_price")
+    price = _current_price(meta)
     anchor = _entry_price(meta)
     try:
         if price is not None and anchor not in (None, 0):
@@ -207,6 +233,19 @@ def _move_pct(meta: Dict[str, Any]) -> Any:
     except Exception:
         pass
     return None
+
+
+def _fmt_move_value(meta: Dict[str, Any]) -> str:
+    """
+    Generic 'Move' column:
+
+    - If rule_type is percent (e.g. move_pct), show a percent move.
+    - Otherwise, show absolute price move.
+    """
+    rule_type = (meta.get("rule_type") or "").lower()
+    if "pct" in rule_type:
+        return _fmt_pct(_move_pct(meta))
+    return _fmt_move_abs(_move_abs(meta))
 
 
 def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
@@ -228,12 +267,12 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     rows = _market_rows(_get_monitor_rows(dl))
 
-    # Header with icon + label columns (NO Move $ column)
+    # Header with icon + label columns
     header = (
         "  🪙  Asset   "
         "💵  Entry     "
         "💹  Current   "
-        "📊  Move%     "
+        "📊  Move      "
         "🎯  Thr              "
         "🔋  Prox        "
         "🧾  State"
@@ -257,17 +296,18 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
         entry = _entry_price(meta)
         current = _current_price(meta)
-        move_pct = _move_pct(meta)
 
         thr_val = row.get("thr_value")
         bar = _fmt_bar(meta)
         state = str(row.get("state") or "").upper()
 
+        move_str = _fmt_move_value(meta)
+
         line = (
             f"  🪙  {asset:<5}  "
             f"💵  {_fmt_price(entry)}  "
             f"💹  {_fmt_price(current)}  "
-            f"📊  {_fmt_pct(move_pct)}  "
+            f"📊  {move_str}  "
             f"🎯  {_fmt_threshold(meta, thr_val)}  "
             f"🔋  {bar:<10}  "
             f"🧾  {state:<7}"

@@ -4,7 +4,7 @@
     "title": {
       "icon": "",
       "border_style": "rounded",
-      "border_color": "default",
+      "border_color": "pink",
       "text_color": "cyan",
       "align": "center"
     },
