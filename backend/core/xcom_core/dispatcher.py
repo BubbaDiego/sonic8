@@ -80,6 +80,23 @@ def _safe_str(v: Any, maxlen: int = 120) -> str:
     return s if len(s) <= maxlen else (s[: maxlen - 1] + "…")
 
 
+def _normalize_xcom_error_detail(msg: str | None) -> str:
+    """Collapse noisy Twilio auth failures into a short, user-facing label."""
+
+    if not msg:
+        return ""
+
+    text = str(msg)
+    low = text.lower()
+
+    if "twilio" in low and ("20003" in low or "authenticate" in low):
+        return "twilio auth error"
+    if "unable to create record" in low and "authenticate" in low:
+        return "twilio auth error"
+
+    return text
+
+
 # ---------- public API ----------
 
 def dispatch_notifications(
@@ -223,6 +240,8 @@ def dispatch_notifications(
                         )
                     else:
                         print("XCOM[VOICE] ✖ call returned ok=False")
+                        err_msg = "voice-service-returned-false"
+                        summary["error"] = _normalize_xcom_error_detail(err_msg)
                         record_attempt(
                             dl,
                             channel="voice",
@@ -237,6 +256,8 @@ def dispatch_notifications(
                     summary["channels"]["voice"] = voice_payload
                 except Exception as exc:
                     msg = str(exc)[:200]
+                    detail = _normalize_xcom_error_detail(msg)
+                    summary["error"] = detail or msg
                     summary["channels"]["voice"] = {"ok": False, "skip": "twilio-error", "error": msg}
                     print(f"XCOM[VOICE] ✖ exception: {msg}")
                     status_val = getattr(exc, "status", None)

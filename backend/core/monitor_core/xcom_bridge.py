@@ -8,6 +8,7 @@ from importlib import import_module
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from backend.core.core_constants import XCOM_PROVIDERS_PATH
+from backend.core.reporting_core.sonic_reporting.xcom_extras import append_xcom_history
 
 log = logging.getLogger("sonic.engine")
 
@@ -27,6 +28,47 @@ def _mask(val: str | None, *, kind: str = "sid") -> str:
     if kind == "phone":
         return s
     return "…" + s[-4:] if len(s) > 4 else "…"
+
+
+def _coerce_detail(val: Any) -> Optional[str]:
+    if val is None:
+        return None
+    text = str(val).strip()
+    return text or None
+
+
+def _extract_error_detail(result: Any) -> Optional[str]:
+    if isinstance(result, dict):
+        for key in ("detail", "error", "reason"):
+            detail = _coerce_detail(result.get(key))
+            if detail:
+                return detail
+
+        for bucket in ("voice", "non_voice"):
+            section = result.get(bucket)
+            if isinstance(section, dict):
+                for key in ("error", "reason", "detail"):
+                    detail = _coerce_detail(section.get(key))
+                    if detail:
+                        return detail
+
+        channels = result.get("channels")
+        if isinstance(channels, dict):
+            voice_chan = channels.get("voice")
+            if isinstance(voice_chan, dict):
+                for key in ("error", "reason", "skip"):
+                    detail = _coerce_detail(voice_chan.get(key))
+                    if detail:
+                        return detail
+    return None
+
+
+def _channels_from_result(result: Any, fallback: Dict[str, Any]) -> Dict[str, Any]:
+    if isinstance(result, dict):
+        chan = result.get("channels")
+        if isinstance(chan, dict):
+            return chan
+    return dict(fallback)
 
 
 def _snapshot_file_voice() -> tuple[dict, list[str]]:
@@ -333,6 +375,7 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
         if elapsed < min_seconds:
             if sysmgr and hasattr(sysmgr, "set_var"):
                 remaining = int(max(0, min_seconds - elapsed))
+                skip_detail = f"remaining={remaining}s"
                 sysmgr.set_var(
                     "xcom_last_skip",
                     {
@@ -342,6 +385,19 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
                         "reason": "global-snooze",
                         "remaining_seconds": remaining,
                         "min_seconds": int(min_seconds),
+                        "detail": skip_detail,
+                    },
+                )
+                append_xcom_history(
+                    dl,
+                    {
+                        "type": "skip",
+                        "ts": now_ts,
+                        "monitor": mon,
+                        "label": label,
+                        "result": f"global-snooze remaining={remaining}s",
+                        "channels": {},
+                        "detail": skip_detail,
                     },
                 )
             log.info(
@@ -385,6 +441,19 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
                             "reason": "provider-missing-file",
                             "missing": sorted(set(missing)),
                             "path": str(XCOM_PROVIDERS_PATH),
+                            "detail": msg,
+                        },
+                    )
+                    append_xcom_history(
+                        dl,
+                        {
+                            "type": "error",
+                            "ts": now,
+                            "monitor": mon,
+                            "label": label,
+                            "result": "ERROR",
+                            "channels": {},
+                            "detail": msg,
                         },
                     )
 
@@ -429,6 +498,7 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
             out.append({"monitor": mon, "label": label, "channels": channels, "result": result})
             log.info("[xcom] dispatched %s %s -> %s", mon, label, json.dumps(channels))
             success = bool(result.get("success", False)) if isinstance(result, dict) else bool(result)
+            result_channels = _channels_from_result(result, channels)
             if sysmgr and hasattr(sysmgr, "set_var"):
                 now_ts = time.time()
                 if success:
@@ -441,23 +511,51 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
                             "ts": now_ts,
                             "monitor": mon,
                             "label": label,
-                            "channels": channels,
+                            "channels": result_channels,
                             "result": result,
                             "subject": subj,
                             "success": True,
+                            "detail": None,
+                        },
+                    )
+                    summary_text = (payload.get("body") or payload.get("subject") or "OK")
+                    append_xcom_history(
+                        dl,
+                        {
+                            "type": "send",
+                            "ts": now_ts,
+                            "monitor": mon,
+                            "label": label,
+                            "result": str(summary_text).strip() or "OK",
+                            "channels": result_channels,
+                            "detail": None,
                         },
                     )
                 else:
+                    error_detail = _extract_error_detail(result)
                     sysmgr.set_var(
                         "xcom_last_error",
                         {
                             "ts": now_ts,
                             "monitor": mon,
                             "label": label,
-                            "channels": channels,
+                            "channels": result_channels,
                             "result": result,
                             "subject": subj,
                             "success": False,
+                            "detail": error_detail,
+                        },
+                    )
+                    append_xcom_history(
+                        dl,
+                        {
+                            "type": "error",
+                            "ts": now_ts,
+                            "monitor": mon,
+                            "label": label,
+                            "result": "ERROR",
+                            "channels": result_channels,
+                            "detail": error_detail,
                         },
                     )
         except Exception as e:
@@ -471,6 +569,19 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
                         "label": label,
                         "ts": err_ts,
                         "reason": f"dispatch-exception: {e}",
+                        "detail": str(e),
+                    },
+                )
+                append_xcom_history(
+                    dl,
+                    {
+                        "type": "error",
+                        "ts": err_ts,
+                        "monitor": mon,
+                        "label": label,
+                        "result": "ERROR",
+                        "channels": {},
+                        "detail": str(e),
                     },
                 )
             try:

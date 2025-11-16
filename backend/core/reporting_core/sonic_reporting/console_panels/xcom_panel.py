@@ -39,6 +39,21 @@ def _get_receipt(dl: Any, key: str) -> Optional[Dict[str, Any]]:
     return rec if isinstance(rec, dict) else None
 
 
+def _get_history(dl: Any) -> List[Dict[str, Any]]:
+    sysmgr = getattr(dl, "system", None)
+    if not sysmgr or not hasattr(sysmgr, "get_var"):
+        return []
+    try:
+        history = sysmgr.get_var("xcom_history")
+    except Exception:
+        return []
+    if not isinstance(history, list):
+        return []
+    events = [ev for ev in history if isinstance(ev, dict) and "ts" in ev]
+    events.sort(key=lambda e: float(e.get("ts", 0) or 0), reverse=True)
+    return events
+
+
 def _compute_age_seconds(rec: Dict[str, Any]) -> int:
     try:
         ts = float(rec.get("ts", 0) or 0)
@@ -151,10 +166,15 @@ def _details_from_attempt(ev: Dict[str, Any]) -> str:
                 return f"snooze {rem}"
         return "snooze"
     if kind == "error":
-        low = raw_result.lower()
-        if "auth" in low or "authenticate" in low:
-            return "auth error"
-        return "error" if not raw_result else str(raw_result)[:20]
+        # Prefer explicit error/detail field if present
+        detail = ev.get("detail") or ev.get("error") or raw_result
+        if not isinstance(detail, str):
+            detail = str(detail)
+        low = detail.lower()
+        if "twilio" in low and ("20003" in low or "authenticate" in low):
+            return "twilio auth error"
+        # Fall back to truncated detail
+        return detail[:20] if detail else "error"
 
     return str(raw_result)[:20] if raw_result else "-"
 
@@ -221,15 +241,43 @@ def _build_attempt(kind: str, rec: Dict[str, Any]) -> Dict[str, Any]:
         "channels": ch_map,
         "monitor": rec.get("monitor"),
         "label": rec.get("label"),
+        "detail": rec.get("detail"),
     }
+
+
+def _recent_attempts_from_history(history: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, Any]]:
+    events: List[Dict[str, Any]] = []
+    for ev in history[:limit]:
+        kind = (ev.get("type") or "").lower()
+        age_s = _compute_age_seconds(ev)
+        when = _fmt_time_from_ts(ev.get("ts"))
+        events.append(
+            {
+                "type": kind,
+                "age_s": age_s,
+                "age": _fmt_age(age_s),
+                "time": when,
+                "result": ev.get("result"),
+                "channels": ev.get("channels") or {},
+                "monitor": ev.get("monitor"),
+                "label": ev.get("label"),
+                "detail": ev.get("detail"),
+            }
+        )
+    return events
 
 
 def _recent_attempts(
     rec_send: Optional[Dict[str, Any]],
     rec_skip: Optional[Dict[str, Any]],
     rec_err: Optional[Dict[str, Any]],
+    dl: Any,
 ) -> List[Dict[str, Any]]:
-    """Build a small list of recent attempts from the last send/skip/error receipts."""
+    history = _get_history(dl) if dl else []
+    if history:
+        return _recent_attempts_from_history(history, limit=5)
+
+    # Fallback to old behavior if history isn't present yet
     events: List[Dict[str, Any]] = []
     if rec_send:
         events.append(_build_attempt("send", rec_send))
@@ -237,7 +285,6 @@ def _recent_attempts(
         events.append(_build_attempt("skip", rec_skip))
     if rec_err:
         events.append(_build_attempt("error", rec_err))
-    # Sort by age ascending → newest first
     events.sort(key=lambda e: e["age_s"])
     return events
 
@@ -320,7 +367,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     status_label = "🟢 LIVE" if live_on else "🔴 OFF"
 
-    attempts = _recent_attempts(rec_send, rec_skip, rec_err)
+    attempts = _recent_attempts(rec_send, rec_skip, rec_err, dl)
     snooze_line = _snooze_summary(dl, rec_skip) if dl else "global snooze: OFF"
     cooldown_line = _cooldown_summary(dl, cfg_obj) if dl else "voice cooldown: idle (window=180s)"
 
