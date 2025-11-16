@@ -172,20 +172,22 @@ def _asset_from_row(row: Dict[str, Any]) -> str:
 def _entry_price(meta: Dict[str, Any]) -> Any:
     """
     Entry (anchor) price:
-      • Prefer meta["anchor_price"] or meta["entry_price"] if present.
-      • Else, derive from price - move_abs if both exist.
+
+    We trust Market Core to give us an explicit anchor from PriceAlert:
+      • meta["anchor_price"]      -> current_anchor_price
+      • meta["original_anchor_price"] as a fallback
+
+    No heuristic reconstruction from price/move here.
     """
-    anchor = meta.get("anchor_price") or meta.get("entry_price")
+    anchor = meta.get("anchor_price")
     if anchor is not None:
         return anchor
 
-    price = meta.get("price") or meta.get("current_price")
-    move_abs = meta.get("move_abs")
-    try:
-        if price is not None and move_abs is not None:
-            return float(price) - float(move_abs)
-    except Exception:
-        pass
+    origin = meta.get("original_anchor_price")
+    if origin is not None:
+        return origin
+
+    # If Market Core didn't give us an anchor, we report "no entry"
     return None
 
 
