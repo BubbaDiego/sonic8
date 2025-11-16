@@ -1,165 +1,154 @@
-# -*- coding: utf-8 -*-
-"""Monitors panel – Rich-powered table with configurable style."""
 from __future__ import annotations
 
-import json
+import logging
 from io import StringIO
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from rich.console import Console
 from rich.table import Table
 from rich import box
 
+from backend.core.reporting_core.sonic_reporting.console_panels import data_access
 from .theming import (
     emit_title_block,
     get_panel_body_config,
     body_pad_below,
     body_indent_lines,
     color_if_plain,
+    paint_line,
 )
 
 try:
+    # Width hint for Rich export; theming already uses this
     from .theming import HR_WIDTH
-except Exception:  # fallback
+except Exception:  # pragma: no cover
     HR_WIDTH = 100
+
+log = logging.getLogger(__name__)
 
 PANEL_SLUG = "monitors"
 PANEL_NAME = "Monitors"
 
+# Icons keyed by normalized monitor type (from dl_monitors rows["monitor"])
+MON_ICON: Dict[str, str] = {
+    "liquid": "💧",
+    "liq": "💧",
+    "profit": "💹",
+    "market": "📈",
+    "prices": "💵",
+    "positions": "📊",
+    "raydium": "🪙",
+    "hedges": "🪶",
+    "heart": "💓",
+    "heartbeat": "💓",
+    "xcom": "✉️",
+    "custom": "🧪",
+}
 
-# ───────────────────────── DL + monitor rows ──────────────────────────
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Data access helpers
+# ──────────────────────────────────────────────────────────────────────────────
 
 
-def _resolve_dl(ctx: Any) -> Any:
-    if ctx is None:
-        return None
-    if isinstance(ctx, dict):
-        dl = ctx.get("dl")
-        if dl is not None:
-            return dl
-    return getattr(ctx, "dl", None)
+def _resolve_dl(context: Any) -> Any:
+    """Tolerant resolver for DataLocker from context or global singleton."""
+    try:
+        return data_access.dl_or_context(context)
+    except Exception:
+        try:
+            from backend.data.data_locker import DataLocker  # type: ignore
+
+            return DataLocker.get_instance() if hasattr(DataLocker, "get_instance") else DataLocker()
+        except Exception:
+            return None
 
 
-def _get_monitor_rows(dl: Any) -> List[Dict[str, Any]]:
-    """
-    Same robust monitor row fetch as in market_panel, but we keep all monitors.
-    """
+def _get_monitor_rows(context: Any) -> List[Mapping[str, Any]]:
+    dl = _resolve_dl(context)
     if dl is None:
         return []
-    mgr = getattr(dl, "monitors", None) or getattr(dl, "dl_monitors", None)
-    if mgr is None:
+
+    try:
+        mgr = getattr(dl, "monitors", None)
+        if mgr is None:
+            return []
+        rows: Iterable[Mapping[str, Any]] = getattr(mgr, "rows", []) or []
+        return list(rows)
+    except Exception:
+        log.exception("monitor_panel: failed to read monitors from DataLocker")
         return []
 
-    candidates: Iterable[Any] = []
-    for name in (
-        "select_all",
-        "list_all",
-        "all",
-        "latest",
-        "list_latest",
-        "latest_rows",
-        "get_latest",
-    ):
-        fn = getattr(mgr, name, None)
-        if callable(fn):
-            try:
-                data = fn()
-            except TypeError:
-                continue
-            if data:
-                candidates = data
-                break
-    else:
-        direct = getattr(mgr, "rows", None)
-        if direct:
-            candidates = direct
 
-    rows: List[Dict[str, Any]] = []
-    for row in candidates:
-        if isinstance(row, dict):
-            rows.append(dict(row))
-            continue
-        norm: Dict[str, Any] = {}
-        for key in (
-            "monitor",
-            "label",
-            "state",
-            "value",
-            "unit",
-            "thr_op",
-            "thr_value",
-            "thr_unit",
-            "source",
-            "age_secs",
-            "meta",
-        ):
-            if hasattr(row, key):
-                norm[key] = getattr(row, key)
-        rows.append(norm)
-    return rows
+# ──────────────────────────────────────────────────────────────────────────────
+# Normalization & formatting
+# ──────────────────────────────────────────────────────────────────────────────
 
 
-def _normalize_meta(meta: Any) -> Dict[str, Any]:
-    if isinstance(meta, dict):
-        return dict(meta)
-    if isinstance(meta, str):
-        try:
-            data = json.loads(meta)
-            return data if isinstance(data, dict) else {}
-        except Exception:
-            return {}
-    return {}
-
-
-def _normalized_rows(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _normalized_rows(rows: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Normalize monitor rows into a small, stable schema for the panel."""
     out: List[Dict[str, Any]] = []
-    for row in rows:
-        r = dict(row)
-        r["meta"] = _normalize_meta(row.get("meta"))
-        out.append(r)
+    for r in rows:
+        try:
+            d = dict(r)
+        except Exception:
+            continue
+
+        mon = str(d.get("monitor") or d.get("mon") or "").lower().strip()
+        label = str(d.get("label") or d.get("name") or "").strip() or None
+        thresh = d.get("threshold")
+        value = d.get("value")
+        state = str(d.get("state") or "").upper().strip() or "OK"
+        source = str(d.get("source") or d.get("src") or "").strip() or "-"
+
+        out.append(
+            {
+                "monitor": mon,
+                "label": label,
+                "threshold": thresh,
+                "value": value,
+                "state": state,
+                "source": source,
+            }
+        )
     return out
 
 
-# ───────────────────────── formatting helpers ─────────────────────────
+def _fmt_monitor_name(row: Mapping[str, Any]) -> str:
+    label = str(row.get("label") or "").strip()
+    mon = str(row.get("monitor") or "").strip()
+    base = label or (mon.title() if mon else "–")
+
+    icon_key = (mon or "").lower()
+    icon = MON_ICON.get(icon_key, "🧪")
+    return f"{icon} {base}"
 
 
-def _fmt_monitor_name(row: Dict[str, Any]) -> str:
-    label = row.get("label")
-    mon = row.get("monitor")
-    if label and label != mon:
-        return f"{label}"
-    return mon or "—"
-
-
-def _fmt_threshold(row: Dict[str, Any]) -> str:
-    op = (row.get("thr_op") or "").strip()
-    val = row.get("thr_value")
-    unit = (row.get("thr_unit") or "").strip()
-    if val is None:
+def _fmt_threshold(row: Mapping[str, Any]) -> str:
+    t = row.get("threshold")
+    if t is None or t == "":
         return "—"
     try:
-        v = float(val)
-        value_str = f"{v:.2f}"
+        if isinstance(t, (int, float)):
+            return f"{t:.2f}"
+        return str(t)
     except Exception:
-        value_str = str(val)
-    if unit:
-        value_str = f"{value_str} {unit}"
-    if op:
-        return f"{op} {value_str}"
-    return value_str
+        return str(t)
 
 
-def _fmt_value(row: Dict[str, Any]) -> str:
-    val = row.get("value")
-    if val is None:
-        return "—"
+def _fmt_value(row: Mapping[str, Any]) -> str:
+    v = row.get("value")
+    if v is None or v == "":
+        return "0"
     try:
-        return f"{float(val):.3g}"
+        if isinstance(v, (int, float)):
+            return f"{v:.2f}"
+        return str(v)
     except Exception:
-        return str(val)
+        return str(v)
 
 
-def _fmt_state(row: Dict[str, Any]) -> str:
+def _fmt_state(row: Mapping[str, Any]) -> str:
     s = str(row.get("state") or "").upper()
     if s == "BREACH":
         return "[red]BREACH[/]"
@@ -167,23 +156,24 @@ def _fmt_state(row: Dict[str, Any]) -> str:
         return "[yellow]WARN[/]"
     if s == "OK":
         return "[green]OK[/]"
-    return s or "–"
+    return s or "OK"
 
 
-def _fmt_source(row: Dict[str, Any]) -> str:
-    return str(row.get("source") or "").strip() or "–"
+def _fmt_source(row: Mapping[str, Any]) -> str:
+    src = str(row.get("source") or "").strip()
+    return src or "-"
 
 
-# ───────────────────────── table config helpers ───────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# Rich table plumbing
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 def _resolve_table_cfg(body_cfg: Dict[str, Any]) -> Dict[str, Any]:
-    raw = body_cfg.get("table") or {}
-    if not isinstance(raw, dict):
-        raw = {}
-    style = (raw.get("style") or "invisible").lower()
-    table_justify = (raw.get("table_justify") or "left").lower()
-    header_justify = (raw.get("header_justify") or "left").lower()
+    tcfg = (body_cfg or {}).get("table") or {}
+    style = str(tcfg.get("style") or "invisible").lower().strip()
+    table_justify = str(tcfg.get("table_justify") or "left").lower().strip()
+    header_justify = str(tcfg.get("header_justify") or "left").lower().strip()
     return {
         "style": style,
         "table_justify": table_justify,
@@ -191,156 +181,124 @@ def _resolve_table_cfg(body_cfg: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _style_to_box(style: str) -> (Any, bool):
-    style = (style or "invisible").lower()
+def _style_to_box(style: str):
+    style = (style or "").lower()
     if style == "thin":
         return box.SIMPLE_HEAD, False
     if style == "thick":
         return box.HEAVY_HEAD, True
+    # "invisible" or unknown → no borders
     return None, False
 
 
 def _justify_lines(lines: List[str], justify: str, width: int) -> List[str]:
     justify = (justify or "left").lower()
-    if justify not in ("center", "right"):
-        return lines
-    if not lines:
-        return lines
-
     out: List[str] = []
     for line in lines:
         s = line.rstrip("\n")
-        pad = width - len(s)
-        if pad <= 0:
-            out.append(s)
-        else:
-            if justify == "center":
-                left = pad // 2
-            else:  # right
-                left = pad
+        pad = max(0, width - len(s))
+        if justify == "right":
+            out.append(" " * pad + s)
+        elif justify == "center":
+            left = pad // 2
             out.append(" " * left + s)
+        else:
+            out.append(s)
     return out
 
 
-# ───────────────────────── Rich table builder ─────────────────────────
-
-
-def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> List[str]:
-    box_style, show_lines = _style_to_box(table_cfg.get("style"))
+def _build_rich_table(rows: List[Dict[str, Any]], body_cfg: Dict[str, Any]) -> List[str]:
+    table_cfg = _resolve_table_cfg(body_cfg)
+    box_style, show_lines = _style_to_box(table_cfg["style"])
 
     table = Table(
         show_header=True,
-        header_style="",  # we colorize via color_if_plain
+        header_style="",
         show_lines=show_lines,
         box=box_style,
         pad_edge=False,
         expand=False,
     )
 
-    # Simple text headers; state colors come from the cell formatting.
-    table.add_column("Mon", justify="left", no_wrap=True)
-    table.add_column("Thresh", justify="left")
-    table.add_column("Value", justify="right")
-    table.add_column("State", justify="left")
-    table.add_column("Source", justify="left")
+    # Header labels with icons
+    table.add_column("🔎 Mon", justify="left", no_wrap=True)
+    table.add_column("🎯 Thresh", justify="left")
+    table.add_column("📊 Value", justify="right")
+    table.add_column("🧾 State", justify="left")
+    table.add_column("📚 Source", justify="left")
 
-    for row in rows:
-        name = _fmt_monitor_name(row)
-        thresh = _fmt_threshold(row)
-        val = _fmt_value(row)
-        state = _fmt_state(row)
-        source = _fmt_source(row)
-
+    for r in rows:
         table.add_row(
-            name,
-            thresh,
-            val,
-            state,
-            source,
+            _fmt_monitor_name(r),
+            _fmt_threshold(r),
+            _fmt_value(r),
+            _fmt_state(r),
+            _fmt_source(r),
         )
 
-    # IMPORTANT: render into a buffer, not to real stdout
     buf = StringIO()
     console = Console(record=True, width=HR_WIDTH, file=buf, force_terminal=True)
     console.print(table)
-
     text = console.export_text().rstrip("\n")
-    lines = text.splitlines() if text else []
-
-    lines = _justify_lines(lines, table_cfg.get("table_justify"), HR_WIDTH)
-    return lines
-
-
-# ───────────────────────── panel API ─────────────────────────
+    if not text:
+        return []
+    raw_lines = text.splitlines()
+    return _justify_lines(raw_lines, table_cfg["table_justify"], HR_WIDTH)
 
 
-def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
-    dl = _resolve_dl(context)
+# ──────────────────────────────────────────────────────────────────────────────
+# Public render entrypoint
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def render(context: Any, width: Optional[int] = None) -> List[str]:
     body_cfg = get_panel_body_config(PANEL_SLUG)
-    table_cfg = _resolve_table_cfg(body_cfg)
+    title_block = emit_title_block(PANEL_SLUG, PANEL_NAME)
+
+    rows_raw = _get_monitor_rows(context)
+    rows = _normalized_rows(rows_raw)
+
     lines: List[str] = []
-
-    # Title
-    lines += emit_title_block(PANEL_SLUG, PANEL_NAME)
-
-    if dl is None:
-        note = color_if_plain(
-            "  (no DataLocker context)",
-            body_cfg["body_text_color"],
-        )
-        lines += body_indent_lines(PANEL_SLUG, [note])
-        lines += body_pad_below(PANEL_SLUG)
-        return lines
-
-    rows = _normalized_rows(_get_monitor_rows(dl))
+    lines.extend(title_block)
 
     if not rows:
-        header = "Mon   Thresh      Value   State   Source"
-        header_colored = color_if_plain(
-            "  " + header,
-            body_cfg["column_header_text_color"],
+        # Empty state: just headers + message
+        header = "🔎 Mon   🎯 Thresh      📊 Value   🧾 State   📚 Source"
+        lines.extend(
+            body_indent_lines(
+                PANEL_SLUG,
+                [
+                    paint_line(header, body_cfg.get("column_header_text_color", "")),
+                    "(no monitor data)",
+                ],
+            )
         )
-        lines += body_indent_lines(PANEL_SLUG, [header_colored])
-
-        note = color_if_plain(
-            "  (no monitors to display)",
-            body_cfg["body_text_color"],
-        )
-        lines += body_indent_lines(PANEL_SLUG, [note])
-        lines += body_pad_below(PANEL_SLUG)
+        lines.extend(body_pad_below(PANEL_SLUG))
         return lines
 
-    table_lines = _build_rich_table(rows, table_cfg)
+    table_lines = _build_rich_table(rows, body_cfg)
 
     if table_lines:
         header_line = table_lines[0]
         data_lines = table_lines[1:]
-        lines += body_indent_lines(
-            PANEL_SLUG,
-            [color_if_plain(header_line, body_cfg["column_header_text_color"])],
-        )
-        for ln in data_lines:
-            lines += body_indent_lines(
+
+        # Header explicitly tinted like other panels
+        lines.extend(
+            body_indent_lines(
                 PANEL_SLUG,
-                [color_if_plain(ln, body_cfg["body_text_color"])],
+                [paint_line(header_line, body_cfg.get("column_header_text_color", ""))],
+            )
+        )
+        # Body uses normal body_text_color (and respects inline markup like [red])
+        for ln in data_lines:
+            lines.extend(
+                body_indent_lines(
+                    PANEL_SLUG,
+                    [color_if_plain(ln, body_cfg.get("body_text_color", ""))],
+                )
             )
     else:
-        note = color_if_plain(
-            "  (no monitor data to display)",
-            body_cfg["body_text_color"],
-        )
-        lines += body_indent_lines(PANEL_SLUG, [note])
+        lines.extend(body_indent_lines(PANEL_SLUG, ["(no monitor data)"]))
 
-    lines += body_pad_below(PANEL_SLUG)
+    lines.extend(body_pad_below(PANEL_SLUG))
     return lines
-
-
-def connector(
-    dl: Any = None,
-    ctx: Optional[Dict[str, Any]] = None,
-    width: Optional[int] = None,
-) -> List[str]:
-    context: Dict[str, Any] = dict(ctx or {})
-    if dl is not None:
-        context.setdefault("dl", dl)
-    return render(context, width=width)

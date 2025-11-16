@@ -1,7 +1,7 @@
 {
   "monitor": {
     "loop_seconds": 30,
-    "global_snooze_seconds": 120,
+    "global_snooze_seconds": 1323,
     "enabled": {
       "sonic": true,
       "liquid": true,
@@ -9,13 +9,13 @@
       "market": true,
       "price": true
     },
-    "xcom_live": true
+    "xcom_live": false
   },
   "liquid": {
     "notifications": {
       "system": true,
       "voice": true,
-      "sms": true,
+      "sms": false,
       "tts": true
     },
     "blast": {
