@@ -63,6 +63,34 @@ class DLPriceAlertManager:
         )
         db.commit()
 
+        # --- Backfill any missing columns (migration-friendly) ---
+        cursor.execute(f"PRAGMA table_info({DLPriceAlertManager.TABLE_NAME})")
+        existing = {row[1] for row in cursor.fetchall()}
+
+        expected_cols = [
+            ("label", "TEXT", None),
+            ("effective_threshold_value", "REAL", None),
+            ("last_distance_to_target", "REAL", None),
+            ("last_proximity_ratio", "REAL", None),
+            ("last_reset_at", "TEXT", None),
+        ]
+
+        for name, sql_type, default in expected_cols:
+            if name not in existing:
+                if default is None:
+                    alter_sql = (
+                        f"ALTER TABLE {DLPriceAlertManager.TABLE_NAME} "
+                        f"ADD COLUMN {name} {sql_type}"
+                    )
+                else:
+                    alter_sql = (
+                        f"ALTER TABLE {DLPriceAlertManager.TABLE_NAME} "
+                        f"ADD COLUMN {name} {sql_type} DEFAULT {default}"
+                    )
+                cursor.execute(alter_sql)
+
+        db.commit()
+
     @staticmethod
     def ensure_schema(db) -> None:
         try:
