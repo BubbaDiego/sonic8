@@ -22,7 +22,7 @@ SEVERITY_RANK= {"BREACH":0,"SNOOZE":1,"WARN":2,"OK":3}
 MON_RANK     = {"liquid":0,"profit":1,"market":2,"custom":3,"prices":4,"positions":5,"raydium":6,"hedges":7,"reporters":8,"heartbeat":9}
 
 # ===== layout widths (emoji-safe padding preserved) =====
-INDENT   = "  "
+INDENT   = ""
 W_ICON, W_MON, W_TH, W_VAL, W_ST, W_AGE, W_SRC = 3, 21, 10, 10, 8, 6, 8
 SEP = " "
 

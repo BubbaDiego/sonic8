@@ -17,7 +17,7 @@ PANEL_SLUG = "activity"
 PANEL_NAME = "Cycle Activity"
 
 # ===== layout (78-col house width) =====
-INDENT   = "  "
+INDENT   = ""
 
 # icon + 4 tight data columns
 W_ICON     = 3     # emoji + one space
@@ -137,7 +137,7 @@ def render(dl, *_unused, default_json_path=None):
 
     # Header exactly as requested; header text colored (bars plain)
     header = (
-        "    "
+        INDENT
         + _pad("", W_ICON)
         + _pad("Activity", W_ACTIVITY)
         + _pad("Outcome",  W_OUTCOME)
@@ -157,7 +157,7 @@ def render(dl, *_unused, default_json_path=None):
         elapsed = _secs(r.get("duration_ms"))
 
         line = (
-            "    "
+            INDENT
             + _pad(icon, W_ICON)
             + _pad(label,   W_ACTIVITY)
             + _pad(outcome, W_OUTCOME)
