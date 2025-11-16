@@ -25,6 +25,7 @@ _mother_env = os.environ.get("MOTHER_DB_PATH")
 MOTHER_BRAIN_DB_PATH = Path(_brain_env or _mother_env or BASE_DIR / "mother.db")
 MOTHER_DB_PATH = MOTHER_BRAIN_DB_PATH  # legacy alias
 SONIC_SAUCE_PATH = BASE_DIR / "config" / "sonic_sauce.json"
+THEME_CONFIG_PATH = _CONFIG_DIR / "theme_config.json"
 CONFIG_DIR = _CONFIG_DIR
 LOG_DIR = BASE_DIR / "logs"
 CYCLONE_LOG_FILE = LOG_DIR / "cyclone_log.txt"
@@ -41,6 +42,7 @@ __all__ = [
     "MOTHER_DB_PATH",
     "MOTHER_BRAIN_DB_PATH",
     "SONIC_SAUCE_PATH",
+    "THEME_CONFIG_PATH",
     "ALERT_THRESHOLDS_PATH",
     "SONIC_MONITOR_CONFIG_PATH",
     "XCOM_PROVIDERS_PATH",
