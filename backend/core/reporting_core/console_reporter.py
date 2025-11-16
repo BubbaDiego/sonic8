@@ -100,6 +100,13 @@ def render_panel_stack(
     all_lines: List[str] = []
 
     for mod_path in modules:
+        if (
+            mod_path.endswith(".market_panel")
+            and ".console_panels." not in mod_path
+        ):
+            # Old inline market panel renderers are deprecated; skip them so
+            # Market Alerts is only rendered once via console_panels.market_panel.
+            continue
         # skip duplicates and non-existent variations gracefully
         try:
             mod = importlib.import_module(mod_path)

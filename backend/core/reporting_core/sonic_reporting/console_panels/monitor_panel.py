@@ -160,20 +160,13 @@ def _fmt_value(row: Dict[str, Any]) -> str:
 
 def _fmt_state(row: Dict[str, Any]) -> str:
     s = str(row.get("state") or "").upper()
-    return s or "—"
-
-
-def _fmt_age(row: Dict[str, Any]) -> str:
-    # age_secs or something similar
-    age = row.get("age_secs") or row.get("age") or 0
-    try:
-        age = int(age)
-    except Exception:
-        return str(age)
-    if age < 60:
-        return f"{age}s"
-    mins = age // 60
-    return f"{mins}m"
+    if s == "BREACH":
+        return "[red]BREACH[/]"
+    if s == "WARN":
+        return "[yellow]WARN[/]"
+    if s == "OK":
+        return "[green]OK[/]"
+    return s or "–"
 
 
 def _fmt_source(row: Dict[str, Any]) -> str:
@@ -244,19 +237,17 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
     )
 
     # Icons in header; data rows plain text
-    table.add_column("📊 Mon", justify="left", no_wrap=True)
-    table.add_column("🎯 Thresh", justify="left")
-    table.add_column("📈 Value", justify="right")
-    table.add_column("🧾 State", justify="left")
-    table.add_column("⏱ Age", justify="right")
-    table.add_column("📚 Source", justify="left", no_wrap=True)
+    table.add_column("Mon", justify="left", no_wrap=True)
+    table.add_column("Thresh", justify="left")
+    table.add_column("Value", justify="right")
+    table.add_column("State", justify="left")
+    table.add_column("Source", justify="left")
 
     for row in rows:
         name = _fmt_monitor_name(row)
         thresh = _fmt_threshold(row)
         val = _fmt_value(row)
         state = _fmt_state(row)
-        age = _fmt_age(row)
         source = _fmt_source(row)
 
         table.add_row(
@@ -264,11 +255,10 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
             thresh,
             val,
             state,
-            age,
             source,
         )
 
-    console = Console(record=True, width=HR_WIDTH, force_terminal=True, color_system=None)
+    console = Console(record=True, width=HR_WIDTH, force_terminal=True)
     console.print(table)
     text = console.export_text().rstrip("\n")
     lines = text.splitlines() if text else []
@@ -301,7 +291,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     rows = _normalized_rows(_get_monitor_rows(dl))
 
     if not rows:
-        header = "📊 Mon   🎯 Thresh      📈 Value   🧾 State   ⏱ Age   📚 Source"
+        header = "Mon   Thresh      Value   State   Source"
         header_colored = color_if_plain(
             "  " + header,
             body_cfg["column_header_text_color"],
