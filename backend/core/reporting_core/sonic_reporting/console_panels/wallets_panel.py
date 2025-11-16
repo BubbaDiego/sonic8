@@ -16,7 +16,7 @@ PANEL_SLUG = "wallets"
 PANEL_NAME = "Wallets"
 
 # ===== layout =====
-INDENT   = "  "
+INDENT   = ""
 W_NAME, W_CHAIN, W_ADDR, W_BAL, W_USD, W_CHK = 12, 7, 24, 8, 9, 8
 SEP = "  "
 HEADER_IC = {"name":"👤","chain":"⛓","addr":"🔑","bal":"🪙","usd":"💵","chk":"⏱"}

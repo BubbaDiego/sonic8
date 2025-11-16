@@ -13,7 +13,7 @@
       "title_padding_above": 0,
       "title_padding_below": 0,
       "title_width": 76,
-      "body_indent": 0,
+      "body_indent": 2,
       "body_padding_above": 0,
       "body_padding_below": 1
     },
@@ -64,6 +64,9 @@
       "title": {
         "string": "XCom",
         "icon": "\u2709\ufe0f"
+      },
+      "layout": {
+        "body_indent": 0
       }
     },
     "wallets": {
