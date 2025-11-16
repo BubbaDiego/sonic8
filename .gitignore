@@ -67,3 +67,6 @@ xcom_congig.json
 /signer - Copy.txt
 
 *.env*
+
+mother.db
+signer.txt
