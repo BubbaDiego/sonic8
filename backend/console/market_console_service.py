@@ -66,6 +66,10 @@ def _load_prices(dl) -> Dict[str, float]:
         if sym_str in ("^GSPC", "SP500"):
             sym_str = "SPX"
 
+        # rows are NEWEST → OLDEST; first win per symbol
+        if sym_str in prices:
+            continue
+
         try:
             prices[sym_str] = float(price)
         except (TypeError, ValueError):

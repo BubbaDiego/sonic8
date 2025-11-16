@@ -47,6 +47,11 @@ def _load_prices_for_runner(dl) -> Dict[str, float]:
         if sym_str in ("^GSPC", "SP500"):
             sym_str = "SPX"
 
+        # rows are ordered NEWEST → OLDEST
+        # keep only the first (newest) price we see per symbol
+        if sym_str in prices:
+            continue
+
         try:
             prices[sym_str] = float(price)
         except (TypeError, ValueError):
