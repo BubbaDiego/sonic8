@@ -47,6 +47,7 @@ class DLPriceAlertManager:
             current_anchor_time TEXT,
             effective_threshold_value REAL,
             armed INTEGER NOT NULL DEFAULT 1,
+            fired_count INTEGER NOT NULL DEFAULT 0,
 
             last_state TEXT,
             last_price REAL,
@@ -77,6 +78,7 @@ class DLPriceAlertManager:
             ("last_distance_to_target", "REAL", None),
             ("last_proximity_ratio", "REAL", None),
             ("last_reset_at", "TEXT", None),
+            ("fired_count", "INTEGER", 0),
         ]
 
         for name, sql_type, default in expected_cols:
@@ -115,10 +117,14 @@ class DLPriceAlertManager:
                 data["metadata"] = json.loads(meta_raw)
             except Exception:
                 pass
+        if data.get("fired_count") is None:
+            data["fired_count"] = 0
         return PriceAlert(**data)
 
     def _model_to_row(self, alert: PriceAlert) -> dict:
         data = alert.to_dict()
+        if data.get("fired_count") is None:
+            data["fired_count"] = 0
         meta = data.get("metadata")
         if meta is not None and not isinstance(meta, str):
             try:
@@ -163,6 +169,8 @@ class DLPriceAlertManager:
         alert.updated_at = now
 
         data = self._model_to_row(alert)
+        if data.get("fired_count") is None:
+            data["fired_count"] = 0
         cursor = self.db.get_cursor()
         if cursor is None:
             return alert
