@@ -443,7 +443,11 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
                 ch_map = {}
             sys_on = bool(ch_map.get("system"))
             voice_on = bool(ch_map.get("voice"))
-            sms_on = bool(ch_map.get("sms"))
+            chan_data = (ch_map.get("sms") or {})
+            if isinstance(chan_data, dict):
+                sms_on = bool(chan_data.get("ok"))
+            else:
+                sms_on = bool(chan_data)
             tts_on = bool(ch_map.get("tts"))
 
             sys_col = "🖥" if sys_on else ""
