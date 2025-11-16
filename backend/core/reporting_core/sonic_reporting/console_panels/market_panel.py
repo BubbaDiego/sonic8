@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Market Alerts panel (Rich-powered thin table with safe fallback)."""
+"""Market Alerts panel – Rich-powered table with configurable style."""
 from __future__ import annotations
 
 import json
-from io import StringIO
 from typing import Any, Dict, Iterable, List, Optional
+
+from rich.console import Console
+from rich.table import Table
+from rich import box
 
 from .theming import (
     emit_title_block,
@@ -14,22 +17,11 @@ from .theming import (
     color_if_plain,
 )
 
-# HR_WIDTH is used to bound the Rich table width; fall back if missing
 try:
+    # Used to bound the table width consistently with other panels
     from .theming import HR_WIDTH
-except Exception:  # pragma: no cover
-    HR_WIDTH = 80
-
-# Try to import Rich – if missing, we fall back to plain string layout
-try:
-    from rich.console import Console
-    from rich.table import Table
-    RICH_AVAILABLE = True
-except Exception:  # pragma: no cover
-    Console = None  # type: ignore
-    Table = None    # type: ignore
-    RICH_AVAILABLE = False
-
+except Exception:  # fallback
+    HR_WIDTH = 100
 
 PANEL_SLUG = "market"
 PANEL_NAME = "Market Alerts"
@@ -52,7 +44,7 @@ def _get_monitor_rows(dl: Any) -> List[Dict[str, Any]]:
     """
     Robustly pull monitor rows from dl.monitors / dl_dl_monitors.
 
-    This mirrors the original logic you had – no behavior changes here.
+    This mirrors the original working logic – don't change behavior here.
     """
     if dl is None:
         return []
@@ -222,7 +214,7 @@ def _current_price(meta: Dict[str, Any]) -> Any:
     return meta.get("price") or meta.get("current_price")
 
 
-def _move_abs(meta: Dict[str, Any]) -> Any:
+def _move_abs_value(meta: Dict[str, Any]) -> Any:
     mv = meta.get("move_abs")
     if mv is not None:
         return mv
@@ -236,7 +228,7 @@ def _move_abs(meta: Dict[str, Any]) -> Any:
     return None
 
 
-def _move_pct(meta: Dict[str, Any]) -> Any:
+def _move_pct_value(meta: Dict[str, Any]) -> Any:
     mv = meta.get("move_pct")
     if mv is not None:
         return mv
@@ -259,42 +251,92 @@ def _fmt_move_value(meta: Dict[str, Any]) -> str:
     """
     rule_type = (meta.get("rule_type") or "").lower()
     if "pct" in rule_type:
-        return _fmt_pct(_move_pct(meta))
-    return _fmt_move_abs(_move_abs(meta))
+        return _fmt_pct(_move_pct_value(meta))
+    return _fmt_move_abs(_move_abs_value(meta))
 
 
-# ───────────────────────── rich table builder ─────────────────────────
+# ───────────────────────── table config helpers ───────────────────────
 
 
-def _build_rich_table_lines(rows: List[Dict[str, Any]], *, width: Optional[int]) -> List[str]:
+def _resolve_table_cfg(body_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    raw = body_cfg.get("table") or {}
+    if not isinstance(raw, dict):
+        raw = {}
+    style = (raw.get("style") or "invisible").lower()
+    table_justify = (raw.get("table_justify") or "left").lower()
+    header_justify = (raw.get("header_justify") or "left").lower()
+    return {
+        "style": style,
+        "table_justify": table_justify,
+        "header_justify": header_justify,
+    }
+
+
+def _style_to_box(style: str) -> (Any, bool):
+    """Map table_style → (rich.box, show_lines)."""
+    style = (style or "invisible").lower()
+    if style == "thin":
+        return box.SIMPLE_HEAD, False
+    if style == "thick":
+        return box.HEAVY_HEAD, True
+    # invisible / default
+    return None, False
+
+
+def _justify_lines(lines: List[str], justify: str, width: int) -> List[str]:
+    """Apply table-level justification to already-rendered lines."""
+    justify = (justify or "left").lower()
+    if justify not in ("center", "right"):
+        return lines
+    if not lines:
+        return lines
+
+    out: List[str] = []
+    for line in lines:
+        s = line.rstrip("\n")
+        pad = width - len(s)
+        if pad <= 0:
+            out.append(s)
+        else:
+            if justify == "center":
+                left = pad // 2
+            else:  # right
+                left = pad
+            out.append(" " * left + s)
+    return out
+
+
+# ───────────────────────── Rich table builder ─────────────────────────
+
+
+def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> List[str]:
     """
-    Build a thin Rich table and return its rendered lines as plain strings.
-    If Rich isn't available, returns an empty list.
+    Build a real Rich Table and export it as plain text lines.
     """
-    if not RICH_AVAILABLE or Table is None or Console is None:
-        return []
+
+    box_style, show_lines = _style_to_box(table_cfg.get("style"))
 
     table = Table(
         show_header=True,
-        header_style="bold cyan",
-        show_lines=False,
-        box=None,          # thin, borderless table
+        header_style="",   # we colorize via color_if_plain
+        show_lines=show_lines,
+        box=box_style,
         pad_edge=False,
         expand=False,
     )
 
-    table.add_column("🪙\nAsset", justify="left", no_wrap=True)
-    table.add_column("💵\nEntry", justify="right")
-    table.add_column("💹\nCurrent", justify="right")
-    table.add_column("📊\nMove", justify="right")
-    table.add_column("🎯\nThr", justify="left")
-    table.add_column("🔋\nProx", justify="left", no_wrap=True)
-    table.add_column("🧾\nState", justify="left")
+    # Headers with icons on the left of the labels; Rich handles wcwidth.
+    table.add_column("🪙 Asset", justify="left", no_wrap=True)
+    table.add_column("💵 Entry", justify="right")
+    table.add_column("💹 Current", justify="right")
+    table.add_column("📊 Move", justify="right")
+    table.add_column("🎯 Thr", justify="left")
+    table.add_column("🔋 Prox", justify="left", no_wrap=True)
+    table.add_column("🧾 State", justify="left")
 
     for row in rows:
         meta = row.get("meta") or {}
         asset = _asset_from_row(row)
-
         entry = _fmt_price(_entry_price(meta))
         current = _fmt_price(_current_price(meta))
         move_str = _fmt_move_value(meta)
@@ -312,71 +354,14 @@ def _build_rich_table_lines(rows: List[Dict[str, Any]], *, width: Optional[int])
             state,
         )
 
-    buf = StringIO()
-    console = Console(
-        file=buf,
-        width=width or HR_WIDTH,
-        force_terminal=False,
-        color_system=None,
-    )
+    console = Console(record=True, width=HR_WIDTH, force_terminal=True, color_system=None)
     console.print(table)
-    text = buf.getvalue().rstrip("\n")
-    return text.splitlines() if text else []
+    text = console.export_text().rstrip("\n")
+    lines = text.splitlines() if text else []
 
-
-# ───────────────────────── fallback string table ──────────────────────
-
-
-def _build_plain_table_lines(rows: List[Dict[str, Any]]) -> List[str]:
-    """Fallback layout when Rich is not available (data rows only)."""
-    lines: List[str] = []
-
-    for row in rows:
-        meta = row.get("meta") or {}
-
-        asset = _asset_from_row(row)
-        entry = _fmt_price(_entry_price(meta))
-        current = _fmt_price(_current_price(meta))
-        move_str = _fmt_move_value(meta)
-        thr_str = _fmt_threshold(meta, row.get("thr_value"))
-        bar = _fmt_bar(meta)
-        state = str(row.get("state") or "").upper()
-
-        line = (
-            f"{asset:<6} "
-            f"{entry:>10} "
-            f"{current:>10} "
-            f"{move_str:>10} "
-            f"{thr_str:<12} "
-            f"{bar:<11} "
-            f"{state:<6}"
-        )
-        lines.append(line)
-
+    # Apply table-level justify at the string level
+    lines = _justify_lines(lines, table_cfg.get("table_justify"), HR_WIDTH)
     return lines
-
-
-def _plain_header_lines() -> List[str]:
-    """Return the two-line header (icons + labels) for the plain table."""
-    header = (
-        "Asset   "
-        "Entry      "
-        "Current     "
-        "Move       "
-        "Thr           "
-        "Prox       "
-        "State"
-    )
-    header_icons = (
-        "🪙      "
-        "💵         "
-        "💹          "
-        "📊        "
-        "🎯            "
-        "🔋        "
-        "🧾"
-    )
-    return [header_icons, header]
 
 
 # ───────────────────────── panel API ─────────────────────────
@@ -385,9 +370,10 @@ def _plain_header_lines() -> List[str]:
 def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     dl = _resolve_dl(context)
     body_cfg = get_panel_body_config(PANEL_SLUG)
+    table_cfg = _resolve_table_cfg(body_cfg)
     lines: List[str] = []
 
-    # Title (icons only in title; table itself is clean)
+    # Title
     lines += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
     if dl is None:
@@ -401,17 +387,15 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     rows = _market_rows(_get_monitor_rows(dl))
 
-    header_lines = _plain_header_lines()
-
     if not rows:
-        header_colored = [
-            color_if_plain(
-                f"  {header_line}",
-                body_cfg["column_header_text_color"],
-            )
-            for header_line in header_lines
-        ]
-        lines += body_indent_lines(PANEL_SLUG, header_colored)
+        # Simple header line when there are no rows
+        header = "🪙 Asset   💵 Entry      💹 Current   📊 Move      🎯 Thr           🔋 Prox      🧾 State"
+        header_colored = color_if_plain(
+            "  " + header,
+            body_cfg["column_header_text_color"],
+        )
+        lines += body_indent_lines(PANEL_SLUG, [header_colored])
+
         note = color_if_plain(
             "  (no active market alerts)",
             body_cfg["body_text_color"],
@@ -420,44 +404,38 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         lines += body_pad_below(PANEL_SLUG)
         return lines
 
-    # Prefer Rich table; fall back to plain layout if Rich is unavailable
-    table_lines: List[str]
-    using_rich = False
-    if RICH_AVAILABLE:
-        table_lines = _build_rich_table_lines(rows, width=width)
-        if table_lines:
-            using_rich = True
-        else:
-            table_lines = _build_plain_table_lines(rows)
-    else:
-        table_lines = _build_plain_table_lines(rows)
+    # Build the Rich table and export as plain text lines
+    table_lines = _build_rich_table(rows, table_cfg)
 
-    if using_rich:
-        colored_lines = [
-            color_if_plain(f"  {ln}", body_cfg["body_text_color"])
-            for ln in table_lines
-        ]
-    else:
-        header_colored = [
-            color_if_plain(
-                f"  {header_line}",
-                body_cfg["column_header_text_color"],
+    # First line is header, color it with header color; others with body color
+    if table_lines:
+        header_line = table_lines[0]
+        data_lines = table_lines[1:]
+        lines += body_indent_lines(
+            PANEL_SLUG,
+            [color_if_plain(header_line, body_cfg["column_header_text_color"])],
+        )
+        for ln in data_lines:
+            lines += body_indent_lines(
+                PANEL_SLUG,
+                [color_if_plain(ln, body_cfg["body_text_color"])],
             )
-            for header_line in header_lines
-        ]
-        body_colored = [
-            color_if_plain(f"  {ln}", body_cfg["body_text_color"])
-            for ln in table_lines
-        ]
-        colored_lines = header_colored + body_colored
-
-    lines += body_indent_lines(PANEL_SLUG, colored_lines)
+    else:
+        note = color_if_plain(
+            "  (no market data to display)",
+            body_cfg["body_text_color"],
+        )
+        lines += body_indent_lines(PANEL_SLUG, [note])
 
     lines += body_pad_below(PANEL_SLUG)
     return lines
 
 
-def connector(dl=None, ctx: Optional[Dict[str, Any]] = None, width: Optional[int] = None) -> List[str]:
+def connector(
+    dl: Any = None,
+    ctx: Optional[Dict[str, Any]] = None,
+    width: Optional[int] = None,
+) -> List[str]:
     context: Dict[str, Any] = dict(ctx or {})
     if dl is not None:
         context.setdefault("dl", dl)
