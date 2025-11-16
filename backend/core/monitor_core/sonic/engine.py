@@ -209,10 +209,10 @@ class MonitorEngine:
                     # Best-effort only; if this fails we just report JSON
                     pass
 
-            if db_rows:
-                note = f"{source} — cfg={cfg_path} (DB overrides={db_rows})"
-            else:
-                note = f"{source} — cfg={cfg_path}"
+            # Compact outcome text for Cycle Activity:
+            #   JSON=C:\sonic8\backend\config\...
+            #   JSON+DB=C:\sonic8\backend\config\...
+            note = f"{source}={cfg_path}"
 
             return {
                 "ok": True,
