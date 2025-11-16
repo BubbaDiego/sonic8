@@ -96,10 +96,26 @@ def _normalized_rows(rows: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
 
         mon = str(d.get("monitor") or d.get("mon") or "").lower().strip()
         label = str(d.get("label") or d.get("name") or "").strip() or None
-        thresh = d.get("threshold")
         value = d.get("value")
         state = str(d.get("state") or "").upper().strip() or "OK"
         source = str(d.get("source") or d.get("src") or "").strip() or "-"
+
+        meta = d.get("meta") or {}
+        if not isinstance(meta, dict):
+            meta = {}
+
+        # Prefer explicit threshold dict if present, otherwise reconstruct from thr_* fields.
+        thresh = d.get("threshold")
+        if thresh is None:
+            thr_value = d.get("thr_value")
+            thr_op = d.get("thr_op") or ""
+            thr_unit = d.get("thr_unit") or ""
+            if thr_value not in (None, ""):
+                thresh = {
+                    "op": thr_op,
+                    "value": thr_value,
+                    "unit": thr_unit,
+                }
 
         out.append(
             {
@@ -109,6 +125,10 @@ def _normalized_rows(rows: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
                 "value": value,
                 "state": state,
                 "source": source,
+                "meta": meta,
+                "thr_op": d.get("thr_op"),
+                "thr_value": d.get("thr_value"),
+                "thr_unit": d.get("thr_unit"),
             }
         )
     return out
@@ -128,9 +148,31 @@ def _fmt_threshold(row: Mapping[str, Any]) -> str:
     t = row.get("threshold")
     if t is None or t == "":
         return "—"
+
+    # Dict form: {"op": "<=", "value": 5.0, "unit": "%"}
+    if isinstance(t, dict):
+        op = str(t.get("op") or "").strip()
+        val = t.get("value")
+        unit = str(t.get("unit") or "").strip()
+
+        if val in (None, ""):
+            return "—"
+
+        try:
+            if isinstance(val, (int, float)):
+                val_txt = f"{float(val):.2f}"
+            else:
+                val_txt = str(val)
+        except Exception:
+            val_txt = str(val)
+
+        parts = [p for p in (op, val_txt, unit) if p]
+        return " ".join(parts) if parts else "—"
+
+    # Primitive numeric/string fallback
     try:
         if isinstance(t, (int, float)):
-            return f"{t:.2f}"
+            return f"{float(t):.2f}"
         return str(t)
     except Exception:
         return str(t)
@@ -160,6 +202,19 @@ def _fmt_state(row: Mapping[str, Any]) -> str:
 
 
 def _fmt_source(row: Mapping[str, Any]) -> str:
+    meta = row.get("meta") or {}
+    if not isinstance(meta, dict):
+        meta = {}
+
+    limit_src = str(meta.get("limit_source") or "").upper().strip()
+
+    # If the limit was resolved via ConfigOracle (ResolutionTrace.source == "ORACLE"),
+    # render a wizard icon and label.
+    if limit_src == "ORACLE":
+        return "🧙 Oracle"
+
+    # Future: we could colorize or decorate DB/ENV/DEFAULT, but for now keep
+    # existing behavior for non-Oracle rows.
     src = str(row.get("source") or "").strip()
     return src or "-"
 
