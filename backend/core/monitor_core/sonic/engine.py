@@ -188,6 +188,45 @@ class MonitorEngine:
                     details=details,
                 )
 
+        # -1) Thresholds resolver (config + DB overlay)
+        def _run_thresholds() -> Dict[str, Any]:
+            resolver = getattr(self.ctx, "resolver", None)
+            cfg_path = getattr(self.ctx, "cfg_path_hint", None) or "<unknown>"
+            source = "JSON"
+            db_rows = 0
+
+            # Peek into DB alert_thresholds to see if we have overrides
+            if isinstance(resolver, ThresholdResolver):
+                try:
+                    db_payload = resolver._db_alert_thresholds()  # type: ignore[attr-defined]
+                    if isinstance(db_payload, dict) and db_payload:
+                        thr = db_payload.get("thresholds") or {}
+                        profit = db_payload.get("profit") or {}
+                        db_rows = len(thr) + len(profit)
+                        if db_rows:
+                            source = "JSON+DB"
+                except Exception:
+                    # Best-effort only; if this fails we just report JSON
+                    pass
+
+            if db_rows:
+                note = f"{source} — cfg={cfg_path} (DB overrides={db_rows})"
+            else:
+                note = f"{source} — cfg={cfg_path}"
+
+            return {
+                "ok": True,
+                "severity": "ok",
+                "source": "thresholds",
+                "config_path": cfg_path,
+                "db_overrides": db_rows,
+                # we piggy-back on error_note so _run_phase will surface this text
+                "error_note": note,
+            }
+
+        # New activity row at the top of the Cycle Activity panel
+        _run_phase("thresholds", "Thresholds", _run_thresholds)
+
         # 0) Cyclone engine (authoritative prices/positions/hedges pipeline)
         def _run_cyclone() -> Dict[str, Any]:
             start = time.monotonic()
