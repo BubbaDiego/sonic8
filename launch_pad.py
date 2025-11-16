@@ -545,6 +545,46 @@ def run_tests_hub() -> None:
 def run_tests() -> None:  # pragma: no cover - shim
     run_tests_hub()
 
+
+def verify_twilio_menu() -> None:
+    """Interactive Twilio verifier: auth-only vs auth+voice call."""
+    console.print("\n[bold magenta]Verify Twilio[/bold magenta]\n")
+    console.print("  1. Auth only (no call)")
+    console.print("  2. Auth + test voice call")
+    console.print("  0. Back\n")
+
+    try:
+        choice = input("→ ").strip()
+    except KeyboardInterrupt:
+        return
+
+    if choice == "1":
+        # Auth-only: just check SID/token
+        run_menu_action(
+            "Verify_Twilio_auth_only",
+            lambda: run_in_console(
+                [PYTHON_EXEC, "backend/scripts/twilio_run.py", "--mode", "auth"],
+                cwd=repo_root(),
+                title="Verify Twilio (auth-only)",
+                new_window=False,
+            ),
+        )
+
+    elif choice == "2":
+        # Auth + Studio Flow voice call
+        run_menu_action(
+            "Verify_Twilio_auth_and_call",
+            lambda: run_in_console(
+                [PYTHON_EXEC, "backend/scripts/twilio_run.py", "--mode", "call"],
+                cwd=repo_root(),
+                title="Verify Twilio (auth+call)",
+                new_window=False,
+            ),
+        )
+
+    # Anything else just returns to the main menu.
+
+
 def run_test_console():
     try:
         from test_core import get_console_ui  # type: ignore
@@ -1084,15 +1124,16 @@ def main() -> None:
                 f"7. {ICON['verify_db']} Database Console",
                 f"8. {ICON['config']} Config Console",
                 f"9. {ICON['tests']} Tests Hub",
-                f"10. 🃏 Fun Console (Jokes / Quotes / Trivia)",
-                f"11. {ICON['wallet']} Wallet Manager",
-                f"12. {ICON['cyclone']} Launch Cyclone App",
-                f"13. {ICON['goals']} Session / Goals",
-                f"14. {ICON['maintenance']} On-Demand Daily Maintenance",
-                f"15. {ICON['gmx']} GMX Solana Console",
-                f"16. {ICON['raydium']} Raydium Console (wallet + NFTs)",
-                f"17. {ICON['xcom']} Seed XCom Providers (ENV)",
-                f"18. {ICON['market']} Market Console (Market Core)",
+                "10. ✅ Verify Twilio (auth / voice)",
+                f"11. 🃏 Fun Console (Jokes / Quotes / Trivia)",
+                f"12. {ICON['wallet']} Wallet Manager",
+                f"13. {ICON['cyclone']} Launch Cyclone App",
+                f"14. {ICON['goals']} Session / Goals",
+                f"15. {ICON['maintenance']} On-Demand Daily Maintenance",
+                f"16. {ICON['gmx']} GMX Solana Console",
+                f"17. {ICON['raydium']} Raydium Console (wallet + NFTs)",
+                f"18. {ICON['xcom']} Seed XCom Providers (ENV)",
+                f"19. {ICON['market']} Market Console (Market Core)",
                 f"0. {ICON['exit']} Exit",
                 "    hotkeys: [S] 🌀 Sonic  [C] 🌀 Cyclone  [D] 🗄️ Database  [G] 🧩 Config  [M] 📈 Market",
             ]
@@ -1120,22 +1161,24 @@ def main() -> None:
         elif choice == "9":
             run_menu_action("Tests Hub", run_tests_hub)
         elif choice == "10":
-            run_menu_action("Fun Console", run_fun_console)
+            run_menu_action("Verify_Twilio", verify_twilio_menu)
         elif choice == "11":
-            run_menu_action("Wallet Manager", wallet_menu)
+            run_menu_action("Fun Console", run_fun_console)
         elif choice == "12":
-            run_menu_action("Launch Cyclone App", run_cyclone_console)
+            run_menu_action("Wallet Manager", wallet_menu)
         elif choice == "13":
-            run_menu_action("Session / Goals", goals_menu)
+            run_menu_action("Launch Cyclone App", run_cyclone_console)
         elif choice == "14":
-            run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
+            run_menu_action("Session / Goals", goals_menu)
         elif choice == "15":
-            run_menu_action("GMX Solana Console", launch_gmx_solana)
+            run_menu_action("On-Demand Daily Maintenance", run_daily_maintenance)
         elif choice == "16":
-            run_menu_action("Raydium Console", launch_raydium_console)
+            run_menu_action("GMX Solana Console", launch_gmx_solana)
         elif choice == "17":
-            run_menu_action("Seed XCom Providers", run_database_console)
+            run_menu_action("Raydium Console", launch_raydium_console)
         elif choice == "18":
+            run_menu_action("Seed XCom Providers", run_database_console)
+        elif choice == "19":
             run_menu_action("Market Console", launch_market_console)
         elif choice.upper() == "D":
             run_menu_action("Database Console", _launch_db_console)

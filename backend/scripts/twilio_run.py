@@ -1,83 +1,97 @@
 #!/usr/bin/env python3
-"""Run Twilio authentication and optional flow using environment variables.
-
-This helper ensures the repository's ``.env`` file is loaded even when the
-script is executed from outside the project root.  Credentials are then
-forwarded to :mod:`backend.scripts.twilio_test` which performs the actual
-Twilio authentication and (optionally) triggers a Studio Flow.
-
-Expected environment variables:
-    TWILIO_ACCOUNT_SID   - Twilio Account SID
-    TWILIO_AUTH_TOKEN    - Twilio Auth Token
-    TWILIO_FLOW_SID      - (optional) Studio Flow SID
-    TWILIO_PHONE_NUMBER  - (optional) From phone number
-    MY_PHONE_NUMBER      - (optional) To phone number
-"""
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 from pathlib import Path
+from typing import List, Optional
 
-from dotenv import load_dotenv
-from typing import List
+from dotenv import load_dotenv  # type: ignore
 
-from dotenv import load_dotenv
-from pathlib import Path
+# ---------------------------------------------------------------------------
+# Env bootstrap: load .env from repo root so we get TWILIO_* vars.
+# ---------------------------------------------------------------------------
 
-load_dotenv(Path(__file__).resolve().parent / ".env")
-
-
-
-# Ensure project root is on sys.path for backend imports
 SCRIPT_DIR = Path(__file__).resolve().parent
-sys.path.append(str(SCRIPT_DIR.parent.parent))
+ROOT_DIR = SCRIPT_DIR.parents[2]
 
-from backend.scripts.twilio_test import main as twilio_test_main
+# Try .env, fall back to .env.example
+if not load_dotenv(ROOT_DIR / ".env"):
+    load_dotenv(ROOT_DIR / ".env.example")
+
+# Make sure we can import backend.*
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from backend.scripts.twilio_test import main as twilio_test_main  # type: ignore
 
 
-def load_root_env() -> None:
-    """Load a `.env` file located at the repository root.
-
-    Falls back to `.env.example` so the script can still run with placeholder
-    values during development. Environment variables already set take
-    precedence over values from the files.
+def _build_argv(mode: str) -> List[str]:
     """
-    root_dir = SCRIPT_DIR  # <-- this line updated
-    env_path = root_dir / ".env"
-    example_path = root_dir / ".env.example"
+    Build argv to pass into twilio_test.main() based on env + chosen mode.
 
-    if not load_dotenv(env_path):
-        load_dotenv(example_path)
+    mode == "auth" → only verify SID/token
+    mode == "call" → verify SID/token AND attempt a Studio Flow voice call
+                     if TWILIO_FLOW_SID + phones are present.
+    """
+    sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+    token = os.getenv("TWILIO_AUTH_TOKEN", "")
+
+    if not sid or not token:
+        print("[Twilio] Missing TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN in environment.")
+        return []
+
+    args: List[str] = ["--sid", sid, "--token", token]
+
+    if mode == "call":
+        flow_sid = os.getenv("TWILIO_FLOW_SID", "")
+        from_phone = (
+            os.getenv("TWILIO_FROM_PHONE")
+            or os.getenv("TWILIO_PHONE_NUMBER", "")
+        )
+        to_phone = (
+            os.getenv("TWILIO_TO_PHONE")
+            or os.getenv("MY_PHONE_NUMBER", "")
+        )
+
+        if flow_sid and from_phone and to_phone:
+            args += [
+                "--flow-sid",
+                flow_sid,
+                "--from-phone",
+                from_phone,
+                "--to-phone",
+                to_phone,
+            ]
+        else:
+            print(
+                "[Twilio] Call mode requested but TWILIO_FLOW_SID / "
+                "TWILIO_FROM_PHONE / TWILIO_TO_PHONE (or MY_PHONE_NUMBER) "
+                "are not all set. Falling back to auth-only."
+            )
+
+    return args
 
 
+def main(argv: Optional[list[str]] = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Env-driven Twilio verifier (auth-only or auth+call)."
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["auth", "call"],
+        default="auth",
+        help="auth = only verify creds; call = verify + test voice call via Studio Flow",
+    )
+    ns = parser.parse_args(argv)
 
-def build_argv() -> List[str]:
-    """Construct argument list for ``twilio_test.main`` from environment."""
-    argv: List[str] = []
-    sid = os.getenv("TWILIO_ACCOUNT_SID")
-    token = os.getenv("TWILIO_AUTH_TOKEN")
-    flow_sid = os.getenv("TWILIO_FLOW_SID")
-    from_phone = os.getenv("TWILIO_PHONE_NUMBER")
-    to_phone = os.getenv("MY_PHONE_NUMBER")
+    args = _build_argv(ns.mode)
+    if not args:
+        return 1
 
-    if sid:
-        argv += ["--sid", sid]
-    if token:
-        argv += ["--token", token]
-    if flow_sid:
-        argv += ["--flow-sid", flow_sid]
-    if from_phone:
-        argv += ["--from-phone", from_phone]
-    if to_phone:
-        argv += ["--to-phone", to_phone]
-    return argv
-
-
-def main() -> int:
-    load_root_env()
-    argv = build_argv()
-    return twilio_test_main(argv)
+    # Delegate to the real CLI implementation
+    return twilio_test_main(args)
 
 
 if __name__ == "__main__":
