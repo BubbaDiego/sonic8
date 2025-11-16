@@ -1,5 +1,16 @@
-"""Market Core evaluation engine exports."""
+# backend/core/market_core/__init__.py
+"""
+Market Core package.
 
-from .market_core import MarketCore, MarketEvaluationResult, MarketAlertStatus
+Modern usage is via the functional API:
 
-__all__ = ["MarketCore", "MarketEvaluationResult", "MarketAlertStatus"]
+    from backend.core.market_core.market_engine import evaluate_market_alerts
+
+We intentionally do *not* re-export the legacy MarketCore class here anymore,
+to avoid importing the old market_core.py module that depended on
+PriceAlertConfig / PriceAlertState, which have been removed in sonic8.
+"""
+
+from .market_engine import evaluate_market_alerts
+
+__all__ = ["evaluate_market_alerts"]
