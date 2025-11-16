@@ -197,58 +197,116 @@ def _pick_alert(alerts: List[PriceAlert]) -> PriceAlert | None:
 
 
 def _ui_add_alert(dl: Any) -> None:
-    asset = input("Asset (SPX/BTC/ETH/SOL) → ").strip().upper() or "BTC"
+    # --- Asset selection ---
+    print()
+    print("Choose asset:")
+    assets = ["SPX", "BTC", "ETH", "SOL"]
+    for i, sym in enumerate(assets, 1):
+        print(f"  {i}) {sym}")
+    while True:
+        choice = input("→ ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(assets):
+            asset = assets[int(choice) - 1]
+            break
+        print("  Invalid selection. Please enter 1–4.")
+
     label = input("Label (optional) → ").strip() or None
 
-    print("Type: 1) Move % from anchor  2) Move $ from anchor  3) Price target")
-    t = input("→ ").strip()
-    if t == "2":
-        rule_type = "move_abs"
-    elif t == "3":
-        rule_type = "price_target"
-    else:
-        rule_type = "move_pct"
+    # --- Type selection ---
+    print()
+    print("Alert type:")
+    print("  1) Move % from anchor")
+    print("  2) Move $ from anchor")
+    print("  3) Price target")
+    while True:
+        t = input("→ ").strip()
+        if t == "2":
+            rule_type = "move_abs"
+            break
+        elif t == "3":
+            rule_type = "price_target"
+            break
+        elif t == "1" or t == "":
+            rule_type = "move_pct"
+            break
+        print("  Invalid selection. Please enter 1, 2, or 3.")
 
+    # --- Direction selection ---
+    print()
     if rule_type == "price_target":
-        print("Direction: 1) above  2) below")
-        d = input("→ ").strip()
-        direction = "above" if d != "2" else "below"
+        print("Direction (price target):")
+        print("  1) above  (price ≥ target)")
+        print("  2) below  (price ≤ target)")
+        while True:
+            d = input("→ ").strip()
+            if d in ("1", "2", ""):
+                direction = "above" if d != "2" else "below"
+                break
+            print("  Invalid selection. Please enter 1 or 2.")
     else:
-        print("Direction: 1) up  2) down  3) both")
-        d = input("→ ").strip()
-        if d == "1":
-            direction = "up"
-        elif d == "2":
-            direction = "down"
-        else:
-            direction = "both"
+        print("Direction (movement):")
+        print("  1) up")
+        print("  2) down")
+        print("  3) both")
+        while True:
+            d = input("→ ").strip()
+            if d == "1":
+                direction = "up"
+                break
+            elif d == "2":
+                direction = "down"
+                break
+            elif d in ("3", ""):
+                direction = "both"
+                break
+            print("  Invalid selection. Please enter 1, 2, or 3.")
 
-    thr_raw = input("Threshold value → ").strip()
+    # --- Threshold value ---
+    print()
+    if rule_type == "move_pct":
+        prompt = "Threshold value (percent, e.g. 5 for 5%) → "
+    elif rule_type == "move_abs":
+        prompt = "Threshold value ($ move from anchor, e.g. 100) → "
+    else:
+        prompt = "Target price (e.g. 4200.00) → "
+    thr_raw = input(prompt).strip()
     try:
-        thr = float(thr_raw)
+        base_threshold_value = float(thr_raw)
     except ValueError:
-        thr = 5.0
+        base_threshold_value = 5.0
 
-    print("Recurrence: 1) single  2) reset  3) ladder")
-    r = input("→ ").strip()
-    if r == "2":
-        recurrence = "reset"
-    elif r == "3":
-        recurrence = "ladder"
-    else:
-        recurrence = "single"
+    # --- Recurrence selection ---
+    print()
+    print("Recurrence:")
+    print("  1) single  – alert once, then disarm")
+    print("  2) reset   – alert, then anchor jumps to current price")
+    print("  3) ladder  – alert on each step of size threshold")
+    while True:
+        r = input("→ ").strip()
+        if r in ("1", ""):
+            recurrence_mode = "single"
+            break
+        elif r == "2":
+            recurrence_mode = "reset"
+            break
+        elif r == "3":
+            recurrence_mode = "ladder"
+            break
+        print("  Invalid selection. Please enter 1, 2, or 3.")
 
+    # --- Build and save the alert ---
     alert = PriceAlert(
         asset=asset,
         label=label,
         rule_type=rule_type,
         direction=direction,
-        base_threshold_value=thr,
-        recurrence_mode=recurrence,
+        base_threshold_value=base_threshold_value,
+        recurrence_mode=recurrence_mode,
         enabled=True,
     )
     dl.price_alerts.save_alert(alert)
-    print("Alert created.")
+    print("\n✅ Alert created.")
+    input("⏎  Press ENTER to return...")
 
 
 def _ui_edit_alert(dl: Any, alerts: List[PriceAlert]) -> None:
