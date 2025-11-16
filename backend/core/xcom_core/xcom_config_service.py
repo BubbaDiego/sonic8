@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Mapping
+import os
+from typing import Any, Dict, Mapping
 
 
 def _ensure_bool_map(m: Mapping[str, Any] | None) -> dict[str, bool]:
@@ -90,6 +91,40 @@ class XComConfigService:
         # 3) fall back: nothing configured -> all False
         return {"voice": False, "system": False, "sms": False, "tts": False}
 
+    def _merge_voice_from_env(self, providers: Dict[str, Any]) -> Dict[str, Any]:
+        """Overlay Twilio voice config with secrets from environment variables."""
+        voice = providers.get("voice")
+        if not isinstance(voice, dict):
+            voice = {} if voice is None else dict(voice) if isinstance(voice, Mapping) else {}
+        providers["voice"] = voice
+
+        env_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        env_token = os.getenv("TWILIO_AUTH_TOKEN")
+        env_from = os.getenv("TWILIO_FROM_PHONE") or os.getenv("TWILIO_PHONE_NUMBER")
+        env_to = os.getenv("TWILIO_TO_PHONE") or os.getenv("MY_PHONE_NUMBER")
+        env_flow = os.getenv("TWILIO_FLOW_SID")
+
+        if env_sid:
+            voice["account_sid"] = env_sid
+        if env_token:
+            voice["auth_token"] = env_token
+        if env_from:
+            voice["from"] = env_from
+        if env_to:
+            existing_to = voice.get("to")
+            if isinstance(existing_to, list):
+                if env_to not in existing_to:
+                    voice["to"] = [env_to]
+                else:
+                    voice["to"] = existing_to
+            elif env_to:
+                voice["to"] = [env_to]
+        if env_flow:
+            voice["flow_sid"] = env_flow
+
+        providers["voice"] = voice
+        return providers
+
     def get_provider(self, name: str) -> dict[str, Any]:
         """
         Return provider config for 'twilio' or 'api' if present in config.
@@ -100,7 +135,8 @@ class XComConfigService:
         # Prefer explicit providers section
         providers = cfg.get("providers")
         if isinstance(providers, Mapping):
-            p = providers.get(name)
+            merged = self._merge_voice_from_env(dict(providers))
+            p = merged.get(name)
             if isinstance(p, Mapping):
                 return dict(p)
 
@@ -113,6 +149,8 @@ class XComConfigService:
                     # merge any 'config' dict under voice into provider data
                     data = dict(voice.get("config") or {})
                     data["enabled"] = bool(voice.get("enabled", True))
+                    if name == "voice":
+                        data = self._merge_voice_from_env({"voice": data}).get("voice", data)
                     return data
 
         return {}

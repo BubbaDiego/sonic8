@@ -2,10 +2,10 @@
   "voice": {
     "enabled": true,
     "provider": "twilio",
-    "account_sid": "ACb606788ada5dccbfeeebed0f440099b3",
-    "auth_token": "4c3aa4b309302773aff88c294a2286a5",
-    "from": "+18336913467",
-    "to": [ "+16199804758" ],
-    "flow_sid": null
+    "account_sid": "",
+    "auth_token": "",
+    "from": "",
+    "to": [],
+    "flow_sid": ""
   }
 }
