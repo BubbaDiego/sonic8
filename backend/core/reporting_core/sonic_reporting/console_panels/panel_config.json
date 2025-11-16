@@ -58,6 +58,26 @@
       "title": {
         "string": "Monitors",
         "icon": "\ud83d\udd0e"
+      },
+      "body": {
+        "table": {
+          "style": "thin",
+          "table_justify": "left",
+          "header_justify": "left"
+        }
+      }
+    },
+    "market": {
+      "title": {
+        "string": "Market Alerts",
+        "icon": "\ud83d\udcb9"
+      },
+      "body": {
+        "table": {
+          "style": "invisible",
+          "table_justify": "left",
+          "header_justify": "left"
+        }
       }
     },
     "xcom": {
