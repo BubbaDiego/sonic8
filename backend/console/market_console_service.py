@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 from backend.core.core_constants import MOTHER_DB_PATH
 from backend.data.data_locker import DataLocker
-from backend.core.market_core.market_engine import STATE_OK, evaluate_market_alerts
+from backend.core.market_core.market_engine import evaluate_market_alerts
 from backend.models.price_alert import PriceAlert
 from backend.models.price_alert_event import PriceAlertEvent
 
@@ -16,13 +16,55 @@ def _make_dl() -> DataLocker:
 
 
 def _load_prices(dl) -> Dict[str, float]:
-    rows = dl.prices.select_all()
+    """Fetch latest prices for key assets using DLPriceManager."""
+
     prices: Dict[str, float] = {}
+    mgr = getattr(dl, "prices", None)
+    if mgr is None:
+        return prices
+
+    try:
+        rows = mgr.get_all_prices()
+    except Exception:
+        return prices
+
+    if not rows:
+        return prices
+
+    tracked_assets = {"SPX", "BTC", "ETH", "SOL", "^GSPC", "SP500"}
+
     for row in rows:
-        sym = row.get("symbol") or row.get("asset") or row.get("ticker")
-        if sym is None:
+        if isinstance(row, dict):
+            sym = (
+                row.get("asset_type")
+                or row.get("symbol")
+                or row.get("asset")
+                or row.get("ticker")
+            )
+            price = row.get("current_price") or row.get("price")
+        else:
+            sym = (
+                getattr(row, "asset_type", None)
+                or getattr(row, "symbol", None)
+                or getattr(row, "asset", None)
+            )
+            price = getattr(row, "current_price", None) or getattr(row, "price", None)
+
+        if sym is None or price is None:
             continue
-        prices[str(sym)] = float(row.get("price") or 0.0)
+
+        sym_str = str(sym).upper()
+        if sym_str not in tracked_assets:
+            continue
+
+        if sym_str in ("^GSPC", "SP500"):
+            sym_str = "SPX"
+
+        try:
+            prices[sym_str] = float(price)
+        except (TypeError, ValueError):
+            continue
+
     return prices
 
 
@@ -233,7 +275,7 @@ def _ui_reset_alert(dl: Any, alerts: List[PriceAlert]) -> None:
     if not alert:
         return
 
-    print("Reset / Re-arm:")
+    print(f"Reset / Re-arm: {alert.asset} – {alert.label or ''}")
     print("  1) Re-arm at CURRENT price")
     print("  2) Re-arm at ORIGINAL anchor")
     choice = input("→ ").strip()
@@ -242,7 +284,7 @@ def _ui_reset_alert(dl: Any, alerts: List[PriceAlert]) -> None:
 
     prices = _load_prices(dl)
     current_price = prices.get(alert.asset)
-    now_iso = datetime.utcnow().isoformat()  # type: ignore[name-defined]
+    now_iso = datetime.utcnow().isoformat()
 
     if choice == "1" and current_price is not None:
         alert.current_anchor_price = current_price
@@ -251,21 +293,16 @@ def _ui_reset_alert(dl: Any, alerts: List[PriceAlert]) -> None:
             alert.original_anchor_price = current_price
             alert.original_anchor_time = now_iso
     else:
-        # reset to original anchor
-        if alert.original_anchor_price is None:
-            print("No original anchor; using current price instead.")
-            if current_price is not None:
-                alert.original_anchor_price = current_price
-                alert.original_anchor_time = now_iso
-                alert.current_anchor_price = current_price
-                alert.current_anchor_time = now_iso
-        else:
-            alert.current_anchor_price = alert.original_anchor_price
-            alert.current_anchor_time = alert.original_anchor_time or now_iso
+        # reset to original anchor (fallback to current if none)
+        if alert.original_anchor_price is None and current_price is not None:
+            alert.original_anchor_price = current_price
+            alert.original_anchor_time = now_iso
+        alert.current_anchor_price = alert.original_anchor_price
+        alert.current_anchor_time = alert.original_anchor_time or now_iso
 
     alert.armed = True
     alert.last_reset_at = now_iso
-    alert.last_state = STATE_OK
+    alert.last_state = "OK"
     alert.updated_at = now_iso
     dl.price_alerts.save_alert(alert)
     print("Alert re-armed.")
