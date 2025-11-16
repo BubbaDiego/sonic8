@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from io import StringIO
 from typing import Any, Dict, Iterable, List, Optional
 
 from rich.console import Console
@@ -313,7 +314,6 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
     """
     Build a real Rich Table and export it as plain text lines.
     """
-
     box_style, show_lines = _style_to_box(table_cfg.get("style"))
 
     table = Table(
@@ -344,6 +344,16 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
         bar = _fmt_bar(meta)
         state = str(row.get("state") or "").upper()
 
+        # Color state like the monitors panel
+        if state == "BREACH":
+            state_cell = "[red]BREACH[/]"
+        elif state == "WARN":
+            state_cell = "[yellow]WARN[/]"
+        elif state == "OK":
+            state_cell = "[green]OK[/]"
+        else:
+            state_cell = state or "–"
+
         table.add_row(
             asset,
             entry,
@@ -351,11 +361,14 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
             move_str,
             thr_str,
             bar,
-            state,
+            state_cell,
         )
 
-    console = Console(record=True, width=HR_WIDTH, force_terminal=True)
+    # IMPORTANT: render into a buffer, not to real stdout
+    buf = StringIO()
+    console = Console(record=True, width=HR_WIDTH, file=buf, force_terminal=True)
     console.print(table)
+
     text = console.export_text().rstrip("\n")
     lines = text.splitlines() if text else []
 
