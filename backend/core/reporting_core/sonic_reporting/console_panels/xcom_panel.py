@@ -78,15 +78,8 @@ def _fmt_time_from_ts(ts_value: Any) -> str:
 
 # ───────────────────────── attempt formatting ──────────────────────────────
 
-def _target_from_rec(rec: Dict[str, Any]) -> str:
-    """
-    Compact target label for XCom rows.
-
-    Examples:
-      monitor='liquid', label='SOL – Liq' -> '💧 SOL'
-      monitor='price',  label='BTC price' -> '💲 BTC'
-      monitor='market', label='SOL depth' -> '📈 SOL'
-    """
+def _target_icon_and_symbol(rec: Dict[str, Any]) -> (str, str):
+    """Return (icon, symbol/text) for a monitor + label pair."""
     monitor = (rec.get("monitor") or "").lower()
     label = (rec.get("label") or "").strip()
 
@@ -104,10 +97,37 @@ def _target_from_rec(rec: Dict[str, Any]) -> str:
         icon = ""
 
     text = symbol or label or monitor or "?"
+    return icon, text
 
-    if icon:
-        return f"{icon} {text}"
-    return text
+
+def _target_from_rec(rec: Dict[str, Any]) -> str:
+    """
+    Backwards compatible helper returning "icon symbol" or just text.
+    """
+    icon, text = _target_icon_and_symbol(rec)
+    return f"{icon} {text}" if icon else text
+
+
+def _channels_from_attempt(ev: Dict[str, Any]) -> str:
+    """
+    Older helper (still used by other panels): concatenated channel icons.
+    For the XCom table we use separate Sys/Voice/SMS/TTS columns instead.
+    """
+    ch = ev.get("channels") or {}
+    if not isinstance(ch, dict):
+        ch = {}
+
+    icons: List[str] = []
+    if ch.get("system"):
+        icons.append("🖥")
+    if ch.get("voice"):
+        icons.append("📞")
+    if ch.get("sms"):
+        icons.append("💬")
+    if ch.get("tts"):
+        icons.append("🔊")
+
+    return " ".join(icons) if icons else "–"
 
 
 def _details_from_attempt(ev: Dict[str, Any]) -> str:
@@ -137,29 +157,6 @@ def _details_from_attempt(ev: Dict[str, Any]) -> str:
         return "error" if not raw_result else str(raw_result)[:20]
 
     return str(raw_result)[:20] if raw_result else "-"
-
-
-def _channels_from_attempt(ev: Dict[str, Any]) -> str:
-    """
-    Build a compact channels string of icons only for enabled channels.
-
-    system → 🖥, voice → 📞, sms → 💬, tts → 🔊
-    """
-    ch = ev.get("channels") or {}
-    if not isinstance(ch, dict):
-        ch = {}
-
-    icons: List[str] = []
-    if ch.get("system"):
-        icons.append("🖥")
-    if ch.get("voice"):
-        icons.append("📞")
-    if ch.get("sms"):
-        icons.append("💬")
-    if ch.get("tts"):
-        icons.append("🔊")
-
-    return " ".join(icons) if icons else "–"
 
 
 def _result_for_send(rec: Dict[str, Any]) -> str:
@@ -314,7 +311,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     rec_send = _get_receipt(dl, "xcom_last_sent") if dl else None
     rec_skip = _get_receipt(dl, "xcom_last_skip") if dl else None
-    rec_err  = _get_receipt(dl, "xcom_last_error") if dl else None
+    rec_err = _get_receipt(dl, "xcom_last_error") if dl else None
 
     try:
         live_on, live_src = xcom_live_status(dl, cfg=cfg_obj)
@@ -357,28 +354,51 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             [color_if_plain("    (no recent send/skip/error receipts)", body_cfg["body_text_color"])],
         )
     else:
-        header = (
-            "    #  ⏱ Age  🕒 Time  🧾 Result  🎯 Target   "
-            "🧮 Details     📢 Channels"
-        )
+        # Each component has its own column:
+        #   # | Age | Time | R | Result | T | Symbol | Details | Sys | Voice | SMS | TTS
+        header = "    #  Age  Time   R  Result  T  Symbol   Details      Sys Voice SMS TTS"
         out += body_indent_lines(
             PANEL_SLUG,
             [color_if_plain(header, body_cfg["column_header_text_color"])],
         )
         rows: List[str] = []
         base_color = body_cfg["body_text_color"]
+
         for idx, ev in enumerate(attempts, 1):
             num = f"{idx:<2}"
-            age = f"{ev.get('age', '–'):<5}"
-            when = f"{ev.get('time', '–'):<7}"
+            age = f"{ev.get('age', '–'):<4}"
+            when = f"{ev.get('time', '–'):<6}"
             kind = (ev.get("type") or "").lower()
             result_word = kind or "-"
-            target = f"{_target_from_rec(ev):<10}"
-            details = f"{_details_from_attempt(ev):<12}"
-            channels = _channels_from_attempt(ev)
 
-            prefix = f"    {num} {age} {when} "
-            suffix = f"{target} {details} {channels}"
+            icon, symbol = _target_icon_and_symbol(ev)
+            r_mark = "•"  # marker column (could evolve to severity icon)
+            tgt_icon_str = icon or " "
+            tgt_sym_str = symbol or "?"
+
+            details = _details_from_attempt(ev)
+
+            ch_map = ev.get("channels") or {}
+            if not isinstance(ch_map, dict):
+                ch_map = {}
+            sys_on = bool(ch_map.get("system"))
+            voice_on = bool(ch_map.get("voice"))
+            sms_on = bool(ch_map.get("sms"))
+            tts_on = bool(ch_map.get("tts"))
+
+            sys_col = "🖥" if sys_on else " "
+            voice_col = "📞" if voice_on else " "
+            sms_col = "💬" if sms_on else " "
+            tts_col = "🔊" if tts_on else " "
+
+            prefix = f"    {num} {age} {when} {r_mark:<1} "
+
+            suffix = (
+                f"{tgt_icon_str:<2} "
+                f"{tgt_sym_str:<6} "
+                f"{details:<10} "
+                f"{sys_col:<3}{voice_col:<3}{sms_col:<3}{tts_col:<3}"
+            )
 
             if kind == "error":
                 result_color = "red"
@@ -387,7 +407,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             else:
                 result_color = base_color
 
-            colored_result = paint_line(f"{result_word:<7}", result_color)
+            colored_result = paint_line(f"{result_word:<6}", result_color)
             full_line = (
                 color_if_plain(prefix, base_color)
                 + colored_result

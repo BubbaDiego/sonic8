@@ -28,6 +28,11 @@ def _resolve_dl(ctx: Any) -> Any:
 
 
 def _get_monitor_rows(dl: Any) -> List[Dict[str, Any]]:
+    """
+    Robustly pull monitor rows from dl.monitors / dl_dl_monitors.
+
+    This is your original logic – DO NOT TOUCH – it already works.
+    """
     if dl is None:
         return []
     mgr = getattr(dl, "monitors", None) or getattr(dl, "dl_monitors", None)
@@ -106,29 +111,56 @@ def _market_rows(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-def _format_value(value: Any) -> str:
+# ===== value formatting helpers =====
+
+def _fmt_price(val: Any) -> str:
+    if val is None:
+        return "–".rjust(8)
     try:
-        return f"{float(value):>8.2f}"
+        return f"{float(val):>8.2f}"
     except Exception:
-        return f"{str(value or '—'):>8}"
+        return f"{str(val)[:8]:>8}"
 
 
-def _format_threshold(value: Any) -> str:
+def _fmt_move(val: Any) -> str:
+    if val is None:
+        return "–".rjust(8)
     try:
-        return f"{float(value):>8.2f}"
+        v = float(val)
+        sign = "+" if v >= 0 else ""
+        return f"{sign}{v:>7.2f}"
     except Exception:
-        return f"{str(value or '—'):>8}"
+        return f"{str(val)[:8]:>8}"
 
 
-def _format_desc(meta: Dict[str, Any]) -> str:
-    desc = (meta.get("threshold_desc") or meta.get("desc") or "")
-    desc = str(desc)
-    if len(desc) > 22:
-        return desc[:21] + "…"
-    return desc.ljust(22)
+def _fmt_pct(val: Any) -> str:
+    if val is None:
+        return "–".rjust(8)
+    try:
+        v = float(val)
+        sign = "+" if v >= 0 else ""
+        return f"{sign}{v:>6.2f}%"
+    except Exception:
+        return f"{str(val)[:8]:>8}"
 
 
-def _format_bar(meta: Dict[str, Any]) -> str:
+def _fmt_threshold(meta: Dict[str, Any], thr_value: Any) -> str:
+    # Prefer explicit description if present
+    desc = meta.get("threshold_desc") or meta.get("desc")
+    if isinstance(desc, str) and desc.strip():
+        txt = desc.strip()
+    else:
+        try:
+            v = float(thr_value)
+            txt = f"${v:.2f} move"
+        except Exception:
+            txt = str(thr_value or "–")
+    if len(txt) > 14:
+        return txt[:13] + "…"
+    return txt.ljust(14)
+
+
+def _fmt_bar(meta: Dict[str, Any]) -> str:
     try:
         prox = float(meta.get("proximity") or 0.0)
     except Exception:
@@ -148,11 +180,65 @@ def _asset_from_row(row: Dict[str, Any]) -> str:
     return asset[:5].ljust(5)
 
 
+def _entry_price(meta: Dict[str, Any]) -> Any:
+    """
+    Entry (anchor) price:
+      • Prefer meta["anchor_price"] or meta["entry_price"] if present.
+      • Else, derive from price - move_abs if both exist.
+    """
+    anchor = meta.get("anchor_price") or meta.get("entry_price")
+    if anchor is not None:
+        return anchor
+
+    price = meta.get("price") or meta.get("current_price")
+    move_abs = meta.get("move_abs")
+    try:
+        if price is not None and move_abs is not None:
+            return float(price) - float(move_abs)
+    except Exception:
+        pass
+    return None
+
+
+def _current_price(meta: Dict[str, Any]) -> Any:
+    return meta.get("price") or meta.get("current_price")
+
+
+def _move_abs(meta: Dict[str, Any]) -> Any:
+    mv = meta.get("move_abs")
+    if mv is not None:
+        return mv
+    # derive from price / entry if needed
+    price = meta.get("price") or meta.get("current_price")
+    anchor = _entry_price(meta)
+    try:
+        if price is not None and anchor is not None:
+            return float(price) - float(anchor)
+    except Exception:
+        pass
+    return None
+
+
+def _move_pct(meta: Dict[str, Any]) -> Any:
+    mv = meta.get("move_pct")
+    if mv is not None:
+        return mv
+    price = meta.get("price") or meta.get("current_price")
+    anchor = _entry_price(meta)
+    try:
+        if price is not None and anchor not in (None, 0):
+            return (float(price) - float(anchor)) / float(anchor) * 100.0
+    except Exception:
+        pass
+    return None
+
+
 def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     dl = _resolve_dl(context)
     body_cfg = get_panel_body_config(PANEL_SLUG)
     lines: List[str] = []
 
+    # title
     lines += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
     if dl is None:
@@ -166,6 +252,20 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     rows = _market_rows(_get_monitor_rows(dl))
 
+    # header with icon + label columns
+    header = (
+        "  🪙  Asset   "
+        "💵  Entry     "
+        "💹  Current   "
+        "📉  Move      "
+        "📊  Move%     "
+        "🎯  Thr              "
+        "🔋  Prox        "
+        "🧾  State"
+    )
+    header_colored = color_if_plain(header, body_cfg["column_header_text_color"])
+    lines += body_indent_lines(PANEL_SLUG, [header_colored])
+
     if not rows:
         note = color_if_plain(
             "  (no active market alerts)",
@@ -175,22 +275,31 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         lines += body_pad_below(PANEL_SLUG)
         return lines
 
-    header = color_if_plain(
-        "  🪙Asset  📊Value      🎯Thr     Desc                   🔋Prox   State",
-        body_cfg["column_header_text_color"],
-    )
-    lines += body_indent_lines(PANEL_SLUG, [header])
-
+    # data rows
     for row in rows:
         meta = row.get("meta") or {}
-        line = "  {asset} {value}  {thr}  {desc} {bar} {state:<6}".format(
-            asset=_asset_from_row(row),
-            value=_format_value(row.get("value")),
-            thr=_format_threshold(row.get("thr_value")),
-            desc=_format_desc(meta),
-            bar=_format_bar(meta),
-            state=str(row.get("state") or "").upper(),
+        asset = _asset_from_row(row)
+
+        entry = _entry_price(meta)
+        current = _current_price(meta)
+        move_abs = _move_abs(meta)
+        move_pct = _move_pct(meta)
+
+        thr_val = row.get("thr_value")
+        bar = _fmt_bar(meta)
+        state = str(row.get("state") or "").upper()
+
+        line = (
+            f"  🪙  {asset:<5}  "
+            f"💵  {_fmt_price(entry)}  "
+            f"💹  {_fmt_price(current)}  "
+            f"📉  {_fmt_move(move_abs)}  "
+            f"📊  {_fmt_pct(move_pct)}  "
+            f"🎯  {_fmt_threshold(meta, thr_val)}  "
+            f"🔋  {bar:<10}  "
+            f"🧾  {state:<7}"
         )
+
         lines += body_indent_lines(
             PANEL_SLUG,
             [color_if_plain(line, body_cfg["body_text_color"])],
