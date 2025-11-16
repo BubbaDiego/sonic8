@@ -27,28 +27,33 @@
     "activity": {
       "title": {
         "string": "Cycle Activity",
-        "icon": "\ud83d\udcd8"
+        "icon": "📘"
       }
     },
     "prices": {
       "title": {
         "string": "Prices",
-        "icon": "\ud83d\udcb5"
+        "icon": "💵"
       }
     },
     "positions": {
       "title": {
         "string": "Positions",
-        "icon": "\ud83d\udcca"
+        "icon": "📊"
       },
       "body": {
-        "totals_row_color": "grey50"
+        "totals_row_color": "grey50",
+        "table": {
+          "style": "invisible",
+          "table_justify": "left",
+          "header_justify": "left"
+        }
       }
     },
     "preflight": {
       "title": {
         "string": "Pre-Flight Config",
-        "icon": "\ud83e\uddea",
+        "icon": "🧪",
         "border_style": "rounded",
         "border_color": "default",
         "text_color": "cyan"
@@ -57,11 +62,11 @@
     "monitors": {
       "title": {
         "string": "Monitors",
-        "icon": "\ud83d\udd0e"
+        "icon": "🔎"
       },
       "body": {
         "table": {
-          "style": "thin",
+          "style": "invisible",
           "table_justify": "left",
           "header_justify": "left"
         }
@@ -70,7 +75,7 @@
     "market": {
       "title": {
         "string": "Market Alerts",
-        "icon": "\ud83d\udcb9"
+        "icon": "💹"
       },
       "body": {
         "table": {
@@ -83,7 +88,7 @@
     "xcom": {
       "title": {
         "string": "XCom",
-        "icon": "\u2709\ufe0f"
+        "icon": "✉️"
       },
       "layout": {
         "body_indent": 0
@@ -92,7 +97,7 @@
     "wallets": {
       "title": {
         "string": "Wallets",
-        "icon": "\ud83d\udcbc"
+        "icon": "💼"
       },
       "body": {
         "totals_row_color": "yellow"

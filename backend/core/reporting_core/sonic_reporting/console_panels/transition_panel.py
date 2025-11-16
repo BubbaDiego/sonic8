@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 
 DEFAULT_POLL_SECONDS = 30
 DEFAULT_FPS = 12
-DEFAULT_RUNNER = "fortune_timer"
+DEFAULT_RUNNER = "ping_pong_bar"
 
 
 def _get_interval_s(ctx: Optional[Dict[str, Any]]) -> int:
