@@ -1093,7 +1093,8 @@ def main() -> None:
                 f"16. {ICON['raydium']} Raydium Console (wallet + NFTs)",
                 f"17. {ICON['xcom']} Seed XCom Providers (ENV)",
                 f"18. {ICON['market']} Market Console (Market Core)",
-                f"0. {ICON['exit']} Exit   (hotkey: [S] Sonic Monitor, [C] Cyclone Console, [D] Database Console, [G] Config Console, [M] Market Console)",
+                f"0. {ICON['exit']} Exit",
+                "    hotkeys: [S] 🌀 Sonic  [C] 🌀 Cyclone  [D] 🗄️ Database  [G] 🧩 Config  [M] 📈 Market",
             ]
         )
         _print_panel(menu_body, title="Main Menu")
