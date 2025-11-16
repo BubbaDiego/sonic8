@@ -26,7 +26,7 @@ def _load_monitor_cfg():
 
 # ---- Panel module order (override with SONIC_REPORT_PANELS) -------------------
 DEFAULT_PANEL_MODULES: List[str] = [
-    "backend.core.reporting_core.sonic_reporting.console_panels.preflight_config_panel",
+   # "backend.core.reporting_core.sonic_reporting.console_panels.preflight_config_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.price_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.positions_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.monitor_panel",
