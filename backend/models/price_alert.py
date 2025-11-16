@@ -59,7 +59,7 @@ class PriceAlert(BaseModel):
 
     effective_threshold_value: Optional[float] = None
     armed: bool = True
-    fired_count: Optional[int] = None
+    fired_count: int = 0
 
     # runtime telemetry
     last_state: Optional[str] = None  # "OK", "WARN", "BREACH", "DISARMED"
