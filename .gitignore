@@ -70,3 +70,7 @@ xcom_congig.json
 
 mother.db
 signer.txt
+
+# ignore DB + signer everywhere
+**/mother.db
+**/signer.txt
