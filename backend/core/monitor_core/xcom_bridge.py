@@ -81,33 +81,77 @@ def _bind_dispatcher() -> Tuple[Callable[[str, Dict[str, Any], Dict[str, bool], 
         mode_parts.append("noop")
 
     def _send(mon: str, payload: Dict[str, Any], channels: Dict[str, bool], context: Dict[str, Any]) -> Dict[str, Any]:
-        result: Dict[str, Any] = {"ok": False}
-        sent = False
+        details: Dict[str, Any] = {}
         payload_with_channels = {**payload, "channels": channels}
+        requested = {k: bool(channels.get(k)) for k in ("system", "sms", "tts", "voice")}
+        non_voice_summary: Dict[str, Any] | None = None
+        voice_result: Dict[str, Any] | None = None
 
         if agg:
-            non_voice = {"system": bool(channels.get("system")),
-                         "sms":    bool(channels.get("sms")),
-                         "tts":    bool(channels.get("tts")),
-                         "voice":  False}
+            non_voice = {
+                "system": requested["system"],
+                "sms": requested["sms"],
+                "tts": requested["tts"],
+                "voice": False,
+            }
             if any(non_voice.values()):
                 agg_result = agg(mon, payload_with_channels, non_voice, context)
-                result["non_voice"] = agg_result
+                details["non_voice"] = agg_result
                 if isinstance(agg_result, dict):
-                    sent = sent or bool(agg_result.get("ok")) or bool(agg_result)
-                else:
-                    sent = sent or bool(agg_result)
+                    non_voice_summary = agg_result
 
-        if voice and bool(channels.get("voice")):
+        if voice and requested["voice"]:
             voice_result = voice(payload_with_channels, {"voice": True}, context)
-            result["voice"] = voice_result
-            if isinstance(voice_result, dict):
-                sent = sent or bool(voice_result.get("ok")) or bool(voice_result)
-            else:
-                sent = sent or bool(voice_result)
+            details["voice"] = voice_result
 
-        result["ok"] = sent
-        return result
+        channel_status: Dict[str, Dict[str, Any]] = {}
+        errors: List[str] = []
+
+        non_voice_channels: Dict[str, Any] | None = None
+        if isinstance(non_voice_summary, dict):
+            candidate = non_voice_summary.get("channels")
+            if isinstance(candidate, dict):
+                non_voice_channels = candidate
+
+        def _record(name: str, data: Dict[str, Any] | None) -> None:
+            if data is None:
+                return
+            normalized = dict(data)
+            normalized["ok"] = bool(normalized.get("ok"))
+            if "error" not in normalized and normalized.get("reason"):
+                normalized["error"] = normalized.get("reason")
+            channel_status[name] = normalized
+            if requested.get(name) and not normalized["ok"]:
+                reason = normalized.get("error") or normalized.get("reason") or normalized.get("skip")
+                errors.append(f"{name}: {reason}" if reason else name)
+
+        if non_voice_channels:
+            for name in ("system", "sms", "tts"):
+                chan_data = non_voice_channels.get(name)
+                if isinstance(chan_data, dict):
+                    _record(name, chan_data)
+
+        if voice_result is not None:
+            if isinstance(voice_result, dict):
+                voice_data = dict(voice_result)
+            else:
+                voice_data = {"ok": bool(voice_result)}
+            if "error" not in voice_data and voice_data.get("reason"):
+                voice_data["error"] = voice_data.get("reason")
+            _record("voice", voice_data)
+
+        success = len(errors) == 0
+        response: Dict[str, Any] = {
+            "success": success,
+            "ok": success,
+            "channels": channel_status,
+        }
+
+        if errors:
+            response["error"] = "; ".join(errors)
+
+        response.update(details)
+        return response
 
     return _send, "+".join(mode_parts)
 
@@ -384,22 +428,38 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
             result = send(mon, payload, channels, context)
             out.append({"monitor": mon, "label": label, "channels": channels, "result": result})
             log.info("[xcom] dispatched %s %s -> %s", mon, label, json.dumps(channels))
-            if sysmgr and hasattr(sysmgr, "set_var") and (isinstance(result, dict) or result):
-                sent_ts = time.time()
-                ledger = ledger or {}
-                ledger[f"{mon}|{label}"] = sent_ts
-                sysmgr.set_var("xcom_snooze", ledger)
-                sysmgr.set_var(
-                    "xcom_last_sent",
-                    {
-                        "ts": sent_ts,
-                        "monitor": mon,
-                        "label": label,
-                        "channels": channels,
-                        "result": result,
-                        "subject": subj,
-                    },
-                )
+            success = bool(result.get("success", False)) if isinstance(result, dict) else bool(result)
+            if sysmgr and hasattr(sysmgr, "set_var"):
+                now_ts = time.time()
+                if success:
+                    ledger = ledger or {}
+                    ledger[f"{mon}|{label}"] = now_ts
+                    sysmgr.set_var("xcom_snooze", ledger)
+                    sysmgr.set_var(
+                        "xcom_last_sent",
+                        {
+                            "ts": now_ts,
+                            "monitor": mon,
+                            "label": label,
+                            "channels": channels,
+                            "result": result,
+                            "subject": subj,
+                            "success": True,
+                        },
+                    )
+                else:
+                    sysmgr.set_var(
+                        "xcom_last_error",
+                        {
+                            "ts": now_ts,
+                            "monitor": mon,
+                            "label": label,
+                            "channels": channels,
+                            "result": result,
+                            "subject": subj,
+                            "success": False,
+                        },
+                    )
         except Exception as e:
             log.error("[xcom] dispatch error for %s %s: %s", mon, label, e)
             if sysmgr and hasattr(sysmgr, "set_var"):

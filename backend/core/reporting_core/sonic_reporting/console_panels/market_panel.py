@@ -1,83 +1,41 @@
+# -*- coding: utf-8 -*-
+"""
+Market panel (stub)
+
+Sonic8 currently has Market Core work in progress in another branch. To keep
+the main Sonic Monitor UI clean, this panel renders a simple stub instead of
+attempting to query DLMonitorsManager in ways that may not exist yet.
+
+This avoids noisy:
+    [REPORT] ... market_panel.render failed: 'DLMonitorsManager' object has no attribute 'select_all'
+lines, while keeping the wiring in place for a future full market panel.
+"""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from .theming import (
-    emit_title_block,
-    get_panel_body_config,
-    body_pad_below,
+from backend.core.reporting_core.sonic_reporting.console_panels.panel_utils import (
+    emit_panel,
     body_indent_lines,
-    color_if_plain,
 )
 
+
+PANEL_KEY = "market_panel"
+PANEL_NAME = "Market"
 PANEL_SLUG = "market"
-PANEL_NAME = "Market Alerts"
 
 
-def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
-    dl = context.get("dl")
-    body_cfg = get_panel_body_config(PANEL_SLUG)
+def render(ctx: Any) -> List[str]:
+    """
+    Render a stubbed Market panel.
 
-    lines: List[str] = []
-    lines += emit_title_block(PANEL_SLUG, PANEL_NAME)
-
-    if dl is None:
-        lines += body_indent_lines(
-            PANEL_SLUG,
-            [color_if_plain("  (no DataLocker context)", body_cfg["body_text_color"])],
-        )
-        lines += body_pad_below(PANEL_SLUG)
-        return lines
-
-    # pull market monitor rows
-    rows = []
-    for r in dl.monitors.select_all():
-        if r.get("monitor") == "market":
-            rows.append(r)
-
-    if not rows:
-        lines += body_indent_lines(
-            PANEL_SLUG,
-            [color_if_plain("  (no active market alerts)", body_cfg["body_text_color"])],
-        )
-        lines += body_pad_below(PANEL_SLUG)
-        return lines
-
-    lines += body_indent_lines(
-        PANEL_SLUG,
-        [
-            color_if_plain(
-                "  Asset  Value      Thr      Desc                  Proximity   State",
-                body_cfg["column_header_text_color"],
-            )
-        ],
-    )
-
-    for r in rows:
-        meta = r.get("meta") or {}
-        prox = float(meta.get("proximity") or 0.0)
-        prox = max(0.0, min(prox, 1.0))
-        filled = int(round(prox * 10))
-        bar = "▰" * filled + "▱" * (10 - filled)
-
-        asset = (r.get("asset") or "")[:5]
-        value = float(r.get("value") or 0.0)
-        thr = float(r.get("thr_value") or 0.0)
-        desc = (meta.get("threshold_desc") or "")[:22]
-        state = r.get("state") or ""
-
-        line = (
-            f"  {asset:<5} {value:>7.2f}  {thr:>7.2f}  "
-            f"{desc:<22} {bar} {state:<6}"
-        )
-        lines += body_indent_lines(
-            PANEL_SLUG,
-            [color_if_plain(line, body_cfg["body_text_color"])],
-        )
-
-    lines += body_pad_below(PANEL_SLUG)
-    return lines
-
-
-def connector(*args, **kwargs) -> List[str]:
-    return render(*args, **kwargs)
+    If you later wire up a real Market Core, this function can be replaced
+    with a full implementation that inspects market-related monitors.
+    For now we just show a short 'disabled' message.
+    """
+    lines = [
+        "Market panel is currently disabled (market core stubbed in this branch).",
+    ]
+    body = body_indent_lines(PANEL_SLUG, lines)
+    return emit_panel(PANEL_SLUG, PANEL_NAME, body)
