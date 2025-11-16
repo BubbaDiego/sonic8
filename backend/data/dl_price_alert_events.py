@@ -48,6 +48,8 @@ class DLPriceAlertEventsManager:
             )
             """
         )
+        db.commit()
+
         cursor.execute(
             f"PRAGMA table_info({DLPriceAlertEventsManager.TABLE_NAME})"
         )
@@ -57,8 +59,7 @@ class DLPriceAlertEventsManager:
             cursor.execute(
                 f"ALTER TABLE {DLPriceAlertEventsManager.TABLE_NAME} ADD COLUMN asset TEXT"
             )
-
-        db.commit()
+            db.commit()
 
     @staticmethod
     def ensure_schema(db) -> None:
