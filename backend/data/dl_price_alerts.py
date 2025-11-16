@@ -21,45 +21,48 @@ class DLPriceAlertManager:
     def initialize_schema(db) -> None:
         cursor = db.get_cursor()
         if cursor is None:
-            log.error("DB unavailable creating price_alerts", source="DLPriceAlertManager")
+            log.error(
+                "DB unavailable creating price_alerts",
+                source="DLPriceAlertManager",
+            )
             return
 
+        # Base table definition – includes the latest set of columns
         cursor.execute(
             f"""
-            CREATE TABLE IF NOT EXISTS {DLPriceAlertManager.TABLE_NAME} (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                asset TEXT NOT NULL,
-                label TEXT,
-                rule_type TEXT NOT NULL,
-                direction TEXT NOT NULL,
-                base_threshold_value REAL NOT NULL,
-                recurrence_mode TEXT NOT NULL,
-                cooldown_seconds INTEGER NOT NULL DEFAULT 0,
-                enabled INTEGER NOT NULL DEFAULT 1,
+        CREATE TABLE IF NOT EXISTS {DLPriceAlertManager.TABLE_NAME} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset TEXT NOT NULL,
+            label TEXT,
+            rule_type TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            base_threshold_value REAL NOT NULL,
+            recurrence_mode TEXT NOT NULL,
+            cooldown_seconds INTEGER NOT NULL DEFAULT 0,
+            enabled INTEGER NOT NULL DEFAULT 1,
 
-                original_anchor_price REAL,
-                original_anchor_time TEXT,
-                current_anchor_price REAL,
-                current_anchor_time TEXT,
-                effective_threshold_value REAL,
-                armed INTEGER NOT NULL DEFAULT 1,
-                fired_count INTEGER NOT NULL DEFAULT 0,
+            original_anchor_price REAL,
+            original_anchor_time TEXT,
+            current_anchor_price REAL,
+            current_anchor_time TEXT,
+            effective_threshold_value REAL,
+            armed INTEGER NOT NULL DEFAULT 1,
 
-                last_state TEXT,
-                last_price REAL,
-                last_move_abs REAL,
-                last_move_pct REAL,
-                last_distance_to_target REAL,
-                last_proximity_ratio REAL,
-                last_evaluated_at TEXT,
-                last_triggered_at TEXT,
-                last_reset_at TEXT,
+            last_state TEXT,
+            last_price REAL,
+            last_move_abs REAL,
+            last_move_pct REAL,
+            last_distance_to_target REAL,
+            last_proximity_ratio REAL,
+            last_evaluated_at TEXT,
+            last_triggered_at TEXT,
+            last_reset_at TEXT,
 
-                metadata TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-            """
+            metadata TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
         )
         db.commit()
 
@@ -67,6 +70,7 @@ class DLPriceAlertManager:
         cursor.execute(f"PRAGMA table_info({DLPriceAlertManager.TABLE_NAME})")
         existing = {row[1] for row in cursor.fetchall()}
 
+        # name, sql-type, default SQL literal (or None)
         expected_cols = [
             ("label", "TEXT", None),
             ("effective_threshold_value", "REAL", None),
