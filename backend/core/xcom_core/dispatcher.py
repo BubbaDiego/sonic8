@@ -25,6 +25,7 @@ from backend.data.data_locker import DataLocker
 # consolidated stack
 from backend.core.xcom_core.xcom_config_service import XComConfigService
 from backend.core.xcom_core.voice_service import VoiceService
+from backend.core.xcom_core.tts_service import TTSService
 from backend.services.xcom_status_service import record_attempt
 from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
 
@@ -289,8 +290,53 @@ def dispatch_notifications(
             source=source,
         )
 
-    # SMS/TTS placeholders (still disabled unless wired later)
-    for k in ("sms", "tts"):
+    # ───────────── TTS (local pyttsx3) ─────────────
+    if chan.get("tts", False):
+        tts_text = None
+        if ctx:
+            tts_text = (
+                (ctx.get("voice") or {}).get("tts")
+                or ctx.get("tts")
+                or ctx.get("body")
+            )
+        if not tts_text:
+            tts_text = body
+
+        tts_ok = False
+        tts_error = None
+
+        try:
+            provider_cfg = cfg.get_provider("tts")
+            voice_name = None
+            speed = None
+            if isinstance(provider_cfg, Mapping):
+                voice_name = provider_cfg.get("voice") or provider_cfg.get("voice_name")
+                raw_speed = provider_cfg.get("speed") or provider_cfg.get("rate")
+                if isinstance(raw_speed, (int, float)):
+                    speed = int(raw_speed)
+                elif isinstance(raw_speed, str) and raw_speed.isdigit():
+                    speed = int(raw_speed)
+            elif isinstance(provider_cfg, str):
+                voice_name = provider_cfg
+            tts_svc = TTSService(voice_name, speed)
+        except Exception as exc:  # pragma: no cover - instantiation errors
+            tts_error = str(exc)
+        else:
+            recipient = ctx.get("recipient") or to_hint or monitor_name
+            try:
+                tts_ok = bool(tts_svc.send(recipient or "local", tts_text, dl=dl))
+            except Exception as exc:  # pragma: no cover - pyttsx3 failures
+                tts_error = str(exc)
+
+        if tts_ok:
+            summary["channels"]["tts"] = {"ok": True}
+        else:
+            summary["channels"]["tts"] = {"ok": False, "error": tts_error or "tts failed"}
+    else:
+        summary["channels"]["tts"] = {"ok": False, "skip": "disabled"}
+
+    # SMS placeholder (still disabled unless wired later)
+    for k in ("sms",):
         if k not in summary["channels"]:
             summary["channels"][k] = {"ok": False, "skip": "disabled" if not chan.get(k, False) else "not-implemented"}
 
