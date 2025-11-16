@@ -23,10 +23,16 @@ def _load_prices(dl) -> Dict[str, float]:
     if mgr is None:
         return prices
 
-    try:
-        rows = mgr.get_all_prices()
-    except Exception:
-        return prices
+    rows = None
+    for method_name in ("get_all_prices", "select_all", "list_all"):
+        method = getattr(mgr, method_name, None)
+        if not callable(method):
+            continue
+        try:
+            rows = method()
+            break
+        except Exception:
+            rows = None
 
     if not rows:
         return prices
@@ -76,13 +82,16 @@ def run_market_console() -> None:
 
     while True:
         print()
-        print("╭──────────────────────── Market Core Console ─────────────────────────╮")
-        print("│ 1. Market Dashboard (prices + status)                               │")
-        print("│ 2. Manage Market Alerts                                             │")
-        print("│ 3. Market Activity / XCom History                                   │")
-        print("│ 4. Help & Concepts                                                  │")
-        print("│ 0. Back to LaunchPad                                                │")
-        print("╰──────────────────────────────────────────────────────────────────────╯")
+        print("╭──────────────────────── 📊 Market Core Console ─────────────────────────╮")
+        print("│                                                                          │")
+        print("│  1. 📈 Market Dashboard      – live prices & alert proximity             │")
+        print("│  2. ⚙️  Manage Alerts         – add / edit / reset / delete              │")
+        print("│  3. 🛰️  Activity / XCom Log   – recent breaches & history                │")
+        print("│  4. 📖 Help & Concepts        – anchors, thresholds, recurrence          │")
+        print("│                                                                          │")
+        print("│  0. ⏪ Back to LaunchPad                                                  │")
+        print("│                                                                          │")
+        print("╰──────────────────────────────────────────────────────────────────────────╯")
         choice = input("→ ").strip().lower()
 
         if choice in ("0", "q", "quit", "exit"):
@@ -107,29 +116,35 @@ def show_dashboard(dl: Any) -> None:
 
     print()
     print("╭──────────────────────── 📈 Market Dashboard 📈 ──────────────────────╮")
-    print("│ Baseline: anchors from Market Core • Data: DL prices                │")
+    print("│ Baseline: 🎯 anchors from Market Core • Data: 💾 DL prices           │")
     print("╰──────────────────────────────────────────────────────────────────────╯")
     print()
-    print("Asset  Price        Move       Move%    Alert                Proximity  State")
+    print(
+        "   🪙Asset    💵Price      📉Move      📊Move%    🎯 Alert           🔋 Proximity  🧾 State"
+    )
+    print("   ────────────────────────────────────────────────────────────────────────────────")
 
-    for r in rows:
-        asset = (r.get("asset") or "")[:5]
-        price = float(r.get("price") or 0.0)
-        move_abs = float(r.get("move_abs") or 0.0)
-        move_pct = float(r.get("move_pct") or 0.0)
-        threshold_desc = (r.get("threshold_desc") or "")[:20]
-        state = r.get("state") or ""
-        prox = float(r.get("proximity") or 0.0)
-        prox = max(0.0, min(prox, 1.0))
-        filled = int(round(prox * 10))
-        bar = "▰" * filled + "▱" * (10 - filled)
+    if not rows:
+        print("   (no alerts yet – add some in ⚙️  Manage Alerts)")
+    else:
+        for r in rows:
+            asset = (r.get("asset") or "")[:5]
+            price = float(r.get("price") or 0.0)
+            move_abs = float(r.get("move_abs") or 0.0)
+            move_pct = float(r.get("move_pct") or 0.0)
+            threshold_desc = (r.get("threshold_desc") or "")[:18]
+            state = r.get("state") or ""
+            prox = float(r.get("proximity") or 0.0)
+            prox = max(0.0, min(prox, 1.0))
+            filled = int(round(prox * 10))
+            bar = "▰" * filled + "▱" * (10 - filled)
 
-        print(
-            f"{asset:<5} {price:>10.2f} {move_abs:>10.2f} {move_pct:>7.2f}%  "
-            f"{threshold_desc:<20} {bar} {state}"
-        )
+            print(
+                f"   {asset:<5}  {price:>9.2f}  {move_abs:>9.2f}  "
+                f"{move_pct:>7.2f}%   {threshold_desc:<18}  {bar}  {state:<7}"
+            )
 
-    input("\nPress ENTER to return...")
+    input("\n⏎  Press ENTER to return...")
 
 
 # ───────────────────── alerts CRUD (minimal) ─────────────────────
@@ -141,15 +156,16 @@ def manage_alerts(dl: Any) -> None:
 
         print()
         print("╭──────────────────────── ⚙️ Market Alerts ⚙️ ────────────────────────╮")
-        print("│ #  Asset  Type        Dir    Threshold   Recurrence   Enabled       │")
+        print("│ #  🪙Asset  📐Type       ↕ Dir   🎯Thresh    🔁 Recurrence   ✅ Enabled │")
         print("╰──────────────────────────────────────────────────────────────────────╯")
         for idx, a in enumerate(alerts, 1):
             print(
                 f"  {idx:<2} {a.asset:<5} {a.rule_type:<11} {a.direction:<6} "
-                f"{a.base_threshold_value:>9.2f}   {a.recurrence_mode:<9} {str(a.enabled):<7}"
+                f"{a.base_threshold_value:>9.2f}   {a.recurrence_mode:<10} "
+                f"{'ON ' if a.enabled else 'OFF'}"
             )
         print()
-        print("A) Add  E) Edit  R) Reset/Re-arm  D) Delete  Q) Back")
+        print("  🆕 [A]dd   ✏️ [E]dit   🔁 [R]eset/Re-arm   🗑 [D]elete   ⏪ [Q] Back")
         choice = input("→ ").strip().lower()
 
         if choice in ("0", "q"):
@@ -315,23 +331,27 @@ def show_history(dl: Any) -> None:
     events: List[PriceAlertEvent] = dl.price_alert_events.get_recent(limit=50)
     print()
     print("╭──────────── 🛰 Market Activity / XCom History ────────────╮")
-    print("│ Time (UTC)           Asset  Type      State   Price  Move% │")
+    print("│  ⏱ Time (UTC)        🪙Asset  🧾Type    🧱State   💵Price   📊Move% │")
     print("╰────────────────────────────────────────────────────────────╯")
 
-    for ev in events:
-        t = ev.created_at
-        try:
-            dt = datetime.fromisoformat(str(t))
-            t_str = dt.strftime("%Y-%m-%d %H:%M:%S")
-        except Exception:
-            t_str = str(t)
-        move_pct = ev.movement_percent or 0.0
-        print(
-            f"{t_str}  {ev.asset:<5} {ev.event_type:<9} "
-            f"{(ev.state_after or ''):<6} {(ev.price_at_event or 0.0):>8.2f} {move_pct:>7.2f}%"
-        )
+    if not events:
+        print("  (no history yet – waiting for alerts to fire)")
+    else:
+        for ev in events:
+            t = ev.created_at
+            try:
+                dt = datetime.fromisoformat(str(t))
+                t_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                t_str = str(t)
+            move_pct = ev.movement_percent or 0.0
+            print(
+                f"  {t_str}  {ev.asset:<5}  {ev.event_type:<8} "
+                f"{(ev.state_after or ''):<6} {(ev.price_at_event or 0.0):>8.2f} "
+                f"{move_pct:>7.2f}%"
+            )
 
-    input("\nPress ENTER to return...")
+    input("\n⏎  Press ENTER to return...")
 
 
 # ───────────────────── help ─────────────────────
@@ -339,27 +359,29 @@ def show_history(dl: Any) -> None:
 
 def show_help() -> None:
     print()
-    print("╭────────────────────── Help & Concepts ───────────────────────╮")
-    print("│ • Anchor: remembered price used as baseline for movement     │")
-    print("│   alerts. 'Move 5% from anchor' compares current vs anchor.  │")
-    print("│                                                              │")
-    print("│ • Threshold: how big a move you care about.                  │")
-    print("│   – Percent move  (≥ X% from anchor)                         │")
-    print("│   – Dollar move   (≥ $X from anchor)                         │")
-    print("│   – Target price  (crosses a fixed level)                    │")
-    print("│                                                              │")
-    print("│ • Recurrence: what happens after an alert fires:             │")
-    print("│   – single : alert once, then disarmed until reset           │")
-    print("│   – reset  : alert, then anchor jumps to the new price       │")
-    print("│   – ladder : alert on each step of size threshold            │")
-    print("│                                                              │")
-    print("│ • Reset: you can re-arm an alert at the current price or     │")
-    print("│   the original anchor, restarting distance to threshold.     │")
-    print("│                                                              │")
-    print("│ • Proximity bar: shows how close the current move is to the  │")
-    print("│   threshold. 0% = empty, 100% = alert fires.                 │")
-    print("╰──────────────────────────────────────────────────────────────╯")
-    input("\nPress ENTER to return...")
+    print("╭────────────────────── 📖 Help & Concepts ───────────────────────╮")
+    print("│                                                                  │")
+    print("│ • 🎯 Anchor: a remembered price used as the baseline for         │")
+    print("│   movement alerts. 'Move 5% from anchor' compares current vs     │")
+    print("│   this anchor price.                                             │")
+    print("│                                                                  │")
+    print("│ • 🎯 Threshold: how big a move you care about.                   │")
+    print("│   – 📊 Percent move  (≥ X% from anchor)                          │")
+    print("│   – 💵 Dollar move   (≥ $X from anchor)                          │")
+    print("│   – 🎯 Target price  (crosses a fixed level)                     │")
+    print("│                                                                  │")
+    print("│ • ♻️ Recurrence: what happens after an alert fires:              │")
+    print("│   – single : alert once, then disarmed until reset               │")
+    print("│   – reset  : alert, then anchor jumps to the new price           │")
+    print("│   – ladder : alert on each step of size threshold                │")
+    print("│                                                                  │")
+    print("│ • 🔁 Reset: re-arm an alert at the current price or at the       │")
+    print("│   original anchor, restarting its \"distance to threshold\".      │")
+    print("│                                                                  │")
+    print("│ • 🔋 Proximity bar: shows how close the current move is to       │")
+    print("│   the threshold. 0% = empty, 100% = alert fires.                 │")
+    print("╰──────────────────────────────────────────────────────────────────╯")
+    input("\n⏎  Press ENTER to return...")
 
 
 if __name__ == "__main__":
