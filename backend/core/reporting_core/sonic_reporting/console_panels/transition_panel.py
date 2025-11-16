@@ -8,6 +8,13 @@ import sys
 import time
 from typing import Any, Dict, Optional
 
+DEBUG_TRANSITION = os.getenv("SONIC_TRANSITION_DEBUG", "0").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
 DEFAULT_POLL_SECONDS = 30
 DEFAULT_FPS = 12
 DEFAULT_RUNNER = "ping_pong_bar"
@@ -84,7 +91,7 @@ def run(ctx: Optional[Dict[str, Any]] = None) -> None:
     """
     Fun-zone transition used between Sonic Monitor cycles.
 
-    Prefers a fun_core transition runner (fortune_timer by default) which shows
+    Prefers a fun_core transition runner (ping_pong_bar by default) which shows
     a playful timer + one-liner. If fun_core cannot be imported for any reason,
     falls back to the simple text countdown used previously.
     """
@@ -141,12 +148,16 @@ def run(ctx: Optional[Dict[str, Any]] = None) -> None:
         )
         runner.run(tctx)
         return
-    except Exception:
+    except Exception as exc:
         # Best-effort only: don't break the monitor if fun_core is missing;
         # fall back to the simple countdown.
-        pass
+        if DEBUG_TRANSITION:
+            import traceback
 
-    _run_simple_countdown(duration)
+            print("\n[transition_panel] fun_core runner failed:", repr(exc))
+            traceback.print_exc()
+        _run_simple_countdown(duration)
+        return
 
 
 if __name__ == "__main__":
