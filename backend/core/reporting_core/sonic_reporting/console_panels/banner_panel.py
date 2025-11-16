@@ -61,7 +61,7 @@ def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
     dash_lan   = _get(dl, "dashboard_url_lan", "dashboard_lan", default="http://10.0.0.2:5001/dashboard")
     api_lan    = _get(dl, "api_url_lan", "api_lan", default="http://10.0.0.2:5000")
 
-    # XCOM state — resolve exactly like XCOM Check (FILE → DB → ENV)
+    # XCOM state — resolve exactly like XCOM Check (ENV → DB → FILE)
     cfg = {}
     try:
         path = default_json_path or discover_json_path(None)
@@ -75,13 +75,19 @@ def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
         xcom_live, live_src = xcom_live_status(dl, cfg=cfg)
     except Exception:
         xcom_live, live_src = False, "—"
-    muted      = _get(dl, "muted_modules", default=None)
+    muted = _get(dl, "muted_modules", default=None)
 
     # Paths (shown as values only; we never embed raw backslashes here)
-    cfg_path   = _get(dl, "config_path", "config_file", default=(default_json_path or "C:/sonic7/backend/config/sonic_monitor_config.json"))
-    env_path   = _get(dl, "env_path", "env_file", default="C:/sonic7/.env")
-    db_path    = _get(dl, "db_path", "database_path", default="C:/sonic7/backend/mother.db")
+    cfg_path = _get(
+        dl,
+        "config_path",
+        "config_file",
+        default=(default_json_path or "C:/sonic8/backend/config/sonic_monitor_config.json"),
+    )
+    env_path = _get(dl, "env_path", "env_file", default="C:/sonic8/.env")
+    db_path  = _get(dl, "db_path", "database_path", default="C:/sonic8/backend/mother.db")
 
+    # Monitor config
     mon_cfg = cfg.get("monitor") if isinstance(cfg, dict) else None
     mon_cfg = mon_cfg if isinstance(mon_cfg, dict) else {}
     poll = mon_cfg.get("loop_seconds")
@@ -95,13 +101,17 @@ def render(dl: Any, csum: Any, default_json_path: Optional[str] = None) -> None:
         or "Live"
     )
 
+    # Global snooze from config (monitor.global_snooze_seconds)
     raw_snooze = mon_cfg.get("global_snooze_seconds", 0)
     try:
         global_snooze = int(raw_snooze or 0)
     except Exception:
         global_snooze = 0
+
+    # These mirror what XCom bridge uses as hard defaults if config is 0/missing.
     hard_default_liquid = 600
     hard_default_profit = 1200
+
     if global_snooze > 0:
         snooze_txt = f"{global_snooze}s [FILE]"
     else:

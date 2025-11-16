@@ -4,11 +4,15 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import time
 from datetime import datetime
+from io import StringIO
+
+from rich.console import Console
+from rich.table import Table
+from rich import box
 
 from .theming import (
     emit_title_block,
     get_panel_body_config,
-    body_pad_above,
     body_pad_below,
     body_indent_lines,
     color_if_plain,
@@ -22,11 +26,18 @@ from backend.core.reporting_core.sonic_reporting.xcom_extras import (
     get_default_voice_cooldown,
 )
 
+try:
+    # Width hint for Rich export; theming already uses this
+    from .theming import HR_WIDTH  # type: ignore[attr-defined]
+except Exception:  # pragma: no cover
+    HR_WIDTH = 100
+
 PANEL_SLUG = "xcom"
 PANEL_NAME = "XCom"
 
 
 # ───────────────────────── receipts + age helpers ──────────────────────────
+
 
 def _get_receipt(dl: Any, key: str) -> Optional[Dict[str, Any]]:
     sysmgr = getattr(dl, "system", None)
@@ -93,6 +104,7 @@ def _fmt_time_from_ts(ts_value: Any) -> str:
 
 # ───────────────────────── attempt formatting ──────────────────────────────
 
+
 def _target_icon_and_symbol(rec: Dict[str, Any]) -> (str, str):
     """Return (icon, symbol/text) for a monitor + label pair."""
     monitor = (rec.get("monitor") or "").lower()
@@ -125,8 +137,8 @@ def _target_from_rec(rec: Dict[str, Any]) -> str:
 
 def _channels_from_attempt(ev: Dict[str, Any]) -> str:
     """
-    Older helper (still used by other panels): concatenated channel icons.
-    For the XCom table we use separate Sys/Voice/SMS/TTS columns instead.
+    Legacy helper (still used elsewhere): concatenated channel icons.
+    The Rich table builds a single cell with the same icon set.
     """
     ch = ev.get("channels") or {}
     if not isinstance(ch, dict):
@@ -291,6 +303,7 @@ def _recent_attempts(
 
 # ───────────────────────── snooze / cooldown summaries ─────────────────────
 
+
 def _snooze_summary(dl: Any, rec_skip: Optional[Dict[str, Any]]) -> str:
     remaining = None
     minimum = None
@@ -334,7 +347,169 @@ def _cooldown_summary(dl: Any, cfg: Optional[Dict[str, Any]]) -> str:
     return f"voice cooldown: idle (window={default_cd}s)"
 
 
+# ───────────────────────── Rich table plumbing ─────────────────────────────
+
+
+def _resolve_table_cfg(body_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Resolve Rich table settings for the XCom panel.
+
+    Defaults:
+      • style: "thin" (SIMPLE_HEAD)
+      • table/header justification: left
+    """
+    tcfg = (body_cfg or {}).get("table") or {}
+    style = str(tcfg.get("style") or "").lower().strip() or "thin"
+    table_justify = str(tcfg.get("table_justify") or "left").lower().strip()
+    header_justify = str(tcfg.get("header_justify") or "left").lower().strip()
+    return {
+        "style": style,
+        "table_justify": table_justify,
+        "header_justify": header_justify,
+    }
+
+
+def _style_to_box(style: str):
+    style = (style or "").lower()
+    if style == "thin":
+        return box.SIMPLE_HEAD, False
+    if style == "thick":
+        return box.HEAVY_HEAD, True
+    # "invisible" or unknown → no borders
+    return None, False
+
+
+def _justify_lines(lines: List[str], justify: str, width: int) -> List[str]:
+    """Apply table-level justification to rendered text lines."""
+    justify = (justify or "left").lower()
+    out: List[str] = []
+    for line in lines:
+        s = line.rstrip("\n")
+        pad = max(0, width - len(s))
+        if justify == "right":
+            out.append(" " * pad + s)
+        elif justify == "center":
+            left = pad // 2
+            out.append(" " * left + s)
+        else:
+            out.append(s)
+    return out
+
+
+def _is_rule_line(line: str) -> bool:
+    """
+    Return True if a line is just box-drawing/horizontal rule characters.
+
+    Used so we can drop the header underline that Rich adds by default.
+    """
+    stripped = line.strip()
+    if not stripped:
+        return False
+    chars = set(stripped)
+    rule_chars = set("┌┐└┘├┤┬┴┼─━═╭╮╯╰╴╶╷╵╸╹╺╻╼╽╾╿+|")
+    return chars <= rule_chars
+
+
+def _build_attempts_table(attempts: List[Dict[str, Any]], body_cfg: Dict[str, Any]) -> List[str]:
+    """
+    Build a Rich table representing recent XCom attempts and export as text.
+
+    We strip the header underline so only the header row + data rows remain.
+    """
+    table_cfg = _resolve_table_cfg(body_cfg)
+    box_style, show_lines = _style_to_box(table_cfg["style"])
+
+    table = Table(
+        show_header=True,
+        header_style="",
+        show_lines=show_lines,
+        box=box_style,
+        pad_edge=False,
+        expand=False,
+    )
+
+    # Column headers with icons to the left (matching other panels)
+    table.add_column("🔢 #", justify="right", no_wrap=True)
+    table.add_column("⏳ Age", justify="right", no_wrap=True)
+    table.add_column("🕒 Time", justify="left", no_wrap=True)
+    table.add_column("📋 Result", justify="left", no_wrap=True)
+    table.add_column("🎯 Tgt", justify="left", no_wrap=True)
+    table.add_column("🪙 Symbol", justify="left", no_wrap=True)
+    table.add_column("📝 Details", justify="left")
+    table.add_column("📡 Channels", justify="left", no_wrap=True)
+
+    for idx, ev in enumerate(attempts, 1):
+        kind = (ev.get("type") or "").lower()
+        result_word = kind or "-"
+
+        # Color the Result cell only
+        if kind == "error":
+            result_cell = "[red]" + result_word + "[/]"
+        elif kind == "send":
+            result_cell = "[green]" + result_word + "[/]"
+        elif kind == "skip":
+            result_cell = "[yellow]" + result_word + "[/]"
+        else:
+            result_cell = result_word or "-"
+
+        icon, symbol = _target_icon_and_symbol(ev)
+        tgt_icon = icon or ""
+        tgt_sym = symbol or ""
+
+        details = _details_from_attempt(ev)
+
+        ch_map = ev.get("channels") or {}
+        if not isinstance(ch_map, dict):
+            ch_map = {}
+        sys_on = bool(ch_map.get("system"))
+        voice_on = bool(ch_map.get("voice"))
+        chan_data = (ch_map.get("sms") or {})
+        if isinstance(chan_data, dict):
+            sms_on = bool(chan_data.get("ok"))
+        else:
+            sms_on = bool(chan_data)
+        tts_on = bool(ch_map.get("tts"))
+
+        sys_col = "🖥" if sys_on else ""
+        voice_col = "📞" if voice_on else ""
+        sms_col = "💬" if sms_on else ""
+        tts_col = "🔊" if tts_on else ""
+        channels_icons = " ".join(icon for icon in (sys_col, voice_col, sms_col, tts_col) if icon)
+
+        table.add_row(
+            str(idx),
+            str(ev.get("age", "–")),
+            str(ev.get("time", "–")),
+            result_cell,
+            tgt_icon,
+            tgt_sym,
+            details,
+            channels_icons,
+        )
+
+    buf = StringIO()
+    console = Console(record=True, width=HR_WIDTH, file=buf, force_terminal=True)
+    console.print(table)
+    text = console.export_text().rstrip("\n")
+    if not text:
+        return []
+
+    raw_lines = text.splitlines()
+
+    # Drop leading/trailing blanks
+    while raw_lines and not raw_lines[0].strip():
+        raw_lines.pop(0)
+    while raw_lines and not raw_lines[-1].strip():
+        raw_lines.pop()
+
+    # Remove pure rule lines (header underline, borders, if any)
+    cleaned = [ln for ln in raw_lines if not _is_rule_line(ln)]
+
+    return _justify_lines(cleaned, table_cfg["table_justify"], HR_WIDTH)
+
+
 # ───────────────────────── render (console_panels style) ───────────────────
+
 
 def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     """
@@ -377,19 +552,17 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     # Title
     out += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
-    # Status lines
-    status_lines: List[str] = []
-    status_lines.append(f"  🛰 Status: {status_label}  [src={live_src}]")
-    # No “last attempt / last error” summary line anymore –
-    # the recent attempts table is the single source of truth.
-
+    # Status line
+    status_lines: List[str] = [
+        f"  🛰 Status: {status_label}  [src={live_src}]",
+    ]
     out += body_indent_lines(
         PANEL_SLUG,
         [color_if_plain(ln, body_cfg["body_text_color"]) for ln in status_lines],
     )
     out.append("")
 
-    # Recent attempts table
+    # Recent attempts table title
     out += body_indent_lines(
         PANEL_SLUG,
         [color_if_plain("  📡 Recent XCom attempts (latest first)", body_cfg["column_header_text_color"])],
@@ -401,98 +574,28 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             [color_if_plain("    (no recent send/skip/error receipts)", body_cfg["body_text_color"])],
         )
     else:
-        # Draw a thin ASCII table around the values so we can see column boundaries
-        border = "    +----+------+--------+---------+-----+--------+------------+-----------------------+"
-        header = (
-            "    | #  | Age  | Time   | Result  | Tgt | Symbol | Details    | Channels              |"
-        )
+        table_lines = _build_attempts_table(attempts, body_cfg)
+        if table_lines:
+            header_line = table_lines[0]
+            data_lines = table_lines[1:]
 
-        out += body_indent_lines(
-            PANEL_SLUG,
-            [
-                color_if_plain(border, body_cfg["column_header_text_color"]),
-                color_if_plain(header, body_cfg["column_header_text_color"]),
-                color_if_plain(border, body_cfg["column_header_text_color"]),
-            ],
-        )
-
-        rows: List[str] = []
-        base_color = body_cfg["body_text_color"]
-
-        for idx, ev in enumerate(attempts, 1):
-            num = f"{idx:<2}"
-            age = f"{ev.get('age', '–'):<4}"
-            when = f"{ev.get('time', '–'):<6}"
-            kind = (ev.get("type") or "").lower()
-            result_word = kind or "-"
-
-            # Split target into icon + symbol
-            icon, symbol = (
-                _target_icon_and_symbol(ev)
-                if "_target_icon_and_symbol" in globals()
-                else ("", _target_from_rec(ev))
-            )
-            tgt_icon = icon or ""
-            tgt_sym = symbol or ""
-
-            details = _details_from_attempt(ev)
-
-            # Break channels into 4 booleans
-            ch_map = ev.get("channels") or {}
-            if not isinstance(ch_map, dict):
-                ch_map = {}
-            sys_on = bool(ch_map.get("system"))
-            voice_on = bool(ch_map.get("voice"))
-            chan_data = (ch_map.get("sms") or {})
-            if isinstance(chan_data, dict):
-                sms_on = bool(chan_data.get("ok"))
-            else:
-                sms_on = bool(chan_data)
-            tts_on = bool(ch_map.get("tts"))
-
-            sys_col = "🖥" if sys_on else ""
-            voice_col = "📞" if voice_on else ""
-            sms_col = "💬" if sms_on else ""
-            tts_col = "🔊" if tts_on else ""
-
-            # Build a single Channels cell with only the enabled icons
-            channels_icons = " ".join(
-                icon
-                for icon in (sys_col, voice_col, sms_col, tts_col)
-                if icon
-            )
-            if not channels_icons:
-                channels_icons = ""
-
-            # Color for the result word only
-            if kind == "error":
-                result_color = "red"
-            elif kind == "send":
-                result_color = "green"
-            else:
-                result_color = base_color
-
-            # Build the row pieces — all cells left-justified
-            prefix = f"    | {num:<2} | {age:<4} | {when:<6} | "
-            suffix = (
-                f"| {tgt_icon:<3} | {tgt_sym:<6} | {details:<10} "
-                f"| {channels_icons:<21} |"
+            # Header tinted with column_header_text_color
+            out += body_indent_lines(
+                PANEL_SLUG,
+                [paint_line(header_line, body_cfg["column_header_text_color"])],
             )
 
-            colored_result = paint_line(f"{result_word:<7}", result_color)
-
-            full_line = (
-                color_if_plain(prefix, base_color)
-                + colored_result
-                + " "
-                + color_if_plain(suffix, base_color)
+            # Body lines with normal body_text_color (respecting inline Rich markup)
+            for ln in data_lines:
+                out += body_indent_lines(
+                    PANEL_SLUG,
+                    [color_if_plain(ln, body_cfg["body_text_color"])],
+                )
+        else:
+            out += body_indent_lines(
+                PANEL_SLUG,
+                [color_if_plain("    (no recent send/skip/error receipts)", body_cfg["body_text_color"])],
             )
-            rows.append(full_line)
-
-        # Add bottom border
-        rows.append(color_if_plain(border, body_cfg["column_header_text_color"]))
-
-        out += body_indent_lines(PANEL_SLUG, rows)
 
     out.append("")
 
