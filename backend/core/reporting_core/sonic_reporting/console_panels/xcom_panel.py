@@ -404,6 +404,15 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             sms_col = "💬" if sms_on else ""
             tts_col = "🔊" if tts_on else ""
 
+            # Build a single Channels cell with only the enabled icons
+            channels_icons = " ".join(
+                icon
+                for icon in (sys_col, voice_col, sms_col, tts_col)
+                if icon
+            )
+            if not channels_icons:
+                channels_icons = ""
+
             # Color for the result word only
             if kind == "error":
                 result_color = "red"
@@ -416,7 +425,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             prefix = f"    | {num:<2} | {age:<4} | {when:<6} | "
             suffix = (
                 f"| {tgt_icon:<3} | {tgt_sym:<6} | {details:<10} "
-                f"| {sys_col:<3}| {voice_col:<5}| {sms_col:<3}| {tts_col:<3}|"
+                f"| {channels_icons:<21} |"
             )
 
             colored_result = paint_line(f"{result_word:<7}", result_color)
