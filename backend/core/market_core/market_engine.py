@@ -37,28 +37,61 @@ def _direction_ok(alert: PriceAlert, move_abs: float) -> bool:
     return True
 
 
-def _eval_state(alert: PriceAlert, price: float, move_abs: float, move_pct: float) -> (str, float, str):
+def _eval_state(
+    alert: PriceAlert, price: float, move_abs: float, move_pct: float
+) -> (str, float, str, float | None, float):
     """
-    Returns (state, proximity, threshold_desc).
+    Returns (state, proximity, threshold_desc, metric, threshold_value).
     """
+
     thr = _threshold(alert)
     rule = (alert.rule_type or "move_pct").lower()
     direction = (alert.direction or "both").lower()
+    direction = "up" if direction == "above" else "down" if direction == "below" else direction
 
-    metric = 0.0
+    warn_ratio = 0.7
     threshold_desc = ""
+    proximity = 0.0
+    metric: float | None = None
+    threshold_value = 0.0
 
-    if rule == "move_abs":
-        metric = abs(move_abs)
-        threshold_desc = f"${thr:.2f} move"
-        if not _direction_ok(alert, move_abs):
-            metric = 0.0
-    elif rule == "move_pct":
-        metric = abs(move_pct)
-        threshold_desc = f"{thr:.2f}% move"
-        if not _direction_ok(alert, move_abs):
-            metric = 0.0
+    if rule in ("move_abs", "move_pct"):
+        threshold_value = abs(thr)
+        raw_value = move_pct if rule == "move_pct" else move_abs
+
+        if raw_value is not None:
+            if direction == "up":
+                metric = max(raw_value, 0.0)
+            elif direction == "down":
+                metric = max(-raw_value, 0.0)
+            else:
+                metric = abs(raw_value)
+
+        if rule == "move_pct":
+            threshold_desc = f"{threshold_value:.2f}% move"
+        else:
+            threshold_desc = f"${threshold_value:.2f} move"
+
+        if metric is not None and threshold_value > 0:
+            ratio = metric / threshold_value
+        else:
+            ratio = 0.0
+
+        proximity = max(0.0, min(ratio, 1.0))
+
+        if not alert.enabled:
+            state = STATE_DISARMED
+        elif threshold_value <= 0 or metric is None:
+            state = STATE_OK
+        elif ratio >= 1.0:
+            state = STATE_BREACH
+        elif ratio >= warn_ratio:
+            state = STATE_WARN
+        else:
+            state = STATE_OK
+
     else:  # price_target
+        threshold_value = thr
         metric = price
         if direction in ("above", "up"):
             threshold_desc = f"price ≥ {thr:.2f}"
@@ -67,40 +100,34 @@ def _eval_state(alert: PriceAlert, price: float, move_abs: float, move_pct: floa
         else:
             threshold_desc = f"price crosses {thr:.2f}"
 
-    proximity = 0.0
-    if rule in ("move_abs", "move_pct") and thr > 0:
-        proximity = max(0.0, min(metric / thr, 1.0))
-    elif rule == "price_target" and thr > 0:
-        if direction in ("above", "up"):
-            proximity = max(0.0, min(price / thr, 1.0))
-        elif direction in ("below", "down"):
-            proximity = max(0.0, min(1.0, 1.0 - (price - thr) / max(thr, 1.0)))
-        else:
-            proximity = 1.0 if abs(price - thr) == 0 else max(
-                0.0, min(1.0, 1.0 - abs(price - thr) / thr)
-            )
+        if thr > 0:
+            if direction in ("above", "up"):
+                proximity = max(0.0, min(price / thr, 1.0))
+            elif direction in ("below", "down"):
+                proximity = max(0.0, min(1.0, 1.0 - (price - thr) / max(thr, 1.0)))
+            else:
+                proximity = 1.0 if abs(price - thr) == 0 else max(
+                    0.0, min(1.0, 1.0 - abs(price - thr) / thr)
+                )
 
-    breached = False
-    if rule == "price_target":
+        breached = False
         if direction in ("above", "up"):
             breached = price >= thr
         elif direction in ("below", "down"):
             breached = price <= thr
         else:
             breached = price >= thr or price <= thr
-    else:
-        breached = thr > 0 and metric >= thr
 
-    if not alert.enabled:
-        state = STATE_DISARMED
-    elif breached and alert.armed:
-        state = STATE_BREACH
-    elif proximity >= 0.7:
-        state = STATE_WARN
-    else:
-        state = STATE_OK
+        if not alert.enabled:
+            state = STATE_DISARMED
+        elif breached and alert.armed:
+            state = STATE_BREACH
+        elif proximity >= warn_ratio:
+            state = STATE_WARN
+        else:
+            state = STATE_OK
 
-    return state, proximity, threshold_desc
+    return state, proximity, threshold_desc, metric, threshold_value
 
 
 def _handle_recurrence(alert: PriceAlert, price: float, now_iso: str) -> None:
@@ -150,7 +177,13 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
         move_abs, move_pct = _compute_moves(alert, price)
         prev_state = alert.last_state or STATE_OK
 
-        state, proximity, threshold_desc = _eval_state(alert, price, move_abs, move_pct)
+        (
+            state,
+            proximity,
+            threshold_desc,
+            metric,
+            threshold_value,
+        ) = _eval_state(alert, price, move_abs, move_pct)
 
         alert.last_state = state
         alert.last_price = price
@@ -179,7 +212,7 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
                 anchor_at_event=alert.current_anchor_price,
                 movement_value=move_abs,
                 movement_percent=move_pct,
-                threshold_value=_threshold(alert),
+                threshold_value=threshold_value,
                 rule_type=alert.rule_type,
                 direction=alert.direction,
                 recurrence_mode=alert.recurrence_mode,
@@ -203,7 +236,6 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
         )
 
         # monitor status row for dl_monitors / XCom
-        value_metric = move_pct if (alert.rule_type or "").lower() == "move_pct" else move_abs
         meta = {
             "asset": alert.asset,
             "price": price,
@@ -228,8 +260,8 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
                 "monitor": "market",
                 "label": alert.label or f"{alert.asset} move",
                 "asset": alert.asset,
-                "value": value_metric,
-                "thr_value": _threshold(alert),
+                "value": metric if metric is not None else 0.0,
+                "thr_value": threshold_value,
                 "thr_op": ">=",
                 "state": state,
                 "source": "market_core",
