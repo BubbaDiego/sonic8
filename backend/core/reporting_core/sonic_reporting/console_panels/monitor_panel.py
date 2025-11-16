@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from io import StringIO
 from typing import Any, Dict, Iterable, List, Optional
 
 from rich.console import Console
@@ -229,14 +230,14 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
 
     table = Table(
         show_header=True,
-        header_style="",
+        header_style="",  # we colorize via color_if_plain
         show_lines=show_lines,
         box=box_style,
         pad_edge=False,
         expand=False,
     )
 
-    # Icons in header; data rows plain text
+    # Simple text headers; state colors come from the cell formatting.
     table.add_column("Mon", justify="left", no_wrap=True)
     table.add_column("Thresh", justify="left")
     table.add_column("Value", justify="right")
@@ -258,8 +259,11 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
             source,
         )
 
-    console = Console(record=True, width=HR_WIDTH, force_terminal=True)
+    # IMPORTANT: render into a buffer, not to real stdout
+    buf = StringIO()
+    console = Console(record=True, width=HR_WIDTH, file=buf, force_terminal=True)
     console.print(table)
+
     text = console.export_text().rstrip("\n")
     lines = text.splitlines() if text else []
 
