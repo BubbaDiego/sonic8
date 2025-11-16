@@ -354,13 +354,21 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             [color_if_plain("    (no recent send/skip/error receipts)", body_cfg["body_text_color"])],
         )
     else:
-        # Each component has its own column:
-        #   # | Age | Time | R | Result | T | Symbol | Details | Sys | Voice | SMS | TTS
-        header = "    #  Age  Time   R  Result  T  Symbol   Details      Sys Voice SMS TTS"
+        # Draw a thin ASCII table around the values so we can see column boundaries
+        border = "    +----+------+--------+---------+-----+--------+------------+-----------------------+"
+        header = (
+            "    | #  | Age  | Time   | Result  | Tgt | Symbol | Details    | Channels              |"
+        )
+
         out += body_indent_lines(
             PANEL_SLUG,
-            [color_if_plain(header, body_cfg["column_header_text_color"])],
+            [
+                color_if_plain(border, body_cfg["column_header_text_color"]),
+                color_if_plain(header, body_cfg["column_header_text_color"]),
+                color_if_plain(border, body_cfg["column_header_text_color"]),
+            ],
         )
+
         rows: List[str] = []
         base_color = body_cfg["body_text_color"]
 
@@ -371,13 +379,18 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             kind = (ev.get("type") or "").lower()
             result_word = kind or "-"
 
-            icon, symbol = _target_icon_and_symbol(ev)
-            r_mark = "•"  # marker column (could evolve to severity icon)
-            tgt_icon_str = icon or " "
-            tgt_sym_str = symbol or "?"
+            # Split target into icon + symbol
+            icon, symbol = (
+                _target_icon_and_symbol(ev)
+                if "_target_icon_and_symbol" in globals()
+                else ("", _target_from_rec(ev))
+            )
+            tgt_icon = icon or ""
+            tgt_sym = symbol or ""
 
             details = _details_from_attempt(ev)
 
+            # Break channels into 4 booleans
             ch_map = ev.get("channels") or {}
             if not isinstance(ch_map, dict):
                 ch_map = {}
@@ -386,20 +399,12 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             sms_on = bool(ch_map.get("sms"))
             tts_on = bool(ch_map.get("tts"))
 
-            sys_col = "🖥" if sys_on else " "
-            voice_col = "📞" if voice_on else " "
-            sms_col = "💬" if sms_on else " "
-            tts_col = "🔊" if tts_on else " "
+            sys_col = "🖥" if sys_on else ""
+            voice_col = "📞" if voice_on else ""
+            sms_col = "💬" if sms_on else ""
+            tts_col = "🔊" if tts_on else ""
 
-            prefix = f"    {num} {age} {when} {r_mark:<1} "
-
-            suffix = (
-                f"{tgt_icon_str:<2} "
-                f"{tgt_sym_str:<6} "
-                f"{details:<10} "
-                f"{sys_col:<3}{voice_col:<3}{sms_col:<3}{tts_col:<3}"
-            )
-
+            # Color for the result word only
             if kind == "error":
                 result_color = "red"
             elif kind == "send":
@@ -407,7 +412,15 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             else:
                 result_color = base_color
 
-            colored_result = paint_line(f"{result_word:<6}", result_color)
+            # Build the row pieces — all cells left-justified
+            prefix = f"    | {num:<2} | {age:<4} | {when:<6} | "
+            suffix = (
+                f"| {tgt_icon:<3} | {tgt_sym:<6} | {details:<10} "
+                f"| {sys_col:<3}| {voice_col:<5}| {sms_col:<3}| {tts_col:<3}|"
+            )
+
+            colored_result = paint_line(f"{result_word:<7}", result_color)
+
             full_line = (
                 color_if_plain(prefix, base_color)
                 + colored_result
@@ -415,6 +428,9 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
                 + color_if_plain(suffix, base_color)
             )
             rows.append(full_line)
+
+        # Add bottom border
+        rows.append(color_if_plain(border, body_cfg["column_header_text_color"]))
 
         out += body_indent_lines(PANEL_SLUG, rows)
 
