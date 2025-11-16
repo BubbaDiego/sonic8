@@ -12,6 +12,7 @@ from .theming import (
     body_pad_below,
     body_indent_lines,
     color_if_plain,
+    paint_line,
 )
 
 from backend.core.reporting_core.sonic_reporting.xcom_extras import (
@@ -78,11 +79,36 @@ def _fmt_time_from_ts(ts_value: Any) -> str:
 # ───────────────────────── attempt formatting ──────────────────────────────
 
 def _target_from_rec(rec: Dict[str, Any]) -> str:
-    mon = rec.get("monitor") or ""
-    lab = rec.get("label") or ""
-    if mon or lab:
-        return f"{mon}:{lab}".strip(":")
-    return "-"
+    """
+    Compact target label for XCom rows.
+
+    Examples:
+      monitor='liquid', label='SOL – Liq'  -> '💧 SOL'
+      monitor='price',  label='BTC price'  -> '💲 BTC'
+      monitor='market', label='SOL depth'  -> '📈 SOL'
+    """
+    monitor = (rec.get("monitor") or "").lower()
+    label = (rec.get("label") or "").strip()
+
+    # Try to grab a short symbol from the label (e.g. 'SOL – Liq' -> 'SOL').
+    symbol = ""
+    if label:
+        symbol = label.split()[0]
+
+    if monitor == "liquid":
+        icon = "💧"
+    elif monitor == "price":
+        icon = "💲"
+    elif monitor == "market":
+        icon = "📈"
+    else:
+        icon = ""
+
+    text = symbol or label or monitor or "?"
+
+    if icon:
+        return f"{icon} {text}"
+    return text
 
 
 def _format_channels_compact(ch: Dict[str, Any]) -> str:
@@ -278,14 +304,8 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     # Status lines
     status_lines: List[str] = []
     status_lines.append(f"  🛰 Status: {status_label}  [src={live_src}]")
-    if attempts:
-        newest = attempts[0]
-        last_err = next((a for a in attempts if a["type"] == "error"), None)
-        last_attempt_txt = f"{newest['type']} {newest['result']} {newest['age']} ago"
-        last_error_txt = f"{last_err['age']} ago" if last_err else "none"
-        status_lines.append(f"     last attempt: {last_attempt_txt}   last error: {last_error_txt}")
-    else:
-        status_lines.append("     last attempt: none   last error: none")
+    # No “last attempt / last error” summary line anymore –
+    # the recent attempts table is the single source of truth.
 
     out += body_indent_lines(
         PANEL_SLUG,
@@ -306,26 +326,38 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         )
     else:
         header = (
-            "    #  ⏱ Age  🕒 Time  🧾 Type  🎯 Target            "
-            "🧮 Result                      📢 Channels"
+            "    #  ⏱ Age  🕒 Time  🧾 Result  🎯 Target            "
+            "🧮 Details                     📢 Channels"
         )
         out += body_indent_lines(
             PANEL_SLUG,
             [color_if_plain(header, body_cfg["column_header_text_color"])],
         )
+        rows: List[str] = []
+        base_color = body_cfg["body_text_color"]
         for idx, ev in enumerate(attempts, 1):
-            num = f"{idx:<2}"                       # e.g. '1 '
-            age = f"{ev['age']:<5}"                # '0s', '5s', '2m', '2h3m'
-            when = f"{ev['time']:<7}"              # '2:44pm'
-            typ = f"{ev['type']:<6}"               # 'send', 'skip', 'error'
-            target = f"{ev['target'][:20]:<20}"    # 'liquid:SOL – Liq'
-            result = f"{ev['result'][:26]:<26}"    # 'OK', 'FAIL ...', 'GLOBAL-SNOOZE …'
-            chans = ev["channels"]
-            line = f"    {num} {age} {when} {typ} {target} {result} {chans}"
-            out += body_indent_lines(
-                PANEL_SLUG,
-                [color_if_plain(line, body_cfg["body_text_color"])],
-            )
+            num = f"{idx:<2}"
+            age = f"{(ev.get('age') or '–'):>4}"
+            when = f"{(ev.get('time') or '–'):>6}"
+            kind = (ev.get("type") or "").lower()
+            kind_label = f"{kind:<6}"
+            target_text = (ev.get("target") or "-")
+            target = f"{target_text[:18]:<18}"
+            result_text = (ev.get("result") or "–")
+            result = f"{result_text[:25]:<25}"
+            chans = ev.get("channels", "")
+            line = f"    {num} {age} {when} {kind_label} {target} {result} {chans}"
+
+            if kind == "error":
+                row_color = "red"
+            elif kind == "send":
+                row_color = "green"
+            else:
+                row_color = base_color
+
+            rows.append(paint_line(line, row_color))
+
+        out += body_indent_lines(PANEL_SLUG, rows)
 
     out.append("")
 
