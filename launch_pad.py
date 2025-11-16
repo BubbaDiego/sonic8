@@ -518,7 +518,7 @@ def launch_market_console(new_window: bool = True) -> int:
     """Launch the Market Core console."""
 
     console.print("\n[bold cyan][Market][/bold cyan] Launching Market Core Console…\n")
-    cmd = [PYTHON_EXEC, "-m", "backend.console.market_console"]
+    cmd = [PYTHON_EXEC, "-m", "backend.console.market_console_service"]
     return run_in_console(cmd, cwd=repo_root(), title="Market Console", new_window=new_window)
 
 
