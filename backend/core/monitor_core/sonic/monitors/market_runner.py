@@ -1,44 +1,39 @@
-# -*- coding: utf-8 -*-
-"""
-Sonic8 — Market monitor (stub)
-
-This file temporarily stubs out the market monitor logic while the real
-market_core / market monitor implementation is developed in another branch.
-
-The Sonic monitor engine imports `run_market_monitors(ctx)` via
-`backend.core.monitor_core.sonic.registry.DEFAULT_MONITORS`, so this
-function must be present and return a dict.
-
-Contract:
-    • Returns a dict with at least:
-        - "ok": bool
-        - "statuses": list[dict]
-        - "note": str (optional)
-    • The engine will treat an empty `statuses` list as "no alerts".
-"""
-
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict
+
+from backend.core.market_core.market_engine import evaluate_market_alerts
+
+
+def _resolve_dl(ctx: Any):
+    if ctx is None:
+        return None
+    dl = getattr(ctx, "dl", None)
+    if dl is not None:
+        return dl
+    if isinstance(ctx, dict):
+        return ctx.get("dl")
+    return None
 
 
 def run_market_monitors(ctx: Any) -> Dict[str, Any]:
     """
-    Stubbed market monitor runner.
+    Sonic runner for the 'market' monitor.
 
-    The real implementation will eventually evaluate broader market
-    conditions (volatility, index moves, macro triggers, etc.) and emit
-    MonitorStatus rows.
-
-    For now we simply return an empty status list so:
-      • the Sonic monitor's "Market" row remains in the Cycle Activity panel
-      • no DB writes or external calls are performed
+    Codex: adapt the price query to your actual DL prices API.
+    The intent is to produce { "BTC": 12345.0, "ETH": ..., "SPX": ... }.
     """
-    # ctx is a MonitorContext but we intentionally do not use it here
-    statuses: List[Dict[str, Any]] = []
+    dl = _resolve_dl(ctx)
+    if dl is None:
+        return {"ok": False, "error": "no data locker", "statuses": []}
 
-    return {
-        "ok": True,
-        "statuses": statuses,
-        "note": "market monitor stubbed (no-op in sonic8 main)",
-    }
+    # Example assuming dl.prices.select_all() returns rows with symbol/price.
+    rows = dl.prices.select_all()
+    prices: Dict[str, float] = {}
+    for row in rows:
+        sym = row.get("symbol") or row.get("asset") or row.get("ticker")
+        if sym is None:
+            continue
+        prices[str(sym)] = float(row.get("price") or 0.0)
+
+    return evaluate_market_alerts(dl, prices)

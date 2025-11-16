@@ -1,53 +1,67 @@
-"""Event log entries for price alerts."""
-
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict, replace
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, Optional
 
-from backend.models.price_alert import (
-    PriceAlertDirection,
-    PriceAlertMode,
-    PriceAlertStateEnum,
-)
+try:
+    from pydantic import BaseModel, Field
+except Exception:  # fallback stub
+    class BaseModel:  # type: ignore
+        def __init__(self, **data):
+            for k, v in data.items():
+                setattr(self, k, v)
+
+        def dict(self, *_, **__) -> dict:
+            return self.__dict__
+
+    def Field(default=None, **_):  # type: ignore
+        return default
 
 
-class _DataModelMixin:
-    def dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-    def copy(self, *, update: Optional[Dict[str, Any]] = None):  # type: ignore[override]
-        return replace(self, **(update or {}))
+def _utcnow_iso() -> str:
+    return datetime.utcnow().isoformat()
 
 
-class PriceAlertEventType(str, Enum):
-    BREACH = "breach"
-    WARN = "warn"
-    RESET = "reset"
-    INFO = "info"
+class PriceAlertEvent(BaseModel):
+    """
+    Append-only history of price alert evaluations / transitions.
 
+    event_type examples:
+      - "created", "updated", "deleted"
+      - "breach", "warn", "reset"
+      - "xcom_sent", "xcom_skip"
+    """
 
-@dataclass
-class PriceAlertEvent(_DataModelMixin):
     id: Optional[str] = None
     alert_id: Optional[int] = None
-    asset: Optional[str] = None
-    event_type: PriceAlertEventType = PriceAlertEventType.INFO
-    state_after: PriceAlertStateEnum = PriceAlertStateEnum.OK
-    mode: Optional[PriceAlertMode] = None
-    direction: Optional[PriceAlertDirection] = None
-    price: Optional[float] = None
-    anchor_price: Optional[float] = None
-    movement_abs: Optional[float] = None
-    movement_pct: Optional[float] = None
+    asset: str
+
+    event_type: str  # "breach", "warn", ...
+
+    state_after: Optional[str] = None  # "OK", "WARN", "BREACH", ...
+
+    price_at_event: Optional[float] = None
+    anchor_at_event: Optional[float] = None
+    movement_value: Optional[float] = None
+    movement_percent: Optional[float] = None
     threshold_value: Optional[float] = None
-    distance_to_target: Optional[float] = None
-    proximity_ratio: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    rule_type: Optional[str] = None
+    direction: Optional[str] = None
+    recurrence_mode: Optional[str] = None
+
+    source: Optional[str] = None  # "market_core", "console", "api", "xcom"
     note: Optional[str] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+
+    # JSON-encoded channels summary for breach events (optional)
+    channels_result: Optional[Dict[str, Any]] = None
+
+    created_at: str = Field(default_factory=_utcnow_iso)
+
+    def to_dict(self) -> Dict[str, Any]:
+        if hasattr(self, "model_dump"):
+            return self.model_dump()
+        return self.dict()
 
 
-__all__ = ["PriceAlertEvent", "PriceAlertEventType"]
+__all__ = ["PriceAlertEvent"]
