@@ -48,6 +48,16 @@ class DLPriceAlertEventsManager:
             )
             """
         )
+        cursor.execute(
+            f"PRAGMA table_info({DLPriceAlertEventsManager.TABLE_NAME})"
+        )
+        existing_cols = {row[1] for row in cursor.fetchall()}
+
+        if "asset" not in existing_cols:
+            cursor.execute(
+                f"ALTER TABLE {DLPriceAlertEventsManager.TABLE_NAME} ADD COLUMN asset TEXT"
+            )
+
         db.commit()
 
     @staticmethod
