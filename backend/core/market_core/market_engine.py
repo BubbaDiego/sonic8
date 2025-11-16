@@ -202,6 +202,15 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
 
         # monitor status row for dl_monitors / XCom
         value_metric = move_pct if (alert.rule_type or "").lower() == "move_pct" else move_abs
+        meta = {
+            "price": price,
+            "move_abs": move_abs,
+            "move_pct": move_pct,
+            "threshold_desc": threshold_desc,
+            "proximity": proximity,
+            "asset": alert.asset,
+        }
+
         statuses.append(
             {
                 "monitor": "market",
@@ -212,13 +221,7 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
                 "thr_op": ">=",
                 "state": state,
                 "source": "market_core",
-                "meta": {
-                    "price": price,
-                    "move_abs": move_abs,
-                    "move_pct": move_pct,
-                    "threshold_desc": threshold_desc,
-                    "proximity": proximity,
-                },
+                "meta": meta,
             }
         )
 
