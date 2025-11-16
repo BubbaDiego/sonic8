@@ -327,62 +327,46 @@ def render_under_xcom_live(
 
 def xcom_live_status(dl=None, cfg: dict | None = None) -> tuple[bool, str]:
     """
-    Unified XCOM status probe:
-      1) RUNTIME (voice/xcom services on DataLocker)
-      2) FILE (explicit cfg dict if given)
-      3) FILE (dl.global_config)
-      4) DB    (system vars)
-      5) ENV   (XCOM_LIVE / XCOM_ACTIVE)
+    Determine whether XCom is considered "live" and where that decision came from.
+
+    Precedence:
+      1) Environment variable SONIC_XCOM_LIVE (source: "ENV")
+      2) System/global_config override (e.g. key "xcom_live") (source: "DB")
+      3) Config file: cfg["monitor"]["xcom_live"] (source: "FILE")
+      4) Default if nothing set (True, source: "DEFAULT")
     """
-    # 1) RUNTIME
-    try:
-        for name in ("voice_service","xcom_voice","xcom","voice"):
-            svc = getattr(dl, name, None)
-            if svc is None:
-                continue
-            for key in ("is_live","live","enabled","is_enabled","active","is_active"):
-                try:
-                    v = getattr(svc, key) if not isinstance(svc, dict) else svc.get(key)
-                    if callable(v): v = v()
-                    ok, b = _as_bool(v)
-                    if ok: return b, "RUNTIME"
-                except Exception:
-                    pass
-    except Exception:
-        pass
 
-    # 2) FILE (explicit)
-    b, src = _xcom_from_cfg(cfg)
-    if b is not None:
-        return bool(b), src
+    locker = _dl_or_singleton(dl)
+    if cfg is None and locker is not None:
+        cfg = getattr(locker, "global_config", None)
 
-    # 3) FILE (dl.global_config)
-    try:
-        b2, src2 = _xcom_from_cfg(getattr(dl, "global_config", None) or {})
-        if b2 is not None:
-            return bool(b2), src2
-    except Exception:
-        pass
+    # 1) Environment override from .env / process env
+    env_val = os.getenv("SONIC_XCOM_LIVE")
+    if env_val is not None:
+        parsed, state = _as_bool(env_val)
+        if parsed:
+            return state, "ENV"
+        # If set but unparsable, treat as True but still attribute to ENV
+        return True, "ENV"
 
-    # 4) DB
-    try:
-        sysvars = getattr(dl, "system", None)
-        if sysvars:
-            var = (sysvars.get_var("xcom") or {})
-            for key in ("live","is_live","enabled","is_enabled","active"):
-                if key in var:
-                    ok, b = _as_bool(var.get(key))
-                    if ok: return b, "DB"
-    except Exception:
-        pass
+    # 2) DB / system (global_config) override
+    sysmgr = getattr(locker, "system", None) if locker else None
+    if sysmgr and hasattr(sysmgr, "get_var"):
+        try:
+            rec = sysmgr.get_var("xcom_live")
+        except Exception:
+            rec = None
+        if isinstance(rec, dict) and "live" in rec:
+            return bool(rec["live"]), str(rec.get("source", "DB"))
 
-    # 5) ENV
-    env = os.getenv("XCOM_LIVE", os.getenv("XCOM_ACTIVE", ""))
-    ok, b = _as_bool(env)
-    if ok:
-        return b, "ENV"
+    # 3) Config file (monitor.xcom_live)
+    if isinstance(cfg, dict):
+        mon = cfg.get("monitor") or {}
+        if isinstance(mon, dict) and "xcom_live" in mon:
+            return bool(mon.get("xcom_live")), "FILE"
 
-    return False, "—"
+    # 4) Default if nothing else is set
+    return True, "DEFAULT"
 
 
 def xcom_ready(dl=None, *, cfg: dict | None = None) -> tuple[bool, str]:
