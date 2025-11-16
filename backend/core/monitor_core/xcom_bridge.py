@@ -207,16 +207,13 @@ def _channels_for_monitor(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
         notif = root2.get("notifications") or {}
     else:
         notif = {}
-    # NOTE: SMS temporarily stubbed out – focus on voice/system only.
-    # Even if config has sms=true, we force it off here so it doesn't
-    # trigger "sms: not-implemented" errors higher up.
-    sms_enabled = False
-
+    # For now we only support system + voice. SMS/TTS are hard‑stubbed off so
+    # they don’t show up as "not-implemented" errors in XCom.
     return {
         "system": bool(notif.get("system")),
         "voice": bool(notif.get("voice")),
-        "sms": sms_enabled,
-        "tts": bool(notif.get("tts")),
+        "sms": False,
+        "tts": False,
     }
 
 
