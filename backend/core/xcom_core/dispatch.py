@@ -1,8 +1,15 @@
 from __future__ import annotations
+
 import logging
 from typing import Any, Dict
 
 from twilio.rest import Client
+
+from backend.utils.json_manager import JsonManager, JsonType
+
+from .tts_service import TTSService
+from .voice_message_builder import build_xcom_message
+from .voice_profiles import get_voice_profile
 
 log = logging.getLogger("sonic.engine")
 
@@ -17,18 +24,12 @@ def _read_providers(dl) -> Dict[str, Any]:
     return prov
 
 
-def _tts_from(payload: Dict[str, Any]) -> str:
-    # prefer explicit; fall back to body; final fallback: label + subject
-    tts = payload.get("tts")
-    if tts:
-        return str(tts)
-    body = payload.get("body")
-    if body:
-        return str(body)
-    subj = payload.get("subject") or ""
-    lab = payload.get("label") or ""
-    text = f"{lab} {subj}".strip()
-    return text or "Alert."
+def _load_comm_config() -> Dict[str, Any]:
+    try:
+        manager = JsonManager()
+        return manager.load("", JsonType.COMM_CONFIG)
+    except Exception:
+        return {}
 
 
 def dispatch_voice(payload: Dict[str, Any],
@@ -69,6 +70,33 @@ def dispatch_voice(payload: Dict[str, Any],
             log.info("[xcom.voice] unknown provider: %s", provider_name)
             return {"ok": False, "reason": f"unknown-provider:{provider_name}"}
 
+        comm_cfg = _load_comm_config()
+        profile_name = (
+            payload.get("voice_profile")
+            or ((context.get("voice") or {}).get("voice_profile") if isinstance(context, dict) else None)
+            or "default"
+        )
+        profile = get_voice_profile(comm_cfg, str(profile_name))
+        tts = build_xcom_message(payload, profile)
+
+        if profile.engine == "local":
+            try:
+                tts_service = TTSService()
+                tts_service.speak(tts, profile=profile)
+            except Exception as exc:
+                log.info("[xcom.voice] local TTS failed: %s", exc)
+                return {
+                    "ok": False,
+                    "results": [
+                        {"mode": "local", "to": "local", "ok": False, "error": str(exc)}
+                    ],
+                    "error": str(exc),
+                }
+            return {
+                "ok": True,
+                "results": [{"mode": "local", "to": "local", "ok": True}],
+            }
+
         sid = provider_cfg.get("account_sid")
         token = provider_cfg.get("auth_token")
         frm = provider_cfg.get("from")
@@ -84,7 +112,6 @@ def dispatch_voice(payload: Dict[str, Any],
 
         client = Client(sid, token)
 
-        tts = (context.get("voice") or {}).get("tts") or _tts_from(payload)
         results = []
         for to in tos:
             try:
@@ -93,7 +120,13 @@ def dispatch_voice(payload: Dict[str, Any],
                     results.append({"to": to, "sid": exec_.sid, "ok": True, "mode": "studio"})
                     log.info("[xcom.voice] studio OK to=%s sid=%s", to, exec_.sid)
                 else:
-                    twiml = f"<Response><Say>{tts}</Say></Response>"
+                    twiml = (
+                        f'<Response>'
+                        f'<Say voice="{profile.twilio_voice}" language="{profile.twilio_language}">' 
+                        f'{tts}'
+                        f'</Say>'
+                        f'</Response>'
+                    )
                     call = client.calls.create(to=to, from_=frm, twiml=twiml)
                     results.append({"to": to, "sid": call.sid, "ok": True, "mode": "twiml"})
                     log.info("[xcom.voice] call OK to=%s sid=%s", to, call.sid)

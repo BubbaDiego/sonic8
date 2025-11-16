@@ -56,6 +56,18 @@
       }
     }
   },
+  "voice_profiles": {
+    "default": {
+      "engine": "twilio",
+      "twilio_voice": "Polly.Joanna",
+      "twilio_language": "en-US",
+      "tts_voice_name": "Microsoft Zira Desktop",
+      "tts_rate": 1.0,
+      "tts_volume": 1.0,
+      "prefix": "This is Sonic.",
+      "suffix": "Please check your positions."
+    }
+  },
   "api": {
     "coingecko": {
       "enabled": true
