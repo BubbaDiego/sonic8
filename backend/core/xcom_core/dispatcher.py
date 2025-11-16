@@ -141,10 +141,6 @@ def dispatch_notifications(
     # Channel resolution
     chan = _as_channel_map(channels, cfg, monitor_name)
 
-    print(f"XCOM[ENTRY] monitor={monitor_name} breach={breach} "
-          f"caller_channels={_normalize_channels(channels) if channels else '—'}")
-    print(f"XCOM[CHAN]  resolved={chan}")
-
     summary: dict[str, Any] = {
         "monitor": monitor_name,
         "breach": breach,
@@ -159,11 +155,9 @@ def dispatch_notifications(
     # Voice path — no “rising edge” here; let readiness/cooldown/creds gate.
     if chan.get("voice", False):
         ok_ready, reason = xcom_ready(dl, cfg=getattr(dl, "global_config", None))
-        print(f"XCOM[GATE] breach={breach} ready={ok_ready} reason={reason}")
 
         if not breach:
             summary["channels"]["voice"] = {"ok": False, "skip": "breach-required"}
-            print("XCOM[VOICE] skip: breach-required")
             record_attempt(
                 dl,
                 channel="voice",
@@ -178,7 +172,6 @@ def dispatch_notifications(
         elif not ok_ready:
             gate_reason = str(reason or "xcom-not-ready")
             summary["channels"]["voice"] = {"ok": False, "skip": gate_reason}
-            print(f"XCOM[VOICE] skip: not-ready → {reason}")
             record_attempt(
                 dl,
                 channel="voice",
@@ -193,14 +186,9 @@ def dispatch_notifications(
         else:
             provider_cfg = cfg.get_provider("api") or cfg.get_provider("twilio") or {}
             provider_disabled = (provider_cfg is not None) and (provider_cfg.get("enabled", True) is False)
-            print(
-                f"XCOM[PROV] type={'api' if cfg.get_provider('api') else 'twilio' if cfg.get_provider('twilio') else '∅'} "
-                f"disabled={provider_disabled}"
-            )
 
             if provider_disabled:
                 summary["channels"]["voice"] = {"ok": False, "skip": "provider-disabled"}
-                print("XCOM[VOICE] skip: provider-disabled")
                 record_attempt(
                     dl,
                     channel="voice",
@@ -226,7 +214,6 @@ def dispatch_notifications(
                             voice_payload["from"] = from_num
                         if http_status is not None:
                             voice_payload["http_status"] = http_status
-                        print(f"XCOM[VOICE] ✔ ok sid={sid} to={to_num} from={from_num}")
                         record_attempt(
                             dl,
                             channel="voice",
@@ -240,7 +227,6 @@ def dispatch_notifications(
                             source=source,
                         )
                     else:
-                        print("XCOM[VOICE] ✖ call returned ok=False")
                         err_msg = "voice-service-returned-false"
                         summary["error"] = _normalize_xcom_error_detail(err_msg)
                         record_attempt(
@@ -260,7 +246,6 @@ def dispatch_notifications(
                     detail = _normalize_xcom_error_detail(msg)
                     summary["error"] = detail or msg
                     summary["channels"]["voice"] = {"ok": False, "skip": "twilio-error", "error": msg}
-                    print(f"XCOM[VOICE] ✖ exception: {msg}")
                     status_val = getattr(exc, "status", None)
                     record_attempt(
                         dl,
@@ -277,7 +262,6 @@ def dispatch_notifications(
                     )
     else:
         summary["channels"]["voice"] = {"ok": False, "skip": "disabled"}
-        print("XCOM[VOICE] skip: channel.voice=False")
         record_attempt(
             dl,
             channel="voice",
@@ -358,5 +342,4 @@ def dispatch_notifications(
     except Exception:
         pass
 
-    print(f"XCOM[EXIT] success={summary['success']} channels={summary['channels']}")
     return summary
