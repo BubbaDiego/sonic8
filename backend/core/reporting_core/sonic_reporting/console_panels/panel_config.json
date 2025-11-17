@@ -50,6 +50,16 @@
         }
       }
     },
+    "risk": {
+      "title": {
+        "string": "Risk Snapshot",
+        "icon": "⚖️"
+      },
+      "body": {
+        "column_header_text_color": "cyan",
+        "body_text_color": "white"
+      }
+    },
     "preflight": {
       "title": {
         "string": "Pre-Flight Config",
