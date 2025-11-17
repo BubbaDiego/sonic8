@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Callable, Tuple
@@ -102,6 +103,11 @@ class MonitorEngine:
         self.ledger = LedgerStore(self.dl, self.logger)
         self.activities = ActivityStore(self.dl, self.logger)
 
+        # Console clear helpers (wired by sonic_monitor)
+        self.console_clear_each_cycle: bool = False
+        self.clear_console_fn: Optional[Callable[[], None]] = None
+        self.should_clear_console_cb: Optional[Callable[[], bool]] = None
+
         # Keep console clean by default (no spinners)
         self.live_enabled = os.getenv("SONIC_LIVE", "0").strip().lower() in {
             "1",
@@ -145,6 +151,7 @@ class MonitorEngine:
 
     def run_once(self) -> None:
         self.ctx.start_cycle()
+        self._maybe_clear_console()
         cycle_id = self.ctx.cycle_id or "unknown"
         cycle_t0 = time.monotonic()
         cfg, cfg_path_hint = _load_monitor_cfg()
@@ -484,6 +491,36 @@ class MonitorEngine:
             "ts": datetime.now().isoformat(timespec="seconds"),
         }
         run_console_reporters(self.dl, self.debug, footer_ctx=footer_ctx, cfg=self.cfg)
+
+    def _maybe_clear_console(self) -> None:
+        should_clear = bool(getattr(self, "console_clear_each_cycle", False))
+        cb = getattr(self, "should_clear_console_cb", None)
+        if callable(cb):
+            try:
+                should_clear = bool(cb())
+            except Exception:
+                pass
+
+        if not should_clear:
+            return
+
+        fn = getattr(self, "clear_console_fn", None)
+        if callable(fn):
+            try:
+                fn()
+                return
+            except Exception:
+                self.logger.debug("clear_console_fn failed", exc_info=True)
+
+        # Fallback clear
+        if os.name == "nt":
+            os.system("cls")
+        else:
+            try:
+                sys.stdout.write("\x1b[2J\x1b[H")
+                sys.stdout.flush()
+            except Exception:
+                pass
 
     def _run_panel_stack(self, loop_counter: int, interval: int, start_wall: float) -> None:
         """Render the reporter panel stack with explicit debug traces."""

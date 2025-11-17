@@ -162,10 +162,20 @@ def _from_new_style(raw: Dict[str, Any]) -> MonitorConfigBundle:
         default=False,
     )
 
+    console_block = global_block.get("console") or legacy_monitor_block.get("console") or {}
+    if not isinstance(console_block, dict):
+        console_block = {}
+
+    console_clear = _coerce_bool(
+        console_block.get("clear_each_cycle", False),
+        default=False,
+    )
+
     global_cfg = MonitorGlobalConfig(
         loop_seconds=loop,
         global_snooze_seconds=global_snooze,
         xcom_live=xcom_live,
+        console_clear_each_cycle=console_clear,
     )
 
     legacy_enabled_map: Dict[str, Any] = {}
@@ -244,10 +254,20 @@ def _from_legacy_style(raw: Dict[str, Any]) -> MonitorConfigBundle:
         default=False,
     )
 
+    console_block = monitor_block.get("console") or {}
+    if not isinstance(console_block, dict):
+        console_block = {}
+
+    console_clear = _coerce_bool(
+        console_block.get("clear_each_cycle", False),
+        default=False,
+    )
+
     global_cfg = MonitorGlobalConfig(
         loop_seconds=loop,
         global_snooze_seconds=global_snooze,
         xcom_live=xcom_live,
+        console_clear_each_cycle=console_clear,
     )
 
     enabled_map: Dict[str, Any] = {}
