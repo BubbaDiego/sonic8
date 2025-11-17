@@ -163,9 +163,11 @@ def _run_impl(dl: Any, *, default_json_path: Optional[str]) -> Dict[str, Any]:
                     "breach": True,
                     "monitor": "liquid",
                     "label": sym,
+                    "symbol": sym,
                     "subject": f"[LIQUID] {sym} BREACH",
                     "body": body,
                     "tts": f"{sym} breach. Distance {float(val):.2f} threshold {float(thr):.2f}.",
+                    "summary": f"{sym} breach. Distance {float(val):.2f} threshold {float(thr):.2f}.",
                     "alert_id": alert["id"],
                 }
                 context = {
