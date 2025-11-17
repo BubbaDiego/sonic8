@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict
 
 from twilio.rest import Client
 
+from backend.core import config_oracle as ConfigOracle
 from backend.utils.json_manager import JsonManager, JsonType
 
 from .tts_service import TTSService
@@ -46,6 +48,16 @@ def dispatch_voice(payload: Dict[str, Any],
     Returns a dict with a lightweight result ({ok: bool, sid?:..., reason?:...}).
     """
     try:
+        if not isinstance(context, dict):
+            context = {}
+
+        voice_ctx_raw = context.get("voice")
+        if isinstance(voice_ctx_raw, dict):
+            ctx_voice = dict(voice_ctx_raw)
+        else:
+            ctx_voice = {}
+        context["voice"] = ctx_voice
+
         dl = context.get("dl")
         if not dl:
             log.info("[xcom.voice] missing DL in context")
@@ -56,7 +68,7 @@ def dispatch_voice(payload: Dict[str, Any],
         if isinstance(voice_cfg, dict):
             provider_cfg.update(voice_cfg)
 
-        ctx_provider = (context.get("voice") or {}).get("provider")
+        ctx_provider = ctx_voice.get("provider")
         if isinstance(ctx_provider, dict):
             provider_cfg.update(ctx_provider)
 
@@ -70,12 +82,48 @@ def dispatch_voice(payload: Dict[str, Any],
             log.info("[xcom.voice] unknown provider: %s", provider_name)
             return {"ok": False, "reason": f"unknown-provider:{provider_name}"}
 
+        # Resolve which monitor this event belongs to (if any).
+        monitor_name = (payload.get("monitor") or "").strip().lower() or None
+
+        # Oracle-backed voice config (profile, flow SID, etc.)
+        try:
+            oracle_voice_cfg = ConfigOracle.get_xcom_voice_config()
+        except Exception:
+            oracle_voice_cfg = None
+
+        # Determine the voice profile to use.
+        ctx_voice_profile = ctx_voice.get("profile") or ctx_voice.get("voice_profile")
+        explicit_profile = payload.get("voice_profile") or ctx_voice_profile
+
+        oracle_profile_name: str | None = None
+        if oracle_voice_cfg is not None:
+            oracle_profile_name = oracle_voice_cfg.profile_for(monitor_name)
+        else:
+            try:
+                oracle_profile_name = ConfigOracle.get_xcom_voice_profile_for_monitor(monitor_name)
+            except Exception:
+                oracle_profile_name = None
+
+        if explicit_profile:
+            profile_name = str(explicit_profile)
+        elif oracle_profile_name:
+            profile_name = oracle_profile_name
+        else:
+            profile_name = "default"
+
+        # Expose the resolved profile back onto the context for logging/inspection.
+        ctx_voice["profile"] = profile_name
+        ctx_voice["voice_profile"] = profile_name
+
+        # Flow SID propagation (stub: no behavior change unless respected downstream).
+        flow_sid_value = None
+        if oracle_voice_cfg is not None and getattr(oracle_voice_cfg, "flow_sid", None):
+            flow_sid_value = oracle_voice_cfg.flow_sid
+        if "flow_sid" in ctx_voice:
+            flow_sid_value = ctx_voice.get("flow_sid")
+        ctx_voice["flow_sid"] = flow_sid_value
+
         comm_cfg = _load_comm_config()
-        profile_name = (
-            payload.get("voice_profile")
-            or ((context.get("voice") or {}).get("voice_profile") if isinstance(context, dict) else None)
-            or "default"
-        )
         profile = get_voice_profile(comm_cfg, str(profile_name))
         tts = build_xcom_message(payload, profile)
 
@@ -101,7 +149,8 @@ def dispatch_voice(payload: Dict[str, Any],
         token = provider_cfg.get("auth_token")
         frm = provider_cfg.get("from")
         tos = provider_cfg.get("to") or []
-        flow = provider_cfg.get("flow_sid")
+        ctx_flow_sid = ctx_voice.get("flow_sid")
+        flow = ctx_flow_sid or provider_cfg.get("flow_sid") or os.getenv("TWILIO_FLOW_SID")
 
         if isinstance(tos, str):
             tos = [tos]
