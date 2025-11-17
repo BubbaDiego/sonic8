@@ -1,86 +1,88 @@
-"""backend/models/session.py
-
-Pydantic schemas for trading *Session* objects.
-A *Session* represents the **live performance tracking window**
-that the PortfolioSessionCard and related UI widgets display.
-
-You normally have **one OPEN session at a time**.  When starting
-a new session, the previous one is marked CLOSED (soft‑archived).
-"""
+from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import Optional
-from uuid import uuid4
 
 try:
-    from pydantic import BaseModel, Field, ConfigDict
-except ImportError:  # pragma: no cover – for stubbed environments
+    from pydantic import BaseModel, Field
+except Exception:  # pragma: no cover - fallback for docs / tools
     class BaseModel:  # type: ignore
         def __init__(self, **data):
-            for k, v in data.items():
-                setattr(self, k, v)
+            for key, value in data.items():
+                setattr(self, key, value)
 
-        def dict(self):
+        def model_dump(self, *_, **__):  # mimic minimal pydantic API
             return self.__dict__
 
-    def Field(default=None, **_):  # type: ignore
-        return default
+        def dict(self, *args, **kwargs):  # compatibility shim
+            return self.model_dump(*args, **kwargs)
 
-    ConfigDict = dict  # type: ignore
+    def Field(*args, **kwargs):  # type: ignore
+        if "default_factory" in kwargs:
+            return kwargs["default_factory"]()
+        return kwargs.get("default", None)
 
 
-# --------------------------------------------------------------------------- #
-# Base mixin with common attributes                                           #
-# --------------------------------------------------------------------------- #
+class GoalMode(str, Enum):
+    """How to interpret session_goal_value."""
+
+    DELTA = "DELTA"  # goal = gain from session_start_value
+    ABSOLUTE = "ABSOLUTE"  # goal = absolute portfolio value target
+
+
 class _SessionBase(BaseModel):
-    """Common fields shared by all Session schemas."""
-
     session_start_time: datetime = Field(
         default_factory=datetime.utcnow,
-        description="UTC time the session began",
+        description="UTC timestamp when the session began.",
     )
     session_start_value: float = Field(
-        0.0, description="Portfolio value when the session started"
+        default=0.0, description="Portfolio value when the session started."
     )
     session_goal_value: float = Field(
-        0.0, description="Target value you want to hit before closing"
+        default=0.0, description="Target portfolio value or delta goal."
     )
     current_session_value: float = Field(
-        0.0, description="Current Δ (value ‑ start_value)"
+        default=0.0, description="Current session value (absolute or delta)."
     )
     session_performance_value: float = Field(
-        0.0,
-        description="P&L compared to *start* (includes realised + unrealised)",
+        default=0.0,
+        description="Performance metric comparing against the start of the session.",
     )
-    status: str = Field("OPEN", description="OPEN or CLOSED")
-    notes: Optional[str] = Field(None, description="Free‑form notes about the session")
-
-
-class Session(_SessionBase):
-    """Represents the **persisted row** inside the *sessions* table."""
-
-    id: str = Field(
-        default_factory=lambda: str(uuid4()), description="Primary key"
+    status: str = Field(default="OPEN", description="OPEN or CLOSED")
+    notes: Optional[str] = Field(
+        default=None, description="Free-form notes about the session."
+    )
+    # New metadata fields
+    session_label: Optional[str] = Field(
+        default=None,
+        description="Human-friendly name for this session (e.g. 'London open scalps').",
+    )
+    goal_mode: GoalMode = Field(
+        default=GoalMode.DELTA,
+        description=(
+            "How to interpret session_goal_value: "
+            "DELTA = gain from start, ABSOLUTE = absolute portfolio target."
+        ),
     )
     last_modified: datetime = Field(
         default_factory=datetime.utcnow,
-        description="Auto‑updated timestamp whenever the row mutates",
+        description="Timestamp of the last modification to the session row.",
     )
 
-    model_config = ConfigDict(from_attributes=True)
 
-
-# --------------------------------------------------------------------------- #
-# Helper schemas for request / response payloads                              #
-# --------------------------------------------------------------------------- #
 class SessionCreate(_SessionBase):
-    """Payload for POST /session (omit id + last_modified)."""
+    """Payload for creating a session via API."""
 
     pass
 
 
+class Session(_SessionBase):
+    id: str
+
+
 class SessionUpdate(BaseModel):
-    """PATCH‑style payload; every field is optional."""
+    """Partial update payload for sessions."""
 
     session_start_time: Optional[datetime] = None
     session_start_value: Optional[float] = None
@@ -89,6 +91,7 @@ class SessionUpdate(BaseModel):
     session_performance_value: Optional[float] = None
     status: Optional[str] = None
     notes: Optional[str] = None
-
-    class Config:
-        extra = "forbid"
+    # New updatable fields
+    session_label: Optional[str] = None
+    goal_mode: Optional[GoalMode] = None
+    last_modified: Optional[datetime] = None
