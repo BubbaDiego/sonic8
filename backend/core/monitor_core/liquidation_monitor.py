@@ -13,6 +13,11 @@ except Exception:
     def discover_json_path(_): return None
     def parse_json(_): return {}, None, {}
 
+try:
+    from backend.data.data_locker import DataLocker  # type: ignore
+except Exception:  # pragma: no cover - optional for CLI/tests
+    DataLocker = None  # type: ignore[assignment]
+
 _NEAREST_FROM_SUMMARY = None
 try:
     from backend.core.monitor_core.summary_helpers import get_nearest_liquidation_distances as _N1  # type: ignore
@@ -30,9 +35,9 @@ except Exception:
 from backend.data import dl_alerts
 
 try:
-    # Prefer centralized config for liquidation thresholds
+    # Centralized config for liquidation thresholds (Oracle)
     from backend.core import config_oracle as ConfigOracle  # type: ignore
-except Exception:
+except Exception:  # pragma: no cover - defensive
     ConfigOracle = None  # type: ignore[assignment]
 
 try:
@@ -51,19 +56,22 @@ def _oracle_thresholds() -> Dict[str, float]:
     """
     Fetch liquidation thresholds from ConfigOracle if available.
 
-    Returns a {SYMBOL: float_threshold} mapping with symbols normalized
-    to upper-case. When Oracle is unavailable or misconfigured, returns {}.
+    Returns:
+        {SYMBOL: threshold_float}
+
+    Symbols are normalized to upper-case. If Oracle is unavailable or
+    misconfigured, returns an empty dict so the caller can fall back
+    to legacy JSON config.
     """
     if ConfigOracle is None:
         return {}
 
     try:
-        # ConfigOracle.get_liquid_thresholds() already returns {symbol: value}
         raw = ConfigOracle.get_liquid_thresholds() or {}
-    except Exception as e:
+    except Exception as exc:  # pragma: no cover - defensive
         log.debug(
-            "liquidation_monitor: oracle thresholds lookup failed",
-            extra={"error": str(e)},
+            "liquid_monitor: ConfigOracle.get_liquid_thresholds() failed",
+            extra={"error": str(exc)},
         )
         return {}
 
@@ -72,7 +80,7 @@ def _oracle_thresholds() -> Dict[str, float]:
         try:
             out[str(sym).upper()] = float(val)
         except Exception:
-            # Skip bad values but don't blow up the monitor
+            # Ignore non-numeric values but keep others
             continue
     return out
 
@@ -176,10 +184,17 @@ def run(dl: Any, *, default_json_path: Optional[str] = None) -> Dict[str, Any]:
     return _run_impl(dl, default_json_path=default_json_path)
 
 def _run_impl(dl: Any, *, default_json_path: Optional[str]) -> Dict[str, Any]:
-    # 1) Oracle is the primary source of liquidation thresholds
+    """
+    Core execution for the standalone liquidation monitor.
+
+    Thresholds are now Oracle-first:
+      1) ConfigOracle.get_liquid_thresholds()
+      2) legacy JSON config (sonic_monitor_config.json via _load_cfg)
+    """
+    # 1) Oracle-first thresholds
     thresholds = _oracle_thresholds()
 
-    # 2) Fallback: legacy JSON config if Oracle is unavailable or empty
+    # 2) Legacy JSON fallback only if Oracle yields nothing
     if not thresholds:
         cfg = _load_cfg(default_json_path)
         thresholds = _extract_thresholds(cfg)
@@ -195,11 +210,18 @@ def _run_impl(dl: Any, *, default_json_path: Optional[str]) -> Dict[str, Any]:
             open_syms.append(sym)
             alert = dl_alerts.upsert_open(
                 dl,
-                kind="breach", monitor="liquid", symbol=sym,
-                value=float(val), threshold=float(thr),
+                kind="breach",
+                monitor="liquid",
+                symbol=sym,
+                value=float(val),
+                threshold=float(thr),
             )
             try:
                 body = f"{sym} distance={float(val):.4f} threshold={float(thr):.4f}"
+                tts_text = (
+                    f"{sym} liquidation breach. Distance {float(val):.2f} "
+                    f"threshold {float(thr):.2f}."
+                )
                 payload = {
                     "breach": True,
                     "monitor": "liquid",
@@ -207,19 +229,20 @@ def _run_impl(dl: Any, *, default_json_path: Optional[str]) -> Dict[str, Any]:
                     "symbol": sym,
                     "subject": f"[LIQUID] {sym} BREACH",
                     "body": body,
-                    "tts": (
-                        f"{sym} breach. Distance {float(val):.2f} "
-                        f"threshold {float(thr):.2f}."
-                    ),
-                    "summary": (
-                        f"{sym} breach. Distance {float(val):.2f} "
-                        f"threshold {float(thr):.2f}."
-                    ),
+                    "tts": tts_text,
+                    # Summary feeds the voice message builder
+                    "summary": tts_text,
                     "alert_id": alert["id"],
+                    "threshold": {
+                        "op": "<=",
+                        "value": float(thr),
+                    },
                 }
                 context = {
                     "dl": dl,
-                    "voice": {"tts": payload["tts"]},
+                    "voice": {
+                        "tts": tts_text,
+                    },
                     "alert": {
                         "source": "liquid",
                         "intent": "liquid-breach",
@@ -227,16 +250,75 @@ def _run_impl(dl: Any, *, default_json_path: Optional[str]) -> Dict[str, Any]:
                         "distance": float(val),
                         "threshold": float(thr),
                         "alert_id": alert["id"],
-                        "twiml_url": getattr(dl, "twiml_url", None),
                     },
                 }
                 dispatch_voice(payload, {"voice": True}, context)
-            except Exception as e:
-                log.debug("liquidation_monitor: dispatch error", extra={"error": str(e), "symbol": sym})
+            except Exception as exc:
+                log.debug(
+                    "liquid_monitor: dispatch_voice failed",
+                    extra={"error": str(exc), "symbol": sym},
+                )
         else:
             try:
-                dl_alerts.resolve_open(dl, kind="breach", monitor="liquid", symbol=sym)
-            except Exception as e:
-                log.debug("liquidation_monitor: resolve error", extra={"error": str(e), "symbol": sym})
+                dl_alerts.resolve_open(
+                    dl, kind="breach", monitor="liquid", symbol=sym
+                )
+            except Exception as exc:
+                log.debug(
+                    "liquid_monitor: resolve_open failed",
+                    extra={"error": str(exc), "symbol": sym},
+                )
 
     return {"thresholds": thresholds, "nearest": nearest, "open": open_syms}
+
+
+def _debug_thresholds(default_json_path: Optional[str]) -> None:
+    """
+    Debug utility: print out thresholds as seen by this monitor.
+
+    Oracle thresholds are shown first, with a marker, then any legacy
+    JSON thresholds (if Oracle had none).
+    """
+    th_oracle = _oracle_thresholds()
+    if th_oracle:
+        print("🧙 Oracle thresholds:")
+        for sym, thr in sorted(th_oracle.items()):
+            print(f"  {sym}: {thr}")
+    else:
+        print("🧙 Oracle thresholds: <none>")
+
+    cfg = _load_cfg(default_json_path)
+    th_legacy = _extract_thresholds(cfg)
+    if th_legacy:
+        print("📄 Legacy JSON thresholds:")
+        for sym, thr in sorted(th_legacy.items()):
+            print(f"  {sym}: {thr}")
+    else:
+        print("📄 Legacy JSON thresholds: <none>")
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI helper
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Standalone liquidation monitor")
+    parser.add_argument(
+        "--dump-thresholds",
+        action="store_true",
+        help="Print Oracle + JSON thresholds and exit",
+    )
+    parser.add_argument(
+        "--json-path",
+        dest="json_path",
+        default=None,
+        help="Override default sonic_monitor_config.json path",
+    )
+    args = parser.parse_args()
+
+    if args.dump_thresholds:
+        _debug_thresholds(args.json_path)
+    else:
+        if DataLocker is None:
+            raise RuntimeError("DataLocker import unavailable; cannot run monitor")
+        dl = DataLocker.get_instance()
+        result = _run_impl(dl, default_json_path=args.json_path)
+        print(result)
