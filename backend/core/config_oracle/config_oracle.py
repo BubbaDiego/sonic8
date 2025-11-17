@@ -7,12 +7,14 @@ from typing import Any, Dict, Optional
 from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH
 from backend.config import config_loader
 
-from .domains import monitor_limits
+from .domains import build_monitor_bundle_from_raw, build_xcom_config_from_raw
 from .models import (
     MonitorConfigBundle,
     MonitorDefinition,
     MonitorGlobalConfig,
     MonitorNotifications,
+    XComConfig,
+    XComVoiceConfig,
 )
 
 
@@ -41,6 +43,9 @@ class ConfigOracle:
         self._monitor_path: Optional[str] = None
         self._lock = RLock()
 
+        # XCom domain view derived from the same JSON as monitors.
+        self._xcom_config: Optional[XComConfig] = None
+
     # --- Internal loading helpers -------------------------------------------
 
     def _load_monitor_bundle(self, force: bool = False) -> MonitorConfigBundle:
@@ -57,12 +62,14 @@ class ConfigOracle:
             cfg, path = config_loader.load_monitor_config(
                 json_path=self._monitor_json_path
             )
-            bundle = monitor_limits.build_monitor_bundle_from_raw(cfg)
+            bundle = build_monitor_bundle_from_raw(cfg)
             bundle.source_path = str(path)
 
             self._monitor_raw = cfg
             self._monitor_path = str(path)
             self._monitor_bundle = bundle
+            # NEW: keep XComConfig in sync with the last raw monitor JSON.
+            self._xcom_config = build_xcom_config_from_raw(cfg)
             return bundle
 
     # --- Public monitor API --------------------------------------------------
@@ -182,6 +189,37 @@ class ConfigOracle:
             except Exception:
                 continue
         return out
+
+    # --- Public XCom API -----------------------------------------------------
+
+    def get_xcom_config(self) -> XComConfig:
+        """
+        Return the normalized XCom configuration.
+
+        This shares the same underlying JSON as the monitor bundle and is
+        safe for XCom / voice dispatchers to consume.
+        """
+        bundle = self._load_monitor_bundle(force=False)
+        if self._xcom_config is None:
+            raw = self._monitor_raw or getattr(bundle, "raw", {}) or {}
+            self._xcom_config = build_xcom_config_from_raw(raw)
+        return self._xcom_config
+
+    def get_xcom_voice_config(self) -> XComVoiceConfig:
+        """
+        Convenience wrapper returning the voice-related portion of XCom config.
+        """
+        return self.get_xcom_config().voice
+
+    def get_xcom_flow_sid(self) -> Optional[str]:
+        """
+        Return the configured flow SID for XCom voice, if any.
+
+        This is intentionally allowed to be None; callers should treat that
+        as "use TwiML / non-Flow behavior".
+        """
+        voice = self.get_xcom_voice_config()
+        return voice.flow_sid
 
     # --- Introspection ------------------------------------------------------
 
