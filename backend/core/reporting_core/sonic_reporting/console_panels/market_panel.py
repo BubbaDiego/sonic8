@@ -372,7 +372,7 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
     text = console.export_text().rstrip("\n")
     lines = text.splitlines() if text else []
 
-    # Apply table-level justify at the string level
+    # Apply  table-level justify at the string level
     lines = _justify_lines(lines, table_cfg.get("table_justify"), HR_WIDTH)
     return lines
 
