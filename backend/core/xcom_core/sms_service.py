@@ -14,6 +14,7 @@ from backend.core.reporting_core.xcom_reporter import (
     twilio_start,
     twilio_success,
 )
+from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_live_status
 
 # Optional Twilio import -------------------------------------------------
 try:  # pragma: no cover
@@ -23,11 +24,20 @@ except ModuleNotFoundError:  # pragma: no cover
 
 # Legacy email fallback --------------------------------------------------
 from backend.core.xcom_core.email_service import EmailService
-from backend.core.config_core import sonic_config_bridge as C
 
 
 def _xcom_live() -> bool:
-    return C.get_xcom_live()
+    """
+    Return whether SMS/XCom should actually send messages.
+
+    Delegates to xcom_live_status(), which respects:
+      - ENV (SONIC_XCOM_LIVE)
+      - DB (global_config.xcom_live via DLSystemDataManager)
+      - ConfigOracle monitor.xcom_live (FILE)
+      - default True
+    """
+    live, _ = xcom_live_status()
+    return bool(live)
 
 
 class SMSService:

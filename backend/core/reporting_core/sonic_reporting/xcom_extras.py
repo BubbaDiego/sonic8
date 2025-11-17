@@ -11,8 +11,12 @@ try:
 except Exception:  # pragma: no cover
     DataLocker = None  # type: ignore
 
+from backend.core import config_oracle as ConfigOracle
+from backend.data.dl_system_data import DLSystemDataManager
+
 MONITOR_NAME = os.getenv("SONIC_MONITOR_NAME", "sonic_monitor")
 DEFAULT_INTERVAL = 60  # fallback if nothing else resolves
+_singleton_dl: Any | None = None
 
 
 # ------------------------------- utils ----------------------------------------
@@ -325,47 +329,62 @@ def render_under_xcom_live(
         emit(row("🔔 Voice cooldown", "✅ idle", f"default {default_cd}s"))
 
 
-def xcom_live_status(dl=None, cfg: dict | None = None) -> tuple[bool, str]:
+def xcom_live_status(dl: DataLocker | None = None, cfg: dict | None = None) -> tuple[bool, str]:
     """
-    Determine whether XCom is considered "live" and where that decision came from.
+    Resolve whether XCom is "live", and where that decision came from.
 
-    Precedence:
-      1) Environment variable SONIC_XCOM_LIVE (source: "ENV")
-      2) System/global_config override (e.g. key "xcom_live") (source: "DB")
-      3) Config file: cfg["monitor"]["xcom_live"] (source: "FILE")
-      4) Default if nothing set (True, source: "DEFAULT")
+    Returns:
+        (is_live, source)
+        source ∈ {"ENV", "DB", "FILE", "DEFAULT"}
     """
+    global _singleton_dl
+    locker = dl
+    if locker is None:
+        if _singleton_dl is None:
+            _singleton_dl = _dl_or_singleton(None)
+        locker = _singleton_dl
 
-    locker = _dl_or_singleton(dl)
+    using_default_cfg = cfg is None
+
+    # 1) ENV override
+    env_val = os.getenv("SONIC_XCOM_LIVE")
+    if env_val is not None:
+        v = str(env_val).strip().lower()
+        if v in ("1", "true", "yes", "on"):
+            return True, "ENV"
+        if v in ("0", "false", "no", "off"):
+            return False, "ENV"
+
+    # 2) DB override via DLSystemDataManager
+    if locker is not None:
+        try:
+            sysmgr = DLSystemDataManager(locker.db)
+            db_val = sysmgr.get_var("xcom_live")
+            if isinstance(db_val, dict) and "value" in db_val:
+                return bool(db_val["value"]), "DB"
+        except Exception:  # pragma: no cover - defensive
+            pass
+
+    # If caller didn't provide cfg, try to pull it from DataLocker
     if cfg is None and locker is not None:
         cfg = getattr(locker, "global_config", None)
 
-    # 1) Environment override from .env / process env
-    env_val = os.getenv("SONIC_XCOM_LIVE")
-    if env_val is not None:
-        parsed, state = _as_bool(env_val)
-        if parsed:
-            return state, "ENV"
-        # If set but unparsable, treat as True but still attribute to ENV
-        return True, "ENV"
-
-    # 2) DB / system (global_config) override
-    sysmgr = getattr(locker, "system", None) if locker else None
-    if sysmgr and hasattr(sysmgr, "get_var"):
+    # 3) FILE layer via ConfigOracle when no explicit cfg was provided
+    if using_default_cfg:
         try:
-            rec = sysmgr.get_var("xcom_live")
-        except Exception:
-            rec = None
-        if isinstance(rec, dict) and "live" in rec:
-            return bool(rec["live"]), str(rec.get("source", "DB"))
+            global_cfg = ConfigOracle.get_global_monitor_config()
+            if global_cfg and global_cfg.xcom_live is not None:
+                return bool(global_cfg.xcom_live), "FILE"
+        except Exception:  # pragma: no cover - defensive
+            pass
 
-    # 3) Config file (monitor.xcom_live)
+    # 3b) Legacy FILE config from cfg dict (tests and custom callers)
     if isinstance(cfg, dict):
         mon = cfg.get("monitor") or {}
         if isinstance(mon, dict) and "xcom_live" in mon:
             return bool(mon.get("xcom_live")), "FILE"
 
-    # 4) Default if nothing else is set
+    # 4) Default: treat XCom as live
     return True, "DEFAULT"
 
 
