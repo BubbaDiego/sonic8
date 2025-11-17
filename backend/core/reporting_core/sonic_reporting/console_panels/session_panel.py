@@ -1,3 +1,4 @@
+# backend/core/reporting_core/sonic_reporting/console_panels/session_panel.py
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
