@@ -464,7 +464,8 @@ def _build_rich_table(
     buf = StringIO()
     console = Console(record=True, width=width, file=buf, force_terminal=True)
     console.print(table)
-    text = console.export_text().rstrip("\n")
+    # Preserve Rich color/style markup so trend arrows keep their colors.
+    text = console.export_text(styles=True).rstrip("\n")
     if not text:
         return []
 
