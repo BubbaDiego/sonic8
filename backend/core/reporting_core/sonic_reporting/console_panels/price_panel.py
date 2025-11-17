@@ -14,22 +14,33 @@ Goals
 """
 
 import datetime as _dt
+from io import StringIO
 from typing import Any, Dict, List, Optional, Tuple
+
+from rich.console import Console
+from rich.table import Table
+from rich import box
 
 try:
     # Reuse a shared icon mapping when available.
     from backend.core.reporting_core.sonic_reporting.positions_icons import icon_for  # type: ignore
-except Exception:
+except Exception:  # pragma: no cover
     def icon_for(sym: str) -> str:
         mapping = {"BTC": "🟠", "ETH": "🔷", "SOL": "🟣"}
         return mapping.get((sym or "").upper(), "🪙")
+
+# Trend helper using PriceMonitor's prices history
+from backend.core.reporting_core.sonic_reporting import price_trends as _price_trends
 
 from .theming import (
     console_width as _theme_width,
     emit_title_block,
     get_panel_body_config,
-    body_pad_above, body_pad_below, body_indent_lines,
-    color_if_plain, paint_line,
+    body_pad_above,
+    body_pad_below,
+    body_indent_lines,
+    color_if_plain,
+    paint_line,
 )
 
 
@@ -43,6 +54,7 @@ PANEL_SLUG = "prices"
 def _console_width(default: int = 92) -> int:
     return _theme_width(default)
 
+
 def _fmt_price(v: Any) -> str:
     try:
         x = float(v)
@@ -51,6 +63,7 @@ def _fmt_price(v: Any) -> str:
         return f"${x:.6f}"
     except Exception:
         return "—"
+
 
 def _fmt_time(ts: Any) -> str:
     try:
@@ -71,14 +84,13 @@ def _fmt_time(ts: Any) -> str:
     h = dt.strftime("%I").lstrip("0") or "0"
     return f"{dt.strftime('%m/%d')} • {h}:{dt.strftime('%M%p').lower()}"
 
+
 def _abbr_mid(s: Any, front: int = 5, back: int = 4, min_len: int = 10) -> str:
     s = ("" if s is None else str(s)).strip()
     if len(s) <= min_len or len(s) <= front + back + 3:
         return s
     return f"{s[:front]}…{s[-back:]}"
 
-
-# ─────────────────────────────── data collection ───────────────────────────────
 
 def _coalesce(*vals, default=None):
     for v in vals:
@@ -181,6 +193,7 @@ def _get_sqlite_cursor(*sources: Any):
 
     return None
 
+
 def _norm_price(rec: Dict[str, Any]) -> Dict[str, Any]:
     sym = (
         rec.get("asset_type")
@@ -237,6 +250,7 @@ def _latest_by_symbol(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if sym not in best or ts >= _as_ts(best[sym].get("ts")):
             best[sym] = row
     return [best[key] for key in sorted(best.keys())]
+
 
 def _collect_prices(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
     # 1) direct ctx
@@ -336,6 +350,117 @@ def _collect_prices(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
     return [], "none"
 
 
+# ─────────────────────────── Rich plumbing & formatting ───────────────────────
+
+def _resolve_table_cfg(body_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    tcfg = (body_cfg or {}).get("table") or {}
+    style = str(tcfg.get("style") or "invisible").lower().strip()
+    table_justify = str(tcfg.get("table_justify") or "left").lower().strip()
+    header_justify = str(tcfg.get("header_justify") or "left").lower().strip()
+    return {
+        "style": style,
+        "table_justify": table_justify,
+        "header_justify": header_justify,
+    }
+
+
+def _style_to_box(style: str):
+    style = (style or "").lower()
+    if style == "thin":
+        return box.SIMPLE_HEAD, False
+    if style == "thick":
+        return box.HEAVY_HEAD, True
+    # "invisible" or unknown → no borders
+    return None, False
+
+
+def _justify_lines(lines: List[str], justify: str, width: int) -> List[str]:
+    justify = (justify or "left").lower()
+    out: List[str] = []
+    for line in lines:
+        s = line.rstrip("\n")
+        pad = max(0, width - len(s))
+        if justify == "right":
+            out.append(" " * pad + s)
+        elif justify == "center":
+            left = pad // 2
+            out.append(" " * left + s)
+        else:
+            out.append(s)
+    return out
+
+
+def _fmt_symbol(sym: str) -> str:
+    label = (sym or "").upper()
+    return f"{icon_for(label)} {label}".strip()
+
+
+def _fmt_trend(pct: Optional[float]) -> str:
+    if pct is None:
+        return "—"
+    try:
+        v = float(pct)
+    except Exception:
+        return "—"
+
+    # tiny moves → treat as flat
+    if abs(v) < 0.01:
+        return "[grey50]0.0%[/]"
+
+    arrow = "▲" if v > 0 else "▼"
+    color = "green" if v > 0 else "red"
+    return f"[{color}]{arrow} {abs(v):.2f}%[/]"
+
+
+def _build_rich_table(
+    rows: List[Dict[str, Any]],
+    trends: Dict[str, Dict[str, Optional[float]]],
+    body_cfg: Dict[str, Any],
+    width: int,
+) -> List[str]:
+    table_cfg = _resolve_table_cfg(body_cfg)
+    box_style, show_lines = _style_to_box(table_cfg["style"])
+
+    table = Table(
+        show_header=True,
+        header_style="",
+        show_lines=show_lines,
+        box=box_style,
+        pad_edge=False,
+        expand=False,
+    )
+
+    # Header labels with icons to match the rest of the console
+    table.add_column("🪙 Asset", justify="left", no_wrap=True)
+    table.add_column("💵 Price", justify="right")
+    table.add_column("🕒 Checked", justify="left")
+    table.add_column("🕐 1h", justify="right", no_wrap=True)
+    table.add_column("🕕 6h", justify="right", no_wrap=True)
+    table.add_column("🕛 12h", justify="right", no_wrap=True)
+
+    for r in rows:
+        sym = (r.get("symbol") or "").upper()
+        trend_row = (trends or {}).get(sym, {})
+        table.add_row(
+            _fmt_symbol(sym),
+            _fmt_price(r.get("price")),
+            _fmt_time(r.get("ts")),
+            _fmt_trend(trend_row.get("1h")),
+            _fmt_trend(trend_row.get("6h")),
+            _fmt_trend(trend_row.get("12h")),
+        )
+
+    buf = StringIO()
+    console = Console(record=True, width=width, file=buf, force_terminal=True)
+    console.print(table)
+    text = console.export_text().rstrip("\n")
+    if not text:
+        return []
+
+    raw_lines = text.splitlines()
+    return _justify_lines(raw_lines, table_cfg["table_justify"], width)
+
+
 # ───────────────────────────────────── render ───────────────────────────────────
 
 def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[str]:
@@ -347,57 +472,112 @@ def render(context: Optional[Dict[str, Any]] = None, *args, **kwargs) -> List[st
     """
     ctx: Dict[str, Any] = {}
     if context:
-        if isinstance(context, dict): ctx.update(context)
-        else: ctx["dl"] = context
+        if isinstance(context, dict):
+            ctx.update(context)
+        else:
+            ctx["dl"] = context
     if len(args) >= 1:
         a0 = args[0]
-        if isinstance(a0, dict): ctx.update(a0)
-        else: ctx["dl"] = a0
+        if isinstance(a0, dict):
+            ctx.update(a0)
+        else:
+            ctx["dl"] = a0
     if len(args) >= 2:
         a1 = args[1]
-        if isinstance(a1, dict): ctx.update(a1)
-        elif isinstance(a1, (int, float)): kwargs.setdefault("width", int(a1))
-    if kwargs: ctx.update(kwargs)
+        if isinstance(a1, dict):
+            ctx.update(a1)
+        elif isinstance(a1, (int, float)):
+            kwargs.setdefault("width", int(a1))
+    if kwargs:
+        ctx.update(kwargs)
 
-    width = ctx.get("width") or _console_width()
-
-    out: List[str] = []
-    out.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
-
-    # columns
-    c_sym, c_px, c_ts = 14, 14, 14
-
-    def fmt_row(sym, px, ts, with_icon: bool = False) -> str:
-        label = sym or ""
-        if with_icon:
-            label = f"{icon_for(label)} {label}".strip()
-        label = _abbr_mid(label, 4, 3, c_sym)
-        line = f"{label:<{c_sym}}  {px:>{c_px}}  {ts:>{c_ts}}"
-        return line[:width] if len(line) > width else line
+    width = int(ctx.get("width") or _console_width())
 
     body_cfg = get_panel_body_config(PANEL_SLUG)
-    body_header = paint_line(fmt_row("Asset", "Price", "Checked"), body_cfg["column_header_text_color"])
-    out += body_pad_above(PANEL_SLUG)
-    out += body_indent_lines(PANEL_SLUG, [body_header])
+    lines: List[str] = []
+    lines.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
+    lines.extend(body_pad_above(PANEL_SLUG))
 
     items, source = _collect_prices(ctx)
-    if items:
-        for r in items:
-            symbol = r.get("symbol", "")
-            line = fmt_row(symbol, _fmt_price(r.get("price")), _fmt_time(r.get("ts")), with_icon=True)
-            out += body_indent_lines(PANEL_SLUG, [color_if_plain(line, body_cfg["body_text_color"])])
-    else:
-        out += body_indent_lines(PANEL_SLUG, [color_if_plain("(no prices)", body_cfg["body_text_color"])])
-    out += body_pad_below(PANEL_SLUG)
-    return out
+
+    if not items:
+        # Empty state → static header + message
+        header = "🪙 Asset   💵 Price   🕒 Checked   🕐 1h   🕕 6h   🕛 12h"
+        lines.extend(
+            body_indent_lines(
+                PANEL_SLUG,
+                [
+                    paint_line(header, body_cfg.get("column_header_text_color", "")),
+                    color_if_plain("(no prices)", body_cfg.get("body_text_color", "")),
+                ],
+            )
+        )
+        lines.extend(body_pad_below(PANEL_SLUG))
+        return lines
+
+    # Compute trends using PriceMonitor history (prices table)
+    try:
+        trend_map = _price_trends.compute_price_trends(
+            ctx.get("dl") or ctx,
+            items,
+        )
+    except Exception:
+        trend_map = {}
+
+    table_lines = _build_rich_table(items, trend_map, body_cfg, width)
+
+    if not table_lines:
+        lines.extend(
+            body_indent_lines(
+                PANEL_SLUG,
+                [color_if_plain("(no prices)", body_cfg.get("body_text_color", ""))],
+            )
+        )
+        lines.extend(body_pad_below(PANEL_SLUG))
+        return lines
+
+    header_line = table_lines[0]
+    data_lines = table_lines[1:]
+
+    # Tint header like other panels
+    lines.extend(
+        body_indent_lines(
+            PANEL_SLUG,
+            [paint_line(header_line, body_cfg.get("column_header_text_color", ""))],
+        )
+    )
+    for ln in data_lines:
+        lines.extend(
+            body_indent_lines(
+                PANEL_SLUG,
+                [color_if_plain(ln, body_cfg.get("body_text_color", ""))],
+            )
+        )
+
+    lines.extend(body_pad_below(PANEL_SLUG))
+    return lines
+
 
 def connector(*args, **kwargs) -> List[str]:
     return render(*args, **kwargs)
 
+
 def name() -> str:
     return PANEL_NAME
 
+
 if __name__ == "__main__":
-    demo = [{"symbol": "BTC", "price": 118755.0, "checked_ts": _dt.datetime.now().isoformat(timespec="seconds")}]
+    demo = [
+        {
+            "symbol": "BTC",
+            "price": 118755.0,
+            "checked_ts": _dt.datetime.now().isoformat(timespec="seconds"),
+        },
+        {
+            "symbol": "SOL",
+            "price": 138.17,
+            "checked_ts": _dt.datetime.now().isoformat(timespec="seconds"),
+        },
+    ]
     for ln in render({"prices": demo}):
         print(ln)
