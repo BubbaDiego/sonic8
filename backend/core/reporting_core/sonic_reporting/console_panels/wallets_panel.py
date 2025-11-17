@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.table import Table
 from rich import box
 
-# standardized     title via console_panels.theming
+# standardized      title via console_panels.theming
 from backend.core.reporting_core.sonic_reporting.console_panels.theming import (
     emit_title_block,
     get_panel_body_config,
