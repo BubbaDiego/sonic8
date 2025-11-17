@@ -6,17 +6,61 @@ from typing import Any, Tuple
 
 from backend.core.common.path_utils import resolve_mother_db_path, is_under_repo
 from backend.core.config_core import sonic_config_bridge as C
+from backend.core import config_oracle as ConfigOracle
 
 
 def emit_config_banner(env_path: str, db_path_hint: str, dl: Any | None = None) -> None:
-    C.load()
+    """
+    Startup banner for Sonic Monitor.
 
-    loop_s   = C.get_loop_seconds()
-    enabled  = C.get_enabled_monitors()
-    lq_thr   = C.get_liquid_thresholds()
-    lq_blast = C.get_liquid_blasts()
-    market   = C.get_market_config()
-    profit   = C.get_profit_config()
+    This now prefers ConfigOracle for monitor config (loop time, enabled flags,
+    liquidation thresholds, profit thresholds) and falls back to the older
+    JSON-only sonic_config_bridge helpers if Oracle is unavailable.
+    """
+    C.load()  # still used for market + Twilio helpers and as a fallback
+
+    # Defaults in case Oracle import fails
+    loop_s: int = 30
+    enabled: dict[str, bool] = {"sonic": True, "liquid": True, "profit": True, "market": True}
+    lq_thr: dict[str, float] = {}
+    lq_blast: dict[str, int] = {}
+    market: dict[str, Any] = {}
+    profit: dict[str, Any] = {}
+    cfg_source_label = "FILE"
+
+    # --- Oracle-first view over monitor config ---
+    try:
+        bundle = ConfigOracle.get_monitor_bundle()
+        gcfg = bundle.global_config
+        loop_s = int(gcfg.loop_seconds or 30)
+
+        mons = bundle.monitors or {}
+        enabled = {name: bool(defn.enabled) for name, defn in mons.items()}
+
+        # Liquidation thresholds / blast from Oracle domain helpers
+        lq_thr = ConfigOracle.get_liquid_thresholds()
+        lq_blast = ConfigOracle.get_liquid_blast_map()
+
+        # Profit thresholds from Oracle; normalize to the keys this banner expects
+        profit_thr = ConfigOracle.get_profit_thresholds()
+        profit = {
+            "position_usd": profit_thr.get("position_profit_usd"),
+            "portfolio_usd": profit_thr.get("portfolio_profit_usd"),
+        }
+
+        # Market config is still JSON-only for now
+        market = C.get_market_config()
+
+        cfg_source_label = "🧙 Oracle"
+    except Exception:
+        # Fallback to legacy JSON-only bridge (existing behavior)
+        loop_s   = C.get_loop_seconds()
+        enabled  = C.get_enabled_monitors()
+        lq_thr   = C.get_liquid_thresholds()
+        lq_blast = C.get_liquid_blasts()
+        market   = C.get_market_config()
+        profit   = C.get_profit_config()
+        cfg_source_label = "FILE"
 
     resolved_db, prov = resolve_mother_db_path()
     db_exists = resolved_db.exists()
@@ -160,7 +204,9 @@ def emit_config_banner(env_path: str, db_path_hint: str, dl: Any | None = None) 
     xcom_active, xcom_src = _read_xcom_status()
     print(f"🛰 XCOM Active  : {'ON' if xcom_active else 'OFF'}   [{xcom_src}]")
     print("🔒 Muted Modules:      ConsoleLogger, console_logger, LoggerControl, werkzeug, uvicorn.access, fuzzy_wuzzy, asyncio")
-    print(f"🧭 Configuration: JSON ONLY — {C._CFG_PATH}")            # CONFIG from FILE
+
+    # If Oracle resolved monitor config successfully, cfg_source_label will be "🧙 Oracle".
+    print(f"🧭 Configuration: {cfg_source_label} — {C._CFG_PATH}")
     print(f"📦 .env (ignored for config) : {env_path}")             # ENV ignored for CONFIG
     print(
         f"🔌 Database       : {resolved_db}  "
@@ -185,14 +231,16 @@ def emit_config_banner(env_path: str, db_path_hint: str, dl: Any | None = None) 
           f"Market={'ON' if enabled.get('market') else 'OFF'}")
 
     print()
-    print("💧 Liquidation (per-asset)   [source: FILE (config)]")
+    using_oracle = cfg_source_label.startswith("🧙")
+    liq_src = "🧙 Oracle (config)" if using_oracle else "FILE (config)"
+    print(f"💧 Liquidation (per-asset)   [source: {liq_src}]")
     for asset, icon in (("BTC", "🟡"), ("ETH", "🔷"), ("SOL", "🟣")):
         thr = float(lq_thr.get(asset, 0) or 0)
         bl  = int(lq_blast.get(asset, 0) or 0)
         print(f"  {icon} {asset:<3} Threshold: {thr:.2f}    Blast: {bl}")
 
     print()
-    print("💰 Profit Monitor           [source: FILE (config)]")
+    print(f"💰 Profit Monitor           [source: {liq_src}]")
     pos = profit.get("position_usd", None)
     pf  = profit.get("portfolio_usd", None)
 
@@ -212,5 +260,6 @@ def emit_config_banner(env_path: str, db_path_hint: str, dl: Any | None = None) 
     print(f"  Re-arm: {market.get('rearm_mode','ladder').capitalize()}   Reset: available")
 
     print()
-    print("Provenance: [FILE]=sonic_monitor_config.json (CONFIG) | [DB]=mother.db (RUNTIME DATA)")
+    prov_cfg_label = "🧙 Oracle" if using_oracle else "FILE"
+    print(f"Provenance: [{prov_cfg_label}]=sonic_monitor_config.json (CONFIG) | [DB]=mother.db (RUNTIME DATA)")
     print("══════════════════════════════════════════════════════════════")
