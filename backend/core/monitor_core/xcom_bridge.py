@@ -210,7 +210,11 @@ def _channels_for_monitor(cfg: Mapping[str, Any], name: str) -> dict[str, bool]:
       - <monitor>_monitor.notifications
       - <monitor>.notifications
 
-    SMS/TTS remain hard-off for now to avoid surfacing unsupported channels.
+    Returns a dict with booleans for:
+      - system: internal console / XCom panel
+      - voice: Twilio voice calls (further gated by provider "enabled" flag)
+      - sms: SMS channel (currently stubbed by the dispatcher)
+      - tts: local text-to-speech (pyttsx3, optional)
     """
     monitor_name = str(name).strip()
 
@@ -220,10 +224,10 @@ def _channels_for_monitor(cfg: Mapping[str, Any], name: str) -> dict[str, bool]:
         if notifications is not None:
             notif_dict = notifications.as_dict()
             return {
-                "system": bool(notif_dict.get("system")),
-                "voice": bool(notif_dict.get("voice")),
-                "sms": False,
-                "tts": False,
+                "system": bool(notif_dict.get("system", True)),
+                "voice": bool(notif_dict.get("voice", False)),
+                "sms": bool(notif_dict.get("sms", False)),
+                "tts": bool(notif_dict.get("tts", False)),
             }
     except Exception:  # pragma: no cover - defensive
         pass
@@ -243,11 +247,28 @@ def _channels_for_monitor(cfg: Mapping[str, Any], name: str) -> dict[str, bool]:
     if not isinstance(notif, Mapping):
         notif = {}
 
+    def _coerce_bool(key: str, default: bool) -> bool:
+        val = notif.get(key, default)
+        try:
+            if isinstance(val, str):
+                v = val.strip().lower()
+                if v in {"1", "true", "yes", "on", "y"}:
+                    return True
+                if v in {"0", "false", "no", "off", "n"}:
+                    return False
+            if isinstance(val, (int, float)):
+                return bool(val)
+            if isinstance(val, bool):
+                return val
+        except Exception:
+            return default
+        return default if val is None else bool(val)
+
     return {
-        "system": bool(notif.get("system")),
-        "voice": bool(notif.get("voice")),
-        "sms": False,
-        "tts": False,
+        "system": _coerce_bool("system", True),
+        "voice": _coerce_bool("voice", False),
+        "sms": _coerce_bool("sms", False),
+        "tts": _coerce_bool("tts", False),
     }
 
 
