@@ -591,6 +591,14 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     status_label = "🟢 LIVE" if live_on else "🔴 OFF"
 
+    # Map source label to something user-friendly, with a wizard icon when the
+    # ConfigOracle provided the xcom_live value.
+    live_src = (live_src or "").upper().strip()
+    if live_src == "ORACLE":
+        src_display = "🧙 Oracle"
+    else:
+        src_display = live_src or "—"
+
     attempts = _recent_attempts(rec_send, rec_skip, rec_err, dl)
     snooze_line = _snooze_summary(dl, rec_skip) if dl else "global snooze: OFF"
     cooldown_line = _cooldown_summary(dl, cfg_obj) if dl else "voice cooldown: idle (window=180s)"
@@ -603,7 +611,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     # Status line
     status_lines: List[str] = [
-        f"  🛰 Status: {status_label}  [src={live_src}]",
+        f"  🛰 Status: {status_label}  [src={src_display}]",
     ]
     out += body_indent_lines(
         PANEL_SLUG,
