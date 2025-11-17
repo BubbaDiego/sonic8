@@ -127,14 +127,6 @@ def _target_icon_and_symbol(rec: Dict[str, Any]) -> (str, str):
     return icon, text
 
 
-def _target_from_rec(rec: Dict[str, Any]) -> str:
-    """
-    Backwards compatible helper returning "icon symbol" or just text.
-    """
-    icon, text = _target_icon_and_symbol(rec)
-    return f"{icon} {text}" if icon else text
-
-
 def _channels_from_attempt(ev: Dict[str, Any]) -> str:
     """
     Legacy helper (still used elsewhere): concatenated channel icons.
@@ -157,6 +149,42 @@ def _channels_from_attempt(ev: Dict[str, Any]) -> str:
     return " ".join(icons) if icons else "–"
 
 
+def _extract_value_from_text(text: str) -> Optional[str]:
+    """
+    Given a body/result string like:
+        'SOL - Liq: value=2.60 threshold=… source=…'
+    return the '2.60' bit (without units).
+    """
+    if not isinstance(text, str):
+        return None
+    s = text
+    key = "value="
+    if key not in s:
+        return None
+    tail = s.split(key, 1)[1]
+    # stop at the first whitespace / comma / semicolon
+    end = len(tail)
+    for ch in (" ", ",", ";"):
+        idx = tail.find(ch)
+        if idx != -1:
+            end = min(end, idx)
+    value = tail[:end].strip()
+    return value or None
+
+
+def _monitor_title(mon: str) -> str:
+    m = (mon or "").lower()
+    if m in ("liquid", "liq"):
+        return "Liquid"
+    if m == "profit":
+        return "Profit"
+    if m == "market":
+        return "Market"
+    if m == "price":
+        return "Price"
+    return m.title() or "Alert"
+
+
 def _details_from_attempt(ev: Dict[str, Any]) -> str:
     """
     Short detail string for the Details column.
@@ -168,8 +196,27 @@ def _details_from_attempt(ev: Dict[str, Any]) -> str:
     if not isinstance(raw_result, str):
         raw_result = str(raw_result)
 
+    # SEND → "Liquid: value=2.6" style when we can parse the body
     if kind == "send":
-        return "OK" if raw_result.upper() == "OK" or not raw_result else str(raw_result)[:20]
+        mon = (ev.get("monitor") or "").lower()
+        monitor_label = _monitor_title(mon)
+
+        # Prefer explicit detail if it looks like a body; otherwise fall back to result
+        src_text = ""
+        detail_field = ev.get("detail")
+        if isinstance(detail_field, str) and "value=" in detail_field:
+            src_text = detail_field
+        else:
+            src_text = raw_result
+
+        value_str = _extract_value_from_text(src_text) if src_text else None
+        if value_str:
+            return f"{monitor_label}: value={value_str}"
+
+        # Fallback: preserve old behavior but a bit more generous in width
+        return "OK" if raw_result.upper() == "OK" or not raw_result else raw_result[:40]
+
+    # SKIP → "snooze 897s" style based on remaining seconds
     if kind == "skip":
         if "snooze" in raw_result.lower():
             parts = raw_result.split("remaining=", 1)
@@ -177,18 +224,19 @@ def _details_from_attempt(ev: Dict[str, Any]) -> str:
                 rem = parts[1].split()[0]
                 return f"snooze {rem}"
         return "snooze"
+
+    # ERROR → compact, user-facing error label
     if kind == "error":
-        # Prefer explicit error/detail field if present
         detail = ev.get("detail") or ev.get("error") or raw_result
         if not isinstance(detail, str):
             detail = str(detail)
         low = detail.lower()
         if "twilio" in low and ("20003" in low or "authenticate" in low):
             return "twilio auth error"
-        # Fall back to truncated detail
-        return detail[:20] if detail else "error"
+        return detail[:40] if detail else "error"
 
-    return str(raw_result)[:20] if raw_result else "-"
+    # Anything else: just show a truncated result string
+    return str(raw_result)[:40] if raw_result else "-"
 
 
 def _result_for_send(rec: Dict[str, Any]) -> str:
@@ -240,7 +288,7 @@ def _build_attempt(kind: str, rec: Dict[str, Any]) -> Dict[str, Any]:
     elif kind == "skip":
         result = _result_for_skip(rec)
         ch_map = {}
-    else:  # "error"
+    else:  # "error" or anything else
         result = _result_for_error(rec)
         ch_map = {}
 
@@ -442,15 +490,16 @@ def _build_attempts_table(attempts: List[Dict[str, Any]], body_cfg: Dict[str, An
         kind = (ev.get("type") or "").lower()
         result_word = kind or "-"
 
-        # Color the Result cell only
-        if kind == "error":
-            result_cell = "[red]" + result_word + "[/]"
-        elif kind == "send":
-            result_cell = "[green]" + result_word + "[/]"
+        # Color the Result cell:
+        #   send  → green
+        #   skip  → yellow
+        #   other → red
+        if kind == "send":
+            result_cell = "[green]send[/]"
         elif kind == "skip":
-            result_cell = "[yellow]" + result_word + "[/]"
+            result_cell = "[yellow]skip[/]"
         else:
-            result_cell = result_word or "-"
+            result_cell = f"[red]{result_word or 'error'}[/]"
 
         icon, symbol = _target_icon_and_symbol(ev)
         tgt_icon = icon or ""
@@ -585,7 +634,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
                 [paint_line(header_line, body_cfg["column_header_text_color"])],
             )
 
-            # Body lines with normal body_text_color (respecting inline Rich markup)
+            # Body lines with normal body_text_color (respecting inline ANSI)
             for ln in data_lines:
                 out += body_indent_lines(
                     PANEL_SLUG,
