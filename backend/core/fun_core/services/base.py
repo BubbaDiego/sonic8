@@ -4,6 +4,7 @@ from __future__ import annotations
 import random, asyncio, logging
 from abc import ABC, abstractmethod
 from datetime import datetime
+from typing import Any, Dict
 from cachetools import TTLCache
 import httpx
 
@@ -16,7 +17,7 @@ class BaseFunService(ABC):
 
     def __init__(self, ttl_seconds: int = 900, max_cache: int = 128):
         self._cache = TTLCache(maxsize=max_cache, ttl=ttl_seconds)
-        self._client = httpx.AsyncClient(
+        self._client_kwargs: Dict[str, Any] = dict(
             timeout=5.0,
             headers={
                 "User-Agent": "fun_core/1.0 (+https://github.com/sonic1/fun_core)"
@@ -40,3 +41,16 @@ class BaseFunService(ABC):
     async def _fetch_remote(self) -> FunContent:
         """Subclass must implement one remote fetch attempt."""
         raise NotImplementedError
+
+    async def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        """
+        Perform a single HTTP request using a short-lived AsyncClient.
+
+        This avoids reusing a client across different event loops, which can
+        cause 'Event loop is closed' errors when loops are torn down.
+        """
+        client_kwargs: Dict[str, Any] = dict(self._client_kwargs)
+        client_kwargs.update(kwargs)
+
+        async with httpx.AsyncClient(**client_kwargs) as client:
+            return await client.request(method, url)

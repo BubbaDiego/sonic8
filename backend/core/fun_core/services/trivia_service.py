@@ -19,7 +19,7 @@ class TriviaService(BaseFunService):
 
     async def _try_open_trivia(self) -> Optional[FunContent]:
         url = "https://opentdb.com/api.php?amount=1&type=boolean"
-        r = await self._client.get(url)
+        r = await self._request("GET", url)
         if r.status_code != 200:
             return None
         data = r.json()
@@ -38,7 +38,7 @@ class TriviaService(BaseFunService):
 
     async def _try_jservice(self) -> Optional[FunContent]:
         url = "http://jservice.io/api/random"
-        r = await self._client.get(url)
+        r = await self._request("GET", url)
         if r.status_code != 200:
             return None
         j = r.json()[0]
