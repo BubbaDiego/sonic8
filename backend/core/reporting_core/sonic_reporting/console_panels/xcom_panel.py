@@ -539,7 +539,8 @@ def _build_attempts_table(attempts: List[Dict[str, Any]], body_cfg: Dict[str, An
     buf = StringIO()
     console = Console(record=True, width=HR_WIDTH, file=buf, force_terminal=True)
     console.print(table)
-    text = console.export_text().rstrip("\n")
+    # IMPORTANT: keep styles so green/yellow/red survive
+    text = console.export_text(styles=True).rstrip("\n")
     if not text:
         return []
 
