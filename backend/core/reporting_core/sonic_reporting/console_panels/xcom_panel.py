@@ -196,11 +196,8 @@ def _details_from_attempt(ev: Dict[str, Any]) -> str:
     if not isinstance(raw_result, str):
         raw_result = str(raw_result)
 
-    # SEND → "Liquid: value=2.6" style when we can parse the body
+    # SEND → "Value=2.6" when we can parse the body
     if kind == "send":
-        mon = (ev.get("monitor") or "").lower()
-        monitor_label = _monitor_title(mon)
-
         # Prefer explicit detail if it looks like a body; otherwise fall back to result
         src_text = ""
         detail_field = ev.get("detail")
@@ -211,19 +208,20 @@ def _details_from_attempt(ev: Dict[str, Any]) -> str:
 
         value_str = _extract_value_from_text(src_text) if src_text else None
         if value_str:
-            return f"{monitor_label}: value={value_str}"
+            return f"Value={value_str}"
 
         # Fallback: preserve old behavior but a bit more generous in width
         return "OK" if raw_result.upper() == "OK" or not raw_result else raw_result[:40]
 
-    # SKIP → "snooze 897s" style based on remaining seconds
+    # SKIP → "Snooze 897s" style based on remaining seconds
     if kind == "skip":
-        if "snooze" in raw_result.lower():
-            parts = raw_result.split("remaining=", 1)
+        low = raw_result.lower()
+        if "remaining=" in low:
+            parts = low.split("remaining=", 1)
             if len(parts) == 2:
                 rem = parts[1].split()[0]
-                return f"snooze {rem}"
-        return "snooze"
+                return f"Snooze {rem}"
+        return "Snooze"
 
     # ERROR → compact, user-facing error label
     if kind == "error":
@@ -369,9 +367,9 @@ def _snooze_summary(dl: Any, rec_skip: Optional[Dict[str, Any]]) -> str:
             pass
 
     if remaining is None and minimum is None:
-        return "global snooze: OFF"
+        return "Global Snooze: OFF"
 
-    parts: List[str] = ["global snooze:"]
+    parts: List[str] = ["Global Snooze:"]
     if remaining is not None:
         parts.append(f"remaining={int(remaining)}s")
     if minimum is not None:
@@ -391,8 +389,8 @@ def _cooldown_summary(dl: Any, cfg: Optional[Dict[str, Any]]) -> str:
         default_cd = 180
 
     if rem > 0:
-        return f"voice cooldown: ACTIVE (remaining={int(rem)}s / window={default_cd}s)"
-    return f"voice cooldown: idle (window={default_cd}s)"
+        return f"Voice Cooldown: ACTIVE (remaining={int(rem)}s / window={default_cd}s)"
+    return f"Voice Cooldown: idle (window={default_cd}s)"
 
 
 # ───────────────────────── Rich table plumbing ─────────────────────────────
@@ -476,15 +474,15 @@ def _build_attempts_table(attempts: List[Dict[str, Any]], body_cfg: Dict[str, An
         expand=False,
     )
 
-    # Column headers with icons to the left (matching other panels)
-    table.add_column("🔢 #", justify="right", no_wrap=True)
-    table.add_column("⏳ Age", justify="right", no_wrap=True)
-    table.add_column("🕒 Time", justify="left", no_wrap=True)
-    table.add_column("📋 Result", justify="left", no_wrap=True)
-    table.add_column("🎯 Tgt", justify="left", no_wrap=True)
-    table.add_column("🪙 Symbol", justify="left", no_wrap=True)
-    table.add_column("📝 Details", justify="left")
-    table.add_column("📡 Channels", justify="left", no_wrap=True)
+    # Column headers — no icons except '#'
+    table.add_column("#", justify="right", no_wrap=True)
+    table.add_column("Age", justify="right", no_wrap=True)
+    table.add_column("Time", justify="left", no_wrap=True)
+    table.add_column("Result", justify="left", no_wrap=True)
+    table.add_column("Tgt", justify="left", no_wrap=True)
+    table.add_column("Asset", justify="left", no_wrap=True)
+    table.add_column("Details", justify="left")
+    table.add_column("Channels", justify="left", no_wrap=True)
 
     for idx, ev in enumerate(attempts, 1):
         kind = (ev.get("type") or "").lower()
@@ -602,12 +600,12 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
         src_display = live_src or "—"
 
     attempts = _recent_attempts(rec_send, rec_skip, rec_err, dl)
-    snooze_line = _snooze_summary(dl, rec_skip) if dl else "global snooze: OFF"
+    snooze_line = _snooze_summary(dl, rec_skip) if dl else "Global Snooze: OFF"
     if dl:
         cooldown_line = _cooldown_summary(dl, cfg_obj)
     else:
         default_cd = get_default_voice_cooldown(cfg_obj)
-        cooldown_line = f"voice cooldown: idle (window={int(default_cd)}s)"
+        cooldown_line = f"Voice Cooldown: idle (window={int(default_cd)}s)"
 
     body_cfg = get_panel_body_config(PANEL_SLUG)
     out: List[str] = []
@@ -644,7 +642,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             header_line = table_lines[0]
             data_lines = table_lines[1:]
 
-            # Header tinted with  column_header_text_color
+            # Header tinted with column_header_text_color
             out += body_indent_lines(
                 PANEL_SLUG,
                 [paint_line(header_line, body_cfg["column_header_text_color"])],
