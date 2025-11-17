@@ -602,7 +602,11 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     attempts = _recent_attempts(rec_send, rec_skip, rec_err, dl)
     snooze_line = _snooze_summary(dl, rec_skip) if dl else "global snooze: OFF"
-    cooldown_line = _cooldown_summary(dl, cfg_obj) if dl else "voice cooldown: idle (window=180s)"
+    if dl:
+        cooldown_line = _cooldown_summary(dl, cfg_obj)
+    else:
+        default_cd = get_default_voice_cooldown(cfg_obj)
+        cooldown_line = f"voice cooldown: idle (window={int(default_cd)}s)"
 
     body_cfg = get_panel_body_config(PANEL_SLUG)
     out: List[str] = []

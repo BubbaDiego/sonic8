@@ -136,6 +136,17 @@ def get_xcom_flow_sid() -> Optional[str]:
     return get_oracle().get_xcom_flow_sid()
 
 
+def get_xcom_voice_profile_for_monitor(monitor: str | None) -> str:
+    """
+    Return the configured voice profile for a given monitor.
+
+    This respects per-monitor overrides and falls back to the global
+    default profile name.
+    """
+    voice_cfg = get_oracle().get_xcom_voice_config()
+    return voice_cfg.profile_for(monitor)
+
+
 __all__ = [
     "ConfigOracle",
     "get_oracle",
@@ -151,6 +162,7 @@ __all__ = [
     "get_xcom_config",
     "get_xcom_voice_config",
     "get_xcom_flow_sid",
+    "get_xcom_voice_profile_for_monitor",
     "MonitorConfigBundle",
     "MonitorDefinition",
     "MonitorGlobalConfig",
