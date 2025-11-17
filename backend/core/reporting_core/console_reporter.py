@@ -29,6 +29,7 @@ DEFAULT_PANEL_MODULES: List[str] = [
    # "backend.core.reporting_core.sonic_reporting.console_panels.preflight_config_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.price_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.positions_panel",
+    "backend.core.reporting_core.sonic_reporting.console_panels.risk_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.monitor_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.session_panel",  # NEW
     "backend.core.reporting_core.sonic_reporting.console_panels.market_panel",
