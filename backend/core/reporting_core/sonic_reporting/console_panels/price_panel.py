@@ -396,6 +396,14 @@ def _fmt_symbol(sym: str) -> str:
 
 
 def _fmt_trend(pct: Optional[float]) -> str:
+    """
+    Format a % move as an arrow + percent.
+
+    Requirements:
+      - Up arrow green, down arrow red.
+      - Percent text stays uncolored for consistent alignment.
+      - Tiny moves (< 0.01%) treated as flat in grey.
+    """
     if pct is None:
         return "—"
     try:
@@ -403,13 +411,16 @@ def _fmt_trend(pct: Optional[float]) -> str:
     except Exception:
         return "—"
 
-    # tiny moves → treat as flat
+    # Tiny moves → visually "flat"
     if abs(v) < 0.01:
         return "[grey50]0.0%[/]"
 
-    arrow = "▲" if v > 0 else "▼"
-    color = "green" if v > 0 else "red"
-    return f"[{color}]{arrow} {abs(v):.2f}%[/]"
+    if v > 0:
+        # green arrow, plain percentage
+        return f"[green]▲[/] {abs(v):.2f}%"
+    else:
+        # red arrow, plain percentage
+        return f"[red]▼[/] {abs(v):.2f}%"
 
 
 def _build_rich_table(
