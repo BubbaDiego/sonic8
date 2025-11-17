@@ -36,7 +36,7 @@ try:
 except Exception:
     HR_WIDTH = 92
 
-# ===== emoji-safe padding helpers (still used by some text paths) =====
+# ===== emoji-safe   padding helpers (still used by some text paths) =====
 _VAR = {0xFE0F, 0xFE0E}
 _ZW = {0x200D, 0x200C}
 
