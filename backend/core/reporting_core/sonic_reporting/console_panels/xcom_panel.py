@@ -488,18 +488,19 @@ def _build_attempts_table(attempts: List[Dict[str, Any]], body_cfg: Dict[str, An
 
     for idx, ev in enumerate(attempts, 1):
         kind = (ev.get("type") or "").lower()
-        result_word = kind or "-"
+        # Normalized uppercase token for any non-send/skip types
+        result_word = (kind or "-").upper()
 
         # Color the Result cell:
-        #   send  → green
-        #   skip  → yellow
-        #   other → red
+        #   SEND  → green
+        #   SKIP  → yellow
+        #   OTHER → red
         if kind == "send":
-            result_cell = "[green]send[/]"
+            result_cell = "[green]SEND[/]"
         elif kind == "skip":
-            result_cell = "[yellow]skip[/]"
+            result_cell = "[yellow]SKIP[/]"
         else:
-            result_cell = f"[red]{result_word or 'error'}[/]"
+            result_cell = f"[red]{result_word or 'ERROR'}[/]"
 
         icon, symbol = _target_icon_and_symbol(ev)
         tgt_icon = icon or ""
@@ -620,10 +621,12 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     )
     out.append("")
 
-    # Recent attempts table title
+    # Recent attempts table title (centered)
+    header_text = "📡 Recent XCom Attempts"
+    centered_title = _justify_lines([header_text], "center", HR_WIDTH)[0]
     out += body_indent_lines(
         PANEL_SLUG,
-        [color_if_plain("  📡 Recent XCom attempts (latest first)", body_cfg["column_header_text_color"])],
+        [color_if_plain(centered_title, body_cfg["column_header_text_color"])],
     )
 
     if not attempts:
