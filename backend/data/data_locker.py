@@ -1278,25 +1278,10 @@ class DataLocker:
                 source="DataLocker",
             )
             return
-        try:
-            current = self.system.get_var("market_monitor")
-            if current:
-                return
-
-            from backend.core.monitor_core.market_monitor import MarketMonitor
-
-            mon = MarketMonitor(self)
-            cfg = mon._cfg()
-            self.system.set_var(mon.name, cfg)
-            log.debug(
-                "Market monitor config seeded from defaults",
-                source="DataLocker",
-            )
-        except Exception as e:
-            log.error(
-                f"❌ Failed seeding market monitor config: {e}",
-                source="DataLocker",
-            )
+        log.info(
+            "Market monitor config seeding disabled in Sonic8",
+            source="DataLocker",
+        )
 
     def _seed_xcom_providers_if_empty(self):
         """Seed or update XCom providers from ``comm_config.json``."""
