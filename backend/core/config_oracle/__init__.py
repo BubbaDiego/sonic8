@@ -60,6 +60,21 @@ def get_global_monitor_config() -> MonitorGlobalConfig:
     return get_oracle().get_global_monitor_config()
 
 
+def should_clear_console_each_cycle() -> bool:
+    """
+    Return whether the Sonic Monitor console should clear the screen at the
+    start of each cycle.
+
+    This is driven by monitor.console.clear_each_cycle in the monitor config,
+    via ConfigOracle's MonitorGlobalConfig.
+    """
+    try:
+        g = get_global_monitor_config()
+        return bool(getattr(g, "console_clear_each_cycle", False))
+    except Exception:
+        return False
+
+
 def list_monitors() -> list[str]:
     """Return the list of monitor names known to the Oracle."""
     return get_oracle().list_monitors()
@@ -153,6 +168,7 @@ __all__ = [
     "reload_monitors",
     "get_monitor_bundle",
     "get_global_monitor_config",
+    "should_clear_console_each_cycle",
     "list_monitors",
     "get_monitor",
     "get_monitor_notifications",

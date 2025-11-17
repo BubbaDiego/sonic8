@@ -63,11 +63,14 @@ class MonitorGlobalConfig:
       - loop_seconds: main poll interval.
       - global_snooze_seconds: optional global snooze window.
       - xcom_live: whether external channels (voice/Twilio, etc.) are live.
+      - console_clear_each_cycle: if True, clear the console at the start of
+        each Sonic Monitor console cycle (for a "live dashboard" UI).
     """
 
     loop_seconds: int = 30
     global_snooze_seconds: Optional[int] = None
     xcom_live: bool = False
+    console_clear_each_cycle: bool = False
 
 
 @dataclass

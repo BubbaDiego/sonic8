@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path  # BEGIN CODEX: new import
 
 from backend.data.data_locker import DataLocker
 from backend.core.monitor_core.sonic.engine import MonitorEngine
 from backend.core.monitor_core.utils.banner import emit_config_banner  # BEGIN CODEX: new import
+from backend.core import config_oracle as ConfigOracle
 
 try:
     from backend.core.webterm_core.autostart import autostart as webterm_autostart
@@ -18,10 +20,27 @@ try:
 except Exception:
     _webterm_launch_script = None
 
+def _clear_console() -> None:
+    """Clear the terminal screen in a cross-platform way."""
+    if os.name == "nt":
+        os.system("cls")
+    else:
+        sys.stdout.write("\x1b[2J\x1b[H")
+        sys.stdout.flush()
+
+
 def main():
     dl = DataLocker.get_instance()
     debug = (os.getenv("SONIC_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"})
     interval = int(os.getenv("SONIC_INTERVAL_SEC", "34"))
+
+    clear_each_cycle = False
+    should_clear_cb = getattr(ConfigOracle, "should_clear_console_each_cycle", None)
+    if callable(should_clear_cb):
+        try:
+            clear_each_cycle = bool(should_clear_cb())
+        except Exception:
+            clear_each_cycle = False
 
     # BEGIN CODEX: startup config banner (env + config + DB)
     try:
@@ -72,6 +91,10 @@ def main():
     # END CODEX
 
     eng = MonitorEngine(dl=dl, cfg={}, debug=debug)
+    eng.clear_console_fn = _clear_console
+    eng.console_clear_each_cycle = clear_each_cycle
+    if callable(should_clear_cb):
+        eng.should_clear_console_cb = should_clear_cb
     eng.run_forever(interval_sec=interval)
 
 if __name__ == "__main__":
