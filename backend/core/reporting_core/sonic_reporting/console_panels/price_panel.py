@@ -4,7 +4,7 @@ price_panel.py
 Sonic Reporting — Prices panel (console)
 
 Goals
-- Match the common console style used by other panels.
+- Match the  common console style used by other panels.
 - Accept a single ctx dict or (dl, ctx, width) via connector(...).
 - No csum dependency.
 - Be forgiving about sources:
@@ -22,7 +22,7 @@ from rich.table import Table
 from rich import box
 
 try:
-    # Reuse a shared icon mapping when available.
+    # Reuse a  shared icon mapping when available.
     from backend.core.reporting_core.sonic_reporting.positions_icons import icon_for  # type: ignore
 except Exception:  # pragma: no cover
     def icon_for(sym: str) -> str:
