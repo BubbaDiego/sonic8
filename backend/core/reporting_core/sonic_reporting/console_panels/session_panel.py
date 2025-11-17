@@ -1,462 +1,303 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime, timedelta
-from io import StringIO
+from datetime import datetime
+from typing import Any, Mapping, Optional
 
-from rich.console import Console
+from rich.align import Align
+from rich.panel import Panel
 from rich.table import Table
-from rich import box
-
-from .theming import (
-    emit_title_block,
-    get_panel_body_config,
-    body_pad_below,
-    body_indent_lines,
-    color_if_plain,
-    paint_line,
-)
-
-try:
-    # Width hint for Rich export; theming already uses this
-    from .theming import HR_WIDTH  # type: ignore[attr-defined]
-except Exception:  # pragma: no cover
-    HR_WIDTH = 100
-
-PANEL_SLUG = "session"
-PANEL_NAME = "Session / Goals"
-
-# Time windows (in hours) – "All" is handled separately
-_TIME_WINDOWS: List[Tuple[str, Optional[int]]] = [
-    ("1h", 1),
-    ("6h", 6),
-    ("12h", 12),
-    ("All", None),
-]
+from rich.text import Text
 
 
-# ───────────────────────────────── helpers ──────────────────────────────────
+TITLE = "🎯 Session / Goals"
 
 
-def _resolve_dl(context: Any) -> Any:
-    """Get DataLocker from context (or return None)."""
-    if isinstance(context, dict):
-        dl = context.get("dl")
-        if dl is not None:
-            return dl
-    return context if hasattr(context, "session") else None
+# ───────────────────────── helpers ───────────────────────── #
 
 
-def _parse_iso(ts: Any) -> Optional[datetime]:
-    if ts is None:
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    """Safe field accessor for dicts, Pydantic models, and plain objects."""
+    if obj is None:
+        return default
+
+    if isinstance(obj, Mapping):
+        return obj.get(key, default)
+
+    # Pydantic BaseModel / dataclasses / simple objects
+    return getattr(obj, key, default)
+
+
+def _parse_dt(value: Any) -> Optional[datetime]:
+    """Parse a datetime from Session fields (datetime or ISO string)."""
+    if value is None:
         return None
-    try:
-        if isinstance(ts, datetime):
-            return ts
-        if isinstance(ts, (int, float)):
-            return datetime.fromtimestamp(float(ts))
-        if isinstance(ts, str):
-            return datetime.fromisoformat(ts)
-    except Exception:
-        return None
+
+    if isinstance(value, datetime):
+        return value
+
+    if isinstance(value, str):
+        s = value.strip()
+        # tolerate trailing "Z"
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        try:
+            return datetime.fromisoformat(s)
+        except Exception:
+            return None
+
     return None
 
 
-def _fmt_money(v: Optional[float]) -> str:
-    return f"${v:,.2f}" if isinstance(v, (int, float)) else "—"
-
-
-def _fmt_pct(v: Optional[float]) -> str:
-    return f"{v:.2f}%" if isinstance(v, (int, float)) else "—"
-
-
-def _trend_cell(delta: Optional[float], is_percent: bool = False) -> str:
-    """Return a Rich-styled trend cell with ▲/▼ and color."""
-    if not isinstance(delta, (int, float)):
+def _fmt_timestamp(value: Any) -> str:
+    """
+    Format session_start_time as: 11/17/25 8:15PM
+    (MM/DD/YY, 12-hour clock, no leading zero on hour).
+    """
+    dt = _parse_dt(value)
+    if not dt:
         return "—"
-    if abs(delta) < 1e-9:
-        # flat
-        return f"{0.00:.2f}%" if is_percent else _fmt_money(0.0)
-
-    arrow = "▲" if delta > 0 else "▼"
-    color = "green" if delta > 0 else "red"
-    mag = abs(delta)
-    if is_percent:
-        return f"[{color}]{arrow} {mag:.2f}%[/]"
-    return f"[{color}]{arrow} {_fmt_money(mag)}[/]"
+    date_part = dt.strftime("%m/%d/%y")
+    time_part = dt.strftime("%I:%M%p").lstrip("0")  # 08:15PM → 8:15PM
+    return f"{date_part} {time_part}"
 
 
-def _compute_timeframe_deltas(
-    dl: Any,
-) -> Tuple[Optional[float], Dict[str, Dict[str, Optional[float]]]]:
+def _fmt_money(value: Any) -> str:
+    """Format a value as $1,234.56 or '—'."""
+    if value is None:
+        return "—"
+    try:
+        v = float(value)
+    except Exception:
+        return str(value)
+    return f"${v:,.2f}"
+
+
+def _fmt_delta_money(delta: Any) -> Text:
     """
-    Compute All-time and per-window deltas from portfolio snapshots.
+    Render a P&L delta as colored arrow + dollars, e.g.:
 
-    Returns:
-      (session_start_value, {
-        "1h": {"delta": float|None, "pct": float|None},
-        "6h": {...},
-        "12h": {...},
-        "All": {...},
-      })
+        ▲ $89.11  (green)
+        ▼ $12.34  (red)
     """
-    mgr = getattr(dl, "portfolio", None)
-    if mgr is None or not hasattr(mgr, "get_snapshots"):
-        return None, {}
+    if delta is None:
+        return Text("—", style="dim")
 
     try:
-        snaps = mgr.get_snapshots()
+        v = float(delta)
     except Exception:
-        snaps = []
+        # if something weird comes through, at least show it
+        return Text(str(delta))
 
-    if not snaps:
-        return None, {}
+    is_up = v >= 0
+    arrow = "▲" if is_up else "▼"
+    style = "green" if is_up else "red"
+    body = _fmt_money(abs(v))
+    return Text(f"{arrow} {body}", style=style)
 
-    # Assume DLPortfolioManager.get_snapshots returns ascending by snapshot_time
-    # (see dl_portfolio.py). We treat the latest snapshot as "now".
-    last = snaps[-1]
-    last_ts = _parse_iso(getattr(last, "snapshot_time", None))
-    if last_ts is None:
-        last_ts = datetime.now()
+
+def _fmt_delta_pct(delta_pct: Any) -> Text:
+    """Same idea as _fmt_delta_money but for percentages."""
+    if delta_pct is None:
+        return Text("—", style="dim")
 
     try:
-        start_val = float(getattr(last, "session_start_value", 0.0) or 0.0)
+        v = float(delta_pct)
     except Exception:
-        start_val = 0.0
-    try:
-        all_delta = float(getattr(last, "current_session_value", 0.0) or 0.0)
-    except Exception:
-        all_delta = 0.0
+        return Text(str(delta_pct))
 
-    def _safe_curr(snap: Any) -> float:
+    is_up = v >= 0
+    arrow = "▲" if is_up else "▼"
+    style = "green" if is_up else "red"
+    return Text(f"{arrow} {abs(v):,.2f}%", style=style)
+
+
+def _horizon_cell(
+    perf: Mapping[str, Any],
+    key: str,
+) -> tuple[Text, Text]:
+    """
+    perf is expected to look like:
+
+        {
+          "1h":  {"delta_usd": 0.0, "delta_pct": 0.0},
+          "6h":  {...},
+          "12h": {...},
+          "all": {...},
+        }
+    """
+    horizon = perf.get(key) or {}
+    dv = horizon.get("delta_usd")
+    dp = horizon.get("delta_pct")
+
+    if dv is None:
+        dv_text = Text("$0.00", style="dim")
+    else:
+        dv_text = _fmt_delta_money(dv)
+
+    if dp is None:
+        dp_text = Text("—", style="dim")
+    else:
+        dp_text = _fmt_delta_pct(dp)
+
+    return dv_text, dp_text
+
+
+# ───────────────────────── main render ───────────────────────── #
+
+
+def build_session_panel(
+    session: Any | None,
+    perf: Mapping[str, Mapping[str, Any]] | None = None,
+) -> Panel:
+    """
+    Build the 🎯 Session / Goals Rich panel.
+
+    Parameters
+    ----------
+    session
+        A `backend.models.session.Session` instance, a dict with the same
+        fields, or `None` if no active session.
+    perf
+        Optional per-horizon performance:
+
+            {
+              "1h":  {"delta_usd": float, "delta_pct": float},
+              "6h":  {...},
+              "12h": {...},
+              "all": {...},
+            }
+
+    Returns
+    -------
+    Panel
+        Rich Panel ready to plug into the console UI layout.
+    """
+    perf = perf or {}
+
+    if session is None:
+        msg = Text(
+            "No active session.\n\n"
+            "Use the Session / Goals menu to start one.",
+            style="yellow",
+        )
+        return Panel(
+            Align.left(msg),
+            title=TITLE,
+            border_style="white",
+            padding=(1, 2),
+        )
+
+    # --- core fields from Session model ------------------------------------- #
+    status = str(_get(session, "status", "OPEN") or "").upper()
+    label = _get(session, "label")  # optional, not part of Session model
+    goal_mode = (
+        _get(session, "goal_mode")
+        or _get(session, "mode")
+        or _get(session, "goal_mode_name")
+    )
+
+    start_time = _get(session, "session_start_time")
+    start_value = _get(session, "session_start_value")
+    goal_value = _get(session, "session_goal_value")
+    current_value = _get(session, "current_session_value")
+
+    # Prefer explicit session_performance_value, otherwise derive from current/start
+    perf_value = _get(session, "session_performance_value")
+    if perf_value is None and start_value is not None and current_value is not None:
         try:
-            return float(getattr(snap, "current_session_value", 0.0) or 0.0)
+            perf_value = float(current_value) - float(start_value)
         except Exception:
-            return 0.0
+            perf_value = None
 
-    # Precompute times for all snapshots (ascending)
-    ts_list: List[Tuple[datetime, Any]] = []
-    for s in snaps:
-        ts = _parse_iso(getattr(s, "snapshot_time", None))
-        if ts is not None:
-            ts_list.append((ts, s))
+    # --- header line -------------------------------------------------------- #
+    status_dot = "🟢" if status == "OPEN" else "🔴"
+    header = Text()
 
-    if not ts_list:
-        return start_val, {}
+    header.append(status_dot + " ", style="green" if status == "OPEN" else "red")
+    header.append(status)
 
-    metrics: Dict[str, Dict[str, Optional[float]]] = {}
+    if label is not None:
+        header.append("  •  ")
+        header.append(f"Label {label}")
 
-    # All-time (since session start)
-    pct_all = None
-    if start_val > 0:
-        pct_all = all_delta / start_val * 100.0
-    metrics["All"] = {"delta": all_delta, "pct": pct_all}
+    if goal_mode:
+        header.append(" (")
+        header.append(str(goal_mode))
+        header.append(")")
 
-    # Sliding windows
-    for label, hours in _TIME_WINDOWS:
-        if hours is None:
-            # already handled as "All"
-            continue
+    header.append("  •  ")
+    header.append(_fmt_timestamp(start_time))
 
-        cutoff = last_ts - timedelta(hours=hours)
+    # --- summary block: Start / Current / Goal / All-time Δ ----------------- #
+    summary = Table.grid(padding=(0, 1))
+    summary.add_row(header)
 
-        baseline = None
-        # walk snapshots backwards until we find one within the window
-        for ts, snap in reversed(ts_list):
-            if ts <= last_ts and ts >= cutoff:
-                baseline = _safe_curr(snap)
-                break
+    row1 = Text("Start   : ")
+    row1.append(_fmt_money(start_value))
+    row1.append("      All-time Δ: ")
+    row1.append(_fmt_delta_money(perf_value))
+    summary.add_row(row1)
 
-        if baseline is None:
-            metrics[label] = {"delta": None, "pct": None}
-            continue
+    row2 = Text("Current : ")
+    row2.append(Text(_fmt_money(current_value), style="cyan"))
+    row2.append("      Goal      : ")
+    row2.append(_fmt_money(goal_value))
+    summary.add_row(row2)
 
-        delta_val = all_delta - baseline
-        pct_val = None
-        if start_val > 0:
-            pct_val = delta_val / start_val * 100.0
-        metrics[label] = {"delta": delta_val, "pct": pct_val}
+    # --- horizon table (1h / 6h / 12h / All-time) --------------------------- #
+    d1h, p1h = _horizon_cell(perf, "1h")
+    d6h, p6h = _horizon_cell(perf, "6h")
+    d12h, p12h = _horizon_cell(perf, "12h")
+    dall, pall = _horizon_cell(perf, "all")
 
-    return start_val, metrics
+    table = Table.grid(padding=(0, 3))
+    table.add_row(
+        Text("📊 Metric"),
+        Text("⏱ 1h"),
+        Text("⏱ 6h"),
+        Text("⏱ 12h"),
+        Text("📅 All-time"),
+    )
+    table.add_row("💵 Δ $", d1h, d6h, d12h, _fmt_delta_money(perf_value))
+    table.add_row("📈 Δ %", p1h, p6h, p12h, pall)
+
+    # --- compose ------------------------------------------------------------ #
+    body = Table.grid(padding=(0, 0))
+    body.add_row(summary)
+    body.add_row(Text())  # spacer
+    body.add_row(table)
+
+    return Panel(
+        Align.left(body),
+        title=TITLE,
+        border_style="white",
+        padding=(1, 2),
+    )
 
 
-# ────────────────────────────────── Rich table plumbing ─────────────────────
+# Convenience alias if other modules expect `render_session_panel`
+render_session_panel = build_session_panel
 
 
-def _resolve_table_cfg(body_cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """Resolve Rich table settings for the Session panel (defaults to thin)."""
-    tcfg = (body_cfg or {}).get("table") or {}
-    style = str(tcfg.get("style") or "").lower().strip() or "thin"
-    table_justify = str(tcfg.get("table_justify") or "left").lower().strip()
-    header_justify = str(tcfg.get("header_justify") or "left").lower().strip()
-    return {
-        "style": style,
-        "table_justify": table_justify,
-        "header_justify": header_justify,
+if __name__ == "__main__":  # pragma: no cover - manual demo helper
+    from rich.console import Console
+
+    demo_session = {
+        "status": "OPEN",
+        "label": 15,
+        "goal_mode": "GoalMode.DELTA",
+        "session_start_time": datetime.utcnow().isoformat(),
+        "session_start_value": 100.0,
+        "current_session_value": 189.11,
+        "session_goal_value": 200.0,
+        "session_performance_value": 89.11,
+    }
+    demo_perf = {
+        "1h": {"delta_usd": 0.0, "delta_pct": None},
+        "6h": {"delta_usd": 0.0, "delta_pct": None},
+        "12h": {"delta_usd": 0.0, "delta_pct": None},
+        "all": {"delta_usd": 89.11, "delta_pct": 89.11},
     }
 
-
-def _style_to_box(style: str):
-    style = (style or "").lower()
-    if style == "thin":
-        return box.SIMPLE_HEAD, False
-    if style == "thick":
-        return box.HEAVY_HEAD, True
-    # "invisible" or unknown → no borders
-    return None, False
-
-
-def _justify_lines(lines: List[str], justify: str, width: int) -> List[str]:
-    """Apply table-level justification to rendered text lines."""
-    justify = (justify or "left").lower()
-    out: List[str] = []
-    for line in lines:
-        s = line.rstrip("\n")
-        pad = max(0, width - len(s))
-        if justify == "right":
-            out.append(" " * pad + s)
-        elif justify == "center":
-            left = pad // 2
-            out.append(" " * left + s)
-        else:
-            out.append(s)
-    return out
-
-
-def _is_rule_line(line: str) -> bool:
-    """Return True if a line is just box-drawing/horizontal rule characters."""
-    stripped = line.strip()
-    if not stripped:
-        return False
-    chars = set(stripped)
-    rule_chars = set("┌┐└┘├┤┬┴┼─━═╭╮╯╰╴╶╷╵╸╹╺╻╼╽╾╿+|")
-    return chars <= rule_chars
-
-
-def _build_perf_table(
-    metrics: Dict[str, Dict[str, Optional[float]]],
-    body_cfg: Dict[str, Any],
-) -> List[str]:
-    """
-    Build a Rich table representing session performance by timeframe and
-    export as text.
-
-    Columns: Metric × (1h, 6h, 12h, All-time)
-    Rows:    Δ $, Δ %
-    """
-    table_cfg = _resolve_table_cfg(body_cfg)
-    box_style, show_lines = _style_to_box(table_cfg["style"])
-
-    table = Table(
-        show_header=True,
-        header_style="",
-        show_lines=show_lines,
-        box=box_style,
-        pad_edge=False,
-        expand=False,
-    )
-
-    # Header labels with icons
-    table.add_column("📏 Metric", justify="left", no_wrap=True)
-    table.add_column("⏱ 1h", justify="right", no_wrap=True)
-    table.add_column("🕓 6h", justify="right", no_wrap=True)
-    table.add_column("🕕 12h", justify="right", no_wrap=True)
-    table.add_column("📈 All-time", justify="right", no_wrap=True)
-
-    # Rows: Δ $ and Δ %
-    labels = ["💵 Δ $", "📈 Δ %"]
-    for row_idx, metric_label in enumerate(labels):
-        cells: List[str] = [metric_label]
-        for label, hours in _TIME_WINDOWS:
-            cell_metrics = metrics.get(label, {})
-            if row_idx == 0:
-                delta_val = cell_metrics.get("delta")
-                cells.append(_trend_cell(delta_val, is_percent=False))
-            else:
-                pct_val = cell_metrics.get("pct")
-                cells.append(_trend_cell(pct_val, is_percent=True))
-        table.add_row(*cells)
-
-    buf = StringIO()
-    console = Console(record=True, width=HR_WIDTH, file=buf, force_terminal=True)
-    console.print(table)
-    # Preserve Rich color/style markup so trend arrows keep their colors.
-    text = console.export_text(styles=True).rstrip("\n")
-    if not text:
-        return []
-
-    raw_lines = text.splitlines()
-    # Remove pure rule lines (header underline, borders, if any)
-    cleaned = [ln for ln in raw_lines if not _is_rule_line(ln)]
-    return _justify_lines(cleaned, table_cfg["table_justify"], HR_WIDTH)
-
-
-# ─────────────────────────────────── render ─────────────────────────────────
-
-
-def render(context: Any, width: Optional[int] = None) -> List[str]:
-    """
-    Accepted:
-      render(ctx)
-      render(dl, ctx)
-      render(ctx, width)
-    Returns a list of lines; console_reporter will print them.
-    """
-    # Normalize context to always have a dict with dl + cfg
-    ctx: Dict[str, Any] = {}
-    if isinstance(context, dict):
-        ctx.update(context)
-    else:
-        ctx["dl"] = context
-
-    dl = _resolve_dl(ctx)
-    body_cfg = get_panel_body_config(PANEL_SLUG)
-
-    lines: List[str] = []
-    lines.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
-
-    if dl is None or not hasattr(dl, "session"):
-        # No DataLocker or no session manager – graceful degrade
-        msg = "Session manager unavailable. Use LaunchPad #14 (Session / Goals Console) to configure."
-        lines.extend(
-            body_indent_lines(
-                PANEL_SLUG,
-                [color_if_plain(msg, body_cfg.get("body_text_color", ""))],
-            )
-        )
-        lines.extend(body_pad_below(PANEL_SLUG))
-        return lines
-
-    session_mgr = dl.session
-    active = None
-    try:
-        active = session_mgr.get_active_session()
-    except Exception:
-        active = None
-
-    if active is None:
-        msg = "No active session. Use LaunchPad #14 (Session / Goals Console) to start one."
-        lines.extend(
-            body_indent_lines(
-                PANEL_SLUG,
-                [color_if_plain(msg, body_cfg.get("body_text_color", ""))],
-            )
-        )
-        lines.extend(body_pad_below(PANEL_SLUG))
-        return lines
-
-    # --- Status + label block ------------------------------------------------
-    status_raw = getattr(active, "status", "OPEN") or "OPEN"
-    status_norm = str(status_raw).upper()
-    status_icon = "🟢" if status_norm == "OPEN" else "⚪"
-    session_label = getattr(active, "session_label", None)
-    goal_mode = getattr(active, "goal_mode", None)
-
-    # Start time / start value / goal
-    start_ts = getattr(active, "session_start_time", None)
-    start_str = ""
-    if start_ts is not None:
-        try:
-            if isinstance(start_ts, str):
-                start_str = start_ts
-            else:
-                start_str = start_ts.isoformat(timespec="seconds")
-        except Exception:
-            start_str = str(start_ts)
-
-    start_val = getattr(active, "session_start_value", 0.0)
-    goal_val = getattr(active, "session_goal_value", 0.0)
-    curr_val = getattr(active, "current_session_value", 0.0)
-    perf_val = getattr(active, "session_performance_value", 0.0)
-    notes = getattr(active, "notes", None)
-
-    status_line = f"  🧭 Status: {status_icon} {status_norm}"
-    if session_label:
-        mode_tag = f" ({goal_mode})" if goal_mode else ""
-        status_line += f"   🎟 Label: {session_label}{mode_tag}"
-
-    start_line = f"  🕒 Start: {start_str or 'unknown'}   💰 Start $: {_fmt_money(start_val)}"
-
-    # Goal line + All-time summary
-    goal_line = f"  🎯 Goal: {_fmt_money(goal_val)}"
-    all_label = "All"
-    start_for_pct, metrics = _compute_timeframe_deltas(dl)
-    all_metrics = metrics.get(all_label, {}) if metrics else {}
-    all_delta = all_metrics.get("delta", curr_val)
-    all_pct = all_metrics.get("pct")
-    # Fall back on performance_value for All-time delta if metrics empty
-    if not isinstance(all_delta, (int, float)):
-        all_delta = perf_val
-    all_trend_val = _trend_cell(all_delta, is_percent=False)
-    all_trend_pct = _trend_cell(all_pct, is_percent=True) if all_pct is not None else ""
-
-    if all_trend_pct:
-        goal_line += f"   📈 All-time: {all_trend_val}  ({all_trend_pct})"
-    else:
-        goal_line += f"   📈 All-time: {all_trend_val}"
-
-    lines.extend(
-        body_indent_lines(
-            PANEL_SLUG,
-            [
-                color_if_plain(status_line, body_cfg.get("body_text_color", "")),
-                color_if_plain(start_line, body_cfg.get("body_text_color", "")),
-                color_if_plain(goal_line, body_cfg.get("body_text_color", "")),
-            ],
-        )
-    )
-    lines.append("")
-
-    # --- Performance table ---------------------------------------------------
-    if not metrics:
-        msg = "No portfolio snapshots yet. Run Cyclone / Positions to populate session performance."
-        lines.extend(
-            body_indent_lines(
-                PANEL_SLUG,
-                [color_if_plain(msg, body_cfg.get("body_text_color", ""))],
-            )
-        )
-        lines.extend(body_pad_below(PANEL_SLUG))
-        return lines
-
-    table_lines = _build_perf_table(metrics, body_cfg)
-
-    if table_lines:
-        header_line = table_lines[0]
-        data_lines = table_lines[1:]
-
-        # Header tinted like other panels
-        lines.extend(
-            body_indent_lines(
-                PANEL_SLUG,
-                [paint_line(header_line, body_cfg.get("column_header_text_color", ""))],
-            )
-        )
-        # Body uses normal body_text_color (and respects inline markup)
-        for ln in data_lines:
-            lines.extend(
-                body_indent_lines(
-                    PANEL_SLUG,
-                    [color_if_plain(ln, body_cfg.get("body_text_color", ""))],
-                )
-            )
-
-    # Optional notes line
-    if notes:
-        lines.append("")
-        note_line = f"  📝 Notes: {notes}"
-        lines.extend(
-            body_indent_lines(
-                PANEL_SLUG,
-                [color_if_plain(note_line, body_cfg.get("body_text_color", ""))],
-            )
-        )
-
-    lines.extend(body_pad_below(PANEL_SLUG))
-    return lines
-
-
-def connector(*args, **kwargs) -> List[str]:
-    """console_reporter prefers connector(); delegate to render()."""
-    return render(*args, **kwargs)
+    console = Console()
+    console.print(build_session_panel(demo_session, demo_perf))
