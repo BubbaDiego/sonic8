@@ -18,7 +18,7 @@ class QuoteService(BaseFunService):
 
     async def _try_zenquotes(self) -> Optional[FunContent]:
         url = "https://zenquotes.io/api/random"
-        r = await self._client.get(url)
+        r = await self._request("GET", url)
         if r.status_code != 200:
             return None
         data = r.json()[0]
@@ -32,7 +32,7 @@ class QuoteService(BaseFunService):
 
     async def _try_quotable(self) -> Optional[FunContent]:
         url = "https://api.quotable.io/random"
-        r = await self._client.get(url)
+        r = await self._request("GET", url)
         if r.status_code != 200:
             return None
         d = r.json()
