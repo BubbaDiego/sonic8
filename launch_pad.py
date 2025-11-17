@@ -1024,13 +1024,260 @@ def wallet_menu():
             continue
 
 
-def goals_menu():
+def goals_menu() -> None:
+    """Interactive Session / Goals console (LaunchPad menu #14)."""
+    # Defensive imports / guards so we don't blow up if DataLocker failed
     try:
-        from backend.models.session import Session  # type: ignore
-        # Placeholder summary only; keep parity with sonic6 menu placement
-        console.print(f"[cyan]Active session goals: {len(getattr(Session, 'goals', [])) if hasattr(Session,'goals') else 0}[/]")
+        dl_class = DataLocker  # type: ignore[name-defined]
     except Exception:
-        console.print("[yellow]Session/Goals not available.[/]")
+        print("Session/Goals console is unavailable (DataLocker missing).")
+        input("Press ENTER to return…")
+        return
+
+    try:
+        locker = dl_class.get_instance()  # type: ignore[attr-defined]
+    except Exception as exc:  # pragma: no cover
+        print(f"Failed to initialize DataLocker: {exc}")
+        input("Press ENTER to return…")
+        return
+
+    session_mgr = getattr(locker, "session", None)
+    if session_mgr is None:
+        print("Session manager is not available on DataLocker.")
+        input("Press ENTER to return…")
+        return
+
+    while True:
+        clear_screen()
+        banner()
+
+        active = session_mgr.get_active_session()
+
+        print()
+        print("🎯 Session / Goals")
+        print("────────────────────────────")
+        if active is None:
+            print("No active session. You can start one from this menu.")
+        else:
+            start_ts = getattr(active, "session_start_time", None)
+            start_value = getattr(active, "session_start_value", 0.0)
+            current_value = getattr(active, "current_session_value", 0.0)
+            goal_value = getattr(active, "session_goal_value", 0.0)
+            perf_value = getattr(active, "session_performance_value", 0.0)
+            status = getattr(active, "status", "OPEN")
+            session_label = getattr(active, "session_label", None)
+            goal_mode = getattr(active, "goal_mode", None)
+            notes = getattr(active, "notes", None)
+
+            print(f"ID      : {active.id}")
+            if session_label:
+                print(f"Label   : {session_label}")
+            if start_ts is not None:
+                try:
+                    if isinstance(start_ts, str):
+                        start_str = start_ts
+                    else:
+                        start_str = start_ts.isoformat(timespec="seconds")
+                except Exception:
+                    start_str = str(start_ts)
+                print(f"Start   : {start_str}")
+            print(f"Start $ : {start_value}")
+            print(f"Current$: {current_value}")
+            print(f"Goal   $: {goal_value}")
+            print(f"Perf   $: {perf_value}")
+            if goal_mode:
+                print(f"Mode    : {goal_mode}")
+            print(f"Status  : {status}")
+            if notes:
+                print(f"Notes   : {notes}")
+
+        print()
+        print("1. View active session")
+        print("2. Edit active session fields")
+        print("3. Start new session")
+        print("4. Reset active session")
+        print("5. Close active session")
+        print("0. Back to LaunchPad")
+
+        try:
+            choice = input("→ ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+
+        if choice == "1":
+            _goals_view_active(session_mgr)
+        elif choice == "2":
+            _goals_edit_active(session_mgr)
+        elif choice == "3":
+            _goals_start_new(session_mgr)
+        elif choice == "4":
+            _goals_reset_active(session_mgr)
+        elif choice == "5":
+            _goals_close_active(session_mgr)
+        elif choice == "0":
+            break
+        else:
+            print("Unknown option. Use 0–5.")
+            input("Press ENTER to continue…")
+
+
+def _goals_view_active(session_mgr) -> None:
+    """Simple view hook (tests expect a call to get_active_session)."""
+    active = session_mgr.get_active_session()
+    if active is None:
+        print("\nNo active session.")
+    else:
+        print("\nActive session details refreshed.")
+    input("Press ENTER to return…")
+
+
+def _goals_edit_active(session_mgr) -> None:
+    """Edit core fields on the active session (start time/value/goal/notes)."""
+    from datetime import datetime as _dt
+
+    active = session_mgr.get_active_session()
+    if active is None:
+        print("\nNo active session to edit.")
+        input("Press ENTER to return…")
+        return
+
+    # session_start_time
+    current_start = getattr(active, "session_start_time", None)
+    if current_start is not None:
+        if isinstance(current_start, str):
+            current_start_str = current_start
+        else:
+            try:
+                current_start_str = current_start.isoformat(timespec="seconds")
+            except Exception:
+                current_start_str = str(current_start)
+    else:
+        current_start_str = ""
+
+    new_start_raw = input(
+        f"Session start time [{current_start_str}] (ISO, blank=keep): "
+    ).strip()
+
+    if new_start_raw:
+        try:
+            new_dt = _dt.fromisoformat(new_start_raw)
+            new_start_value = new_dt.isoformat(timespec="seconds")
+        except Exception:
+            new_start_value = current_start_str
+    else:
+        new_start_value = current_start_str
+
+    def _prompt_float(label: str, current: float) -> float | None:
+        raw = input(f"{label} [{current}] (blank=keep): ").strip()
+        if not raw:
+            return None
+        try:
+            return float(raw)
+        except ValueError:
+            return current
+
+    patch: dict[str, object] = {}
+    patch["session_start_time"] = new_start_value
+
+    start_val = getattr(active, "session_start_value", 0.0)
+    current_val = getattr(active, "current_session_value", 0.0)
+    goal_val = getattr(active, "session_goal_value", 0.0)
+    perf_val = getattr(active, "session_performance_value", 0.0)
+    status = getattr(active, "status", "OPEN")
+    notes = getattr(active, "notes", None)
+
+    maybe = _prompt_float("Start value", start_val)
+    if maybe is not None:
+        patch["session_start_value"] = maybe
+
+    maybe = _prompt_float("Current value", current_val)
+    if maybe is not None:
+        patch["current_session_value"] = maybe
+
+    maybe = _prompt_float("Goal value", goal_val)
+    if maybe is not None:
+        patch["session_goal_value"] = maybe
+
+    maybe = _prompt_float("Performance value", perf_val)
+    if maybe is not None:
+        patch["session_performance_value"] = maybe
+
+    new_status = input(f"Status [{status}] (blank=keep): ").strip()
+    if new_status:
+        patch["status"] = new_status
+
+    new_notes = input(
+        f"Notes [{notes if notes is not None else ''}] (blank=keep): "
+    ).strip()
+    if new_notes:
+        patch["notes"] = new_notes
+
+    # We could also prompt for session_label / goal_mode here later.
+    session_mgr.update_session(active.id, patch)
+    print("\nActive session updated.")
+    input("Press ENTER to return…")
+
+
+def _goals_start_new(session_mgr) -> None:
+    """Start a new session (closing any open one)."""
+    print("\nStart new session")
+    print("-----------------")
+
+    label = input("Session label (optional): ").strip() or None
+
+    def _prompt_float(label: str, default: float) -> float:
+        raw = input(f"{label} [default {default}]: ").strip()
+        if not raw:
+            return default
+        try:
+            return float(raw)
+        except ValueError:
+            return default
+
+    start_value = _prompt_float("Start value", 0.0)
+    goal_value = _prompt_float("Goal value", 0.0)
+    notes = input("Notes (optional): ").strip() or None
+
+    # We can pass label through if start_session supports it;
+    # if not, this still works with the existing signature (Codex can adjust).
+    try:
+        session_mgr.start_session(
+            start_value=start_value,
+            goal_value=goal_value,
+            notes=notes,
+            session_label=label,
+        )
+    except TypeError:
+        session_mgr.start_session(
+            start_value=start_value,
+            goal_value=goal_value,
+            notes=notes,
+        )
+
+    print("\nNew session started.")
+    input("Press ENTER to return…")
+
+
+def _goals_reset_active(session_mgr) -> None:
+    """Reset current session metrics."""
+    print("\nResetting active session metrics (if any)…")
+    try:
+        session_mgr.reset_session()
+        print("Active session metrics reset.")
+    except Exception:
+        print("No active session or reset failed.")
+    input("Press ENTER to return…")
+
+
+def _goals_close_active(session_mgr) -> None:
+    """Close the active session."""
+    print("\nClosing active session (if any)…")
+    try:
+        session_mgr.close_session()
+        print("Active session closed.")
+    except Exception:
+        print("No active session or close failed.")
+    input("Press ENTER to return…")
 
 
 def run_daily_maintenance():
@@ -1242,7 +1489,7 @@ def main() -> None:
         elif choice == "13":
             run_menu_action("Launch Cyclone App", run_cyclone_console)
         elif choice == "14":
-            run_menu_action("Session / Goals", goals_menu)
+            run_menu_action("Session___Goals", goals_menu)
         elif choice == "15":
             run_menu_action("Generate Specs / Teaching Pack", run_daily_maintenance)
         elif choice == "16":
