@@ -2,7 +2,7 @@ from __future__ import annotations
 """
 price_panel.py
 Sonic Reporting — Prices panel (console)
-
+  
 Goals
 - Match the  common console style used by other panels.
 - Accept a single ctx dict or (dl, ctx, width) via connector(...).
