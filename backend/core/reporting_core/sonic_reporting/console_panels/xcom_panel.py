@@ -1,4 +1,4 @@
-# -*-- coding: utf-8  ---*-
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -303,7 +303,9 @@ def _build_attempt(kind: str, rec: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _recent_attempts_from_history(history: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, Any]]:
+def _recent_attempts_from_history(
+    history: List[Dict[str, Any]], limit: int = 10
+) -> List[Dict[str, Any]]:
     events: List[Dict[str, Any]] = []
     for ev in history[:limit]:
         kind = (ev.get("type") or "").lower()
@@ -333,7 +335,7 @@ def _recent_attempts(
 ) -> List[Dict[str, Any]]:
     history = _get_history(dl) if dl else []
     if history:
-        return _recent_attempts_from_history(history, limit=5)
+        return _recent_attempts_from_history(history, limit=10)
 
     # Fallback to old behavior if history isn't present yet
     events: List[Dict[str, Any]] = []
@@ -623,14 +625,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     )
     out.append("")
 
-    # Recent attempts table title (centered)
-    header_text = "📡 Recent XCom Attempts"
-    centered_title = _justify_lines([header_text], "center", HR_WIDTH)[0]
-    out += body_indent_lines(
-        PANEL_SLUG,
-        [color_if_plain(centered_title, body_cfg["column_header_text_color"])],
-    )
-
+    # Recent attempts table (no extra title line)
     if not attempts:
         out += body_indent_lines(
             PANEL_SLUG,
@@ -662,10 +657,10 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     out.append("")
 
-    # Snooze / cooldown block
+    # Snooze / Cooldown block
     out += body_indent_lines(
         PANEL_SLUG,
-        [color_if_plain("  🔕 Snooze / cooldown", body_cfg["column_header_text_color"])],
+        [color_if_plain("  🔕 Snooze / Cooldown", body_cfg["column_header_text_color"])],
     )
     out += body_indent_lines(
         PANEL_SLUG,

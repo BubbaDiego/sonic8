@@ -399,10 +399,9 @@ def _fmt_trend(pct: Optional[float]) -> str:
     """
     Format a % move as an arrow + percent.
 
-    Requirements:
-      - Up arrow green, down arrow red.
-      - Percent text stays uncolored for consistent alignment.
-      - Tiny moves (< 0.01%) treated as flat in grey.
+    - Up arrow & percent in green
+    - Down arrow & percent in red
+    - Tiny moves (< 0.01%) shown as flat grey 0.0%
     """
     if pct is None:
         return "—"
@@ -416,11 +415,12 @@ def _fmt_trend(pct: Optional[float]) -> str:
         return "[grey50]0.0%[/]"
 
     if v > 0:
-        # green arrow, plain percentage
-        return f"[green]▲[/] {abs(v):.2f}%"
+        # green arrow + percent
+        return f"[green]▲ {abs(v):.2f}%[/]"
     else:
-        # red arrow, plain percentage
-        return f"[red]▼[/] {abs(v):.2f}%"
+        # red arrow + percent
+        return f"[red]▼ {abs(v):.2f}%[/]"
+
 
 
 def _build_rich_table(
