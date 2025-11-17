@@ -389,6 +389,7 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
     for r in breaches:
         mon = (r.get("monitor") or "").lower()
         label = r.get("label") or ""
+        symbol = (r.get("symbol") or label or "").upper()
         if mon not in ("liquid", "profit", "market", "price"):
             continue
 
@@ -539,12 +540,14 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
             "breach": True,
             "monitor": mon,
             "label": label,
+            "symbol": symbol,
             "value": r.get("value"),
             "threshold": {"op": r.get("thr_op"), "value": r.get("thr_value")},
             "source": (r.get("meta") or {}).get("limit_source") or r.get("source"),
             "cycle_id": r.get("cycle_id"),
             "subject": subj,
             "body": body,
+            "summary": tts,
             "channels": {
                 "system": channels.get("system"),
                 "sms": channels.get("sms"),

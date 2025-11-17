@@ -10,7 +10,7 @@ Behavior (voice path):
   • Channel selection = explicit caller channels OR JSON monitor defaults.
   • Fire voice only when result['breach'] is True AND xcom_ready() is True.
   • No “rising edge” here. Cooldowns/creds are enforced downstream by
-    xcom_ready()/VoiceService — we just show you what is gating.
+    xcom_ready()/dispatch_voice — we just show you what is gating.
 
 Debug:
   • Loud "XCOM[...]" prints before/after every gate and on provider call.
@@ -23,8 +23,8 @@ from backend.core.logging import log
 from backend.data.data_locker import DataLocker
 
 # consolidated stack
+from backend.core.xcom_core.dispatch import dispatch_voice
 from backend.core.xcom_core.xcom_config_service import XComConfigService
-from backend.core.xcom_core.voice_service import VoiceService
 from backend.core.xcom_core.tts_service import TTSService
 from backend.services.xcom_status_service import record_attempt
 from backend.core.reporting_core.sonic_reporting.xcom_extras import xcom_ready
@@ -140,6 +140,8 @@ def dispatch_notifications(
 
     # Channel resolution
     chan = _as_channel_map(channels, cfg, monitor_name)
+    provider_cfg = cfg.get_provider("api") or cfg.get_provider("twilio") or {}
+    default_provider_name = str((provider_cfg or {}).get("provider") or "twilio")
 
     summary: dict[str, Any] = {
         "monitor": monitor_name,
@@ -155,6 +157,8 @@ def dispatch_notifications(
     # Voice path — no “rising edge” here; let readiness/cooldown/creds gate.
     if chan.get("voice", False):
         ok_ready, reason = xcom_ready(dl, cfg=getattr(dl, "global_config", None))
+        provider_name = default_provider_name
+        provider_disabled = (provider_cfg is not None) and (provider_cfg.get("enabled", True) is False)
 
         if not breach:
             summary["channels"]["voice"] = {"ok": False, "skip": "breach-required"}
@@ -164,7 +168,7 @@ def dispatch_notifications(
                 intent=intent,
                 to_number=to_hint,
                 from_number=from_hint,
-                provider="twilio",
+                provider=provider_name,
                 status="skipped",
                 gated_by="breach-required",
                 source=source,
@@ -178,15 +182,12 @@ def dispatch_notifications(
                 intent=intent,
                 to_number=to_hint,
                 from_number=from_hint,
-                provider="twilio",
+                provider=provider_name,
                 status="skipped",
                 gated_by=gate_reason,
                 source=source,
             )
         else:
-            provider_cfg = cfg.get_provider("api") or cfg.get_provider("twilio") or {}
-            provider_disabled = (provider_cfg is not None) and (provider_cfg.get("enabled", True) is False)
-
             if provider_disabled:
                 summary["channels"]["voice"] = {"ok": False, "skip": "provider-disabled"}
                 record_attempt(
@@ -195,57 +196,109 @@ def dispatch_notifications(
                     intent=intent,
                     to_number=to_hint,
                     from_number=from_hint,
-                    provider="twilio",
+                    provider=provider_name,
                     status="skipped",
                     gated_by="provider-disabled",
                     source=source,
                 )
             else:
+                summary_text = (
+                    res.get("summary")
+                    or ctx.get("summary")
+                    or body
+                    or subject
+                )
+                message_text = res.get("message") or body or subject
+                voice_event: dict[str, Any] = {
+                    "monitor": monitor_name,
+                    "breach": breach,
+                    "summary": summary_text,
+                    "message": message_text,
+                    "subject": subject,
+                    "body": body,
+                    "source": source,
+                }
+                for key in ("label", "symbol", "value", "threshold"):
+                    val = res.get(key)
+                    if val is None:
+                        val = ctx.get(key)
+                    if val is not None:
+                        voice_event[key] = val
+
+                voice_ctx = dict(ctx)
+                voice_ctx.setdefault("dl", dl)
+                voice_profile_ctx = voice_ctx.get("voice")
+                if isinstance(voice_profile_ctx, Mapping):
+                    voice_profile_ctx = dict(voice_profile_ctx)
+                else:
+                    voice_profile_ctx = {}
+                if isinstance(provider_cfg, Mapping):
+                    voice_profile_ctx.setdefault("provider", provider_cfg)
+                voice_ctx["voice"] = voice_profile_ctx
+
                 try:
-                    svc = VoiceService(provider_cfg)
-                    ok, sid, to_num, from_num, http_status = svc.call(None, subject, body, dl=dl)
-                    voice_payload = {"ok": bool(ok)}
+                    vr = dispatch_voice(voice_event, {"voice": True}, voice_ctx)
+                    ok = bool(isinstance(vr, dict) and vr.get("ok"))
+                    voice_payload: dict[str, Any] = {"ok": ok}
+                    if isinstance(vr, dict):
+                        for key in ("results", "error", "reason", "detail", "sid"):
+                            if key in vr and vr[key] is not None:
+                                voice_payload[key] = vr[key]
+
+                    def _first_result_value(field: str) -> Any:
+                        if isinstance(vr, dict):
+                            results = vr.get("results")
+                            if isinstance(results, list):
+                                for item in results:
+                                    if isinstance(item, Mapping) and item.get(field):
+                                        return item.get(field)
+                        return None
+
+                    to_num = _first_result_value("to") or to_hint
+                    from_num = _first_result_value("from") or from_hint
+                    sid = _first_result_value("sid")
+                    http_status = _first_result_value("http_status")
+
+                    if not ok and voice_payload.get("error"):
+                        summary["error"] = _normalize_xcom_error_detail(voice_payload.get("error"))
+
+                    summary["channels"]["voice"] = voice_payload
+
                     if ok:
-                        if sid is not None:
-                            voice_payload["sid"] = sid
-                        if to_num is not None:
-                            voice_payload["to"] = to_num
-                        if from_num is not None:
-                            voice_payload["from"] = from_num
-                        if http_status is not None:
-                            voice_payload["http_status"] = http_status
                         record_attempt(
                             dl,
                             channel="voice",
                             intent=intent,
-                            to_number=to_num or to_hint,
-                            from_number=from_num or from_hint,
-                            provider="twilio",
+                            to_number=to_num,
+                            from_number=from_num,
+                            provider=provider_name,
                             status="success",
                             sid=sid,
                             http_status=http_status,
                             source=source,
                         )
                     else:
-                        err_msg = "voice-service-returned-false"
-                        summary["error"] = _normalize_xcom_error_detail(err_msg)
+                        err_msg = voice_payload.get("error") or voice_payload.get("reason") or "voice-dispatch-failed"
                         record_attempt(
                             dl,
                             channel="voice",
                             intent=intent,
-                            to_number=to_num or to_hint,
-                            from_number=from_num or from_hint,
-                            provider="twilio",
+                            to_number=to_num,
+                            from_number=from_num,
+                            provider=provider_name,
                             status="fail",
-                            error_msg="voice-service-returned-false",
+                            error_msg=err_msg,
                             source=source,
                         )
-                    summary["channels"]["voice"] = voice_payload
                 except Exception as exc:
                     msg = str(exc)[:200]
                     detail = _normalize_xcom_error_detail(msg)
                     summary["error"] = detail or msg
-                    summary["channels"]["voice"] = {"ok": False, "skip": "twilio-error", "error": msg}
+                    summary["channels"]["voice"] = {
+                        "ok": False,
+                        "skip": "voice-dispatch-error",
+                        "error": msg,
+                    }
                     status_val = getattr(exc, "status", None)
                     record_attempt(
                         dl,
@@ -253,7 +306,7 @@ def dispatch_notifications(
                         intent=intent,
                         to_number=to_hint,
                         from_number=from_hint,
-                        provider="twilio",
+                        provider=provider_name,
                         status="fail",
                         error_msg=msg,
                         error_code=str(getattr(exc, "code", "")) or None,
@@ -268,7 +321,7 @@ def dispatch_notifications(
             intent=intent,
             to_number=to_hint,
             from_number=from_hint,
-            provider="twilio",
+            provider=default_provider_name,
             status="skipped",
             gated_by="channel-disabled",
             source=source,
