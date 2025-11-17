@@ -27,7 +27,7 @@ PANEL_NAME = "Wallets"
 
 INDENT = ""
 
-# legacy widths  (not critical now that Rich handles layout)
+# legacy widths  (not critical  now that Rich handles layout)
 W_NAME, W_CHAIN, W_ADDR, W_BAL, W_USD, W_CHK = 10, 7, 20, 7, 7, 7
 SEP = "  "
 
