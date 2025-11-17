@@ -16,12 +16,11 @@ list_sessions()        – enumerate historical sessions (newest first)
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Mapping, Any
-from uuid import uuid4
 
 from backend.core.logging import log
-from backend.models.session import Session, SessionUpdate
+from backend.models.session import Session, SessionUpdate, GoalMode
 
 
 class DLSessionManager:
@@ -29,7 +28,26 @@ class DLSessionManager:
 
     def __init__(self, db):
         self.db = db
+        # cache of session table columns so we can be compatible with both
+        # old and new schemas (tests create a minimal table).
+        self._session_cols_cache: set[str] | None = None
         log.debug("DLSessionManager initialised", source="DLSessionManager")
+
+    def _get_session_columns(self) -> set[str]:
+        if self._session_cols_cache is not None:
+            return self._session_cols_cache
+
+        cursor = self.db.get_cursor()
+        cols: set[str] = set()
+        if cursor:
+            try:
+                cursor.execute("PRAGMA table_info(sessions)")
+                rows = cursor.fetchall()
+                cols = {row[1] for row in rows}  # row[1] = column name
+            except Exception:
+                cols = set()
+        self._session_cols_cache = cols
+        return cols
 
     # ------------------------------------------------------------------ #
     # Internals                                                          #
@@ -59,34 +77,90 @@ class DLSessionManager:
         self,
         start_value: float = 0.0,
         goal_value: float = 0.0,
-        notes: str | None = None,
+        notes: Optional[str] = None,
+        session_label: Optional[str] = None,
+        goal_mode: GoalMode | str | None = None,
     ) -> Session:
-        """Archive any OPEN session and create a fresh row."""
+        """Start a new session, closing any existing open session.
 
-        cur = self._execute(
-            "UPDATE sessions SET status='CLOSED', last_modified=? WHERE status='OPEN'",
-            (datetime.utcnow().isoformat(),),
+        This is written defensively to work with both:
+        - the full schema (session_label + goal_mode columns present)
+        - the minimal schema used in some tests (no extra columns).
+        """
+
+        cursor = self.db.get_cursor()
+        if not cursor:
+            raise RuntimeError("Database cursor unavailable")
+
+        now_dt = datetime.now(timezone.utc)
+        now = now_dt.isoformat()
+        new_id = f"session_{int(now_dt.timestamp())}"
+
+        # Normalize goal_mode to a string
+        if isinstance(goal_mode, GoalMode):
+            goal_mode_value = goal_mode.value
+        elif isinstance(goal_mode, str) and goal_mode:
+            goal_mode_value = goal_mode.upper()
+        else:
+            goal_mode_value = GoalMode.DELTA.value
+
+        # Close any existing open session
+        cursor.execute(
+            """
+            UPDATE sessions
+            SET status = 'CLOSED', last_modified = ?
+            WHERE status = 'OPEN'
+            """,
+            (now,),
         )
 
-        new_id = str(uuid4())
-        now = datetime.utcnow().isoformat()
-        self._execute(
-            """INSERT INTO sessions
-                 (id, session_start_time, session_start_value,
-                  session_goal_value, current_session_value,
-                  session_performance_value, status, notes, last_modified)
-                 VALUES (?, ?, ?, ?, 0, 0, 'OPEN', ?, ?)""",
-            (
-                new_id,
-                now,
-                start_value,
-                goal_value,
-                notes,
-                now,
-            ),
+        # Build INSERT dynamically based on available columns
+        cols = self._get_session_columns()
+
+        column_names: list[str] = [
+            "id",
+            "session_start_time",
+            "session_start_value",
+            "session_goal_value",
+            "current_session_value",
+            "session_performance_value",
+            "status",
+        ]
+        params: list[Any] = [
+            new_id,
+            now,
+            start_value,
+            goal_value,
+            0.0,
+            0.0,
+            "OPEN",
+        ]
+
+        if "session_label" in cols:
+            column_names.append("session_label")
+            params.append(session_label)
+
+        if "goal_mode" in cols:
+            column_names.append("goal_mode")
+            params.append(goal_mode_value)
+
+        if "notes" in cols:
+            column_names.append("notes")
+            params.append(notes)
+
+        column_names.append("last_modified")
+        params.append(now)
+
+        placeholders = ", ".join("?" for _ in column_names)
+        col_list = ", ".join(column_names)
+
+        cursor.execute(
+            f"INSERT INTO sessions ({col_list}) VALUES ({placeholders})",
+            tuple(params),
         )
         self.db.commit()
-        return self.get_session_by_id(new_id)
+
+        return self.get_session_by_id(new_id)  # type: ignore[return-value]
 
     def get_session_by_id(self, sid: str) -> Optional[Session]:
         cur = self._execute("SELECT * FROM sessions WHERE id = ?", (sid,))

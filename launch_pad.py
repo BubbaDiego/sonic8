@@ -39,6 +39,7 @@ except Exception:
 from backend.console.cyclone_console_service import run_cyclone_console
 from backend.console.database_console_service import run_database_console
 from backend.console.db_console_service import run_db_console  # use entry with db_path
+from backend.console import session_console
 # Do NOT import the config console at module import time; import lazily so we can show inline errors.
 
 
@@ -1024,13 +1025,10 @@ def wallet_menu():
             continue
 
 
-def goals_menu():
-    try:
-        from backend.models.session import Session  # type: ignore
-        # Placeholder summary only; keep parity with sonic6 menu placement
-        console.print(f"[cyan]Active session goals: {len(getattr(Session, 'goals', [])) if hasattr(Session,'goals') else 0}[/]")
-    except Exception:
-        console.print("[yellow]Session/Goals not available.[/]")
+def goals_menu() -> None:
+    """LaunchPad entrypoint for the Session / Goals console."""
+
+    session_console.run()
 
 
 def run_daily_maintenance():
@@ -1242,7 +1240,7 @@ def main() -> None:
         elif choice == "13":
             run_menu_action("Launch Cyclone App", run_cyclone_console)
         elif choice == "14":
-            run_menu_action("Session / Goals", goals_menu)
+            run_menu_action("Session___Goals", goals_menu)
         elif choice == "15":
             run_menu_action("Generate Specs / Teaching Pack", run_daily_maintenance)
         elif choice == "16":
