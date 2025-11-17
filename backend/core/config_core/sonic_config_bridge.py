@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from backend.config.config_loader import load_config_json_only
+from backend.core import config_oracle as ConfigOracle
 
 _CFG: Dict[str, Any] | None = None
 _CFG_PATH = Path(__file__).resolve().parents[2] / "config" / "sonic_monitor_config.json"
@@ -30,8 +31,34 @@ def _coerce_bool(value: Any, default: bool = False) -> bool:
 
 
 # ---- Tiny getters (all FILE-origin) -----------------------------------------
-def get_loop_seconds(default: int = 300) -> int:
-    return int(load().get("monitor", {}).get("loop_seconds", default))
+def get_loop_seconds(default: int = 60) -> int:
+    """
+    Poll interval for the Sonic monitor loop.
+
+    Oracle-first:
+      1) ConfigOracle global monitor config.loop_seconds
+      2) Legacy JSON monitor.loop_seconds / monitor.interval_seconds
+      3) Provided default
+    """
+    # 1) Oracle view (includes env overlays via EnvMonitorOverlayProvider)
+    try:
+        global_cfg = ConfigOracle.get_global_monitor_config()
+        if global_cfg and global_cfg.loop_seconds:
+            iv = int(global_cfg.loop_seconds)
+            if iv > 0:
+                return iv
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+    # 2) Legacy JSON-only config
+    cfg = load()
+    try:
+        mon = cfg.get("monitor") or {}
+        val = mon.get("loop_seconds") or mon.get("interval_seconds") or default
+        v = int(val)
+        return v if v > 0 else default
+    except Exception:
+        return default
 
 def get_enabled_monitors() -> Dict[str, bool]:
     raw = load().get("monitor", {}).get("enabled", {})
@@ -52,7 +79,30 @@ def get_db_path() -> str | None:
     return str(value) if value is not None else None
 
 def get_xcom_live() -> bool:
-    return _coerce_bool(load().get("monitor", {}).get("xcom_live"), False)
+    """
+    Static config view of the XCom 'live' flag.
+
+    Oracle-first:
+      - ConfigOracle global monitor config.xcom_live
+
+    Legacy fallback:
+      - monitor.xcom_live in the JSON file
+    """
+    # 1) Oracle view (env overlays already applied by load_monitor_config)
+    try:
+        global_cfg = ConfigOracle.get_global_monitor_config()
+        if global_cfg and global_cfg.xcom_live is not None:
+            return bool(global_cfg.xcom_live)
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+    # 2) Legacy JSON-only view
+    cfg = load()
+    try:
+        mon = cfg.get("monitor") or {}
+        return bool(mon.get("xcom_live", True))
+    except Exception:
+        return True
 
 
 def should_force_price_sync() -> bool:

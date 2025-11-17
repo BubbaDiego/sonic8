@@ -6,8 +6,8 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Callable, Tuple
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Callable, Tuple
 
 from .context import MonitorContext
 from .registry import get_enabled_monitors, get_enabled_services
@@ -19,19 +19,46 @@ from backend.models.monitor_status import MonitorStatus
 from backend.core.monitor_core.resolver import ThresholdResolver
 from backend.core.monitor_core.xcom_bridge import dispatch_breaches_from_dl
 from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH
+from backend.core import config_oracle as ConfigOracle
 
 
-def _load_monitor_cfg() -> Tuple[Dict[str, Any], str]:
+log = logging.getLogger("sonic.engine")
+
+
+def _load_monitor_cfg() -> tuple[dict, str]:
+    """
+    Resolve the monitor configuration for the Sonic engine.
+
+    Priority:
+      1) ConfigOracle monitor bundle (preferred, typed, env overlays applied)
+      2) Legacy JSON file at SONIC_MONITOR_CONFIG_PATH
+      3) Empty config with a placeholder path
+    """
+    # --- Oracle-first path ---
     try:
-        with SONIC_MONITOR_CONFIG_PATH.open("r", encoding="utf-8") as f:
-            cfg = json.load(f)
-        logging.getLogger("sonic.engine").debug(
-            "[resolve] cfg path: %s", SONIC_MONITOR_CONFIG_PATH
+        bundle = ConfigOracle.get_monitor_bundle(force_reload=True)
+        cfg = bundle.raw or {}
+        source_path = bundle.source_path or str(
+            getattr(ConfigOracle.get_oracle(), "monitor_json_path", "ConfigOracle")
         )
-        return cfg, str(SONIC_MONITOR_CONFIG_PATH)
-    except Exception as e:
-        logging.getLogger("sonic.engine").debug("[resolve] cfg load failed: %s", e)
-        return {}, "<unknown>"
+        log.debug("[sonic] monitor cfg loaded via ConfigOracle (%s)", source_path)
+        return cfg, str(source_path)
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        log.warning("[sonic] ConfigOracle monitor cfg failed, falling back to JSON: %s", exc)
+
+    # --- Legacy JSON fallback ---
+    p = SONIC_MONITOR_CONFIG_PATH
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            cfg = json.load(f) or {}
+        log.debug("[sonic] monitor cfg loaded from JSON %s", p)
+        return cfg, str(p)
+    except FileNotFoundError:
+        log.warning("[sonic] monitor cfg file missing at %s; using empty config", p)
+        return {}, str(p)
+    except Exception as e:  # pragma: no cover - defensive
+        log.error("[sonic] failed to load %s: %s; using empty config", p, e)
+        return {}, str(p)
 
 
 class MonitorEngine:

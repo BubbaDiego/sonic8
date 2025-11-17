@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
+from backend.core import config_oracle as ConfigOracle
+
 # Services
 # These imports are kept so other callers can still use the helpers directly,
 # but Sonic Monitor no longer calls prices/positions as services; Cyclone
@@ -64,12 +66,39 @@ def get_enabled_services(cfg: Dict[str, Any]) -> List[Tuple[str, Service]]:
 
 def get_enabled_monitors(cfg: Dict[str, Any]) -> List[Tuple[str, Runner]]:
     """
-    Resolve which monitors are enabled.
+    Resolve which monitors should be active.
 
-    Config shapes supported:
-      - { "monitors.enabled": ["liquid", "profit", "market"] }
-      - { "monitors": ["liquid", "profit", "market"] }
-      - if neither key is present → all DEFAULT_MONITORS
+    Priority:
+      1) ConfigOracle MonitorDefinitions (preferred)
+      2) Legacy JSON keys:
+           - monitor.enabled (list)
+           - monitor.monitors (list)
+           - monitor.enabled (flat)
+           - monitors (flat)
     """
-    names = cfg.get("monitors.enabled") or cfg.get("monitors") or []
+    # --- Oracle-first: use typed MonitorDefinitions ---
+    try:
+        bundle = ConfigOracle.get_monitor_bundle()
+        monitors = getattr(bundle, "monitors", {}) or {}
+        if monitors:
+            enabled: List[Tuple[str, Runner]] = []
+            for name, runner in DEFAULT_MONITORS:
+                mon_def = monitors.get(name)
+                # Default to "on" for unknown monitors, matching historical behavior
+                if mon_def is None or bool(mon_def.enabled):
+                    enabled.append((name, runner))
+            return enabled
+    except Exception:  # pragma: no cover - defensive
+        # Keep legacy behavior if Oracle is unavailable
+        pass
+
+    # --- Legacy JSON behavior ---
+    mon_cfg = cfg.get("monitor") or {}
+    names: list[str] = (
+        mon_cfg.get("enabled")
+        or mon_cfg.get("monitors")
+        or cfg.get("monitor.enabled")
+        or cfg.get("monitors")
+        or []
+    )
     return _enabled(names, DEFAULT_MONITORS)

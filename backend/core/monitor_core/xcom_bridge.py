@@ -5,10 +5,11 @@ import logging
 import time
 from datetime import datetime, timezone
 from importlib import import_module
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Mapping
 
 from backend.core.core_constants import XCOM_PROVIDERS_PATH
 from backend.core.reporting_core.sonic_reporting.xcom_extras import append_xcom_history
+from backend.core import config_oracle as ConfigOracle
 
 log = logging.getLogger("sonic.engine")
 
@@ -198,17 +199,50 @@ def _bind_dispatcher() -> Tuple[Callable[[str, Dict[str, Any], Dict[str, bool], 
     return _send, "+".join(mode_parts)
 
 
-def _channels_for_monitor(cfg: Dict[str, Any], name: str) -> Dict[str, bool]:
-    root1 = cfg.get(f"{name}_monitor") or {}
-    root2 = cfg.get(name) or {}
-    if isinstance(root1, dict) and "notifications" in root1:
-        notif = root1.get("notifications") or {}
-    elif isinstance(root2, dict) and "notifications" in root2:
-        notif = root2.get("notifications") or {}
-    else:
+def _channels_for_monitor(cfg: Mapping[str, Any], name: str) -> dict[str, bool]:
+    """
+    Resolve per-monitor channel flags.
+
+    Oracle-first:
+      - ConfigOracle MonitorNotifications for this monitor.
+
+    Legacy fallback:
+      - <monitor>_monitor.notifications
+      - <monitor>.notifications
+
+    SMS/TTS remain hard-off for now to avoid surfacing unsupported channels.
+    """
+    monitor_name = str(name).strip()
+
+    # --- Oracle-first ---
+    try:
+        notifications = ConfigOracle.get_monitor_notifications(monitor_name)
+        if notifications is not None:
+            notif_dict = notifications.as_dict()
+            return {
+                "system": bool(notif_dict.get("system")),
+                "voice": bool(notif_dict.get("voice")),
+                "sms": False,
+                "tts": False,
+            }
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+    # --- Legacy JSON: <monitor>_monitor.notifications or <monitor>.notifications ---
+    notif: Mapping[str, Any] | None = None
+
+    monitor_block = cfg.get(f"{monitor_name}_monitor")
+    if isinstance(monitor_block, Mapping):
+        notif = monitor_block.get("notifications")
+
+    if not isinstance(notif, Mapping):
+        base_block = cfg.get(monitor_name)
+        if isinstance(base_block, Mapping):
+            notif = base_block.get("notifications")
+
+    if not isinstance(notif, Mapping):
         notif = {}
-    # For now we only support system + voice. SMS/TTS are hard‑stubbed off so
-    # they don’t show up as "not-implemented" errors in XCom.
+
     return {
         "system": bool(notif.get("system")),
         "voice": bool(notif.get("voice")),
@@ -232,10 +266,30 @@ def _latest_dl_rows(dl) -> List[Dict[str, Any]]:
     return rows if isinstance(rows, list) else []
 
 
-def _global_snooze_seconds(cfg: Dict[str, Any]) -> int:
-    mon = cfg.get("monitor") or {}
-    try: return int(mon.get("global_snooze_seconds", 0))
-    except Exception: return 0
+def _global_snooze_seconds(cfg: Mapping[str, Any]) -> int:
+    """
+    Global snooze window (seconds) shared by monitors.
+
+    Oracle-first:
+      - ConfigOracle MonitorGlobalConfig.global_snooze_seconds
+
+    Legacy fallback:
+      - cfg["monitor"]["global_snooze_seconds"] if present, else 0
+    """
+    # --- Oracle-first ---
+    try:
+        global_cfg = ConfigOracle.get_global_monitor_config()
+        if global_cfg and global_cfg.global_snooze_seconds is not None:
+            return int(global_cfg.global_snooze_seconds)
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+    # --- Legacy JSON ---
+    mon_cfg = cfg.get("monitor") or {}
+    try:
+        return int(mon_cfg.get("global_snooze_seconds") or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _now_ts() -> float: return time.time()
@@ -342,22 +396,25 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
         if not any(channels.values()):
             continue
 
-        # Per-monitor snooze config with global default.
-        # Precedence:
-        #   1) <monitor>_monitor.snooze_seconds
-        #   2) <monitor>.snooze_seconds
-        #   3) monitor.global_snooze_seconds (global default)
-        #   4) fallback: 600s (non-profit) or 1200s (profit)
         snooze_cfg = (cfg.get(f"{mon}_monitor") or cfg.get(mon) or {})
 
-        # Global default from monitor.global_snooze_seconds (may be 0 / unset)
+        # Global default from Oracle / legacy JSON
         global_default = _global_snooze_seconds(cfg)
-
-        # Fallback defaults if nothing is configured anywhere
         hard_default = 600 if mon != "profit" else 1200
-
-        # Use global default if present, otherwise the hard default
         default_snooze = global_default or hard_default
+
+        # Oracle per-monitor snooze wins over generic defaults if present
+        try:
+            oracle_mon = ConfigOracle.get_monitor(mon)
+        except Exception:  # pragma: no cover - defensive
+            oracle_mon = None
+
+        if oracle_mon is not None and oracle_mon.snooze_seconds is not None:
+            try:
+                default_snooze = max(0, int(oracle_mon.snooze_seconds))
+            except (TypeError, ValueError):
+                # leave default_snooze as-is on bad input
+                pass
 
         try:
             snooze_s = _global_saturation = int(
