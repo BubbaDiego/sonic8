@@ -131,8 +131,26 @@ def _xcom_from_cfg(cfg: dict | None) -> tuple[Optional[bool], str]:
     return None, "—"
 
 def get_default_voice_cooldown(cfg: dict | None = None) -> int:
-    """default seconds for voice call cooldown (UI shows this when idle)."""
-    # 1) JSON: channels.voice.cooldown_seconds
+    """
+    Default seconds for voice call cooldown (UI shows this when idle).
+
+    Precedence:
+      1) ConfigOracle XCom voice config (preferred)
+      2) Legacy JSON: channels.voice.cooldown_seconds
+      3) VOICE_COOLDOWN_SECONDS env var
+      4) hard-coded fallback (180s)
+    """
+    # 1) Oracle
+    try:
+        xcom_voice = ConfigOracle.get_xcom_voice_config()
+        cd = getattr(xcom_voice, "voice_cooldown_seconds", None)
+        if isinstance(cd, int) and cd >= 0:
+            return cd
+    except Exception:
+        # Best-effort only; fall through to legacy paths.
+        pass
+
+    # 2) Legacy JSON layout used by older configs/tests
     try:
         if isinstance(cfg, dict):
             ch = cfg.get("channels") or {}
@@ -144,7 +162,8 @@ def get_default_voice_cooldown(cfg: dict | None = None) -> int:
                     return n
     except Exception:
         pass
-    # 2) ENV override
+
+    # 3) ENV override
     try:
         env = os.getenv("VOICE_COOLDOWN_SECONDS", "").strip()
         if env.isdigit():
@@ -153,7 +172,8 @@ def get_default_voice_cooldown(cfg: dict | None = None) -> int:
                 return n2
     except Exception:
         pass
-    # 3) fallback
+
+    # 4) fallback
     return 180
 
 

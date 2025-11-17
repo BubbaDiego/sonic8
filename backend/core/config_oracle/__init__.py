@@ -9,6 +9,8 @@ from .models import (
     MonitorDefinition,
     MonitorGlobalConfig,
     MonitorNotifications,
+    XComConfig,
+    XComVoiceConfig,
 )
 
 # Soft singleton backing the public API for callers.
@@ -107,6 +109,33 @@ def get_profit_thresholds() -> Dict[str, float]:
     return get_oracle().get_profit_thresholds()
 
 
+def get_xcom_config() -> XComConfig:
+    """
+    Return the normalized XCom configuration.
+
+    This includes voice profiles, flow SID (stub), and default
+    voice cooldown window.
+    """
+    return get_oracle().get_xcom_config()
+
+
+def get_xcom_voice_config() -> XComVoiceConfig:
+    """
+    Return the voice-related portion of XCom configuration.
+    """
+    return get_oracle().get_xcom_voice_config()
+
+
+def get_xcom_flow_sid() -> Optional[str]:
+    """
+    Return the configured Twilio Flow SID for XCom voice calls, if any.
+
+    When this returns None, the voice dispatcher should fall back to
+    plain TwiML-based calls instead of a Studio Flow.
+    """
+    return get_oracle().get_xcom_flow_sid()
+
+
 __all__ = [
     "ConfigOracle",
     "get_oracle",
@@ -119,8 +148,13 @@ __all__ = [
     "get_liquid_thresholds",
     "get_liquid_blast_map",
     "get_profit_thresholds",
+    "get_xcom_config",
+    "get_xcom_voice_config",
+    "get_xcom_flow_sid",
     "MonitorConfigBundle",
     "MonitorDefinition",
     "MonitorGlobalConfig",
     "MonitorNotifications",
+    "XComConfig",
+    "XComVoiceConfig",
 ]

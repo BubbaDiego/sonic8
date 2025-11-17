@@ -10,5 +10,6 @@ models defined in backend.core.config_oracle.models.
 """
 
 from .monitor_limits import build_monitor_bundle_from_raw
+from .xcom_config import build_xcom_config_from_raw
 
-__all__ = ["build_monitor_bundle_from_raw"]
+__all__ = ["build_monitor_bundle_from_raw", "build_xcom_config_from_raw"]

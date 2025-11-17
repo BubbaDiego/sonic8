@@ -90,3 +90,43 @@ class MonitorConfigBundle:
 
     def list_monitors(self) -> list[str]:
         return sorted(self.monitors.keys())
+
+
+@dataclass
+class XComVoiceConfig:
+    """
+    XCom voice / call configuration.
+
+    This captures the non-secret knobs that other cores can safely read:
+      - default_profile: global default voice profile name.
+      - monitor_profiles: optional per-monitor overrides (liquid/profit/…).
+      - flow_sid: optional Twilio Studio Flow SID (stub, may be None).
+      - voice_cooldown_seconds: default cooldown window between calls.
+    """
+
+    default_profile: str = "default"
+    monitor_profiles: Dict[str, str] = field(default_factory=dict)
+    flow_sid: Optional[str] = None
+    voice_cooldown_seconds: int = 180
+
+    def profile_for(self, monitor: Optional[str]) -> str:
+        """
+        Return the voice profile for a given monitor name, falling back
+        to the global default when no explicit override is present.
+        """
+        mon = (monitor or "").lower()
+        if mon and mon in self.monitor_profiles:
+            return self.monitor_profiles[mon]
+        return self.default_profile
+
+
+@dataclass
+class XComConfig:
+    """
+    Aggregate XCom configuration.
+
+    Right now this only exposes voice-related knobs, but can be extended
+    later with SMS/email/etc as needed.
+    """
+
+    voice: XComVoiceConfig = field(default_factory=XComVoiceConfig)
