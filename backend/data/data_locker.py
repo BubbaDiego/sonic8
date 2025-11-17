@@ -368,14 +368,16 @@ class DataLocker:
             "sessions": """
                 CREATE TABLE IF NOT EXISTS sessions (
                     id TEXT PRIMARY KEY,
-                    session_start_time TEXT,
-                    session_start_value REAL,
-                    session_goal_value REAL,
-                    current_session_value REAL,
-                    session_performance_value REAL,
-                    status TEXT DEFAULT 'OPEN',
+                    session_start_time TEXT NOT NULL,
+                    session_start_value REAL NOT NULL DEFAULT 0,
+                    session_goal_value REAL NOT NULL DEFAULT 0,
+                    current_session_value REAL NOT NULL DEFAULT 0,
+                    session_performance_value REAL NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'OPEN',
+                    session_label TEXT,
+                    goal_mode TEXT NOT NULL DEFAULT 'DELTA',
                     notes TEXT,
-                    last_modified TEXT DEFAULT CURRENT_TIMESTAMP
+                    last_modified TEXT NOT NULL
                 )
             """,
             "modifiers": """
@@ -573,6 +575,14 @@ class DataLocker:
         _ensure_column(cursor, "positions_totals_history", "session_goal_value REAL")
         _ensure_column(
             cursor, "positions_totals_history", "session_performance_value REAL"
+        )
+        # Backward-compat for existing DBs that were created before we
+        # added session_label and goal_mode.
+        _ensure_column(cursor, "sessions", "session_label TEXT")
+        _ensure_column(
+            cursor,
+            "sessions",
+            "goal_mode TEXT NOT NULL DEFAULT 'DELTA'",
         )
         _ensure_column(cursor, "sessions", "notes TEXT")
 
