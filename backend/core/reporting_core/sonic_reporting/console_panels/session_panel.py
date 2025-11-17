@@ -1,15 +1,21 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Mapping, Optional
+import logging
+from typing import Any, List, Mapping, Optional
 
+from rich.console import Console
 from rich.align import Align
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from backend.core.reporting_core.sonic_reporting.console_panels import data_access
+
 
 TITLE = "🎯 Session / Goals"
+log = logging.getLogger(__name__)
 
 
 # ───────────────────────── helpers ───────────────────────── #
@@ -277,6 +283,135 @@ def build_session_panel(
 
 # Convenience alias if other modules expect `render_session_panel`
 render_session_panel = build_session_panel
+
+
+def _ctx_lookup(source: Any, *names: str) -> Any:
+    """Helper to pull attributes/keys from dict or object contexts."""
+    if source is None:
+        return None
+
+    mapping = source if isinstance(source, Mapping) else None
+    for name in names:
+        if mapping and name in mapping:
+            value = mapping[name]
+            if value is not None:
+                return value
+        try:
+            value = getattr(source, name)
+        except Exception:
+            value = None
+        if value is not None:
+            return value
+    return None
+
+
+def _to_mapping(obj: Any) -> Mapping[str, Any]:
+    if isinstance(obj, Mapping):
+        return obj
+    for attr in ("model_dump", "dict"):
+        method = getattr(obj, attr, None)
+        if callable(method):
+            try:
+                data = method()
+                if isinstance(data, Mapping):
+                    return data
+            except Exception:
+                pass
+    return getattr(obj, "__dict__", {}) if hasattr(obj, "__dict__") else {}
+
+
+def _resolve_session(context: Any, dl: Any) -> Any:
+    session = _ctx_lookup(context, "session", "active_session", "session_data")
+    if session is not None:
+        return session
+
+    if dl is None:
+        return None
+
+    manager = getattr(dl, "session", None)
+    getter = getattr(manager, "get_active_session", None)
+    if callable(getter):
+        try:
+            return getter()
+        except Exception:
+            log.exception("session_panel: failed to fetch active session from DataLocker")
+    return None
+
+
+def _resolve_perf(context: Any, dl: Any) -> Mapping[str, Any]:
+    perf = _ctx_lookup(
+        context,
+        "session_perf",
+        "session_performance",
+        "session_perf_horizons",
+        "session_horizons",
+    )
+    perf_map = _to_mapping(perf) if perf is not None else None
+    if perf_map:
+        return perf_map
+
+    if dl is None:
+        return {}
+
+    portfolio = getattr(dl, "portfolio", None)
+    getter = getattr(portfolio, "get_latest_snapshot", None)
+    if not callable(getter):
+        return {}
+
+    try:
+        snapshot = getter()
+    except Exception:
+        log.exception("session_panel: failed to read latest portfolio snapshot")
+        return {}
+
+    if snapshot is None:
+        return {}
+
+    snap_map = _to_mapping(snapshot)
+    delta_usd = snap_map.get("session_performance_value")
+    start_val = snap_map.get("session_start_value")
+    pct = None
+    try:
+        if delta_usd is not None and start_val not in (None, 0, 0.0):
+            pct = (float(delta_usd) / float(start_val)) * 100.0
+    except Exception:
+        pct = None
+
+    return {"all": {"delta_usd": delta_usd, "delta_pct": pct}}
+
+
+def _panel_to_lines(panel: Panel, width: Optional[int]) -> List[str]:
+    console = Console(
+        record=True,
+        width=width or 92,
+        force_terminal=True,
+    )
+    console.print(panel)
+    text = console.export_text(clear=False).rstrip("\n")
+    if not text:
+        return []
+    return text.splitlines()
+
+
+def render(context: Any | None = None, width: Optional[int] = None) -> List[str]:
+    ctx = context or {}
+    dl = data_access.dl_or_context(ctx)
+    resolved_width = width
+    if resolved_width is None:
+        try:
+            resolved_width = int(_ctx_lookup(ctx, "width") or 0) or None
+        except Exception:
+            resolved_width = None
+
+    session = _resolve_session(ctx, dl)
+    perf = _resolve_perf(ctx, dl)
+    panel = build_session_panel(session, perf)
+    return _panel_to_lines(panel, resolved_width)
+
+
+def connector(*args, **kwargs) -> List[str]:
+    """console_reporter prefers connector(); delegate to render()."""
+    return render(*args, **kwargs)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual demo helper
