@@ -73,6 +73,7 @@
       }
     },
     "session": {
+      "enabled": true,
       "title": {
         "string": "🎯 Session / Goals"
       },

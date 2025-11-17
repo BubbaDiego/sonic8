@@ -111,7 +111,13 @@ def render_panel_stack(
         # skip duplicates and non-existent variations gracefully
         try:
             mod = importlib.import_module(mod_path)
-        except Exception:
+        except Exception as exc:
+            logger.error(
+                "Failed to import panel module %s: %s",
+                mod_path,
+                exc,
+                exc_info=True,
+            )
             continue  # try next module
 
         try:
