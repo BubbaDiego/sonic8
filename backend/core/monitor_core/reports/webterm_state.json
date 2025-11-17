@@ -6,9 +6,9 @@
   "url": "https://revision-easy-junior-avoid.trycloudflare.com",
   "command": "C:\\\\sonic7\\\\.venv\\\\Scripts\\\\python.exe C:\\\\sonic7\\\\launch_pad.py ; pwsh",
   "auth_enabled": false,
-  "ttyd_pid": 31284,
-  "tunnel_pid": 9172,
-  "started_at": "2025-11-17T13:47:10.631698+00:00",
+  "ttyd_pid": 50580,
+  "tunnel_pid": 49876,
+  "started_at": "2025-11-17T19:50:18.820536+00:00",
   "ttyd_log": "reports\\ttyd.log",
   "cloudflared_log": "reports\\cloudflared.log"
 }
