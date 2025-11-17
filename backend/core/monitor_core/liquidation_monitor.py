@@ -30,6 +30,12 @@ except Exception:
 from backend.data import dl_alerts
 
 try:
+    # Prefer centralized config for liquidation thresholds
+    from backend.core import config_oracle as ConfigOracle  # type: ignore
+except Exception:
+    ConfigOracle = None  # type: ignore[assignment]
+
+try:
     from backend.core.xcom_core.dispatch import dispatch_voice
 except Exception:
     def dispatch_voice(*_a, **_k):  # type: ignore
@@ -40,6 +46,35 @@ def _is_num(x: Any) -> bool:
         float(x); return True
     except Exception:
         return False
+
+def _oracle_thresholds() -> Dict[str, float]:
+    """
+    Fetch liquidation thresholds from ConfigOracle if available.
+
+    Returns a {SYMBOL: float_threshold} mapping with symbols normalized
+    to upper-case. When Oracle is unavailable or misconfigured, returns {}.
+    """
+    if ConfigOracle is None:
+        return {}
+
+    try:
+        # ConfigOracle.get_liquid_thresholds() already returns {symbol: value}
+        raw = ConfigOracle.get_liquid_thresholds() or {}
+    except Exception as e:
+        log.debug(
+            "liquidation_monitor: oracle thresholds lookup failed",
+            extra={"error": str(e)},
+        )
+        return {}
+
+    out: Dict[str, float] = {}
+    for sym, val in raw.items():
+        try:
+            out[str(sym).upper()] = float(val)
+        except Exception:
+            # Skip bad values but don't blow up the monitor
+            continue
+    return out
 
 def _load_cfg(default_json_path: Optional[str]) -> Dict:
     cfg = {}
@@ -141,8 +176,14 @@ def run(dl: Any, *, default_json_path: Optional[str] = None) -> Dict[str, Any]:
     return _run_impl(dl, default_json_path=default_json_path)
 
 def _run_impl(dl: Any, *, default_json_path: Optional[str]) -> Dict[str, Any]:
-    cfg = _load_cfg(default_json_path)
-    thresholds = _extract_thresholds(cfg)
+    # 1) Oracle is the primary source of liquidation thresholds
+    thresholds = _oracle_thresholds()
+
+    # 2) Fallback: legacy JSON config if Oracle is unavailable or empty
+    if not thresholds:
+        cfg = _load_cfg(default_json_path)
+        thresholds = _extract_thresholds(cfg)
+
     nearest = _get_nearest_map(dl)
 
     dl_alerts.ensure_schema(dl)
@@ -166,8 +207,14 @@ def _run_impl(dl: Any, *, default_json_path: Optional[str]) -> Dict[str, Any]:
                     "symbol": sym,
                     "subject": f"[LIQUID] {sym} BREACH",
                     "body": body,
-                    "tts": f"{sym} breach. Distance {float(val):.2f} threshold {float(thr):.2f}.",
-                    "summary": f"{sym} breach. Distance {float(val):.2f} threshold {float(thr):.2f}.",
+                    "tts": (
+                        f"{sym} breach. Distance {float(val):.2f} "
+                        f"threshold {float(thr):.2f}."
+                    ),
+                    "summary": (
+                        f"{sym} breach. Distance {float(val):.2f} "
+                        f"threshold {float(thr):.2f}."
+                    ),
                     "alert_id": alert["id"],
                 }
                 context = {
