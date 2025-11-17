@@ -9,7 +9,10 @@
       "market": true,
       "price": true
     },
-    "xcom_live": true
+    "xcom_live": true,
+    "console": {
+      "clear_each_cycle": false
+    }
   },
   "liquid": {
     "notifications": {
