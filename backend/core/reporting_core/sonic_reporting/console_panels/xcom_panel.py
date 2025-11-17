@@ -637,7 +637,7 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
             header_line = table_lines[0]
             data_lines = table_lines[1:]
 
-            # Header tinted with column_header_text_color
+            # Header tinted with  column_header_text_color
             out += body_indent_lines(
                 PANEL_SLUG,
                 [paint_line(header_line, body_cfg["column_header_text_color"])],
