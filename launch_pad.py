@@ -546,6 +546,77 @@ def run_tests() -> None:  # pragma: no cover - shim
     run_tests_hub()
 
 
+def reset_xcom_snooze() -> None:
+    """
+    🔕 Hard reset for alert snooze state.
+
+    - Clears the XCom bridge snooze ledger (global_config.xcom_snooze)
+    - Clears the last "skip" receipt used by the XCom panel
+    - Clears any global/legacy snooze-until timestamps
+    - Clears liquidation monitor's _last_alert_ts via reset_liquid_snooze()
+
+    Intended as an operator panic button, wired to Launch Pad main menu.
+    """
+
+    console.print("\n[bold cyan]🔕 Resetting XCom / monitor snooze state…[/]\n")
+
+    # --- Resolve DataLocker + system manager ---------------------------------
+    if "DataLocker" not in globals() or DataLocker is None:
+        console.print("[yellow]DataLocker not available; nothing to reset.[/]")
+        return
+
+    try:
+        dl = DataLocker.get_instance()  # type: ignore[arg-type]
+    except Exception as exc:
+        console.print(f"[red]Failed to get DataLocker instance:[/] {exc}")
+        return
+
+    sysmgr = getattr(dl, "system", None)
+    if not sysmgr or not hasattr(sysmgr, "set_var") or not hasattr(sysmgr, "get_var"):
+        console.print("[yellow]DLSystemDataManager (dl.system) not available; cannot reset.[/]")
+        return
+
+    # --- 1) Clear XCom bridge snooze ledger & last skip ----------------------
+    try:
+        # This is the ledger the DL-based XCom bridge uses to enforce per-monitor
+        # snooze windows. Setting it to {} is equivalent to the README's
+        #   DELETE FROM global_config WHERE key='xcom_snooze';
+        # runbook.
+        sysmgr.set_var("xcom_snooze", {})          # global_config.xcom_snooze → {}
+        sysmgr.set_var("xcom_last_skip", None)     # panel + history hint only
+
+        console.print("[green]✔ Cleared XCom snooze ledger (xcom_snooze) and last-skip receipt.[/]")
+    except Exception as exc:
+        console.print(f"[red]Failed to clear xcom_snooze/xcom_last_skip:[/] {exc}")
+
+    # --- 2) Clear global snooze timers used by xcom_ready()/XCom Live --------
+    try:
+        # read_snooze_remaining() consults these before falling back to
+        # liquid_monitor._last_alert_ts + snooze_seconds.
+        sysmgr.set_var("global_snooze_until", None)
+        sysmgr.set_var("liquid_snooze_until", None)
+        console.print("[green]✔ Cleared global_snooze_until / liquid_snooze_until.[/]")
+    except Exception as exc:
+        console.print(f"[yellow]Note:[/] could not clear snooze_until vars: {exc}")
+
+    # --- 3) Clear liquidation monitor’s _last_alert_ts (monitor-core side) ---
+    try:
+        # Reuse the existing FastAPI helper logic so behavior matches the API:
+        #   POST /api/monitor-status/reset-liquid-snooze
+        # which pops _last_alert_ts from system['liquid_monitor'].
+        from backend.routes.monitor_status_api import reset_liquid_snooze  # type: ignore
+
+        reset_liquid_snooze(dl)
+        console.print("[green]✔ Cleared liquidation monitor _last_alert_ts.[/]")
+    except Exception as exc:
+        console.print(f"[yellow]Note:[/] reset_liquid_snooze() not available or failed: {exc}")
+
+    console.print(
+        "\n[bold green]✅ XCom snooze has been reset.[/]\n"
+        "Next eligible BREACH will be treated as fresh (subject to voice cooldown + per-monitor config).\n"
+    )
+
+
 def verify_twilio_menu() -> None:
     """Interactive Twilio verifier: auth-only vs auth+voice call."""
     console.print("\n[bold magenta]Verify Twilio[/bold magenta]\n")
@@ -1134,6 +1205,7 @@ def main() -> None:
                 f"17. {ICON['raydium']} Raydium Console (wallet + NFTs)",
                 f"18. {ICON['xcom']} Seed XCom Providers (ENV)",
                 f"19. {ICON['market']} Market Console (Market Core)",
+                "X. 🔕  Reset XCom Snooze",
                 f"0. {ICON['exit']} Exit",
                 "",
                 "🔥 Hotkeys: [S] 🌀 Sonic  [C] 🌀 Cyclone  [M] 📈 Market  [T] ✅ Twilio",
@@ -1181,6 +1253,8 @@ def main() -> None:
             run_menu_action("Seed XCom Providers", run_database_console)
         elif choice == "19":
             run_menu_action("Market Console", launch_market_console)
+        elif choice.lower() == "x":
+            run_menu_action("Reset XCom Snooze", reset_xcom_snooze)
         elif choice.upper() == "C":
             run_menu_action("Cyclone Console", lambda: launch_cyclone_app(new_window=True))
         elif choice.upper() == "M":
