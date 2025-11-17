@@ -1271,32 +1271,11 @@ class DataLocker:
             )
 
     def _seed_market_monitor_config_if_empty(self):
-        """Seed MarketMovementMonitor defaults if missing."""
-        if self.system is None:
-            log.warning(
-                "⚠️ System data manager unavailable; skipping market monitor seed",
-                source="DataLocker",
-            )
-            return
-        try:
-            current = self.system.get_var("market_monitor")
-            if current:
-                return
-
-            from backend.core.monitor_core.market_monitor import MarketMonitor
-
-            mon = MarketMonitor(self)
-            cfg = mon._cfg()
-            self.system.set_var(mon.name, cfg)
-            log.debug(
-                "Market monitor config seeded from defaults",
-                source="DataLocker",
-            )
-        except Exception as e:
-            log.error(
-                f"❌ Failed seeding market monitor config: {e}",
-                source="DataLocker",
-            )
+        """No-op placeholder for legacy market monitor config seeding."""
+        log.info(
+            "Market monitor config seeding disabled in Sonic8",
+            source="DataLocker",
+        )
 
     def _seed_xcom_providers_if_empty(self):
         """Seed or update XCom providers from ``comm_config.json``."""
