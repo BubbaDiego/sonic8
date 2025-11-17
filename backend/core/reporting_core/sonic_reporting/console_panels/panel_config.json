@@ -72,6 +72,25 @@
         }
       }
     },
+    "session": {
+      "title": {
+        "string": "🎯 Session / Goals"
+      },
+      "layout": {
+        "title_indent": 0,
+        "body_indent": 2
+      },
+      "body": {
+        "column_header_text_color": "cyan",
+        "body_text_color": "default",
+        "totals_row_color": "grey50",
+        "table": {
+          "style": "thin",
+          "table_justify": "left",
+          "header_justify": "left"
+        }
+      }
+    },
     "market": {
       "title": {
         "string": "Market Alerts",
