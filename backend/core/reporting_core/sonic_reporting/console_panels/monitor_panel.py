@@ -1,3 +1,4 @@
+# backend/core/reporting_core/sonic_reporting/console_panels/monitor_panel.py
 from __future__ import annotations
 
 import logging
@@ -134,13 +135,50 @@ def _normalized_rows(rows: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-def _fmt_monitor_name(row: Mapping[str, Any]) -> str:
-    label = str(row.get("label") or "").strip()
-    mon = str(row.get("monitor") or "").strip()
-    base = label or (mon.title() if mon else "–")
+def _asset_from_meta_or_label(row: Mapping[str, Any]) -> str:
+    """Best-effort extraction of the asset symbol for the Asset column."""
+    meta = row.get("meta") or {}
+    if not isinstance(meta, dict):
+        meta = {}
 
-    icon_key = (mon or "").lower()
-    icon = MON_ICON.get(icon_key, "🧪")
+    # Prefer explicit asset-ish fields from meta first
+    for key in ("asset", "asset_type", "symbol", "token", "base"):
+        val = meta.get(key)
+        if val:
+            return str(val).upper()
+
+    # Fallback: infer from label prefix (e.g. "SOL - Liq", "SOL PnL", "SOL")
+    label = str(row.get("label") or "").strip()
+    if label:
+        first = label.split()[0]  # "SOL", "SOL-PnL", "Portfolio"
+        if "-" in first:
+            first = first.split("-")[0]
+        first = first.strip("–-•").strip()
+        if first:
+            return first.upper()
+
+    return "–"
+
+
+def _fmt_monitor_name(row: Mapping[str, Any]) -> str:
+    """Canonical monitor label (type-centric, not asset-centric)."""
+    mon = str(row.get("monitor") or "").lower().strip()
+
+    # Type-driven names for the main monitors
+    if mon in {"liquid", "liq"}:
+        return "💧 Liquidation"
+    if mon == "prices" or mon == "price":
+        # green dollar icon + label
+        return "[green]💵[/] Price"
+    if mon == "market":
+        return "📊 Market"
+    if mon == "profit":
+        return "💹 Profit"
+
+    # Fallback: original behavior (icon + label)
+    label = str(row.get("label") or "").strip()
+    base = label or (mon.title() if mon else "–")
+    icon = MON_ICON.get(mon, "🧪")
     return f"{icon} {base}"
 
 
@@ -213,8 +251,7 @@ def _fmt_source(row: Mapping[str, Any]) -> str:
     if limit_src == "ORACLE":
         return "🧙 Oracle"
 
-    # Future: we could colorize or decorate DB/ENV/DEFAULT, but for now keep
-    # existing behavior for non-Oracle rows.
+    # Existing behavior for non-Oracle rows.
     src = str(row.get("source") or "").strip()
     return src or "-"
 
@@ -276,7 +313,8 @@ def _build_rich_table(rows: List[Dict[str, Any]], body_cfg: Dict[str, Any]) -> L
     )
 
     # Header labels with icons
-    table.add_column("🔎 Mon", justify="left", no_wrap=True)
+    table.add_column("🔎 Monitor", justify="left", no_wrap=True)
+    table.add_column("🪙 Asset", justify="left", no_wrap=True)
     table.add_column("🎯 Thresh", justify="left")
     table.add_column("📊 Value", justify="right")
     table.add_column("🧾 State", justify="left")
@@ -285,6 +323,7 @@ def _build_rich_table(rows: List[Dict[str, Any]], body_cfg: Dict[str, Any]) -> L
     for r in rows:
         table.add_row(
             _fmt_monitor_name(r),
+            _asset_from_meta_or_label(r),
             _fmt_threshold(r),
             _fmt_value(r),
             _fmt_state(r),
@@ -294,7 +333,8 @@ def _build_rich_table(rows: List[Dict[str, Any]], body_cfg: Dict[str, Any]) -> L
     buf = StringIO()
     console = Console(record=True, width=HR_WIDTH, file=buf, force_terminal=True)
     console.print(table)
-    text = console.export_text().rstrip("\n")
+    # IMPORTANT: keep styles so BREACH/WARN/OK (and green 💵) stay colored
+    text = console.export_text(styles=True).rstrip("\n")
     if not text:
         return []
     raw_lines = text.splitlines()
@@ -318,7 +358,7 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
 
     if not rows:
         # Empty state: just headers + message
-        header = "🔎 Mon   🎯 Thresh      📊 Value   🧾 State   📚 Source"
+        header = "🔎 Monitor  🪙 Asset   🎯 Thresh   📊 Value   🧾 State   📚 Source"
         lines.extend(
             body_indent_lines(
                 PANEL_SLUG,
