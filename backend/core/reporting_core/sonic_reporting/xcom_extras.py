@@ -344,8 +344,6 @@ def xcom_live_status(dl: DataLocker | None = None, cfg: dict | None = None) -> t
             _singleton_dl = _dl_or_singleton(None)
         locker = _singleton_dl
 
-    using_default_cfg = cfg is None
-
     # 1) ENV override
     env_val = os.getenv("SONIC_XCOM_LIVE")
     if env_val is not None:
@@ -369,17 +367,17 @@ def xcom_live_status(dl: DataLocker | None = None, cfg: dict | None = None) -> t
     if cfg is None and locker is not None:
         cfg = getattr(locker, "global_config", None)
 
-    # 3) FILE layer via ConfigOracle when no explicit cfg was provided
-    #    We tag this as "ORACLE" so callers (like panels) can render a wizard icon.
-    if using_default_cfg:
-        try:
-            global_cfg = ConfigOracle.get_global_monitor_config()
-            if global_cfg and global_cfg.xcom_live is not None:
-                return bool(global_cfg.xcom_live), "ORACLE"
-        except Exception:  # pragma: no cover - defensive
-            pass
+    # 3) Oracle "FILE" layer: ConfigOracle is the canonical source for
+    #    xcom_live in normal runtime (env/db have already had a chance).
+    try:
+        global_cfg = ConfigOracle.get_global_monitor_config()
+        if global_cfg and global_cfg.xcom_live is not None:
+            return bool(global_cfg.xcom_live), "ORACLE"
+    except Exception:  # pragma: no cover - defensive
+        pass
 
-    # 3b) Legacy FILE config from cfg dict (tests and custom callers)
+    # 3b) Legacy FILE config from cfg dict (primarily for tests)
+    #     This is only used when tests explicitly pass in a synthetic cfg.
     if isinstance(cfg, dict):
         mon = cfg.get("monitor") or {}
         if isinstance(mon, dict) and "xcom_live" in mon:

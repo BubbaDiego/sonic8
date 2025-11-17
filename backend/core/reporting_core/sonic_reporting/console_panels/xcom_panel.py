@@ -585,16 +585,16 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
     rec_err = _get_receipt(dl, "xcom_last_error") if dl else None
 
     try:
+        # cfg_obj is still passed so tests can inject their own FILE cfg; xcom_live_status
+        # itself now prefers Oracle (source="ORACLE") for runtime.
         live_on, live_src = xcom_live_status(dl, cfg=cfg_obj)
     except Exception:
         live_on, live_src = False, "—"
 
     status_label = "🟢 LIVE" if live_on else "🔴 OFF"
 
-    # Map source label to something user-friendly, with a wizard icon when the
-    # ConfigOracle provided the xcom_live value.
-    live_src = (live_src or "").upper().strip()
-    if live_src == "ORACLE":
+    live_src_norm = (live_src or "").upper().strip()
+    if live_src_norm == "ORACLE":
         src_display = "🧙 Oracle"
     else:
         src_display = live_src or "—"
