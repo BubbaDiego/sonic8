@@ -31,9 +31,8 @@ def _xcom_live() -> bool:
     Return whether SMS/XCom should actually send messages.
 
     Delegates to xcom_live_status(), which respects:
-      - ENV (SONIC_XCOM_LIVE)
       - DB (global_config.xcom_live via DLSystemDataManager)
-      - ConfigOracle monitor.xcom_live (FILE)
+      - ConfigOracle monitor.xcom_live (Oracle/FILE)
       - default True
     """
     live, _ = xcom_live_status()
@@ -80,7 +79,7 @@ class SMSService:
                 twilio_skip("sms", "dry-run")
                 return True
             if not _xcom_live():
-                log.info("SONIC_XCOM_LIVE disabled – skipping Twilio SMS", source="SMSService")
+                log.info("XCom live disabled – skipping Twilio SMS", source="SMSService")
                 twilio_skip("sms", "disabled")
                 return False
             try:
