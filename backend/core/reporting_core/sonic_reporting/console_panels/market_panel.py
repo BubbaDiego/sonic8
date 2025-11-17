@@ -274,7 +274,7 @@ def _resolve_table_cfg(body_cfg: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _style_to_box(style: str) -> (Any, bool):
-    """Map table_style → (rich.box, show_lines)."""
+    """Map table_style  → (rich.box, show_lines)."""
     style = (style or "invisible").lower()
     if style == "thin":
         return box.SIMPLE_HEAD, False
