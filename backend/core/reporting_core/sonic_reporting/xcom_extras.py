@@ -335,7 +335,7 @@ def xcom_live_status(dl: DataLocker | None = None, cfg: dict | None = None) -> t
 
     Returns:
         (is_live, source)
-        source ∈ {"ENV", "DB", "ORACLE", "FILE", "DEFAULT"}
+        source ∈ {"DB", "ORACLE", "FILE", "DEFAULT"}
     """
     global _singleton_dl
     locker = dl
@@ -344,16 +344,7 @@ def xcom_live_status(dl: DataLocker | None = None, cfg: dict | None = None) -> t
             _singleton_dl = _dl_or_singleton(None)
         locker = _singleton_dl
 
-    # 1) ENV override
-    env_val = os.getenv("SONIC_XCOM_LIVE")
-    if env_val is not None:
-        v = str(env_val).strip().lower()
-        if v in ("1", "true", "yes", "on"):
-            return True, "ENV"
-        if v in ("0", "false", "no", "off"):
-            return False, "ENV"
-
-    # 2) DB override via DLSystemDataManager
+    # 1) DB override via DLSystemDataManager
     if locker is not None:
         try:
             sysmgr = DLSystemDataManager(locker.db)
@@ -367,8 +358,7 @@ def xcom_live_status(dl: DataLocker | None = None, cfg: dict | None = None) -> t
     if cfg is None and locker is not None:
         cfg = getattr(locker, "global_config", None)
 
-    # 3) Oracle "FILE" layer: ConfigOracle is the canonical source for
-    #    xcom_live in normal runtime (env/db have already had a chance).
+    # 2) Oracle "FILE" layer: ConfigOracle is the canonical source for xcom_live
     try:
         global_cfg = ConfigOracle.get_global_monitor_config()
         if global_cfg and global_cfg.xcom_live is not None:
@@ -376,8 +366,8 @@ def xcom_live_status(dl: DataLocker | None = None, cfg: dict | None = None) -> t
     except Exception:  # pragma: no cover - defensive
         pass
 
-    # 3b) Legacy FILE config from cfg dict (primarily for tests)
-    #     This is only used when tests explicitly pass in a synthetic cfg.
+    # 3) Legacy FILE config from cfg dict (primarily for tests)
+    #    This is only used when tests explicitly pass in a synthetic cfg.
     if isinstance(cfg, dict):
         mon = cfg.get("monitor") or {}
         if isinstance(mon, dict) and "xcom_live" in mon:
