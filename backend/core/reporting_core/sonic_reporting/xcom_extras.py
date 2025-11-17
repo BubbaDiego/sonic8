@@ -335,7 +335,7 @@ def xcom_live_status(dl: DataLocker | None = None, cfg: dict | None = None) -> t
 
     Returns:
         (is_live, source)
-        source ∈ {"ENV", "DB", "FILE", "DEFAULT"}
+        source ∈ {"ENV", "DB", "ORACLE", "FILE", "DEFAULT"}
     """
     global _singleton_dl
     locker = dl
@@ -370,11 +370,12 @@ def xcom_live_status(dl: DataLocker | None = None, cfg: dict | None = None) -> t
         cfg = getattr(locker, "global_config", None)
 
     # 3) FILE layer via ConfigOracle when no explicit cfg was provided
+    #    We tag this as "ORACLE" so callers (like panels) can render a wizard icon.
     if using_default_cfg:
         try:
             global_cfg = ConfigOracle.get_global_monitor_config()
             if global_cfg and global_cfg.xcom_live is not None:
-                return bool(global_cfg.xcom_live), "FILE"
+                return bool(global_cfg.xcom_live), "ORACLE"
         except Exception:  # pragma: no cover - defensive
             pass
 
