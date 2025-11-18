@@ -31,9 +31,11 @@ DEFAULT_PANEL_MODULES: List[str] = [
     "backend.core.reporting_core.sonic_reporting.console_panels.positions_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.risk_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.monitor_panel",
-    "backend.core.reporting_core.sonic_reporting.console_panels.session_panel",  # NEW
     "backend.core.reporting_core.sonic_reporting.console_panels.market_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.xcom_panel",
+    # NOTE:
+    #   The 🎯 Session / Goals panel is rendered separately after the Wallets
+    #   panel in monitor_core.sonic.reporting.console.runner.run_console_reporters().
    # "backend.core.reporting_core.sonic_reporting.console_panels.resolve_log_panel",
 ]
 

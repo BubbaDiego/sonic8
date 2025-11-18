@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 from io import StringIO
+import os
 
 from rich.console import Console
 from rich.panel import Panel
@@ -12,7 +13,14 @@ from rich.text import Text
 from backend.core.reporting_core.sonic_reporting.console_panels import data_access
 
 # Keep this roughly aligned with your other panels
-SESSION_PANEL_WIDTH = 76
+try:
+    _SESSION_DEFAULT_WIDTH = int(os.getenv("SONIC_CONSOLE_WIDTH", "92"))
+except Exception:
+    _SESSION_DEFAULT_WIDTH = 92
+
+# Make Session / Goals feel like a “card”: a bit narrower than the full console,
+# but never absurdly tiny.
+SESSION_PANEL_WIDTH = max(60, min(_SESSION_DEFAULT_WIDTH - 10, _SESSION_DEFAULT_WIDTH))
 TITLE = "🎯 Session / Goals"
 
 
@@ -351,9 +359,17 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
         perf = {}
 
     panel = build_session_panel(session_obj, perf)
-    # Prefer explicit width from the caller, then any width hinted in ctx,
-    # finally fall back to the session panel's own house width.
-    effective_width = width or ctx.get("width") or SESSION_PANEL_WIDTH
+
+    # Prefer explicit width from the caller or ctx, but never exceed
+    # SESSION_PANEL_WIDTH so the block stays visually narrower than the
+    # surrounding tables.
+    base_width = width or ctx.get("width") or SESSION_PANEL_WIDTH
+    try:
+        base_width_int = int(base_width)
+    except Exception:
+        base_width_int = SESSION_PANEL_WIDTH
+
+    effective_width = min(base_width_int, SESSION_PANEL_WIDTH)
     return _panel_to_lines(panel, width=effective_width)
 
 
