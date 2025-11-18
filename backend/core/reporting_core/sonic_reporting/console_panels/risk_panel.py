@@ -6,9 +6,9 @@ risk_panel.py
 Sonic Reporting — Risk Snapshot panel (console, Look 2)
 
 Metrics:
-- Total Heat:    size-weighted avg of |travel_pct|
+- Total Heat:    size-weighted avg of per-position heat_index
 - Total Lev:     size-weighted avg leverage
-- Total Travel:  size-weighted avg travel_pct
+- Total Travel:  size-weighted avg travel_percent
 - Balance:       SHORT vs LONG by notional size (10-segment bar)
 """
 
@@ -31,7 +31,6 @@ from .theming import (
 from backend.core.reporting_core.sonic_reporting.console_panels.positions_panel import (  # type: ignore
     _get_items_from_manager as _get_position_rows,
     _compute_travel_pct,
-    _compute_heat_pct,
     _num,
     _to_mapping,
 )
@@ -54,13 +53,15 @@ except Exception:  # pragma: no cover
 # Aggregation
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _compute_risk_metrics(items: Iterable[Any]) -> Dict[str, Optional[float]]:
     """
     Aggregate per-position fields into panel-level metrics.
 
     All averages are weighted by abs(size) so SHORT vs LONG doesn't cancel out.
+    Balance buckets use position_type when available.
     """
-    total_abs_size = 0.0
+    total_weight = 0.0
     heat_num = 0.0
     trav_num = 0.0
     lev_num = 0.0
@@ -70,33 +71,49 @@ def _compute_risk_metrics(items: Iterable[Any]) -> Dict[str, Optional[float]]:
     for it in items:
         row = _to_mapping(it)
         size = _num(row.get("size"))
-        lev = _num(row.get("leverage"))
+        if size is None:
+            continue
+
+        w = abs(size)
+        if w == 0:
+            continue
+
+        total_weight += w
+
+        # --- Heat: use enriched heat_index/current_heat_index from DB ---
+        heat_idx = _num(row.get("heat_index") or row.get("current_heat_index"))
+        if heat_idx is not None:
+            heat_num += w * heat_idx
+
+        # --- Travel + leverage ---
         travel_pct = _compute_travel_pct(row)
-        heat_pct = _compute_heat_pct(travel_pct)
+        if travel_pct is not None:
+            trav_num += w * travel_pct
 
-        if size is not None and size != 0:
-            w = abs(size)
-            total_abs_size += w
+        lev = _num(row.get("leverage"))
+        if lev is not None:
+            lev_num += w * lev
 
-            if heat_pct is not None:
-                heat_num += w * heat_pct
-            if travel_pct is not None:
-                trav_num += w * travel_pct
-            if lev is not None:
-                lev_num += w * lev
-
+        # --- Long / short split for the balance bar ---
+        ptype = str(row.get("position_type") or "").lower()
+        if ptype == "long":
+            long_notional += w
+        elif ptype == "short":
+            short_notional += w
+        else:
+            # Fallback to sign if type is missing
             if size > 0:
-                long_notional += size
+                long_notional += w
             elif size < 0:
-                short_notional += -size
+                short_notional += w
 
     def _safe(num: float, den: float) -> Optional[float]:
         return num / den if den and den != 0.0 else None
 
     return {
-        "total_heat_pct": _safe(heat_num, total_abs_size),
-        "total_travel_pct": _safe(trav_num, total_abs_size),
-        "total_leverage": _safe(lev_num, total_abs_size),
+        "total_heat_pct": _safe(heat_num, total_weight),
+        "total_travel_pct": _safe(trav_num, total_weight),
+        "total_leverage": _safe(lev_num, total_weight),
         "long_notional": long_notional,
         "short_notional": short_notional,
     }
@@ -105,6 +122,7 @@ def _compute_risk_metrics(items: Iterable[Any]) -> Dict[str, Optional[float]]:
 # ──────────────────────────────────────────────────────────────────────────────
 # Formatting helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _fmt_pct(v: Optional[float]) -> str:
     return f"{v:.2f}%" if isinstance(v, (int, float)) else "—"
@@ -162,10 +180,10 @@ def _build_rich_block(metrics: Dict[str, Optional[float]]) -> List[str]:
     table.add_column(justify="left", no_wrap=True)
     table.add_column(justify="right")
 
-    # Core metrics
-    table.add_row("Total Heat", _fmt_pct(metrics.get("total_heat_pct")))
-    table.add_row("Total Leverage", _fmt_lev(metrics.get("total_leverage")))
-    table.add_row("Total Travel", _fmt_pct(metrics.get("total_travel_pct")))
+    # Core metrics (with icons)
+    table.add_row("🔥 Total Heat", _fmt_pct(metrics.get("total_heat_pct")))
+    table.add_row("🔧 Total Leverage", _fmt_lev(metrics.get("total_leverage")))
+    table.add_row("🧭 Total Travel", _fmt_pct(metrics.get("total_travel_pct")))
     table.add_row("", "")  # spacer
 
     # Balance bar
@@ -201,6 +219,7 @@ def _build_rich_block(metrics: Dict[str, Optional[float]]) -> List[str]:
 # ──────────────────────────────────────────────────────────────────────────────
 # Public render / connector
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def render(context: Any, width: Optional[int] = None) -> List[str]:
     """

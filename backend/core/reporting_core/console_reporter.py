@@ -34,7 +34,7 @@ DEFAULT_PANEL_MODULES: List[str] = [
     "backend.core.reporting_core.sonic_reporting.console_panels.session_panel",  # NEW
     "backend.core.reporting_core.sonic_reporting.console_panels.market_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.xcom_panel",
-    "backend.core.reporting_core.sonic_reporting.console_panels.resolve_log_panel",
+   # "backend.core.reporting_core.sonic_reporting.console_panels.resolve_log_panel",
 ]
 
 # Back-compat symbol; some code may import PANEL_MODULES at import-time.
