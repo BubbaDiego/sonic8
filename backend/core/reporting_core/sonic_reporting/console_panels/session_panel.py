@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
+from io import StringIO
 
+from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+
+from backend.core.reporting_core.sonic_reporting.console_panels import data_access
 
 # Keep this roughly aligned with your other panels
 SESSION_PANEL_WIDTH = 76
@@ -108,6 +112,79 @@ def _horizon_cell(perf: Mapping[str, Any], key: str) -> Tuple[Text, Text]:
     dv_text = _fmt_delta_money(dv) if dv is not None else Text("$0.00", style="dim")
     dp_text = _fmt_delta_pct(dp) if dp is not None else Text("—", style="dim")
     return dv_text, dp_text
+
+
+def _resolve_dl(context: Any) -> Any:
+    """
+    Best-effort resolver for a DataLocker instance from the given context.
+
+    Accepts:
+      - ctx dict with key 'dl'
+      - direct DataLocker instance
+      - anything supported by data_access.dl_or_context(...)
+    """
+
+    try:
+        return data_access.dl_or_context(context)
+    except Exception:
+        # Fallback: try global DataLocker singleton
+        try:
+            from backend.data.data_locker import DataLocker  # type: ignore
+
+            if hasattr(DataLocker, "get_instance"):
+                return DataLocker.get_instance()  # type: ignore[call-arg]
+            return DataLocker()  # type: ignore[call-arg]
+        except Exception:
+            return None
+
+
+def _get_active_session(context: Any) -> Any:
+    """
+    Return the active DLSessionManager session, or None if unavailable.
+    """
+
+    dl = _resolve_dl(context)
+    if dl is None:
+        return None
+
+    mgr = getattr(dl, "session", None)
+    if mgr is None:
+        return None
+
+    try:
+        return mgr.get_active_session()
+    except Exception:
+        return None
+
+
+def _panel_to_lines(panel: Panel, width: Optional[int] = None) -> List[str]:
+    """
+    Render a Rich Panel to a list of text lines (with ANSI styles preserved),
+    suitable for console_reporter.render_panel_stack().
+    """
+
+    buf = StringIO()
+    console = Console(
+        record=True,
+        width=int(width or SESSION_PANEL_WIDTH),
+        file=buf,
+        force_terminal=True,
+    )
+    console.print(panel)
+
+    text = console.export_text(styles=True).rstrip("\n")
+    if not text:
+        return []
+
+    lines = text.splitlines()
+
+    # Trim leading/trailing blank lines so the stack stays tight
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+
+    return lines
 
 
 # ───────────────────────── main render ───────────────────────── #
@@ -241,8 +318,73 @@ def build_session_panel(
     )
 
 
+def render(context: Any, width: Optional[int] = None) -> List[str]:
+    """
+    Main entrypoint when called as render(ctx, width=…).
+
+    Accepted call shapes (matching other console_panels modules):
+      - render(ctx)
+      - render(dl, ctx)
+      - render(ctx, width)
+
+    Returns a list of text lines; console_reporter will print them.
+    """
+
+    # Normalize context to a dict with at least a dl entry when available
+    if isinstance(context, dict):
+        ctx: Dict[str, Any] = dict(context)
+    else:
+        ctx = {"dl": context}
+
+    # Allow tests or callers to inject a session directly via ctx["session"];
+    # otherwise, resolve the active session from DataLocker.
+    session_obj = ctx.get("session")
+    if session_obj is None:
+        session_obj = _get_active_session(ctx)
+
+    # Optional per-horizon performance can be provided via ctx["session_perf"].
+    perf_obj = ctx.get("session_perf")
+    perf: Mapping[str, Mapping[str, Any]]
+    if isinstance(perf_obj, Mapping):
+        perf = perf_obj  # type: ignore[assignment]
+    else:
+        perf = {}
+
+    panel = build_session_panel(session_obj, perf)
+    # Prefer explicit width from the caller, then any width hinted in ctx,
+    # finally fall back to the session panel's own house width.
+    effective_width = width or ctx.get("width") or SESSION_PANEL_WIDTH
+    return _panel_to_lines(panel, width=effective_width)
+
+
+def connector(
+    dl: Any = None,
+    ctx: Optional[Dict[str, Any]] = None,
+    width: Optional[int] = None,
+) -> List[str]:
+    """
+    console_reporter prefers connector(dl, ctx, width); delegate into render().
+
+    This matches the connector(...) pattern used by other panels so
+    console_reporter.render_panel_stack() will pick us up automatically.
+    """
+
+    context: Dict[str, Any] = dict(ctx or {})
+    if dl is not None:
+        context.setdefault("dl", dl)
+    if width is not None:
+        context.setdefault("width", width)
+    return render(context, width=width)
+
+
 # Backwards-compat aliases so the layout can call whatever it wants
 render_session_panel = build_session_panel
 render_panel = build_session_panel
 
-__all__ = ["build_session_panel", "render_session_panel", "render_panel"]
+__all__ = [
+    "build_session_panel",
+    "render_session_panel",
+    "render_panel",
+    "render",
+    "connector",
+]
