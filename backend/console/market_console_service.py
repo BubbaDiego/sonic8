@@ -169,19 +169,26 @@ def manage_alerts(dl: Any) -> None:
                 f"{'ON ' if a.enabled else 'OFF'}"
             )
         print()
-        print("  🆕 [A]dd   ✏️ [E]dit   🔁 [R]eset/Re-arm   🗑 [D]elete   ⏪ [Q] Back")
+        print("  1) 🆕  Add alert")
+        print("  2) ✏️  Edit alert")
+        print("  3) 🔁  Reset/Re-arm alert")
+        print("  4) 🗑  Delete alert")
+        print("  5) 💣  Delete ALL alerts")
+        print("  0) ⏪  Back")
         choice = input("→ ").strip().lower()
 
         if choice in ("0", "q"):
             return
-        if choice == "a":
+        if choice in ("1", "a"):
             _ui_add_alert(dl)
-        elif choice == "e":
+        elif choice in ("2", "e"):
             _ui_edit_alert(dl, alerts)
-        elif choice == "d":
-            _ui_delete_alert(dl, alerts)
-        elif choice == "r":
+        elif choice in ("3", "r"):
             _ui_reset_alert(dl, alerts)
+        elif choice in ("4", "d"):
+            _ui_delete_alert(dl, alerts)
+        elif choice in ("5", "x"):
+            _ui_delete_all_alerts(dl, alerts)
 
 
 def _pick_alert(alerts: List[PriceAlert]) -> PriceAlert | None:
@@ -346,6 +353,34 @@ def _ui_delete_alert(dl: Any, alerts: List[PriceAlert]) -> None:
     if confirm == "y" and alert.id is not None:
         dl.price_alerts.delete_alert(alert.id)
         print("Alert deleted.")
+
+
+def _ui_delete_all_alerts(dl: Any, alerts: List[PriceAlert]) -> None:
+    """Delete all market alerts with a confirmation that defaults to YES."""
+    if not alerts:
+        print("No alerts defined.")
+        input("⏎  Press ENTER to continue...")
+        return
+
+    print()
+    print("💣 Delete ALL alerts")
+    print("---------------------")
+    confirm = input("Delete ALL alerts? [Y/n] → ").strip().lower()
+
+    # Default to YES: blank or 'y'/'yes' proceed; anything else cancels.
+    if confirm not in ("", "y", "yes"):
+        print("Aborted. No alerts were deleted.")
+        input("⏎  Press ENTER to continue...")
+        return
+
+    deleted = 0
+    for alert in alerts:
+        if alert.id is not None:
+            dl.price_alerts.delete_alert(alert.id)
+            deleted += 1
+
+    print(f"Deleted {deleted} alert(s).")
+    input("⏎  Press ENTER to continue...")
 
 
 def _ui_reset_alert(dl: Any, alerts: List[PriceAlert]) -> None:
