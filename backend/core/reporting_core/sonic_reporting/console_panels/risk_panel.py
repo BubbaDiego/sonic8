@@ -6,10 +6,10 @@ risk_panel.py
 Sonic Reporting — Risk Snapshot panel (console, Look 2)
 
 Metrics:
-- Total Heat:    size-weighted avg of per-position heat_index
-- Total Lev:     size-weighted avg leverage
-- Total Travel:  size-weighted avg travel_percent
-- Balance:       SHORT vs LONG by notional size (10-segment bar)
+- Total Heat:   size-weighted avg of per-position heat_index (NOT a %)
+- Total Lev:    size-weighted avg leverage
+- Total Travel: size-weighted avg travel_percent
+- Balance:      SHORT vs LONG by notional size (40-seg bar; 4 seg = 10%)
 """
 
 import logging
@@ -40,10 +40,11 @@ log = logging.getLogger(__name__)
 PANEL_SLUG = "risk"
 PANEL_NAME = "Risk Snapshot"
 
-BAR_SEGMENTS = 10
+# 4x the original 10-segment bar → 40 segments total (4 per 10%)
+BAR_SEGMENTS = 40
 
 try:
-    # Some panels import this from theming; fall back if not present.
+    # Width hint for Rich export; theming already uses this
     from .theming import HR_WIDTH  # type: ignore
 except Exception:  # pragma: no cover
     HR_WIDTH = 100
@@ -58,8 +59,9 @@ def _compute_risk_metrics(items: Iterable[Any]) -> Dict[str, Optional[float]]:
     """
     Aggregate per-position fields into panel-level metrics.
 
-    All averages are weighted by abs(size) so SHORT vs LONG doesn't cancel out.
-    Balance buckets use position_type when available.
+    - Total Heat = size-weighted avg of heat_index (or current_heat_index)
+    - Total Leverage / Travel = size-weighted averages
+    - Balance uses size + position_type to split long vs short
     """
     total_weight = 0.0
     heat_num = 0.0
@@ -80,12 +82,12 @@ def _compute_risk_metrics(items: Iterable[Any]) -> Dict[str, Optional[float]]:
 
         total_weight += w
 
-        # --- Heat: use enriched heat_index/current_heat_index from DB ---
+        # Heat: canonical risk metric from positions (heat_index / current_heat_index)
         heat_idx = _num(row.get("heat_index") or row.get("current_heat_index"))
         if heat_idx is not None:
             heat_num += w * heat_idx
 
-        # --- Travel + leverage ---
+        # Travel + leverage
         travel_pct = _compute_travel_pct(row)
         if travel_pct is not None:
             trav_num += w * travel_pct
@@ -94,14 +96,14 @@ def _compute_risk_metrics(items: Iterable[Any]) -> Dict[str, Optional[float]]:
         if lev is not None:
             lev_num += w * lev
 
-        # --- Long / short split for the balance bar ---
-        ptype = str(row.get("position_type") or "").lower()
-        if ptype == "long":
+        # Long / short split for the balance bar
+        ptype = (row.get("position_type") or row.get("side") or "").upper()
+        if ptype == "LONG":
             long_notional += w
-        elif ptype == "short":
+        elif ptype == "SHORT":
             short_notional += w
         else:
-            # Fallback to sign if type is missing
+            # Fallback: infer from sign
             if size > 0:
                 long_notional += w
             elif size < 0:
@@ -111,7 +113,7 @@ def _compute_risk_metrics(items: Iterable[Any]) -> Dict[str, Optional[float]]:
         return num / den if den and den != 0.0 else None
 
     return {
-        "total_heat_pct": _safe(heat_num, total_weight),
+        "total_heat": _safe(heat_num, total_weight),
         "total_travel_pct": _safe(trav_num, total_weight),
         "total_leverage": _safe(lev_num, total_weight),
         "long_notional": long_notional,
@@ -124,12 +126,23 @@ def _compute_risk_metrics(items: Iterable[Any]) -> Dict[str, Optional[float]]:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+def _fmt_heat(v: Optional[float]) -> str:
+    # Heat index is a scalar, not a percentage
+    return f"{v:.2f}" if isinstance(v, (int, float)) else "—"
+
+
 def _fmt_pct(v: Optional[float]) -> str:
     return f"{v:.2f}%" if isinstance(v, (int, float)) else "—"
 
 
 def _fmt_lev(v: Optional[float]) -> str:
     return f"{v:.2f}×" if isinstance(v, (int, float)) else "—"
+
+
+def _fmt_notional(v: Optional[float]) -> str:
+    if not isinstance(v, (int, float)):
+        return "—"
+    return f"{v:.2f}"
 
 
 def _build_balance_bar(
@@ -139,12 +152,12 @@ def _build_balance_bar(
     """
     Build SHORT/LONG balance bar and labels.
 
-      SHORT [▰▰▰▰▰▰▰▱▱▱] LONG
-             70%       30%
+      SHORT ████▰▰▰ ... LONG
+             (40 total segments, 4 per 10%)
     """
     total = short_notional + long_notional
     if total <= 0:
-        bar = "[dim]──────────[/dim]"
+        bar = "[dim]────────────────────────────────────────[/dim]"
         return bar, "—", "—"
 
     short_ratio = short_notional / total
@@ -169,39 +182,11 @@ def _build_balance_bar(
 
 def _build_rich_block(metrics: Dict[str, Optional[float]]) -> List[str]:
     """
-    Build the Look-2 style block using Rich and export as plain text lines.
+    Build the full block using Rich and export as plain text lines.
+
+    We let Rich handle **all** markup (metrics + bar) and then export ANSI text,
+    so no `[red]...[/red]` leaks through.
     """
-    table = Table(
-        show_header=False,
-        box=None,
-        pad_edge=False,
-        expand=False,
-    )
-    table.add_column(justify="left", no_wrap=True)
-    table.add_column(justify="right")
-
-    # Core metrics (with icons)
-    table.add_row("🔥 Total Heat", _fmt_pct(metrics.get("total_heat_pct")))
-    table.add_row("🔧 Total Leverage", _fmt_lev(metrics.get("total_leverage")))
-    table.add_row("🧭 Total Travel", _fmt_pct(metrics.get("total_travel_pct")))
-    table.add_row("", "")  # spacer
-
-    # Balance bar
-    bar, short_pct_txt, long_pct_txt = _build_balance_bar(
-        float(metrics.get("short_notional") or 0.0),
-        float(metrics.get("long_notional") or 0.0),
-    )
-
-    table.add_row("Balance (by size)", "")
-    table.add_row(
-        "[red]SHORT[/red]",
-        f"{bar}  [green]LONG[/green]",
-    )
-    table.add_row(
-        "",
-        f"{short_pct_txt:>4} short   {long_pct_txt:>4} long",
-    )
-
     buf = StringIO()
     console = Console(
         record=True,
@@ -209,9 +194,45 @@ def _build_rich_block(metrics: Dict[str, Optional[float]]) -> List[str]:
         file=buf,
         force_terminal=True,
     )
+
+    # ── metrics + size table ──
+    table = Table(
+        show_header=False,
+        box=None,
+        pad_edge=False,
+        expand=False,
+    )
+    table.add_column(justify="left", no_wrap=True)
+    table.add_column(justify="right", no_wrap=True)
+
+    table.add_row("🔥 Total Heat", _fmt_heat(metrics.get("total_heat")))
+    table.add_row("🔧 Total Leverage", _fmt_lev(metrics.get("total_leverage")))
+    table.add_row("🧭 Total Travel", _fmt_pct(metrics.get("total_travel_pct")))
+
+    long_sz = float(metrics.get("long_notional") or 0.0)
+    short_sz = float(metrics.get("short_notional") or 0.0)
+    total_sz = long_sz + short_sz
+
+    table.add_row("", "")
+    table.add_row("Long", _fmt_notional(long_sz))
+    table.add_row("Short", _fmt_notional(short_sz))
+    table.add_row("Total", _fmt_notional(total_sz))
+
     console.print(table)
 
-    # keep ANSI styles so our red/green bar survives; color_if_plain will respect them
+    # ── balance bar + percentages ──
+    bar, short_pct_txt, long_pct_txt = _build_balance_bar(
+        short_notional=short_sz,
+        long_notional=long_sz,
+    )
+
+    console.print()  # spacer
+    # Bar line: bar sits directly after SHORT
+    console.print(f"[red]SHORT[/red] {bar} [green]LONG[/green]")
+    # Percent line: numbers closer to labels (no huge right-justified gap)
+    console.print(f"{short_pct_txt} short   {long_pct_txt} long")
+
+    # Export all content (metrics + bar) with ANSI styles preserved
     text = console.export_text(styles=True).rstrip("\n")
     return text.splitlines() if text else []
 
@@ -241,7 +262,6 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
         items = []
 
     if not items:
-        # Minimal empty-state message
         msg = "(no positions available for risk summary)"
         msg_colored = color_if_plain(msg, body_cfg.get("body_text_color", "default"))
         lines += body_indent_lines(PANEL_SLUG, [msg_colored])
@@ -251,7 +271,7 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
     metrics = _compute_risk_metrics(items)
     block_lines = _build_rich_block(metrics)
 
-    # Apply body color to plain lines, but don't override our ANSI-colored bar.
+    # Apply body color to plain lines, but don't override our ANSI-colored content.
     for raw in block_lines:
         lines += body_indent_lines(
             PANEL_SLUG,
