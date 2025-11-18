@@ -42,6 +42,7 @@ PANEL_NAME = "Risk Snapshot"
 
 # 4x the original 10-segment bar → 40 segments total (4 per 10%)
 BAR_SEGMENTS = 40
+LABEL_COLOR = "cyan"
 
 try:
     # Width hint for Rich export; theming already uses this
@@ -145,6 +146,10 @@ def _fmt_notional(v: Optional[float]) -> str:
     return f"{v:.2f}"
 
 
+def _label(text: str) -> str:
+    return f"[{LABEL_COLOR}]{text}[/]"
+
+
 def _build_balance_bar(
     short_notional: float,
     long_notional: float,
@@ -180,12 +185,41 @@ def _build_balance_bar(
     return bar, short_pct_txt, long_pct_txt
 
 
+def _build_pct_line(short_pct_txt: str, long_pct_txt: str) -> str:
+    """
+    Place the short/long percentages roughly under the red/green halves of the bar.
+
+    We assume the bar line looks like: 'SHORT ' + BAR + ' LONG'
+    so: 6 + BAR_SEGMENTS + 5 visible characters.
+    """
+    total_chars = 6 + BAR_SEGMENTS + 5  # 'SHORT ' + bar + ' LONG'
+    line_chars = [" "] * total_chars
+
+    short_label = f"{short_pct_txt} short"
+    long_label = f"{long_pct_txt} long"
+
+    # Center short under left half of bar
+    short_center = 6 + BAR_SEGMENTS // 4
+    short_start = max(0, min(total_chars - len(short_label), short_center - len(short_label) // 2))
+
+    # Center long under right half of bar
+    long_center = 6 + (3 * BAR_SEGMENTS) // 4
+    long_start = max(0, min(total_chars - len(long_label), long_center - len(long_label) // 2))
+
+    for i, ch in enumerate(short_label):
+        line_chars[short_start + i] = ch
+    for i, ch in enumerate(long_label):
+        line_chars[long_start + i] = ch
+
+    return "".join(line_chars).rstrip()
+
+
 def _build_rich_block(metrics: Dict[str, Optional[float]]) -> List[str]:
     """
     Build the full block using Rich and export as plain text lines.
 
-    We let Rich handle **all** markup (metrics + bar) and then export ANSI text,
-    so no `[red]...[/red]` leaks through.
+    Metrics and Long/Short/Total are on the same lines (4-column table),
+    then the balance bar sits underneath.
     """
     buf = StringIO()
     console = Console(
@@ -195,28 +229,42 @@ def _build_rich_block(metrics: Dict[str, Optional[float]]) -> List[str]:
         force_terminal=True,
     )
 
+    long_sz = float(metrics.get("long_notional") or 0.0)
+    short_sz = float(metrics.get("short_notional") or 0.0)
+    total_sz = long_sz + short_sz
+
     # ── metrics + size table ──
     table = Table(
         show_header=False,
         box=None,
         pad_edge=False,
         expand=False,
+        padding=(0, 2),  # a little extra space between columns
     )
-    table.add_column(justify="left", no_wrap=True)
-    table.add_column(justify="right", no_wrap=True)
+    # metric label / metric value / size label / size value
+    table.add_column(justify="left", no_wrap=True, ratio=2)
+    table.add_column(justify="right", no_wrap=True, ratio=1)
+    table.add_column(justify="left", no_wrap=True, ratio=2)
+    table.add_column(justify="right", no_wrap=True, ratio=1)
 
-    table.add_row("🔥 Total Heat", _fmt_heat(metrics.get("total_heat")))
-    table.add_row("🔧 Total Leverage", _fmt_lev(metrics.get("total_leverage")))
-    table.add_row("🧭 Total Travel", _fmt_pct(metrics.get("total_travel_pct")))
-
-    long_sz = float(metrics.get("long_notional") or 0.0)
-    short_sz = float(metrics.get("short_notional") or 0.0)
-    total_sz = long_sz + short_sz
-
-    table.add_row("", "")
-    table.add_row("Long", _fmt_notional(long_sz))
-    table.add_row("Short", _fmt_notional(short_sz))
-    table.add_row("Total", _fmt_notional(total_sz))
+    table.add_row(
+        _label("🔥 Total Heat"),
+        _fmt_heat(metrics.get("total_heat")),
+        _label("Long"),
+        _fmt_notional(long_sz),
+    )
+    table.add_row(
+        _label("🔧 Total Leverage"),
+        _fmt_lev(metrics.get("total_leverage")),
+        _label("Short"),
+        _fmt_notional(short_sz),
+    )
+    table.add_row(
+        _label("🧭 Total Travel"),
+        _fmt_pct(metrics.get("total_travel_pct")),
+        _label("Total"),
+        _fmt_notional(total_sz),
+    )
 
     console.print(table)
 
@@ -227,12 +275,10 @@ def _build_rich_block(metrics: Dict[str, Optional[float]]) -> List[str]:
     )
 
     console.print()  # spacer
-    # Bar line: bar sits directly after SHORT
     console.print(f"[red]SHORT[/red] {bar} [green]LONG[/green]")
-    # Percent line: numbers closer to labels (no huge right-justified gap)
-    console.print(f"{short_pct_txt} short   {long_pct_txt} long")
+    pct_line = _build_pct_line(short_pct_txt, long_pct_txt)
+    console.print(pct_line)
 
-    # Export all content (metrics + bar) with ANSI styles preserved
     text = console.export_text(styles=True).rstrip("\n")
     return text.splitlines() if text else []
 
