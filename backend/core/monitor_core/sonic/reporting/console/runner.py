@@ -85,9 +85,10 @@ def run_console_reporters(
     """
     Final ordering:
       1) Cycle Activity
-      2) Reporter stack (Preflight, Prices, Positions, Monitors, XCom, Resolve log)
+      2) Reporter stack (Prices, Positions, Risk, Monitors, Market, XCom)
       3) Wallets
-      4) Cycle footer (always last)
+      4) Session / Goals
+      5) Cycle footer (always last)
     """
     _safe_render(
         "backend.core.reporting_core.sonic_reporting.cycle_activity_reporter",
@@ -95,7 +96,11 @@ def run_console_reporters(
         dl,
     )
 
-    # Reporter panels (Prices, Positions, XCom, Wallets) now live between Activity and Monitors
+    panel_ctx: Optional[dict] = None
+    panel_width: Optional[int] = None
+
+    # Reporter panels (Prices, Positions, Risk, Monitors, Market, XCom) now live
+    # between Activity and Wallets
     try:
         from backend.core.reporting_core import console_reporter as _cr
 
@@ -103,6 +108,7 @@ def run_console_reporters(
             width = int(os.environ.get("SONIC_CONSOLE_WIDTH", "92"))
         except Exception:
             width = 92
+        panel_width = width
 
         cfg_obj: Optional[dict]
         if isinstance(cfg, dict):
@@ -118,6 +124,7 @@ def run_console_reporters(
             "total_elapsed_s": float((footer_ctx or {}).get("total_elapsed_s", 0.0)),
             "ts": (footer_ctx or {}).get("ts", time.time()),
         }
+        panel_ctx = ctx
 
         _cr.render_panel_stack(ctx=ctx, dl=dl, cfg=cfg_obj, width=width, writer=print)
     except Exception as exc:
@@ -128,6 +135,44 @@ def run_console_reporters(
         "render",
         dl,
     )
+
+    # Session / Goals panel: render after Wallets for better grouping with balances.
+    try:
+        from backend.core.reporting_core.sonic_reporting.console_panels import (
+            session_panel as _session_panel,
+        )
+
+        # If the reporter stack failed before building ctx, reconstruct a minimal one.
+        if panel_ctx is None:
+            cfg_obj: Optional[dict]
+            if isinstance(cfg, dict):
+                cfg_obj = cfg
+            else:
+                gc = getattr(dl, "global_config", None)
+                cfg_obj = gc if isinstance(gc, dict) else None
+            panel_ctx = {
+                "dl": dl,
+                "cfg": cfg_obj,
+                "loop_counter": int((footer_ctx or {}).get("loop_counter", 0)),
+                "poll_interval_s": int((footer_ctx or {}).get("poll_interval_s", 0)),
+                "total_elapsed_s": float((footer_ctx or {}).get("total_elapsed_s", 0.0)),
+                "ts": (footer_ctx or {}).get("ts", time.time()),
+            }
+
+        if panel_width is None:
+            try:
+                panel_width = int(os.environ.get("SONIC_CONSOLE_WIDTH", "92"))
+            except Exception:
+                panel_width = 92
+
+        lines_obj = _session_panel.connector(dl=dl, ctx=panel_ctx, width=panel_width)
+        if isinstance(lines_obj, (list, tuple)):
+            for ln in lines_obj:
+                print(ln)
+        elif isinstance(lines_obj, str):
+            print(lines_obj)
+    except Exception as exc:
+        print(f"[REPORT] session_panel.connector failed: {exc!r}", flush=True)
 
     # Footer box at the very end
     _render_footer_panel(footer_ctx)
