@@ -22,7 +22,7 @@
     "title": {
       "align": "center",
       "border_color": "cyan",
-      "border_style": "rounded",
+      "border_style": "square",
       "icon": "",
       "text_color": "white"
     }
@@ -31,13 +31,13 @@
     "activity",
     "prices",
     "positions",
-    "risk",
     "preflight",
     "monitors",
     "session",
     "market",
     "xcom",
-    "wallets"
+    "wallets",
+    "risk"
   ],
   "panels": {
     "activity": {
@@ -130,6 +130,7 @@
       }
     },
     "wallets": {
+      "enabled": false,
       "title": {
         "icon": "\ud83d\udcbc",
         "string": "Wallets"
