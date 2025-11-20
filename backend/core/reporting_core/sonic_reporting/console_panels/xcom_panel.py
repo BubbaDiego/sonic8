@@ -482,7 +482,7 @@ def _build_attempts_table(attempts: List[Dict[str, Any]], body_cfg: Dict[str, An
     table.add_column("Time", justify="left", no_wrap=True)
     table.add_column("Result", justify="left", no_wrap=True)
     table.add_column("Tgt", justify="left", no_wrap=True)
-    table.add_column("Asset", justify="left", no_wrap=True)
+    table.add_column("Alert", justify="left", no_wrap=True)  # was "Asset"
     table.add_column("Details", justify="left")
     table.add_column("Channels", justify="left", no_wrap=True)
 
@@ -502,9 +502,9 @@ def _build_attempts_table(attempts: List[Dict[str, Any]], body_cfg: Dict[str, An
         else:
             result_cell = f"[red]{result_word or 'ERROR'}[/]"
 
-        icon, symbol = _target_icon_and_symbol(ev)
+        icon, _symbol = _target_icon_and_symbol(ev)
         tgt_icon = icon or ""
-        tgt_sym = symbol or ""
+        alert_text = _monitor_title(ev.get("monitor"))
 
         details = _details_from_attempt(ev)
 
@@ -532,7 +532,7 @@ def _build_attempts_table(attempts: List[Dict[str, Any]], body_cfg: Dict[str, An
             str(ev.get("time", "–")),
             result_cell,
             tgt_icon,
-            tgt_sym,
+            alert_text,
             details,
             channels_icons,
         )

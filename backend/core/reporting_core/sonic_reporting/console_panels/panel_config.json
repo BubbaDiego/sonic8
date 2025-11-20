@@ -1,7 +1,7 @@
 {
   "defaults": {
     "body": {
-      "body_text_color": "cyan",
+      "body_text_color": "white",
       "column_header_text_color": "cyan",
       "table": {
         "header_justify": "left",
@@ -24,7 +24,7 @@
       "border_color": "cyan",
       "border_style": "rounded",
       "icon": "",
-      "text_color": "cyan"
+      "text_color": "white"
     }
   },
   "panel_order": [

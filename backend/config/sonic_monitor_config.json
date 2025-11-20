@@ -1,7 +1,7 @@
 {
   "monitor": {
     "loop_seconds": 30,
-    "global_snooze_seconds": 600,
+    "global_snooze_seconds": 60,
     "enabled": {
       "sonic": true,
       "liquid": true,
@@ -40,19 +40,19 @@
 
   "market": {
     "notifications": {
-      "system": false,
-      "voice": false,
+      "system": true,
+      "voice": true,
       "sms": false,
-      "tts": false
+      "tts": true
     }
   },
 
   "price": {
     "notifications": {
-      "system": false,
-      "voice": false,
+      "system": true,
+      "voice": true,
       "sms": false,
-      "tts": false
+      "tts": true
     }
   },
 
@@ -71,7 +71,7 @@
 
   "profit_monitor": {
     "snooze_seconds": 600,
-    "position_profit_usd": 10,
+    "position_profit_usd": 1,
     "portfolio_profit_usd": 40
   }
 }
