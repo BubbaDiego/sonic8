@@ -36,8 +36,13 @@ _COLOR_OPTIONS: List[Tuple[str, str]] = [
     ("white", "White"),
     ("bright_white", "Bright white"),
     ("cyan", "Cyan"),
+    ("bright_cyan", "Bright cyan"),
     ("magenta", "Magenta"),
+    ("bright_magenta", "Bright magenta"),
+    ("pink", "Pink"),
+    ("hot_pink", "Hot pink"),
     ("yellow", "Yellow"),
+    ("bright_yellow", "Bright yellow"),
     ("grey50", "Grey 50"),
 ]
 
@@ -60,8 +65,13 @@ _COLOR_ANSI = {
     "white": "\033[37m",
     "bright_white": "\033[97m",
     "cyan": "\033[36m",
+    "bright_cyan": "\033[96m",
     "magenta": "\033[35m",
+    "bright_magenta": "\033[95m",
+    "pink": "\033[95m",  # ANSI can't do true pink; map to bright magenta
+    "hot_pink": "\033[95m",  # same here
     "yellow": "\033[33m",
+    "bright_yellow": "\033[93m",
     "grey50": "\033[90m",
 }
 
