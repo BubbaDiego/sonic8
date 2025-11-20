@@ -124,6 +124,31 @@ class XComVoiceConfig:
 
 
 @dataclass
+class XComTwilioSecrets:
+    """
+    Twilio credentials + numbers for XCom.
+
+    This is the *secret* side of XCom voice config and is never persisted
+    to JSON or the database. It is resolved from environment variables via
+    ConfigOracle and then consumed by XComConfigService / dispatch_voice.
+    """
+
+    account_sid: Optional[str] = None
+    auth_token: Optional[str] = None
+    from_phone: Optional[str] = None
+    to_phones: list[str] = field(default_factory=list)
+    flow_sid: Optional[str] = None
+
+    def is_configured(self) -> bool:
+        """Return True when we have enough to attempt a real call."""
+        return bool(
+            (self.account_sid and self.auth_token)
+            and self.from_phone
+            and self.to_phones
+        )
+
+
+@dataclass
 class XComConfig:
     """
     Aggregate XCom configuration.

@@ -1,6 +1,7 @@
 # backend/core/config_oracle/config_oracle.py
 from __future__ import annotations
 
+import os
 from threading import RLock
 from typing import Any, Dict, Optional
 
@@ -15,6 +16,7 @@ from .models import (
     MonitorNotifications,
     XComConfig,
     XComVoiceConfig,
+    XComTwilioSecrets,
 )
 
 
@@ -220,6 +222,67 @@ class ConfigOracle:
         """
         voice = self.get_xcom_voice_config()
         return voice.flow_sid
+
+    def get_xcom_twilio_secrets(self) -> XComTwilioSecrets:
+        """
+        Resolve Twilio SID/token/numbers/flow for XCom from environment.
+
+        This is the *only* place that knows how to spelunk TWILIO_* and
+        related aliases. Callers should treat the returned object as
+        read-only and never persist it to JSON/DB.
+        """
+        env = os.environ
+
+        # Canonical SID/token
+        sid = (
+            env.get("TWILIO_ACCOUNT_SID")
+            or env.get("TWILIO_SID")
+            or ""
+        ).strip()
+        token = (
+            env.get("TWILIO_AUTH_TOKEN")
+            or env.get("TWILIO_TOKEN")
+            or ""
+        ).strip()
+
+        # From-number aliases
+        from_phone = (
+            env.get("TWILIO_FROM_PHONE")
+            or env.get("TWILIO_PHONE_NUMBER")
+            or env.get("TWILIO_DEFAULT_FROM_PHONE")
+            or env.get("TWILIO_FROM")
+            or ""
+        ).strip()
+
+        # To-number aliases (we allow a single primary number)
+        to_candidates = [
+            env.get("TWILIO_TO_PHONE"),
+            env.get("TWILIO_DEFAULT_TO_PHONE"),
+            env.get("MY_PHONE_NUMBER"),
+            env.get("TWILIO_TO"),
+        ]
+        to_phones = [
+            v.strip()
+            for v in to_candidates
+            if isinstance(v, str) and v.strip()
+        ]
+
+        # Studio Flow SID aliases (optional)
+        flow_raw = (
+            env.get("TWILIO_FLOW_SID")
+            or env.get("TWILIO_FLOW_ID")
+            or env.get("TWILIO_FLOW")
+            or ""
+        )
+        flow_sid = flow_raw.strip() or None if isinstance(flow_raw, str) else None
+
+        return XComTwilioSecrets(
+            account_sid=sid or None,
+            auth_token=token or None,
+            from_phone=from_phone or None,
+            to_phones=to_phones,
+            flow_sid=flow_sid,
+        )
 
     # --- Introspection ------------------------------------------------------
 

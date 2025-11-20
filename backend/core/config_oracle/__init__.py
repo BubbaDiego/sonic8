@@ -11,6 +11,7 @@ from .models import (
     MonitorNotifications,
     XComConfig,
     XComVoiceConfig,
+    XComTwilioSecrets,
 )
 
 # Soft singleton backing the public API for callers.
@@ -162,6 +163,15 @@ def get_xcom_voice_profile_for_monitor(monitor: str | None) -> str:
     return voice_cfg.profile_for(monitor)
 
 
+def get_xcom_twilio_secrets() -> XComTwilioSecrets:
+    """
+    Return Twilio credentials/numbers for XCom, resolved from environment.
+
+    Callers MUST treat this as read-only and avoid persisting it.
+    """
+    return get_oracle().get_xcom_twilio_secrets()
+
+
 __all__ = [
     "ConfigOracle",
     "get_oracle",
@@ -179,10 +189,12 @@ __all__ = [
     "get_xcom_voice_config",
     "get_xcom_flow_sid",
     "get_xcom_voice_profile_for_monitor",
+    "get_xcom_twilio_secrets",
     "MonitorConfigBundle",
     "MonitorDefinition",
     "MonitorGlobalConfig",
     "MonitorNotifications",
     "XComConfig",
     "XComVoiceConfig",
+    "XComTwilioSecrets",
 ]

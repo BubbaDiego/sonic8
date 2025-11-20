@@ -7,17 +7,10 @@ from datetime import datetime, timezone
 from importlib import import_module
 from typing import Any, Callable, Dict, List, Optional, Tuple, Mapping
 
-from backend.core.core_constants import XCOM_PROVIDERS_PATH
 from backend.core.reporting_core.sonic_reporting.xcom_extras import append_xcom_history
 from backend.core import config_oracle as ConfigOracle
 
 log = logging.getLogger("sonic.engine")
-
-
-def _load_providers_file() -> dict:
-    p = XCOM_PROVIDERS_PATH
-    with open(p, "r", encoding="utf-8") as f:
-        return json.load(f) or {}
 
 
 def _mask(val: str | None, *, kind: str = "sid") -> str:
@@ -72,22 +65,48 @@ def _channels_from_result(result: Any, fallback: Dict[str, Any]) -> Dict[str, An
     return dict(fallback)
 
 
-def _snapshot_file_voice() -> tuple[dict, list[str]]:
-    voice = ((_load_providers_file() or {}).get("voice")) or {}
+def _snapshot_voice_from_oracle() -> tuple[dict, list[str]]:
+    """
+    Resolve voice provider settings from ConfigOracle/env.
+
+    Returns a provider dict alongside a list of missing required keys for
+    Twilio calls.
+    """
+    voice: dict[str, Any] = {"provider": "twilio", "enabled": True}
     missing: list[str] = []
-    provider = (voice.get("provider") or "").strip().lower()
-    if not provider:
-        missing.append("provider")
-    if not voice.get("from"):
+
+    try:
+        secrets = ConfigOracle.get_xcom_twilio_secrets()
+    except Exception as e:  # pragma: no cover - defensive
+        log.error("[xcom] failed to load Twilio secrets from Oracle: %s", e)
+        return voice, ["oracle-error"]
+
+    if secrets is None:
+        return voice, ["oracle-none"]
+
+    if secrets.account_sid:
+        voice["account_sid"] = secrets.account_sid
+    else:
+        missing.append("account_sid")
+
+    if secrets.auth_token:
+        voice["auth_token"] = secrets.auth_token
+    else:
+        missing.append("auth_token")
+
+    if secrets.from_phone:
+        voice["from"] = secrets.from_phone
+    else:
         missing.append("from")
-    if provider == "twilio":
-        if not voice.get("account_sid"):
-            missing.append("account_sid")
-        if not voice.get("auth_token"):
-            missing.append("auth_token")
-        dest = voice.get("to")
-        if not dest or (isinstance(dest, list) and not dest) or (isinstance(dest, str) and not dest.strip()):
-            missing.append("to")
+
+    if secrets.to_phones:
+        voice["to"] = list(secrets.to_phones)
+    else:
+        missing.append("to")
+
+    if secrets.flow_sid:
+        voice["flow_sid"] = secrets.flow_sid
+
     return voice, missing
 
 
@@ -370,36 +389,17 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
     rows = _latest_dl_rows(dl)
     log.debug("[xcom] bridge starting; dl_rows=%d", len(rows))
 
-    try:
-        voice_file, file_missing = _snapshot_file_voice()
-    except FileNotFoundError:
-        log.error("[xcom] voice provider file missing: %s", XCOM_PROVIDERS_PATH)
-        voice_file, file_missing = {}, ["file-missing"]
-    except json.JSONDecodeError as e:
-        log.error("[xcom] voice provider file invalid (%s): %s", XCOM_PROVIDERS_PATH, e)
-        voice_file, file_missing = {}, ["file-invalid"]
-    except Exception as e:
-        log.error("[xcom] voice provider file error (%s): %s", XCOM_PROVIDERS_PATH, e)
-        voice_file, file_missing = {}, ["file-error"]
-
+    voice_env_cfg, env_missing = _snapshot_voice_from_oracle()
     log.debug(
-        "[xcom] voice(FILE %s) enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
-        str(XCOM_PROVIDERS_PATH),
-        bool(voice_file.get("enabled", True)),
-        (voice_file.get("provider") or "-"),
-        _mask(voice_file.get("from"), kind="phone"),
-        voice_file.get("to") or [],
-        _mask(voice_file.get("account_sid"), kind="sid"),
-        (voice_file.get("flow_sid") or "-"),
-        file_missing or [],
+        "[xcom] voice(ENV) enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
+        bool(voice_env_cfg.get("enabled", True)),
+        (voice_env_cfg.get("provider") or "-"),
+        _mask(voice_env_cfg.get("from"), kind="phone"),
+        voice_env_cfg.get("to") or [],
+        _mask(voice_env_cfg.get("account_sid"), kind="sid"),
+        (voice_env_cfg.get("flow_sid") or "-"),
+        env_missing or [],
     )
-
-    sysmgr = getattr(dl, "system", None)
-    if sysmgr and hasattr(sysmgr, "set_var"):
-        try:
-            sysmgr.set_var("xcom_providers", {"voice": voice_file})
-        except Exception:
-            pass
 
     _body_cfg = cfg.get("liquid_monitor", {})
     out: List[Dict[str, Any]] = []
@@ -493,23 +493,17 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
 
         subj, body, tts = _compose_text(r)
 
-        voice_needed = bool(channels.get("voice")) and bool(voice_file.get("enabled", True))
+        voice_needed = bool(channels.get("voice")) and bool(voice_env_cfg.get("enabled", True))
         if bool(channels.get("voice")) != voice_needed:
             channels = {**channels, "voice": voice_needed}
 
         voice_cfg: Dict[str, Any] = {}
         if voice_needed:
-            try:
-                voice_cfg, missing = _snapshot_file_voice()
-            except FileNotFoundError:
-                voice_cfg, missing = {}, ["file-missing"]
-            except json.JSONDecodeError:
-                voice_cfg, missing = {}, ["file-invalid"]
-            except Exception:
-                voice_cfg, missing = {}, ["file-error"]
+            voice_cfg = dict(voice_env_cfg)
+            missing = list(env_missing)
 
             if missing:
-                msg = f"voice provider missing keys (file): {', '.join(missing)} @ {XCOM_PROVIDERS_PATH}"
+                msg = f"voice provider missing keys (env): {', '.join(missing)}"
                 log.error("[xcom] %s", msg)
 
                 sysmgr = getattr(dl, "system", None)
@@ -521,9 +515,8 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
                             "ts": now,
                             "monitor": mon,
                             "label": label,
-                            "reason": "provider-missing-file",
+                            "reason": "provider-missing-env",
                             "missing": sorted(set(missing)),
-                            "path": str(XCOM_PROVIDERS_PATH),
                             "detail": msg,
                         },
                     )

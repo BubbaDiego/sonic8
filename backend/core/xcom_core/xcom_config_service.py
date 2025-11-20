@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, Mapping
+
+from backend.core import config_oracle as ConfigOracle
 
 
 def _ensure_bool_map(m: Mapping[str, Any] | None) -> dict[str, bool]:
@@ -92,35 +93,39 @@ class XComConfigService:
         return {"voice": False, "system": False, "sms": False, "tts": False}
 
     def _merge_voice_from_env(self, providers: Dict[str, Any]) -> Dict[str, Any]:
-        """Overlay Twilio voice config with secrets from environment variables."""
+        """Overlay Twilio voice config with secrets from ConfigOracle/env.
+
+        This keeps all TWILIO_* resolution in one place (ConfigOracle) so
+        callers don't need to know the specific env variable names.
+        """
         voice = providers.get("voice")
         if not isinstance(voice, dict):
-            voice = {} if voice is None else dict(voice) if isinstance(voice, Mapping) else {}
+            if voice is None:
+                voice = {}
+            elif isinstance(voice, Mapping):
+                voice = dict(voice)
+            else:
+                voice = {}
         providers["voice"] = voice
 
-        env_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        env_token = os.getenv("TWILIO_AUTH_TOKEN")
-        env_from = os.getenv("TWILIO_FROM_PHONE") or os.getenv("TWILIO_PHONE_NUMBER")
-        env_to = os.getenv("TWILIO_TO_PHONE") or os.getenv("MY_PHONE_NUMBER")
-        env_flow = os.getenv("TWILIO_FLOW_SID")
+        # Ask ConfigOracle for Twilio secrets (env-backed).
+        try:
+            secrets = ConfigOracle.get_xcom_twilio_secrets()
+        except Exception:
+            secrets = None
 
-        if env_sid:
-            voice["account_sid"] = env_sid
-        if env_token:
-            voice["auth_token"] = env_token
-        if env_from:
-            voice["from"] = env_from
-        if env_to:
-            existing_to = voice.get("to")
-            if isinstance(existing_to, list):
-                if env_to not in existing_to:
-                    voice["to"] = [env_to]
-                else:
-                    voice["to"] = existing_to
-            elif env_to:
-                voice["to"] = [env_to]
-        if env_flow:
-            voice["flow_sid"] = env_flow
+        if secrets is not None:
+            if secrets.account_sid:
+                voice["account_sid"] = secrets.account_sid
+            if secrets.auth_token:
+                voice["auth_token"] = secrets.auth_token
+            if secrets.from_phone:
+                voice["from"] = secrets.from_phone
+            if secrets.to_phones:
+                # Always treat 'to' as a list; use Oracle/env as canonical.
+                voice["to"] = list(secrets.to_phones)
+            if secrets.flow_sid:
+                voice["flow_sid"] = secrets.flow_sid
 
         providers["voice"] = voice
         return providers
