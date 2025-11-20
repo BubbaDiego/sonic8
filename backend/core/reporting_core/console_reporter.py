@@ -7,7 +7,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH  # NEW
 from backend.core.reporting_core.sonic_reporting.console_panels.theming import (
-    is_panel_enabled,
+    get_panel_order,
+    is_enabled,
 )
 
 logger = logging.getLogger("sonic.engine")
@@ -105,9 +106,9 @@ def render_panel_stack(
 
     modules = _get_panel_modules()
     all_lines: List[str] = []
-    panels: List[Tuple[str, Any]] = []
+    panel_entries: List[Tuple[str, Any, int]] = []
 
-    for mod_path in modules:
+    for idx, mod_path in enumerate(modules):
         if (
             mod_path.endswith(".market_panel")
             and ".console_panels." not in mod_path
@@ -115,7 +116,6 @@ def render_panel_stack(
             # Old inline market panel renderers are deprecated; skip them so
             # Market Alerts is only rendered once via console_panels.market_panel.
             continue
-        # skip duplicates and non-existent variations gracefully
         try:
             mod = importlib.import_module(mod_path)
         except Exception as exc:
@@ -125,28 +125,50 @@ def render_panel_stack(
                 exc,
                 exc_info=True,
             )
-            continue  # try next module
+            continue
 
-        name = mod_path.rsplit(".", 1)[-1]
-        if name.endswith("_panel"):
-            base = name[:-6]
-        else:
-            base = name
+        name = getattr(mod, "__name__", mod_path).split(".")[-1]
+        base = name.replace("_panel", "")
         if base == "price":
             slug = "prices"
+        elif base == "positions":
+            slug = "positions"
+        elif base == "risk":
+            slug = "risk"
         elif base == "monitor":
             slug = "monitors"
-        elif base == "activity":
-            slug = "activity"
+        elif base == "market":
+            slug = "market"
+        elif base == "xcom":
+            slug = "xcom"
+        elif base == "wallets":
+            slug = "wallets"
         elif base == "preflight_config":
             slug = "preflight"
+        elif base == "activity":
+            slug = "activity"
+        elif base == "session":
+            slug = "session"
         else:
             slug = base
 
-        panels.append((slug, mod))
+        panel_entries.append((slug, mod, idx))
 
-    for slug, mod in panels:
-        if not is_panel_enabled(slug):
+    env_panels = os.environ.get("SONIC_REPORT_PANELS", "").strip()
+    if env_panels:
+        ordered_entries = panel_entries
+    else:
+        desired_order = get_panel_order()
+        index_map = {slug: i for i, slug in enumerate(desired_order)}
+
+        def _sort_key(entry: Tuple[str, Any, int]) -> Tuple[int, int]:
+            slug, _mod, orig_idx = entry
+            return (index_map.get(slug, len(desired_order) + orig_idx), orig_idx)
+
+        ordered_entries = sorted(panel_entries, key=_sort_key)
+
+    for slug, mod, _ in ordered_entries:
+        if not is_enabled(slug):
             continue
 
         mod_path = getattr(mod, "__name__", "<unknown>")

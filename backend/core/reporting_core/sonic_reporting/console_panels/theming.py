@@ -17,7 +17,9 @@ __all__ = [
     "body_indent_lines",
     "color_if_plain",
     "paint_line",
+    "get_panel_order",
     "is_panel_enabled",
+    "is_enabled",
     "enabled_panel_slugs",
 ]
 
@@ -484,6 +486,14 @@ def get_panel_body_config(slug: str) -> Dict[str, Any]:
     }
 
 
+def get_panel_order() -> List[str]:
+    cfg = _cfg()
+    order = cfg.get("panel_order")
+    if not isinstance(order, list):
+        return []
+    return [str(s) for s in order]
+
+
 def is_panel_enabled(slug: str) -> bool:
     """
     Return True if the panel is enabled in config.
@@ -497,6 +507,10 @@ def is_panel_enabled(slug: str) -> bool:
     if enabled is None:
         return True
     return bool(enabled)
+
+
+def is_enabled(slug: str) -> bool:
+    return is_panel_enabled(slug)
 
 
 def enabled_panel_slugs() -> List[str]:

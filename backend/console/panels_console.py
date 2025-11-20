@@ -112,6 +112,8 @@ def _ensure_panel_blocks(cfg: Dict[str, Any]) -> Dict[str, Any]:
     panels = cfg["panels"]
     for p in _PANELS:
         panels.setdefault(p.slug, {})
+    if not isinstance(cfg.get("panel_order"), list):
+        cfg["panel_order"] = [p.slug for p in _PANELS]
     return cfg
 
 
@@ -138,17 +140,41 @@ def _ensure_defaults(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return cfg
 
 
+def _get_ordered_panels(cfg: Dict[str, Any]) -> List[PanelInfo]:
+    """
+    Return _PANELS ordered according to cfg['panel_order'], with any missing
+    slugs appended in their default order.
+    """
+    order = cfg.get("panel_order")
+    slug_to_panel = {p.slug: p for p in _PANELS}
+    ordered: List[PanelInfo] = []
+
+    if isinstance(order, list):
+        for slug in order:
+            p = slug_to_panel.get(str(slug))
+            if p is not None and p not in ordered:
+                ordered.append(p)
+
+    for p in _PANELS:
+        if p not in ordered:
+            ordered.append(p)
+
+    return ordered
+
+
 # ─────────────────────────── panel toggling UI ──────────────────────────────
 
 
 def _print_panels(cfg: Dict[str, Any]) -> None:
-    panels = cfg.get("panels") or {}
+    panels_cfg = cfg.get("panels") or {}
+    ordered = _get_ordered_panels(cfg)
+
     print()
     print("🎛  Panel Manager")
     print("----------------")
     print()
-    for i, p in enumerate(_PANELS, start=1):
-        pdata = panels.get(p.slug) or {}
+    for i, p in enumerate(ordered, start=1):
+        pdata = panels_cfg.get(p.slug) or {}
         enabled = pdata.get("enabled")
         # default: enabled unless explicitly False
         mark = "x" if enabled is not False else " "
@@ -157,17 +183,19 @@ def _print_panels(cfg: Dict[str, Any]) -> None:
     print("Actions:")
     print("  [#] Toggle panel enabled/disabled")
     print("  [G] Global style settings")
+    print("  [R] Reorder panels")
     print("  [0] ⏪ Back")
     print()
 
 
 def _toggle_panel(cfg: Dict[str, Any], idx: int) -> None:
     panels = cfg.get("panels") or {}
-    if idx < 1 or idx > len(_PANELS):
+    ordered = _get_ordered_panels(cfg)
+    if idx < 1 or idx > len(ordered):
         print("Invalid panel number.")
         return
 
-    p = _PANELS[idx - 1]
+    p = ordered[idx - 1]
     pdata = panels.get(p.slug) or {}
     enabled = pdata.get("enabled")
 
@@ -186,6 +214,51 @@ def _toggle_panel(cfg: Dict[str, Any], idx: int) -> None:
 
     state = "enabled" if new_enabled else "disabled"
     print(f"{p.icon} {p.label} is now {state}.")
+
+
+def _reorder_panels(cfg: Dict[str, Any]) -> None:
+    """Prompt the user for a new panel order (comma-separated positions)."""
+    ordered = _get_ordered_panels(cfg)
+    n = len(ordered)
+
+    print("\nReorder panels")
+    print("----------------")
+    print("Current order:")
+    for idx, p in enumerate(ordered, start=1):
+        print(f"  {idx} → {p.slug}")
+
+    print()
+    print(
+        f"Enter new order as {n} comma-separated numbers, e.g. "
+        + ", ".join(str(i) for i in range(1, n + 1))
+    )
+    raw = input("New order → ").strip()
+    if not raw:
+        print("No changes made.")
+        return
+
+    parts = [x.strip() for x in raw.split(",") if x.strip()]
+    if len(parts) != n:
+        print("You must provide exactly one position for each panel.")
+        input("Press ENTER to continue…")
+        return
+
+    try:
+        positions = [int(p) for p in parts]
+    except ValueError:
+        print("All entries must be integers.")
+        input("Press ENTER to continue…")
+        return
+
+    if sorted(positions) != list(range(1, n + 1)):
+        print(f"Positions must be a permutation of 1..{n}.")
+        input("Press ENTER to continue…")
+        return
+
+    new_order = [ordered[pos - 1].slug for pos in positions]
+    cfg["panel_order"] = new_order
+    print("Panel order updated.")
+    input("Press ENTER to continue…")
 
 
 # ───────────────────────── global style UI (defaults) ───────────────────────
@@ -317,7 +390,7 @@ def run() -> None:
 
     while True:
         _print_panels(cfg)
-        choice = input("Select panel #, [G]lobal style, or 0 to return → ").strip().lower()
+        choice = input("Select panel #, [G]lobal style, [R]eorder, or 0 to return → ").strip().lower()
 
         if choice in ("0", "q"):
             break
@@ -328,13 +401,19 @@ def run() -> None:
             cfg = _ensure_panel_blocks(_ensure_defaults(_load_config()))
             continue
 
+        if choice == "r":
+            _reorder_panels(cfg)
+            _save_config(cfg)
+            cfg = _ensure_panel_blocks(_ensure_defaults(_load_config()))
+            continue
+
         if not choice:
             continue
 
         try:
             idx = int(choice)
         except ValueError:
-            print("Please enter a number or 'G'.")
+            print("Please enter a number, 'G', or 'R'.")
             continue
 
         _toggle_panel(cfg, idx)
