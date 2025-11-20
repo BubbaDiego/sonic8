@@ -72,6 +72,29 @@ def dispatch_voice(payload: Dict[str, Any],
         if isinstance(ctx_provider, dict):
             provider_cfg.update(ctx_provider)
 
+        # Overlay Twilio secrets from ConfigOracle/env so JSON/DB never need
+        # to carry SID/token/phone numbers. Oracle/env values win.
+        try:
+            twilio_secrets = ConfigOracle.get_xcom_twilio_secrets()
+        except Exception:
+            twilio_secrets = None
+
+        if twilio_secrets is not None:
+            if twilio_secrets.account_sid:
+                provider_cfg["account_sid"] = twilio_secrets.account_sid
+            if twilio_secrets.auth_token:
+                provider_cfg["auth_token"] = twilio_secrets.auth_token
+            if twilio_secrets.from_phone:
+                provider_cfg["from"] = twilio_secrets.from_phone
+            if twilio_secrets.to_phones:
+                provider_cfg["to"] = list(twilio_secrets.to_phones)
+            if twilio_secrets.flow_sid:
+                provider_cfg["flow_sid"] = twilio_secrets.flow_sid
+
+        # Default provider to Twilio when secrets are present
+        if twilio_secrets is not None and twilio_secrets.is_configured():
+            provider_cfg.setdefault("provider", "twilio")
+
         enabled = bool(provider_cfg.get("enabled", True))
         if not enabled:
             log.info("[xcom.voice] provider disabled")
