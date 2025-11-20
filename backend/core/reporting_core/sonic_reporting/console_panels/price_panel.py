@@ -437,6 +437,7 @@ def _build_rich_table(
         header_style="",
         show_lines=show_lines,
         box=box_style,
+        show_edge=False,   # hide outer left/right borders (no stray │ at edges)
         pad_edge=False,
         expand=False,
     )

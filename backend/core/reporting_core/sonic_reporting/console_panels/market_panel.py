@@ -321,6 +321,7 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
         header_style="",   # we colorize via color_if_plain
         show_lines=show_lines,
         box=box_style,
+        show_edge=False,   # hide outer left/right borders
         pad_edge=False,
         expand=False,
     )
