@@ -104,10 +104,6 @@
       }
     },
     "risk": {
-      "body": {
-        "body_text_color": "white",
-        "column_header_text_color": "cyan"
-      },
       "title": {
         "icon": "\u2696\ufe0f",
         "string": "Risk Snapshot"
@@ -134,9 +130,6 @@
       }
     },
     "wallets": {
-      "body": {
-        "totals_row_color": "yellow"
-      },
       "title": {
         "icon": "\ud83d\udcbc",
         "string": "Wallets"
