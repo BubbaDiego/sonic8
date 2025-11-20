@@ -39,7 +39,7 @@ except Exception:
 from backend.console.cyclone_console_service import run_cyclone_console
 from backend.console.database_console_service import run_database_console
 from backend.console.db_console_service import run_db_console  # use entry with db_path
-from backend.console import session_console
+from backend.console import panels_console, session_console
 # Do NOT import the config console at module import time; import lazily so we can show inline errors.
 
 
@@ -1031,6 +1031,12 @@ def goals_menu() -> None:
     session_console.run()
 
 
+def panels_menu() -> None:
+    """LaunchPad entry for the Panel Manager console."""
+
+    panels_console.run()
+
+
 def run_daily_maintenance():
     console.print("[cyan]Running on-demand maintenance…[/]")
     # Ensure environment is sane for spec scripts before doing anything else.
@@ -1192,21 +1198,22 @@ def main() -> None:
                 f"6. {ICON['backend']} Launch [bold]Backend[/] (FastAPI)",
                 f"7. {ICON['verify_db']} Database Console",
                 f"8. {ICON['config']} Config Console",
-                f"9. {ICON['tests']} Tests Hub",
-                "10. ✅ Verify Twilio (auth / voice)",
-                f"11. 🃏 Fun Console (Jokes / Quotes / Trivia)",
-                f"12. {ICON['wallet']} Wallet Manager",
-                f"13. {ICON['cyclone']} Launch Cyclone App",
-                f"14. {ICON['goals']} Session / Goals",
-                f"15. {ICON['maintenance']} Generate Specs / Teaching Pack",
-                f"16. {ICON['gmx']} GMX Solana Console",
-                f"17. {ICON['raydium']} Raydium Console (wallet + NFTs)",
-                f"18. {ICON['xcom']} Seed XCom Providers (ENV)",
-                f"19. {ICON['market']} Market Console (Market Core)",
+                "9. 🎛 Panel Manager",
+                f"10. {ICON['tests']} Tests Hub",
+                "11. ✅ Verify Twilio (auth / voice)",
+                f"12. 🃏 Fun Console (Jokes / Quotes / Trivia)",
+                f"13. {ICON['wallet']} Wallet Manager",
+                f"14. {ICON['cyclone']} Launch Cyclone App",
+                f"15. {ICON['goals']} Session / Goals",
+                f"16. {ICON['maintenance']} Generate Specs / Teaching Pack",
+                f"17. {ICON['gmx']} GMX Solana Console",
+                f"18. {ICON['raydium']} Raydium Console (wallet + NFTs)",
+                f"19. {ICON['xcom']} Seed XCom Providers (ENV)",
+                f"20. {ICON['market']} Market Console (Market Core)",
                 "X. 🔕  Reset XCom Snooze",
                 f"0. {ICON['exit']} Exit",
                 "",
-                "🔥 Hotkeys: [S] 🌀 Sonic  [C] 🌀 Cyclone  [M] 📈 Market  [T] ✅ Twilio",
+                "🔥 Hotkeys: [S] 🌀 Sonic  [C] 🌀 Cyclone  [M] 📈 Market  [T] ✅ Twilio  [P] 🎛 Panels",
             ]
         )
         _print_panel(menu_body, title="Main Menu")
@@ -1230,26 +1237,28 @@ def main() -> None:
         elif choice == "8":
             run_menu_action("Config Console", _launch_config_console_inprocess)
         elif choice == "9":
-            run_menu_action("Tests Hub", run_tests_hub)
+            run_menu_action("Panel_Manager", panels_menu)
         elif choice == "10":
-            run_menu_action("Verify_Twilio", verify_twilio_menu)
+            run_menu_action("Tests Hub", run_tests_hub)
         elif choice == "11":
-            run_menu_action("Fun Console", run_fun_console)
+            run_menu_action("Verify_Twilio", verify_twilio_menu)
         elif choice == "12":
-            run_menu_action("Wallet Manager", wallet_menu)
+            run_menu_action("Fun Console", run_fun_console)
         elif choice == "13":
-            run_menu_action("Launch Cyclone App", run_cyclone_console)
+            run_menu_action("Wallet Manager", wallet_menu)
         elif choice == "14":
-            run_menu_action("Session___Goals", goals_menu)
+            run_menu_action("Launch Cyclone App", run_cyclone_console)
         elif choice == "15":
-            run_menu_action("Generate Specs / Teaching Pack", run_daily_maintenance)
+            run_menu_action("Session___Goals", goals_menu)
         elif choice == "16":
-            run_menu_action("GMX Solana Console", launch_gmx_solana)
+            run_menu_action("Generate Specs / Teaching Pack", run_daily_maintenance)
         elif choice == "17":
-            run_menu_action("Raydium Console", launch_raydium_console)
+            run_menu_action("GMX Solana Console", launch_gmx_solana)
         elif choice == "18":
-            run_menu_action("Seed XCom Providers", run_database_console)
+            run_menu_action("Raydium Console", launch_raydium_console)
         elif choice == "19":
+            run_menu_action("Seed XCom Providers", run_database_console)
+        elif choice == "20":
             run_menu_action("Market Console", launch_market_console)
         elif choice.lower() == "x":
             run_menu_action("Reset XCom Snooze", reset_xcom_snooze)
@@ -1259,6 +1268,8 @@ def main() -> None:
             run_menu_action("Market Console", launch_market_console)
         elif choice.upper() == "T":
             run_menu_action("Verify_Twilio_hotkey", verify_twilio_menu)
+        elif choice.upper() == "P":
+            run_menu_action("Panel_Manager", panels_menu)
         elif choice in {"0", "q", "quit", "exit"}:
             print("bye 👋")
             return

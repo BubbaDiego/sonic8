@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import importlib, os, sys, json, logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH  # NEW
+from backend.core.reporting_core.sonic_reporting.console_panels.theming import (
+    is_panel_enabled,
+)
 
 logger = logging.getLogger("sonic.engine")
 
@@ -102,6 +105,7 @@ def render_panel_stack(
 
     modules = _get_panel_modules()
     all_lines: List[str] = []
+    panels: List[Tuple[str, Any]] = []
 
     for mod_path in modules:
         if (
@@ -123,6 +127,29 @@ def render_panel_stack(
             )
             continue  # try next module
 
+        name = mod_path.rsplit(".", 1)[-1]
+        if name.endswith("_panel"):
+            base = name[:-6]
+        else:
+            base = name
+        if base == "price":
+            slug = "prices"
+        elif base == "monitor":
+            slug = "monitors"
+        elif base == "activity":
+            slug = "activity"
+        elif base == "preflight_config":
+            slug = "preflight"
+        else:
+            slug = base
+
+        panels.append((slug, mod))
+
+    for slug, mod in panels:
+        if not is_panel_enabled(slug):
+            continue
+
+        mod_path = getattr(mod, "__name__", "<unknown>")
         try:
             # prefer connector(dl, ctx, width); fallback to render(ctx, width=…)
             lines_obj = None

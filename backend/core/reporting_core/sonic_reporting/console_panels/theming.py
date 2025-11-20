@@ -17,6 +17,8 @@ __all__ = [
     "body_indent_lines",
     "color_if_plain",
     "paint_line",
+    "is_panel_enabled",
+    "enabled_panel_slugs",
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -76,10 +78,11 @@ def paint_line(line: str, color_name: str) -> str:
 # ──────────────────────────────────────────────────────────────────────────────
 
 _cfg_cache: Optional[Dict[str, Any]] = None
+_cfg_path: Optional[Path] = None
+_cfg_mtime: Optional[float] = None
 
-def _load_config() -> Dict[str, Any]:
-    default_path = Path(__file__).parent / "panel_config.json"
-    path = Path(os.getenv("PANEL_CONFIG_PATH", str(default_path)))
+
+def _load_config(path: Path) -> Dict[str, Any]:
     try:
         text = path.read_text(encoding="utf-8")
         data = json.loads(text) if text.strip() else {}
@@ -87,11 +90,40 @@ def _load_config() -> Dict[str, Any]:
     except Exception:
         return {}
 
+
 def _cfg() -> Dict[str, Any]:
-    global _cfg_cache
+    """
+    Return the panel config dict.
+
+    This implementation is mtime-aware: if PANEL_CONFIG_PATH changes or the
+    config file's modification time changes, we reload it. That allows the
+    Panel Manager console (or manual edits) to adjust panels/colors while
+    Sonic Monitor is running; the next render cycle will pick up changes.
+    """
+    global _cfg_cache, _cfg_path, _cfg_mtime
+
+    default_path = Path(__file__).parent / "panel_config.json"
+    path = Path(os.getenv("PANEL_CONFIG_PATH", str(default_path)))
+
+    try:
+        mtime = path.stat().st_mtime
+    except Exception:
+        mtime = None
+
+    need_reload = False
     if _cfg_cache is None:
-        _cfg_cache = _load_config()
-    return _cfg_cache
+        need_reload = True
+    elif _cfg_path is None or _cfg_path != path:
+        need_reload = True
+    elif _cfg_mtime is not None and mtime is not None and mtime != _cfg_mtime:
+        need_reload = True
+
+    if need_reload:
+        _cfg_cache = _load_config(path)
+        _cfg_path = path
+        _cfg_mtime = mtime
+
+    return _cfg_cache or {}
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Title config + renderer
@@ -450,3 +482,34 @@ def get_panel_body_config(slug: str) -> Dict[str, Any]:
         "totals_row_color": pick("totals_row_color"),
         "table": table_cfg,
     }
+
+
+def is_panel_enabled(slug: str) -> bool:
+    """
+    Return True if the panel is enabled in config.
+
+    If no explicit 'enabled' flag is set for the slug, default to True.
+    """
+    cfg = _cfg()
+    panels = cfg.get("panels") or {}
+    pdata = panels.get(slug) or {}
+    enabled = pdata.get("enabled")
+    if enabled is None:
+        return True
+    return bool(enabled)
+
+
+def enabled_panel_slugs() -> List[str]:
+    """
+    Return a list of panel slugs that are enabled, according to config.
+
+    If the config has no 'panels' section, returns an empty list.
+    """
+    cfg = _cfg()
+    panels = cfg.get("panels") or {}
+    out: List[str] = []
+    for slug, pdata in panels.items():
+        if (pdata or {}).get("enabled") is False:
+            continue
+        out.append(slug)
+    return out
