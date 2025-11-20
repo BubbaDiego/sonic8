@@ -487,6 +487,12 @@ def get_panel_body_config(slug: str) -> Dict[str, Any]:
 
 
 def get_panel_order() -> List[str]:
+    """
+    Return the ordered list of panel slugs from panel_config.json.
+
+    If no explicit order is configured, returns an empty list and callers
+    should fall back to their own default ordering.
+    """
     cfg = _cfg()
     order = cfg.get("panel_order")
     if not isinstance(order, list):

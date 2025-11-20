@@ -30,19 +30,14 @@ _PANELS: List[PanelInfo] = [
 ]
 
 
-# A small, safe palette of colors and table/border styles to choose from.
+# Small, safe palette of colors and table/border styles to choose from.
 _COLOR_OPTIONS: List[Tuple[str, str]] = [
     ("default", "Default terminal color"),
     ("white", "White"),
     ("bright_white", "Bright white"),
     ("cyan", "Cyan"),
-    ("bright_cyan", "Bright cyan"),
     ("magenta", "Magenta"),
-    ("bright_magenta", "Bright magenta"),
-    ("pink", "Pink"),
-    ("hot_pink", "Hot pink"),
     ("yellow", "Yellow"),
-    ("bright_yellow", "Bright yellow"),
     ("grey50", "Grey 50"),
 ]
 
@@ -59,33 +54,38 @@ _TABLE_STYLE_OPTIONS: List[Tuple[str, str]] = [
 ]
 
 
-# Simple ANSI color codes to show sample text in the color it represents.
-_COLOR_ANSI = {
+# For pretty printing the current choice.
+_COLOR_DISPLAY_NAME = {
+    "default": "default",
+    "white": "white",
+    "bright_white": "bright_white",
+    "cyan": "cyan",
+    "magenta": "magenta",
+    "yellow": "yellow",
+    "grey50": "grey50",
+}
+
+
+# Simple colorization for menu (no-op if not supported by terminal).
+_COLOR_CODES = {
     "default": "",
     "white": "\033[37m",
     "bright_white": "\033[97m",
     "cyan": "\033[36m",
-    "bright_cyan": "\033[96m",
     "magenta": "\033[35m",
-    "bright_magenta": "\033[95m",
-    "pink": "\033[95m",  # ANSI can't do true pink; map to bright magenta
-    "hot_pink": "\033[95m",  # same here
     "yellow": "\033[33m",
-    "bright_yellow": "\033[93m",
-    "grey50": "\033[90m",
+    "grey50": "\033[38;5;244m",
 }
 
 
-def _color_sample(value: str, text: str) -> str:
-    """
-    Wrap sample text in an ANSI color based on the config value.
-
-    For non-color values (e.g. border styles), returns the text unchanged.
-    """
-    code = _COLOR_ANSI.get(value, "")
-    if not code:
-        return text
-    return f"{code}{text}\033[0m"
+def _color_label(kind: str, value: str) -> str:
+    code = _COLOR_CODES.get(value, "")
+    reset = "\033[0m" if code else ""
+    if kind == "border":
+        base = f"{value}"
+    else:
+        base = f"{value}"
+    return f"{code}{base}{reset}"
 
 
 # ─────────────────────────── config plumbing ────────────────────────────────
@@ -122,8 +122,15 @@ def _ensure_panel_blocks(cfg: Dict[str, Any]) -> Dict[str, Any]:
     panels = cfg["panels"]
     for p in _PANELS:
         panels.setdefault(p.slug, {})
+    # Ensure panel_order exists and contains all slugs
     if not isinstance(cfg.get("panel_order"), list):
         cfg["panel_order"] = [p.slug for p in _PANELS]
+    else:
+        order = [str(s) for s in cfg["panel_order"]]
+        for p in _PANELS:
+            if p.slug not in order:
+                order.append(p.slug)
+        cfg["panel_order"] = order
     return cfg
 
 
@@ -133,7 +140,6 @@ def _ensure_defaults(cfg: Dict[str, Any]) -> Dict[str, Any]:
     body = defaults.setdefault("body", {})
     table = body.setdefault("table", {})
 
-    # Provide some reasonable fallbacks if missing
     title.setdefault("border_style", "square")
     title.setdefault("border_color", "grey50")
     title.setdefault("text_color", "white")
@@ -151,10 +157,7 @@ def _ensure_defaults(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _get_ordered_panels(cfg: Dict[str, Any]) -> List[PanelInfo]:
-    """
-    Return _PANELS ordered according to cfg['panel_order'], with any missing
-    slugs appended in their default order.
-    """
+    """Return _PANELS ordered according to cfg['panel_order']."""
     order = cfg.get("panel_order")
     slug_to_panel = {p.slug: p for p in _PANELS}
     ordered: List[PanelInfo] = []
@@ -172,7 +175,7 @@ def _get_ordered_panels(cfg: Dict[str, Any]) -> List[PanelInfo]:
     return ordered
 
 
-# ─────────────────────────── panel toggling UI ──────────────────────────────
+# ─────────────────────────── panel list & toggling ──────────────────────────
 
 
 def _print_panels(cfg: Dict[str, Any]) -> None:
@@ -186,14 +189,12 @@ def _print_panels(cfg: Dict[str, Any]) -> None:
     for i, p in enumerate(ordered, start=1):
         pdata = panels_cfg.get(p.slug) or {}
         enabled = pdata.get("enabled")
-        # default: enabled unless explicitly False
         mark = "x" if enabled is not False else " "
         print(f"  {i}. [{mark}] {p.icon} {p.label} ({p.slug})")
     print()
     print("Actions:")
-    print("  [#] Toggle panel enabled/disabled")
+    print("  [#] Select panel to toggle / move")
     print("  [G] Global style settings")
-    print("  [R] Reorder panels")
     print("  [0] ⏪ Back")
     print()
 
@@ -209,10 +210,7 @@ def _toggle_panel(cfg: Dict[str, Any], idx: int) -> None:
     pdata = panels.get(p.slug) or {}
     enabled = pdata.get("enabled")
 
-    # Default effective state: enabled (when key missing)
-    # Toggle logic:
-    #   None / True  -> False
-    #   False        -> True
+    # Default effective state: enabled when key missing
     if enabled is False:
         new_enabled = True
     else:
@@ -226,49 +224,52 @@ def _toggle_panel(cfg: Dict[str, Any], idx: int) -> None:
     print(f"{p.icon} {p.label} is now {state}.")
 
 
-def _reorder_panels(cfg: Dict[str, Any]) -> None:
-    """Prompt the user for a new panel order (comma-separated positions)."""
+def _move_panel(cfg: Dict[str, Any], idx: int, delta: int) -> int:
+    """Move panel at position idx up/down by delta; return new index."""
     ordered = _get_ordered_panels(cfg)
     n = len(ordered)
+    i = idx - 1
+    j = i + delta
+    if j < 0 or j >= n:
+        print("Already at the edge; cannot move further.")
+        return idx
 
-    print("\nReorder panels")
-    print("----------------")
-    print("Current order:")
-    for idx, p in enumerate(ordered, start=1):
-        print(f"  {idx} → {p.slug}")
+    # swap entries
+    ordered[i], ordered[j] = ordered[j], ordered[i]
+    cfg["panel_order"] = [p.slug for p in ordered]
+    return j + 1  # new index
 
-    print()
-    print(
-        f"Enter new order as {n} comma-separated numbers, e.g. "
-        + ", ".join(str(i) for i in range(1, n + 1))
-    )
-    raw = input("New order → ").strip()
-    if not raw:
-        print("No changes made.")
-        return
 
-    parts = [x.strip() for x in raw.split(",") if x.strip()]
-    if len(parts) != n:
-        print("You must provide exactly one position for each panel.")
-        input("Press ENTER to continue…")
-        return
+def _panel_detail_menu(cfg: Dict[str, Any], idx: int) -> None:
+    """Per-panel mini menu: toggle / move up / move down."""
+    while True:
+        ordered = _get_ordered_panels(cfg)
+        if idx < 1 or idx > len(ordered):
+            print("Invalid panel number.")
+            return
+        p = ordered[idx - 1]
+        panels = cfg.get("panels") or {}
+        pdata = panels.get(p.slug) or {}
+        enabled = pdata.get("enabled") is not False
 
-    try:
-        positions = [int(p) for p in parts]
-    except ValueError:
-        print("All entries must be integers.")
-        input("Press ENTER to continue…")
-        return
+        print()
+        print(f"Selected: {idx}. [{'x' if enabled else ' '}] {p.icon} {p.label} ({p.slug})")
+        print("  1) Toggle enabled/disabled")
+        print("  2) Move up")
+        print("  3) Move down")
+        print("  0) ⏪ Back to panel list")
+        choice = input("→ ").strip()
 
-    if sorted(positions) != list(range(1, n + 1)):
-        print(f"Positions must be a permutation of 1..{n}.")
-        input("Press ENTER to continue…")
-        return
-
-    new_order = [ordered[pos - 1].slug for pos in positions]
-    cfg["panel_order"] = new_order
-    print("Panel order updated.")
-    input("Press ENTER to continue…")
+        if choice in ("0", "q"):
+            break
+        elif choice == "1":
+            _toggle_panel(cfg, idx)
+        elif choice == "2":
+            idx = _move_panel(cfg, idx, -1)
+        elif choice == "3":
+            idx = _move_panel(cfg, idx, +1)
+        else:
+            print("Unknown choice.")
 
 
 # ───────────────────────── global style UI (defaults) ───────────────────────
@@ -277,13 +278,11 @@ def _reorder_panels(cfg: Dict[str, Any]) -> None:
 def _pick_from_options(
     label: str, options: List[Tuple[str, str]], current: str
 ) -> str:
-    """Utility to choose from a numbered list of (value, description)."""
     print(f"\n{label} (current: {current})")
     for i, (val, desc) in enumerate(options, start=1):
         mark = "*" if val == current else " "
-        # Show the description in the color it represents (if applicable).
-        sample_desc = _color_sample(val, desc)
-        print(f"  {i}. [{mark}] {sample_desc} ({val})")
+        # colorize value label a bit
+        print(f"  {i}. [{mark}] {_color_label(label.split()[0].upper(), val)} ({val})")
     print("  0. ⏪ Back (keep current)")
     raw = input("Select # → ").strip()
     if not raw or raw == "0":
@@ -305,7 +304,7 @@ def _global_style_menu(cfg: Dict[str, Any]) -> None:
     table = body["table"]
 
     while True:
-        print("\n🎨  Global Style Settings")
+        print("\n🎨 Global Style Settings")
         print("------------------------")
         print()
         print("TITLE")
@@ -322,23 +321,30 @@ def _global_style_menu(cfg: Dict[str, Any]) -> None:
         print(f"  7) Style        : {table.get('style')}")
         print()
         print("  0) ⏪ Back")
+
         choice = input("Select setting to change → ").strip().lower()
 
         if choice in ("0", "q"):
             break
         elif choice == "1":
             new_val = _pick_from_options(
-                "TITLE border style", _BORDER_STYLE_OPTIONS, title.get("border_style", "square")
+                "TITLE border style",
+                _BORDER_STYLE_OPTIONS,
+                title.get("border_style", "square"),
             )
             title["border_style"] = new_val
         elif choice == "2":
             new_val = _pick_from_options(
-                "TITLE border color", _COLOR_OPTIONS, title.get("border_color", "grey50")
+                "TITLE border color",
+                _COLOR_OPTIONS,
+                title.get("border_color", "grey50"),
             )
             title["border_color"] = new_val
         elif choice == "3":
             new_val = _pick_from_options(
-                "TITLE text color", _COLOR_OPTIONS, title.get("text_color", "white")
+                "TITLE text color",
+                _COLOR_OPTIONS,
+                title.get("text_color", "white"),
             )
             title["text_color"] = new_val
         elif choice == "4":
@@ -373,9 +379,7 @@ def _global_style_menu(cfg: Dict[str, Any]) -> None:
             print("Unknown choice.")
             continue
 
-        # persist after each change so Sonic Monitor picks it up via mtime
         _save_config(cfg)
-        # re-resolve defaults for subsequent iterations
         cfg = _ensure_defaults(_load_config())
         defaults = cfg["defaults"]
         title = defaults["title"]
@@ -390,30 +394,23 @@ def run() -> None:
     """
     Entry point for the Panel Manager console.
 
-    - Lets you toggle panel enabled/disabled flags.
-    - Allows editing of GLOBAL title/body/table style settings via defaults
-      in panel_config.json.
+    - Shows current panels in configured order.
+    - Lets you select a panel, then toggle enabled / move up / move down.
+    - Provides a global style editor for TITLE/BODY/TABLE defaults.
     """
-    cfg = _load_config()
-    cfg = _ensure_panel_blocks(cfg)
-    cfg = _ensure_defaults(cfg)
+    cfg = _ensure_panel_blocks(_ensure_defaults(_load_config()))
 
     while True:
         _print_panels(cfg)
-        choice = input("Select panel #, [G]lobal style, [R]eorder, or 0 to return → ").strip().lower()
+        choice = input(
+            "Select panel #, [G]lobal style, or 0 to return → "
+        ).strip().lower()
 
         if choice in ("0", "q"):
             break
 
         if choice == "g":
             _global_style_menu(cfg)
-            # reload after global changes
-            cfg = _ensure_panel_blocks(_ensure_defaults(_load_config()))
-            continue
-
-        if choice == "r":
-            _reorder_panels(cfg)
-            _save_config(cfg)
             cfg = _ensure_panel_blocks(_ensure_defaults(_load_config()))
             continue
 
@@ -423,11 +420,11 @@ def run() -> None:
         try:
             idx = int(choice)
         except ValueError:
-            print("Please enter a number, 'G', or 'R'.")
+            print("Please enter a number or 'G'.")
             continue
 
-        _toggle_panel(cfg, idx)
+        _panel_detail_menu(cfg, idx)
         _save_config(cfg)
-        # config is mutated in place; loop will re-print with updated marks
+        cfg = _ensure_panel_blocks(_ensure_defaults(_load_config()))
 
     print("Returning to LaunchPad…")
