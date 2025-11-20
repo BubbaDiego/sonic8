@@ -27,6 +27,18 @@
       "text_color": "cyan"
     }
   },
+  "panel_order": [
+    "activity",
+    "prices",
+    "positions",
+    "risk",
+    "preflight",
+    "monitors",
+    "session",
+    "market",
+    "xcom",
+    "wallets"
+  ],
   "panels": {
     "activity": {
       "enabled": true,
