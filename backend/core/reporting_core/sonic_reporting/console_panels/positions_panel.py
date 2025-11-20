@@ -89,6 +89,11 @@ def _fmt_pct(v: Optional[float]) -> str:
     return f"{v:.2f}%" if isinstance(v, (int, float)) else "-"
 
 
+def _fmt_liq(v: Optional[float]) -> str:
+    """Format liquidation distance as a plain number (no % sign)."""
+    return f"{v:.2f}" if isinstance(v, (int, float)) else "-"
+
+
 def _fmt_size(v: Optional[float]) -> str:
     return f"{v:,.2f}" if isinstance(v, (int, float)) else "-"
 
@@ -370,7 +375,7 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
         value = _fmt_money(_num(d.get("value")))
         pnl = _fmt_money(_num(_first(d.get("pnl_after_fees_usd"), d.get("pnl"))))
         lev = _fmt_lev(_num(d.get("leverage")))
-        liq = _fmt_pct(_compute_liq_pct(d))
+        liq = _fmt_liq(_compute_liq_pct(d))
         travel_pct = _compute_travel_pct(d)
         heat = _fmt_pct(_compute_heat_pct(travel_pct))
         trav = _fmt_travel(travel_pct)
