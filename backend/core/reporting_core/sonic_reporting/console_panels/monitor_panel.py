@@ -308,6 +308,7 @@ def _build_rich_table(rows: List[Dict[str, Any]], body_cfg: Dict[str, Any]) -> L
         header_style="",
         show_lines=show_lines,
         box=box_style,
+        show_edge=False,   # hide outer edge bars
         pad_edge=False,
         expand=False,
     )
