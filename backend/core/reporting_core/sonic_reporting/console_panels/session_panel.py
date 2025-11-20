@@ -317,11 +317,24 @@ def build_session_panel(
         _get(session, "current_session_value"),
         _get(session, "current_value"),
     )
+    # Prefer to derive performance from Current − Start so it's always
+    # consistent with the portfolio total we inject via render().
+    explicit_perf = _get(session, "session_performance_value")
 
-    perf_val = _get(session, "session_performance_value")
-    if perf_val is None and start_val is not None and curr_val is not None:
+    perf_val: Optional[float]
+    if start_val is not None and curr_val is not None:
         try:
             perf_val = float(curr_val) - float(start_val)
+        except Exception:
+            # fall back to stored perf if math fails
+            try:
+                perf_val = float(explicit_perf) if explicit_perf is not None else None
+            except Exception:
+                perf_val = None
+    else:
+        # no usable current/start; fall back to stored perf
+        try:
+            perf_val = float(explicit_perf) if explicit_perf is not None else None
         except Exception:
             perf_val = None
 
