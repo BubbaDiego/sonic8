@@ -22,6 +22,7 @@ from .theming import (
 )
 
 try:
+    # Width hint for Rich export; theming already uses this
     from .theming import HR_WIDTH
 except Exception:  # pragma: no cover
     HR_WIDTH = 100
@@ -43,8 +44,9 @@ HEADER_LABELS = [
     "🧭 Trave",
 ]
 
+
 # ──────────────────────────────────────────────────────────────────────────────
-# Helpers copied from the old panel (but now used per‑column instead of
+# Helpers copied from the old panel (but now used per-column instead of
 # building one big formatted string).
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -117,48 +119,106 @@ def _compute_heat_pct(travel_pct: Optional[float]) -> Optional[float]:
     return abs(travel_pct)
 
 
+def _compute_liq_pct(row: Mapping[str, Any]) -> Optional[float]:
+    """
+    Liquidation distance (%).
+
+    Prefer canonical 'liq_pct'/'liq', but also understands the various
+    distance fields used by liquidation monitors and DL positions such as:
+      - liquidation_distance
+      - liq_distance
+      - liq_dist
+      - distance_to_liq
+      - nearest
+      - distance
+    """
+    v = _first(
+        row.get("liq_pct"),
+        row.get("liq"),
+        row.get("liquidation_distance"),
+        row.get("liq_distance"),
+        row.get("liq_dist"),
+        row.get("distance_to_liq"),
+        row.get("nearest"),
+        row.get("distance"),
+    )
+    return _num(v)
+
+
 # Totals computation using the same fields we render
 def _compute_totals_row(items: Iterable[Any]) -> Dict[str, str]:
-    size = 0.0
-    value = 0.0
-    pnl = 0.0
+    """
+    Compute totals row cells from raw items.
+
+    Rules:
+      • Size, Value, PnL → simple sums
+      • Lev             → simple average of per-row leverage
+      • Heat            → size-weighted (fallback value-weighted) avg of heat%
+      • Travel          → simple average of travel%
+
+      Liq has no totals cell by design.
+    """
+    size_total = 0.0
+    value_total = 0.0
+    pnl_total = 0.0
     levs: List[float] = []
     travs: List[float] = []
+
+    heat_w_num = 0.0
+    heat_w_den = 0.0
 
     for it in items:
         d = _to_mapping(it)
 
+        # Size / Value / PnL aggregates
         v = _num(d.get("size"))
         if v is not None:
-            size += v
+            size_total += v
 
-        v = _num(d.get("value"))
-        if v is not None:
-            value += v
+        val = _num(d.get("value"))
+        if val is not None:
+            value_total += val
 
         v = _num(_first(d.get("pnl_after_fees_usd"), d.get("pnl")))
         if v is not None:
-            pnl += v
+            pnl_total += v
 
+        # Average Lev (simple)
         v = _num(d.get("leverage"))
         if v is not None:
             levs.append(v)
 
-        v = _compute_travel_pct(d)
-        if v is not None:
-            travs.append(v)
+        # Travel% + Heat% (for Heat weighted average)
+        travel_pct = _compute_travel_pct(d)
+        if travel_pct is not None:
+            travs.append(travel_pct)
+
+        # Weighted Heat: prefer |Size| as weight, fallback to |Value|
+        weight = None
+        s_w = _num(d.get("size"))
+        if s_w is not None:
+            weight = abs(s_w)
+        elif val is not None:
+            weight = abs(val)
+
+        if weight is not None and travel_pct is not None:
+            heat_pct = _compute_heat_pct(travel_pct)
+            if heat_pct is not None:
+                heat_w_num += weight * heat_pct
+                heat_w_den += weight
 
     avg_lev = sum(levs) / len(levs) if levs else None
     avg_trav = sum(travs) / len(travs) if travs else None
+    avg_heat_w = (heat_w_num / heat_w_den) if heat_w_den > 0 else None
 
     return {
         "asset": "Totals",
-        "size": _fmt_size(size if size != 0.0 else None),
-        "value": _fmt_money(value if value != 0.0 else None),
-        "pnl": _fmt_money(pnl if pnl != 0.0 else None),
+        "size": _fmt_size(size_total if size_total != 0.0 else None),
+        "value": _fmt_money(value_total if value_total != 0.0 else None),
+        "pnl": _fmt_money(pnl_total if pnl_total != 0.0 else None),
         "lev": _fmt_lev(avg_lev),
-        "liq": "-",
-        "heat": "-",
+        "liq": "-",  # no totals cell for Liq by design
+        "heat": _fmt_pct(avg_heat_w),
         "trav": _fmt_travel(avg_trav),
     }
 
@@ -310,14 +370,14 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
         value = _fmt_money(_num(d.get("value")))
         pnl = _fmt_money(_num(_first(d.get("pnl_after_fees_usd"), d.get("pnl"))))
         lev = _fmt_lev(_num(d.get("leverage")))
-        liq = _fmt_pct(_num(d.get("liq_pct") or d.get("liq")))
+        liq = _fmt_pct(_compute_liq_pct(d))
         travel_pct = _compute_travel_pct(d)
         heat = _fmt_pct(_compute_heat_pct(travel_pct))
         trav = _fmt_travel(travel_pct)
 
         table.add_row(asset, size, value, pnl, lev, liq, heat, trav)
 
-    # Totals row
+    # Totals row (no Liq total; Heat total is weighted avg)
     totals = _compute_totals_row(items)
     table.add_row(
         totals["asset"],
@@ -325,8 +385,8 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
         totals["value"],
         totals["pnl"],
         totals["lev"],
-        totals["liq"],
-        totals["heat"],
+        totals["liq"],   # stays "-"
+        totals["heat"],  # weighted average Heat%
         totals["trav"],
     )
 

@@ -1,137 +1,145 @@
 {
-  "version": 1,
   "defaults": {
-    "title": {
-      "icon": "",
-      "border_style": "rounded",
-      "border_color": "pink",
-      "text_color": "cyan",
-      "align": "center"
+    "body": {
+      "body_text_color": "cyan",
+      "column_header_text_color": "cyan",
+      "table": {
+        "header_justify": "left",
+        "style": "thin",
+        "table_justify": "left"
+      },
+      "totals_row_color": "cyan"
     },
     "layout": {
+      "body_indent": 2,
+      "body_padding_above": 0,
+      "body_padding_below": 1,
       "title_indent": 0,
       "title_padding_above": 0,
       "title_padding_below": 0,
-      "title_width": 60,
-      "body_indent": 2,
-      "body_padding_above": 0,
-      "body_padding_below": 1
+      "title_width": 60
     },
-    "body": {
-      "column_header_text_color": "cyan",
-      "body_text_color": "white",
-      "totals_row_color": "grey50"
+    "title": {
+      "align": "center",
+      "border_color": "cyan",
+      "border_style": "rounded",
+      "icon": "",
+      "text_color": "cyan"
     }
   },
   "panels": {
     "activity": {
+      "enabled": true,
       "title": {
-        "string": "Cycle Activity",
-        "icon": "📘"
+        "icon": "\ud83d\udcd8",
+        "string": "Cycle Activity"
       }
     },
-    "prices": {
+    "market": {
+      "body": {
+        "table": {
+          "header_justify": "left",
+          "style": "invisible",
+          "table_justify": "left"
+        }
+      },
       "title": {
-        "string": "Prices",
-        "icon": "💵"
+        "icon": "\ud83d\udcb9",
+        "string": "Market Alerts"
+      }
+    },
+    "monitors": {
+      "body": {
+        "table": {
+          "header_justify": "left",
+          "style": "invisible",
+          "table_justify": "left"
+        }
+      },
+      "title": {
+        "icon": "\ud83d\udd0e",
+        "string": "Monitors"
       }
     },
     "positions": {
-      "title": {
-        "string": "Positions",
-        "icon": "📊"
-      },
       "body": {
-        "totals_row_color": "grey50",
         "table": {
+          "header_justify": "left",
           "style": "invisible",
-          "table_justify": "left",
-          "header_justify": "left"
-        }
-      }
-    },
-    "risk": {
-      "title": {
-        "string": "Risk Snapshot",
-        "icon": "⚖️"
+          "table_justify": "left"
+        },
+        "totals_row_color": "grey50"
       },
-      "body": {
-        "column_header_text_color": "cyan",
-        "body_text_color": "white"
+      "title": {
+        "icon": "\ud83d\udcca",
+        "string": "Positions"
       }
     },
     "preflight": {
       "title": {
-        "string": "Pre-Flight Config",
-        "icon": "🧪",
-        "border_style": "rounded",
         "border_color": "default",
+        "border_style": "rounded",
+        "icon": "\ud83e\uddea",
+        "string": "Pre-Flight Config",
         "text_color": "cyan"
       }
     },
-    "monitors": {
+    "prices": {
+      "enabled": true,
       "title": {
-        "string": "Monitors",
-        "icon": "🔎"
-      },
+        "icon": "\ud83d\udcb5",
+        "string": "Prices"
+      }
+    },
+    "risk": {
       "body": {
-        "table": {
-          "style": "invisible",
-          "table_justify": "left",
-          "header_justify": "left"
-        }
+        "body_text_color": "white",
+        "column_header_text_color": "cyan"
+      },
+      "title": {
+        "icon": "\u2696\ufe0f",
+        "string": "Risk Snapshot"
       }
     },
     "session": {
-      "enabled": true,
-      "title": {
-        "string": "🎯 Session / Goals"
-      },
-      "layout": {
-        "title_indent": 0,
-        "body_indent": 2
-      },
       "body": {
-        "column_header_text_color": "cyan",
         "body_text_color": "default",
-        "totals_row_color": "grey50",
+        "column_header_text_color": "cyan",
         "table": {
+          "header_justify": "left",
           "style": "thin",
-          "table_justify": "left",
-          "header_justify": "left"
-        }
-      }
-    },
-    "market": {
-      "title": {
-        "string": "Market Alerts",
-        "icon": "💹"
+          "table_justify": "left"
+        },
+        "totals_row_color": "grey50"
       },
-      "body": {
-        "table": {
-          "style": "invisible",
-          "table_justify": "left",
-          "header_justify": "left"
-        }
-      }
-    },
-    "xcom": {
-      "title": {
-        "string": "XCom",
-        "icon": "✉️"
-      },
+      "enabled": true,
       "layout": {
-        "body_indent": 0
+        "body_indent": 2,
+        "title_indent": 0
+      },
+      "title": {
+        "string": "\ud83c\udfaf Session / Goals"
       }
     },
     "wallets": {
-      "title": {
-        "string": "Wallets",
-        "icon": "💼"
-      },
       "body": {
         "totals_row_color": "yellow"
+      },
+      "title": {
+        "icon": "\ud83d\udcbc",
+        "string": "Wallets"
+      }
+    },
+    "xcom": {
+      "enabled": true,
+      "layout": {
+        "body_indent": 0
+      },
+      "title": {
+        "icon": "\u2709\ufe0f",
+        "string": "XCom"
       }
     }
-  }
+  },
+  "version": 1
 }

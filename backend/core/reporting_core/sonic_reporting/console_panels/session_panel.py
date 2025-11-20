@@ -17,6 +17,7 @@ try:
     SESSION_PANEL_WIDTH = int(os.getenv("SONIC_CONSOLE_WIDTH", "92"))
 except Exception:
     SESSION_PANEL_WIDTH = 92
+
 TITLE = "🎯 Session / Goals"
 
 
@@ -30,6 +31,14 @@ def _get(obj: Any, key: str, default: Any = None) -> Any:
     if isinstance(obj, Mapping):
         return obj.get(key, default)
     return getattr(obj, key, default)
+
+
+def _coalesce(*vals: Any) -> Any:
+    """Return the first value that is not None."""
+    for v in vals:
+        if v is not None:
+            return v
+    return None
 
 
 def _parse_dt(value: Any) -> Optional[datetime]:
@@ -95,7 +104,6 @@ def _fmt_delta_pct(delta_pct: Any) -> Text:
     up = v >= 0
     arrow = "▲" if up else "▼"
     style = "green" if up else "red"
-    # 🔧 FIX: use :,.2f (comma + 2 decimals) instead of invalid :,2f
     return Text(f"{arrow} {abs(v):,.2f}%", style=style)
 
 
@@ -118,6 +126,9 @@ def _horizon_cell(perf: Mapping[str, Any], key: str) -> Tuple[Text, Text]:
     return dv_text, dp_text
 
 
+# ───────────────────────── DL helpers ───────────────────────── #
+
+
 def _resolve_dl(context: Any) -> Any:
     """
     Best-effort resolver for a DataLocker instance from the given context.
@@ -127,7 +138,6 @@ def _resolve_dl(context: Any) -> Any:
       - direct DataLocker instance
       - anything supported by data_access.dl_or_context(...)
     """
-
     try:
         return data_access.dl_or_context(context)
     except Exception:
@@ -146,7 +156,6 @@ def _get_active_session(context: Any) -> Any:
     """
     Return the active DLSessionManager session, or None if unavailable.
     """
-
     dl = _resolve_dl(context)
     if dl is None:
         return None
@@ -161,12 +170,62 @@ def _get_active_session(context: Any) -> Any:
         return None
 
 
+def _get_portfolio_total_value(context: Any) -> Optional[float]:
+    """
+    Return the latest portfolio *total_value* from DataLocker.portfolio, if any.
+
+    This is the positions total you see elsewhere (positions snapshot), not the
+    session delta. If unavailable, returns None.
+    """
+    dl = _resolve_dl(context)
+    if dl is None:
+        return None
+
+    portfolio = getattr(dl, "portfolio", None)
+    if portfolio is None:
+        return None
+
+    try:
+        snap = portfolio.get_latest_snapshot()
+    except Exception:
+        return None
+
+    if snap is None:
+        return None
+
+    # Normalise snapshot to mapping so we can read fields safely
+    if isinstance(snap, Mapping):
+        data = snap
+    else:
+        if hasattr(snap, "model_dump"):
+            data = snap.model_dump()
+        elif hasattr(snap, "dict"):
+            data = snap.dict()
+        else:
+            data = getattr(snap, "__dict__", {})
+
+    total = data.get("total_value")
+    if total is None:
+        # Fallback: reconstruct from start + delta if needed
+        start = data.get("session_start_value")
+        delta = data.get("current_session_value")
+        try:
+            if start is not None and delta is not None:
+                total = float(start) + float(delta)
+        except Exception:
+            total = None
+
+    try:
+        return float(total) if total is not None else None
+    except Exception:
+        return None
+
+
 def _panel_to_lines(panel: Panel, width: Optional[int] = None) -> List[str]:
     """
     Render a Rich Panel to a list of text lines (with ANSI styles preserved),
     suitable for console_reporter.render_panel_stack().
     """
-
     buf = StringIO()
     console = Console(
         record=True,
@@ -206,9 +265,12 @@ def build_session_panel(
       - goal_mode / mode / goal_mode_name
       - session_start_time
       - session_start_value
-      - current_session_value
+      - current_* (see below)
       - session_goal_value
       - session_performance_value (optional; falls back to current - start)
+
+    We resolve "Current" using the same priority as the frontend:
+      current_total_value → current_total → current_session_value → current_value
 
     perf: optional horizon metrics:
       {
@@ -247,10 +309,14 @@ def build_session_panel(
     start_time = _get(session, "session_start_time")
     start_val = _get(session, "session_start_value")
     goal_val = _get(session, "session_goal_value")
-    curr_val = _get(session, "current_session_value")
-    if curr_val is None:
-        # some paths use current_total_value instead
-        curr_val = _get(session, "current_total_value")
+
+    # 🔹 Current value: prefer total portfolio value, fall back to session fields
+    curr_val = _coalesce(
+        _get(session, "current_total_value"),
+        _get(session, "current_total"),
+        _get(session, "current_session_value"),
+        _get(session, "current_value"),
+    )
 
     perf_val = _get(session, "session_performance_value")
     if perf_val is None and start_val is not None and curr_val is not None:
@@ -307,7 +373,7 @@ def build_session_panel(
     horizon.add_row("💵 Δ $", d1h, d6h, d12h, _fmt_delta_money(perf_val))
     horizon.add_row("📈 Δ %", p1h, p6h, p12h, pall)
 
-    # Combine into a single narrow grid
+    # Combine into a single grid
     outer = Table.grid(padding=0)
     outer.add_row(summary)
     outer.add_row(Text())  # spacer
@@ -333,7 +399,6 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
 
     Returns a list of text lines; console_reporter will print them.
     """
-
     # Normalize context to a dict with at least a dl entry when available
     if isinstance(context, dict):
         ctx: Dict[str, Any] = dict(context)
@@ -346,6 +411,28 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
     if session_obj is None:
         session_obj = _get_active_session(ctx)
 
+    # 🔹 Inject portfolio total from DataLocker (positions total) if present
+    portfolio_total = _get_portfolio_total_value(ctx)
+
+    if session_obj is not None and portfolio_total is not None:
+        # Build a mapping copy so we don't mutate the original Session object
+        if isinstance(session_obj, Mapping):
+            session_for_panel: Any = dict(session_obj)
+        else:
+            # pydantic/BaseModel/dataclass → try model_dump/dict/___dict__
+            data: Dict[str, Any]
+            if hasattr(session_obj, "model_dump"):
+                data = session_obj.model_dump()
+            elif hasattr(session_obj, "dict"):
+                data = session_obj.dict()
+            else:
+                data = dict(getattr(session_obj, "__dict__", {}))
+            session_for_panel = data
+        # Set current_total_value so build_session_panel sees the true positions total
+        session_for_panel["current_total_value"] = portfolio_total
+    else:
+        session_for_panel = session_obj
+
     # Optional per-horizon performance can be provided via ctx["session_perf"].
     perf_obj = ctx.get("session_perf")
     perf: Mapping[str, Mapping[str, Any]]
@@ -354,11 +441,10 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
     else:
         perf = {}
 
-    panel = build_session_panel(session_obj, perf)
+    panel = build_session_panel(session_for_panel, perf)
 
     # Prefer explicit width from the caller or ctx, otherwise use the
-    # console-wide SESSION_PANEL_WIDTH. Do NOT clamp smaller; we want
-    # this panel to be the same width as the others.
+    # console-wide SESSION_PANEL_WIDTH.
     base_width = width or ctx.get("width") or SESSION_PANEL_WIDTH
     try:
         effective_width = int(base_width)
@@ -379,7 +465,6 @@ def connector(
     This matches the connector(...) pattern used by other panels so
     console_reporter.render_panel_stack() will pick us up automatically.
     """
-
     context: Dict[str, Any] = dict(ctx or {})
     if dl is not None:
         context.setdefault("dl", dl)
