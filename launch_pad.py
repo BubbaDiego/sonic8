@@ -1198,7 +1198,7 @@ def main() -> None:
                 f"6. {ICON['backend']} Launch [bold]Backend[/] (FastAPI)",
                 f"7. {ICON['verify_db']} Database Console",
                 f"8. {ICON['config']} Config Console",
-                "9. 🎛 Panel Manager",
+                "9. 🧩  Panel Manager",
                 f"10. {ICON['tests']} Tests Hub",
                 "11. ✅ Verify Twilio (auth / voice)",
                 f"12. 🃏 Fun Console (Jokes / Quotes / Trivia)",
