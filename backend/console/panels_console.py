@@ -54,6 +54,30 @@ _TABLE_STYLE_OPTIONS: List[Tuple[str, str]] = [
 ]
 
 
+# Simple ANSI color codes to show sample text in the color it represents.
+_COLOR_ANSI = {
+    "default": "",
+    "white": "\033[37m",
+    "bright_white": "\033[97m",
+    "cyan": "\033[36m",
+    "magenta": "\033[35m",
+    "yellow": "\033[33m",
+    "grey50": "\033[90m",
+}
+
+
+def _color_sample(value: str, text: str) -> str:
+    """
+    Wrap sample text in an ANSI color based on the config value.
+
+    For non-color values (e.g. border styles), returns the text unchanged.
+    """
+    code = _COLOR_ANSI.get(value, "")
+    if not code:
+        return text
+    return f"{code}{text}\033[0m"
+
+
 # ─────────────────────────── config plumbing ────────────────────────────────
 
 
@@ -174,7 +198,9 @@ def _pick_from_options(
     print(f"\n{label} (current: {current})")
     for i, (val, desc) in enumerate(options, start=1):
         mark = "*" if val == current else " "
-        print(f"  {i}. [{mark}] {desc} ({val})")
+        # Show the description in the color it represents (if applicable).
+        sample_desc = _color_sample(val, desc)
+        print(f"  {i}. [{mark}] {sample_desc} ({val})")
     print("  0. ⏪ Back (keep current)")
     raw = input("Select # → ").strip()
     if not raw or raw == "0":
@@ -196,7 +222,7 @@ def _global_style_menu(cfg: Dict[str, Any]) -> None:
     table = body["table"]
 
     while True:
-        print("\n🎨 Global Style Settings")
+        print("\n🎨  Global Style Settings")
         print("------------------------")
         print()
         print("TITLE")
