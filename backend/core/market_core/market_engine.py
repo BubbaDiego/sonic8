@@ -130,16 +130,19 @@ def _eval_state(
     return state, proximity, threshold_desc, metric, threshold_value
 
 
-def _handle_recurrence(alert: PriceAlert, price: float, now_iso: str) -> None:
+def _handle_recurrence(alert: PriceAlert, price: float, now_iso: str) -> bool:
     mode = (alert.recurrence_mode or "single").lower()
+    anchor_updated = False
     if mode == "single":
         alert.armed = False
     elif mode in ("reset", "ladder"):
         alert.current_anchor_price = price
         alert.current_anchor_time = now_iso
+        anchor_updated = True
         if alert.original_anchor_price is None:
             alert.original_anchor_price = price
             alert.original_anchor_time = now_iso
+    return anchor_updated
 
 
 def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
@@ -152,7 +155,10 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
     Returns:
       { ok, source, result, statuses }
     """
-    now_iso = datetime.utcnow().isoformat()
+    now_dt = datetime.utcnow()
+    now_iso = now_dt.isoformat()
+    now_ts = now_dt.timestamp()
+    window_seconds = 600
 
     alerts: List[PriceAlert] = dl.price_alerts.list_alerts()
     rows_for_console: List[Dict[str, Any]] = []
@@ -166,10 +172,25 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
         if price is None:
             continue
 
+        meta = dict(getattr(alert, "metadata", None) or {})
+        recent_alert_ts = []
+        try:
+            for ts in meta.get("recent_alert_ts", []) or []:
+                try:
+                    ts_f = float(ts)
+                except (TypeError, ValueError):
+                    continue
+                if now_ts - ts_f <= window_seconds:
+                    recent_alert_ts.append(ts_f)
+        except Exception:
+            recent_alert_ts = []
+
+        anchor_set_now = False
         # seed anchors
         if alert.current_anchor_price is None:
             alert.current_anchor_price = price
             alert.current_anchor_time = now_iso
+            anchor_set_now = True
         if alert.original_anchor_price is None:
             alert.original_anchor_price = alert.current_anchor_price
             alert.original_anchor_time = alert.current_anchor_time
@@ -192,13 +213,37 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
         alert.last_proximity_ratio = proximity
         alert.last_evaluated_at = now_iso
 
+        alert_fired_this_cycle = False
         if state == STATE_BREACH and alert.armed and alert.enabled:
             # fire + apply recurrence
             alert.last_triggered_at = now_iso
             alert.fired_count = (getattr(alert, "fired_count", 0) or 0) + 1  # type: ignore[attr-defined]
-            _handle_recurrence(alert, price, now_iso)
+            anchor_set_now = _handle_recurrence(alert, price, now_iso) or anchor_set_now
+            alert_fired_this_cycle = True
+
+            # track breach history
+            meta["last_breach_ts"] = now_ts
+            meta["last_event_type"] = "breach"
+            meta["last_event_ts"] = now_ts
+            meta["last_event_move_abs"] = move_abs
+            meta["last_event_threshold"] = threshold_value
+            recent_alert_ts.append(now_ts)
+        elif prev_state == STATE_BREACH and state == STATE_OK:
+            meta["last_event_type"] = "recover"
+            meta["last_event_ts"] = now_ts
 
         alert.updated_at = now_iso
+        meta["recent_alert_ts"] = recent_alert_ts
+
+        if anchor_set_now:
+            meta["last_anchor_ts"] = now_ts
+            # If no other event was recorded this cycle, treat anchor as event
+            meta.setdefault("last_event_type", "anchor")
+            meta.setdefault("last_event_ts", now_ts)
+            meta.setdefault("last_event_threshold", threshold_value)
+            meta.setdefault("last_event_move_abs", 0.0)
+
+        alert.metadata = meta
         dl.price_alerts.save_alert(alert)
 
         # log interesting transitions
@@ -232,6 +277,15 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
                 "threshold_desc": threshold_desc,
                 "proximity": proximity,
                 "state": state,
+                "alert_fired_this_cycle": alert_fired_this_cycle,
+                "alerts_window_count": len(recent_alert_ts),
+                "alerts_window_seconds": window_seconds,
+                "last_event_type": meta.get("last_event_type"),
+                "last_event_ts": meta.get("last_event_ts"),
+                "last_anchor_ts": meta.get("last_anchor_ts"),
+                "last_breach_ts": meta.get("last_breach_ts"),
+                "last_event_move_abs": meta.get("last_event_move_abs"),
+                "last_event_threshold": meta.get("last_event_threshold"),
             }
         )
 
@@ -253,6 +307,15 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
             "rule_type": alert.rule_type,
             "direction": alert.direction,
             "recurrence_mode": alert.recurrence_mode,
+            "alert_fired_this_cycle": alert_fired_this_cycle,
+            "alerts_window_count": len(recent_alert_ts),
+            "alerts_window_seconds": window_seconds,
+            "last_event_type": meta.get("last_event_type"),
+            "last_event_ts": meta.get("last_event_ts"),
+            "last_anchor_ts": meta.get("last_anchor_ts"),
+            "last_breach_ts": meta.get("last_breach_ts"),
+            "last_event_move_abs": meta.get("last_event_move_abs"),
+            "last_event_threshold": meta.get("last_event_threshold"),
         }
 
         statuses.append(
@@ -265,6 +328,15 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
                 "thr_op": ">=",
                 "state": state,
                 "source": "market_core",
+                "alert_fired_this_cycle": alert_fired_this_cycle,
+                "alerts_window_count": len(recent_alert_ts),
+                "alerts_window_seconds": window_seconds,
+                "last_event_type": meta.get("last_event_type"),
+                "last_event_ts": meta.get("last_event_ts"),
+                "last_anchor_ts": meta.get("last_anchor_ts"),
+                "last_breach_ts": meta.get("last_breach_ts"),
+                "last_event_move_abs": meta.get("last_event_move_abs"),
+                "last_event_threshold": meta.get("last_event_threshold"),
                 "meta": meta,
             }
         )
