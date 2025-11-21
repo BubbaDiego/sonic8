@@ -23,6 +23,7 @@ _PANELS: List[PanelInfo] = [
     PanelInfo("prices", "Prices", "💵"),
     PanelInfo("positions", "Positions", "📊"),
     PanelInfo("risk", "Risk Snapshot", "⚖️"),
+    PanelInfo("transition", "Transitions", "🔄"),
     PanelInfo("preflight", "Pre-Flight Config", "🧪"),
     PanelInfo("monitors", "Monitors", "🔎"),
     PanelInfo("session", "Session / Goals", "🎯"),
