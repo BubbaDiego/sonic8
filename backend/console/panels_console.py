@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH
+
 
 # Basic panel metadata for display; slugs must match panel_config.json.
 @dataclass
@@ -86,6 +88,83 @@ def _color_label(kind: str, value: str) -> str:
     else:
         base = f"{value}"
     return f"{code}{base}{reset}"
+
+
+# ───────────────────────── monitor console config helpers ─────────────────────────
+
+
+def _load_monitor_console_cfg() -> dict:
+    """
+    Load sonic_monitor_config.json and return its top-level dict.
+
+    This is a light-weight loader for console settings. We only care about:
+      monitor.console.clear_each_cycle
+    """
+    cfg_path = Path(SONIC_MONITOR_CONFIG_PATH)
+    try:
+        raw = cfg_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return {}
+
+    try:
+        data = json.loads(raw) or {}
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _save_monitor_console_cfg(cfg: dict) -> None:
+    """
+    Persist sonic_monitor_config.json after in-place modification.
+
+    Keeps formatting simple but deterministic (indent=2, sorted keys).
+    """
+    cfg_path = Path(SONIC_MONITOR_CONFIG_PATH)
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(cfg, indent=2, sort_keys=True)
+    cfg_path.write_text(text + "\n", encoding="utf-8")
+
+
+def get_console_clear_each_cycle() -> bool:
+    """
+    Return True if monitor console is configured to clear each cycle
+    (dashboard mode); False means continuous scroll mode.
+    """
+    cfg = _load_monitor_console_cfg()
+    monitor_cfg = cfg.get("monitor") or {}
+    if not isinstance(monitor_cfg, dict):
+        monitor_cfg = {}
+    console_cfg = monitor_cfg.get("console") or {}
+    if not isinstance(console_cfg, dict):
+        console_cfg = {}
+    return bool(console_cfg.get("clear_each_cycle", False))
+
+
+def toggle_console_clear_each_cycle() -> bool:
+    """
+    Toggle monitor.console.clear_each_cycle in sonic_monitor_config.json.
+
+    Returns the new value (True = clear each cycle, False = continuous scroll).
+    """
+    cfg = _load_monitor_console_cfg()
+    monitor_cfg = cfg.get("monitor")
+    if not isinstance(monitor_cfg, dict):
+        monitor_cfg = {}
+        cfg["monitor"] = monitor_cfg
+
+    console_cfg = monitor_cfg.get("console")
+    if not isinstance(console_cfg, dict):
+        console_cfg = {}
+        monitor_cfg["console"] = console_cfg
+
+    current = bool(console_cfg.get("clear_each_cycle", False))
+    new_val = not current
+    console_cfg["clear_each_cycle"] = new_val
+
+    _save_monitor_console_cfg(cfg)
+    return new_val
 
 
 # ─────────────────────────── config plumbing ────────────────────────────────
@@ -193,8 +272,15 @@ def _print_panels(cfg: Dict[str, Any]) -> None:
         print(f"  {i}. [{mark}] {p.icon} {p.label} ({p.slug})")
     print()
     print("Actions:")
+    clear_mode = get_console_clear_each_cycle()
+    if clear_mode:
+        mode_label = "Clear each cycle (dashboard mode)"
+    else:
+        mode_label = "Continuous scroll (log mode)"
+
     print("  [#] Select panel to toggle / move")
     print("  [G] Global style settings")
+    print(f"  [C] Console mode: {mode_label}")
     print("  [0] ⏪ Back")
     print()
 
@@ -403,7 +489,7 @@ def run() -> None:
     while True:
         _print_panels(cfg)
         choice = input(
-            "Select panel #, [G]lobal style, or 0 to return → "
+            "Select panel #, [G]lobal style, [C]onsole mode, or 0 to return → "
         ).strip().lower()
 
         if choice in ("0", "q"):
@@ -414,13 +500,22 @@ def run() -> None:
             cfg = _ensure_panel_blocks(_ensure_defaults(_load_config()))
             continue
 
+        if choice == "c":
+            new_val = toggle_console_clear_each_cycle()
+            if new_val:
+                print(" Console mode set to: Clear each cycle (dashboard mode).")
+            else:
+                print(" Console mode set to: Continuous scroll (log mode).")
+            input(" Press ENTER to continue...")
+            continue
+
         if not choice:
             continue
 
         try:
             idx = int(choice)
         except ValueError:
-            print("Please enter a number or 'G'.")
+            print("Please enter a number, 'G', or 'C'.")
             continue
 
         _panel_detail_menu(cfg, idx)
