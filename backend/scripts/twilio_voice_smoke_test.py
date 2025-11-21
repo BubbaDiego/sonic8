@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from twilio.rest import Client
 
+from backend.core.xcom_core.message_templates import build_liquidation_monitor_script
+
 def _load_dotenv():
     try:
         from dotenv import load_dotenv, find_dotenv
@@ -47,6 +49,40 @@ def _load_dotenv():
     print("dotenv: no .env file found")
     return None
 
+
+def _build_fake_liquidation_event() -> dict:
+    """
+    Build a canned liquidation event payload for Twilio test calls.
+
+    This mirrors the shape used by the liquidation monitor/XCom, but with
+    fixed numbers so we can consistently verify voice output.
+    """
+    return {
+        "monitor": "liquid",
+        "symbol": "SOL",
+        # canned test numbers; tweak if desired
+        "value": 1.23,  # current liquidation distance
+        "threshold": {"op": "<=", "value": 2.50},
+    }
+
+
+def _build_liquidation_test_script() -> str:
+    """
+    Build the liquidation monitor test script text for Twilio.
+
+    Falls back to a generic message if for some reason the template
+    cannot build from the fake event.
+    """
+    event = _build_fake_liquidation_event()
+    text = build_liquidation_monitor_script(event) or ""
+    text = (text or "").strip()
+    if not text:
+        text = (
+            "Liquidation monitor alert test. "
+            "Unable to build the full script from the test event."
+        )
+    return text
+
 def main():
     _load_dotenv()
 
@@ -54,7 +90,7 @@ def main():
     to = None
     if len(sys.argv) > 1 and sys.argv[1].startswith('+'):
         to = sys.argv[1]
-    msg = sys.argv[2] if len(sys.argv) > 2 else "Sonic voice path OK"
+    msg = sys.argv[2] if len(sys.argv) > 2 else None
 
     # Env
     sid = os.getenv("TWILIO_ACCOUNT_SID")
@@ -75,10 +111,11 @@ def main():
         sys.exit(2)
 
     client = Client(sid, tok)
+    tts_text = msg or _build_liquidation_test_script()
     call = client.calls.create(
         to=to,
         from_=frm,
-        twiml=f'<Response><Say>Sonic check. {msg}</Say></Response>'
+        twiml=f'<Response><Say>{tts_text}</Say></Response>'
     )
     print(f"✅ Voice call initiated: {call.sid} → {to}")
 

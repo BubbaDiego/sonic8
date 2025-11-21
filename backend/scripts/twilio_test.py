@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from typing import Optional, List
 
+from backend.core.xcom_core.message_templates import build_liquidation_monitor_script
+
 try:  # pragma: no cover - optional dependency
     from dotenv import load_dotenv, dotenv_values
 except Exception:  # pragma: no cover - fallback if dotenv is missing
@@ -98,6 +100,40 @@ def _twilio_config_snapshot(root: Path) -> None:
     print()
 
 
+def _build_fake_liquidation_event() -> dict:
+    """
+    Build a canned liquidation event payload for Twilio test calls.
+
+    This mirrors the shape used by the liquidation monitor/XCom, but with
+    fixed numbers so we can consistently verify voice output.
+    """
+    return {
+        "monitor": "liquid",
+        "symbol": "SOL",
+        # canned test numbers; tweak if desired
+        "value": 1.23,  # current liquidation distance
+        "threshold": {"op": "<=", "value": 2.50},
+    }
+
+
+def _build_liquidation_test_script() -> str:
+    """
+    Build the liquidation monitor test script text for Twilio.
+
+    Falls back to a generic message if for some reason the template
+    cannot build from the fake event.
+    """
+    event = _build_fake_liquidation_event()
+    text = build_liquidation_monitor_script(event) or ""
+    text = (text or "").strip()
+    if not text:
+        text = (
+            "Liquidation monitor alert test. "
+            "Unable to build the full script from the test event."
+        )
+    return text
+
+
 # ---------------------------------------------------------------------------
 # Twilio operations
 # ---------------------------------------------------------------------------
@@ -131,7 +167,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--message",
         help="Custom message to speak during the test call",
-        default="Sonic Twilio test call",
+        default=None,
     )
     args = parser.parse_args(argv)
 
@@ -187,9 +223,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     from_phone = args.from_phone or os.getenv("TWILIO_FROM_PHONE") or os.getenv("TWILIO_PHONE_NUMBER")
     to_phone = args.to_phone or os.getenv("TWILIO_TO_PHONE") or os.getenv("MY_PHONE_NUMBER")
 
+    message = args.message or _build_liquidation_test_script()
+
     if from_phone and to_phone:
         try:
-            place_call(client, from_phone, to_phone, args.message)
+            place_call(client, from_phone, to_phone, message)
             print(f"✅ Call placed from {from_phone} to {to_phone}")
         except TwilioRestException as exc:
             print("❌ Failed to place call")
