@@ -7,8 +7,8 @@
   "command": "C:\\\\sonic7\\\\.venv\\\\Scripts\\\\python.exe C:\\\\sonic7\\\\launch_pad.py ; pwsh",
   "auth_enabled": false,
   "ttyd_pid": 2736,
-  "tunnel_pid": 41660,
-  "started_at": "2025-11-20T23:21:29.131810+00:00",
+  "tunnel_pid": 31248,
+  "started_at": "2025-11-21T01:17:25.728863+00:00",
   "ttyd_log": "reports\\ttyd.log",
   "cloudflared_log": "reports\\cloudflared.log"
 }

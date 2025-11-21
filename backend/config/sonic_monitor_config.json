@@ -34,7 +34,7 @@
   },
   "monitor": {
     "console": {
-      "clear_each_cycle": true
+      "clear_each_cycle": false
     },
     "enabled": {
       "liquid": true,
