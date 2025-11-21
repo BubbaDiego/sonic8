@@ -286,14 +286,14 @@ def _ui_add_alert(dl: Any) -> None:
             break
         print("  Invalid selection. Please enter 1–4.")
 
-    label = input("Label (optional) → ").strip() or None
+    label = input("🏷 Label (optional) → ").strip() or None
 
     # --- Type selection ---
     print()
-    print("🎛️ Alert type:")
-    print("  1) Move % from anchor")
-    print("  2) Move $ from anchor")
-    print("  3) Price target")
+    print("🔔 Alert type:")
+    print("  1) 📈 Move % from anchor")
+    print("  2) 💲 Move $ from anchor")
+    print("  3) 🎯 Price target")
     while True:
         t = input("→ ").strip()
         if t == "2":
@@ -320,10 +320,10 @@ def _ui_add_alert(dl: Any) -> None:
                 break
             print("  Invalid selection. Please enter 1 or 2.")
     else:
-        print("Direction (movement):")
-        print("  1) up")
-        print("  2) down")
-        print("  3) both")
+        print("↕ Direction (movement):")
+        print("  1) ⬆ up")
+        print("  2) ⬇ down")
+        print("  3) ↕ both")
         while True:
             d = input("→ ").strip()
             if d == "1":
@@ -340,9 +340,9 @@ def _ui_add_alert(dl: Any) -> None:
     # --- Threshold value ---
     print()
     if rule_type == "move_pct":
-        prompt = "Threshold value (percent, e.g. 5 for 5%) → "
+        prompt = "🎯 Threshold value (percent, e.g. 5 for 5%) → "
     elif rule_type == "move_abs":
-        prompt = "Threshold value ($ move from anchor, e.g. 100) → "
+        prompt = "🎯 Threshold value ($ move from anchor, e.g. 100) → "
     else:
         price, as_of = _get_latest_price_for_asset(dl, asset)
         if price is not None:
@@ -362,10 +362,10 @@ def _ui_add_alert(dl: Any) -> None:
 
     # --- Recurrence selection ---
     print()
-    print("Recurrence:")
-    print("  1) single  – alert once, then disarm")
-    print("  2) reset   – alert, then anchor jumps to current price")
-    print("  3) ladder  – alert on each step of size threshold")
+    print("🔁 Recurrence:")
+    print("  1) 🔂 single  - alert once, then disarm")
+    print("  2) 🔁 reset   - alert, then anchor jumps to current price")
+    print("  3) 🪜 ladder  - alert on each step of size threshold")
     while True:
         r = input("→ ").strip()
         if r in ("1", ""):
@@ -391,7 +391,7 @@ def _ui_add_alert(dl: Any) -> None:
     )
     dl.price_alerts.save_alert(alert)
     print("\n✅ Alert created.")
-    input("⏎  Press ENTER to return...")
+    input("↩ Press ENTER to return...")
 
 
 def _ui_edit_alert(dl: Any, alerts: List[PriceAlert]) -> None:
