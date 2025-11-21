@@ -22,7 +22,7 @@
     "title": {
       "align": "center",
       "border_color": "cyan",
-      "border_style": "square",
+      "border_style": "rounded",
       "icon": "",
       "text_color": "white"
     }
@@ -141,7 +141,7 @@
         },
         "totals_row_color": "grey50"
       },
-      "enabled": true,
+      "enabled": false,
       "layout": {
         "body_indent": 2,
         "title_indent": 0
@@ -151,12 +151,12 @@
       }
     },
     "wallets": {
-      "enabled": false,
       "body": {
         "body_text_color": "white",
         "column_header_text_color": "bright_cyan",
         "totals_row_color": "bright_white"
       },
+      "enabled": false,
       "title": {
         "icon": "\ud83d\udcbc",
         "string": "Wallets"
