@@ -37,7 +37,8 @@
     "market",
     "xcom",
     "wallets",
-    "risk"
+    "risk",
+    "transition"
   ],
   "panels": {
     "activity": {
@@ -109,6 +110,24 @@
       "title": {
         "icon": "\u2696\ufe0f",
         "string": "Risk Snapshot"
+      }
+    },
+    "transition": {
+      "enabled": true,
+      "title": {
+        "text": " \ud83d\udd04 Transition \ud83d\udd04 ",
+        "border_style": "bright_cyan",
+        "border_type": "rounded"
+      },
+      "body": {
+        "body_text_color": "white",
+        "column_header_text_color": "bright_cyan",
+        "totals_row_color": "grey50"
+      },
+      "table": {
+        "style": "invisible",
+        "table_justify": "left",
+        "header_justify": "left"
       }
     },
     "session": {
