@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 from twilio.base.exceptions import TwilioRestException
 from twilio.rest import Client
 
+from backend.core.xcom_core.message_templates import build_liquidation_monitor_script
+
 
 # --------------------------------------------------------------------------------------
 # Paths / config
@@ -41,6 +43,29 @@ def mask(s: str, keep: int = 4) -> str:
     if len(s) <= keep * 2:
         return "…" * len(s)
     return f"{s[:keep]}…{s[-keep:]}"
+
+
+def _build_fake_liquidation_event() -> dict:
+    """
+    Build a canned liquidation event payload for test calls.
+
+    This simulates what the real liquidation monitor sends into XCom.
+    We only need the fields that build_liquidation_monitor_script() reads:
+      - monitor
+      - symbol/asset
+      - value (liquidation distance)
+      - threshold.value
+    """
+    return {
+        "monitor": "liquid",
+        "symbol": "SOL",
+        # Canned numbers: tweak as desired
+        "value": 1.23,  # current liquidation distance
+        "threshold": {"op": "<=", "value": 2.50},
+        # You can add extras if you want, but they are not required:
+        # "value_pct": 1.23,
+        # "threshold_pct": 2.50,
+    }
 
 
 def load_voice_provider() -> Tuple[Dict[str, Any], List[str]]:
@@ -208,7 +233,21 @@ def verify_with_call() -> int:
     print(f"   from {from_phone} → {to_phone}")
 
     try:
-        twiml = "<Response><Say>Sonic Twilio verification call</Say></Response>"
+        event = _build_fake_liquidation_event()
+        tts = build_liquidation_monitor_script(event) or ""
+
+        if not tts.strip():
+            tts = (
+                "Liquidation monitor alert test. Sonic could not build the full "
+                "script from the test event."
+            )
+
+        print("")
+        print("Using liquidation monitor script for test call:")
+        print(f"  {tts}")
+        print("")
+
+        twiml = f"<Response><Say>{tts}</Say></Response>"
         execution = client.calls.create(
             to=to_phone,
             from_=from_phone,
