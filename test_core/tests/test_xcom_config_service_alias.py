@@ -14,7 +14,6 @@ def test_get_provider_alias(monkeypatch):
     # Ensure environment variables do not interfere
     monkeypatch.delenv("TWILIO_ACCOUNT_SID", raising=False)
     monkeypatch.delenv("TWILIO_AUTH_TOKEN", raising=False)
-    monkeypatch.delenv("TWILIO_FLOW_SID", raising=False)
     monkeypatch.delenv("MY_PHONE_NUMBER", raising=False)
     monkeypatch.delenv("TWILIO_PHONE_NUMBER", raising=False)
 
@@ -22,7 +21,6 @@ def test_get_provider_alias(monkeypatch):
         "enabled": True,
         "account_sid": "sid",
         "auth_token": "token",
-        "flow_sid": "flow",
         "default_to_phone": "+10000000000",
         "default_from_phone": "+19999999999",
     }

@@ -129,8 +129,7 @@ def get_xcom_config() -> XComConfig:
     """
     Return the normalized XCom configuration.
 
-    This includes voice profiles, flow SID (stub), and default
-    voice cooldown window.
+    This includes voice profiles and default voice cooldown window.
     """
     return get_oracle().get_xcom_config()
 
@@ -140,16 +139,6 @@ def get_xcom_voice_config() -> XComVoiceConfig:
     Return the voice-related portion of XCom configuration.
     """
     return get_oracle().get_xcom_voice_config()
-
-
-def get_xcom_flow_sid() -> Optional[str]:
-    """
-    Return the configured Twilio Flow SID for XCom voice calls, if any.
-
-    When this returns None, the voice dispatcher should fall back to
-    plain TwiML-based calls instead of a Studio Flow.
-    """
-    return get_oracle().get_xcom_flow_sid()
 
 
 def get_xcom_voice_profile_for_monitor(monitor: str | None) -> str:
@@ -187,7 +176,6 @@ __all__ = [
     "get_profit_thresholds",
     "get_xcom_config",
     "get_xcom_voice_config",
-    "get_xcom_flow_sid",
     "get_xcom_voice_profile_for_monitor",
     "get_xcom_twilio_secrets",
     "MonitorConfigBundle",

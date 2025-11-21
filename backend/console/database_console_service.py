@@ -55,7 +55,6 @@ def seed_xcom_providers_from_env(*, console_obj: Console | None = None, dl: Any 
     tok = os.getenv("TWILIO_AUTH_TOKEN")
     frm = os.getenv("TWILIO_FROM")
     to = os.getenv("TWILIO_TO")
-    flow = os.getenv("TWILIO_FLOW_SID")
 
     missing = [k for k, v in [("TWILIO_SID", sid), ("TWILIO_AUTH_TOKEN", tok), ("TWILIO_FROM", frm), ("TWILIO_TO", to)] if not v]
     if missing:
@@ -72,8 +71,6 @@ def seed_xcom_providers_from_env(*, console_obj: Console | None = None, dl: Any 
             "to": [to],
         }
     }
-    if flow:
-        providers["voice"]["flow_sid"] = flow
 
     sysmgr.set_var("xcom_providers", providers)
     printer.print("[green]xcom_providers saved[/green]")

@@ -32,7 +32,6 @@ def build_xcom_config_from_raw(raw: Dict[str, Any]) -> XComConfig:
                 "liquid": "urgent",
                 "profit": "calm"
               },
-              "flow_sid": null
             },
             "cooldowns": {
               "voice_seconds": 180
@@ -77,16 +76,6 @@ def build_xcom_config_from_raw(raw: Dict[str, Any]) -> XComConfig:
                 continue
             monitor_profiles[str(name).lower()] = str(prof)
 
-    # --- Flow SID (stub) ---
-
-    flow_sid_raw = voice_block.get("flow_sid")
-    flow_sid: str | None
-    if flow_sid_raw is None:
-        flow_sid = None
-    else:
-        s = str(flow_sid_raw).strip()
-        flow_sid = s or None
-
     # --- Voice cooldown seconds ---
 
     # 1) New-style: xcom.cooldowns.voice_seconds
@@ -105,7 +94,6 @@ def build_xcom_config_from_raw(raw: Dict[str, Any]) -> XComConfig:
     voice_cfg = XComVoiceConfig(
         default_profile=default_profile,
         monitor_profiles=monitor_profiles,
-        flow_sid=flow_sid,
         voice_cooldown_seconds=voice_cooldown,
     )
 

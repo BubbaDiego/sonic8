@@ -22,7 +22,7 @@ def clean_env(monkeypatch):
         "XCOM_LIVE","XCOM_ACTIVE",
         "TWILIO_ACCOUNT_SID","TWILIO_AUTH_TOKEN",
         "TWILIO_FROM_PHONE","TWILIO_PHONE_NUMBER","MY_PHONE_NUMBER",
-        "TWILIO_FLOW_SID","VOICE_COOLDOWN_SECONDS",
+        "VOICE_COOLDOWN_SECONDS",
         "SONIC_MONITOR_INTERVAL","MONITOR_LOOP_SECONDS",
     ):
         monkeypatch.delenv(k, raising=False)

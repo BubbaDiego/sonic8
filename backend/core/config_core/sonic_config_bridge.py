@@ -261,7 +261,6 @@ def get_twilio() -> Dict[str, str]:
     return {
         "SID": str(cfg.get("account_sid") or cfg.get("sid") or ""),
         "AUTH": str(cfg.get("auth_token") or cfg.get("token") or ""),
-        "FLOW": str(cfg.get("flow_sid") or cfg.get("flow") or ""),
         "FROM": str(cfg.get("from") or cfg.get("from_phone") or ""),
         "TO": str(cfg.get("to") or cfg.get("to_phone") or ""),
     }

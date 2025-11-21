@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Twilio test script for authentication and optional Studio Flow trigger.
+"""Twilio test script for authentication and optional voice call.
 
 Used by Sonic Launch Pad's "Verify Twilio" menu. It is intentionally verbose:
 it shows where your credentials are loaded from and explains common failures.
@@ -73,7 +73,6 @@ def _twilio_config_snapshot(root: Path) -> None:
 
     sid = os.getenv("TWILIO_ACCOUNT_SID", "")
     token = os.getenv("TWILIO_AUTH_TOKEN", "")
-    flow_sid = os.getenv("TWILIO_FLOW_SID", "")
     from_phone = (
         os.getenv("TWILIO_FROM_PHONE")
         or os.getenv("TWILIO_PHONE_NUMBER", "")
@@ -93,7 +92,6 @@ def _twilio_config_snapshot(root: Path) -> None:
     print(f"  TWILIO_AUTH_TOKEN  : {_mask(token)}  [source: {src('TWILIO_AUTH_TOKEN')}]")
     print()
     print("Voice settings (masked):")
-    print(f"  TWILIO_FLOW_SID    : {_mask(flow_sid)}  [source: {src('TWILIO_FLOW_SID')}]")
     print(f"  FROM phone         : {_mask(from_phone, head=6)}")
     print(f"  TO phone           : {_mask(to_phone, head=6)}")
     print("────────────────────────────────────────────────────────")
@@ -112,9 +110,10 @@ def authenticate(account_sid: str, auth_token: str) -> Client:
     return client
 
 
-def trigger_flow(client: Client, flow_sid: str, from_phone: str, to_phone: str) -> None:
-    """Trigger a Twilio Studio Flow."""
-    client.studio.v2.flows(flow_sid).executions.create(from_=from_phone, to=to_phone)
+def place_call(client: Client, from_phone: str, to_phone: str, message: str) -> None:
+    """Trigger a simple Programmable Voice call using inline TwiML."""
+    twiml = f"<Response><Say>{message}</Say></Response>"
+    client.calls.create(from_=from_phone, to=to_phone, twiml=twiml)
 
 
 # ---------------------------------------------------------------------------
@@ -123,13 +122,17 @@ def trigger_flow(client: Client, flow_sid: str, from_phone: str, to_phone: str) 
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Test Twilio credentials and optionally trigger a flow",
+        description="Test Twilio credentials and optionally place a voice call",
     )
     parser.add_argument("--sid", help="Twilio Account SID")
     parser.add_argument("--token", help="Twilio Auth Token")
-    parser.add_argument("--flow-sid", help="Studio Flow SID")
     parser.add_argument("--from-phone", help="From phone number")
     parser.add_argument("--to-phone", help="To phone number")
+    parser.add_argument(
+        "--message",
+        help="Custom message to speak during the test call",
+        default="Sonic Twilio test call",
+    )
     args = parser.parse_args(argv)
 
     # Resolve credentials from args or environment.
@@ -181,13 +184,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(str(exc))
         return 1
 
-    # Optional flow trigger when full args are provided
-    if args.flow_sid and args.from_phone and args.to_phone:
+    from_phone = args.from_phone or os.getenv("TWILIO_FROM_PHONE") or os.getenv("TWILIO_PHONE_NUMBER")
+    to_phone = args.to_phone or os.getenv("TWILIO_TO_PHONE") or os.getenv("MY_PHONE_NUMBER")
+
+    if from_phone and to_phone:
         try:
-            trigger_flow(client, args.flow_sid, args.from_phone, args.to_phone)
-            print("✅ Flow triggered")
+            place_call(client, from_phone, to_phone, args.message)
+            print(f"✅ Call placed from {from_phone} to {to_phone}")
         except TwilioRestException as exc:
-            print("❌ Failed to trigger flow")
+            print("❌ Failed to place call")
             status = getattr(exc, "status", None)
             code = getattr(exc, "code", None)
             msg = getattr(exc, "msg", str(exc))
@@ -199,14 +204,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(f"More Info: {more_info}")
             return 1
         except Exception as exc:
-            print("❌ Unexpected error triggering flow")
+            print("❌ Unexpected error placing call")
             print(str(exc))
             return 1
-    elif args.flow_sid:
-        print(
-            "Flow SID provided without from/to phone numbers; "
-            "skipping flow trigger",
-        )
+    else:
+        print("(Skipping call: provide --from-phone/--to-phone or set TWILIO_FROM_PHONE/TWILIO_TO_PHONE)")
 
     return 0
 

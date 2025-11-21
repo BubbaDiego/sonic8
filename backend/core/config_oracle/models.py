@@ -103,13 +103,11 @@ class XComVoiceConfig:
     This captures the non-secret knobs that other cores can safely read:
       - default_profile: global default voice profile name.
       - monitor_profiles: optional per-monitor overrides (liquid/profit/…).
-      - flow_sid: optional Twilio Studio Flow SID (stub, may be None).
       - voice_cooldown_seconds: default cooldown window between calls.
     """
 
     default_profile: str = "default"
     monitor_profiles: Dict[str, str] = field(default_factory=dict)
-    flow_sid: Optional[str] = None
     voice_cooldown_seconds: int = 180
 
     def profile_for(self, monitor: Optional[str]) -> str:
@@ -137,7 +135,6 @@ class XComTwilioSecrets:
     auth_token: Optional[str] = None
     from_phone: Optional[str] = None
     to_phones: list[str] = field(default_factory=list)
-    flow_sid: Optional[str] = None
 
     def is_configured(self) -> bool:
         """Return True when we have enough to attempt a real call."""

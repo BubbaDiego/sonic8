@@ -234,7 +234,6 @@ def _visible(s: Optional[str]) -> bool:
 class TwilioConfig:
     account_sid: str = ""
     auth_token: str = ""
-    flow_sid: str = ""
     from_phone: str = ""
     to_phone: str = ""
 
@@ -243,7 +242,6 @@ class TwilioConfig:
         return cls(
             account_sid=_first_env("TWILIO_ACCOUNT_SID", "TWILIO_SID"),
             auth_token=_first_env("TWILIO_AUTH_TOKEN", "TWILIO_TOKEN"),
-            flow_sid=_first_env("TWILIO_FLOW_SID", "TWILIO_FLOW_ID", "TWILIO_FLOW"),
             from_phone=_first_env(
                 "TWILIO_FROM_PHONE",
                 "TWILIO_PHONE_NUMBER",
@@ -262,7 +260,6 @@ class TwilioConfig:
         return {
             "sid": _visible(self.account_sid),
             "token": _visible(self.auth_token),
-            "flow_sid": _visible(self.flow_sid),
             "from": _visible(self.from_phone),
             "to": _visible(self.to_phone),
         }
@@ -280,8 +277,6 @@ class TwilioConfig:
             "to_phone": [self.to_phone] if self.to_phone else [],
             "default_from_phone": self.from_phone,
             "default_to_phone": self.to_phone,
-            "flow": self.flow_sid,
-            "flow_sid": self.flow_sid,
             "enabled": True,
         }
 
@@ -347,7 +342,6 @@ def _get_twilio_cfg() -> Dict[str, Any]:
     voice = str(twilio_cfg.get("voice_name", "")).strip() or "Polly.Amy"
     twilio_cfg["voice_name"] = voice
     twilio_cfg.setdefault("speak_plain", True)
-    twilio_cfg.setdefault("use_studio", False)
     twilio_cfg.setdefault("start_delay_ms", 400)
     twilio_cfg.setdefault("end_delay_ms", 250)
     twilio_cfg.setdefault("prosody_rate_pct", 94)
@@ -359,7 +353,7 @@ def _save_twilio_cfg(twilio_cfg: Dict[str, Any], mirror_api: bool = True) -> boo
     providers["twilio"] = dict(twilio_cfg)
     if mirror_api:
         api_cfg: Dict[str, Any] = dict(providers.get("api") or {})
-        for key in ("voice_name", "speak_plain", "use_studio", "start_delay_ms", "end_delay_ms", "prosody_rate_pct"):
+        for key in ("voice_name", "speak_plain", "start_delay_ms", "end_delay_ms", "prosody_rate_pct"):
             if key in twilio_cfg:
                 api_cfg[key] = twilio_cfg[key]
         providers["api"] = api_cfg
@@ -371,7 +365,6 @@ def _print_voice_settings(prefix: str = "   ") -> None:
     face = VOICE_FACES.get(twilio_cfg.get("voice_name", ""), "🙂")
     print(f"{prefix}Voice: {face}  {twilio_cfg['voice_name']}")
     print(f"{prefix}speak_plain: {twilio_cfg['speak_plain']}")
-    print(f"{prefix}use_studio : {twilio_cfg['use_studio']}")
     print(
         f"{prefix}start_delay_ms: {twilio_cfg['start_delay_ms']}  | "
         f"end_delay_ms: {twilio_cfg['end_delay_ms']}"
@@ -416,7 +409,6 @@ def _set_voice_name(voice_name: str) -> bool:
         return False
     twilio_cfg = _get_twilio_cfg()
     twilio_cfg["voice_name"] = name
-    twilio_cfg["use_studio"] = False
     return _save_twilio_cfg(twilio_cfg)
 
 
@@ -1161,7 +1153,6 @@ def _inspect_providers():
     print("• Twilio")
     _row("  Account SID", tw.account_sid or "(missing)", tw_map["sid"])
     _row("  Auth token", "[hidden]" if tw_map["token"] else "(missing)", tw_map["token"])
-    _row("  Flow SID", tw.flow_sid or "(missing)", tw_map["flow_sid"])
     _row("  From phone", tw.from_phone or "(missing)", tw_map["from"])
     _row("  To phone", tw.to_phone or "(missing)", tw_map["to"])
 
@@ -1257,7 +1248,6 @@ def _voice_test():
     if not cfg.get("voice_name"):
         cfg["voice_name"] = _get_voice_name()
     cfg["speak_plain"] = True
-    cfg["use_studio"] = False
     for legacy_flag in ("picker", "voice_picker", "interactive_voice_select", "show_spinner"):
         if legacy_flag in cfg:
             cfg.pop(legacy_flag, None)
@@ -1343,11 +1333,10 @@ def _voice_options_menu():
             """
    1) 🎤 Select voice
    2) 🗣  Toggle speak_plain
-   3) 🧩 Toggle use_studio
-   4) ⏱  Set start_delay_ms
-   5) ⏱  Set end_delay_ms
-   6) 🎼 Set prosody_rate_pct
-   7) ♻️  Reset to defaults
+   3) ⏱  Set start_delay_ms
+   4) ⏱  Set end_delay_ms
+   5) 🎼 Set prosody_rate_pct
+   6) ♻️  Reset to defaults
    0) ◀ Back
 """
         )
@@ -1384,7 +1373,6 @@ def _voice_options_menu():
                 _stdin_flush()
                 continue
             twilio_cfg["voice_name"] = selected
-            twilio_cfg["use_studio"] = False
             if _save_twilio_cfg(twilio_cfg):
                 print(f"   ✅ Voice set to {selected}\n")
             else:
@@ -1404,16 +1392,6 @@ def _voice_options_menu():
             continue
 
         if choice == "3":
-            twilio_cfg["use_studio"] = not bool(twilio_cfg.get("use_studio", False))
-            if _save_twilio_cfg(twilio_cfg):
-                print(f"   ✅ use_studio  → {twilio_cfg['use_studio']}\n")
-            else:
-                print("   ❌ Failed to update use_studio.\n")
-            time.sleep(0.2)
-            _stdin_flush()
-            continue
-
-        if choice == "4":
             twilio_cfg["start_delay_ms"] = _prompt_int(
                 "start_delay_ms",
                 int(twilio_cfg.get("start_delay_ms", 400)),
@@ -1428,7 +1406,7 @@ def _voice_options_menu():
             _stdin_flush()
             continue
 
-        if choice == "5":
+        if choice == "4":
             twilio_cfg["end_delay_ms"] = _prompt_int(
                 "end_delay_ms",
                 int(twilio_cfg.get("end_delay_ms", 250)),
@@ -1443,7 +1421,7 @@ def _voice_options_menu():
             _stdin_flush()
             continue
 
-        if choice == "6":
+        if choice == "5":
             twilio_cfg["prosody_rate_pct"] = _prompt_int(
                 "prosody_rate_pct",
                 int(twilio_cfg.get("prosody_rate_pct", 94)),
@@ -1458,11 +1436,10 @@ def _voice_options_menu():
             _stdin_flush()
             continue
 
-        if choice == "7":
+        if choice == "6":
             defaults = {
                 "voice_name": "Polly.Amy",
                 "speak_plain": True,
-                "use_studio": False,
                 "start_delay_ms": 400,
                 "end_delay_ms": 250,
                 "prosody_rate_pct": 94,
@@ -1568,7 +1545,6 @@ def _comms_wizard():
         cfg = dict(_get_providers().get("twilio") or {})
         cfg.setdefault("enabled", True)
         cfg["speak_plain"] = True
-        cfg["use_studio"] = False
         cfg.setdefault("start_delay_ms", 400)
         cfg.setdefault("end_delay_ms", 250)
         if voice_name:

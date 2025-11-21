@@ -231,8 +231,6 @@ class XComConfigService:
             if secrets.to_phones:
                 # Always treat 'to' as a list; use Oracle/env as canonical.
                 voice["to"] = list(secrets.to_phones)
-            if secrets.flow_sid:
-                voice["flow_sid"] = secrets.flow_sid
 
         providers["voice"] = voice
         return providers
