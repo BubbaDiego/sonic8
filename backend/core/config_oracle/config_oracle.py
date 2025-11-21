@@ -213,19 +213,9 @@ class ConfigOracle:
         """
         return self.get_xcom_config().voice
 
-    def get_xcom_flow_sid(self) -> Optional[str]:
-        """
-        Return the configured flow SID for XCom voice, if any.
-
-        This is intentionally allowed to be None; callers should treat that
-        as "use TwiML / non-Flow behavior".
-        """
-        voice = self.get_xcom_voice_config()
-        return voice.flow_sid
-
     def get_xcom_twilio_secrets(self) -> XComTwilioSecrets:
         """
-        Resolve Twilio SID/token/numbers/flow for XCom from environment.
+        Resolve Twilio SID/token/numbers for XCom from environment.
 
         This is the *only* place that knows how to spelunk TWILIO_* and
         related aliases. Callers should treat the returned object as
@@ -267,21 +257,11 @@ class ConfigOracle:
             if isinstance(v, str) and v.strip()
         ]
 
-        # Studio Flow SID aliases (optional)
-        flow_raw = (
-            env.get("TWILIO_FLOW_SID")
-            or env.get("TWILIO_FLOW_ID")
-            or env.get("TWILIO_FLOW")
-            or ""
-        )
-        flow_sid = flow_raw.strip() or None if isinstance(flow_raw, str) else None
-
         return XComTwilioSecrets(
             account_sid=sid or None,
             auth_token=token or None,
             from_phone=from_phone or None,
             to_phones=to_phones,
-            flow_sid=flow_sid,
         )
 
     # --- Introspection ------------------------------------------------------

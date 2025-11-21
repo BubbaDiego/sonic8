@@ -32,8 +32,8 @@ def _build_argv(mode: str) -> List[str]:
     Build argv to pass into twilio_test.main() based on env + chosen mode.
 
     mode == "auth" → only verify SID/token
-    mode == "call" → verify SID/token AND attempt a Studio Flow voice call
-                     if TWILIO_FLOW_SID + phones are present.
+    mode == "call" → verify SID/token AND attempt a Programmable Voice call
+                     if from/to numbers are present.
     """
     sid = os.getenv("TWILIO_ACCOUNT_SID", "")
     token = os.getenv("TWILIO_AUTH_TOKEN", "")
@@ -45,7 +45,6 @@ def _build_argv(mode: str) -> List[str]:
     args: List[str] = ["--sid", sid, "--token", token]
 
     if mode == "call":
-        flow_sid = os.getenv("TWILIO_FLOW_SID", "")
         from_phone = (
             os.getenv("TWILIO_FROM_PHONE")
             or os.getenv("TWILIO_PHONE_NUMBER", "")
@@ -55,10 +54,8 @@ def _build_argv(mode: str) -> List[str]:
             or os.getenv("MY_PHONE_NUMBER", "")
         )
 
-        if flow_sid and from_phone and to_phone:
+        if from_phone and to_phone:
             args += [
-                "--flow-sid",
-                flow_sid,
                 "--from-phone",
                 from_phone,
                 "--to-phone",
@@ -66,9 +63,9 @@ def _build_argv(mode: str) -> List[str]:
             ]
         else:
             print(
-                "[Twilio] Call mode requested but TWILIO_FLOW_SID / "
-                "TWILIO_FROM_PHONE / TWILIO_TO_PHONE (or MY_PHONE_NUMBER) "
-                "are not all set. Falling back to auth-only."
+                "[Twilio] Call mode requested but TWILIO_FROM_PHONE / "
+                "TWILIO_TO_PHONE (or MY_PHONE_NUMBER) are not all set. "
+                "Falling back to auth-only."
             )
 
     return args
@@ -82,7 +79,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--mode",
         choices=["auth", "call"],
         default="auth",
-        help="auth = only verify creds; call = verify + test voice call via Studio Flow",
+        help="auth = only verify creds; call = verify + test voice call",
     )
     ns = parser.parse_args(argv)
 

@@ -8,8 +8,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Skeleton from '@mui/material/Skeleton';
 import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
-import Switch from '@mui/material/Switch';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { Card, CardContent, CardHeader, Button, Stack, Tooltip, Box } from '@mui/material';
 import { IconExternalLink, IconActivity, IconPhone, IconMail, IconVolume2 } from '@tabler/icons-react';
@@ -29,7 +27,6 @@ import { resetCooldown, setCooldown as setCooldownApi, saveProviders as apiSaveP
 
 const TWILIO_CONSOLE_URL = 'https://console.twilio.com/';
 const TWILIO_CALL_LOG_URL = 'https://console.twilio.com/us1/monitor/logs/calls';
-const TWILIO_STUDIO_FLOWS_URL = 'https://console.twilio.com/us1/develop/studio/flows';
 
 const TwilioIcon = (props) => (
   <Box
@@ -138,7 +135,7 @@ const twilioFields = [
     key: 'enabled',
     label: 'Enable Twilio voice/SMS',
     type: 'switch',
-    helperText: 'Uses the Twilio Studio flow for automated calls and texts.',
+    helperText: 'Uses Twilio Programmable Voice for automated calls and texts.',
     env: 'TWILIO_ENABLED'
   },
   {
@@ -152,12 +149,6 @@ const twilioFields = [
     label: 'Auth token',
     placeholder: '••••••••',
     env: 'TWILIO_AUTH_TOKEN'
-  },
-  {
-    key: 'flow_sid',
-    label: 'Studio flow SID',
-    placeholder: 'FWxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    env: 'TWILIO_FLOW_SID'
   },
   {
     key: 'default_from_phone',
@@ -217,7 +208,6 @@ const createTwilioValues = (draft) => ({
   enabled: Boolean(draft?.twilio?.enabled ?? draft?.api?.enabled),
   account_sid: draft?.twilio?.account_sid ?? draft?.api?.account_sid ?? '',
   auth_token: draft?.twilio?.auth_token ?? draft?.api?.auth_token ?? '',
-  flow_sid: draft?.twilio?.flow_sid ?? draft?.api?.flow_sid ?? '',
   default_from_phone: draft?.twilio?.default_from_phone ?? draft?.api?.default_from_phone ?? '',
   default_to_phone: draft?.twilio?.default_to_phone ?? draft?.api?.default_to_phone ?? ''
 });
@@ -245,10 +235,8 @@ export default function XComSettings() {
 
   const [draft, setDraft] = useState({});
   const [cooldown, setCooldownLocal] = useState(0);
-  const [useStudio, setUseStudio] = useState(false);
   const [cooldownSaving, setCooldownSaving] = useState(false);
   const [cooldownResetting, setCooldownResetting] = useState(false);
-  const [studioSaving, setStudioSaving] = useState(false);
   const [lastTwilioSid, setLastTwilioSid] = useState(null);
 
   const providerData = useMemo(() => {
@@ -269,7 +257,6 @@ export default function XComSettings() {
     if (providerData) {
       setDraft(cloneProviders(providerData));
       setCooldownLocal(providerData?.system?.phone_relax_period ?? 0);
-      setUseStudio(Boolean(providerData?.twilio?.use_studio ?? providerData?.api?.use_studio));
     }
   }, [providerData]);
 
@@ -284,30 +271,6 @@ export default function XComSettings() {
   const invalidateProviderQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['xcom', 'providers'] });
     queryClient.invalidateQueries({ queryKey: ['xcom', 'providers_resolved'] });
-  };
-
-  const onToggleStudio = async (checked) => {
-    setStudioSaving(true);
-    try {
-      const payload = cloneProviders(draft || {});
-      const keysToUpdate = ['twilio', 'api'].filter((key) => payload[key] !== undefined);
-      if (keysToUpdate.length === 0) {
-        keysToUpdate.push('twilio');
-      }
-      keysToUpdate.forEach((key) => {
-        payload[key] = { ...(payload[key] || {}), use_studio: checked };
-      });
-
-      await apiSaveProviders(payload);
-      setDraft(payload);
-      setUseStudio(checked);
-      invalidateProviderQueries();
-      enqueueSnackbar(`Studio Flow ${checked ? 'enabled' : 'disabled'}`, { variant: 'success' });
-    } catch (error) {
-      enqueueSnackbar(`Unable to update Studio Flow: ${error?.message || error}`, { variant: 'error' });
-    } finally {
-      setStudioSaving(false);
-    }
   };
 
   const onSaveCooldown = async () => {
@@ -367,7 +330,6 @@ export default function XComSettings() {
         enabled: Boolean(values.enabled),
         account_sid: values.account_sid,
         auth_token: values.auth_token,
-        flow_sid: values.flow_sid,
         default_from_phone: values.default_from_phone,
         default_to_phone: values.default_to_phone
       }
@@ -438,14 +400,7 @@ export default function XComSettings() {
 
   const statusEntries = useMemo(() => Object.entries(status || {}), [status]);
   const lastChecked = statusUpdatedAt ? new Date(statusUpdatedAt).toLocaleString() : null;
-  const flowSid = draft?.twilio?.flow_sid ?? draft?.api?.flow_sid ?? '';
-  const twilioSidHref = lastTwilioSid
-    ? useStudio
-      ? flowSid
-        ? `${TWILIO_STUDIO_FLOWS_URL}/${encodeURIComponent(flowSid)}/executions/${lastTwilioSid}`
-        : TWILIO_STUDIO_FLOWS_URL
-      : `${TWILIO_CALL_LOG_URL}/${lastTwilioSid}`
-    : null;
+  const twilioSidHref = lastTwilioSid ? `${TWILIO_CALL_LOG_URL}/${lastTwilioSid}` : null;
 
   const providersCardBody = () => {
     if (providersError) {
@@ -488,10 +443,6 @@ export default function XComSettings() {
           TWILIO_AUTH_TOKEN: pick(
             resolvedProviders?.twilio?.auth_token,
             resolvedProviders?.api?.auth_token
-          ),
-          TWILIO_FLOW_SID: pick(
-            resolvedProviders?.twilio?.flow_sid,
-            resolvedProviders?.api?.flow_sid
           ),
           TWILIO_FROM_PHONE: pick(
             resolvedProviders?.twilio?.default_from_phone,
@@ -550,17 +501,6 @@ export default function XComSettings() {
           alignItems={{ xs: 'flex-start', sm: 'center' }}
           sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}
         >
-          <FormControlLabel
-            control={
-              <Switch
-                checked={useStudio}
-                onChange={(event) => onToggleStudio(event.target.checked)}
-                disabled={studioSaving}
-              />
-            }
-            label="Use Studio Flow"
-          />
-
           <TextField
             label="Call cool-down (sec)"
             type="number"

@@ -197,7 +197,6 @@ def print_prelaunch_body(
         tcfg = get_twilio()
         sid = tcfg.get("SID") or os.getenv("TWILIO_SID") or os.getenv("TWILIO_ACCOUNT_SID") or "–"
         auth = tcfg.get("AUTH") or os.getenv("TWILIO_AUTH_TOKEN") or "–"
-        flow = tcfg.get("FLOW") or os.getenv("TWILIO_FLOW_SID") or "–"
         from_ = tcfg.get("FROM") or os.getenv("TWILIO_FROM") or os.getenv("TWILIO_FROM_PHONE") or "–"
         to_ = (
             tcfg.get("TO")
@@ -209,7 +208,7 @@ def print_prelaunch_body(
         twilio_lines.extend([
             f"☎️ Twilio (env)   : SID={sid}",
             f"                    AUTH={auth}",
-            f"                    FROM={from_}   TO={to_}   FLOW={flow}",
+            f"                    FROM={from_}   TO={to_}",
         ])
 
     conn = _db_connect(db_path)

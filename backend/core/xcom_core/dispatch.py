@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Dict
 
 from twilio.rest import Client
@@ -88,8 +87,6 @@ def dispatch_voice(payload: Dict[str, Any],
                 provider_cfg["from"] = twilio_secrets.from_phone
             if twilio_secrets.to_phones:
                 provider_cfg["to"] = list(twilio_secrets.to_phones)
-            if twilio_secrets.flow_sid:
-                provider_cfg["flow_sid"] = twilio_secrets.flow_sid
 
         # Default provider to Twilio when secrets are present
         if twilio_secrets is not None and twilio_secrets.is_configured():
@@ -108,7 +105,7 @@ def dispatch_voice(payload: Dict[str, Any],
         # Resolve which monitor this event belongs to (if any).
         monitor_name = (payload.get("monitor") or "").strip().lower() or None
 
-        # Oracle-backed voice config (profile, flow SID, etc.)
+        # Oracle-backed voice config (profile, cooldown, etc.)
         try:
             oracle_voice_cfg = ConfigOracle.get_xcom_voice_config()
         except Exception:
@@ -138,14 +135,6 @@ def dispatch_voice(payload: Dict[str, Any],
         ctx_voice["profile"] = profile_name
         ctx_voice["voice_profile"] = profile_name
 
-        # Flow SID propagation (stub: no behavior change unless respected downstream).
-        flow_sid_value = None
-        if oracle_voice_cfg is not None and getattr(oracle_voice_cfg, "flow_sid", None):
-            flow_sid_value = oracle_voice_cfg.flow_sid
-        if "flow_sid" in ctx_voice:
-            flow_sid_value = ctx_voice.get("flow_sid")
-        ctx_voice["flow_sid"] = flow_sid_value
-
         comm_cfg = _load_comm_config()
         profile = get_voice_profile(comm_cfg, str(profile_name))
         tts = build_xcom_message(payload, profile)
@@ -172,8 +161,6 @@ def dispatch_voice(payload: Dict[str, Any],
         token = provider_cfg.get("auth_token")
         frm = provider_cfg.get("from")
         tos = provider_cfg.get("to") or []
-        ctx_flow_sid = ctx_voice.get("flow_sid")
-        flow = ctx_flow_sid or provider_cfg.get("flow_sid") or os.getenv("TWILIO_FLOW_SID")
 
         if isinstance(tos, str):
             tos = [tos]
@@ -187,21 +174,16 @@ def dispatch_voice(payload: Dict[str, Any],
         results = []
         for to in tos:
             try:
-                if flow:
-                    exec_ = client.studio.v2.flows(flow).executions.create(to=to, from_=frm)
-                    results.append({"to": to, "sid": exec_.sid, "ok": True, "mode": "studio"})
-                    log.info("[xcom.voice] studio OK to=%s sid=%s", to, exec_.sid)
-                else:
-                    twiml = (
-                        f'<Response>'
-                        f'<Say voice="{profile.twilio_voice}" language="{profile.twilio_language}">' 
-                        f'{tts}'
-                        f'</Say>'
-                        f'</Response>'
-                    )
-                    call = client.calls.create(to=to, from_=frm, twiml=twiml)
-                    results.append({"to": to, "sid": call.sid, "ok": True, "mode": "twiml"})
-                    log.info("[xcom.voice] call OK to=%s sid=%s", to, call.sid)
+                twiml = (
+                    f'<Response>'
+                    f'<Say voice="{profile.twilio_voice}" language="{profile.twilio_language}">' 
+                    f'{tts}'
+                    f'</Say>'
+                    f'</Response>'
+                )
+                call = client.calls.create(to=to, from_=frm, twiml=twiml)
+                results.append({"to": to, "sid": call.sid, "ok": True, "mode": "twiml"})
+                log.info("[xcom.voice] call OK to=%s sid=%s", to, call.sid)
             except Exception as e:
                 # Compress noisy Twilio HTTP errors into a short reason
                 status = getattr(e, "status", None)

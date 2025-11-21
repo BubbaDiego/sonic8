@@ -48,8 +48,6 @@ def apply_xcom_env(cfg: Dict[str, Any]) -> Dict[str, str]:
         # Canonical Twilio credentials
         "TWILIO_ACCOUNT_SID": "TWILIO_ACCOUNT_SID",
         "TWILIO_AUTH_TOKEN": "TWILIO_AUTH_TOKEN",
-        # Studio Flow (optional)
-        "TWILIO_FLOW_SID": "TWILIO_FLOW_SID",
         # Canonical phone numbers
         "TWILIO_FROM_PHONE": "TWILIO_FROM_PHONE",
         "TWILIO_TO_PHONE": "TWILIO_TO_PHONE",

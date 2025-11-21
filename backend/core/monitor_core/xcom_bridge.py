@@ -104,9 +104,6 @@ def _snapshot_voice_from_oracle() -> tuple[dict, list[str]]:
     else:
         missing.append("to")
 
-    if secrets.flow_sid:
-        voice["flow_sid"] = secrets.flow_sid
-
     return voice, missing
 
 
@@ -391,13 +388,12 @@ def dispatch_breaches_from_dl(dl, cfg: dict) -> List[Dict[str, Any]]:
 
     voice_env_cfg, env_missing = _snapshot_voice_from_oracle()
     log.debug(
-        "[xcom] voice(ENV) enabled=%s provider=%s from=%s to=%s sid=%s flow=%s missing=%s",
+        "[xcom] voice(ENV) enabled=%s provider=%s from=%s to=%s sid=%s missing=%s",
         bool(voice_env_cfg.get("enabled", True)),
         (voice_env_cfg.get("provider") or "-"),
         _mask(voice_env_cfg.get("from"), kind="phone"),
         voice_env_cfg.get("to") or [],
         _mask(voice_env_cfg.get("account_sid"), kind="sid"),
-        (voice_env_cfg.get("flow_sid") or "-"),
         env_missing or [],
     )
 

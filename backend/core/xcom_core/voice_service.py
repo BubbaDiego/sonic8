@@ -143,7 +143,7 @@ class VoiceService:
         # default to True so STUB/lab runs aren't blocked
         return True
 
-    def _collect_creds_and_numbers(self, dl) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]:
+    def _collect_creds_and_numbers(self, dl) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
         dot = _parse_dotenv_guess()
         # Prefer canonical keys first, then Twilio's legacy names
         sid = (
@@ -162,11 +162,7 @@ class VoiceService:
             self.cfg.get("to")
             or _get_env_synonyms(dot, ("TWILIO_TO", "MY_PHONE_NUMBER"))
         )
-        flow_sid = (
-            self.cfg.get("flow_sid")
-            or _get_env_synonyms(dot, ("TWILIO_FLOW_SID",))
-        )
-        return sid, tok, from_num, to_num, flow_sid
+        return sid, tok, from_num, to_num
 
     def call(
         self,
@@ -181,7 +177,7 @@ class VoiceService:
             log.debug("VoiceService: provider disabled -> skipping call", source="voice")
             return False, None, None, None, None
 
-        sid, tok, from_num, to_num, flow_sid = self._collect_creds_and_numbers(dl)
+        sid, tok, from_num, to_num = self._collect_creds_and_numbers(dl)
 
         # Hard requirements
         if not sid or not tok:

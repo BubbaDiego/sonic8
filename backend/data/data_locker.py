@@ -1338,7 +1338,6 @@ class DataLocker:
                 "twilio": {
                     "account_sid": "TWILIO_ACCOUNT_SID",
                     "auth_token": "TWILIO_AUTH_TOKEN",
-                    "flow_sid": "TWILIO_FLOW_SID",
                     "default_to_phone": "MY_PHONE_NUMBER",
                     "default_from_phone": "TWILIO_PHONE_NUMBER",
                 },

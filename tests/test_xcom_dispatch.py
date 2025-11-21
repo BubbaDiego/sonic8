@@ -72,7 +72,7 @@ def test_dispatch_breach_voice_disabled():
 
 def test_dispatch_breach_voice_enabled_but_missing_creds(monkeypatch):
     # Ensure there are no env creds so voice cannot proceed
-    for k in ("TWILIO_ACCOUNT_SID","TWILIO_AUTH_TOKEN","TWILIO_FROM_PHONE","TWILIO_PHONE_NUMBER","TWILIO_TO_PHONE","TWILIO_FLOW_SID"):
+    for k in ("TWILIO_ACCOUNT_SID","TWILIO_AUTH_TOKEN","TWILIO_FROM_PHONE","TWILIO_PHONE_NUMBER","TWILIO_TO_PHONE"):
         monkeypatch.delenv(k, raising=False)
     out = _dispatch("liquid", {"breach": True}, _ch(voice=True, system=False), context={})
     v = out["channels"]["voice"]
