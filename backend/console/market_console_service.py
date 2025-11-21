@@ -78,6 +78,71 @@ def _load_prices(dl) -> Dict[str, float]:
     return prices
 
 
+def _get_latest_price_for_asset(
+    dl: DataLocker, asset_symbol: str
+) -> tuple[float | None, str | None]:
+    """
+    Return (price, as_of) for the given asset symbol using dl.prices.
+
+    This helper centralizes the DLPriceManager calls to keep the console flow
+    resilient to missing data or minor API changes.
+    """
+
+    if dl is None or not hasattr(dl, "prices"):
+        return None, None
+
+    sym = (asset_symbol or "").strip().upper()
+    if not sym:
+        return None, None
+
+    mgr = dl.prices
+
+    price: float | None = None
+    ts_val: Any = None
+
+    if hasattr(mgr, "get_latest_price"):
+        try:
+            rec = mgr.get_latest_price(sym)
+        except Exception:
+            rec = None
+        if isinstance(rec, dict):
+            price = rec.get("price") or rec.get("current_price")
+            ts_val = rec.get("ts") or rec.get("as_of") or rec.get("last_update_time")
+    elif hasattr(mgr, "get_price"):
+        try:
+            price = mgr.get_price(sym)
+        except Exception:
+            price = None
+    elif hasattr(mgr, "list_prices"):
+        try:
+            rows = mgr.list_prices(sym)
+        except Exception:
+            rows = None
+        if rows:
+            row = rows[-1]
+            if isinstance(row, dict):
+                price = row.get("price") or row.get("current_price")
+                ts_val = row.get("ts") or row.get("as_of") or row.get("last_update_time")
+
+    try:
+        if price is not None:
+            price = float(price)
+    except Exception:
+        price = None
+
+    ts_str: str | None = None
+    if ts_val is not None:
+        if isinstance(ts_val, str):
+            ts_str = ts_val
+        else:
+            try:
+                ts_str = datetime.utcfromtimestamp(float(ts_val)).isoformat()
+            except Exception:
+                ts_str = None
+
+    return price, ts_str
+
+
 # ───────────────────── main menu ─────────────────────
 
 
@@ -210,7 +275,7 @@ def _pick_alert(alerts: List[PriceAlert]) -> PriceAlert | None:
 def _ui_add_alert(dl: Any) -> None:
     # --- Asset selection ---
     print()
-    print("Choose asset:")
+    print("🪙 Choose asset:")
     assets = ["SPX", "BTC", "ETH", "SOL"]
     for i, sym in enumerate(assets, 1):
         print(f"  {i}) {sym}")
@@ -225,7 +290,7 @@ def _ui_add_alert(dl: Any) -> None:
 
     # --- Type selection ---
     print()
-    print("Alert type:")
+    print("🎛️ Alert type:")
     print("  1) Move % from anchor")
     print("  2) Move $ from anchor")
     print("  3) Price target")
@@ -245,7 +310,7 @@ def _ui_add_alert(dl: Any) -> None:
     # --- Direction selection ---
     print()
     if rule_type == "price_target":
-        print("Direction (price target):")
+        print("↕️ Direction (price target):")
         print("  1) above  (price ≥ target)")
         print("  2) below  (price ≤ target)")
         while True:
@@ -279,7 +344,16 @@ def _ui_add_alert(dl: Any) -> None:
     elif rule_type == "move_abs":
         prompt = "Threshold value ($ move from anchor, e.g. 100) → "
     else:
-        prompt = "Target price (e.g. 4200.00) → "
+        price, as_of = _get_latest_price_for_asset(dl, asset)
+        if price is not None:
+            if as_of:
+                print(f"💰 Current {asset} price: {price:,.2f}  (as of {as_of})")
+            else:
+                print(f"💰 Current {asset} price: {price:,.2f}")
+        else:
+            print(f"💰 Current {asset} price: (unavailable)")
+
+        prompt = "🎯 Target price (e.g. 4200.00) → "
     thr_raw = input(prompt).strip()
     try:
         base_threshold_value = float(thr_raw)
