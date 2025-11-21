@@ -507,6 +507,9 @@ def run() -> None:
             else:
                 print(" Console mode set to: Continuous scroll (log mode).")
             input(" Press ENTER to continue...")
+
+            cfg = _ensure_panel_blocks(_ensure_defaults(_load_config()))
+
             continue
 
         if not choice:
