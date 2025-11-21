@@ -18,6 +18,7 @@ __all__ = [
     "color_if_plain",
     "paint_line",
     "get_panel_order",
+    "panel_is_enabled",
     "is_panel_enabled",
     "is_enabled",
     "enabled_panel_slugs",
@@ -500,19 +501,35 @@ def get_panel_order() -> List[str]:
     return [str(s) for s in order]
 
 
+def panel_is_enabled(slug: str, default: bool = True) -> bool:
+    """
+    Return whether a panel is enabled in config.
+
+    If the slug (or the "enabled" flag) is missing, returns ``default``.
+    Supports configs that either place panel slugs at the top level or
+    under a "panels" key.
+    """
+
+    cfg = _cfg()
+    panels = cfg.get("panels") if isinstance(cfg.get("panels"), dict) else cfg
+    panel_cfg = panels.get(slug) if isinstance(panels, dict) else None
+
+    if not isinstance(panel_cfg, dict):
+        return default
+
+    enabled = panel_cfg.get("enabled")
+    if enabled is None:
+        return default
+    return bool(enabled)
+
+
 def is_panel_enabled(slug: str) -> bool:
     """
     Return True if the panel is enabled in config.
 
     If no explicit 'enabled' flag is set for the slug, default to True.
     """
-    cfg = _cfg()
-    panels = cfg.get("panels") or {}
-    pdata = panels.get(slug) or {}
-    enabled = pdata.get("enabled")
-    if enabled is None:
-        return True
-    return bool(enabled)
+    return panel_is_enabled(slug, default=True)
 
 
 def is_enabled(slug: str) -> bool:
