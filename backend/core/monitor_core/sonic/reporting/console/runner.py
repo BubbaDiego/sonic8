@@ -5,6 +5,10 @@ from typing import Any, Callable, Optional
 import importlib, time, json, os
 from pathlib import Path
 
+from backend.core.reporting_core.sonic_reporting.console_panels.theming import (
+    panel_is_enabled,
+)
+
 
 def _safe_render(mod_name: str, fn_name: str, dl: Any) -> None:
     """Call a classic panel render(dl[, csum]) and ignore failures."""
@@ -130,11 +134,18 @@ def run_console_reporters(
     except Exception as exc:
         print(f"[REPORT] panel runner failed: {exc!r}", flush=True)
 
-    _safe_render(
-        "backend.core.reporting_core.sonic_reporting.console_panels.wallets_panel",
-        "render",
-        dl,
-    )
+    # Wallets panel: only render if enabled in panel_config.json
+    try:
+        wallets_on = panel_is_enabled("wallets", default=True)
+    except Exception:
+        wallets_on = True
+
+    if wallets_on:
+        _safe_render(
+            "backend.core.reporting_core.sonic_reporting.console_panels.wallets_panel",
+            "render",
+            dl,
+        )
 
     # Session / Goals panel: render after Wallets for better grouping with balances.
     try:
