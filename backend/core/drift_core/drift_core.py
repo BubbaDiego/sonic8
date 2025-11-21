@@ -1,0 +1,116 @@
+from __future__ import annotations
+
+import logging
+from typing import Any, Dict, Optional
+
+from backend.data.data_locker import DataLocker
+
+from .drift_config import DriftConfig
+from .drift_client import DriftClientWrapper, DRIFTPY_AVAILABLE
+from .drift_store import DriftStore
+from .drift_sync_service import DriftSyncService
+
+logger = logging.getLogger(__name__)
+
+
+class DriftCore:
+    """
+    High-level orchestrator for Drift interactions inside Sonic.
+
+    This class composes DriftClientWrapper, DriftStore, and DriftSyncService and
+    exposes a small, stable API for the rest of the system to use.
+    """
+
+    def __init__(
+        self,
+        dl: DataLocker,
+        config: Optional[DriftConfig] = None,
+        *,
+        cluster: str = "mainnet",
+    ) -> None:
+        self._dl = dl
+        self._config = config or DriftConfig.from_env()
+        self._client = DriftClientWrapper(self._config, cluster=cluster)
+        self._store = DriftStore(dl)
+        self._sync = DriftSyncService(dl, self._client, self._store)
+
+    @property
+    def config(self) -> DriftConfig:
+        return self._config
+
+    @property
+    def client(self) -> DriftClientWrapper:
+        return self._client
+
+    @property
+    def store(self) -> DriftStore:
+        return self._store
+
+    @property
+    def sync(self) -> DriftSyncService:
+        return self._sync
+
+    async def health_check(self) -> Dict[str, Any]:
+        """
+        Lightweight health probe for DriftCore.
+
+        This method should be safe to call from an HTTP route or monitor.
+        It currently returns configuration and import-level status only.
+        """
+        logger.info("DriftCore.health_check() called.")
+        return {
+            "rpc_url": self._config.rpc_url,
+            "wallet_secret_configured": bool(self._config.wallet_secret_base64),
+            "driftpy_available": DRIFTPY_AVAILABLE,
+        }
+
+    async def sync_all_positions(self) -> None:
+        """
+        Delegate to DriftSyncService to refresh positions for the primary owner.
+
+        A later pass will define how the owner identity is derived (e.g. from
+        the configured wallet or from a named Sonic wallet record).
+        """
+        logger.info("DriftCore.sync_all_positions() called.")
+        await self._sync.sync_all_positions()
+
+    async def open_perp_order(
+        self,
+        symbol: str,
+        size_usd: float,
+        side: str,
+        *,
+        reduce_only: bool = False,
+    ) -> str:
+        """
+        High-level helper to open a perp order on Drift.
+
+        Parameters
+        ----------
+        symbol :
+            Market symbol such as 'SOL-PERP'.
+        size_usd :
+            Notional size of the order in USD.
+        side :
+            'long' or 'short'.
+        reduce_only :
+            If True, do not increase net exposure; only reduce.
+
+        Returns
+        -------
+        str
+            Signature of the submitted transaction.
+        """
+        logger.info(
+            "DriftCore.open_perp_order(symbol=%s, size_usd=%s, side=%s, reduce_only=%s)",
+            symbol,
+            size_usd,
+            side,
+            reduce_only,
+        )
+        return await self._client.place_perp_order(
+            symbol=symbol,
+            size_usd=size_usd,
+            side=side,
+            reduce_only=reduce_only,
+        )
