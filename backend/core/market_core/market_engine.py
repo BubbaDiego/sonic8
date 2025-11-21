@@ -135,13 +135,17 @@ def _handle_recurrence(alert: PriceAlert, price: float, now_iso: str) -> bool:
     anchor_updated = False
     if mode == "single":
         alert.armed = False
-    elif mode in ("reset", "ladder"):
+    elif mode == "reset":
         alert.current_anchor_price = price
         alert.current_anchor_time = now_iso
         anchor_updated = True
         if alert.original_anchor_price is None:
             alert.original_anchor_price = price
             alert.original_anchor_time = now_iso
+    elif mode == "ladder":
+        if alert.original_anchor_price is None:
+            alert.original_anchor_price = alert.current_anchor_price or price
+            alert.original_anchor_time = alert.current_anchor_time or now_iso
     return anchor_updated
 
 
@@ -237,11 +241,10 @@ def evaluate_market_alerts(dl, prices: Dict[str, float]) -> Dict[str, Any]:
 
         if anchor_set_now:
             meta["last_anchor_ts"] = now_ts
-            # If no other event was recorded this cycle, treat anchor as event
-            meta.setdefault("last_event_type", "anchor")
-            meta.setdefault("last_event_ts", now_ts)
-            meta.setdefault("last_event_threshold", threshold_value)
-            meta.setdefault("last_event_move_abs", 0.0)
+            meta["last_event_type"] = "anchor"
+            meta["last_event_ts"] = now_ts
+            meta["last_event_threshold"] = threshold_value
+            meta["last_event_move_abs"] = 0.0
 
         alert.metadata = meta
         dl.price_alerts.save_alert(alert)
