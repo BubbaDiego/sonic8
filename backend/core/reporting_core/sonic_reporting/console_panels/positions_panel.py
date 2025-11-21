@@ -370,7 +370,12 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
     # Body rows
     for it in items:
         d = _to_mapping(it)
-        asset = str(d.get("asset") or d.get("symbol") or "-")
+        asset = str(
+            d.get("asset")
+            or d.get("symbol")
+            or d.get("market")
+            or "-"
+        )
         size = _fmt_size(_num(d.get("size")))
         value = _fmt_money(_num(d.get("value")))
         pnl = _fmt_money(_num(_first(d.get("pnl_after_fees_usd"), d.get("pnl"))))
