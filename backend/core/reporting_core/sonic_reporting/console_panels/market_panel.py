@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from io import StringIO
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from rich.console import Console
 from rich.table import Table
@@ -256,6 +257,134 @@ def _fmt_move_value(meta: Dict[str, Any]) -> str:
     return _fmt_move_abs(_move_abs_value(meta))
 
 
+def _format_state_badge(state: str, alert_fired: bool) -> str:
+    """
+    Render a state cell like:
+
+        🟢 OK
+        🔴 BREACH ★
+        🟡 RE-ANCHOR
+        🟣 COOLDOWN
+
+    If alert_fired=True, append a ★.
+    """
+    s = (state or "").upper().strip()
+    if s in ("BREACH", "ALERT"):
+        badge = "🔴 BREACH"
+    elif s in ("REANCHOR", "RE-ANCHOR", "ANCHOR"):
+        badge = "🟡 RE-ANCHOR"
+    elif s in ("COOLDOWN", "COOL", "MUTED"):
+        badge = "🟣 COOLDOWN"
+    else:
+        badge = "🟢 OK"
+
+    if alert_fired:
+        badge += " ★"
+    return badge
+
+
+def _fmt_short_time(ts: Optional[float]) -> str:
+    """
+    Short local time like '7:32pm' for event timestamps.
+    """
+    if not ts:
+        return ""
+    try:
+        dt = datetime.fromtimestamp(float(ts))
+        t = dt.strftime("%I:%M%p").lstrip("0").lower()
+        return t
+    except Exception:
+        return ""
+
+
+def _get_field(row: Mapping[str, Any], key: str) -> Any:
+    if key in row:
+        return row.get(key)
+    meta = row.get("meta") if isinstance(row.get("meta"), Mapping) else None
+    if meta and key in meta:
+        return meta.get(key)
+    return None
+
+
+def _build_last_event_label(row: Mapping[str, Any]) -> str:
+    """
+    Build the 'Last' column text for a single market alert row.
+
+    Expected fields on row (best-effort, all optional):
+      - last_event_type: 'anchor' | 'breach' | 'recover' | None
+      - last_event_ts:   epoch seconds
+      - last_anchor_ts:  epoch seconds
+      - last_breach_ts:  epoch seconds
+      - alerts_window_count: int
+      - alerts_window_seconds: int
+      - move_abs: float (absolute move at last event)
+      - threshold_abs: float (absolute threshold)
+
+    Codex should map these to whatever existing names make sense in the
+    actual snapshot structure.
+    """
+    etype = str(_get_field(row, "last_event_type") or "").lower().strip()
+    ev_ts = _get_field(row, "last_event_ts")
+    anchor_ts = _get_field(row, "last_anchor_ts")
+    breach_ts = _get_field(row, "last_breach_ts")
+
+    alerts_count = _get_field(row, "alerts_window_count") or 0
+    window_s = _get_field(row, "alerts_window_seconds") or 600
+
+    move_abs = _get_field(row, "last_event_move_abs") or _get_field(row, "move_abs")
+    thr_abs = _get_field(row, "last_event_threshold") or _get_field(row, "threshold_abs")
+
+    # Normalize
+    try:
+        alerts_count = int(alerts_count)
+    except Exception:
+        alerts_count = 0
+    try:
+        window_s = int(window_s)
+    except Exception:
+        window_s = 600
+
+    window_min = max(1, window_s // 60)
+
+    # If we have no useful history, fall back to a simple label.
+    if not etype and not ev_ts and alerts_count == 0:
+        return "no recent events"
+
+    if etype == "anchor" or (not etype and anchor_ts and not breach_ts):
+        ts_label = _fmt_short_time(anchor_ts or ev_ts)
+        if not ts_label:
+            return f"Anchored (alerts: {alerts_count}/{window_min}m)"
+        return f"Anchored @ {ts_label} (alerts: {alerts_count}/{window_min}m)"
+
+    if etype == "breach" or (breach_ts and (not etype or etype == "alert")):
+        ts_label = _fmt_short_time(breach_ts or ev_ts)
+        parts = ["BREACH"]
+        if move_abs is not None and thr_abs is not None:
+            try:
+                parts.append(f"{float(move_abs):+.2f} vs {float(thr_abs):.2f}")
+            except Exception:
+                pass
+        if ts_label:
+            parts.append(f"@ {ts_label}")
+        parts.append(f"(alerts: {alerts_count}/{window_min}m)")
+        return " ".join(parts)
+
+    if etype == "recover":
+        ts_label = _fmt_short_time(ev_ts)
+        base = f"Recovered within band @ {ts_label}" if ts_label else "Recovered within band"
+        if breach_ts:
+            last_breach_label = _fmt_short_time(breach_ts)
+            if last_breach_label:
+                base += f" (last breach {last_breach_label}, {alerts_count}/{window_min}m)"
+        return base
+
+    # Default catch-all
+    ts_label = _fmt_short_time(ev_ts)
+    if ts_label:
+        return f"{etype or 'event'} @ {ts_label} (alerts: {alerts_count}/{window_min}m)"
+    return f"{etype or 'event'} (alerts: {alerts_count}/{window_min}m)"
+
+
 # ───────────────────────── table config helpers ───────────────────────
 
 
@@ -333,7 +462,8 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
     table.add_column("📊 Move", justify="right")
     table.add_column("🎯 Thr", justify="left")
     table.add_column("🔋 Prox", justify="left", no_wrap=True)
-    table.add_column("🧾 State", justify="left")
+    table.add_column("📶 State", justify="left")
+    table.add_column("📝 Last", justify="left")
 
     for row in rows:
         meta = row.get("meta") or {}
@@ -345,15 +475,8 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
         bar = _fmt_bar(meta)
         state = str(row.get("state") or "").upper()
 
-        # Color state like the monitors panel
-        if state == "BREACH":
-            state_cell = "[red]BREACH[/]"
-        elif state == "WARN":
-            state_cell = "[yellow]WARN[/]"
-        elif state == "OK":
-            state_cell = "[green]OK[/]"
-        else:
-            state_cell = state or "–"
+        state_cell = _format_state_badge(state, bool(_get_field(row, "alert_fired_this_cycle")))
+        last_cell = _build_last_event_label(row)
 
         table.add_row(
             asset,
@@ -363,6 +486,7 @@ def _build_rich_table(rows: List[Dict[str, Any]], table_cfg: Dict[str, Any]) -> 
             thr_str,
             bar,
             state_cell,
+            last_cell,
         )
 
     # IMPORTANT: render into a buffer, not to real stdout
@@ -403,7 +527,9 @@ def render(context: Dict[str, Any], width: Optional[int] = None) -> List[str]:
 
     if not rows:
         # Simple header line when there are no rows
-        header = "🪙 Asset   💵 Entry      💹 Current   📊 Move      🎯 Thr           🔋 Prox      🧾 State"
+        header = (
+            "🪙 Asset   💵 Entry      💹 Current   📊 Move      🎯 Thr           🔋 Prox      📶 State   📝 Last"
+        )
         header_colored = color_if_plain(
             "  " + header,
             body_cfg["column_header_text_color"],
