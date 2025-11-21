@@ -1,77 +1,72 @@
 {
-  "monitor": {
-    "loop_seconds": 30,
-    "global_snooze_seconds": 60,
-    "enabled": {
-      "sonic": true,
-      "liquid": true,
-      "profit": true,
-      "market": true,
-      "price": true
-    },
-    "xcom_live": true,
-    "console": {
-      "clear_each_cycle": false
-    }
-  },
   "liquid": {
-    "notifications": {
-      "system": true,
-      "voice": true,
-      "sms": false,
-      "tts": true
-    },
     "blast": {
       "BTC": 5,
       "ETH": 5,
       "SOL": 5
-    }
-  },
-
-  "profit": {
-    "notifications": {
-      "system": true,
-      "voice": true,
-      "sms": false,
-      "tts": true
     },
-    "snooze_seconds": 1200
-  },
-
-  "market": {
     "notifications": {
-      "system": true,
-      "voice": true,
       "sms": false,
-      "tts": true
+      "system": true,
+      "tts": true,
+      "voice": true
     }
   },
-
-  "price": {
-    "notifications": {
-      "system": true,
-      "voice": true,
-      "sms": false,
-      "tts": true
-    }
-  },
-
   "liquid_monitor": {
+    "blast": {
+      "BTC": 5,
+      "ETH": 5,
+      "SOL": 5
+    },
     "thresholds": {
       "BTC": 1.3,
       "ETH": 1.0,
-      "SOL": 2
-    },
-    "blast": {
-      "BTC": 5,
-      "ETH": 5,
-      "SOL": 5
+      "SOL": 1.75
     }
   },
-
+  "market": {
+    "notifications": {
+      "sms": false,
+      "system": true,
+      "tts": true,
+      "voice": true
+    }
+  },
+  "monitor": {
+    "console": {
+      "clear_each_cycle": true
+    },
+    "enabled": {
+      "liquid": true,
+      "market": true,
+      "price": true,
+      "profit": true,
+      "sonic": true
+    },
+    "global_snooze_seconds": 60,
+    "loop_seconds": 30,
+    "xcom_live": true
+  },
+  "price": {
+    "notifications": {
+      "sms": false,
+      "system": true,
+      "tts": true,
+      "voice": true
+    }
+  },
+  "profit": {
+    "notifications": {
+      "sms": false,
+      "system": true,
+      "tts": true,
+      "voice": true
+    },
+    "snooze_seconds": 1200
+  },
   "profit_monitor": {
-    "snooze_seconds": 600,
+    "portfolio_profit_usd": 40,
     "position_profit_usd": 1,
-    "portfolio_profit_usd": 40
+    "snooze_seconds": 600
   }
 }
