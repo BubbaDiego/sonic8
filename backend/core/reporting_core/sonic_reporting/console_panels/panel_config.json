@@ -75,12 +75,14 @@
     },
     "positions": {
       "body": {
+        "body_text_color": "white",
+        "column_header_text_color": "bright_cyan",
         "table": {
           "header_justify": "left",
           "style": "invisible",
           "table_justify": "left"
         },
-        "totals_row_color": "grey50"
+        "totals_row_color": "bright_white"
       },
       "title": {
         "icon": "\ud83d\udcca",
@@ -131,6 +133,11 @@
     },
     "wallets": {
       "enabled": false,
+      "body": {
+        "body_text_color": "white",
+        "column_header_text_color": "bright_cyan",
+        "totals_row_color": "bright_white"
+      },
       "title": {
         "icon": "\ud83d\udcbc",
         "string": "Wallets"

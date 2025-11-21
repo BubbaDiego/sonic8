@@ -199,7 +199,7 @@ def _build_wallets_table(norm: List[Dict[str, Any]], body_cfg: Dict[str, Any]) -
 
         table.add_row(name, chain, addr, bal, usd, age)
 
-    totals_style = body_cfg.get("totals_row_color", "")
+    totals_style = body_cfg.get("totals_row_color", "grey50")
 
     # end_section=True draws a horizontal rule ABOVE this row
     table.add_row(
@@ -300,15 +300,30 @@ def render(dl, *_args, **_kw) -> None:
     header_line = table_lines[0]
     data_lines = table_lines[1:]
 
+    totals_color = body_cfg.get("totals_row_color", "grey50")
+
     # Header with themed color
     header_colored = paint_line(header_line, body_cfg["column_header_text_color"])
     for ln in body_indent_lines(PANEL_SLUG, [header_colored]):
         print(ln)
 
-    # Body lines; keep existing ANSI styles (totals row) and only tint plain ones
-    for raw in data_lines:
+    if data_lines:
+        body_rows = data_lines[:-1]
+        totals_row = data_lines[-1]
+    else:
+        body_rows = []
+        totals_row = ""
+
+    # Body lines; keep existing ANSI styles and only tint plain ones
+    for raw in body_rows:
         for ln in body_indent_lines(
             PANEL_SLUG, [color_if_plain(raw, body_cfg["body_text_color"])]
+        ):
+            print(ln)
+
+    if totals_row:
+        for ln in body_indent_lines(
+            PANEL_SLUG, [paint_line(totals_row, totals_color)]
         ):
             print(ln)
 
