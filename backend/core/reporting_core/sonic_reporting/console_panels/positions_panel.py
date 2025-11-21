@@ -81,6 +81,20 @@ def _num(x: Any) -> Optional[float]:
     return None
 
 
+def _normalize_position_row(row: Mapping[str, Any]) -> Dict[str, Any]:
+    """Normalize a raw position row for rendering."""
+    asset = (
+        row.get("asset")
+        or row.get("symbol")
+        or row.get("market")
+        or "-"
+    )
+
+    normalized = dict(row)
+    normalized["asset"] = str(asset)
+    return normalized
+
+
 def _fmt_money(v: Optional[float]) -> str:
     return f"${v:,.2f}" if isinstance(v, (int, float)) else "-"
 
@@ -369,13 +383,8 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
 
     # Body rows
     for it in items:
-        d = _to_mapping(it)
-        asset = str(
-            d.get("asset")
-            or d.get("symbol")
-            or d.get("market")
-            or "-"
-        )
+        raw = _to_mapping(it)
+        d = _normalize_position_row(raw)
         size = _fmt_size(_num(d.get("size")))
         value = _fmt_money(_num(d.get("value")))
         pnl = _fmt_money(_num(_first(d.get("pnl_after_fees_usd"), d.get("pnl"))))
@@ -385,7 +394,7 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
         heat = _fmt_pct(_compute_heat_pct(travel_pct))
         trav = _fmt_travel(travel_pct)
 
-        table.add_row(asset, size, value, pnl, lev, liq, heat, trav)
+        table.add_row(d.get("asset", "-"), size, value, pnl, lev, liq, heat, trav)
 
     # Totals row (no Liq total; Heat total is weighted avg)
     totals = _compute_totals_row(items)
