@@ -149,39 +149,48 @@ def run_console_reporters(
 
     # Session / Goals panel: render after Wallets for better grouping with balances.
     try:
-        from backend.core.reporting_core.sonic_reporting.console_panels import (
-            session_panel as _session_panel,
-        )
+        enabled = True
+        try:
+            enabled = panel_is_enabled("session", default=True)
+        except Exception:
+            enabled = True
 
-        # If the reporter stack failed before building ctx, reconstruct a minimal one.
-        if panel_ctx is None:
-            cfg_obj: Optional[dict]
-            if isinstance(cfg, dict):
-                cfg_obj = cfg
-            else:
-                gc = getattr(dl, "global_config", None)
-                cfg_obj = gc if isinstance(gc, dict) else None
-            panel_ctx = {
-                "dl": dl,
-                "cfg": cfg_obj,
-                "loop_counter": int((footer_ctx or {}).get("loop_counter", 0)),
-                "poll_interval_s": int((footer_ctx or {}).get("poll_interval_s", 0)),
-                "total_elapsed_s": float((footer_ctx or {}).get("total_elapsed_s", 0.0)),
-                "ts": (footer_ctx or {}).get("ts", time.time()),
-            }
+        if enabled:
+            from backend.core.reporting_core.sonic_reporting.console_panels import (
+                session_panel as _session_panel,
+            )
 
-        if panel_width is None:
-            try:
-                panel_width = int(os.environ.get("SONIC_CONSOLE_WIDTH", "92"))
-            except Exception:
-                panel_width = 92
+            # If the reporter stack failed before building ctx, reconstruct a minimal one.
+            if panel_ctx is None:
+                cfg_obj: Optional[dict]
+                if isinstance(cfg, dict):
+                    cfg_obj = cfg
+                else:
+                    gc = getattr(dl, "global_config", None)
+                    cfg_obj = gc if isinstance(gc, dict) else None
+                panel_ctx = {
+                    "dl": dl,
+                    "cfg": cfg_obj,
+                    "loop_counter": int((footer_ctx or {}).get("loop_counter", 0)),
+                    "poll_interval_s": int((footer_ctx or {}).get("poll_interval_s", 0)),
+                    "total_elapsed_s": float((footer_ctx or {}).get("total_elapsed_s", 0.0)),
+                    "ts": (footer_ctx or {}).get("ts", time.time()),
+                }
 
-        lines_obj = _session_panel.connector(dl=dl, ctx=panel_ctx, width=panel_width)
-        if isinstance(lines_obj, (list, tuple)):
-            for ln in lines_obj:
-                print(ln)
-        elif isinstance(lines_obj, str):
-            print(lines_obj)
+            if panel_width is None:
+                try:
+                    panel_width = int(os.environ.get("SONIC_CONSOLE_WIDTH", "92"))
+                except Exception:
+                    panel_width = 92
+
+            lines_obj = _session_panel.connector(
+                dl=dl, ctx=panel_ctx, width=panel_width
+            )
+            if isinstance(lines_obj, (list, tuple)):
+                for ln in lines_obj:
+                    print(ln)
+            elif isinstance(lines_obj, str):
+                print(lines_obj)
     except Exception as exc:
         print(f"[REPORT] session_panel.connector failed: {exc!r}", flush=True)
 
