@@ -11,154 +11,145 @@ log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class WalletSigner:
+class SignerRecord:
     """
-    In-memory representation of signing credentials for a single wallet.
+    In-memory representation of signing config for a wallet.
 
-    NOTE: Do not log secret material. Logging helpers in this module must
-    only ever include wallet_id / label / public_key.
+    This does *not* perform any Solana keypair parsing; it just
+    stores the opaque secrets / passphrases that other code can use.
     """
 
-    wallet_id: str
-    public_key: str
+    wallet_name: str
+    public_key: Optional[str] = None
     secret_base64: Optional[str] = None
     passphrase: Optional[str] = None
-    label: Optional[str] = None
     active: bool = True
+    source: str = "config"      # e.g. "config", "env", "signer.txt"
+    hint: Optional[str] = None  # non-sensitive human hint (no secrets!)
 
 
 class SignerStore:
     """
-    File-backed store for wallet signing credentials.
+    Central store for wallet signing material.
 
-    The default backing file is JSON with the following shape:
+    Backing sources (in priority order):
 
-        {
-          "wallets": [
-            {
-              "wallet_id": "main",
-              "public_key": "....",
-              "secret_base64": "....",   # optional
-              "passphrase": "....",      # optional
-              "label": "Main trading wallet",
-              "active": true
-            },
-            ...
-          ]
-        }
+    1. JSON file pointed at by $SONIC_SIGNERS_JSON (if present), default:
+       backend/config/signers.json
 
-    The **only** thing this module does is load & filter these records.
-    It does NOT write secrets back to disk.
+       Format:
+           {
+             "wallets": [
+               {
+                 "wallet_name": "default",
+                 "public_key": "...",
+                 "secret_base64": "...",
+                 "passphrase": null,
+                 "active": true,
+                 "hint": "Main trading wallet"
+               }
+             ]
+           }
+
+    2. Environment-based legacy wallet:
+       - If `WALLET_SECRET_BASE64` is set, we expose a single wallet
+         named "default" with that secret_base64, source="env".
+
+    We do *not* handle signer.txt migration in this v1; existing
+    signer.txt behaviour remains in the Jupiter/AutoCore helpers.
     """
 
-    DEFAULT_ENV_KEY = "SONIC_SIGNERS_PATH"
-    DEFAULT_RELATIVE_PATH = "backend/config/signers.json"
+    DEFAULT_JSON_ENV = "SONIC_SIGNERS_JSON"
+    DEFAULT_JSON_PATH = "backend/config/signers.json"
 
-    def __init__(self, path: Path) -> None:
-        self._path = Path(path)
-        self._cache: Dict[str, WalletSigner] = {}
-        self._loaded: bool = False
+    def __init__(self) -> None:
+        self._records: Dict[str, SignerRecord] = {}
+        self._loaded = False
 
-    # ---- construction helpers -------------------------------------------------
+    # --- public API -------------------------------------------------------
 
-    @classmethod
-    def from_env(cls) -> "SignerStore":
+    def list_wallets(self, active_only: bool = True) -> List[SignerRecord]:
+        self._ensure_loaded()
+        records = list(self._records.values())
+        if active_only:
+            records = [r for r in records if r.active]
+        return sorted(records, key=lambda r: r.wallet_name)
+
+    def get(self, wallet_name: str) -> Optional[SignerRecord]:
+        self._ensure_loaded()
+        return self._records.get(wallet_name)
+
+    def require(self, wallet_name: str) -> SignerRecord:
+        rec = self.get(wallet_name)
+        if rec is None:
+            raise KeyError(f"Signer not configured for wallet_name={wallet_name!r}")
+        return rec
+
+    def get_default(self) -> Optional[SignerRecord]:
         """
-        Construct a SignerStore using:
+        Return a 'default' signer, if any.
 
-        - $SONIC_SIGNERS_PATH if set
-        - otherwise the default relative path under the repo root
-          (backend/config/signers.json)
+        Priority:
+        - A record named 'default' in the JSON file.
+        - Otherwise, if WALLET_SECRET_BASE64 is set, synthesize a
+          'default' record from env.
         """
-        path_str = os.getenv(cls.DEFAULT_ENV_KEY, cls.DEFAULT_RELATIVE_PATH)
-        return cls(Path(path_str))
+        self._ensure_loaded()
 
-    # ---- internal loading ------------------------------------------------------
+        if "default" in self._records:
+            return self._records["default"]
 
-    def _load_if_needed(self) -> None:
+        # fallback legacy env path
+        env_secret = os.getenv("WALLET_SECRET_BASE64")
+        if env_secret:
+            return SignerRecord(
+                wallet_name="default",
+                secret_base64=env_secret,
+                active=True,
+                source="env",
+                hint="WALLET_SECRET_BASE64",
+            )
+
+        return None
+
+    # --- internal loading -------------------------------------------------
+
+    def _ensure_loaded(self) -> None:
         if self._loaded:
             return
+        self._records = {}
+        self._load_from_json()
+        # no JSON? still allow env-only fallback via get_default
+        self._loaded = True
 
-        if not self._path.exists():
-            log.warning("SignerStore path does not exist: %s", self._path)
-            self._cache = {}
-            self._loaded = True
+    def _load_from_json(self) -> None:
+        path_str = os.getenv(self.DEFAULT_JSON_ENV, self.DEFAULT_JSON_PATH)
+        path = Path(path_str)
+        if not path.exists():
+            log.info("SignerStore JSON file not found at %s; using env-only config", path)
             return
 
         try:
-            text = self._path.read_text(encoding="utf-8")
-            raw = json.loads(text or "{}")
+            raw = json.loads(path.read_text(encoding="utf-8") or "{}")
         except Exception:
-            # Fail closed: no signers if the file is unreadable / invalid JSON.
-            log.exception("Failed to load signers file at %s", self._path)
-            self._cache = {}
-            self._loaded = True
+            log.exception("Failed to parse signer store JSON at %s", path)
             return
 
         wallets = raw.get("wallets", [])
-        cache: Dict[str, WalletSigner] = {}
-
         for entry in wallets:
             try:
-                signer = WalletSigner(
-                    wallet_id=str(entry["wallet_id"]),
-                    public_key=str(entry["public_key"]),
-                    secret_base64=entry.get("secret_base64"),
-                    passphrase=entry.get("passphrase"),
-                    label=entry.get("label"),
-                    active=bool(entry.get("active", True)),
-                )
-            except KeyError as exc:
-                log.warning(
-                    "Skipping malformed signer entry in %s (missing %s)",
-                    self._path,
-                    exc,
-                )
+                name = str(entry["wallet_name"])
+            except KeyError:
+                log.warning("Skipping signer entry missing wallet_name key: %r", entry)
                 continue
 
-            cache[signer.wallet_id] = signer
-
-        self._cache = cache
-        self._loaded = True
-
-    # ---- public API ------------------------------------------------------------
-
-    def list_signers(self, active_only: bool = False) -> List[WalletSigner]:
-        """
-        Return all configured signers.
-
-        :param active_only: if True, filter to signers with active=True
-        """
-        self._load_if_needed()
-        signers = list(self._cache.values())
-        if not active_only:
-            return signers
-        return [s for s in signers if s.active]
-
-    def get_signer(self, wallet_id: str) -> Optional[WalletSigner]:
-        """Return the signer for a wallet_id, or None if not configured."""
-        self._load_if_needed()
-        return self._cache.get(wallet_id)
-
-    def require_signer(self, wallet_id: str) -> WalletSigner:
-        """
-        Return the signer for wallet_id, raising KeyError if it does not exist.
-
-        This is the method WalletCore should use when the signer is required
-        to proceed with an operation.
-        """
-        signer = self.get_signer(wallet_id)
-        if signer is None:
-            raise KeyError(f"No signer configured for wallet_id={wallet_id!r}")
-        return signer
-
-    def get_default_signer(self) -> Optional[WalletSigner]:
-        """
-        Convenience for callers that conceptually have a single 'default'
-        wallet. Returns the first active signer if any, else None.
-        """
-        actives = self.list_signers(active_only=True)
-        return actives[0] if actives else None
-
-
-__all__ = ["WalletSigner", "SignerStore"]
+            rec = SignerRecord(
+                wallet_name=name,
+                public_key=entry.get("public_key"),
+                secret_base64=entry.get("secret_base64"),
+                passphrase=entry.get("passphrase"),
+                active=bool(entry.get("active", True)),
+                source=str(entry.get("source", "config")),
+                hint=entry.get("hint"),
+            )
+            self._records[name] = rec

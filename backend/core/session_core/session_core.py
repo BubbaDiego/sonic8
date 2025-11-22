@@ -1,121 +1,179 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import List, Optional
+import uuid
+from typing import Any, Dict, List, Optional
 
 from backend.data.data_locker import DataLocker
-from backend.data.dl_sessions import SessionStore
-from backend.models.session import (
-    Session,
-    SessionCreate,
-    SessionStatus,
-    SessionUpdate,
-)
+from backend.data.dl_sessions import DLSessions
+from .session_models import Session, SessionStatus
 
 
 class SessionCore:
     """
-    Domain services for managing trading sessions.
+    High-level session domain services.
 
-    This core should be the *only* place higher layers (console, API routes)
-    talk to for session CRUD and related queries.
+    All reads/writes of session records should go through this core
+    so we have a single place to evolve the model and DB schema.
     """
 
     def __init__(self, dl: DataLocker) -> None:
         self._dl = dl
-        self._store = SessionStore(dl)
+        self._store = DLSessions(dl)
 
-    # ---- CRUD surface ---------------------------------------------------------
+    # --- basic listing / lookup ------------------------------------------
 
-    def list_sessions(
-        self,
-        wallet_id: Optional[str] = None,
-        status: Optional[SessionStatus] = None,
-    ) -> List[Session]:
-        """
-        Convenience wrapper around SessionStore.list_sessions.
-        """
-        return self._store.list_sessions(wallet_id=wallet_id, status=status)
+    def list_sessions(self) -> List[Session]:
+        return self._store.list_sessions()
 
-    def get_session(self, session_id: int) -> Optional[Session]:
-        return self._store.get_session(session_id)
+    def get_session(self, sid: str) -> Optional[Session]:
+        return self._store.get_session(sid)
+
+    # --- creation / update / delete --------------------------------------
 
     def create_session(
         self,
-        wallet_id: str,
-        name: str,
         *,
-        goal_label: Optional[str] = None,
-        goal_description: Optional[str] = None,
-        target_return_pct: Optional[float] = None,
-        max_drawdown_pct: Optional[float] = None,
+        primary_wallet_name: str,
+        name: Optional[str] = None,
+        goal: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         notes: Optional[str] = None,
     ) -> Session:
         """
-        Create and persist a new session associated with a specific wallet_id.
+        Create a new ACTIVE session bound to a primary wallet.
         """
-        payload = SessionCreate(
-            name=name,
-            wallet_id=wallet_id,
-            goal_label=goal_label,
-            goal_description=goal_description,
-            target_return_pct=target_return_pct,
-            max_drawdown_pct=max_drawdown_pct,
+        sid = uuid.uuid4().hex[:8]
+        session = Session(
+            sid=sid,
+            name=name or f"session-{sid}",
+            primary_wallet_name=primary_wallet_name,
+            wallet_names=[primary_wallet_name],
+            goal=goal,
+            tags=tags or [],
             notes=notes,
         )
-        return self._store.create_session(payload)
+        return self._store.upsert_session(session)
 
     def update_session(
         self,
-        session_id: int,
+        sid: str,
         *,
         name: Optional[str] = None,
-        wallet_id: Optional[str] = None,
-        status: Optional[SessionStatus] = None,
-        goal_label: Optional[str] = None,
-        goal_description: Optional[str] = None,
-        target_return_pct: Optional[float] = None,
-        max_drawdown_pct: Optional[float] = None,
-        started_at: Optional[datetime] = None,
-        ended_at: Optional[datetime] = None,
+        goal: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         notes: Optional[str] = None,
+        status: Optional[SessionStatus] = None,
+    ) -> Optional[Session]:
+        session = self._store.get_session(sid)
+        if not session:
+            return None
+
+        changed = False
+
+        if name is not None and name != session.name:
+            session.name = name
+            changed = True
+
+        if goal is not None and goal != session.goal:
+            session.goal = goal
+            changed = True
+
+        if tags is not None and tags != session.tags:
+            session.tags = tags
+            changed = True
+
+        if notes is not None and notes != session.notes:
+            session.notes = notes
+            changed = True
+
+        if status is not None and status != session.status:
+            session.status = status
+            if status is SessionStatus.CLOSED and session.closed_at is None:
+                # closed now
+                from datetime import datetime as _dt
+
+                session.closed_at = _dt.utcnow()
+            changed = True
+
+        if not changed:
+            return session
+
+        session.touch()
+        return self._store.upsert_session(session)
+
+    def close_session(self, sid: str) -> Optional[Session]:
+        """
+        Convenience helper: mark the session CLOSED and set closed_at.
+        """
+        return self.update_session(sid, status=SessionStatus.CLOSED)
+
+    def delete_session(self, sid: str) -> bool:
+        return self._store.delete_session(sid)
+
+    # --- wallet membership -----------------------------------------------
+
+    def attach_wallet(self, sid: str, wallet_name: str) -> Optional[Session]:
+        session = self._store.get_session(sid)
+        if not session:
+            return None
+        if wallet_name not in session.wallet_names:
+            session.wallet_names.append(wallet_name)
+            session.touch()
+            session = self._store.upsert_session(session)
+        return session
+
+    def detach_wallet(self, sid: str, wallet_name: str) -> Optional[Session]:
+        session = self._store.get_session(sid)
+        if not session:
+            return None
+        if wallet_name in session.wallet_names and wallet_name != session.primary_wallet_name:
+            session.wallet_names.remove(wallet_name)
+            session.touch()
+            session = self._store.upsert_session(session)
+        return session
+
+    # --- metrics plumbing -------------------------------------------------
+
+    def update_metric(
+        self,
+        sid: str,
+        key: str,
+        value: Any,
+        *,
+        wallet_name: Optional[str] = None,
+        accumulate: bool = False,
     ) -> Optional[Session]:
         """
-        Partially update a session. Fields left as None are not modified.
-        """
-        patch = SessionUpdate(
-            name=name,
-            wallet_id=wallet_id,
-            status=status,
-            goal_label=goal_label,
-            goal_description=goal_description,
-            target_return_pct=target_return_pct,
-            max_drawdown_pct=max_drawdown_pct,
-            started_at=started_at,
-            ended_at=ended_at,
-            notes=notes,
-        )
-        return self._store.update_session(session_id, patch)
+        Update a metric at the session level or per-wallet level.
 
-    def delete_session(self, session_id: int) -> bool:
-        """
-        Delete a session by ID.
+        If `wallet_name` is provided, metric is stored under
+        session.wallet_metrics[wallet_name][key]. Otherwise stored under
+        session.metrics[key].
 
-        This is a hard delete for now; if we later want soft deletes, we can
-        change the implementation to set status=archived instead.
+        If accumulate=True and the existing value is numeric, we add to it;
+        otherwise we just overwrite.
         """
-        return self._store.delete_session(session_id)
+        session = self._store.get_session(sid)
+        if not session:
+            return None
 
-    # ---- convenience helpers --------------------------------------------------
+        if wallet_name:
+            if wallet_name not in session.wallet_metrics:
+                session.wallet_metrics[wallet_name] = {}
+            bucket: Dict[str, Any] = session.wallet_metrics[wallet_name]
+        else:
+            bucket = session.metrics
 
-    def get_active_sessions_for_wallet(self, wallet_id: str) -> List[Session]:
+        if accumulate and key in bucket and isinstance(bucket[key], (int, float)) and isinstance(value, (int, float)):
+            bucket[key] = bucket[key] + value
+        else:
+            bucket[key] = value
+
+        session.touch()
+        return self._store.upsert_session(session)
+
+    def get_active_sessions(self) -> List[Session]:
         """
-        Helper for UI / monitoring.
-
-        Returns all 'active' sessions tied to the given wallet_id, ordered
-        consistently with SessionStore.list_sessions.
+        Convenience filter for callers that only care about active sessions.
         """
-        return self._store.list_sessions(
-            wallet_id=wallet_id,
-            status=SessionStatus.ACTIVE,
-        )
+        return [s for s in self._store.list_sessions() if s.status is SessionStatus.ACTIVE]
