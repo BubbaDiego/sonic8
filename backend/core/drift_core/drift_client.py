@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +17,7 @@ DRIFTPY_AVAILABLE: bool = False
 DRIFTPY_IMPORT_ERROR: Optional[str] = None
 
 try:
+    from solana.exceptions import SolanaRpcException
     from solana.rpc.async_api import AsyncClient
     from anchorpy import Provider, Wallet
     from driftpy.drift_client import DriftClient as _DriftClient
@@ -32,6 +34,7 @@ try:
     DRIFTPY_IMPORT_ERROR = None
 except Exception as e:  # noqa: BLE001
     # Degrade gracefully but remember why imports failed.
+    SolanaRpcException = Any  # type: ignore[assignment]
     AsyncClient = Any  # type: ignore[assignment]
     Provider = Any  # type: ignore[assignment]
     Wallet = Any  # type: ignore[assignment]
@@ -286,9 +289,39 @@ class DriftClientWrapper:
             base_asset_amount=amount,
         )
 
-        sig = await self.drift_client.place_perp_order(order_params)
-        logger.info("Drift perp order submitted; signature=%s", sig)
-        return sig
+        # Attempt to send the order with a small retry on 429s.
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                sig = await self.drift_client.place_perp_order(order_params)
+                logger.info("Drift perp order submitted; signature=%s", sig)
+                return sig
+            except SolanaRpcException as e:
+                msg = repr(e)
+                # Detect 429 Too Many Requests in the underlying error
+                if "429" in msg and attempt < max_attempts:
+                    delay = 1.0 * (2 ** (attempt - 1))
+                    logger.warning(
+                        "Solana RPC 429 Too Many Requests when placing Drift order; "
+                        "attempt %s/%s, sleeping %.1fs",
+                        attempt,
+                        max_attempts,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+
+                # Either not a 429, or we've exhausted retries.
+                logger.error(
+                    "SolanaRpcException when placing Drift order (attempt %s/%s): %s",
+                    attempt,
+                    max_attempts,
+                    msg,
+                )
+                raise
+            except Exception as e:
+                logger.error("Unexpected error placing Drift order: %s", repr(e))
+                raise
 
     async def get_balance_summary(self) -> Dict[str, Any]:
         """

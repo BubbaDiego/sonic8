@@ -34,8 +34,11 @@ class DriftConfig:
         - DRIFT_WALLET_SECRET_BASE64
         - WALLET_SECRET_BASE64
         """
+        # Prefer a dedicated Drift RPC if provided, then shared Helius URL,
+        # then global RPC_URL, then the public mainnet endpoint as a last resort.
         rpc_url = (
             os.getenv("DRIFT_RPC_URL")
+            or os.getenv("HELIUS_RPC_URL")
             or os.getenv("RPC_URL")
             or "https://api.mainnet-beta.solana.com"
         )
