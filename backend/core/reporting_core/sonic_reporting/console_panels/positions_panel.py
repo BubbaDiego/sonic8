@@ -516,8 +516,15 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
         header_line = table_lines[0]
         data_lines = table_lines[1:]
 
-        # Hard override: make totals row bright cyan, ignore config
+        # Hard override: make totals row bright cyan
         totals_color = "bright_cyan"
+
+        if data_lines:
+            body_rows = data_lines[:-1]
+            totals_row = data_lines[-1]
+        else:
+            body_rows = []
+            totals_row = ""
 
         # Header
         lines.extend(
@@ -526,14 +533,6 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
                 [paint_line(header_line, body_cfg.get("column_header_text_color", ""))],
             )
         )
-
-        # Body rows: all except last
-        if data_lines:
-            body_rows = data_lines[:-1]
-            totals_row = data_lines[-1]
-        else:
-            body_rows = []
-            totals_row = ""
 
         for ln in body_rows:
             lines.extend(
