@@ -8,12 +8,14 @@ from .drift_config import DriftConfig
 
 logger = logging.getLogger(__name__)
 
-# DriftPy + Solana imports are optional; we detect availability.
+# Optional DriftPy + Solana imports; we gate on DRIFTPY_AVAILABLE.
 try:
     from solana.rpc.async_api import AsyncClient
     from anchorpy import Provider, Wallet
     from driftpy.drift_client import DriftClient as _DriftClient
     from driftpy.constants.config import configs as drift_configs
+    from driftpy.constants.numeric_constants import BASE_PRECISION
+    from driftpy.types import PositionDirection
 
     DRIFTPY_AVAILABLE: bool = True
 except Exception:  # noqa: BLE001
@@ -22,9 +24,11 @@ except Exception:  # noqa: BLE001
     Wallet = Any  # type: ignore[assignment]
     _DriftClient = Any  # type: ignore[assignment]
     drift_configs = {}
+    BASE_PRECISION = 1
+    PositionDirection = Any  # type: ignore[assignment]
     DRIFTPY_AVAILABLE = False
 
-# Import the existing signer utilities (solder Keypair + mnemonic support)
+# Existing signer utilities (signer.txt + mnemonic support)
 try:
     from backend.services.signer_loader import load_signer
 except Exception as e:  # pragma: no cover
@@ -40,9 +44,10 @@ class DriftClientWrapper:
     This class centralizes all communication with Drift so that the rest
     of Sonic never needs to import driftpy directly.
 
-    NOTE: For now, only .connect() is implemented. The higher-level
-    methods (get_markets, get_open_positions, place_perp_order) are
-    stubbed and will be wired in a follow-up pass.
+    For this pass:
+    - .connect() is fully implemented.
+    - .place_perp_order() opens a simple perp position via DriftPy.
+    - .get_markets() / .get_open_positions() remain stubs.
     """
 
     config: DriftConfig
@@ -60,16 +65,14 @@ class DriftClientWrapper:
         Initialize RPC client and attempt to load the signer via signer_loader.
 
         Behavior:
-        - Uses signer_loader.load_signer() which resolves signer.txt (or
-          SONIC_SIGNER_PATH) and supports:
-            * id.json arrays
-            * base64 blobs
-            * key=value text with mnemonic=... [, passphrase=...]
-            * plain 12–24 word mnemonics
+        - Uses signer_loader.load_signer() to resolve signer.txt (or SONIC_SIGNER_PATH).
         - Opens an AsyncClient against config.rpc_url.
-        - If driftpy is available, prepares a Provider using Anchor's Wallet.
-          (We intentionally defer constructing DriftClient until we wire
-          its usage in follow-up passes.)
+        - If DriftPy is available:
+            * Builds Provider(wallet, connection).
+            * Builds DriftClient.from_config(configs[cluster], provider).
+            * Ensures sub-account 0 exists and is subscribed.
+
+        This method is idempotent; subsequent calls are no-ops.
         """
         if self.connected:
             return
@@ -77,10 +80,10 @@ class DriftClientWrapper:
         if load_signer is None:
             raise RuntimeError(
                 "backend.services.signer_loader.load_signer is not available; "
-                "cannot initialize DriftClientWrapper. Ensure sonic6/sonic8 services are installed."
+                "cannot initialize DriftClientWrapper. Ensure services are installed."
             )
 
-        # 1) Load signer using the canonical signer_loader
+        # 1) Load signer using canonical signer_loader
         try:
             kp = load_signer()  # solders.keypair.Keypair from signer.txt
         except Exception as e:
@@ -94,18 +97,36 @@ class DriftClientWrapper:
         logger.info("Connecting to Solana RPC for Drift: %s", self.config.rpc_url)
         self.rpc_client = AsyncClient(self.config.rpc_url, commitment=self.config.commitment)
 
-        # 3) Optionally prepare an Anchor-style Provider if DriftPy is installed
+        # 3) Prepare Provider + DriftClient if DriftPy is installed
         if DRIFTPY_AVAILABLE:
             try:
-                wallet = Wallet(kp)  # AnchorPy wallet accepts solders Keypair
+                wallet = Wallet(kp)
                 self.provider = Provider(self.rpc_client, wallet)
-                # NOTE: we deliberately do NOT construct DriftClient yet.
-                # Once we start using drift_client, we will pick the right
-                # config from drift_configs[self.cluster] and call its ctor.
-                logger.info("DriftPy detected; provider prepared (cluster=%s).", self.cluster)
+                cfg = drift_configs.get(self.cluster)
+                if cfg is None:
+                    raise KeyError(f"No Drift config for cluster '{self.cluster}'")
+
+                self.drift_client = _DriftClient.from_config(cfg, self.provider)
+
+                # Ensure a user account exists & subscribe it
+                try:
+                    # Try to attach the default sub-account (0)
+                    await self.drift_client.add_user(0)
+                except Exception as add_err:
+                    logger.warning(
+                        "add_user(0) failed; attempting initialize_user(): %s", add_err
+                    )
+                    # If user account doesn't exist yet, initialize and retry
+                    await self.drift_client.initialize_user()
+                    await self.drift_client.add_user(0)
+
+                await self.drift_client.subscribe()
+                logger.info("Drift client subscribed (cluster=%s).", self.cluster)
+
             except Exception as e:
-                logger.error("Failed to prepare DriftPy Provider: %s", e)
-                # We still consider ourselves "connected" for RPC-only flows.
+                logger.error("Failed to prepare DriftPy client: %s", e)
+                # We still consider ourselves "connected" for RPC-only flows,
+                # but trading will fail with a clear error.
 
         self.connected = True
 
@@ -121,11 +142,6 @@ class DriftClientWrapper:
         """
         Fetch and return a list of Drift perp markets as plain dicts.
 
-        Returns
-        -------
-        List[dict]
-            A list of normalized market records suitable for persistence.
-
         NOTE: Stub implementation for now.
         """
         logger.debug("DriftClientWrapper.get_markets() called.")
@@ -134,16 +150,6 @@ class DriftClientWrapper:
     async def get_open_positions(self, owner: Optional[str] = None) -> List[dict]:
         """
         Fetch open perp positions for the configured wallet or for a specific owner.
-
-        Parameters
-        ----------
-        owner : Optional[str]
-            Optional base58 owner address; if omitted, use self.owner_pubkey.
-
-        Returns
-        -------
-        List[dict]
-            Position records as plain dicts.
 
         NOTE: Stub implementation for now.
         """
@@ -163,16 +169,22 @@ class DriftClientWrapper:
         """
         Place a perp order on Drift.
 
+        IMPORTANT:
+        - For now, `size_usd` is treated as *base size* (e.g. 0.1 SOL), not USD notional.
+          The Drift Console text is updated to reflect this.
+        - We rely on DriftClient.get_market_index_and_type(name) to resolve the market index
+          instead of hard-coding indices. Example: "SOL-PERP" -> (0, MarketType.Perp()).
+
         Parameters
         ----------
         symbol :
             Market symbol such as 'SOL-PERP'.
         size_usd :
-            Notional size of the order in USD.
+            Base size in units (e.g. 0.1 SOL), will be converted to BASE_PRECISION.
         side :
             'long' or 'short'.
         reduce_only :
-            If True, do not increase net exposure; only reduce.
+            Currently unused; reserved for future use.
         client_id :
             Optional client-order ID for idempotency and tracking.
 
@@ -180,21 +192,58 @@ class DriftClientWrapper:
         -------
         str
             The transaction signature (base58) for the submitted order.
-
-        NOTE: Stub implementation for now.
         """
-        logger.debug(
-            "DriftClientWrapper.place_perp_order(symbol=%s, size_usd=%s, side=%s, "
-            "reduce_only=%s, client_id=%s)",
+        if not DRIFTPY_AVAILABLE:
+            raise RuntimeError(
+                "DriftPy is not installed in this environment. "
+                "Install it with `pip install driftpy` to place Drift orders."
+            )
+
+        # Ensure connection + Drift client ready
+        await self.connect()
+        if self.drift_client is None:
+            raise RuntimeError("Drift client is not initialized; cannot place orders.")
+
+        # Resolve market index from symbol using Drift's own helper
+        result = self.drift_client.get_market_index_and_type(symbol)
+        if result is None:
+            raise ValueError(f"Unknown Drift market symbol: {symbol}")
+        market_index, market_type = result  # we assume symbol is for a perp market
+
+        # Convert base size to on-chain units
+        try:
+            base_size = float(size_usd)
+        except Exception as e:
+            raise ValueError(f"Invalid size value: {size_usd}") from e
+
+        amount = int(base_size * BASE_PRECISION)
+        if amount <= 0:
+            raise ValueError(f"Order size must be positive; got {base_size}.")
+
+        # Direction mapping
+        side_norm = side.strip().lower()
+        if side_norm not in ("long", "short"):
+            raise ValueError(f"Unsupported side: {side}")
+        direction = PositionDirection.LONG() if side_norm == "long" else PositionDirection.SHORT()
+
+        logger.info(
+            "Placing Drift perp order: symbol=%s market_index=%s side=%s base_size=%s amount=%s",
             symbol,
-            size_usd,
-            side,
-            reduce_only,
-            client_id,
+            market_index,
+            side_norm,
+            base_size,
+            amount,
         )
-        raise NotImplementedError(
-            "DriftClientWrapper.place_perp_order is not implemented yet."
+
+        # Use the simple open_position helper as documented in DriftPy examples.
+        sig = await self.drift_client.open_position(
+            direction=direction,
+            amount=amount,
+            market_index=market_index,
         )
+
+        logger.info("Drift perp order submitted; signature=%s", sig)
+        return sig
 
 
 __all__ = ["DriftClientWrapper", "DRIFTPY_AVAILABLE"]
