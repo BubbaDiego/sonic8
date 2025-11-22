@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from backend.core.core_constants import SONIC_MONITOR_CONFIG_PATH  # NEW
+from backend.core.reporting_core.sonic_reporting import console_panels
 from backend.core.reporting_core.sonic_reporting.console_panels.theming import (
     get_panel_order,
     is_enabled,
@@ -43,6 +44,11 @@ DEFAULT_PANEL_MODULES: List[str] = [
     #   panel in monitor_core.sonic.reporting.console.runner.run_console_reporters().
    # "backend.core.reporting_core.sonic_reporting.console_panels.resolve_log_panel",
 ]
+
+for _spec in console_panels.PANEL_SPECS:
+    _mod_path = _spec.module_path or getattr(_spec.module, "__name__", "")
+    if _mod_path and _mod_path not in DEFAULT_PANEL_MODULES:
+        DEFAULT_PANEL_MODULES.append(_mod_path)
 
 # Back-compat symbol; some code may import PANEL_MODULES at import-time.
 PANEL_MODULES: List[str] = list(DEFAULT_PANEL_MODULES)
@@ -140,6 +146,8 @@ def render_panel_stack(
             slug = "monitors"
         elif base == "blast":
             slug = "blast"
+        elif base == "raydium":
+            slug = "raydium"
         elif base == "market":
             slug = "market"
         elif base == "xcom":
