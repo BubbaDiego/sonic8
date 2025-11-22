@@ -28,6 +28,13 @@ class SessionCore:
     def get_session(self, sid: str) -> Optional[Session]:
         return self._store.get_session(sid)
 
+    def list_active_sessions(self) -> List[Session]:
+        """
+        Convenience wrapper returning only ACTIVE sessions.
+        """
+        all_sessions = self._store.list_sessions()
+        return [s for s in all_sessions if s.status is SessionStatus.ACTIVE]
+
     # --- creation / update / delete --------------------------------------
 
     def create_session(
@@ -100,6 +107,12 @@ class SessionCore:
 
         session.touch()
         return self._store.upsert_session(session)
+
+    def rename_session(self, sid: str, new_name: str) -> Optional[Session]:
+        """
+        Convenience helper to change a session's name.
+        """
+        return self.update_session(sid, name=new_name)
 
     def close_session(self, sid: str) -> Optional[Session]:
         """

@@ -40,6 +40,8 @@ from backend.console.cyclone_console_service import run_cyclone_console
 from backend.console.database_console_service import run_database_console
 from backend.console.db_console_service import run_db_console  # use entry with db_path
 from backend.console import panels_console, session_console
+from backend.console.wallet_core_console import run_wallet_core_console
+from backend.console.session_core_console import run_session_core_console
 # Do NOT import the config console at module import time; import lazily so we can show inline errors.
 
 
@@ -1246,6 +1248,8 @@ def main() -> None:
                 f"19. {ICON['raydium']} Raydium Console (wallet + NFTs)",
                 f"20. {ICON['xcom']} Seed XCom Providers (ENV)",
                 f"21. {ICON['market']} Market Console (Market Core)",
+                "22. WalletCore Console",
+                "23. SessionCore Console",
                 "X. 🔕  Reset XCom Snooze",
                 f"0. {ICON['exit']} Exit",
                 "",
@@ -1298,6 +1302,10 @@ def main() -> None:
             run_menu_action("Seed XCom Providers", run_database_console)
         elif choice == "21":
             run_menu_action("Market Console", launch_market_console)
+        elif choice == "22":
+            run_menu_action("WalletCore Console", run_wallet_core_console)
+        elif choice == "23":
+            run_menu_action("SessionCore Console", run_session_core_console)
         elif choice.lower() == "x":
             run_menu_action("Reset XCom Snooze", reset_xcom_snooze)
         elif choice.upper() == "C":
