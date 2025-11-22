@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from .drift_config import DriftConfig
 
@@ -19,7 +19,8 @@ try:
     from solana.rpc.async_api import AsyncClient
     from anchorpy import Provider, Wallet
     from driftpy.drift_client import DriftClient as _DriftClient
-    from driftpy.constants.numeric_constants import BASE_PRECISION
+    from driftpy.constants.config import configs as drift_configs
+    from driftpy.constants.numeric_constants import BASE_PRECISION, QUOTE_PRECISION
     from driftpy.types import PositionDirection
 
     DRIFTPY_AVAILABLE = True
@@ -32,6 +33,7 @@ except Exception as e:  # noqa: BLE001
     _DriftClient = Any  # type: ignore[assignment]
     drift_configs = {}
     BASE_PRECISION = 1
+    QUOTE_PRECISION = 1
     PositionDirection = Any  # type: ignore[assignment]
 
     DRIFTPY_AVAILABLE = False
@@ -260,6 +262,45 @@ class DriftClientWrapper:
 
         logger.info("Drift perp order submitted; signature=%s", sig)
         return sig
+
+    async def get_balance_summary(self) -> Dict[str, Any]:
+        """
+        Return a summary of the user's Drift collateral metrics.
+
+        Uses DriftClient.get_user() (which returns a DriftUser) and reads:
+        - total_collateral: net asset value including PnL, in QUOTE_PRECISION units
+        - free_collateral: collateral available for new positions, in QUOTE_PRECISION
+
+        These correspond to Drift's standard margin metrics.
+        """
+        if not DRIFTPY_AVAILABLE:
+            raise RuntimeError(
+                f"DriftPy is not available in this environment: {DRIFTPY_IMPORT_ERROR}"
+            )
+
+        await self.connect()
+        if self.drift_client is None:
+            raise RuntimeError("Drift client is not initialized; cannot fetch balances.")
+
+        # Ensure we have a user object. connect() already did add_user(0),
+        # so get_user() should give us a DriftUser bound to the active sub-account.
+        drift_user = self.drift_client.get_user()
+
+        # These methods are synchronous and operate on the subscribed accounts.
+        total_collateral = drift_user.get_total_collateral()
+        free_collateral = drift_user.get_free_collateral()
+
+        total_ui = float(total_collateral) / float(QUOTE_PRECISION)
+        free_ui = float(free_collateral) / float(QUOTE_PRECISION)
+
+        return {
+            "owner": self.owner_pubkey,
+            "total_collateral_quote": int(total_collateral),
+            "free_collateral_quote": int(free_collateral),
+            "total_collateral_ui": total_ui,
+            "free_collateral_ui": free_ui,
+            "quote_precision": int(QUOTE_PRECISION),
+        }
 
 
 __all__ = ["DriftClientWrapper", "DRIFTPY_AVAILABLE", "DRIFTPY_IMPORT_ERROR"]

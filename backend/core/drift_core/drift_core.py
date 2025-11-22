@@ -94,6 +94,18 @@ class DriftCore:
             "signer": signer_status,
         }
 
+    async def get_balance_summary(self) -> Dict[str, Any]:
+        """
+        High-level helper to fetch Drift balance metrics for the primary wallet.
+
+        Returns a dict describing:
+        - owner (pubkey)
+        - total_collateral_quote / free_collateral_quote (raw ints)
+        - total_collateral_ui / free_collateral_ui (USD-ish, QUOTE_PRECISION-normalized)
+        """
+        logger.info("DriftCore.get_balance_summary() called.")
+        return await self._client.get_balance_summary()
+
     async def sync_all_positions(self) -> None:
         """
         Delegate to DriftSyncService to refresh positions for the primary owner.

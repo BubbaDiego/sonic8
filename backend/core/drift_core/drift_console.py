@@ -150,7 +150,7 @@ async def _run_interactive() -> int:
         print()
         print("╔════════════════════════ Drift Core Console ════════════════════════╗")
         print("║ 1. Health check                                                    ║")
-        print("║ 2. Sync positions (primary wallet)                                 ║")
+        print("║ 2. Show Drift balance (total/free)                                 ║")
         print("║ 3. Open simple LONG (symbol + base size)                           ║")
         print("║ 0. Exit                                                             ║")
         print("╚════════════════════════════════════════════════════════════════════╝")
@@ -173,12 +173,30 @@ async def _run_interactive() -> int:
             continue
 
         if choice == "2":
-            print("\n[Drift] Syncing positions (this is stubbed until DriftCore wiring is complete)...")
+            print("\n[Drift] Fetching Drift balances...")
             try:
-                result = await svc.refresh_positions_and_snapshot()
-                print(result)
-            except NotImplementedError as e:
-                print(f"Not implemented yet: {e}")
+                summary = await svc.get_balance()
+            except Exception as e:
+                print(f"Error fetching Drift balances: {e}\n")
+                continue
+
+            owner = summary.get("owner")
+            total_q = summary.get("total_collateral_quote")
+            free_q = summary.get("free_collateral_quote")
+            total_ui = summary.get("total_collateral_ui")
+            free_ui = summary.get("free_collateral_ui")
+
+            print("\n=== Drift Balance Summary ===")
+            if owner:
+                print(f"Owner:                {owner}")
+            print(f"Total collateral (raw):   {total_q}")
+            print(f"Free collateral (raw):    {free_q}")
+            try:
+                print(f"Total collateral (UI):    {float(total_ui):.4f}")
+                print(f"Free collateral (UI):     {float(free_ui):.4f}")
+            except Exception:
+                print(f"Total collateral (UI):    {total_ui}")
+                print(f"Free collateral (UI):     {free_ui}")
             print()
             continue
 

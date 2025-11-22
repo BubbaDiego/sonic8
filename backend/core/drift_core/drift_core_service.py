@@ -31,6 +31,15 @@ class DriftCoreService:
         """
         return await self._core.health_check()
 
+    async def get_balance(self) -> Dict[str, Any]:
+        """
+        Fetch Drift balance summary for the primary wallet.
+
+        This is what the Drift console and any future API route should call.
+        """
+        logger.info("DriftCoreService.get_balance() called.")
+        return await self._core.get_balance_summary()
+
     async def refresh_positions_and_snapshot(self) -> Dict[str, Any]:
         """
         Refresh Drift positions and return a summary payload.
