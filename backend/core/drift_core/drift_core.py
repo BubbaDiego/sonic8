@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 from backend.data.data_locker import DataLocker
 
 from .drift_config import DriftConfig
-from .drift_client import DriftClientWrapper, DRIFTPY_AVAILABLE
+from .drift_client import DriftClientWrapper, DRIFTPY_AVAILABLE, DRIFTPY_IMPORT_ERROR
 from .drift_store import DriftStore
 from .drift_sync_service import DriftSyncService
 
@@ -90,6 +90,7 @@ class DriftCore:
         return {
             "rpc_url": self._config.rpc_url,
             "driftpy_available": DRIFTPY_AVAILABLE,
+            "driftpy_error": DRIFTPY_IMPORT_ERROR,
             "signer": signer_status,
         }
 
