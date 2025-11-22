@@ -10,8 +10,8 @@ def _get_monitor_rows(dl: Any) -> List[Dict[str, Any]]:
     """
     Extract raw monitor rows from the DataLocker.
 
-    Mirrors the pattern used by other panels: prefer dl.monitors.rows,
-    but fall back to dl.monitors.latest()/to_row() when necessary.
+    Mirrors other panels: prefer dl.monitors.rows, but fall back to
+    dl.monitors.latest()/to_row() when necessary.
     """
     if dl is None or not hasattr(dl, "monitors"):
         return []
@@ -80,28 +80,16 @@ def _fmt_float(val: Any, places: int = 2, suffix: str = "") -> str:
     return text + suffix
 
 
-def _color_state(state: str) -> str:
-    s = (state or "").upper()
-    if s == "BREACH":
-        return f"[bold red]{s}[/bold red]"
-    if s == "WARN":
-        return f"[bold yellow]{s}[/bold yellow]"
-    if s == "OK":
-        return f"[bold green]{s}[/bold green]"
-    return s or "-"
-
-
-def _build_meter(enc_pct: float, alert_pct: float, state: str, slots: int = 24) -> str:
+def _build_meter(enc_pct: float, alert_pct: float, slots: int = 24) -> str:
     """
     Build a 0–100% bar showing encroached% vs alert%.
 
-    We fill from left to right with blocks up to enc_pct, dashed beyond that,
-    and mark the alert threshold with "|" inside the bar.
+    - enc_pct: 0..100 (how deep we are into the blast radius)
+    - alert_pct: 0..100 (alert threshold)
+    - slots: number of character cells in the bar
 
-    Bar color:
-      • green  when enc < alert
-      • yellow when enc is close to alert (within 10%)
-      • red    when enc >= alert
+    We fill from left to right with "█" up to enc_pct, and "░" beyond that.
+    We mark the alert threshold with "|" when alert_pct > 0.
     """
     try:
         enc = float(enc_pct)
@@ -118,14 +106,6 @@ def _build_meter(enc_pct: float, alert_pct: float, state: str, slots: int = 24) 
     total = max(8, int(slots))
     filled_slots = int(round((enc / 100.0) * total))
 
-    # choose bar color based on where we are vs alert
-    if enc >= thr:
-        color_tag = "bold red"
-    elif enc >= max(0.0, thr - 10.0):
-        color_tag = "bold yellow"
-    else:
-        color_tag = "bold green"
-
     bar_chars: List[str] = []
     for i in range(total):
         if i < filled_slots:
@@ -141,8 +121,7 @@ def _build_meter(enc_pct: float, alert_pct: float, state: str, slots: int = 24) 
             marker_index = total - 1
         bar_chars[marker_index] = "|"
 
-    bar = "".join(bar_chars)
-    return f"[{color_tag}][{bar}][/{color_tag}]"
+    return "[" + "".join(bar_chars) + "]"
 
 
 # ───────────────────────── render ─────────────────────────
@@ -150,11 +129,11 @@ def _build_meter(enc_pct: float, alert_pct: float, state: str, slots: int = 24) 
 
 def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
     """
-    Render the Blast Radius panel using a table + per-row gauge bar.
+    Render the Blast Radius panel as a Sonic-style table + per-row meter.
 
     Columns:
 
-        Asset  Enc%  Alert%  LDist  BR   Travel%  State  Meter
+        🧨 Asset   🎯 Enc%   🎚 Alert%   💧 LDist   🧱 BR   🌪 Travel%   📊 State   Meter
     """
     dl = (ctx or {}).get("dl")
     rows = _get_monitor_rows(dl)
@@ -163,35 +142,29 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
     if not latest:
         return ["[blast] no blast radius data"]
 
-    # Header styled similarly to other panels: bold cyan labels.
+    # Header pattern matches other panels: icons + labels, plain text.
     header = (
-        f"[bold cyan]{'Asset':10} {'Enc%':>7} {'Alert%':>7} "
-        f"{'LDist':>8} {'BR':>8} {'Travel%':>9} {'State':>8}  Meter[/bold cyan]"
+        f"{'🧨 Asset':14} {'🎯 Enc%':>9} {'🎚 Alert%':>10} "
+        f"{'💧 LDist':>10} {'🧱 BR':>8} {'🌪 Travel%':>11} {'📊 State':>9}  Meter"
     )
-    sep = "[cyan]" + ("─" * (len("Asset") + len("Enc%") + len("Alert%") +
-                              len("LDist") + len("BR") + len("Travel%") +
-                              len("State") + 26)) + "[/cyan]"
+    sep = "-" * len(header)
 
     lines: List[str] = []
     lines.append(header)
     lines.append(sep)
 
-    # Sort assets for stable output
+    # Sort assets for stable output (SOL - BLAST, BTC - BLAST, etc.)
     for asset in sorted(latest.keys()):
         row = latest[asset]
         meta = row.get("meta") or {}
 
-        # encroached% / alert% are stored as value/threshold by design,
-        # but we also support meta.encroached_pct / meta.alert_pct as a fallback.
         enc_val = row.get("value", meta.get("encroached_pct"))
         alert_val = row.get("threshold", meta.get("alert_pct"))
 
         ld = meta.get("liq_distance")
         br = meta.get("blast_radius")
         travel = meta.get("travel_pct")
-
-        state_raw = str(row.get("state") or "").upper() or "-"
-        state_colored = _color_state(state_raw)
+        state = str(row.get("state") or "").upper() or "-"
 
         enc_str = _fmt_float(enc_val, places=2, suffix="%")
         alert_str = _fmt_float(alert_val, places=2, suffix="%")
@@ -208,11 +181,11 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
         except Exception:
             alert_float = 0.0
 
-        meter = _build_meter(enc_float, alert_float, state_raw, slots=24)
+        meter = _build_meter(enc_float, alert_float, slots=24)
 
         line = (
-            f"{asset:10} {enc_str:>7} {alert_str:>7} "
-            f"{ld_str:>8} {br_str:>8} {travel_str:>9} {state_colored:>8}  {meter}"
+            f"{asset:14} {enc_str:>9} {alert_str:>10} "
+            f"{ld_str:>10} {br_str:>8} {travel_str:>11} {state:>9}  {meter}"
         )
         lines.append(line)
 
