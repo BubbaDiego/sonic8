@@ -234,7 +234,12 @@ async def _run_interactive() -> int:
             except NotImplementedError as e:
                 print(f"Not implemented yet: {e}")
             except Exception as e:
-                print(f"Error placing Drift order: {e}")
+                import traceback
+
+                print(f"Error placing Drift order: {repr(e)}")
+                print("------ full traceback ------")
+                traceback.print_exc()
+                print("------ end traceback -------")
             print()
             continue
 

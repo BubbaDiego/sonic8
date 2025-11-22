@@ -203,7 +203,7 @@ class DriftClientWrapper:
         symbol :
             Market symbol such as 'SOL-PERP'.
         size_usd :
-            Base size in units (e.g. 0.1 SOL), will be converted to BASE_PRECISION.
+            Base size in units (e.g. 0.1 SOL), converted via convert_to_perp_precision.
         side :
             'long' or 'short'.
         reduce_only :
@@ -227,23 +227,26 @@ class DriftClientWrapper:
         if self.drift_client is None:
             raise RuntimeError("Drift client is not initialized; cannot place orders.")
 
-        # Resolve market index from symbol using Drift's own helper
+        # Resolve market index and type from symbol using Drift's helper
         result = self.drift_client.get_market_index_and_type(symbol)
         if result is None:
             raise ValueError(f"Unknown Drift market symbol: {symbol}")
-        market_index, market_type = result  # we assume symbol is for a perp market
+        market_index, market_type = result  # e.g. (0, MarketType.Perp())
 
-        # Convert base size to on-chain units
+        # Convert base size (UI) to on-chain base precision amount
         try:
             base_size = float(size_usd)
         except Exception as e:
             raise ValueError(f"Invalid size value: {size_usd}") from e
 
-        amount = int(base_size * BASE_PRECISION)
-        if amount <= 0:
+        if base_size <= 0:
             raise ValueError(f"Order size must be positive; got {base_size}.")
 
-        # Direction mapping (support multiple driftpy variants)
+        # Use DriftClient's helper to convert to perp precision rather than
+        # manually multiplying by BASE_PRECISION, to match docs exactly.
+        amount = self.drift_client.convert_to_perp_precision(base_size)
+
+        # Direction mapping (we already have robust resolution)
         side_norm = side.strip().lower()
         if side_norm not in ("long", "short"):
             raise ValueError(f"Unsupported side: {side}")
@@ -252,7 +255,6 @@ class DriftClientWrapper:
             for attr in attr_candidates:
                 if hasattr(PositionDirection, attr):
                     val = getattr(PositionDirection, attr)
-                    # Some versions expose a callable (Long()), others a constant (LONG)
                     return val() if callable(val) else val
             raise RuntimeError(
                 f"PositionDirection does not expose any of {attr_candidates} "
@@ -265,18 +267,17 @@ class DriftClientWrapper:
             direction = _resolve_direction(("SHORT", "Short"))
 
         logger.info(
-            "Placing Drift perp order: symbol=%s market_index=%s side=%s base_size=%s amount=%s",
+            "Placing Drift perp order: symbol=%s market_index=%s side=%s base_size=%s amount=%s market_type=%s",
             symbol,
             market_index,
             side_norm,
             base_size,
             amount,
+            market_type,
         )
 
-        # Build OrderParams explicitly to avoid deprecated helpers and ensure
-        # market_type is set (required in your installed driftpy).
-        # This is equivalent to the examples in the docs that call
-        # OrderParams(...) then drift_client.place_perp_order(order_params).
+        # Build OrderParams for a market-style perp order. If Drift later requires
+        # extra fields (oracle offsets, slippage, etc.), we can add them here.
         order_params = OrderParams(
             order_type=OrderType.Market(),
             market_index=market_index,
@@ -286,7 +287,6 @@ class DriftClientWrapper:
         )
 
         sig = await self.drift_client.place_perp_order(order_params)
-
         logger.info("Drift perp order submitted; signature=%s", sig)
         return sig
 
