@@ -51,12 +51,12 @@ class DriftSyncService:
         """
         Convenience method to sync positions for the primary configured wallet.
 
-        Ownership resolution (wallet name vs raw pubkey) will be defined by
-        DriftCore in a later pass.
-
-        NOTE: Stub implementation for now.
+        For now this is a no-op stub that logs and returns without raising, so
+        the Drift console "Sync positions" option doesn't blow up. A future
+        pass will:
+        - call self._client.get_open_positions()
+        - map to Sonic positions via DriftStore
+        - persist via DataLocker.
         """
-        logger.info("DriftSyncService.sync_all_positions() called.")
-        raise NotImplementedError(
-            "DriftSyncService.sync_all_positions is not implemented yet."
-        )
+        logger.info("DriftSyncService.sync_all_positions() called (stub, no-op).")
+        return None
