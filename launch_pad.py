@@ -66,10 +66,21 @@ def _launch_config_console_inprocess() -> int:
     except Exception as e:
         console.print(f"[bold red]Config Console crashed:[/bold red] {e}")
         return 2
+# type: ignore to permit optional runtime dependencies
 try:
     from backend.data.data_locker import DataLocker  # type: ignore
 except Exception:  # pragma: no cover - optional dependency at runtime
     DataLocker = None  # type: ignore
+
+try:
+    from backend.core.wallet_core.wallet_core import WalletCore  # type: ignore
+except Exception:  # pragma: no cover - optional dependency at runtime
+    WalletCore = None  # type: ignore
+
+try:
+    from backend.core.session_core import SessionCore  # type: ignore
+except Exception:  # pragma: no cover - optional dependency at runtime
+    SessionCore = None  # type: ignore
 # --- spec toolchain bootstrap (ensures cwd/PYTHONPATH + pyyaml/jsonschema) ---
 try:
     from backend.scripts.spec_bootstrap import preflight as spec_preflight
@@ -312,6 +323,39 @@ def _launch_db_console() -> None:
         except Exception:
             db_path = None
     run_db_console(db_path)
+
+
+def _handle_wallet_manager_console(dl: DataLocker | None) -> None:
+    """
+    Launch the new WalletCore Console, reusing the shared DataLocker.
+    """
+
+    if WalletCore is None:
+        console.print("[yellow]WalletCore not available; cannot launch WalletCore Console.[/]")
+        return
+    if dl is None:
+        console.print("[yellow]DataLocker not available; cannot launch WalletCore Console.[/]")
+        return
+
+    wallet_core = WalletCore(dl)  # type: ignore[arg-type]
+    run_wallet_core_console(wallet_core)
+
+
+def _handle_session_goals_console(dl: DataLocker | None) -> None:
+    """
+    Launch the new SessionCore Console, reusing the shared DataLocker.
+    """
+
+    if SessionCore is None or WalletCore is None:
+        console.print("[yellow]SessionCore or WalletCore not available; cannot launch SessionCore Console.[/]")
+        return
+    if dl is None:
+        console.print("[yellow]DataLocker not available; cannot launch SessionCore Console.[/]")
+        return
+
+    wallet_core = WalletCore(dl)  # type: ignore[arg-type]
+    session_core = SessionCore(dl)  # type: ignore[arg-type]
+    run_session_core_console(session_core, wallet_core)
 
 
 # ──────────────────────────── Actions ─────────────────────────────────────────
@@ -1222,6 +1266,14 @@ def _print_panel(body: str, title: str, border_style: str = "bright_magenta") ->
 
 
 def main() -> None:
+    dl: DataLocker | None = None
+    if "DataLocker" in globals() and DataLocker is not None:
+        try:
+            dl = DataLocker.get_instance()  # type: ignore[arg-type]
+        except Exception as exc:
+            console.print(f"[yellow]DataLocker unavailable ({exc}).[/]")
+            dl = None
+
     while True:
         clear_screen()
         banner()
@@ -1248,8 +1300,6 @@ def main() -> None:
                 f"19. {ICON['raydium']} Raydium Console (wallet + NFTs)",
                 f"20. {ICON['xcom']} Seed XCom Providers (ENV)",
                 f"21. {ICON['market']} Market Console (Market Core)",
-                "22. WalletCore Console",
-                "23. SessionCore Console",
                 "X. 🔕  Reset XCom Snooze",
                 f"0. {ICON['exit']} Exit",
                 "",
@@ -1285,13 +1335,13 @@ def main() -> None:
         elif choice == "12":
             run_menu_action("Fun Console", run_fun_console)
         elif choice == "13":
-            run_menu_action("Wallet Manager", wallet_menu)
+            run_menu_action("Wallet Manager", lambda: _handle_wallet_manager_console(dl))
         elif choice == "14":
             run_menu_action("Launch Cyclone App", run_cyclone_console)
         elif choice == "15":
             run_menu_action("Launch Drift Console", launch_drift_console)
         elif choice == "16":
-            run_menu_action("Session___Goals", goals_menu)
+            run_menu_action("Session___Goals", lambda: _handle_session_goals_console(dl))
         elif choice == "17":
             run_menu_action("Generate Specs / Teaching Pack", run_daily_maintenance)
         elif choice == "18":
@@ -1302,10 +1352,6 @@ def main() -> None:
             run_menu_action("Seed XCom Providers", run_database_console)
         elif choice == "21":
             run_menu_action("Market Console", launch_market_console)
-        elif choice == "22":
-            run_menu_action("WalletCore Console", run_wallet_core_console)
-        elif choice == "23":
-            run_menu_action("SessionCore Console", run_session_core_console)
         elif choice.lower() == "x":
             run_menu_action("Reset XCom Snooze", reset_xcom_snooze)
         elif choice.upper() == "C":
