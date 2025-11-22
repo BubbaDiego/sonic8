@@ -4,11 +4,18 @@ import argparse
 import asyncio
 import logging
 import os
+import sys
+from pathlib import Path
 from typing import Optional, Sequence
+
+# Ensure repo root is on sys.path when running as a script
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from backend.data.data_locker import DataLocker
 
-from .drift_core_service import DriftCoreService
+from backend.core.drift_core.drift_core_service import DriftCoreService
 
 logger = logging.getLogger(__name__)
 
