@@ -34,18 +34,20 @@ def _wallet_table(wallets: list[WalletConsoleSummary]) -> Table:
         show_lines=False,
     )
     table.add_column("Name", style="bold cyan")
+    table.add_column("Type", justify="center")
     table.add_column("Public Key", overflow="fold")
     table.add_column("Secret", justify="center")
     table.add_column("Passphrase", justify="center")
     table.add_column("Source", style="dim")
 
     if not wallets:
-        table.add_row("[dim]no wallets configured[/dim]", "", "", "", "")
+        table.add_row("[dim]no wallets configured[/dim]", "", "", "", "", "")
         return table
 
     for w in wallets:
         table.add_row(
             w.wallet_name,
+            w.wallet_type,
             w.public_key or "[dim]unknown[/dim]",
             "✅" if w.has_secret else "❌",
             "✅" if w.has_passphrase else "❌",
@@ -96,6 +98,81 @@ def _reveal_passphrase(core: WalletCore, wallet_name: str) -> None:
     )
 
 
+def _create_wallet_flow(core: WalletCore) -> None:
+    console.print()
+    console.print("[bold]Create new wallet[/bold]")
+
+    # Wallet type
+    wtype = Prompt.ask(
+        "Wallet type [s=signer, v=view]",
+        choices=["s", "v"],
+        default="s",
+    ).lower()
+    wallet_type = "signer" if wtype == "s" else "view"
+
+    # Name and public key
+    wallet_name = Prompt.ask("Wallet name").strip()
+    public_key = Prompt.ask("Public address (Solana pubkey)").strip()
+
+    # Avatar path (optional)
+    avatar_path = Prompt.ask(
+        "Avatar image path (optional, e.g. frontend/static/images/vader_icon.jpg)",
+        default="",
+    ).strip()
+    if not avatar_path:
+        avatar_path = None
+
+    # Notes (optional, for both view & signer)
+    notes = Prompt.ask("Notes (optional)", default="").strip()
+    if not notes:
+        notes = None
+
+    secret_base64: Optional[str] = None
+    mnemonic_12: Optional[str] = None
+    passphrase: Optional[str] = None
+
+    if wallet_type == "signer":
+        # Secret type
+        stype = Prompt.ask(
+            "Secret type [1=secret_base64, 2=12-word phrase]",
+            choices=["1", "2"],
+            default="1",
+        ).strip()
+
+        if stype == "1":
+            secret_base64 = Prompt.ask(
+                "Enter secret_base64 (WALLET_SECRET_BASE64-style)"
+            ).strip()
+        else:
+            mnemonic_12 = Prompt.ask(
+                "Enter 12-word mnemonic phrase"
+            ).strip()
+
+        # Optional UI passphrase
+        passphrase_input = Prompt.ask(
+            "Wallet UI passphrase (optional)", default=""
+        ).strip()
+        if passphrase_input:
+            passphrase = passphrase_input
+
+    record = core.create_wallet(
+        wallet_name=wallet_name,
+        public_key=public_key,
+        wallet_type=wallet_type,
+        avatar_path=avatar_path,
+        notes=notes,
+        secret_base64=secret_base64,
+        mnemonic_12=mnemonic_12,
+        passphrase=passphrase,
+    )
+
+    console.print()
+    console.print(
+        f"[green]Created/updated wallet[/green] [bold]{record.wallet_name}[/bold] "
+        f"({record.wallet_type})"
+    )
+
+
 def run_wallet_core_console(dl: Optional[DataLocker] = None) -> None:
     """
     Entry point for the WalletCore console.
@@ -122,6 +199,7 @@ def run_wallet_core_console(dl: Optional[DataLocker] = None) -> None:
         console.print()
         console.print(
             "[bold]Commands:[/bold] "
+            "[cyan]c[/cyan]=create wallet  "
             "[cyan]d[/cyan]=detail  "
             "[cyan]p[/cyan]=reveal passphrase  "
             "[cyan]q[/cyan]=quit"
@@ -131,6 +209,11 @@ def run_wallet_core_console(dl: Optional[DataLocker] = None) -> None:
 
         if cmd in {"q", "quit", "exit"}:
             break
+
+        if cmd.startswith("c"):
+            _create_wallet_flow(core)
+            Prompt.ask("[dim]press Enter to return[/dim]")
+            continue
 
         if cmd.startswith("d"):
             name = Prompt.ask("Wallet name").strip()
