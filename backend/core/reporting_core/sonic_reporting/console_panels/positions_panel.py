@@ -454,7 +454,8 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
         header_line = table_lines[0]
         data_lines = table_lines[1:]
 
-        totals_color = body_cfg.get("totals_row_color", "grey50")
+        # Hard override: make totals row bright cyan, ignore config
+        totals_color = "bright_cyan"
 
         # Header
         lines.extend(
