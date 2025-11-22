@@ -65,6 +65,15 @@ class WalletSummary:
     has_signer: bool
     public_key: Optional[str] = None
 
+
+@dataclass
+class WalletConsoleSummary:
+    wallet_name: str
+    public_key: Optional[str]
+    has_secret: bool
+    has_passphrase: bool
+    source: str
+
 LAMPORTS_PER_SOL = 1_000_000_000
 
 
@@ -160,6 +169,62 @@ class WalletCore:
         """
         rec = self.get_wallet_signer_record(wallet_name)
         return rec.passphrase if rec else None
+
+    # ------------------------------------------------------------------
+    # Console helpers
+    # ------------------------------------------------------------------
+    def list_wallets_for_console(self) -> List[WalletConsoleSummary]:
+        """
+        Return a list of wallets suitable for console display.
+
+        This is a thin struct over SignerStore and is safe for TUI.
+        """
+        records = self._signer_store.list_wallets(active_only=False)
+
+        summaries: List[WalletConsoleSummary] = []
+        for rec in records:
+            summaries.append(
+                WalletConsoleSummary(
+                    wallet_name=rec.wallet_name,
+                    public_key=rec.public_key,
+                    has_secret=bool(rec.secret_base64),
+                    has_passphrase=bool(rec.passphrase),
+                    source=rec.source,
+                )
+            )
+
+        # If there are no JSON-configured signers, expose the legacy
+        # WALLET_SECRET_BASE64-based "default" wallet if present.
+        if not summaries:
+            default = self._signer_store.get_default()
+            if default is not None:
+                summaries.append(
+                    WalletConsoleSummary(
+                        wallet_name=default.wallet_name,
+                        public_key=default.public_key,
+                        has_secret=bool(default.secret_base64),
+                        has_passphrase=bool(default.passphrase),
+                        source=default.source,
+                    )
+                )
+
+        return summaries
+
+    def get_console_signer_record(self, wallet_name: str) -> Optional[SignerRecord]:
+        """
+        Helper for consoles to get the underlying SignerRecord, if any.
+
+        Does not construct Solana keypairs; higher-level code that needs
+        keypairs should continue to use existing wallet-core helpers.
+        """
+        rec = self._signer_store.get(wallet_name)
+        if rec is not None:
+            return rec
+
+        if wallet_name == "default":
+            return self._signer_store.get_default()
+
+        return None
 
     def load_wallets(self) -> List[Wallet]:
         """Return all wallets from the repository as ``Wallet`` objects."""
@@ -414,6 +479,7 @@ class WalletCore:
 __all__ = [
     "WalletCore",
     "WalletSummary",
+    "WalletConsoleSummary",
     "SignerStore",
     "SignerRecord",
 ]
