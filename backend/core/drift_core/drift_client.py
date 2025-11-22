@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+
+from solana.exceptions import SolanaRpcException
 
 from .drift_config import DriftConfig
 
@@ -17,11 +19,9 @@ DRIFTPY_AVAILABLE: bool = False
 DRIFTPY_IMPORT_ERROR: Optional[str] = None
 
 try:
-    from solana.exceptions import SolanaRpcException
     from solana.rpc.async_api import AsyncClient
     from anchorpy import Provider, Wallet
     from driftpy.drift_client import DriftClient as _DriftClient
-    from driftpy.constants.config import configs as drift_configs
     from driftpy.constants.numeric_constants import BASE_PRECISION, QUOTE_PRECISION
     from driftpy.types import (
         PositionDirection,
@@ -33,16 +33,16 @@ try:
     DRIFTPY_AVAILABLE = True
     DRIFTPY_IMPORT_ERROR = None
 except Exception as e:  # noqa: BLE001
-    # Degrade gracefully but remember why imports failed.
-    SolanaRpcException = Any  # type: ignore[assignment]
     AsyncClient = Any  # type: ignore[assignment]
     Provider = Any  # type: ignore[assignment]
     Wallet = Any  # type: ignore[assignment]
     _DriftClient = Any  # type: ignore[assignment]
-    drift_configs = {}
     BASE_PRECISION = 1
     QUOTE_PRECISION = 1
     PositionDirection = Any  # type: ignore[assignment]
+    OrderParams = Any  # type: ignore[assignment]
+    OrderType = Any  # type: ignore[assignment]
+    MarketType = Any  # type: ignore[assignment]
 
     DRIFTPY_AVAILABLE = False
     DRIFTPY_IMPORT_ERROR = repr(e)
@@ -63,11 +63,6 @@ class DriftClientWrapper:
 
     This class centralizes all communication with Drift so that the rest
     of Sonic never needs to import driftpy directly.
-
-    For this pass:
-    - .connect() is fully implemented.
-    - .place_perp_order() opens a simple perp position via DriftPy.
-    - .get_markets() / .get_open_positions() remain stubs.
     """
 
     config: DriftConfig
@@ -80,81 +75,85 @@ class DriftClientWrapper:
     connected: bool = field(default=False, init=False)
     owner_pubkey: Optional[str] = field(default=None, init=False)
 
+    # ------------------------------------------------------------------
+    # Connection / init
+    # ------------------------------------------------------------------
+
     async def connect(self) -> None:
         """
-        Initialize RPC client and attempt to load the signer via signer_loader.
+        Initialize RPC client and Drift client.
 
-        Behavior:
-        - Uses signer_loader.load_signer() to resolve signer.txt (or SONIC_SIGNER_PATH).
-        - Opens an AsyncClient against config.rpc_url.
-        - If DriftPy is available:
-            * Builds Provider(wallet, connection).
-            * Builds DriftClient(connection, wallet, env=cluster).
-            * Subscribes markets/accounts.
-            * Ensures sub-account 0 exists and is registered.
-
-        This method is idempotent; subsequent calls are no-ops once connected.
+        Steps:
+        - Load signer using signer_loader (signer.txt, mnemonic=..., etc.).
+        - Create AsyncClient with configured RPC URL.
+        - Create Provider(wallet, connection).
+        - Create DriftClient(connection, wallet, env).
+        - Subscribe accounts.
+        - Ensure sub-account 0 exists and is registered.
         """
         if self.connected and self.drift_client is not None:
             return
 
+        if not DRIFTPY_AVAILABLE:
+            raise RuntimeError(
+                f"DriftPy is not available in this environment: {DRIFTPY_IMPORT_ERROR}"
+            )
+
         if load_signer is None:
             raise RuntimeError(
                 "backend.services.signer_loader.load_signer is not available; "
-                "cannot initialize DriftClientWrapper. Ensure services are installed."
+                "cannot initialize DriftClientWrapper."
             )
 
-        # 1) Load signer using the canonical signer_loader
+        # 1) Load signer
         try:
             kp = load_signer()  # solders.keypair.Keypair from signer.txt
         except Exception as e:
             logger.error("Failed to load signer via signer_loader: %s", e)
-            raise
+            raise RuntimeError(f"Failed to load signer: {e!r}") from e
 
         self.owner_pubkey = str(kp.pubkey())
         logger.info("DriftClientWrapper using owner pubkey: %s", self.owner_pubkey)
 
-        # 2) Create RPC client
+        # 2) RPC client
         logger.info("Connecting to Solana RPC for Drift: %s", self.config.rpc_url)
         self.rpc_client = AsyncClient(self.config.rpc_url, commitment=self.config.commitment)
 
-        # 3) Prepare Provider + DriftClient if DriftPy is installed
-        if DRIFTPY_AVAILABLE:
+        # 3) Provider + DriftClient
+        try:
+            wallet = Wallet(kp)
+            self.provider = Provider(self.rpc_client, wallet)
+
+            env = self.cluster or "mainnet"
+            self.drift_client = _DriftClient(
+                connection=self.rpc_client,
+                wallet=wallet,
+                env=env,
+            )
+
+            # Subscribe BEFORE touching users
+            logger.info("Subscribing Drift client (env=%s)...", env)
+            await self.drift_client.subscribe()
+
+            # Try to attach sub-account 0; if that fails, initialize the user
             try:
-                wallet = Wallet(kp)
-                self.provider = Provider(self.rpc_client, wallet)
-
-                env = self.cluster or "mainnet"
-                self.drift_client = _DriftClient(
-                    connection=self.rpc_client,
-                    wallet=wallet,
-                    env=env,
+                await self.drift_client.add_user(0)
+                logger.info("Drift sub-account 0 registered.")
+            except Exception as add_err:
+                logger.warning(
+                    "add_user(0) failed; attempting initialize_user(): %s", add_err
                 )
-
-                # IMPORTANT: subscribe BEFORE add_user, per DriftPy expectations.
-                logger.info("Subscribing Drift client (env=%s)...", env)
+                await self.drift_client.initialize_user()
+                # Re-subscribe to see new accounts
                 await self.drift_client.subscribe()
+                await self.drift_client.add_user(0)
+                logger.info("Drift user initialized and sub-account 0 registered.")
 
-                # Try to register sub-account 0; if it doesn't exist, initialize user first.
-                try:
-                    await self.drift_client.add_user(0)
-                    logger.info("Drift sub-account 0 registered.")
-                except Exception as add_err:
-                    logger.warning(
-                        "add_user(0) failed; attempting initialize_user(): %s", add_err
-                    )
-                    await self.drift_client.initialize_user()
-                    # Re-subscribe to pick up the new user accounts, then add again.
-                    await self.drift_client.subscribe()
-                    await self.drift_client.add_user(0)
-                    logger.info("Drift user initialized and sub-account 0 registered.")
+            logger.info("Drift client ready (env=%s).", env)
 
-                logger.info("Drift client ready (env=%s).", env)
-
-            except Exception as e:
-                logger.error("Failed to prepare DriftPy client: %s", e)
-                # Bubble this up; balance/order calls should surface the error clearly.
-                raise
+        except Exception as e:
+            logger.error("Failed to prepare DriftPy client: %s", e, exc_info=True)
+            raise RuntimeError(f"Failed to prepare DriftPy client: {e!r}") from e
 
         self.connected = True
 
@@ -165,6 +164,49 @@ class DriftClientWrapper:
         if self.rpc_client is not None:
             await self.rpc_client.close()
         self.connected = False
+
+    # ------------------------------------------------------------------
+    # Balance / positions
+    # ------------------------------------------------------------------
+
+    async def get_balance_summary(self) -> Dict[str, Any]:
+        """
+        Return a summary of the user's Drift collateral metrics.
+
+        Uses DriftClient.get_user() and DriftUser methods:
+
+        - get_total_collateral()
+        - get_free_collateral()
+
+        Values are in QUOTE_PRECISION units; we also return UI-normalized floats.
+        """
+        try:
+            await self.connect()
+        except Exception as e:
+            raise RuntimeError(f"Drift connection failed: {e!r}") from e
+
+        if self.drift_client is None:
+            raise RuntimeError("Drift client is not initialized; cannot fetch balances.")
+
+        try:
+            drift_user = self.drift_client.get_user()
+            total_collateral = drift_user.get_total_collateral()
+            free_collateral = drift_user.get_free_collateral()
+        except Exception as e:
+            logger.error("Error fetching Drift balances: %s", e, exc_info=True)
+            raise RuntimeError(f"Drift balance fetch failed: {e!r}") from e
+
+        total_ui = float(total_collateral) / float(QUOTE_PRECISION)
+        free_ui = float(free_collateral) / float(QUOTE_PRECISION)
+
+        return {
+            "owner": self.owner_pubkey,
+            "total_collateral_quote": int(total_collateral),
+            "free_collateral_quote": int(free_collateral),
+            "total_collateral_ui": total_ui,
+            "free_collateral_ui": free_ui,
+            "quote_precision": int(QUOTE_PRECISION),
+        }
 
     async def get_markets(self) -> List[dict]:
         """
@@ -186,6 +228,10 @@ class DriftClientWrapper:
             "DriftClientWrapper.get_open_positions is not implemented yet."
         )
 
+    # ------------------------------------------------------------------
+    # Orders
+    # ------------------------------------------------------------------
+
     async def place_perp_order(
         self,
         symbol: str,
@@ -197,48 +243,25 @@ class DriftClientWrapper:
         """
         Place a perp order on Drift.
 
-        IMPORTANT:
-        - For now, `size_usd` is treated as *base size* (e.g. 0.1 SOL), not USD notional.
-          The Drift Console text is updated to reflect this.
-        - We rely on DriftClient.get_market_index_and_type(name) to resolve the market index
-          instead of hard-coding indices. Example: "SOL-PERP" -> (0, MarketType.Perp()).
-
-        Parameters
-        ----------
-        symbol :
-            Market symbol such as 'SOL-PERP'.
-        size_usd :
-            Base size in units (e.g. 0.1 SOL), converted via convert_to_perp_precision.
-        side :
-            'long' or 'short'.
-        reduce_only :
-            Currently unused; reserved for future use.
-        client_id :
-            Optional client-order ID for idempotency and tracking.
-
-        Returns
-        -------
-        str
-            The transaction signature (base58) for the submitted order.
+        `size_usd` is treated as base size (e.g. 0.1 SOL) and converted to
+        perp precision using DriftClient.convert_to_perp_precision().
         """
         if not DRIFTPY_AVAILABLE:
             raise RuntimeError(
-                "DriftPy is not installed in this environment. "
-                "Install it with `pip install driftpy` to place Drift orders."
+                f"DriftPy is not available in this environment: {DRIFTPY_IMPORT_ERROR}"
             )
 
-        # Ensure connection + Drift client ready
         await self.connect()
         if self.drift_client is None:
             raise RuntimeError("Drift client is not initialized; cannot place orders.")
 
-        # Resolve market index and type from symbol using Drift's helper
+        # Resolve market index and type from symbol using Drift helper
         result = self.drift_client.get_market_index_and_type(symbol)
         if result is None:
             raise ValueError(f"Unknown Drift market symbol: {symbol}")
         market_index, market_type = result  # e.g. (0, MarketType.Perp())
 
-        # Convert base size (UI) to on-chain base precision amount
+        # Convert base size to perp precision
         try:
             base_size = float(size_usd)
         except Exception as e:
@@ -247,11 +270,9 @@ class DriftClientWrapper:
         if base_size <= 0:
             raise ValueError(f"Order size must be positive; got {base_size}.")
 
-        # Use DriftClient's helper to convert to perp precision rather than
-        # manually multiplying by BASE_PRECISION, to match docs exactly.
         amount = self.drift_client.convert_to_perp_precision(base_size)
 
-        # Direction mapping (we already have robust resolution)
+        # Direction mapping (tolerate different driftpy variants)
         side_norm = side.strip().lower()
         if side_norm not in ("long", "short"):
             raise ValueError(f"Unsupported side: {side}")
@@ -281,8 +302,6 @@ class DriftClientWrapper:
             market_type,
         )
 
-        # Build OrderParams for a market-style perp order. If Drift later requires
-        # extra fields (oracle offsets, slippage, etc.), we can add them here.
         order_params = OrderParams(
             order_type=OrderType.Market(),
             market_index=market_index,
@@ -291,7 +310,6 @@ class DriftClientWrapper:
             base_asset_amount=amount,
         )
 
-        # Attempt to send the order with a small retry on 429s.
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
             try:
@@ -300,7 +318,6 @@ class DriftClientWrapper:
                 return sig
             except SolanaRpcException as e:
                 msg = repr(e)
-                # Detect 429 Too Many Requests in the underlying error
                 if "429" in msg and attempt < max_attempts:
                     delay = 1.0 * (2 ** (attempt - 1))
                     logger.warning(
@@ -313,7 +330,6 @@ class DriftClientWrapper:
                     await asyncio.sleep(delay)
                     continue
 
-                # Either not a 429, or we've exhausted retries.
                 logger.error(
                     "SolanaRpcException when placing Drift order (attempt %s/%s): %s",
                     attempt,
@@ -322,47 +338,8 @@ class DriftClientWrapper:
                 )
                 raise
             except Exception as e:
-                logger.error("Unexpected error placing Drift order: %s", repr(e))
+                logger.error("Unexpected error placing Drift order: %s", repr(e), exc_info=True)
                 raise
-
-    async def get_balance_summary(self) -> Dict[str, Any]:
-        """
-        Return a summary of the user's Drift collateral metrics.
-
-        Uses DriftClient.get_user() (which returns a DriftUser) and reads:
-        - total_collateral: net asset value including PnL, in QUOTE_PRECISION units
-        - free_collateral: collateral available for new positions, in QUOTE_PRECISION
-
-        These correspond to Drift's standard margin metrics.
-        """
-        if not DRIFTPY_AVAILABLE:
-            raise RuntimeError(
-                f"DriftPy is not available in this environment: {DRIFTPY_IMPORT_ERROR}"
-            )
-
-        await self.connect()
-        if self.drift_client is None:
-            raise RuntimeError("Drift client is not initialized; cannot fetch balances.")
-
-        # Ensure we have a user object. connect() already did add_user(0),
-        # so get_user() should give us a DriftUser bound to the active sub-account.
-        drift_user = self.drift_client.get_user()
-
-        # These methods are synchronous and operate on the subscribed accounts.
-        total_collateral = drift_user.get_total_collateral()
-        free_collateral = drift_user.get_free_collateral()
-
-        total_ui = float(total_collateral) / float(QUOTE_PRECISION)
-        free_ui = float(free_collateral) / float(QUOTE_PRECISION)
-
-        return {
-            "owner": self.owner_pubkey,
-            "total_collateral_quote": int(total_collateral),
-            "free_collateral_quote": int(free_collateral),
-            "total_collateral_ui": total_ui,
-            "free_collateral_ui": free_ui,
-            "quote_precision": int(QUOTE_PRECISION),
-        }
 
 
 __all__ = ["DriftClientWrapper", "DRIFTPY_AVAILABLE", "DRIFTPY_IMPORT_ERROR"]
