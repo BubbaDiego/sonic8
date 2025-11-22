@@ -90,11 +90,12 @@ class DriftClientWrapper:
         - If DriftPy is available:
             * Builds Provider(wallet, connection).
             * Builds DriftClient(connection, wallet, env=cluster).
-            * Ensures sub-account 0 exists and is subscribed.
+            * Subscribes markets/accounts.
+            * Ensures sub-account 0 exists and is registered.
 
-        This method is idempotent; subsequent calls are no-ops.
+        This method is idempotent; subsequent calls are no-ops once connected.
         """
-        if self.connected:
+        if self.connected and self.drift_client is not None:
             return
 
         if load_signer is None:
@@ -103,7 +104,7 @@ class DriftClientWrapper:
                 "cannot initialize DriftClientWrapper. Ensure services are installed."
             )
 
-        # 1) Load signer using canonical signer_loader
+        # 1) Load signer using the canonical signer_loader
         try:
             kp = load_signer()  # solders.keypair.Keypair from signer.txt
         except Exception as e:
@@ -123,36 +124,37 @@ class DriftClientWrapper:
                 wallet = Wallet(kp)
                 self.provider = Provider(self.rpc_client, wallet)
 
-                # Directly construct DriftClient via its __init__ as documented,
-                # instead of using from_config (which is not present in your version).
-                # Env can be "mainnet" or "devnet"; default DriftEnv is "mainnet".
                 env = self.cluster or "mainnet"
-
                 self.drift_client = _DriftClient(
                     connection=self.rpc_client,
                     wallet=wallet,
                     env=env,
-                    # Use default account_subscription / markets; we can refine later
-                    # if you want demo-mode or limited markets.
                 )
 
-                # Ensure there is a user account and subscribe
+                # IMPORTANT: subscribe BEFORE add_user, per DriftPy expectations.
+                logger.info("Subscribing Drift client (env=%s)...", env)
+                await self.drift_client.subscribe()
+
+                # Try to register sub-account 0; if it doesn't exist, initialize user first.
                 try:
                     await self.drift_client.add_user(0)
+                    logger.info("Drift sub-account 0 registered.")
                 except Exception as add_err:
                     logger.warning(
                         "add_user(0) failed; attempting initialize_user(): %s", add_err
                     )
                     await self.drift_client.initialize_user()
+                    # Re-subscribe to pick up the new user accounts, then add again.
+                    await self.drift_client.subscribe()
                     await self.drift_client.add_user(0)
+                    logger.info("Drift user initialized and sub-account 0 registered.")
 
-                await self.drift_client.subscribe()
-                logger.info("Drift client subscribed (env=%s).", env)
+                logger.info("Drift client ready (env=%s).", env)
 
             except Exception as e:
                 logger.error("Failed to prepare DriftPy client: %s", e)
-                # We still consider ourselves "connected" for RPC-only flows,
-                # but trading will fail with a clear error.
+                # Bubble this up; balance/order calls should surface the error clearly.
+                raise
 
         self.connected = True
 
