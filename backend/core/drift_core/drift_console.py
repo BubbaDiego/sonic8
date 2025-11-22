@@ -183,20 +183,40 @@ async def _run_interactive() -> int:
             continue
 
         if choice == "3":
-            symbol = input("  Symbol (e.g. SOL-PERP): ").strip()
+            # Numbered pick list for perp markets
+            markets = {
+                "1": "BTC-PERP",
+                "2": "ETH-PERP",
+                "3": "SOL-PERP",
+            }
+
+            print("\n  Choose market:")
+            print("    1) BTC-PERP")
+            print("    2) ETH-PERP")
+            print("    3) SOL-PERP")
+            market_choice = input("  Market [1-3]: ").strip()
+
+            symbol = markets.get(market_choice)
+            if symbol is None:
+                print("  Invalid market selection. Please choose 1, 2, or 3.\n")
+                continue
+
             size_raw = input("  Size (base units, e.g. 0.1 SOL): ").strip()
             try:
-                size_usd = float(size_raw)
+                size_base = float(size_raw)
             except ValueError:
                 print("  Invalid size; please enter a numeric value.\n")
                 continue
 
-            print(f"\n[Drift] Opening LONG {symbol} for ${size_usd} (stubbed until core wiring is complete)...")
+            print(f"\n[Drift] Opening LONG {symbol} size {size_base} (base units)...")
             try:
-                result = await svc.open_simple_long(symbol, size_usd)
+                result = await svc.open_simple_long(symbol, size_base)
+                print("=== Drift Simple Long ===")
                 print(result)
             except NotImplementedError as e:
                 print(f"Not implemented yet: {e}")
+            except Exception as e:
+                print(f"Error placing Drift order: {e}")
             print()
             continue
 

@@ -19,7 +19,6 @@ try:
     from solana.rpc.async_api import AsyncClient
     from anchorpy import Provider, Wallet
     from driftpy.drift_client import DriftClient as _DriftClient
-    from driftpy.constants.config import configs as drift_configs
     from driftpy.constants.numeric_constants import BASE_PRECISION
     from driftpy.types import PositionDirection
 
@@ -80,7 +79,7 @@ class DriftClientWrapper:
         - Opens an AsyncClient against config.rpc_url.
         - If DriftPy is available:
             * Builds Provider(wallet, connection).
-            * Builds DriftClient.from_config(configs[cluster], provider).
+            * Builds DriftClient(connection, wallet, env=cluster).
             * Ensures sub-account 0 exists and is subscribed.
 
         This method is idempotent; subsequent calls are no-ops.
@@ -113,26 +112,32 @@ class DriftClientWrapper:
             try:
                 wallet = Wallet(kp)
                 self.provider = Provider(self.rpc_client, wallet)
-                cfg = drift_configs.get(self.cluster)
-                if cfg is None:
-                    raise KeyError(f"No Drift config for cluster '{self.cluster}'")
 
-                self.drift_client = _DriftClient.from_config(cfg, self.provider)
+                # Directly construct DriftClient via its __init__ as documented,
+                # instead of using from_config (which is not present in your version).
+                # Env can be "mainnet" or "devnet"; default DriftEnv is "mainnet".
+                env = self.cluster or "mainnet"
 
-                # Ensure a user account exists & subscribe it
+                self.drift_client = _DriftClient(
+                    connection=self.rpc_client,
+                    wallet=wallet,
+                    env=env,
+                    # Use default account_subscription / markets; we can refine later
+                    # if you want demo-mode or limited markets.
+                )
+
+                # Ensure there is a user account and subscribe
                 try:
-                    # Try to attach the default sub-account (0)
                     await self.drift_client.add_user(0)
                 except Exception as add_err:
                     logger.warning(
                         "add_user(0) failed; attempting initialize_user(): %s", add_err
                     )
-                    # If user account doesn't exist yet, initialize and retry
                     await self.drift_client.initialize_user()
                     await self.drift_client.add_user(0)
 
                 await self.drift_client.subscribe()
-                logger.info("Drift client subscribed (cluster=%s).", self.cluster)
+                logger.info("Drift client subscribed (env=%s).", env)
 
             except Exception as e:
                 logger.error("Failed to prepare DriftPy client: %s", e)

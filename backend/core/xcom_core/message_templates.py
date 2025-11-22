@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 # Minimal symbol → human name mapping for nicer speech.
 # Falls back to the raw symbol if not found.
@@ -17,6 +17,11 @@ def _safe_num(value: Any) -> str:
         return f"{float(value):.2f}"
     except Exception:
         return str(value)
+
+
+def _fmt_number(value: Any) -> str:
+    """Format a numeric field for speech with two decimal places."""
+    return _safe_num(value)
 
 
 def _normalize_symbol(sym: Any) -> str:
@@ -80,23 +85,75 @@ def _extract_liquid_distances(event: Dict[str, Any]) -> Tuple[str | None, str | 
     return None, None, symbol
 
 
+def _extract_travel_pct(event: Dict[str, Any]) -> Optional[str]:
+    """
+    Try to extract a travel percent value for a position from an event.
+
+    We support a few possible shapes:
+
+      • event["travel_pct"]
+      • event["travel_percent"]
+      • event["meta"]["travel_pct"]
+      • event["meta"]["travel_percent"]
+
+    Returns a formatted string (e.g. "31.80%") or None if not found.
+    """
+    # direct fields on the event
+    for key in ("travel_pct", "travel_percent", "travel"):
+        if key in event and event.get(key) is not None:
+            return _fmt_number(event.get(key)) + "%"
+
+    # nested meta dict
+    meta = event.get("meta")
+    if isinstance(meta, dict):
+        for key in ("travel_pct", "travel_percent", "travel"):
+            if key in meta and meta.get(key) is not None:
+                return _fmt_number(meta.get(key)) + "%"
+
+    return None
+
+
 def build_liquidation_monitor_script(event: Dict[str, Any]) -> str:
     """
     Build the canonical liquidation monitor script shared by voice + TTS.
 
-    Text shape (using formatted numbers and a normalized asset name):
+    New wording (front-load important numbers):
 
-        "Liquidation monitor alert. Current liquidation distance of <LD>
-         is less than the alert level of <THR>. Time to mind <ASSET>. Goodbye."
+        "A liquidation distance of <LD> violates a monitor threshold of <THR>.
+         The current travel percent for this position is <TRAVEL>."
+
+    If travel percent is not available, the second sentence is omitted.
     """
     dist_txt, thr_txt, symbol = _extract_liquid_distances(event)
     if dist_txt is None or thr_txt is None:
+        # If we don't have enough data to speak the basics, bail out and let
+        # the caller fall back to summary text.
         return ""
 
     asset_name = _asset_display_name(symbol)
+    travel_txt = _extract_travel_pct(event)
 
-    return (
-        "Liquidation monitor alert. "
-        f"Current liquidation distance of {dist_txt} is less than the alert level of {thr_txt}. "
-        f"Time to mind {asset_name}. Goodbye."
+    # First sentence: LD vs threshold
+    # Example:
+    #   "A liquidation distance of 1.62 violates a monitor threshold of 2.00."
+    parts: list[str] = []
+    parts.append(
+        f"A liquidation distance of {dist_txt} violates a monitor threshold of {thr_txt}."
     )
+
+    # Second sentence: travel percent, if available
+    # Example:
+    #   "The current travel percent for this position is 31.80%."
+    if travel_txt:
+        parts.append(
+            f"The current travel percent for this position is {travel_txt}."
+        )
+
+    # Optional: keep a short asset tag at the end for clarity
+    # Example:
+    #   "Asset: Solana."
+    if asset_name and asset_name not in ("the asset", "-"):
+        parts.append(f"Asset: {asset_name}.")
+
+    # Join sentences with spaces.
+    return " ".join(parts)
