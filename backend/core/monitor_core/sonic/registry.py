@@ -18,6 +18,7 @@ from .services.hedges_service import sync_hedges_service
 from .monitors.liquid_runner import run_liquid_monitors
 from .monitors.profit_runner import run_profit_monitors
 from .monitors.market_runner import run_market_monitors
+from backend.core.monitor_core import blast_monitor
 
 Service = Callable[[Any], Dict[str, Any]]
 Runner = Callable[[Any], Dict[str, Any]]
@@ -33,6 +34,7 @@ DEFAULT_SERVICES: List[Tuple[str, Service]] = [
 
 DEFAULT_MONITORS: List[Tuple[str, Runner]] = [
     ("liquid", run_liquid_monitors),
+    ("blast", blast_monitor.run_blast_monitors),
     ("profit", run_profit_monitors),
     ("market", run_market_monitors),
 ]

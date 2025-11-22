@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping, Optional
 
 from ..models import (
+    BlastMonitorConfig,
     MonitorConfigBundle,
     MonitorDefinition,
     MonitorGlobalConfig,
@@ -225,17 +226,39 @@ def _from_new_style(raw: Dict[str, Any]) -> MonitorConfigBundle:
             params={},
         )
 
+    blast_block = raw.get("blast") if isinstance(raw.get("blast"), dict) else {}
+    blast_notifications = _parse_notifications(
+        blast_block.get("notifications") if isinstance(blast_block, Mapping) else None
+    )
+
+    blast_monitor_block = raw.get("blast_monitor")
+    if not isinstance(blast_monitor_block, dict):
+        blast_monitor_block = {}
+    alert_pct_block = blast_monitor_block.get("alert_pct") if isinstance(blast_monitor_block, Mapping) else {}
+    if not isinstance(alert_pct_block, Mapping):
+        alert_pct_block = {}
+    alert_pct: Dict[str, float] = {}
+    for sym, val in alert_pct_block.items():
+        v = _coerce_float(val, default=None)
+        if v is None:
+            continue
+        alert_pct[str(sym).upper()] = v
+
+    blast_monitor_cfg = BlastMonitorConfig(alert_pct=alert_pct)
+
     return MonitorConfigBundle(
         global_config=global_cfg,
         monitors=monitors,
         raw=raw,
+        blast_notifications=blast_notifications,
+        blast_monitor=blast_monitor_cfg,
     )
 
 
 # --- Legacy config -----------------------------------------------------------
 
 
-_LEGACY_KNOWN_MONITORS = ("sonic", "liquid", "profit", "market", "price")
+_LEGACY_KNOWN_MONITORS = ("sonic", "liquid", "profit", "market", "price", "blast")
 
 
 def _from_legacy_style(raw: Dict[str, Any]) -> MonitorConfigBundle:
@@ -342,6 +365,21 @@ def _from_legacy_style(raw: Dict[str, Any]) -> MonitorConfigBundle:
             if pf_f is not None:
                 params["portfolio_profit_usd"] = pf_f
 
+        elif name == "blast":
+            alert_pct_raw = base_block.get("alert_pct")
+            if not isinstance(alert_pct_raw, Mapping):
+                alert_pct_raw = mirror_block.get("alert_pct")
+                if not isinstance(alert_pct_raw, Mapping):
+                    alert_pct_raw = {}
+            alert_pct: Dict[str, float] = {}
+            for sym, val in alert_pct_raw.items():
+                v = _coerce_float(val, default=None)
+                if v is None:
+                    continue
+                alert_pct[str(sym).upper()] = v
+            if alert_pct:
+                params["alert_pct"] = alert_pct
+
         else:
             # For other monitors, carry through any interesting extra knobs in
             # the block(s), excluding keys we already normalize explicitly.
@@ -363,8 +401,30 @@ def _from_legacy_style(raw: Dict[str, Any]) -> MonitorConfigBundle:
             params=params,
         )
 
+    blast_block = raw.get("blast") if isinstance(raw.get("blast"), dict) else {}
+    blast_notifications = _parse_notifications(
+        blast_block.get("notifications") if isinstance(blast_block, Mapping) else None
+    )
+
+    blast_monitor_block = raw.get("blast_monitor")
+    if not isinstance(blast_monitor_block, dict):
+        blast_monitor_block = {}
+    alert_pct_block = blast_monitor_block.get("alert_pct") if isinstance(blast_monitor_block, Mapping) else {}
+    if not isinstance(alert_pct_block, Mapping):
+        alert_pct_block = {}
+    alert_pct: Dict[str, float] = {}
+    for sym, val in alert_pct_block.items():
+        v = _coerce_float(val, default=None)
+        if v is None:
+            continue
+        alert_pct[str(sym).upper()] = v
+
+    blast_monitor_cfg = BlastMonitorConfig(alert_pct=alert_pct)
+
     return MonitorConfigBundle(
         global_config=global_cfg,
         monitors=monitors,
         raw=raw,
+        blast_notifications=blast_notifications,
+        blast_monitor=blast_monitor_cfg,
     )

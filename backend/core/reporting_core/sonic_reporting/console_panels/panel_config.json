@@ -33,6 +33,7 @@
     "positions",
     "preflight",
     "monitors",
+    "blast",
     "session",
     "market",
     "xcom",
@@ -72,6 +73,13 @@
       "title": {
         "icon": "\ud83d\udd0e",
         "string": "Monitors"
+      }
+    },
+    "blast": {
+      "enabled": true,
+      "title": {
+        "icon": "\ud83d\udca5",
+        "string": "Blast Radius"
       }
     },
     "positions": {

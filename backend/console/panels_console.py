@@ -26,6 +26,7 @@ _PANELS: List[PanelInfo] = [
     PanelInfo("transition", "Transitions", "🔄"),
     PanelInfo("preflight", "Pre-Flight Config", "🧪"),
     PanelInfo("monitors", "Monitors", "🔎"),
+    PanelInfo("blast", "Blast Radius", "💥"),
     PanelInfo("session", "Session / Goals", "🎯"),
     PanelInfo("market", "Market Alerts", "💹"),
     PanelInfo("xcom", "XCom", "✉️"),

@@ -5,6 +5,7 @@ from typing import Dict, Optional
 
 from .config_oracle import ConfigOracle
 from .models import (
+    BlastMonitorConfig,
     MonitorConfigBundle,
     MonitorDefinition,
     MonitorGlobalConfig,
@@ -96,6 +97,16 @@ def get_monitor_notifications(name: str) -> MonitorNotifications:
     return get_oracle().get_monitor_notifications(name)
 
 
+def get_blast_notifications() -> MonitorNotifications:
+    """Return notification settings for the Blast monitor."""
+    return get_oracle().get_blast_notifications()
+
+
+def get_blast_monitor_config() -> BlastMonitorConfig:
+    """Return the Blast monitor configuration bundle."""
+    return get_oracle().get_blast_monitor_config()
+
+
 def get_liquid_thresholds() -> Dict[str, float]:
     """
     Return liquidation thresholds per symbol, as {symbol: threshold_float}.
@@ -171,6 +182,8 @@ __all__ = [
     "list_monitors",
     "get_monitor",
     "get_monitor_notifications",
+    "get_blast_notifications",
+    "get_blast_monitor_config",
     "get_liquid_thresholds",
     "get_liquid_blast_map",
     "get_profit_thresholds",
@@ -182,6 +195,7 @@ __all__ = [
     "MonitorDefinition",
     "MonitorGlobalConfig",
     "MonitorNotifications",
+    "BlastMonitorConfig",
     "XComConfig",
     "XComVoiceConfig",
     "XComTwilioSecrets",

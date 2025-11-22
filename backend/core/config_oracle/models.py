@@ -74,6 +74,20 @@ class MonitorGlobalConfig:
 
 
 @dataclass
+class BlastMonitorConfig:
+    """Configuration for Blast monitor thresholds."""
+
+    alert_pct: Dict[str, float] = field(default_factory=dict)
+
+    def get_alert_pct(self, symbol: str, default: float = 50.0) -> float:
+        sym = (symbol or "").upper()
+        try:
+            return float(self.alert_pct.get(sym, default))
+        except Exception:
+            return float(default)
+
+
+@dataclass
 class MonitorConfigBundle:
     """
     Full monitor configuration as seen by the Oracle.
@@ -87,6 +101,8 @@ class MonitorConfigBundle:
     monitors: Dict[str, MonitorDefinition] = field(default_factory=dict)
     raw: Dict[str, Any] = field(default_factory=dict)
     source_path: Optional[str] = None  # where the JSON came from, if known
+    blast_notifications: MonitorNotifications = field(default_factory=MonitorNotifications)
+    blast_monitor: BlastMonitorConfig = field(default_factory=BlastMonitorConfig)
 
     def get_monitor(self, name: str) -> Optional[MonitorDefinition]:
         return self.monitors.get(name)
