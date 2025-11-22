@@ -1,203 +1,170 @@
 from __future__ import annotations
 
-from dataclasses import asdict
+import json
 from datetime import datetime
 from typing import List, Optional
 
 from backend.data.data_locker import DataLocker
-from backend.models.session import (
-    Session,
-    SessionCreate,
-    SessionStatus,
-    SessionUpdate,
-)
+from backend.core.session_core.session_models import Session, SessionStatus
 
 
-class SessionStore:
+class DLSessions:
     """
-    DataLocker facade for CRUD access to trading sessions.
+    DataLocker facade for the 'sessions' table.
 
-    This should follow the same conventions as dl_portfolio, dl_positions, etc.
+    The underlying table schema should be:
+
+        CREATE TABLE IF NOT EXISTS sessions (
+            sid TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            primary_wallet_name TEXT NOT NULL,
+            wallet_names TEXT NOT NULL,       -- JSON array of strings
+            status TEXT NOT NULL,             -- one of SessionStatus values
+            goal TEXT,
+            tags TEXT NOT NULL,               -- JSON array of strings
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            closed_at TEXT,
+            metrics TEXT NOT NULL,            -- JSON object
+            wallet_metrics TEXT NOT NULL      -- JSON object
+        );
+
+    All timestamps are stored as ISO-8601 strings (UTC).
     """
 
     def __init__(self, dl: DataLocker) -> None:
         self._dl = dl
+        self._ensure_table()
 
-    def _row_to_session(self, row) -> Session:
+    # --- schema bootstrap -------------------------------------------------
+
+    def _ensure_table(self) -> None:
+        cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
+        if cursor is None:
+            return
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                sid TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                primary_wallet_name TEXT NOT NULL,
+                wallet_names TEXT NOT NULL,
+                status TEXT NOT NULL,
+                goal TEXT,
+                tags TEXT NOT NULL,
+                notes TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                closed_at TEXT,
+                metrics TEXT NOT NULL,
+                wallet_metrics TEXT NOT NULL
+            );
+            """
+        )
+        self._dl.db.commit()
+
+    # --- helpers for (de)serialization -----------------------------------
+
+    def _row_to_session(self, row: dict) -> Session:
         data = dict(row)
-        for ts_field in (
-            "created_at",
-            "updated_at",
-            "started_at",
-            "ended_at",
-            "session_start_time",
-            "last_modified",
-        ):
+        for ts_field in ("created_at", "updated_at", "closed_at"):
             value = data.get(ts_field)
-            if isinstance(value, str):
+            if value:
                 try:
                     data[ts_field] = datetime.fromisoformat(value)
-                except ValueError:
+                except Exception:
                     pass
-        status = data.get("status")
-        if status is not None:
-            try:
-                data["status"] = SessionStatus(status)
-            except ValueError:
-                pass
+
+        try:
+            data["status"] = SessionStatus(data["status"])
+        except Exception:
+            data["status"] = SessionStatus.ACTIVE
+
+        for json_field in ("wallet_names", "tags", "metrics", "wallet_metrics"):
+            raw_value = data.get(json_field)
+            if isinstance(raw_value, str):
+                try:
+                    data[json_field] = json.loads(raw_value)
+                except Exception:
+                    data[json_field] = [] if json_field in ("wallet_names", "tags") else {}
+
         return Session(**data)
 
-    def _get_cursor(self):
-        return self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
+    def _session_to_row(self, session: Session) -> dict:
+        return {
+            "sid": session.sid,
+            "name": session.name,
+            "primary_wallet_name": session.primary_wallet_name,
+            "wallet_names": json.dumps(session.wallet_names),
+            "status": session.status.value,
+            "goal": session.goal,
+            "tags": json.dumps(session.tags),
+            "notes": session.notes,
+            "created_at": session.created_at.isoformat(),
+            "updated_at": session.updated_at.isoformat(),
+            "closed_at": session.closed_at.isoformat() if session.closed_at else None,
+            "metrics": json.dumps(session.metrics),
+            "wallet_metrics": json.dumps(session.wallet_metrics),
+        }
 
-    # Read operations -----------------------------------------------------------
+    # --- CRUD API ---------------------------------------------------------
 
-    def list_sessions(
-        self,
-        wallet_id: Optional[str] = None,
-        status: Optional[SessionStatus] = None,
-    ) -> List[Session]:
-        """
-        Return all sessions, optionally filtered by wallet_id and/or status.
-
-        Results should be ordered by created_at DESC (most recent first).
-        """
-        cursor = self._get_cursor()
+    def list_sessions(self) -> List[Session]:
+        cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
         if cursor is None:
             return []
 
-        sql = "SELECT * FROM sessions"
-        params = []
-        clauses = []
+        cursor.execute("SELECT * FROM sessions ORDER BY created_at DESC")
+        rows = cursor.fetchall() or []
+        return [self._row_to_session(row) for row in rows]
 
-        if wallet_id is not None:
-            clauses.append("wallet_id = ?")
-            params.append(wallet_id)
-
-        if status is not None:
-            clauses.append("status = ?")
-            params.append(status.value if isinstance(status, SessionStatus) else status)
-
-        if clauses:
-            sql += " WHERE " + " AND ".join(clauses)
-
-        sql += " ORDER BY created_at DESC"
-
-        cursor.execute(sql, params)
-        rows = cursor.fetchall()
-        return [self._row_to_session(r) for r in rows]
-
-    def get_session(self, session_id: int) -> Optional[Session]:
-        """Return a single Session by ID, or None if it does not exist."""
-        cursor = self._get_cursor()
+    def get_session(self, sid: str) -> Optional[Session]:
+        cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
         if cursor is None:
             return None
-        cursor.execute("SELECT * FROM sessions WHERE id = ?", (session_id,))
+        cursor.execute("SELECT * FROM sessions WHERE sid = ?", (sid,))
         row = cursor.fetchone()
         return self._row_to_session(row) if row else None
 
-    # Write operations ----------------------------------------------------------
+    def upsert_session(self, session: Session) -> Session:
+        """
+        Insert or replace a session row, based on session.sid.
+        """
 
-    def create_session(self, payload: SessionCreate) -> Session:
-        """
-        Insert a new row into the sessions table and return the hydrated Session.
-        """
-        cursor = self._get_cursor()
+        cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
         if cursor is None:
-            raise RuntimeError("Database unavailable for creating session")
+            return session
 
-        now = datetime.utcnow().isoformat()
+        row = self._session_to_row(session)
         cursor.execute(
             """
-            INSERT INTO sessions (
-                name,
-                wallet_id,
-                status,
-                goal_label,
-                goal_description,
-                target_return_pct,
-                max_drawdown_pct,
-                created_at,
-                updated_at,
-                started_at,
-                ended_at,
-                notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                payload.name,
-                payload.wallet_id,
-                SessionStatus.ACTIVE.value,
-                payload.goal_label,
-                payload.goal_description,
-                payload.target_return_pct,
-                payload.max_drawdown_pct,
-                now,
-                now,
-                None,
-                None,
-                payload.notes,
-            ),
-        )
-        self._dl.db.commit()
-        session_id = cursor.lastrowid
-        session = self.get_session(int(session_id)) if session_id is not None else None
-        if session is None:
-            return Session(
-                id=int(session_id or 0),
-                name=payload.name,
-                wallet_id=payload.wallet_id,
-                goal_label=payload.goal_label,
-                goal_description=payload.goal_description,
-                target_return_pct=payload.target_return_pct,
-                max_drawdown_pct=payload.max_drawdown_pct,
-                created_at=datetime.fromisoformat(now),
-                updated_at=datetime.fromisoformat(now),
-                notes=payload.notes,
+            INSERT OR REPLACE INTO sessions (
+                sid, name, primary_wallet_name, wallet_names, status,
+                goal, tags, notes, created_at, updated_at, closed_at,
+                metrics, wallet_metrics
+            ) VALUES (
+                :sid, :name, :primary_wallet_name, :wallet_names, :status,
+                :goal, :tags, :notes, :created_at, :updated_at, :closed_at,
+                :metrics, :wallet_metrics
             )
-        return session
-
-    def update_session(self, session_id: int, patch: SessionUpdate) -> Optional[Session]:
-        """
-        Apply a partial update to the given session. If the session does not
-        exist, return None instead of raising.
-        """
-        cursor = self._get_cursor()
-        if cursor is None:
-            return None
-
-        current = self.get_session(session_id)
-        if current is None:
-            return None
-
-        patch_dict = {k: v for k, v in asdict(patch).items() if v is not None}
-        if not patch_dict:
-            return current
-
-        patch_dict["updated_at"] = datetime.utcnow().isoformat()
-
-        columns = ", ".join(f"{k} = ?" for k in patch_dict.keys())
-        params = list(patch_dict.values()) + [session_id]
-
-        cursor.execute(
-            f"UPDATE sessions SET {columns} WHERE id = ?",
-            params,
+            """,
+            row,
         )
         self._dl.db.commit()
-        return self.get_session(session_id)
+        return self.get_session(session.sid) or session
 
-    def delete_session(self, session_id: int) -> bool:
+    def delete_session(self, sid: str) -> bool:
         """
-        Delete a session by ID.
+        Delete a session by sid.
 
-        Returns True if a row was deleted, False if no such session existed.
+        Returns True if a row was deleted, False otherwise.
         """
-        cursor = self._get_cursor()
+
+        cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
         if cursor is None:
             return False
-        cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        cursor.execute("DELETE FROM sessions WHERE sid = ?", (sid,))
         self._dl.db.commit()
-        return cursor.rowcount > 0
-
-
-__all__ = ["SessionStore"]
+        return bool(cursor.rowcount)

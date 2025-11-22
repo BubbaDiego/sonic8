@@ -54,21 +54,16 @@ except Exception as e:  # pragma: no cover - gracefully handle missing deps
 from backend.data.data_locker import DataLocker
 from backend.data.dl_wallets import DLWalletManager
 from backend.core.positions_core.position_core import PositionCore
-from backend.core.wallet_core.signer_store import SignerStore, WalletSigner
+from backend.core.wallet_core.signer_store import SignerRecord, SignerStore
 from backend.core.wallet_core.wallet_service import WalletService
 from backend.models.wallet import Wallet
 
 
 @dataclass
 class WalletSummary:
-    """
-    Lightweight view of a wallet suitable for console / Launch Pad menus.
-    """
-
-    wallet_id: str
-    label: str
-    public_key: str
-    active: bool = True
+    wallet_name: str
+    has_signer: bool
+    public_key: Optional[str] = None
 
 LAMPORTS_PER_SOL = 1_000_000_000
 
@@ -80,11 +75,12 @@ class WalletCore:
         self,
         rpc_endpoint: str = "https://api.mainnet-beta.solana.com",
         dl: Optional[DataLocker] = None,
-        *,
+        *args,
         signer_store: Optional[SignerStore] = None,
+        **kwargs,
     ):
         self._dl = dl or DataLocker.get_instance()
-        self._signers = signer_store or SignerStore.from_env()
+        self._signer_store = signer_store or SignerStore()
         self._wallet_store = DLWalletManager(self._dl.db) if getattr(self._dl, "db", None) else None
 
         self.service = WalletService()
@@ -103,48 +99,67 @@ class WalletCore:
     # ------------------------------------------------------------------
     # Data access helpers
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # New: general wallet queries for other cores / consoles
+    # ------------------------------------------------------------------
     def get_active_wallets(self) -> List[WalletSummary]:
         """
-        Return a list of wallets that are considered 'active' in Sonic.
+        High-level view of wallets known to Sonic.
 
-        Implementation should:
-
-        - Use the existing wallet DL / repository to load all wallets.
-        - Filter to whatever the current 'active' flag is (e.g., is_active, enabled, etc.).
-        - Join with SignerStore where possible so we can provide public_key even
-          if the wallets table does not include it directly.
-
-        This method must be safe to call even if there is only a single
-        legacy wallet configured.
+        For now, this uses SignerStore as the source of truth: each
+        SignerRecord becomes a WalletSummary. In future, this can be
+        extended to join against the wallets table for more metadata.
         """
-
-        signers = {s.wallet_id: s for s in self._signers.list_signers()}
-        try:
-            wallets_out = self.service.list_wallets()
-        except Exception:
-            wallets_out = []
-
         summaries: List[WalletSummary] = []
-        for wallet in wallets_out:
-            is_active = bool(getattr(wallet, "is_active", True))
-            if not is_active:
-                continue
-
-            signer = signers.get(wallet.name)
-            public_key = getattr(wallet, "public_address", "") or (
-                signer.public_key if signer else ""
-            )
-            label = getattr(wallet, "name", "")
+        for rec in self._signer_store.list_wallets(active_only=True):
             summaries.append(
                 WalletSummary(
-                    wallet_id=wallet.name,
-                    label=label or wallet.name,
-                    public_key=public_key,
-                    active=is_active,
+                    wallet_name=rec.wallet_name,
+                    has_signer=bool(rec.secret_base64 or rec.passphrase),
+                    public_key=rec.public_key,
                 )
             )
-
+        # If there is no explicit config but a legacy env wallet exists,
+        # expose it as a "default" wallet.
+        if not summaries:
+            default = self._signer_store.get_default()
+            if default is not None:
+                summaries.append(
+                    WalletSummary(
+                        wallet_name=default.wallet_name,
+                        has_signer=bool(default.secret_base64 or default.passphrase),
+                        public_key=default.public_key,
+                    )
+                )
         return summaries
+
+    def get_wallet_signer_record(self, wallet_name: str) -> Optional[SignerRecord]:
+        """
+        Return the underlying SignerRecord for a given wallet, if any.
+
+        This does not construct a Solana keypair; callers that need a
+        keypair should keep using the existing WalletCore helpers that
+        build solana.keypair.Keypair objects from secrets.
+        """
+        rec = self._signer_store.get(wallet_name)
+        if rec is not None:
+            return rec
+
+        # Legacy fallback: if caller is asking for "default" and there is
+        # only an env wallet, surface that.
+        if wallet_name == "default":
+            return self._signer_store.get_default()
+        return None
+
+    def get_wallet_passphrase(self, wallet_name: str) -> Optional[str]:
+        """
+        Convenience helper to fetch just the passphrase for a wallet.
+
+        This is primarily intended for automation cores that need to
+        unlock a UI wallet (e.g. Solflare) using a stored passphrase.
+        """
+        rec = self.get_wallet_signer_record(wallet_name)
+        return rec.passphrase if rec else None
 
     def load_wallets(self) -> List[Wallet]:
         """Return all wallets from the repository as ``Wallet`` objects."""
@@ -156,28 +171,26 @@ class WalletCore:
                 w.balance = bal
         return wallets
 
-    def get_wallet_signer(self, wallet_id: str) -> Optional[WalletSigner]:
+    def get_wallet_signer(self, wallet_id: str) -> Optional[SignerRecord]:
         """
-        Return the WalletSigner for the given wallet_id, or None if none is
-        configured.
-
-        This is the preferred way for other cores / consoles to obtain
-        signing material for a specific wallet.
+        Backwards-compatible alias for get_wallet_signer_record.
         """
-        return self._signers.get_signer(wallet_id)
+        return self.get_wallet_signer_record(wallet_id)
 
-    def require_wallet_signer(self, wallet_id: str) -> WalletSigner:
+    def require_wallet_signer(self, wallet_id: str) -> SignerRecord:
         """
         Strict variant that raises KeyError if no signer exists.
         """
-        return self._signers.require_signer(wallet_id)
+        record = self.get_wallet_signer_record(wallet_id)
+        if record is None:
+            raise KeyError(f"No signer configured for wallet_id={wallet_id!r}")
+        return record
 
     def get_passphrase_for_wallet(self, wallet_id: str) -> Optional[str]:
         """
         Convenience wrapper to fetch just the passphrase for a wallet, if any.
         """
-        signer = self._signers.get_signer(wallet_id)
-        return signer.passphrase if signer else None
+        return self.get_wallet_passphrase(wallet_id)
 
     def set_rpc_endpoint(self, endpoint: str) -> None:
         """Switch to a different Solana RPC endpoint."""
@@ -401,7 +414,7 @@ class WalletCore:
 __all__ = [
     "WalletCore",
     "WalletSummary",
-    "WalletSigner",
     "SignerStore",
+    "SignerRecord",
 ]
 
