@@ -238,11 +238,26 @@ class DriftClientWrapper:
         if amount <= 0:
             raise ValueError(f"Order size must be positive; got {base_size}.")
 
-        # Direction mapping
+        # Direction mapping (support multiple driftpy variants)
         side_norm = side.strip().lower()
         if side_norm not in ("long", "short"):
             raise ValueError(f"Unsupported side: {side}")
-        direction = PositionDirection.LONG() if side_norm == "long" else PositionDirection.SHORT()
+
+        def _resolve_direction(attr_candidates):
+            for attr in attr_candidates:
+                if hasattr(PositionDirection, attr):
+                    val = getattr(PositionDirection, attr)
+                    # Some versions expose a callable (Long()), others a constant (LONG)
+                    return val() if callable(val) else val
+            raise RuntimeError(
+                f"PositionDirection does not expose any of {attr_candidates} "
+                f"for side='{side_norm}'."
+            )
+
+        if side_norm == "long":
+            direction = _resolve_direction(("LONG", "Long"))
+        else:
+            direction = _resolve_direction(("SHORT", "Short"))
 
         logger.info(
             "Placing Drift perp order: symbol=%s market_index=%s side=%s base_size=%s amount=%s",
