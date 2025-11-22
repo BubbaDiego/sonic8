@@ -515,6 +515,41 @@ def launch_perps_console(new_window: bool = False) -> int:
     return run_in_console(cmd, cwd=repo_root(), title="Perps Console", new_window=new_window)
 
 
+def launch_drift_console(new_window: bool = False) -> int:
+    """
+    Launch the Drift Core console application.
+
+    This expects backend/core/drift_core/drift_console.py to exist and uses
+    the same venv-aware PYTHON_EXEC and PYTHONPATH tweaks as the Cyclone
+    script-fallback.
+    """
+    root = repo_root()
+    py = PYTHON_EXEC
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = (
+        str(root)
+        if "PYTHONPATH" not in env
+        else f"{root}{os.pathsep}{env['PYTHONPATH']}"
+    )
+
+    script = root / "backend" / "core" / "drift_core" / "drift_console.py"
+    if script.exists():
+        print("\n[Drift] Launching via script: backend\\core\\drift_core\\drift_console.py\n")
+        return run_in_console(
+            [py, str(script)],
+            cwd=root,
+            title="Drift Core Console",
+            new_window=new_window,
+            env=env,
+        )
+
+    print("[Drift] No console entry found.")
+    print("  Looked for:")
+    print("   - backend\\core\\drift_core\\drift_console.py")
+    return 1
+
+
 def launch_market_console(new_window: bool = True) -> int:
     """Launch the Market Core console."""
 
@@ -1204,16 +1239,17 @@ def main() -> None:
                 f"12. 🃏 Fun Console (Jokes / Quotes / Trivia)",
                 f"13. {ICON['wallet']} Wallet Manager",
                 f"14. {ICON['cyclone']} Launch Cyclone App",
-                f"15. {ICON['goals']} Session / Goals",
-                f"16. {ICON['maintenance']} Generate Specs / Teaching Pack",
-                f"17. {ICON['gmx']} GMX Solana Console",
-                f"18. {ICON['raydium']} Raydium Console (wallet + NFTs)",
-                f"19. {ICON['xcom']} Seed XCom Providers (ENV)",
-                f"20. {ICON['market']} Market Console (Market Core)",
+                f"15. {ICON['perps']} Launch Drift Console",
+                f"16. {ICON['goals']} Session / Goals",
+                f"17. {ICON['maintenance']} Generate Specs / Teaching Pack",
+                f"18. {ICON['gmx']} GMX Solana Console",
+                f"19. {ICON['raydium']} Raydium Console (wallet + NFTs)",
+                f"20. {ICON['xcom']} Seed XCom Providers (ENV)",
+                f"21. {ICON['market']} Market Console (Market Core)",
                 "X. 🔕  Reset XCom Snooze",
                 f"0. {ICON['exit']} Exit",
                 "",
-                "🔥 Hotkeys: [S] 🌀 Sonic  [C] 🌀 Cyclone  [M] 📈 Market  [T] ✅ Twilio  [P] 🎛 Panels",
+                "🔥 Hotkeys: [S] 🌀 Sonic  [C] 🌀 Cyclone  [D] 🎛 Drift  [M] 📈 Market  [T] ✅ Twilio  [P] 🎛 Panels",
             ]
         )
         _print_panel(menu_body, title="Main Menu")
@@ -1249,21 +1285,25 @@ def main() -> None:
         elif choice == "14":
             run_menu_action("Launch Cyclone App", run_cyclone_console)
         elif choice == "15":
-            run_menu_action("Session___Goals", goals_menu)
+            run_menu_action("Launch Drift Console", launch_drift_console)
         elif choice == "16":
-            run_menu_action("Generate Specs / Teaching Pack", run_daily_maintenance)
+            run_menu_action("Session___Goals", goals_menu)
         elif choice == "17":
-            run_menu_action("GMX Solana Console", launch_gmx_solana)
+            run_menu_action("Generate Specs / Teaching Pack", run_daily_maintenance)
         elif choice == "18":
-            run_menu_action("Raydium Console", launch_raydium_console)
+            run_menu_action("GMX Solana Console", launch_gmx_solana)
         elif choice == "19":
-            run_menu_action("Seed XCom Providers", run_database_console)
+            run_menu_action("Raydium Console", launch_raydium_console)
         elif choice == "20":
+            run_menu_action("Seed XCom Providers", run_database_console)
+        elif choice == "21":
             run_menu_action("Market Console", launch_market_console)
         elif choice.lower() == "x":
             run_menu_action("Reset XCom Snooze", reset_xcom_snooze)
         elif choice.upper() == "C":
             run_menu_action("Cyclone Console", lambda: launch_cyclone_app(new_window=True))
+        elif choice.upper() == "D":
+            run_menu_action("Drift Core Console", lambda: launch_drift_console(new_window=True))
         elif choice.upper() == "M":
             run_menu_action("Market Console", launch_market_console)
         elif choice.upper() == "T":
