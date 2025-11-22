@@ -8,62 +8,106 @@ from .drift_config import DriftConfig
 
 logger = logging.getLogger(__name__)
 
+# DriftPy + Solana imports are optional; we detect availability.
 try:
     from solana.rpc.async_api import AsyncClient
-    from solana.publickey import PublicKey
     from anchorpy import Provider, Wallet
     from driftpy.drift_client import DriftClient as _DriftClient
     from driftpy.constants.config import configs as drift_configs
 
     DRIFTPY_AVAILABLE: bool = True
-except Exception:  # noqa: BLE001 - we want to catch any import-time issues here
+except Exception:  # noqa: BLE001
     AsyncClient = Any  # type: ignore[assignment]
-    PublicKey = Any  # type: ignore[assignment]
     Provider = Any  # type: ignore[assignment]
     Wallet = Any  # type: ignore[assignment]
     _DriftClient = Any  # type: ignore[assignment]
     drift_configs = {}
     DRIFTPY_AVAILABLE = False
 
+# Import the existing signer utilities (solder Keypair + mnemonic support)
+try:
+    from backend.services.signer_loader import load_signer
+except Exception as e:  # pragma: no cover
+    load_signer = None  # type: ignore[assignment]
+    logger.warning("backend.services.signer_loader not available: %s", e)
+
 
 @dataclass
 class DriftClientWrapper:
     """
-    Thin wrapper around driftpy.DriftClient.
+    Thin wrapper around DriftPy + Solana RPC.
 
     This class centralizes all communication with Drift so that the rest
     of Sonic never needs to import driftpy directly.
 
-    The initial implementation is intentionally stubbed; a follow-up pass
-    will wire up actual RPC connections and queries.
+    NOTE: For now, only .connect() is implemented. The higher-level
+    methods (get_markets, get_open_positions, place_perp_order) are
+    stubbed and will be wired in a follow-up pass.
     """
 
     config: DriftConfig
     cluster: str = "mainnet"
+
     rpc_client: Optional[AsyncClient] = field(default=None, init=False)
-    wallet: Optional[Wallet] = field(default=None, init=False)
     provider: Optional[Provider] = field(default=None, init=False)
     drift_client: Optional[_DriftClient] = field(default=None, init=False)
+
     connected: bool = field(default=False, init=False)
+    owner_pubkey: Optional[str] = field(default=None, init=False)
 
     async def connect(self) -> None:
         """
-        Initialize RPC client, wallet, provider and Drift client.
+        Initialize RPC client and attempt to load the signer via signer_loader.
 
-        This method should be awaited once on startup by whoever owns the
-        DriftClientWrapper (e.g. DriftCore).
-
-        NOTE: This is a stub for now and will be implemented in a follow-up
-        pass once the structure is stable.
+        Behavior:
+        - Uses signer_loader.load_signer() which resolves signer.txt (or
+          SONIC_SIGNER_PATH) and supports:
+            * id.json arrays
+            * base64 blobs
+            * key=value text with mnemonic=... [, passphrase=...]
+            * plain 12–24 word mnemonics
+        - Opens an AsyncClient against config.rpc_url.
+        - If driftpy is available, prepares a Provider using Anchor's Wallet.
+          (We intentionally defer constructing DriftClient until we wire
+          its usage in follow-up passes.)
         """
-        if not DRIFTPY_AVAILABLE:
+        if self.connected:
+            return
+
+        if load_signer is None:
             raise RuntimeError(
-                "driftpy (and its Solana/Anchor dependencies) are not installed. "
-                "Install driftpy and required packages before using DriftCore."
+                "backend.services.signer_loader.load_signer is not available; "
+                "cannot initialize DriftClientWrapper. Ensure sonic6/sonic8 services are installed."
             )
 
-        logger.debug("DriftClientWrapper.connect() called but not yet implemented.")
-        raise NotImplementedError("DriftClientWrapper.connect is not implemented yet.")
+        # 1) Load signer using the canonical signer_loader
+        try:
+            kp = load_signer()  # solders.keypair.Keypair from signer.txt
+        except Exception as e:
+            logger.error("Failed to load signer via signer_loader: %s", e)
+            raise
+
+        self.owner_pubkey = str(kp.pubkey())
+        logger.info("DriftClientWrapper using owner pubkey: %s", self.owner_pubkey)
+
+        # 2) Create RPC client
+        logger.info("Connecting to Solana RPC for Drift: %s", self.config.rpc_url)
+        self.rpc_client = AsyncClient(self.config.rpc_url, commitment=self.config.commitment)
+
+        # 3) Optionally prepare an Anchor-style Provider if DriftPy is installed
+        if DRIFTPY_AVAILABLE:
+            try:
+                wallet = Wallet(kp)  # AnchorPy wallet accepts solders Keypair
+                self.provider = Provider(self.rpc_client, wallet)
+                # NOTE: we deliberately do NOT construct DriftClient yet.
+                # Once we start using drift_client, we will pick the right
+                # config from drift_configs[self.cluster] and call its ctor.
+                logger.info("DriftPy detected; provider prepared (cluster=%s).", self.cluster)
+            except Exception as e:
+                logger.error("Failed to prepare DriftPy Provider: %s", e)
+                # We still consider ourselves "connected" for RPC-only flows.
+
+        self.connected = True
 
     async def close(self) -> None:
         """
@@ -94,7 +138,7 @@ class DriftClientWrapper:
         Parameters
         ----------
         owner : Optional[str]
-            Optional base58 owner address; if omitted, use the configured wallet.
+            Optional base58 owner address; if omitted, use self.owner_pubkey.
 
         Returns
         -------
@@ -118,9 +162,6 @@ class DriftClientWrapper:
     ) -> str:
         """
         Place a perp order on Drift.
-
-        This is intentionally high-level; DriftCore will translate Sonic-level
-        intents into these parameters.
 
         Parameters
         ----------

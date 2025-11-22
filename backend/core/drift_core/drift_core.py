@@ -54,14 +54,43 @@ class DriftCore:
         """
         Lightweight health probe for DriftCore.
 
-        This method should be safe to call from an HTTP route or monitor.
-        It currently returns configuration and import-level status only.
+        This method is safe to call from an HTTP route or monitor.
+
+        It reports:
+        - RPC URL being used.
+        - DriftPy import availability.
+        - Signer diagnostics from backend.services.signer_loader.diagnose_signer().
         """
         logger.info("DriftCore.health_check() called.")
+
+        # Import here to avoid hard dependency if services package is missing.
+        try:
+            from backend.services.signer_loader import diagnose_signer  # type: ignore[import]
+        except Exception as e:
+            signer_status: Dict[str, Any] = {
+                "ok": False,
+                "error": f"signer_loader not available: {e}",
+            }
+        else:
+            try:
+                diag = diagnose_signer()
+                signer_status = {
+                    "ok": bool(diag.get("exists")),
+                    "spec": diag.get("spec"),
+                    "found": diag.get("found"),
+                    "exists": diag.get("exists"),
+                    "error": diag.get("error", ""),
+                }
+            except Exception as e:
+                signer_status = {
+                    "ok": False,
+                    "error": f"diagnose_signer failed: {e}",
+                }
+
         return {
             "rpc_url": self._config.rpc_url,
-            "wallet_secret_configured": bool(self._config.wallet_secret_base64),
             "driftpy_available": DRIFTPY_AVAILABLE,
+            "signer": signer_status,
         }
 
     async def sync_all_positions(self) -> None:
