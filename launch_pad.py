@@ -39,7 +39,7 @@ except Exception:
 from backend.console.cyclone_console_service import run_cyclone_console
 from backend.console.database_console_service import run_database_console
 from backend.console.db_console_service import run_db_console  # use entry with db_path
-from backend.console import panels_console, session_console
+from backend.console import panels_console
 from backend.console.wallet_core_console import run_wallet_core_console
 from backend.console.session_core_console import run_session_core_console
 # Do NOT import the config console at module import time; import lazily so we can show inline errors.
@@ -77,10 +77,6 @@ try:
 except Exception:  # pragma: no cover - optional dependency at runtime
     WalletCore = None  # type: ignore
 
-try:
-    from backend.core.session_core import SessionCore  # type: ignore
-except Exception:  # pragma: no cover - optional dependency at runtime
-    SessionCore = None  # type: ignore
 # --- spec toolchain bootstrap (ensures cwd/PYTHONPATH + pyyaml/jsonschema) ---
 try:
     from backend.scripts.spec_bootstrap import preflight as spec_preflight
@@ -341,21 +337,22 @@ def _handle_wallet_manager_console(dl: DataLocker | None) -> None:
     run_wallet_core_console(wallet_core)
 
 
-def _handle_session_goals_console(dl: DataLocker | None) -> None:
+def _handle_session_goals_console(dl: DataLocker | None = None) -> None:
     """
-    Launch the new SessionCore Console, reusing the shared DataLocker.
+    Launch the new SessionCore Console.
+
+    Reuses the shared DataLocker if provided, otherwise constructs one
+    following the same pattern as other consoles.
     """
 
-    if SessionCore is None or WalletCore is None:
-        console.print("[yellow]SessionCore or WalletCore not available; cannot launch SessionCore Console.[/]")
-        return
-    if dl is None:
-        console.print("[yellow]DataLocker not available; cannot launch SessionCore Console.[/]")
-        return
+    if dl is not None:
+        try:
+            run_session_core_console(dl)
+            return
+        except TypeError:
+            pass
 
-    wallet_core = WalletCore(dl)  # type: ignore[arg-type]
-    session_core = SessionCore(dl)  # type: ignore[arg-type]
-    run_session_core_console(session_core, wallet_core)
+    run_session_core_console()
 
 
 # ──────────────────────────── Actions ─────────────────────────────────────────
@@ -1104,12 +1101,6 @@ def wallet_menu():
         else:
             console.print("[yellow]Unknown choice.[/]")
             continue
-
-
-def goals_menu() -> None:
-    """LaunchPad entrypoint for the Session / Goals console."""
-
-    session_console.run()
 
 
 def panels_menu() -> None:
