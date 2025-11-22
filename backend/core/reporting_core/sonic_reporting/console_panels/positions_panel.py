@@ -86,6 +86,7 @@ def _normalize_position_row(row: Mapping[str, Any]) -> Dict[str, Any]:
     asset = (
         row.get("asset")
         or row.get("symbol")
+        or row.get("asset_type")
         or row.get("market")
         or "-"
     )
@@ -93,6 +94,66 @@ def _normalize_position_row(row: Mapping[str, Any]) -> Dict[str, Any]:
     normalized = dict(row)
     normalized["asset"] = str(asset)
     return normalized
+
+
+def _asset_with_side(d: Mapping[str, Any]) -> str:
+    """
+    Build an "Asset (side)" label for the Asset column.
+
+    Name:
+      - Prefer the actual symbol/name field used in the positions snapshot.
+
+    Side:
+      - Prefer an explicit side field.
+      - Fall back to the sign of size.
+    """
+
+    # --- ASSET NAME ---
+    name_field_list = ["asset", "symbol", "asset_type", "market"]
+    name: Optional[str] = None
+    for key in name_field_list:
+        val = d.get(key)
+        if val:
+            name = str(val)
+            break
+    if not name:
+        name = "-"
+
+    # --- SIDE (explicit) ---
+    side: Optional[str] = None
+
+    side_text_fields = ["side", "position_type"]
+    for key in side_text_fields:
+        raw = d.get(key)
+        if isinstance(raw, str):
+            s = raw.strip().lower()
+            if s in ("long", "short"):
+                side = s
+                break
+
+    # 3) Fallback: infer from size sign
+    if side is None:
+        size_fields = ["size", "position_size", "qty"]
+        size_val: Optional[float] = None
+        for key in size_fields:
+            val = d.get(key)
+            if val is not None:
+                try:
+                    size_val = float(val)
+                    break
+                except Exception:
+                    continue
+
+        if size_val is not None:
+            if size_val < 0:
+                side = "short"
+            elif size_val > 0:
+                side = "long"
+
+    if side:
+        return f"{name} ({side})"
+
+    return name
 
 
 def _fmt_money(v: Optional[float]) -> str:
@@ -385,6 +446,7 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
     for it in items:
         raw = _to_mapping(it)
         d = _normalize_position_row(raw)
+        asset = _asset_with_side(d)
         size = _fmt_size(_num(d.get("size")))
         value = _fmt_money(_num(d.get("value")))
         pnl = _fmt_money(_num(_first(d.get("pnl_after_fees_usd"), d.get("pnl"))))
@@ -394,7 +456,7 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
         heat = _fmt_pct(_compute_heat_pct(travel_pct))
         trav = _fmt_travel(travel_pct)
 
-        table.add_row(d.get("asset", "-"), size, value, pnl, lev, liq, heat, trav)
+        table.add_row(asset, size, value, pnl, lev, liq, heat, trav)
 
     # Totals row (no Liq total; Heat total is weighted avg)
     totals = _compute_totals_row(items)
