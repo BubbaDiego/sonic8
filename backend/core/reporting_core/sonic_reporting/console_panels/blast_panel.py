@@ -1,135 +1,126 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List
-
-from . import data_access
-from .theming import console_width, hr, title_lines
-
-PANEL_SLUG = "blast"
-PANEL_NAME = "Blast Radius"
-PANEL_ICON = "💥"
-
-
-def _resolve_dl(ctx: Any) -> Any:
-    try:
-        return data_access.dl_or_context(ctx)
-    except Exception:
-        return getattr(ctx, "dl", None)
+from typing import Any, Dict, List
 
 
 def _get_monitor_rows(dl: Any) -> List[Dict[str, Any]]:
-    if dl is None:
+    """
+    Extract raw monitor rows from the DataLocker.
+
+    This mirrors the pattern used by other panels (e.g. monitors_panel),
+    relying on dl.monitors.rows when available.
+    """
+    if dl is None or not hasattr(dl, "monitors"):
         return []
 
-    mgr = getattr(dl, "monitors", None) or getattr(dl, "dl_monitors", None)
-    if mgr is None:
+    rows = getattr(dl.monitors, "rows", None)
+    if rows is None:
+        # Some environments expose a .latest() or similar; be defensive.
+        latest = getattr(dl.monitors, "latest", None)
+        if callable(latest):
+            rows = latest()
+    if rows is None:
         return []
 
-    candidates: Iterable[Any] = []
-    for name in (
-        "select_all",
-        "list_all",
-        "all",
-        "latest",
-        "list_latest",
-        "latest_rows",
-        "get_latest",
-    ):
-        fn = getattr(mgr, name, None)
-        if callable(fn):
-            try:
-                data = fn()
-            except TypeError:
-                continue
-            if data:
-                candidates = data
-                break
-    else:
-        direct = getattr(mgr, "rows", None)
-        if direct:
-            candidates = direct
-
-    rows: List[Dict[str, Any]] = []
-    for row in candidates:
+    # Ensure it's a list of dict-ish objects.
+    out: List[Dict[str, Any]] = []
+    for row in rows:
         if isinstance(row, dict):
-            rows.append(dict(row))
-            continue
-        norm: Dict[str, Any] = {}
-        for key in (
-            "monitor",
-            "label",
-            "asset",
-            "state",
-            "value",
-            "unit",
-            "threshold",
-            "thr_value",
-            "source",
-            "meta",
-        ):
-            if hasattr(row, key):
-                norm[key] = getattr(row, key)
-        rows.append(norm)
-    return rows
+            out.append(row)
+        else:
+            # MonitorStatus and similar often expose .to_row()
+            to_row = getattr(row, "to_row", None)
+            if callable(to_row):
+                try:
+                    r = to_row()
+                    if isinstance(r, dict):
+                        out.append(r)
+                except Exception:
+                    continue
+    return out
 
 
-def _latest_blast_by_asset(rows: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def _is_blast_row(row: Dict[str, Any]) -> bool:
+    """
+    Determine whether this monitor row belongs to the Blast monitor.
+
+    We treat a row as Blast if:
+      • monitor == 'blast' (case-insensitive), OR
+      • source == 'blast' (case-insensitive).
+
+    This matches the Monitors panel behavior you see in the screenshot,
+    where the Blast row shows Source='blast'.
+    """
+    mon = str(row.get("monitor") or "").strip().lower()
+    src = str(row.get("source") or "").strip().lower()
+    if mon == "blast":
+        return True
+    if src == "blast":
+        return True
+    return False
+
+
+def _latest_by_asset(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """
+    Reduce a list of Blast rows to the last row per asset symbol.
+
+    We don't depend on timestamps here; we assume the rows are in
+    insertion order (latest last), which is how the monitor engine
+    appends them.
+    """
     latest: Dict[str, Dict[str, Any]] = {}
     for row in rows:
-        monitor = (row.get("monitor") or "").lower()
-        if monitor != "blast":
+        if not _is_blast_row(row):
             continue
-        asset = (row.get("asset") or row.get("label") or "-").upper()
+        asset = (row.get("asset") or row.get("label") or "-").strip().upper()
         latest[asset] = row
     return latest
 
 
-def _fmt_float(val: Any) -> float:
+def _fmt_float(val: Any, places: int = 2) -> str:
     try:
-        return float(val)
+        f = float(val)
     except Exception:
-        return 0.0
+        return "-"
+    fmt = f"{{:.{places}f}}"
+    return fmt.format(f)
 
 
-def render(ctx: Dict[str, Any] | None = None, width: int | None = None) -> List[str]:
-    dl = _resolve_dl(ctx)
+def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
+    """
+    Render the Blast Radius panel as a list of text lines.
+
+    Columns:
+      Asset   Enc%   Alert%   LDist   BR     Travel%   State
+    """
+    dl = (ctx or {}).get("dl")
     rows = _get_monitor_rows(dl)
-    latest = _latest_blast_by_asset(rows)
-    width = width or console_width()
 
-    if not latest:
-        return [f"[{PANEL_SLUG}] no blast radius data"]
+    blast_rows = _latest_by_asset(rows)
+    if not blast_rows:
+        return ["[blast] no blast radius data"]
 
-    lines: List[str] = []
-    lines.extend(title_lines(PANEL_NAME, icon=PANEL_ICON, width=width))
-
+    # Header
     header = f"{'Asset':6} {'Enc%':>7} {'Alert%':>7} {'LDist':>8} {'BR':>8} {'Travel%':>9} {'State':>8}"
-    lines.append(header)
-    lines.append(hr(width=len(header)))
+    sep = "-" * len(header)
+    lines: List[str] = [header, sep]
 
-    for asset, row in sorted(latest.items()):
-        val = _fmt_float(row.get("value"))
-        threshold = row.get("threshold") or {}
-        if isinstance(threshold, dict):
-            thr_val = threshold.get("value")
-        else:
-            thr_val = threshold
-        thr = _fmt_float(thr_val)
+    # Sort assets for stable output
+    for asset in sorted(blast_rows.keys()):
+        row = blast_rows[asset]
         meta = row.get("meta") or {}
+
+        # value/threshold are treated as encroached% and alert% by design
+        enc = _fmt_float(row.get("value"))
+        thr = _fmt_float(row.get("threshold"))
+
         ld = _fmt_float(meta.get("liq_distance"))
         br = _fmt_float(meta.get("blast_radius"))
-        travel = _fmt_float(meta.get("travel_pct")) if meta.get("travel_pct") is not None else 0.0
-        state = (row.get("state") or "OK").upper()
+        travel = _fmt_float(meta.get("travel_pct"))
+        state = str(row.get("state") or "").upper() or "-"
 
         lines.append(
-            f"{asset:6} {val:7.2f} {thr:7.2f} {ld:8.2f} {br:8.2f} {travel:9.2f} {state:>8}"
+            f"{asset:6} {enc:>7} {thr:>7} {ld:>8} {br:>8} {travel:>9} {state:>8}"
         )
 
     return lines
-
-
-def connector(dl=None, ctx: Dict[str, Any] | None = None, width: int | None = None):
-    context = ctx or {}
-    if isinstance(context, dict) and dl is not None:
-        context.setdefault("dl", dl)
-    return render(context, width=width)
