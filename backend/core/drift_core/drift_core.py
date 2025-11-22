@@ -114,16 +114,19 @@ class DriftCore:
         """
         High-level helper to open a perp order on Drift.
 
+        NOTE: For now, `size_usd` is treated as base size (e.g. 0.1 SOL) and the
+        console text has been updated accordingly.
+
         Parameters
         ----------
         symbol :
             Market symbol such as 'SOL-PERP'.
         size_usd :
-            Notional size of the order in USD.
+            Base size in asset units (not USD notional).
         side :
             'long' or 'short'.
         reduce_only :
-            If True, do not increase net exposure; only reduce.
+            Reserved for future use.
 
         Returns
         -------

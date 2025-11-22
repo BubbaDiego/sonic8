@@ -151,7 +151,7 @@ async def _run_interactive() -> int:
         print("╔════════════════════════ Drift Core Console ════════════════════════╗")
         print("║ 1. Health check                                                    ║")
         print("║ 2. Sync positions (primary wallet)                                 ║")
-        print("║ 3. Open simple LONG (symbol + USD size)                            ║")
+        print("║ 3. Open simple LONG (symbol + base size)                           ║")
         print("║ 0. Exit                                                             ║")
         print("╚════════════════════════════════════════════════════════════════════╝")
         print()
@@ -184,7 +184,7 @@ async def _run_interactive() -> int:
 
         if choice == "3":
             symbol = input("  Symbol (e.g. SOL-PERP): ").strip()
-            size_raw = input("  Size (USD notional): ").strip()
+            size_raw = input("  Size (base units, e.g. 0.1 SOL): ").strip()
             try:
                 size_usd = float(size_raw)
             except ValueError:
