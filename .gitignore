@@ -74,3 +74,4 @@ signer.txt
 # ignore DB + signer everywhere
 **/mother.db
 **/signer.txt
+/backend/core/wallet_core/signers.json
