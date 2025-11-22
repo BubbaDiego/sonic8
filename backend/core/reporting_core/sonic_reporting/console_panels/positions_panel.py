@@ -131,7 +131,7 @@ def _asset_with_side(d: Mapping[str, Any]) -> str:
                 side = s
                 break
 
-    # 3) Fallback: infer from size sign
+    # Fallback: infer from size sign
     if side is None:
         size_fields = ["size", "position_size", "qty"]
         size_val: Optional[float] = None
@@ -534,6 +534,7 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
             )
         )
 
+        # Body (non-totals) rows
         for ln in body_rows:
             lines.extend(
                 body_indent_lines(
@@ -542,7 +543,7 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
                 )
             )
 
-        # Totals row tinted separately
+        # Totals row tinted separately in bright cyan
         if totals_row:
             lines.extend(
                 body_indent_lines(
