@@ -516,9 +516,6 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
         header_line = table_lines[0]
         data_lines = table_lines[1:]
 
-        # Hard override: make totals row bright cyan
-        totals_color = "bright_cyan"
-
         if data_lines:
             body_rows = data_lines[:-1]
             totals_row = data_lines[-1]
@@ -543,12 +540,13 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
                 )
             )
 
-        # Totals row tinted separately in bright cyan
+        # Totals row tinted separately (force bright cyan)
         if totals_row:
+            totals_row_colored = f"[bright_cyan]{totals_row}[/]"
             lines.extend(
                 body_indent_lines(
                     PANEL_SLUG,
-                    [paint_line(totals_row, totals_color)],
+                    [totals_row_colored],
                 )
             )
     else:
