@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from dataclasses import dataclass
+
 
 import sys
 import os
@@ -50,10 +52,23 @@ except Exception as e:  # pragma: no cover - gracefully handle missing deps
 #from wallets.jupiter_service import JupiterService
 #from wallets.jupiter_trigger_service import JupiterTriggerService
 from backend.data.data_locker import DataLocker
+from backend.data.dl_wallets import DLWalletManager
 from backend.core.positions_core.position_core import PositionCore
-
+from backend.core.wallet_core.signer_store import SignerStore, WalletSigner
 from backend.core.wallet_core.wallet_service import WalletService
 from backend.models.wallet import Wallet
+
+
+@dataclass
+class WalletSummary:
+    """
+    Lightweight view of a wallet suitable for console / Launch Pad menus.
+    """
+
+    wallet_id: str
+    label: str
+    public_key: str
+    active: bool = True
 
 LAMPORTS_PER_SOL = 1_000_000_000
 
@@ -61,7 +76,17 @@ LAMPORTS_PER_SOL = 1_000_000_000
 class WalletCore:
     """Central access point for wallet + blockchain operations."""
 
-    def __init__(self, rpc_endpoint: str = "https://api.mainnet-beta.solana.com"):
+    def __init__(
+        self,
+        rpc_endpoint: str = "https://api.mainnet-beta.solana.com",
+        dl: Optional[DataLocker] = None,
+        *,
+        signer_store: Optional[SignerStore] = None,
+    ):
+        self._dl = dl or DataLocker.get_instance()
+        self._signers = signer_store or SignerStore.from_env()
+        self._wallet_store = DLWalletManager(self._dl.db) if getattr(self._dl, "db", None) else None
+
         self.service = WalletService()
        # self.rpc_endpoint = rpc_endpoint
       #  self.client = Client(rpc_endpoint) if Client else None
@@ -78,6 +103,49 @@ class WalletCore:
     # ------------------------------------------------------------------
     # Data access helpers
     # ------------------------------------------------------------------
+    def get_active_wallets(self) -> List[WalletSummary]:
+        """
+        Return a list of wallets that are considered 'active' in Sonic.
+
+        Implementation should:
+
+        - Use the existing wallet DL / repository to load all wallets.
+        - Filter to whatever the current 'active' flag is (e.g., is_active, enabled, etc.).
+        - Join with SignerStore where possible so we can provide public_key even
+          if the wallets table does not include it directly.
+
+        This method must be safe to call even if there is only a single
+        legacy wallet configured.
+        """
+
+        signers = {s.wallet_id: s for s in self._signers.list_signers()}
+        try:
+            wallets_out = self.service.list_wallets()
+        except Exception:
+            wallets_out = []
+
+        summaries: List[WalletSummary] = []
+        for wallet in wallets_out:
+            is_active = bool(getattr(wallet, "is_active", True))
+            if not is_active:
+                continue
+
+            signer = signers.get(wallet.name)
+            public_key = getattr(wallet, "public_address", "") or (
+                signer.public_key if signer else ""
+            )
+            label = getattr(wallet, "name", "")
+            summaries.append(
+                WalletSummary(
+                    wallet_id=wallet.name,
+                    label=label or wallet.name,
+                    public_key=public_key,
+                    active=is_active,
+                )
+            )
+
+        return summaries
+
     def load_wallets(self) -> List[Wallet]:
         """Return all wallets from the repository as ``Wallet`` objects."""
         wallets_out = self.service.list_wallets()
@@ -87,6 +155,29 @@ class WalletCore:
             if bal is not None:
                 w.balance = bal
         return wallets
+
+    def get_wallet_signer(self, wallet_id: str) -> Optional[WalletSigner]:
+        """
+        Return the WalletSigner for the given wallet_id, or None if none is
+        configured.
+
+        This is the preferred way for other cores / consoles to obtain
+        signing material for a specific wallet.
+        """
+        return self._signers.get_signer(wallet_id)
+
+    def require_wallet_signer(self, wallet_id: str) -> WalletSigner:
+        """
+        Strict variant that raises KeyError if no signer exists.
+        """
+        return self._signers.require_signer(wallet_id)
+
+    def get_passphrase_for_wallet(self, wallet_id: str) -> Optional[str]:
+        """
+        Convenience wrapper to fetch just the passphrase for a wallet, if any.
+        """
+        signer = self._signers.get_signer(wallet_id)
+        return signer.passphrase if signer else None
 
     def set_rpc_endpoint(self, endpoint: str) -> None:
         """Switch to a different Solana RPC endpoint."""
@@ -305,4 +396,12 @@ class WalletCore:
             log.success("All wallets deleted via WalletCore", source="WalletCore")
         except Exception as e:
             log.error(f"Failed to delete all wallets: {e}", source="WalletCore")
+
+
+__all__ = [
+    "WalletCore",
+    "WalletSummary",
+    "WalletSigner",
+    "SignerStore",
+]
 
