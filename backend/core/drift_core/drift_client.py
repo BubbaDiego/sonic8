@@ -8,7 +8,13 @@ from .drift_config import DriftConfig
 
 logger = logging.getLogger(__name__)
 
-# Optional DriftPy + Solana imports; we gate on DRIFTPY_AVAILABLE.
+# ---------------------------------------------------------------------------
+# DriftPy + Solana imports
+# ---------------------------------------------------------------------------
+
+DRIFTPY_AVAILABLE: bool = False
+DRIFTPY_IMPORT_ERROR: Optional[str] = None
+
 try:
     from solana.rpc.async_api import AsyncClient
     from anchorpy import Provider, Wallet
@@ -17,8 +23,10 @@ try:
     from driftpy.constants.numeric_constants import BASE_PRECISION
     from driftpy.types import PositionDirection
 
-    DRIFTPY_AVAILABLE: bool = True
-except Exception:  # noqa: BLE001
+    DRIFTPY_AVAILABLE = True
+    DRIFTPY_IMPORT_ERROR = None
+except Exception as e:  # noqa: BLE001
+    # Degrade gracefully but remember why imports failed.
     AsyncClient = Any  # type: ignore[assignment]
     Provider = Any  # type: ignore[assignment]
     Wallet = Any  # type: ignore[assignment]
@@ -26,7 +34,10 @@ except Exception:  # noqa: BLE001
     drift_configs = {}
     BASE_PRECISION = 1
     PositionDirection = Any  # type: ignore[assignment]
+
     DRIFTPY_AVAILABLE = False
+    DRIFTPY_IMPORT_ERROR = repr(e)
+    logger.warning("DriftPy imports failed; DRIFTPY_AVAILABLE=False: %s", DRIFTPY_IMPORT_ERROR)
 
 # Existing signer utilities (signer.txt + mnemonic support)
 try:
@@ -246,4 +257,4 @@ class DriftClientWrapper:
         return sig
 
 
-__all__ = ["DriftClientWrapper", "DRIFTPY_AVAILABLE"]
+__all__ = ["DriftClientWrapper", "DRIFTPY_AVAILABLE", "DRIFTPY_IMPORT_ERROR"]
