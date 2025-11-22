@@ -15,17 +15,26 @@ class SignerRecord:
     """
     In-memory representation of signing config for a wallet.
 
-    This does *not* perform any Solana keypair parsing; it just
-    stores the opaque secrets / passphrases that other code can use.
+    This stores both metadata (type, avatar, notes) and secret material.
     """
 
     wallet_name: str
+    wallet_type: str = "signer"  # "signer" or "view"
+
     public_key: Optional[str] = None
+
+    # Secrets (signer wallets only)
     secret_base64: Optional[str] = None
+    mnemonic_12: Optional[str] = None    # optional 12-word phrase
     passphrase: Optional[str] = None
+
     active: bool = True
     source: str = "config"      # e.g. "config", "env", "signer.txt"
     hint: Optional[str] = None  # non-sensitive human hint (no secrets!)
+
+    # UX metadata
+    avatar_path: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class SignerStore:
@@ -35,7 +44,7 @@ class SignerStore:
     Backing sources (in priority order):
 
     1. JSON file pointed at by $SONIC_SIGNERS_JSON (if present), default:
-       backend/config/signers.json
+       backend/core/wallet_core/signers.json
 
        Format:
            {
@@ -60,7 +69,7 @@ class SignerStore:
     """
 
     DEFAULT_JSON_ENV = "SONIC_SIGNERS_JSON"
-    DEFAULT_JSON_PATH = "backend/config/signers.json"
+    DEFAULT_JSON_PATH = "backend/core/wallet_core/signers.json"
 
     def __init__(self) -> None:
         self._records: Dict[str, SignerRecord] = {}
@@ -140,16 +149,81 @@ class SignerStore:
             try:
                 name = str(entry["wallet_name"])
             except KeyError:
-                log.warning("Skipping signer entry missing wallet_name key: %r", entry)
+                log.warning("Skipping signer entry without wallet_name: %r", entry)
                 continue
 
             rec = SignerRecord(
                 wallet_name=name,
+                wallet_type=str(entry.get("wallet_type", "signer")),
                 public_key=entry.get("public_key"),
                 secret_base64=entry.get("secret_base64"),
+                mnemonic_12=entry.get("mnemonic_12"),
                 passphrase=entry.get("passphrase"),
                 active=bool(entry.get("active", True)),
                 source=str(entry.get("source", "config")),
                 hint=entry.get("hint"),
+                avatar_path=entry.get("avatar_path"),
+                notes=entry.get("notes"),
             )
             self._records[name] = rec
+
+    def _save_to_json(self) -> None:
+        """
+        Persist the current records to the JSON file.
+
+        The file format:
+
+            {
+              "wallets": [
+                {
+                  "wallet_name": "...",
+                  "wallet_type": "signer" or "view",
+                  "public_key": "...",
+                  "avatar_path": "...",
+                  "notes": "...",
+                  "secret_base64": "...",
+                  "mnemonic_12": "...",
+                  "passphrase": "...",
+                  "active": true,
+                  "source": "wallet_core_console",
+                  "hint": "..."
+                },
+                ...
+              ]
+            }
+        """
+        path_str = os.getenv(self.DEFAULT_JSON_ENV, self.DEFAULT_JSON_PATH)
+        path = Path(path_str)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        payload = {
+            "wallets": [
+                {
+                    "wallet_name": rec.wallet_name,
+                    "wallet_type": rec.wallet_type,
+                    "public_key": rec.public_key,
+                    "avatar_path": rec.avatar_path,
+                    "notes": rec.notes,
+                    "secret_base64": rec.secret_base64,
+                    "mnemonic_12": rec.mnemonic_12,
+                    "passphrase": rec.passphrase,
+                    "active": rec.active,
+                    "source": rec.source,
+                    "hint": rec.hint,
+                }
+                for rec in sorted(self._records.values(), key=lambda r: r.wallet_name)
+            ]
+        }
+
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    def upsert_record(self, record: SignerRecord, *, persist: bool = True) -> SignerRecord:
+        """
+        Insert or update a SignerRecord in memory and optionally persist
+        to signers.json.
+        """
+        self._ensure_loaded()
+        self._records[record.wallet_name] = record
+        if persist:
+            self._save_to_json()
+        return record

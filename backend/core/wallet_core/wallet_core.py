@@ -72,6 +72,7 @@ class WalletConsoleSummary:
     public_key: Optional[str]
     has_secret: bool
     has_passphrase: bool
+    wallet_type: str
     source: str
 
 LAMPORTS_PER_SOL = 1_000_000_000
@@ -124,7 +125,7 @@ class WalletCore:
             summaries.append(
                 WalletSummary(
                     wallet_name=rec.wallet_name,
-                    has_signer=bool(rec.secret_base64 or rec.passphrase),
+                    has_signer=bool(rec.secret_base64 or rec.mnemonic_12 or rec.passphrase),
                     public_key=rec.public_key,
                 )
             )
@@ -136,7 +137,7 @@ class WalletCore:
                 summaries.append(
                     WalletSummary(
                         wallet_name=default.wallet_name,
-                        has_signer=bool(default.secret_base64 or default.passphrase),
+                        has_signer=bool(default.secret_base64 or default.mnemonic_12 or default.passphrase),
                         public_key=default.public_key,
                     )
                 )
@@ -187,8 +188,9 @@ class WalletCore:
                 WalletConsoleSummary(
                     wallet_name=rec.wallet_name,
                     public_key=rec.public_key,
-                    has_secret=bool(rec.secret_base64),
+                    has_secret=bool(rec.secret_base64 or rec.mnemonic_12),
                     has_passphrase=bool(rec.passphrase),
+                    wallet_type=rec.wallet_type,
                     source=rec.source,
                 )
             )
@@ -202,8 +204,9 @@ class WalletCore:
                     WalletConsoleSummary(
                         wallet_name=default.wallet_name,
                         public_key=default.public_key,
-                        has_secret=bool(default.secret_base64),
+                        has_secret=bool(default.secret_base64 or default.mnemonic_12),
                         has_passphrase=bool(default.passphrase),
+                        wallet_type=default.wallet_type,
                         source=default.source,
                     )
                 )
@@ -256,6 +259,45 @@ class WalletCore:
         Convenience wrapper to fetch just the passphrase for a wallet, if any.
         """
         return self.get_wallet_passphrase(wallet_id)
+
+    def create_wallet(
+        self,
+        *,
+        wallet_name: str,
+        public_key: str,
+        wallet_type: str,
+        avatar_path: Optional[str] = None,
+        notes: Optional[str] = None,
+        secret_base64: Optional[str] = None,
+        mnemonic_12: Optional[str] = None,
+        passphrase: Optional[str] = None,
+        active: bool = True,
+        source: str = "wallet_core_console",
+        hint: Optional[str] = None,
+    ) -> SignerRecord:
+        """
+        Create or update a wallet entry in SignerStore.
+
+        This is used by the WalletCore console 'create wallet' flow.
+        """
+        # Optional place to add future derivation logic:
+        # if mnemonic_12 is provided and secret_base64 is None, we could derive a
+        # base64 secret here using a Solana helper.
+
+        record = SignerRecord(
+            wallet_name=wallet_name,
+            wallet_type=wallet_type,
+            public_key=public_key,
+            secret_base64=secret_base64,
+            mnemonic_12=mnemonic_12,
+            passphrase=passphrase,
+            active=active,
+            source=source,
+            hint=hint,
+            avatar_path=avatar_path,
+            notes=notes,
+        )
+        return self._signer_store.upsert_record(record)
 
     def set_rpc_endpoint(self, endpoint: str) -> None:
         """Switch to a different Solana RPC endpoint."""
