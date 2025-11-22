@@ -14,6 +14,7 @@ from .models import (
     MonitorDefinition,
     MonitorGlobalConfig,
     MonitorNotifications,
+    BlastMonitorConfig,
     XComConfig,
     XComVoiceConfig,
     XComTwilioSecrets,
@@ -110,8 +111,27 @@ class ConfigOracle:
         """
         mon = self.get_monitor(name)
         if mon is None:
+            if str(name).lower() == "blast":
+                try:
+                    return self.get_monitor_bundle().blast_notifications
+                except Exception:
+                    return MonitorNotifications()
             return MonitorNotifications()
         return mon.notifications
+
+    def get_blast_notifications(self) -> MonitorNotifications:
+        """Return notification settings for the Blast monitor."""
+        try:
+            return self.get_monitor_bundle().blast_notifications
+        except Exception:
+            return MonitorNotifications()
+
+    def get_blast_monitor_config(self) -> BlastMonitorConfig:
+        """Return the Blast monitor configuration block."""
+        try:
+            return self.get_monitor_bundle().blast_monitor
+        except Exception:
+            return BlastMonitorConfig()
 
     # --- Domain-specific helpers: Sonic Monitor limits ----------------------
 

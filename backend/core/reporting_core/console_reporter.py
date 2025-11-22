@@ -35,6 +35,7 @@ DEFAULT_PANEL_MODULES: List[str] = [
     "backend.core.reporting_core.sonic_reporting.console_panels.positions_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.risk_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.monitor_panel",
+    "backend.core.reporting_core.sonic_reporting.console_panels.blast_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.market_panel",
     "backend.core.reporting_core.sonic_reporting.console_panels.xcom_panel",
     # NOTE:
@@ -137,6 +138,8 @@ def render_panel_stack(
             slug = "risk"
         elif base == "monitor":
             slug = "monitors"
+        elif base == "blast":
+            slug = "blast"
         elif base == "market":
             slug = "market"
         elif base == "xcom":

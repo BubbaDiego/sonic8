@@ -24,6 +24,21 @@
       "SOL": 1.01
     }
   },
+  "blast": {
+    "notifications": {
+      "sms": false,
+      "system": true,
+      "tts": true,
+      "voice": true
+    }
+  },
+  "blast_monitor": {
+    "alert_pct": {
+      "BTC": 50,
+      "ETH": 50,
+      "SOL": 50
+    }
+  },
   "market": {
     "notifications": {
       "sms": false,
@@ -38,6 +53,7 @@
     },
     "enabled": {
       "liquid": true,
+      "blast": true,
       "market": true,
       "price": true,
       "profit": true,
