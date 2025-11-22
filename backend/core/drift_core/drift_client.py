@@ -21,7 +21,12 @@ try:
     from driftpy.drift_client import DriftClient as _DriftClient
     from driftpy.constants.config import configs as drift_configs
     from driftpy.constants.numeric_constants import BASE_PRECISION, QUOTE_PRECISION
-    from driftpy.types import PositionDirection
+    from driftpy.types import (
+        PositionDirection,
+        OrderParams,
+        OrderType,
+        MarketType,
+    )
 
     DRIFTPY_AVAILABLE = True
     DRIFTPY_IMPORT_ERROR = None
@@ -268,12 +273,19 @@ class DriftClientWrapper:
             amount,
         )
 
-        # Use the simple open_position helper as documented in DriftPy examples.
-        sig = await self.drift_client.open_position(
-            direction=direction,
-            amount=amount,
+        # Build OrderParams explicitly to avoid deprecated helpers and ensure
+        # market_type is set (required in your installed driftpy).
+        # This is equivalent to the examples in the docs that call
+        # OrderParams(...) then drift_client.place_perp_order(order_params).
+        order_params = OrderParams(
+            order_type=OrderType.Market(),
             market_index=market_index,
+            market_type=market_type,
+            direction=direction,
+            base_asset_amount=amount,
         )
+
+        sig = await self.drift_client.place_perp_order(order_params)
 
         logger.info("Drift perp order submitted; signature=%s", sig)
         return sig
