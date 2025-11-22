@@ -458,7 +458,7 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
 
         table.add_row(asset, size, value, pnl, lev, liq, heat, trav)
 
-    # Totals row (no Liq total; Heat total is weighted avg)
+    # Totals row (no Liq total; Heat total is weighted avg), styled bright cyan
     totals = _compute_totals_row(items)
     table.add_row(
         totals["asset"],
@@ -469,6 +469,7 @@ def _build_rich_table(items: List[Any], body_cfg: Dict[str, Any]) -> List[str]:
         totals["liq"],   # stays "-"
         totals["heat"],  # weighted average Heat%
         totals["trav"],
+        style="bright_cyan",  # 🔹 this row is cyan directly in the Rich table
     )
 
     buf = StringIO()
@@ -516,14 +517,7 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
         header_line = table_lines[0]
         data_lines = table_lines[1:]
 
-        if data_lines:
-            body_rows = data_lines[:-1]
-            totals_row = data_lines[-1]
-        else:
-            body_rows = []
-            totals_row = ""
-
-        # Header
+        # Header row
         lines.extend(
             body_indent_lines(
                 PANEL_SLUG,
@@ -531,22 +525,12 @@ def render(context: Any, width: Optional[int] = None) -> List[str]:
             )
         )
 
-        # Body (non-totals) rows
-        for ln in body_rows:
+        # Body rows (including totals, which are already styled by Rich)
+        for ln in data_lines:
             lines.extend(
                 body_indent_lines(
                     PANEL_SLUG,
                     [color_if_plain(ln, body_cfg.get("body_text_color", ""))],
-                )
-            )
-
-        # Totals row tinted separately (force bright cyan)
-        if totals_row:
-            totals_row_colored = f"[bright_cyan]{totals_row}[/]"
-            lines.extend(
-                body_indent_lines(
-                    PANEL_SLUG,
-                    [totals_row_colored],
                 )
             )
     else:
