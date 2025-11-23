@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from rich import box
 from rich.console import Console
@@ -26,7 +26,7 @@ def _print_header() -> None:
     )
 
 
-def _session_table(sessions: list[Session]) -> Table:
+def _session_table(sessions: List[Session]) -> Table:
     table = Table(
         title="📊 Sessions",
         box=box.SIMPLE_HEAVY,
@@ -44,27 +44,33 @@ def _session_table(sessions: list[Session]) -> Table:
         return table
 
     for s in sessions:
-        tags_str = ", ".join(s.tags) if getattr(s, "tags", None) else ""
-        created = s.created_at.isoformat(timespec="seconds")
+        tags_str = ", ".join(s.tags) if isinstance(s.tags, (list, tuple)) else str(s.tags)
+        created_str = (
+            s.created_at.isoformat(timespec="seconds")
+            if isinstance(s.created_at, datetime)
+            else str(s.created_at)
+        )
+        status_value = s.status.value if isinstance(s.status, SessionStatus) else str(s.status)
         status_icon = {
-            SessionStatus.ACTIVE: "🟢",
-            SessionStatus.PAUSED: "🟡",
-            SessionStatus.CLOSED: "🔴",
-        }.get(s.status, "⚪")
+            "active": "🟢",
+            "paused": "🟡",
+            "closed": "🔴",
+        }.get(status_value, "⚪")
 
         table.add_row(
             s.sid,
             s.name,
             s.primary_wallet_name,
-            f"{status_icon} {s.status.value}",
-            created,
+            f"{status_icon} {status_value}",
+            created_str,
             tags_str,
         )
+
     return table
 
 
 def _pick_wallet(wallet_core: WalletCore) -> Optional[str]:
-    wallets: list[WalletConsoleSummary] = wallet_core.list_wallets_for_console()
+    wallets: List[WalletConsoleSummary] = wallet_core.list_wallets_for_console()
     if not wallets:
         console.print("[red]No wallets available from WalletCore.[/red]")
         return None
@@ -84,16 +90,15 @@ def _pick_wallet(wallet_core: WalletCore) -> Optional[str]:
         )
 
     console.print(table)
-    selection = Prompt.ask("Primary wallet name (blank to cancel)", default="").strip()
-    return selection or None
+    name = Prompt.ask("Primary wallet name (blank to cancel)", default="").strip()
+    return name or None
 
 
 def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
     """
     Entry point for the SessionCore console.
 
-    If dl is not provided, construct DataLocker using the same pattern
-    as other consoles (e.g. cyclone console).
+    Called from LaunchPad menu option 16.
     """
     if dl is None:
         try:
@@ -150,10 +155,13 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
                 primary_wallet_name=wallet_name,
                 name=name,
                 goal=goal or None,
-                tags=tags,
+                tags=tags or None,
                 notes=None,
             )
-            console.print(f"[green]Created session[/green] [bold]{session.sid}[/bold].")
+            console.print(
+                f"[green]Created session[/green] [bold]{session.sid}[/bold] "
+                f"for wallet [bold]{session.primary_wallet_name}[/bold]."
+            )
             Prompt.ask("[dim]press Enter to return[/dim]")
             continue
 
