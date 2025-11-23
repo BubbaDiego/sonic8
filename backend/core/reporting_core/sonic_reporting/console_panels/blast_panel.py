@@ -2,6 +2,19 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from .theming import (
+    body_indent_lines,
+    body_pad_below,
+    color_if_plain,
+    emit_title_block,
+    get_panel_body_config,
+    paint_line,
+)
+
+
+PANEL_SLUG = "blast"
+PANEL_NAME = "Blast Radius"
+
 
 # ───────────────────────── helpers ─────────────────────────
 
@@ -123,12 +136,18 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
 
         🧨 Asset   🎯 Enc%   🎚 Alert%   💧 LDist   🧱 BR   🌪 Travel%   📊 State   Blast Meter
     """
+    body_cfg = get_panel_body_config(PANEL_SLUG)
     dl = (ctx or {}).get("dl")
     rows = _get_monitor_rows(dl)
 
     latest = _latest_by_asset(rows)
+    lines: List[str] = []
+    lines.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
+
     if not latest:
-        return ["[blast] no blast radius data"]
+        lines.extend(body_indent_lines(PANEL_SLUG, ["(no blast radius data)"]))
+        lines.extend(body_pad_below(PANEL_SLUG))
+        return lines
 
     # Header pattern matches other panels: icons + labels, plain text.
     header = (
@@ -137,9 +156,15 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
     )
     sep = "-" * len(header)
 
-    lines: List[str] = []
-    lines.append(header)
-    lines.append(sep)
+    lines.extend(
+        body_indent_lines(
+            PANEL_SLUG,
+            [
+                paint_line(header, body_cfg.get("column_header_text_color", "")),
+                paint_line(sep, body_cfg.get("column_header_text_color", "")),
+            ],
+        )
+    )
 
     # Sort assets for stable output (SOL - BLAST, BTC - BLAST, etc.)
     for asset in sorted(latest.keys()):
@@ -175,6 +200,12 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
             f"{asset:14} {enc_str:>9} {alert_str:>10} "
             f"{ld_str:>10} {br_str:>8} {travel_str:>11} {state:>9}  {meter}"
         )
-        lines.append(line)
+        lines.extend(
+            body_indent_lines(
+                PANEL_SLUG,
+                [color_if_plain(line, body_cfg.get("body_text_color", ""))],
+            )
+        )
 
+    lines.extend(body_pad_below(PANEL_SLUG))
     return lines
