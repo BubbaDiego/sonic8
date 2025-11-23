@@ -2,20 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from .bar_utils import build_red_green_bar
-from .theming import (
-    body_indent_lines,
-    body_pad_below,
-    color_if_plain,
-    emit_title_block,
-    get_panel_body_config,
-    paint_line,
-)
-
-
-PANEL_SLUG = "blast"
-PANEL_NAME = "Blast Radius"
-
 
 # ───────────────────────── helpers ─────────────────────────
 
@@ -94,6 +80,37 @@ def _fmt_float(val: Any, places: int = 2, suffix: str = "") -> str:
     return text + suffix
 
 
+def _build_meter(enc_pct: float, slots: int = 28) -> str:
+    """
+    Build a narrow continuous bar similar in spirit to the Risk Snapshot bar.
+
+    enc_pct: 0..100 = how much of the blast radius has been encroached.
+    slots:   number of block characters in the bar.
+
+    We use a single block glyph ('▮') so the theme can color it like the
+    rest of Sonic; no big emoji squares, no wrapping.
+
+        OUT ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮ IN
+    """
+    try:
+        enc = float(enc_pct)
+    except Exception:
+        enc = 0.0
+
+    enc = max(0.0, min(100.0, enc))
+    total = max(4, int(slots))
+
+    filled = int(round((enc / 100.0) * total))
+    if filled < 0:
+        filled = 0
+    if filled > total:
+        filled = total
+
+    bar = "▮" * filled + "▮" * (total - filled)
+    # Labels echo the SHORT/LONG concept: outside vs inside blast
+    return f"OUT {bar} IN"
+
+
 # ───────────────────────── render ─────────────────────────
 
 
@@ -105,35 +122,22 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
 
         🧨 Asset   🎯 Enc%   🎚 Alert%   💧 LDist   🧱 BR   🌪 Travel%   📊 State   Blast Meter
     """
-    body_cfg = get_panel_body_config(PANEL_SLUG)
     dl = (ctx or {}).get("dl")
     rows = _get_monitor_rows(dl)
 
     latest = _latest_by_asset(rows)
-    lines: List[str] = []
-    lines.extend(emit_title_block(PANEL_SLUG, PANEL_NAME))
-
     if not latest:
-        lines.extend(body_indent_lines(PANEL_SLUG, ["(no blast radius data)"]))
-        lines.extend(body_pad_below(PANEL_SLUG))
-        return lines
+        return ["[blast] no blast radius data"]
 
-    # Header pattern matches other panels: icons + labels, plain text.
+    # Header row with icons, same pattern as your other panels.
     header = (
         f"{'🧨 Asset':14} {'🎯 Enc%':>9} {'🎚 Alert%':>10} "
         f"{'💧 LDist':>10} {'🧱 BR':>8} {'🌪 Travel%':>11} {'📊 State':>9}  Blast Meter"
     )
 
-    lines.extend(
-        body_indent_lines(
-            PANEL_SLUG,
-            [
-                "🧨 Blast Radius 🧨",
-                "",
-                paint_line(header, body_cfg.get("column_header_text_color", "")),
-            ],
-        )
-    )
+    lines: List[str] = []
+    lines.append(header)
+    # NOTE: no dashed separator line here – you asked to remove it.
 
     # Sort assets for stable output (SOL - BLAST, BTC - BLAST, etc.)
     for asset in sorted(latest.keys()):
@@ -159,20 +163,12 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
         except Exception:
             enc_float = 0.0
 
-        enc_ratio = max(0.0, min(1.0, enc_float / 100.0))
-
-        meter = build_red_green_bar("SAFE", "BLAST", enc_ratio, slots=32)
+        meter = _build_meter(enc_float, slots=28)
 
         line = (
             f"{asset:14} {enc_str:>9} {alert_str:>10} "
             f"{ld_str:>10} {br_str:>8} {travel_str:>11} {state:>9}  {meter}"
         )
-        lines.extend(
-            body_indent_lines(
-                PANEL_SLUG,
-                [color_if_plain(line, body_cfg.get("body_text_color", ""))],
-            )
-        )
+        lines.append(line)
 
-    lines.extend(body_pad_below(PANEL_SLUG))
     return lines
