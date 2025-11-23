@@ -10,7 +10,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from backend.data.data_locker import DataLocker
-from backend.core.session_core import SessionCore, Session, SessionStatus
+from backend.core.session_core import SessionCore, Session, SessionPerformance, SessionStatus
 from backend.core.wallet_core.wallet_core import WalletCore, WalletConsoleSummary
 
 
@@ -69,6 +69,47 @@ def _session_table(sessions: List[Session]) -> Table:
     return table
 
 
+def _performance_panel(perf: SessionPerformance) -> Panel:
+    """Build a Rich panel summarizing performance for a session."""
+    lines = []
+
+    lines.append(f"[bold]{perf.name}[/bold]  ([cyan]{perf.sid}[/cyan])")
+    lines.append(f"[dim]Wallet[/dim]: {perf.primary_wallet_name}")
+    lines.append("")
+    lines.append(
+        f"[dim]Window[/dim]: {perf.start.isoformat(timespec='seconds')}  →  {perf.end.isoformat(timespec='seconds')}"
+    )
+    lines.append(f"[dim]Samples[/dim]: {perf.samples}")
+
+    lines.append("")
+
+    if perf.start_equity is None or perf.end_equity is None or perf.pnl is None:
+        lines.append("[yellow]No equity data found for this session window.[/yellow]")
+    else:
+        pnl_str = f"{perf.pnl:,.2f}"
+        start_str = f"{perf.start_equity:,.2f}"
+        end_str = f"{perf.end_equity:,.2f}"
+
+        if perf.return_pct is not None:
+            ret_str = f"{perf.return_pct:+.2f}%"
+        else:
+            ret_str = "n/a"
+
+        if perf.max_drawdown_pct is not None:
+            dd_str = f"{perf.max_drawdown_pct:.2f}%"
+        else:
+            dd_str = "n/a"
+
+        lines.append(f"[dim]Start equity[/dim]: {start_str}")
+        lines.append(f"[dim]End equity[/dim]:   {end_str}")
+        lines.append(f"[dim]PnL[/dim]:          [bold]{pnl_str}[/bold]")
+        lines.append(f"[dim]Return[/dim]:       {ret_str}")
+        lines.append(f"[dim]Max drawdown[/dim]: {dd_str}")
+
+    body = "\n".join(lines)
+    return Panel(body, title="📈 Session Performance", border_style="green")
+
+
 def _pick_wallet(wallet_core: WalletCore) -> Optional[str]:
     wallets: List[WalletConsoleSummary] = wallet_core.list_wallets_for_console()
     if not wallets:
@@ -122,6 +163,7 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
             "[bold]Commands:[/bold] "
             "[cyan]c[/cyan]=create  "
             "[cyan]a[/cyan]=active only  "
+            "[cyan]v[/cyan]=view performance  "
             "[cyan]ra[/cyan]=rename  "
             "[cyan]cl[/cyan]=close  "
             "[cyan]q[/cyan]=quit"
@@ -162,6 +204,24 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
                 f"[green]Created session[/green] [bold]{session.sid}[/bold] "
                 f"for wallet [bold]{session.primary_wallet_name}[/bold]."
             )
+            Prompt.ask("[dim]press Enter to return[/dim]")
+            continue
+
+        if cmd == "v":
+            sid = Prompt.ask("Session ID (sid)").strip()
+            if not sid:
+                continue
+
+            perf = session_core.get_session_performance(sid)
+            console.clear()
+            _print_header()
+
+            if not perf:
+                console.print(f"[red]No session found with sid={sid!r}[/red]")
+                Prompt.ask("[dim]press Enter to return[/dim]")
+                continue
+
+            console.print(_performance_panel(perf))
             Prompt.ask("[dim]press Enter to return[/dim]")
             continue
 

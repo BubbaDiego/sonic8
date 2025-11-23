@@ -36,3 +36,25 @@ class Session:
 
     def touch(self) -> None:
         self.updated_at = datetime.utcnow()
+
+
+@dataclass
+class SessionPerformance:
+    """
+    Aggregate performance metrics for a session over a time window.
+    """
+
+    sid: str
+    name: str
+    primary_wallet_name: str
+
+    start: datetime
+    end: datetime
+
+    start_equity: Optional[float]
+    end_equity: Optional[float]
+    pnl: Optional[float]
+    return_pct: Optional[float]
+    max_drawdown_pct: Optional[float]
+
+    samples: int
