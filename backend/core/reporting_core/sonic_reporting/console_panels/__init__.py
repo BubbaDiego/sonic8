@@ -9,7 +9,17 @@ from .theming import (
     get_panel_title_config,
 )
 from . import blast_panel
+from . import market_panel
+from . import monitor_panel
+from . import positions_panel
+from . import preflight_config_panel
+from . import price_panel
 from . import raydium_panel
+from . import risk_panel
+from . import session_panel
+from . import transition_panel
+from . import wallets_panel
+from . import xcom_panel
 
 
 @dataclass(frozen=True)
@@ -55,6 +65,20 @@ PANEL_SPECS: List[PanelSpec] = [
     ),
 ]
 
+PANELS: Dict[str, Any] = {
+    "prices": price_panel,
+    "positions": positions_panel,
+    "risk": risk_panel,
+    "transition": transition_panel,
+    "preflight": preflight_config_panel,
+    "monitors": monitor_panel,
+    "blast": blast_panel,
+    "market": market_panel,
+    "xcom": xcom_panel,
+    "session": session_panel,
+    "wallets": wallets_panel,
+}
+
 PANEL_REGISTRY: Dict[str, PanelSpec] = {spec.key: spec for spec in PANEL_SPECS}
 PANELS_BY_SLUG: Dict[str, PanelSpec] = {spec.slug: spec for spec in PANEL_SPECS}
 PANEL_KEYS: List[str] = list(PANEL_REGISTRY.keys())
@@ -66,9 +90,20 @@ __all__ = [
     "title_lines",
     "get_panel_title_config",
     "blast_panel",
+    "market_panel",
+    "monitor_panel",
+    "positions_panel",
+    "preflight_config_panel",
+    "price_panel",
     "raydium_panel",
+    "risk_panel",
+    "session_panel",
+    "transition_panel",
+    "wallets_panel",
+    "xcom_panel",
     "PanelSpec",
     "PANEL_SPECS",
+    "PANELS",
     "PANEL_REGISTRY",
     "PANELS_BY_SLUG",
     "PANEL_KEYS",
