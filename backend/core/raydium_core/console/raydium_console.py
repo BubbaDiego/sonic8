@@ -23,9 +23,11 @@ from pathlib import Path as _Path
 
 sys.path.insert(0, str(_Path(__file__).resolve().parents[4]))
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import json
+import math
 import os
 import subprocess
 from typing import Any, Dict, List, Optional, Tuple
@@ -43,6 +45,7 @@ from backend.services.signer_loader import load_signer  # honors SONIC_SIGNER_PA
 from backend.config import rpc as rpc_cfg  # helius_url()
 from backend.core.raydium_core.services.nft_scanner import scan_owner_nfts
 from backend.core.raydium_core.services.nft_valuation import value_owner_nfts
+from backend.core.raydium_core.xcom_core import RaydiumXCom
 from backend.data.data_locker import DataLocker
 
 # solana-py + solders
@@ -74,6 +77,138 @@ def _resolve_rpc_url() -> str:
         return rpc_cfg.helius_url()
     except Exception:
         return "https://api.mainnet-beta.solana.com"
+
+
+# ---------- Shared Raydium CL helpers ----------
+
+
+def _short(pk: Any, front: int = 6, back: int = 6, min_len: int = 12) -> str:
+    s = ("" if pk is None else str(pk)).strip()
+    if len(s) <= min_len or len(s) <= front + back + 3:
+        return s
+    return f"{s[:front]}…{s[-back:]}"
+
+
+def _as_float(val: Any) -> float:
+    try:
+        f = float(val)
+        return f if math.isfinite(f) else 0.0
+    except Exception:
+        return 0.0
+
+
+def _token_label(amount: Any, mint: Any) -> str:
+    mint_label = _short(mint) if mint else ""
+    try:
+        amt = float(amount)
+        if math.isfinite(amt):
+            if abs(amt) >= 1:
+                amt_str = f"{amt:.2f}"
+            elif abs(amt) >= 0.001:
+                amt_str = f"{amt:.4f}"
+            else:
+                amt_str = f"{amt:.2e}"
+            return f"{amt_str} {mint_label}".strip()
+    except Exception:
+        pass
+    if mint_label:
+        return f"- {mint_label}".strip()
+    return "-"
+
+
+@dataclass
+class RaydiumClPosition:
+    pool_label: str
+    position_label: str
+    token_a_symbol: str
+    token_b_symbol: str
+    usd_value: float
+    address: str
+    apr_label: Optional[str] = None
+
+
+def _from_detail_row(row: Dict[str, Any]) -> RaydiumClPosition:
+    pool = row.get("poolPk") or row.get("pool_id") or row.get("pool") or ""
+    pos = row.get("posMint") or row.get("mint") or row.get("address") or ""
+    token_a = _token_label(row.get("amountA"), row.get("mintA"))
+    token_b = _token_label(row.get("amountB"), row.get("mintB"))
+    usd_val = _as_float(row.get("usd"))
+    apr = row.get("apr") or row.get("apy") or row.get("apr_label")
+    return RaydiumClPosition(
+        pool_label=_short(pool),
+        position_label=_short(pos),
+        token_a_symbol=token_a,
+        token_b_symbol=token_b,
+        usd_value=usd_val,
+        address=str(pos),
+        apr_label=str(apr) if apr not in (None, "") else None,
+    )
+
+
+def _from_row(row: Dict[str, Any]) -> RaydiumClPosition:
+    pool = row.get("poolPk") or row.get("pool_id") or row.get("pool") or row.get("name") or ""
+    pos = row.get("posMint") or row.get("mint") or row.get("address") or ""
+    token_a = row.get("token_a") or row.get("tokenA") or row.get("token_a_symbol") or "-"
+    token_b = row.get("token_b") or row.get("tokenB") or row.get("token_b_symbol") or "-"
+    usd_val = _as_float(row.get("usd") or row.get("usd_value") or row.get("value_usd"))
+    apr = row.get("apr") or row.get("apy") or row.get("apr_label")
+    return RaydiumClPosition(
+        pool_label=str(pool),
+        position_label=_short(pos),
+        token_a_symbol=str(token_a),
+        token_b_symbol=str(token_b),
+        usd_value=usd_val,
+        address=str(pos),
+        apr_label=str(apr) if apr not in (None, "") else None,
+    )
+
+
+def raydium_cl_positions_from_payload(payload: Any) -> List[RaydiumClPosition]:
+    """Normalize TS helper payload (rows or details) into RaydiumClPosition list."""
+
+    rows: List[Dict[str, Any]] = []
+    positions: List[RaydiumClPosition] = []
+
+    if isinstance(payload, dict):
+        if isinstance(payload.get("details"), list) and payload["details"]:
+            rows = payload["details"]
+            for row in rows:
+                if isinstance(row, dict):
+                    positions.append(_from_detail_row(row))
+            return positions
+        if isinstance(payload.get("rows"), list) and payload["rows"]:
+            rows = payload["rows"]
+    elif isinstance(payload, list):
+        rows = payload
+
+    for row in rows:
+        if isinstance(row, dict):
+            if any(k in row for k in ("amountA", "mintA", "tickLower", "tickUpper")):
+                positions.append(_from_detail_row(row))
+            else:
+                positions.append(_from_row(row))
+
+    return positions
+
+
+def fetch_raydium_cl_positions(
+    owner: str,
+    mints: Optional[List[str]] = None,
+    price_url: Optional[str] = None,
+) -> List[RaydiumClPosition]:
+    """
+    Invoke the TS Raydium valuation helper (SDK + Jupiter) and normalize the
+    resulting rows into RaydiumClPosition objects for reuse by panels.
+    """
+
+    xcom = RaydiumXCom()
+    res = xcom.value_nfts(owner=owner, mints=mints, price_url=price_url)
+    payload: Dict[str, Any] = {}
+    if res.get("details"):
+        payload = {"details": res.get("details")}
+    elif res.get("rows"):
+        payload = {"rows": res.get("rows")}
+    return raydium_cl_positions_from_payload(payload)
 
 
 # ---------- Pretty UI ----------
