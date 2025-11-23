@@ -15,38 +15,32 @@ Call-shape safe:
 Both always return List[str].
 """
 
-import os
 import datetime as _dt
+from io import StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
+from rich.console import Console
+from rich.table import Table
+from rich import box
+
+from .theming import (
+    emit_title_block,
+    get_panel_body_config,
+    body_pad_below,
+    body_indent_lines,
+    color_if_plain,
+    paint_line,
+)
+
+try:
+    from .theming import HR_WIDTH  # type: ignore
+except Exception:  # pragma: no cover
+    HR_WIDTH = 100
+
 PANEL_KEY = "raydium_panel"
+PANEL_SLUG = "raydium"
 PANEL_NAME = "Raydium LPs"
-
-
-# ────────────────────────────────────────────────────────────────────────────────
-# Console helpers
-# ────────────────────────────────────────────────────────────────────────────────
-
-def _console_width(default: int = 92) -> int:
-    try:
-        w = int(os.environ.get("SONIC_CONSOLE_WIDTH", default))
-        return max(60, min(180, w))
-    except Exception:
-        return default
-
-
-def _hr(width: Optional[int] = None, ch: str = "─") -> str:
-    W = width or _console_width()
-    return ch * W
-
-
-def _title_rail(title: str, width: Optional[int] = None, ch: str = "─") -> str:
-    W = width or _console_width()
-    t = f"  {title.strip()}  "
-    fill = max(0, W - len(t))
-    left = fill // 2
-    right = fill - left
-    return f"{ch * left}{t}{ch * right}"
+RAYDIUM_PANEL_TITLE = "🌊 Raydium LPs"
 
 
 def _abbr_middle(s: Any, front: int = 6, back: int = 6, min_len: int = 12) -> str:
@@ -190,6 +184,94 @@ def _collect_records(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
 
 
 # ────────────────────────────────────────────────────────────────────────────────
+# Table helpers
+# ────────────────────────────────────────────────────────────────────────────────
+
+
+def _style_to_box(style: str) -> tuple[Any, bool]:
+    style = (style or "invisible").lower()
+    if style == "thin":
+        return box.SIMPLE_HEAD, False
+    if style == "thick":
+        return box.HEAVY_HEAD, True
+    return None, False
+
+
+def _justify_lines(lines: List[str], justify: str, width: int) -> List[str]:
+    justify = (justify or "left").lower()
+    if justify not in ("center", "right"):
+        return lines
+    if not lines:
+        return lines
+
+    out: List[str] = []
+    for line in lines:
+        s = line.rstrip("\n")
+        pad = width - len(s)
+        if pad <= 0:
+            out.append(s)
+        else:
+            if justify == "center":
+                left = pad // 2
+                right = pad - left
+                out.append((" " * left) + s + (" " * right))
+            else:  # right
+                out.append((" " * pad) + s)
+    return out
+
+
+def _resolve_table_cfg(body_cfg: Dict[str, Any]) -> Dict[str, str]:
+    table_cfg = body_cfg.get("table") if isinstance(body_cfg.get("table"), dict) else {}
+    style = str(table_cfg.get("style", "invisible")).lower()
+    table_justify = str(table_cfg.get("table_justify", "left")).lower()
+    header_justify = str(table_cfg.get("header_justify", "left")).lower()
+    return {
+        "style": style,
+        "table_justify": table_justify,
+        "header_justify": header_justify,
+    }
+
+
+def _build_rich_table(records: List[Dict[str, Any]], table_cfg: Dict[str, str]) -> List[str]:
+    box_style, show_lines = _style_to_box(table_cfg.get("style", ""))
+
+    table = Table(
+        show_header=True,
+        header_style="",
+        show_lines=show_lines,
+        box=box_style,
+        show_edge=False,
+        pad_edge=False,
+        expand=False,
+    )
+
+    table.add_column("Pool", justify=table_cfg.get("header_justify", "left"), no_wrap=True)
+    table.add_column("Address", justify=table_cfg.get("header_justify", "left"), no_wrap=True)
+    table.add_column("LP", justify="right", no_wrap=True)
+    table.add_column("USD", justify="right", no_wrap=True)
+    table.add_column("APR", justify="right", no_wrap=True)
+    table.add_column("Checked", justify="left", no_wrap=True)
+
+    for rec in records:
+        table.add_row(
+            _abbr_middle(rec.get("pool", ""), 6, 6, 22),
+            _abbr_middle(rec.get("address", ""), 6, 6, 24),
+            _fmt_lp(rec.get("lp_qty")),
+            _fmt_usd(rec.get("usd_value")),
+            _fmt_apr(rec.get("apr")),
+            _fmt_time(rec.get("checked_ts")) if rec.get("checked_ts") else "",
+        )
+
+    buf = StringIO()
+    console = Console(record=True, width=HR_WIDTH, file=buf, force_terminal=True)
+    console.print(table)
+
+    text = console.export_text().rstrip("\n")
+    lines = text.splitlines() if text else []
+    return _justify_lines(lines, table_cfg.get("table_justify", "left"), HR_WIDTH)
+
+
+# ────────────────────────────────────────────────────────────────────────────────
 # Public API
 # ────────────────────────────────────────────────────────────────────────────────
 
@@ -226,54 +308,64 @@ def render(context: Optional[Dict[str, Any]] = None, **kwargs) -> List[str]:
         ctx.update(context)
     ctx.update(kwargs)
 
-    width = ctx.get("width") or _console_width()
+    body_cfg = get_panel_body_config(PANEL_SLUG)
+    table_cfg = _resolve_table_cfg(body_cfg)
 
-    out: List[str] = []
-    out.append(_title_rail("Raydium LPs", width))
-    out.append(_hr(width))
-
-    # columns
-    col_pool, col_addr, col_lp, col_usd, col_apr, col_chk = 22, 34, 9, 12, 7, 10
-
-    def fmt_row(pool, addr, lp, usd, apr, chk) -> str:
-        pool = _abbr_middle(pool, 6, 6, col_pool)
-        addr = _abbr_middle(addr, 6, 6, col_addr)
-        lp   = (lp or "").rjust(col_lp)
-        usd  = (usd or "").rjust(col_usd)
-        apr  = (apr or "").rjust(col_apr)
-        chk  = (chk or "").rjust(col_chk)
-        line = f"{pool:<{col_pool}}  {addr:<{col_addr}}  {lp}  {usd}  {apr}  {chk}"
-        return line[:width] if len(line) > width else line
-
-    out.append(fmt_row("Pool", "Address", "LP", "USD", "APR", "Checked"))
+    lines: List[str] = []
+    lines += emit_title_block(PANEL_SLUG, RAYDIUM_PANEL_TITLE)
 
     records, source = _collect_records(ctx)
 
     total_usd = 0.0
     last_ts = None
 
-    if isinstance(records, list) and records:
+    if isinstance(records, list):
         for rec in records:
             total_usd += float(rec.get("usd_value") or 0.0)
             ts = rec.get("checked_ts")
             if ts:
                 last_ts = ts
-            out.append(fmt_row(
-                rec.get("pool", ""),
-                rec.get("address", ""),
-                _fmt_lp(rec.get("lp_qty")),
-                _fmt_usd(rec.get("usd_value")),
-                _fmt_apr(rec.get("apr")),
-                _fmt_time(ts) if ts else "",
-            ))
-    else:
-        out.append("(no raydium positions)")
 
-    out.append("")
-    out.append(f"  Total (USD): {_fmt_usd(total_usd)}")
-    out.append(f"  Checked: {_fmt_time(last_ts) if last_ts else _fmt_time(None)}")
-    out.append(f"[RAY] source={source} count={len(records) if isinstance(records, list) else 0}")
-    return out
+    table_lines = _build_rich_table(records if isinstance(records, list) else [], table_cfg)
+
+    if table_lines:
+        header_line = table_lines[0]
+        data_lines = table_lines[1:]
+        lines += body_indent_lines(
+            PANEL_SLUG,
+            [color_if_plain(header_line, body_cfg.get("column_header_text_color", "default"))],
+        )
+        for ln in data_lines:
+            lines += body_indent_lines(
+                PANEL_SLUG,
+                [color_if_plain(ln, body_cfg.get("body_text_color", "default"))],
+            )
+
+    if not records:
+        note = color_if_plain(
+            "  (no raydium positions)",
+            body_cfg.get("body_text_color", "default"),
+        )
+        lines += body_indent_lines(PANEL_SLUG, [note])
+
+    totals_color = body_cfg.get("totals_row_color", "default")
+    lines += body_indent_lines(
+        PANEL_SLUG,
+        [
+            paint_line(f"  Total (USD): {_fmt_usd(total_usd)}", totals_color),
+            paint_line(
+                f"  Checked: {_fmt_time(last_ts) if last_ts else _fmt_time(None)}",
+                totals_color,
+            ),
+            color_if_plain(
+                f"  [RAY] source={source} count={len(records) if isinstance(records, list) else 0}",
+                body_cfg.get("body_text_color", "default"),
+            ),
+        ],
+    )
+
+    lines += body_pad_below(PANEL_SLUG)
+    return lines
 
 
 def name() -> str:

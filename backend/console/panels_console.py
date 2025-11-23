@@ -22,8 +22,6 @@ _PANELS: List[PanelInfo] = [
     PanelInfo("activity", "Cycle Activity", "📘"),
     PanelInfo("prices", "Prices", "💵"),
     PanelInfo("positions", "Positions", "📊"),
-    PanelInfo("risk", "Risk Snapshot", "⚖️"),
-    PanelInfo("transition", "Transitions", "🔄"),
     PanelInfo("preflight", "Pre-Flight Config", "🧪"),
     PanelInfo("monitors", "Monitors", "🔎"),
     PanelInfo("blast", "Blast Radius", "💥"),
@@ -31,6 +29,9 @@ _PANELS: List[PanelInfo] = [
     PanelInfo("market", "Market Alerts", "💹"),
     PanelInfo("xcom", "XCom", "✉️"),
     PanelInfo("wallets", "Wallets", "💼"),
+    PanelInfo("raydium", "Raydium LPs", "🌊"),
+    PanelInfo("risk", "Risk Snapshot", "⚖️"),
+    PanelInfo("transition", "Transitions", "🔄"),
 ]
 
 
