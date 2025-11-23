@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+from .theming import (
+    emit_title_block,
+    get_panel_body_config,
+    body_pad_below,
+    body_indent_lines,
+    color_if_plain,
+)
+
+PANEL_SLUG = "blast"
+PANEL_NAME = "Blast Radius"
 
 
 # ───────────────────────── helpers ─────────────────────────
@@ -82,13 +93,13 @@ def _fmt_float(val: Any, places: int = 2, suffix: str = "") -> str:
 
 def _build_meter(enc_pct: float, slots: int = 28) -> str:
     """
-    Build a Blast bar using the SAME base glyph as the Risk Snapshot bar.
+    Build a thin bar using the same base glyph as the Risk Snapshot bar.
 
     enc_pct: 0..100 = how much of the blast radius has been encroached.
     slots:   number of block characters in the bar.
 
     We use '▰' for the encroached portion and '▱' for the remaining safety
-    portion. No emoji, no wrapping. Visually aligned with the Risk bar.
+    portion. No emoji, no wrapping.
     """
     try:
         enc = float(enc_pct)
@@ -104,72 +115,98 @@ def _build_meter(enc_pct: float, slots: int = 28) -> str:
     if filled > total:
         filled = total
 
-    filled_char = "▰"  # same icon used in the original Risk bar
+    filled_char = "▰"  # same icon style as Risk
     empty_char = "▱"
 
     bar = filled_char * filled + empty_char * (total - filled)
     return f"OUT {bar} IN"
 
 
+# ───────────────────────── render / connector ─────────────────────────
 
-# ───────────────────────── render ─────────────────────────
 
-
-def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
+def render(context: Any, width: Optional[int] = None) -> List[str]:
     """
-    Render the Blast Radius panel as a Sonic-style table + Blast Meter.
+    Render the Blast Radius panel as a Sonic-style panel with title + body.
 
     Columns:
 
         🧨 Asset   🎯 Enc%   🎚 Alert%   💧 LDist   🧱 BR   🌪 Travel%   📊 State   Blast Meter
     """
-    dl = (ctx or {}).get("dl")
-    rows = _get_monitor_rows(dl)
-
-    latest = _latest_by_asset(rows)
-    if not latest:
-        return ["[blast] no blast radius data"]
-
-    # Header row with icons, same pattern as your other panels.
-    header = (
-        f"{'🧨 Asset':14} {'🎯 Enc%':>9} {'🎚 Alert%':>10} "
-        f"{'💧 LDist':>10} {'🧱 BR':>8} {'🌪 Travel%':>11} {'📊 State':>9}  Blast Meter"
-    )
-
+    body_cfg = get_panel_body_config(PANEL_SLUG)
     lines: List[str] = []
-    lines.append(header)
-    # NOTE: no dashed separator line here – you asked to remove it.
 
-    # Sort assets for stable output (SOL - BLAST, BTC - BLAST, etc.)
-    for asset in sorted(latest.keys()):
-        row = latest[asset]
-        meta = row.get("meta") or {}
+    # Panel title rail (same pattern as Risk Snapshot, Market Alerts, etc.)
+    lines += emit_title_block(PANEL_SLUG, PANEL_NAME)
 
-        enc_val = row.get("value", meta.get("encroached_pct"))
-        alert_val = row.get("threshold", meta.get("alert_pct"))
+    dl = (context or {}).get("dl")
+    rows = _get_monitor_rows(dl)
+    latest = _latest_by_asset(rows)
 
-        ld = meta.get("liq_distance")
-        br = meta.get("blast_radius")
-        travel = meta.get("travel_pct")
-        state = str(row.get("state") or "").upper() or "-"
-
-        enc_str = _fmt_float(enc_val, places=2, suffix="%")
-        alert_str = _fmt_float(alert_val, places=2, suffix="%")
-        ld_str = _fmt_float(ld, places=2)
-        br_str = _fmt_float(br, places=2)
-        travel_str = _fmt_float(travel, places=2, suffix="%")
-
-        try:
-            enc_float = float(enc_val) if enc_val is not None else 0.0
-        except Exception:
-            enc_float = 0.0
-
-        meter = _build_meter(enc_float, slots=28)
-
-        line = (
-            f"{asset:14} {enc_str:>9} {alert_str:>10} "
-            f"{ld_str:>10} {br_str:>8} {travel_str:>11} {state:>9}  {meter}"
+    body_lines: List[str] = []
+    if not latest:
+        body_lines.append("[blast] no blast radius data")
+    else:
+        header = (
+            f"{'🧨 Asset':14} {'🎯 Enc%':>9} {'🎚 Alert%':>10} "
+            f"{'💧 LDist':>10} {'🧱 BR':>8} {'🌪 Travel%':>11} {'📊 State':>9}  Blast Meter"
         )
-        lines.append(line)
+        body_lines.append(header)
 
+        # Sort assets for stable output (SOL - BLAST, BTC - BLAST, etc.)
+        for asset in sorted(latest.keys()):
+            row = latest[asset]
+            meta = row.get("meta") or {}
+
+            enc_val = row.get("value", meta.get("encroached_pct"))
+            alert_val = row.get("threshold", meta.get("alert_pct"))
+
+            ld = meta.get("liq_distance")
+            br = meta.get("blast_radius")
+            travel = meta.get("travel_pct")
+            state = str(row.get("state") or "").upper() or "-"
+
+            enc_str = _fmt_float(enc_val, places=2, suffix="%")
+            alert_str = _fmt_float(alert_val, places=2, suffix="%")
+            ld_str = _fmt_float(ld, places=2)
+            br_str = _fmt_float(br, places=2)
+            travel_str = _fmt_float(travel, places=2, suffix="%")
+
+            try:
+                enc_float = float(enc_val) if enc_val is not None else 0.0
+            except Exception:
+                enc_float = 0.0
+
+            meter = _build_meter(enc_float, slots=28)
+
+            line = (
+                f"{asset:14} {enc_str:>9} {alert_str:>10} "
+                f"{ld_str:>10} {br_str:>8} {travel_str:>11} {state:>9}  {meter}"
+            )
+            body_lines.append(line)
+
+    # Apply body theming (indent + color) in the same way as other panels.
+    for raw in body_lines:
+        lines += body_indent_lines(
+            PANEL_SLUG,
+            [color_if_plain(raw, body_cfg.get("body_text_color", "default"))],
+        )
+
+    lines += body_pad_below(PANEL_SLUG)
     return lines
+
+
+def connector(
+    dl: Any = None,
+    ctx: Optional[Dict[str, Any]] = None,
+    width: Optional[int] = None,
+) -> List[str]:
+    """
+    console_reporter prefers connector(dl, ctx, width); delegate into render().
+    """
+    context: Dict[str, Any] = dict(ctx or {})
+    if dl is not None:
+        context.setdefault("dl", dl)
+    if width is not None:
+        context.setdefault("width", width)
+    return render(context, width=width)
