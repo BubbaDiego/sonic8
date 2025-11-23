@@ -32,6 +32,7 @@ def _session_table(sessions: List[Session]) -> Table:
         box=box.SIMPLE_HEAVY,
         show_lines=False,
     )
+    table.add_column("#", style="dim", justify="right", width=3)
     table.add_column("SID", style="bold cyan")
     table.add_column("Name")
     table.add_column("Primary Wallet")
@@ -40,10 +41,10 @@ def _session_table(sessions: List[Session]) -> Table:
     table.add_column("Tags", style="dim")
 
     if not sessions:
-        table.add_row("[dim]no sessions[/dim]", "", "", "", "", "")
+        table.add_row("-", "[dim]no sessions[/dim]", "", "", "", "", "")
         return table
 
-    for s in sessions:
+    for idx, s in enumerate(sessions, start=1):
         tags_str = ", ".join(s.tags) if isinstance(s.tags, (list, tuple)) else str(s.tags)
         created_str = (
             s.created_at.isoformat(timespec="seconds")
@@ -58,6 +59,7 @@ def _session_table(sessions: List[Session]) -> Table:
         }.get(status_value, "⚪")
 
         table.add_row(
+            str(idx),
             s.sid,
             s.name,
             s.primary_wallet_name,
@@ -135,6 +137,28 @@ def _pick_wallet(wallet_core: WalletCore) -> Optional[str]:
     return name or None
 
 
+def _pick_session_by_index(sessions: List[Session], prompt_text: str) -> Optional[Session]:
+    """Helper to select a session by its # index."""
+    if not sessions:
+        console.print("[yellow]No sessions available.[/yellow]")
+        return None
+
+    index_str = Prompt.ask(prompt_text, default="").strip()
+    if not index_str:
+        return None
+
+    if not index_str.isdigit():
+        console.print(f"[red]Invalid selection:[/] {index_str!r} (enter a number)")
+        return None
+
+    idx = int(index_str)
+    if idx < 1 or idx > len(sessions):
+        console.print(f"[red]Index out of range.[/] Valid: 1–{len(sessions)}")
+        return None
+
+    return sessions[idx - 1]
+
+
 def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
     """
     Entry point for the SessionCore console.
@@ -208,39 +232,85 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
             continue
 
         if cmd == "v":
-            sid = Prompt.ask("Session ID (sid)").strip()
-            if not sid:
+            # Use index picklist instead of raw SID.
+            if not sessions:
+                console.print("[yellow]No sessions to view.[/yellow]")
+                Prompt.ask("[dim]press Enter to return[/dim]")
                 continue
 
-            perf = session_core.get_session_performance(sid)
+            chosen = _pick_session_by_index(sessions, "Select session # (blank to cancel)")
+            if not chosen:
+                continue
+
+            try:
+                perf = session_core.get_session_performance(chosen.sid)
+            except Exception as exc:
+                console.clear()
+                _print_header()
+                console.print(
+                    Panel(
+                        f"[red]Error computing performance:[/] {exc!r}",
+                        border_style="red",
+                        title="Performance error",
+                    )
+                )
+                Prompt.ask("[dim]press Enter to return[/dim]")
+                continue
+
             console.clear()
             _print_header()
 
             if not perf:
-                console.print(f"[red]No session found with sid={sid!r}[/red]")
-                Prompt.ask("[dim]press Enter to return[/dim]")
-                continue
-
-            console.print(_performance_panel(perf))
+                console.print(f"[red]No performance data for session sid={chosen.sid!r}[/red]")
+            else:
+                console.print(_performance_panel(perf))
             Prompt.ask("[dim]press Enter to return[/dim]")
             continue
 
         if cmd == "ra":
-            sid = Prompt.ask("Session ID (sid)").strip()
-            new_name = Prompt.ask("New name").strip()
-            updated = session_core.rename_session(sid, new_name)
+            if not sessions:
+                console.print("[yellow]No sessions to rename.[/yellow]")
+                Prompt.ask("[dim]press Enter to return[/dim]")
+                continue
+
+            chosen = _pick_session_by_index(sessions, "Select session # to rename (blank to cancel)")
+            if not chosen:
+                continue
+
+            new_name = Prompt.ask("New name", default=chosen.name).strip()
+            if not new_name:
+                continue
+
+            updated = session_core.rename_session(chosen.sid, new_name)
             if not updated:
-                console.print(f"[red]No session with sid={sid!r}[/red]")
+                console.print(f"[red]No session with sid={chosen.sid!r}[/red]")
             else:
                 console.print(f"[green]Renamed session[/green] to [bold]{updated.name}[/bold].")
             Prompt.ask("[dim]press Enter to return[/dim]")
             continue
 
         if cmd == "cl":
-            sid = Prompt.ask("Session ID (sid)").strip()
-            closed = session_core.close_session(sid)
+            if not sessions:
+                console.print("[yellow]No sessions to close.[/yellow]")
+                Prompt.ask("[dim]press Enter to return[/dim]")
+                continue
+
+            chosen = _pick_session_by_index(sessions, "Select session # to close (blank to cancel)")
+            if not chosen:
+                continue
+
+            confirm = Prompt.ask(
+                f"Type [bold]YES[/bold] to close session [cyan]{chosen.sid}[/cyan] ({chosen.name})",
+                default="no",
+            ).strip()
+            if confirm != "YES":
+                console.print("[dim]Cancelled.[/dim]")
+                Prompt.ask("[dim]press Enter to return[/dim]")
+                continue
+
+            closed = session_core.close_session(chosen.sid)
             if not closed:
-                console.print(f"[red]No session with sid={sid!r}[/red]")
+                console.print(f"[red]No session with sid={chosen.sid!r}[/red]")
             else:
                 console.print(f"[yellow]Closed session[/yellow] [bold]{closed.name}[/bold].")
             Prompt.ask("[dim]press Enter to return[/dim]")
