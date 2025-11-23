@@ -31,6 +31,11 @@ from .theming import (
     color_if_plain,
     paint_line,
 )
+from backend.core.raydium_core.console.raydium_console import (
+    RaydiumClPosition,
+    fetch_raydium_cl_positions,
+    raydium_cl_positions_from_payload,
+)
 
 try:
     from .theming import HR_WIDTH  # type: ignore
@@ -124,6 +129,26 @@ def _norm_record(rec: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _record_from_position(pos: RaydiumClPosition) -> Dict[str, Any]:
+    return {
+        "pool": pos.pool_label,
+        "address": pos.address or pos.position_label,
+        "lp_qty": pos.position_label or f"{pos.token_a_symbol} / {pos.token_b_symbol}",
+        "usd_value": pos.usd_value,
+        "apr": pos.apr_label,
+        "checked_ts": None,
+    }
+
+
+def _records_from_positions(positions: List[RaydiumClPosition]) -> List[Dict[str, Any]]:
+    return [_norm_record(_record_from_position(p)) for p in positions]
+
+
+def _positions_from_payload(payload: Any) -> List[Dict[str, Any]]:
+    positions = raydium_cl_positions_from_payload(payload)
+    return _records_from_positions(positions) if positions else []
+
+
 def _coalesce(*vals, default=None):
     for v in vals:
         if v not in (None, ""):
@@ -151,6 +176,13 @@ def _collect_records(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
         if isinstance(seq, list) and seq:
             return [_norm_record(r or {}) for r in seq], "ctx.raydium.records"
 
+    for key in ("raydium_payload", "raydium_positions_payload", "raydium_positions", "raydium_rows"):
+        payload = ctx.get(key)
+        if payload:
+            recs = _positions_from_payload(payload)
+            if recs:
+                return recs, f"ctx.{key}"
+
     # 2) from summary
     csum = ctx.get("csum") or ctx.get("summary") or {}
     seq = _coalesce((csum.get("raydium") or {}).get("records"),
@@ -161,6 +193,32 @@ def _collect_records(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str]:
 
     # 3) DataLocker provider
     dl = ctx.get("dl")
+
+    sys_mgr = getattr(dl, "system", None)
+    if sys_mgr and hasattr(sys_mgr, "get_var"):
+        try:
+            sys_payload = sys_mgr.get_var("raydium_positions")
+        except Exception:
+            sys_payload = None
+        if sys_payload:
+            recs = _positions_from_payload(sys_payload)
+            if recs:
+                return recs, "dl.system.raydium_positions"
+
+    owner = ctx.get("owner") or ctx.get("raydium_owner")
+    if owner:
+        try:
+            positions = fetch_raydium_cl_positions(
+                str(owner),
+                mints=ctx.get("raydium_mints"),
+                price_url=ctx.get("raydium_price_url"),
+            )
+            recs = _records_from_positions(positions)
+            if recs:
+                return recs, "raydium_console_helper"
+        except Exception:
+            pass
+
     provider = getattr(dl, "raydium", None)
     if provider:
         for name in ("get_latest_lp_positions", "get_lp_positions", "get_positions",
