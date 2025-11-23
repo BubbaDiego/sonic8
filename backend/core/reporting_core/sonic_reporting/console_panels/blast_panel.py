@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from .bar_utils import build_red_green_bar
 from .theming import (
     body_indent_lines,
     body_pad_below,
@@ -93,38 +94,6 @@ def _fmt_float(val: Any, places: int = 2, suffix: str = "") -> str:
     return text + suffix
 
 
-def _build_meter(enc_pct: float, alert_pct: float, slots: int = 20) -> str:
-    """
-    Build a red→green Blast bar similar to the SHORT/LONG bar:
-
-        SAFE 🟥🟥🟥🟥🟥🟩🟩🟩🟩 DANGER
-
-    - enc_pct: 0..100 (how deep we are into the blast radius)
-    - alert_pct: currently not visualized as a separate marker here;
-                 enc_pct drives the red portion.
-    - slots: number of blocks in the bar (red + green).
-    """
-    try:
-        enc = float(enc_pct)
-    except Exception:
-        enc = 0.0
-
-    enc = max(0.0, min(100.0, enc))
-
-    total = max(4, int(slots))
-    red_slots = int(round((enc / 100.0) * total))
-
-    bar_chars: List[str] = []
-    for i in range(total):
-        if i < red_slots:
-            bar_chars.append("🟥")
-        else:
-            bar_chars.append("🟩")
-
-    bar = "".join(bar_chars)
-    return f"SAFE {bar} DANGER"
-
-
 # ───────────────────────── render ─────────────────────────
 
 
@@ -154,14 +123,14 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
         f"{'🧨 Asset':14} {'🎯 Enc%':>9} {'🎚 Alert%':>10} "
         f"{'💧 LDist':>10} {'🧱 BR':>8} {'🌪 Travel%':>11} {'📊 State':>9}  Blast Meter"
     )
-    sep = "-" * len(header)
 
     lines.extend(
         body_indent_lines(
             PANEL_SLUG,
             [
+                "🧨 Blast Radius 🧨",
+                "",
                 paint_line(header, body_cfg.get("column_header_text_color", "")),
-                paint_line(sep, body_cfg.get("column_header_text_color", "")),
             ],
         )
     )
@@ -189,12 +158,10 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
             enc_float = float(enc_val) if enc_val is not None else 0.0
         except Exception:
             enc_float = 0.0
-        try:
-            alert_float = float(alert_val) if alert_val is not None else 0.0
-        except Exception:
-            alert_float = 0.0
 
-        meter = _build_meter(enc_float, alert_float, slots=20)
+        enc_ratio = max(0.0, min(1.0, enc_float / 100.0))
+
+        meter = build_red_green_bar("SAFE", "BLAST", enc_ratio, slots=32)
 
         line = (
             f"{asset:14} {enc_str:>9} {alert_str:>10} "
