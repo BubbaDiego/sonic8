@@ -79,7 +79,7 @@
     "blast": {
       "enabled": true,
       "title": {
-        "icon": "\ud83d\udca5",
+        "icon": "\ud83e\udde8",
         "string": "Blast Radius"
       }
     },
