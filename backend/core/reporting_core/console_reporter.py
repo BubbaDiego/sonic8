@@ -165,9 +165,18 @@ def render_panel_stack(
 
         panel_entries.append((slug, mod, idx))
 
+    deduped_entries: List[Tuple[str, Any, int]] = []
+    seen_slugs = set()
+    for entry in panel_entries:
+        slug, mod, orig_idx = entry
+        if slug in seen_slugs:
+            continue
+        seen_slugs.add(slug)
+        deduped_entries.append((slug, mod, orig_idx))
+
     env_panels = os.environ.get("SONIC_REPORT_PANELS", "").strip()
     if env_panels:
-        ordered_entries = panel_entries
+        ordered_entries = deduped_entries
     else:
         desired_order = get_panel_order()
         index_map = {slug: i for i, slug in enumerate(desired_order)}
@@ -176,7 +185,7 @@ def render_panel_stack(
             slug, _mod, orig_idx = entry
             return (index_map.get(slug, len(desired_order) + orig_idx), orig_idx)
 
-        ordered_entries = sorted(panel_entries, key=_sort_key)
+        ordered_entries = sorted(deduped_entries, key=_sort_key)
 
     for slug, mod, _ in ordered_entries:
         if not is_enabled(slug):

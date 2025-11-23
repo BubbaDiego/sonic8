@@ -118,6 +118,14 @@ class DLSessions:
             except Exception:
                 return None
 
+        enabled_value = True
+        if hasattr(row, "keys") and "enabled" in row.keys():
+            try:
+                raw = row["enabled"]
+                enabled_value = bool(int(raw)) if isinstance(raw, str) else bool(raw)
+            except Exception:
+                enabled_value = True
+
         return Session(
             sid=row["sid"],
             name=row["name"],
@@ -126,7 +134,7 @@ class DLSessions:
             goal=row.get("goal"),
             tags=tags,
             notes=row.get("notes") or "",
-            enabled=bool(row.get("enabled", 1)),
+            enabled=enabled_value,
             created_at=_parse_ts(row.get("created_at")) or datetime.utcnow(),
             updated_at=_parse_ts(row.get("updated_at")) or datetime.utcnow(),
             closed_at=_parse_ts(row.get("closed_at")),
@@ -152,7 +160,12 @@ class DLSessions:
     # CRUD API                                                           #
     # ------------------------------------------------------------------ #
 
-    def list_sessions(self, active_only: bool = False, enabled_only: bool = False) -> List[Session]:
+    def list_sessions(
+        self,
+        *,
+        active_only: bool = False,
+        enabled_only: bool = False,
+    ) -> List[Session]:
         cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
         if cursor is None:
             return []
