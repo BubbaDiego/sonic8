@@ -192,14 +192,14 @@ class SessionCore:
     # Listing / lookup                                                   #
     # ------------------------------------------------------------------ #
 
-    def list_sessions(self) -> List[Session]:
-        return self._store.list_sessions()
+    def list_sessions(self, active_only: bool = False, enabled_only: bool = False) -> List[Session]:
+        return self._store.list_sessions(active_only=active_only, enabled_only=enabled_only)
 
     def list_active_sessions(self) -> List[Session]:
-        return [s for s in self._store.list_sessions() if s.status is SessionStatus.ACTIVE]
+        return self._store.list_sessions(active_only=True)
 
     def get_session(self, sid: str) -> Optional[Session]:
-        return self._store.get_session(sid)
+        return self._store.get_session_by_sid(sid)
 
     # ------------------------------------------------------------------ #
     # CRUD                                                               #
@@ -212,16 +212,21 @@ class SessionCore:
         name: Optional[str] = None,
         goal: Optional[str] = None,
         tags: Optional[List[str]] = None,
-        notes: Optional[str] = None,
+        notes: str = "",
     ) -> Session:
         sid = uuid.uuid4().hex[:8]
+        now = datetime.utcnow()
         session = Session(
             sid=sid,
             name=name or f"{primary_wallet_name}-{sid}",
             primary_wallet_name=primary_wallet_name,
+            status=SessionStatus.ACTIVE,
             goal=goal,
             tags=tags or [],
-            notes=notes,
+            notes=notes or "",
+            enabled=True,
+            created_at=now,
+            updated_at=now,
         )
         return self._store.upsert_session(session)
 
@@ -278,20 +283,23 @@ class SessionCore:
     def rename_session(self, sid: str, new_name: str) -> Optional[Session]:
         return self.update_session(sid, name=new_name)
 
+    def set_session_enabled(self, sid: str, enabled: bool) -> Optional[Session]:
+        return self._store.set_enabled(sid, enabled)
+
     # ------------------------------------------------------------------ #
     # Performance API                                                    #
     # ------------------------------------------------------------------ #
 
-    def get_session_performance(self, sid: str) -> Optional[SessionPerformance]:
+    def get_performance(self, sid: str) -> SessionPerformance:
         """
         Compute performance metrics for a given session ID.
 
         Uses positions_totals_history equity snapshots for the session's primary wallet
         between session.created_at and session.closed_at (or now, if active).
         """
-        session = self._store.get_session(sid)
+        session = self._store.get_session_by_sid(sid)
         if not session:
-            return None
+            raise RuntimeError(f"Session not found for sid={sid!r}")
 
         start, end = self._session_window(session)
 
@@ -302,20 +310,7 @@ class SessionCore:
         )
 
         if not series:
-            # No data; return a "blank" performance object.
-            return SessionPerformance(
-                sid=session.sid,
-                name=session.name,
-                primary_wallet_name=session.primary_wallet_name,
-                start=start,
-                end=end,
-                start_equity=None,
-                end_equity=None,
-                pnl=None,
-                return_pct=None,
-                max_drawdown_pct=None,
-                samples=0,
-            )
+            raise RuntimeError(f"No equity samples found for session {sid}")
 
         # Basic stats
         series_sorted = sorted(series, key=lambda t: t[0])
@@ -353,3 +348,15 @@ class SessionCore:
             max_drawdown_pct=max_drawdown_pct,
             samples=len(series_sorted),
         )
+
+    def get_session_performance(self, sid: str) -> Optional[SessionPerformance]:
+        try:
+            return self.get_performance(sid)
+        except RuntimeError:
+            return None
+
+    def safe_get_performance(self, sid: str) -> Optional[SessionPerformance]:
+        try:
+            return self.get_performance(sid)
+        except RuntimeError:
+            return None
