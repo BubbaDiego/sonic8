@@ -38,6 +38,7 @@
     "market",
     "xcom",
     "wallets",
+    "raydium",
     "risk",
     "transition"
   ],
@@ -118,6 +119,12 @@
       "title": {
         "icon": "\u2696\ufe0f",
         "string": "Risk Snapshot"
+      }
+    },
+    "raydium": {
+      "title": {
+        "icon": "\ud83c\udf0a",
+        "string": "Raydium LPs"
       }
     },
     "transition": {

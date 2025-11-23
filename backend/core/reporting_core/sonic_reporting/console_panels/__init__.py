@@ -52,7 +52,7 @@ PANEL_SPECS: List[PanelSpec] = [
     PanelSpec(
         key="raydium",
         slug="raydium",
-        label="Raydium LPs",
+        label="🌊 Raydium LPs",
         connector=getattr(
             raydium_panel,
             "connector",
