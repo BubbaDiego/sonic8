@@ -25,10 +25,11 @@ class Session:
     primary_wallet_name: str
 
     status: SessionStatus = SessionStatus.ACTIVE
+    enabled: bool = True
 
     goal: Optional[str] = None
     tags: List[str] = field(default_factory=list)
-    notes: Optional[str] = None
+    notes: str = ""
 
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)

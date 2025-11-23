@@ -22,6 +22,7 @@ class DLSessions:
             goal TEXT,
             tags TEXT NOT NULL,         -- JSON array of strings
             notes TEXT,
+            enabled INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,   -- ISO-8601 UTC string
             updated_at TEXT NOT NULL,
             closed_at TEXT
@@ -45,7 +46,7 @@ class DLSessions:
 
         cursor.execute("PRAGMA table_info(sessions)")
         cols = {row[1] for row in cursor.fetchall() or []}
-        expected = {
+        base_expected = {
             "sid",
             "name",
             "primary_wallet_name",
@@ -58,7 +59,7 @@ class DLSessions:
             "closed_at",
         }
 
-        if cols and not expected.issubset(cols):
+        if cols and not base_expected.issubset(cols):
             # Preserve any legacy table by renaming before creating the new schema.
             try:
                 cursor.execute("ALTER TABLE sessions RENAME TO sessions_legacy")
@@ -75,12 +76,23 @@ class DLSessions:
                 goal TEXT,
                 tags TEXT NOT NULL,
                 notes TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 closed_at TEXT
             )
             """
         )
+
+        # Add enabled column for legacy installs that predate it.
+        if cols and "enabled" not in cols:
+            try:
+                cursor.execute(
+                    "ALTER TABLE sessions ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1"
+                )
+            except Exception:
+                pass
+
         self._dl.db.commit()
 
     # ------------------------------------------------------------------ #
@@ -113,7 +125,8 @@ class DLSessions:
             status=SessionStatus(row["status"]),
             goal=row.get("goal"),
             tags=tags,
-            notes=row.get("notes"),
+            notes=row.get("notes") or "",
+            enabled=bool(row.get("enabled", 1)),
             created_at=_parse_ts(row.get("created_at")) or datetime.utcnow(),
             updated_at=_parse_ts(row.get("updated_at")) or datetime.utcnow(),
             closed_at=_parse_ts(row.get("closed_at")),
@@ -129,6 +142,7 @@ class DLSessions:
             "goal": session.goal,
             "tags": json.dumps(session.tags),
             "notes": session.notes,
+            "enabled": 1 if session.enabled else 0,
             "created_at": session.created_at.isoformat(),
             "updated_at": session.updated_at.isoformat(),
             "closed_at": session.closed_at.isoformat() if session.closed_at else None,
@@ -138,15 +152,28 @@ class DLSessions:
     # CRUD API                                                           #
     # ------------------------------------------------------------------ #
 
-    def list_sessions(self) -> List[Session]:
+    def list_sessions(self, active_only: bool = False, enabled_only: bool = False) -> List[Session]:
         cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
         if cursor is None:
             return []
 
+        where = []
+        params: List[str] = []
+
+        if active_only:
+            where.append("status = ?")
+            params.append(SessionStatus.ACTIVE.value)
+
+        if enabled_only:
+            where.append("enabled = 1")
+
+        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+
         cursor.execute(
-            "SELECT sid, name, primary_wallet_name, status, goal, tags, notes, "
-            "created_at, updated_at, closed_at "
-            "FROM sessions ORDER BY created_at DESC"
+            f"SELECT sid, name, primary_wallet_name, status, goal, tags, notes, enabled, "
+            f"created_at, updated_at, closed_at FROM sessions {where_sql} "
+            f"ORDER BY status = 'active' DESC, created_at DESC",
+            params,
         )
         rows = [dict(row) for row in cursor.fetchall() or []]
         return [self._row_to_session(r) for r in rows]
@@ -157,7 +184,7 @@ class DLSessions:
             return None
 
         cursor.execute(
-            "SELECT sid, name, primary_wallet_name, status, goal, tags, notes, "
+            "SELECT sid, name, primary_wallet_name, status, goal, tags, notes, enabled, "
             "created_at, updated_at, closed_at FROM sessions WHERE sid = ?",
             (sid,),
         )
@@ -165,6 +192,9 @@ class DLSessions:
         if not row:
             return None
         return self._row_to_session(dict(row))
+
+    def get_session_by_sid(self, sid: str) -> Optional[Session]:
+        return self.get_session(sid)
 
     def upsert_session(self, session: Session) -> Session:
         cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
@@ -176,11 +206,11 @@ class DLSessions:
             """
             INSERT INTO sessions (
                 sid, name, primary_wallet_name, status, goal, tags, notes,
-                created_at, updated_at, closed_at
+                enabled, created_at, updated_at, closed_at
             )
             VALUES (
                 :sid, :name, :primary_wallet_name, :status, :goal, :tags, :notes,
-                :created_at, :updated_at, :closed_at
+                :enabled, :created_at, :updated_at, :closed_at
             )
             ON CONFLICT(sid) DO UPDATE SET
                 name = excluded.name,
@@ -189,6 +219,7 @@ class DLSessions:
                 goal = excluded.goal,
                 tags = excluded.tags,
                 notes = excluded.notes,
+                enabled = excluded.enabled,
                 created_at = excluded.created_at,
                 updated_at = excluded.updated_at,
                 closed_at = excluded.closed_at
@@ -197,6 +228,21 @@ class DLSessions:
         )
         self._dl.db.commit()
         return session
+
+    def set_enabled(self, sid: str, enabled: bool) -> Optional[Session]:
+        cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None
+        if cursor is None:
+            return None
+
+        now = datetime.utcnow().isoformat()
+        cursor.execute(
+            "UPDATE sessions SET enabled = ?, updated_at = ? WHERE sid = ?",
+            (1 if enabled else 0, now, sid),
+        )
+        self._dl.db.commit()
+        if cursor.rowcount <= 0:
+            return None
+        return self.get_session_by_sid(sid)
 
     def delete_session(self, sid: str) -> bool:
         cursor = self._dl.db.get_cursor() if getattr(self._dl, "db", None) else None

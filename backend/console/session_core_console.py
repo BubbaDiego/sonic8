@@ -26,13 +26,23 @@ def _print_header() -> None:
     )
 
 
-def _session_table(sessions: List[Session]) -> Table:
+def _session_status_icon(status: SessionStatus) -> str:
+    status_value = status.value if isinstance(status, SessionStatus) else str(status)
+    return {
+        "active": "🟢",
+        "paused": "🟡",
+        "closed": "🔴",
+    }.get(status_value, "⚪")
+
+
+def _session_table(sessions: List[Session], selected_index: Optional[int]) -> Table:
     table = Table(
         title="📊 Sessions",
         box=box.SIMPLE_HEAVY,
         show_lines=False,
     )
     table.add_column("#", style="dim", justify="right", width=3)
+    table.add_column("En", style="dim", width=3)
     table.add_column("SID", style="bold cyan")
     table.add_column("Name")
     table.add_column("Primary Wallet")
@@ -41,7 +51,7 @@ def _session_table(sessions: List[Session]) -> Table:
     table.add_column("Tags", style="dim")
 
     if not sessions:
-        table.add_row("-", "[dim]no sessions[/dim]", "", "", "", "", "")
+        table.add_row("-", "", "[dim]no sessions[/dim]", "", "", "", "", "")
         return table
 
     for idx, s in enumerate(sessions, start=1):
@@ -51,19 +61,17 @@ def _session_table(sessions: List[Session]) -> Table:
             if isinstance(s.created_at, datetime)
             else str(s.created_at)
         )
-        status_value = s.status.value if isinstance(s.status, SessionStatus) else str(s.status)
-        status_icon = {
-            "active": "🟢",
-            "paused": "🟡",
-            "closed": "🔴",
-        }.get(status_value, "⚪")
+        status_icon = _session_status_icon(s.status)
+        enabled_icon = "🟢" if s.enabled else "⚪"
+        row_prefix = ">" if selected_index is not None and (idx - 1) == selected_index else ""
 
         table.add_row(
-            str(idx),
+            f"{row_prefix}{idx}",
+            enabled_icon,
             s.sid,
             s.name,
             s.primary_wallet_name,
-            f"{status_icon} {status_value}",
+            f"{status_icon} {s.status.value}",
             created_str,
             tags_str,
         )
@@ -71,45 +79,53 @@ def _session_table(sessions: List[Session]) -> Table:
     return table
 
 
-def _performance_panel(perf: SessionPerformance) -> Panel:
-    """Build a Rich panel summarizing performance for a session."""
-    lines = []
+def _performance_lines(perf: Optional[SessionPerformance]) -> List[str]:
+    if perf is None:
+        return ["No equity data found for this session window."]
 
-    lines.append(f"[bold]{perf.name}[/bold]  ([cyan]{perf.sid}[/cyan])")
-    lines.append(f"[dim]Wallet[/dim]: {perf.primary_wallet_name}")
-    lines.append("")
-    lines.append(
-        f"[dim]Window[/dim]: {perf.start.isoformat(timespec='seconds')}  →  {perf.end.isoformat(timespec='seconds')}"
-    )
-    lines.append(f"[dim]Samples[/dim]: {perf.samples}")
+    def fmt_num(value: Optional[float]) -> str:
+        return "—" if value is None else f"{value:,.2f}"
 
-    lines.append("")
+    def fmt_pct(value: Optional[float]) -> str:
+        return "—" if value is None else f"{value:+.2f}%"
 
-    if perf.start_equity is None or perf.end_equity is None or perf.pnl is None:
-        lines.append("[yellow]No equity data found for this session window.[/yellow]")
+    return [
+        f"Start equity : {fmt_num(perf.start_equity)}",
+        f"End equity   : {fmt_num(perf.end_equity)}",
+        f"PnL          : {fmt_num(perf.pnl)}",
+        f"Return %     : {fmt_pct(perf.return_pct)}",
+        f"Max DD %     : {fmt_pct(perf.max_drawdown_pct)}",
+    ]
+
+
+def _session_detail_panel(session: Optional[Session], perf: Optional[SessionPerformance]) -> Panel:
+    if session is None:
+        body = "No sessions available."
+        return Panel(body, title="📈 Selected Session", border_style="green")
+
+    lines = [
+        f"[bold]{session.name}[/bold]  ([cyan]{session.sid}[/cyan])",
+        f"Wallet: {session.primary_wallet_name}    Status: {session.status.value}    Enabled: {'yes' if session.enabled else 'no'}",
+    ]
+
+    if perf is not None:
+        window_start = perf.start.isoformat(timespec="seconds")
+        window_end = perf.end.isoformat(timespec="seconds")
+        samples = perf.samples
     else:
-        pnl_str = f"{perf.pnl:,.2f}"
-        start_str = f"{perf.start_equity:,.2f}"
-        end_str = f"{perf.end_equity:,.2f}"
+        start_dt = session.created_at if isinstance(session.created_at, datetime) else None
+        end_dt = session.closed_at if isinstance(session.closed_at, datetime) else None
+        window_start = start_dt.isoformat(timespec="seconds") if start_dt else "—"
+        window_end = end_dt.isoformat(timespec="seconds") if end_dt else "—"
+        samples = 0
 
-        if perf.return_pct is not None:
-            ret_str = f"{perf.return_pct:+.2f}%"
-        else:
-            ret_str = "n/a"
-
-        if perf.max_drawdown_pct is not None:
-            dd_str = f"{perf.max_drawdown_pct:.2f}%"
-        else:
-            dd_str = "n/a"
-
-        lines.append(f"[dim]Start equity[/dim]: {start_str}")
-        lines.append(f"[dim]End equity[/dim]:   {end_str}")
-        lines.append(f"[dim]PnL[/dim]:          [bold]{pnl_str}[/bold]")
-        lines.append(f"[dim]Return[/dim]:       {ret_str}")
-        lines.append(f"[dim]Max drawdown[/dim]: {dd_str}")
+    lines.append(f"Window: {window_start} → {window_end}")
+    lines.append(f"Samples: {samples}")
+    lines.append("")
+    lines.extend(_performance_lines(perf))
 
     body = "\n".join(lines)
-    return Panel(body, title="📈 Session Performance", border_style="green")
+    return Panel(body, title="📈 Selected Session", border_style="green")
 
 
 def _pick_wallet(wallet_core: WalletCore) -> Optional[str]:
@@ -176,18 +192,46 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
     session_core = SessionCore(dl)
     wallet_core = WalletCore(dl)
 
+    active_only = False
+    enabled_only = False
+    selected_index: Optional[int] = 0
+    status_message: Optional[str] = None
+
     while True:
+        sessions = session_core.list_sessions(
+            active_only=active_only, enabled_only=enabled_only
+        )
+        if not sessions:
+            selected_index = None
+        elif selected_index is None:
+            selected_index = 0
+        else:
+            selected_index = max(0, min(selected_index, len(sessions) - 1))
+
+        selected_session = sessions[selected_index] if selected_index is not None else None
+        perf = (
+            session_core.safe_get_performance(selected_session.sid)
+            if selected_session
+            else None
+        )
+
         console.clear()
         _print_header()
+        if status_message:
+            console.print(status_message)
+            status_message = None
 
-        sessions = session_core.list_sessions()
-        console.print(_session_table(sessions))
+        console.print(_session_table(sessions, selected_index))
+        console.rule(style="dim")
+        console.print(_session_detail_panel(selected_session, perf))
         console.print()
         console.print(
             "[bold]Commands:[/bold] "
             "[cyan]c[/cyan]=create  "
-            "[cyan]a[/cyan]=active only  "
-            "[cyan]v[/cyan]=view performance  "
+            "[cyan]t[/cyan]=toggle enabled  "
+            "[cyan]a[/cyan]=active-only  "
+            "[cyan]f[/cyan]=enabled-only  "
+            "[cyan]v[/cyan]=view/reselect  "
             "[cyan]ra[/cyan]=rename  "
             "[cyan]cl[/cyan]=close  "
             "[cyan]q[/cyan]=quit"
@@ -195,20 +239,29 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
 
         cmd = Prompt.ask("[magenta]session-core>[/magenta]", default="q").strip().lower()
 
+        if cmd.isdigit():
+            idx = int(cmd) - 1
+            if 0 <= idx < len(sessions):
+                selected_index = idx
+            else:
+                status_message = f"[yellow]Index out of range. Valid: 1–{len(sessions)}[/yellow]"
+            continue
+
         if cmd in {"q", "quit", "exit"}:
             break
 
         if cmd == "a":
-            console.clear()
-            _print_header()
-            active = session_core.list_active_sessions()
-            console.print(_session_table(active))
-            Prompt.ask("[dim]press Enter to return[/dim]")
+            active_only = not active_only
+            continue
+
+        if cmd == "f":
+            enabled_only = not enabled_only
             continue
 
         if cmd == "c":
             wallet_name = _pick_wallet(wallet_core)
             if not wallet_name:
+                status_message = "[red]No wallet selected.[/red]"
                 continue
 
             default_name = f"{wallet_name}-{datetime.utcnow().date().isoformat()}"
@@ -222,80 +275,87 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
                 name=name,
                 goal=goal or None,
                 tags=tags or None,
-                notes=None,
+                notes="",
             )
-            console.print(
+            status_message = (
                 f"[green]Created session[/green] [bold]{session.sid}[/bold] "
                 f"for wallet [bold]{session.primary_wallet_name}[/bold]."
             )
-            Prompt.ask("[dim]press Enter to return[/dim]")
+            sessions = session_core.list_sessions(
+                active_only=active_only, enabled_only=enabled_only
+            )
+            for idx, sess in enumerate(sessions):
+                if sess.sid == session.sid:
+                    selected_index = idx
+                    break
+            continue
+
+        if cmd == "t":
+            if selected_session is None:
+                status_message = "[yellow]No session selected to toggle.[/yellow]"
+                continue
+            updated = session_core.set_session_enabled(
+                selected_session.sid, not selected_session.enabled
+            )
+            if updated:
+                status_message = (
+                    f"[cyan]Session[/cyan] {updated.sid} set to "
+                    f"{'enabled' if updated.enabled else 'disabled'}."
+                )
+            else:
+                status_message = "[red]Failed to update session state.[/red]"
             continue
 
         if cmd == "v":
-            # Use index picklist instead of raw SID.
             if not sessions:
-                console.print("[yellow]No sessions to view.[/yellow]")
-                Prompt.ask("[dim]press Enter to return[/dim]")
+                status_message = "[yellow]No sessions to select.[/yellow]"
                 continue
-
-            chosen = _pick_session_by_index(sessions, "Select session # (blank to cancel)")
-            if not chosen:
-                continue
-
-            try:
-                perf = session_core.get_session_performance(chosen.sid)
-            except Exception as exc:
-                console.clear()
-                _print_header()
-                console.print(
-                    Panel(
-                        f"[red]Error computing performance:[/] {exc!r}",
-                        border_style="red",
-                        title="Performance error",
-                    )
-                )
-                Prompt.ask("[dim]press Enter to return[/dim]")
-                continue
-
-            console.clear()
-            _print_header()
-
-            if not perf:
-                console.print(f"[red]No performance data for session sid={chosen.sid!r}[/red]")
-            else:
-                console.print(_performance_panel(perf))
-            Prompt.ask("[dim]press Enter to return[/dim]")
+            chosen = _pick_session_by_index(
+                sessions, "Select session # (blank to cancel)"
+            )
+            if chosen:
+                selected_index = sessions.index(chosen)
             continue
 
         if cmd == "ra":
             if not sessions:
-                console.print("[yellow]No sessions to rename.[/yellow]")
-                Prompt.ask("[dim]press Enter to return[/dim]")
+                status_message = "[yellow]No sessions to rename.[/yellow]"
                 continue
-
-            chosen = _pick_session_by_index(sessions, "Select session # to rename (blank to cancel)")
+            chosen = _pick_session_by_index(
+                sessions, "Select session # to rename (blank for selected)"
+            )
+            if chosen is None and selected_session is not None:
+                chosen = selected_session
             if not chosen:
                 continue
 
             new_name = Prompt.ask("New name", default=chosen.name).strip()
             if not new_name:
+                status_message = "[yellow]Name unchanged.[/yellow]"
                 continue
 
             updated = session_core.rename_session(chosen.sid, new_name)
             if not updated:
-                console.print(f"[red]No session with sid={chosen.sid!r}[/red]")
+                status_message = f"[red]No session with sid={chosen.sid!r}[/red]"
             else:
-                console.print(f"[green]Renamed session[/green] to [bold]{updated.name}[/bold].")
-            Prompt.ask("[dim]press Enter to return[/dim]")
+                status_message = (
+                    f"[green]Renamed session[/green] to [bold]{updated.name}[/bold]."
+                )
+                for idx, sess in enumerate(sessions):
+                    if sess.sid == updated.sid:
+                        selected_index = idx
+                        break
             continue
 
         if cmd == "cl":
             if not sessions:
-                console.print("[yellow]No sessions to close.[/yellow]")
-                Prompt.ask("[dim]press Enter to return[/dim]")
+                status_message = "[yellow]No sessions to close.[/yellow]"
                 continue
-
-            chosen = _pick_session_by_index(sessions, "Select session # to close (blank to cancel)")
+            chosen = _pick_session_by_index(
+                sessions, "Select session # to close (blank for selected)"
+            )
+            if chosen is None:
+                chosen = selected_session
             if not chosen:
                 continue
 
@@ -304,17 +364,14 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
                 default="no",
             ).strip()
             if confirm != "YES":
-                console.print("[dim]Cancelled.[/dim]")
-                Prompt.ask("[dim]press Enter to return[/dim]")
+                status_message = "[dim]Cancelled.[/dim]"
                 continue
 
             closed = session_core.close_session(chosen.sid)
             if not closed:
-                console.print(f"[red]No session with sid={chosen.sid!r}[/red]")
+                status_message = f"[red]No session with sid={chosen.sid!r}[/red]"
             else:
-                console.print(f"[yellow]Closed session[/yellow] [bold]{closed.name}[/bold].")
-            Prompt.ask("[dim]press Enter to return[/dim]")
+                status_message = f"[yellow]Closed session[/yellow] [bold]{closed.name}[/bold]."
             continue
 
-        console.print(f"[yellow]Unknown command: {cmd!r}[/yellow]")
-        Prompt.ask("[dim]press Enter to return[/dim]")
+        status_message = f"[yellow]Unknown command: {cmd!r}[/yellow]"

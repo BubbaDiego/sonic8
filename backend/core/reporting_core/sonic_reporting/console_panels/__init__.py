@@ -17,6 +17,7 @@ from . import price_panel
 from . import raydium_panel
 from . import risk_panel
 from . import session_panel
+from . import sessions_panel
 from . import transition_panel
 from . import wallets_panel
 from . import xcom_panel
@@ -63,6 +64,20 @@ PANEL_SPECS: List[PanelSpec] = [
         group="defi",
         module_path="backend.core.reporting_core.sonic_reporting.console_panels.raydium_panel",
     ),
+    PanelSpec(
+        key="sessions",
+        slug="sessions",
+        label="Sessions",
+        connector=getattr(
+            sessions_panel,
+            "connector",
+            getattr(sessions_panel, "build_sessions_panel", None),
+        ),
+        module=sessions_panel,
+        description="Sessions overview matrix (PnL, returns, drawdown).",
+        group="sonic",
+        module_path="backend.core.reporting_core.sonic_reporting.console_panels.sessions_panel",
+    ),
 ]
 
 PANELS: Dict[str, Any] = {
@@ -76,6 +91,7 @@ PANELS: Dict[str, Any] = {
     "market": market_panel,
     "xcom": xcom_panel,
     "session": session_panel,
+    "sessions": sessions_panel,
     "wallets": wallets_panel,
 }
 
@@ -98,6 +114,7 @@ __all__ = [
     "raydium_panel",
     "risk_panel",
     "session_panel",
+    "sessions_panel",
     "transition_panel",
     "wallets_panel",
     "xcom_panel",
