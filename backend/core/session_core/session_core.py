@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from backend.data.data_locker import DataLocker
 from backend.data.dl_sessions import DLSessions
@@ -13,8 +13,11 @@ class SessionCore:
     """
     High-level session services for Sonic.
 
-    All session CRUD should go through this class.
+    All session CRUD and performance queries should go through this class.
     """
+
+    # Table we use for equity/time series
+    EQUITY_TABLE = "positions_totals_history"
 
     def __init__(self, dl: DataLocker) -> None:
         self._dl = dl
@@ -34,18 +37,97 @@ class SessionCore:
         """
         start = session.created_at
         if not isinstance(start, datetime):
-            # Defensive: allow raw string fallback
             start = datetime.fromisoformat(str(start))
 
         end = session.closed_at or datetime.utcnow()
         if not isinstance(end, datetime):
             end = datetime.fromisoformat(str(end))
 
-        # Avoid inverted windows
         if end < start:
             end = start
 
         return start, end
+
+    def _get_sqlite_connection(self) -> Any:
+        """
+        Extract an underlying sqlite3.Connection from DataLocker.
+
+        On Sonic8, DataLocker.db typically returns a DatabaseManager, not the raw
+        connection. We duck-type here to support both:
+        - Raw connection (has .execute)
+        - Manager with .conn or .connection
+        """
+        db_obj = getattr(self._dl, "db", None)
+        if db_obj is None:
+            raise RuntimeError("DataLocker.db is None")
+
+        # Raw connection
+        if hasattr(db_obj, "execute"):
+            return db_obj
+
+        # Manager with .conn or .connection
+        for attr in ("conn", "connection"):
+            conn = getattr(db_obj, attr, None)
+            if conn is not None and hasattr(conn, "execute"):
+                return conn
+
+        raise RuntimeError(
+            f"Unsupported DataLocker.db type {type(db_obj)!r}: "
+            "does not expose a usable sqlite connection"
+        )
+
+    def _detect_columns(self, conn: Any, table: str) -> Tuple[str, str, Optional[str]]:
+        """
+        Inspect the given table and pick:
+
+        - time_col: timestamp-like column
+        - value_col: equity / total value column
+        - wallet_col: wallet identifier column (optional)
+
+        Raises a RuntimeError with the actual column list if it can't find
+        time or value columns.
+        """
+        cursor = conn.execute(f"PRAGMA table_info({table})")
+        rows = cursor.fetchall()
+        cols = [row[1] for row in rows]  # row[1] is 'name'
+        col_set = set(cols)
+
+        time_candidates = ["timestamp", "snapshot_time", "created_at", "ts"]
+        value_candidates = [
+            "total_value_usd",
+            "total_value",
+            "equity_usd",
+            "portfolio_value",
+            "portfolio_value_usd",
+        ]
+        wallet_candidates = ["wallet_name", "wallet", "trader_name", "account_name"]
+
+        time_col = None
+        for name in time_candidates:
+            if name in col_set:
+                time_col = name
+                break
+
+        value_col = None
+        for name in value_candidates:
+            if name in col_set:
+                value_col = name
+                break
+
+        wallet_col = None
+        for name in wallet_candidates:
+            if name in col_set:
+                wallet_col = name
+                break
+
+        if time_col is None or value_col is None:
+            raise RuntimeError(
+                f"{table} does not have a known time/value column. "
+                f"Columns={cols}; expected time in {time_candidates}, "
+                f"value in {value_candidates}."
+            )
+
+        return time_col, value_col, wallet_col
 
     def _fetch_equity_series(
         self,
@@ -55,47 +137,46 @@ class SessionCore:
         end: datetime,
     ) -> List[Tuple[datetime, float]]:
         """
-        Fetch (timestamp, equity) samples from monitor_ledger for the given wallet
-        over the [start, end] window.
+        Fetch (timestamp, equity) samples from positions_totals_history (or whichever
+        table EQUITY_TABLE names) for the given wallet over the [start, end] window.
 
-        Assumptions about `monitor_ledger` table (adjust SQL if schema differs):
-
-            - `timestamp`       TEXT  (ISO-8601 string)
-            - `wallet_name`     TEXT
-            - `portfolio_value` REAL  (total equity / portfolio value for that wallet)
-
-        Returns a list sorted by timestamp ascending.
+        If the table does not have a wallet column, we compute series for all wallets
+        combined.
         """
-        conn = self._dl.db  # sqlite3.Connection (see DataLocker)
-        conn.row_factory = getattr(conn, "row_factory", None) or None
+        conn = self._get_sqlite_connection()
+        table = self.EQUITY_TABLE
 
-        # If DataLocker already sets row_factory to sqlite3.Row, we can use dict(row)
-        # Otherwise, treat rows as tuples: (timestamp, portfolio_value)
-        cursor = conn.execute(
-            """
-            SELECT timestamp, portfolio_value
-            FROM monitor_ledger
-            WHERE wallet_name = ?
-              AND timestamp >= ?
-              AND timestamp <= ?
-            ORDER BY timestamp ASC
-            """,
-            (wallet_name, start.isoformat(), end.isoformat()),
-        )
+        time_col, value_col, wallet_col = self._detect_columns(conn, table)
+
+        # Dynamically build WHERE clause + params based on whether we have a wallet column
+        where_clauses = [f"{time_col} >= ?", f"{time_col} <= ?"]
+        params: List[Any] = [start.isoformat(), end.isoformat()]
+
+        if wallet_col is not None:
+            where_clauses.insert(0, f"{wallet_col} = ?")
+            params.insert(0, wallet_name)
+
+        where_sql = " AND ".join(where_clauses)
+
+        sql = f"""
+            SELECT {time_col}, {value_col}
+            FROM {table}
+            WHERE {where_sql}
+            ORDER BY {time_col} ASC
+        """
+
+        cursor = conn.execute(sql, params)
+        rows = cursor.fetchall()
 
         series: List[Tuple[datetime, float]] = []
-        for row in cursor.fetchall():
-            if isinstance(row, dict):
-                ts_raw = row["timestamp"]
-                value_raw = row["portfolio_value"]
-            else:
-                # sqlite3.Row behaves like a tuple by default; index 0,1 are our columns
-                ts_raw, value_raw = row[0], row[1]
+
+        for row in rows:
+            # sqlite3.Row behaves like a sequence; index 0,1 are our columns
+            ts_raw, value_raw = row[0], row[1]
 
             try:
                 ts = datetime.fromisoformat(str(ts_raw))
             except Exception:
-                # Skip malformed timestamps
                 continue
 
             try:
@@ -205,7 +286,7 @@ class SessionCore:
         """
         Compute performance metrics for a given session ID.
 
-        Uses monitor_ledger equity snapshots for the session's primary wallet
+        Uses positions_totals_history equity snapshots for the session's primary wallet
         between session.created_at and session.closed_at (or now, if active).
         """
         session = self._store.get_session(sid)
@@ -242,9 +323,8 @@ class SessionCore:
         last_ts, last_val = series_sorted[-1]
 
         pnl = last_val - first_val
-        return_pct: Optional[float]
         if first_val > 0:
-            return_pct = (pnl / first_val) * 100.0
+            return_pct: Optional[float] = (pnl / first_val) * 100.0
         else:
             return_pct = None
 
