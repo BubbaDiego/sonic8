@@ -19,7 +19,6 @@ from typing import Any, Dict, Iterable, List, Optional
 from rich.console import Console
 from rich.table import Table
 
-from .bar_utils import build_red_green_bar
 from .theming import (
     emit_title_block,
     get_panel_body_config,
@@ -164,8 +163,7 @@ def _build_balance_bar(
     total = short_notional + long_notional
     if total <= 0:
         bar = "[dim]────────────────────────────────────────[/dim]"
-        bar_line = f"[red]SHORT[/red] {bar} [green]LONG[/green]"
-        return bar_line, "—", "—"
+        return bar, "—", "—"
 
     short_ratio = short_notional / total
     long_ratio = long_notional / total
@@ -173,13 +171,18 @@ def _build_balance_bar(
     short_pct_txt = f"{short_ratio * 100:.0f}%"
     long_pct_txt = f"{long_ratio * 100:.0f}%"
 
-    bar_line = build_red_green_bar(
-        "[red]SHORT[/red]",
-        "[green]LONG[/green]",
-        short_ratio,
-        slots=BAR_SEGMENTS,
-    )
-    return bar_line, short_pct_txt, long_pct_txt
+    short_blocks = int(round(short_ratio * BAR_SEGMENTS))
+    short_blocks = max(0, min(short_blocks, BAR_SEGMENTS))
+    long_blocks = BAR_SEGMENTS - short_blocks
+
+    short_seg = "[red]" + ("▰" * short_blocks) + "[/red]" if short_blocks else ""
+    long_seg = "[green]" + ("▰" * long_blocks) + "[/green]" if long_blocks else ""
+
+    if not short_seg and not long_seg:
+        long_seg = "[green]▰[/green]"
+
+    bar = short_seg + long_seg
+    return bar, short_pct_txt, long_pct_txt
 
 
 def _build_pct_line(short_pct_txt: str, long_pct_txt: str) -> str:
@@ -266,13 +269,13 @@ def _build_rich_block(metrics: Dict[str, Optional[float]]) -> List[str]:
     console.print(table)
 
     # ── balance bar + percentages ──
-    bar_line, short_pct_txt, long_pct_txt = _build_balance_bar(
+    bar, short_pct_txt, long_pct_txt = _build_balance_bar(
         short_notional=short_sz,
         long_notional=long_sz,
     )
 
     console.print()  # spacer
-    console.print(bar_line)
+    console.print(f"[red]SHORT[/red] {bar} [green]LONG[/green]")
     pct_line = _build_pct_line(short_pct_txt, long_pct_txt)
     console.print(pct_line)
 
