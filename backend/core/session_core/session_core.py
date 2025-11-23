@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from backend.data.data_locker import DataLocker
 from backend.data.dl_sessions import DLSessions
+from backend.data.dl_portfolio import DLPortfolioManager
 from .session_models import Session, SessionPerformance, SessionStatus
 
 
@@ -22,6 +23,7 @@ class SessionCore:
     def __init__(self, dl: DataLocker) -> None:
         self._dl = dl
         self._store = DLSessions(dl)
+        self._portfolio = DLPortfolioManager(getattr(dl, "db", dl))
 
     # ------------------------------------------------------------------ #
     # Internal helpers                                                   #
@@ -48,151 +50,16 @@ class SessionCore:
 
         return start, end
 
-    def _get_sqlite_connection(self) -> Any:
-        """
-        Extract an underlying sqlite3.Connection from DataLocker.
-
-        On Sonic8, DataLocker.db typically returns a DatabaseManager, not the raw
-        connection. We duck-type here to support both:
-        - Raw connection (has .execute)
-        - Manager with .conn or .connection
-        """
-        db_obj = getattr(self._dl, "db", None)
-        if db_obj is None:
-            raise RuntimeError("DataLocker.db is None")
-
-        # Raw connection
-        if hasattr(db_obj, "execute"):
-            return db_obj
-
-        # Manager with .conn or .connection
-        for attr in ("conn", "connection"):
-            conn = getattr(db_obj, attr, None)
-            if conn is not None and hasattr(conn, "execute"):
-                return conn
-
-        raise RuntimeError(
-            f"Unsupported DataLocker.db type {type(db_obj)!r}: "
-            "does not expose a usable sqlite connection"
-        )
-
-    def _detect_columns(self, conn: Any, table: str) -> Tuple[str, str, Optional[str]]:
-        """
-        Inspect the given table and pick:
-
-        - time_col: timestamp-like column
-        - value_col: equity / total value column
-        - wallet_col: wallet identifier column (optional)
-
-        Raises a RuntimeError with the actual column list if it can't find
-        time or value columns.
-        """
-        cursor = conn.execute(f"PRAGMA table_info({table})")
-        rows = cursor.fetchall()
-        cols = [row[1] for row in rows]  # row[1] is 'name'
-        col_set = set(cols)
-
-        time_candidates = ["timestamp", "snapshot_time", "created_at", "ts"]
-        value_candidates = [
-            "total_value_usd",
-            "total_value",
-            "equity_usd",
-            "portfolio_value",
-            "portfolio_value_usd",
-        ]
-        wallet_candidates = ["wallet_name", "wallet", "trader_name", "account_name"]
-
-        time_col = None
-        for name in time_candidates:
-            if name in col_set:
-                time_col = name
-                break
-
-        value_col = None
-        for name in value_candidates:
-            if name in col_set:
-                value_col = name
-                break
-
-        wallet_col = None
-        for name in wallet_candidates:
-            if name in col_set:
-                wallet_col = name
-                break
-
-        if time_col is None or value_col is None:
-            raise RuntimeError(
-                f"{table} does not have a known time/value column. "
-                f"Columns={cols}; expected time in {time_candidates}, "
-                f"value in {value_candidates}."
-            )
-
-        return time_col, value_col, wallet_col
-
-    def _fetch_equity_series(
-        self,
-        *,
-        wallet_name: str,
-        start: datetime,
-        end: datetime,
-    ) -> List[Tuple[datetime, float]]:
-        """
-        Fetch (timestamp, equity) samples from positions_totals_history (or whichever
-        table EQUITY_TABLE names) for the given wallet over the [start, end] window.
-
-        If the table does not have a wallet column, we compute series for all wallets
-        combined.
-        """
-        conn = self._get_sqlite_connection()
-        table = self.EQUITY_TABLE
-
-        time_col, value_col, wallet_col = self._detect_columns(conn, table)
-
-        # Dynamically build WHERE clause + params based on whether we have a wallet column
-        where_clauses = [f"{time_col} >= ?", f"{time_col} <= ?"]
-        params: List[Any] = [start.isoformat(), end.isoformat()]
-
-        if wallet_col is not None:
-            where_clauses.insert(0, f"{wallet_col} = ?")
-            params.insert(0, wallet_name)
-
-        where_sql = " AND ".join(where_clauses)
-
-        sql = f"""
-            SELECT {time_col}, {value_col}
-            FROM {table}
-            WHERE {where_sql}
-            ORDER BY {time_col} ASC
-        """
-
-        cursor = conn.execute(sql, params)
-        rows = cursor.fetchall()
-
-        series: List[Tuple[datetime, float]] = []
-
-        for row in rows:
-            # sqlite3.Row behaves like a sequence; index 0,1 are our columns
-            ts_raw, value_raw = row[0], row[1]
-
-            try:
-                ts = datetime.fromisoformat(str(ts_raw))
-            except Exception:
-                continue
-
-            try:
-                value = float(value_raw)
-            except (TypeError, ValueError):
-                continue
-
-            series.append((ts, value))
-
-        return series
-
     # ------------------------------------------------------------------ #
     # Listing / lookup                                                   #
     # ------------------------------------------------------------------ #
 
-    def list_sessions(self, active_only: bool = False, enabled_only: bool = False) -> List[Session]:
+    def list_sessions(
+        self,
+        *,
+        active_only: bool = False,
+        enabled_only: bool = False,
+    ) -> List[Session]:
         return self._store.list_sessions(active_only=active_only, enabled_only=enabled_only)
 
     def list_active_sessions(self) -> List[Session]:
@@ -290,40 +157,40 @@ class SessionCore:
     # Performance API                                                    #
     # ------------------------------------------------------------------ #
 
-    def get_performance(self, sid: str) -> SessionPerformance:
-        """
-        Compute performance metrics for a given session ID.
-
-        Uses positions_totals_history equity snapshots for the session's primary wallet
-        between session.created_at and session.closed_at (or now, if active).
-        """
+    def get_session_performance(self, sid: str) -> SessionPerformance:
         session = self._store.get_session_by_sid(sid)
         if not session:
             raise RuntimeError(f"Session not found for sid={sid!r}")
 
         start, end = self._session_window(session)
-
-        series = self._fetch_equity_series(
-            wallet_name=session.primary_wallet_name,
+        series = self._portfolio.get_equity_series(
             start=start,
             end=end,
+            wallet_name=session.primary_wallet_name,
         )
 
         if not series:
-            raise RuntimeError(f"No equity samples found for session {sid}")
+            return SessionPerformance(
+                sid=session.sid,
+                name=session.name,
+                primary_wallet_name=session.primary_wallet_name,
+                start=start,
+                end=end,
+                start_equity=None,
+                end_equity=None,
+                pnl=None,
+                return_pct=None,
+                max_drawdown_pct=None,
+                samples=0,
+            )
 
-        # Basic stats
         series_sorted = sorted(series, key=lambda t: t[0])
         first_ts, first_val = series_sorted[0]
         last_ts, last_val = series_sorted[-1]
 
         pnl = last_val - first_val
-        if first_val > 0:
-            return_pct: Optional[float] = (pnl / first_val) * 100.0
-        else:
-            return_pct = None
+        return_pct: Optional[float] = (pnl / first_val) * 100.0 if first_val > 0 else None
 
-        # Max drawdown: largest peak-to-trough drop in %
         peak = first_val
         max_dd = 0.0
         for _, value in series_sorted:
@@ -349,14 +216,14 @@ class SessionCore:
             samples=len(series_sorted),
         )
 
-    def get_session_performance(self, sid: str) -> Optional[SessionPerformance]:
+    def get_performance(self, sid: str) -> SessionPerformance:
+        return self.get_session_performance(sid)
+
+    def safe_get_session_performance(self, sid: str) -> Optional[SessionPerformance]:
         try:
-            return self.get_performance(sid)
-        except RuntimeError:
+            return self.get_session_performance(sid)
+        except Exception:
             return None
 
     def safe_get_performance(self, sid: str) -> Optional[SessionPerformance]:
-        try:
-            return self.get_performance(sid)
-        except RuntimeError:
-            return None
+        return self.safe_get_session_performance(sid)

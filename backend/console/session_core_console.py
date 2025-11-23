@@ -80,14 +80,20 @@ def _session_table(sessions: List[Session], selected_index: Optional[int]) -> Ta
 
 
 def _performance_lines(perf: Optional[SessionPerformance]) -> List[str]:
-    if perf is None:
+    if perf is None or perf.samples == 0:
         return ["No equity data found for this session window."]
 
     def fmt_num(value: Optional[float]) -> str:
-        return "—" if value is None else f"{value:,.2f}"
+        if value is None:
+            return "—"
+        style = "dim" if value == 0 else ("green" if value > 0 else "red")
+        return f"[{style}]{value:,.2f}[/]"
 
     def fmt_pct(value: Optional[float]) -> str:
-        return "—" if value is None else f"{value:+.2f}%"
+        if value is None:
+            return "—"
+        style = "dim" if value == 0 else ("green" if value > 0 else "red")
+        return f"[{style}]{value:+.2f}%[/]"
 
     return [
         f"Start equity : {fmt_num(perf.start_equity)}",
@@ -103,9 +109,10 @@ def _session_detail_panel(session: Optional[Session], perf: Optional[SessionPerf
         body = "No sessions available."
         return Panel(body, title="📈 Selected Session", border_style="green")
 
+    enabled_label = "yes" if session.enabled else "no"
     lines = [
         f"[bold]{session.name}[/bold]  ([cyan]{session.sid}[/cyan])",
-        f"Wallet: {session.primary_wallet_name}    Status: {session.status.value}    Enabled: {'yes' if session.enabled else 'no'}",
+        f"Wallet: {session.primary_wallet_name}    Status: {session.status.value}    Enabled: {enabled_label}",
     ]
 
     if perf is not None:
@@ -210,7 +217,7 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
 
         selected_session = sessions[selected_index] if selected_index is not None else None
         perf = (
-            session_core.safe_get_performance(selected_session.sid)
+            session_core.safe_get_session_performance(selected_session.sid)
             if selected_session
             else None
         )

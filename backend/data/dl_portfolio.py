@@ -13,6 +13,7 @@ Dependencies:
 
 from uuid import uuid4
 from datetime import datetime
+from typing import List, Optional, Tuple
 from backend.core.logging import log
 from backend.models.portfolio import PortfolioSnapshot
 
@@ -83,6 +84,96 @@ class DLPortfolioManager:
             log.success("Portfolio snapshot recorded", source="DLPortfolioManager")
         except Exception as e:
             log.error(f"Failed to record portfolio snapshot: {e}", source="DLPortfolioManager")
+
+    def get_equity_series(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        wallet_name: Optional[str] = None,
+    ) -> List[Tuple[datetime, float]]:
+        """
+        Return a time-ordered list of (timestamp, total_value) snapshots from
+        positions_totals_history between [start, end].
+
+        If positions_totals_history has a wallet-identifying column, filter by
+        wallet_name when provided; otherwise, use all rows.
+        """
+
+        try:
+            cursor = self.db.get_cursor()
+        except Exception:
+            cursor = None
+
+        if cursor is None:
+            log.error("DB unavailable while fetching equity series", source="DLPortfolioManager")
+            return []
+
+        cursor.execute("PRAGMA table_info(positions_totals_history)")
+        cols_raw = cursor.fetchall() or []
+        col_names = [row[1] for row in cols_raw]
+        col_set = set(col_names)
+
+        time_col = None
+        for candidate in ("snapshot_time", "timestamp", "created_at", "ts"):
+            if candidate in col_set:
+                time_col = candidate
+                break
+
+        value_col = None
+        for candidate in (
+            "total_value",
+            "total_value_usd",
+            "equity_usd",
+            "portfolio_value",
+            "portfolio_value_usd",
+        ):
+            if candidate in col_set:
+                value_col = candidate
+                break
+
+        wallet_col = None
+        for candidate in ("wallet_name", "wallet", "trader_name", "account_name"):
+            if candidate in col_set:
+                wallet_col = candidate
+                break
+
+        if time_col is None or value_col is None:
+            log.error(
+                "positions_totals_history missing expected columns",
+                source="DLPortfolioManager",
+            )
+            return []
+
+        where_clauses = [f"{time_col} >= ?", f"{time_col} <= ?"]
+        params: List[str] = [start.isoformat(), end.isoformat()]
+
+        if wallet_col and wallet_name is not None:
+            where_clauses.insert(0, f"{wallet_col} = ?")
+            params.insert(0, wallet_name)
+
+        where_sql = " AND ".join(where_clauses)
+        cursor.execute(
+            f"SELECT {time_col}, {value_col} FROM positions_totals_history "
+            f"WHERE {where_sql} ORDER BY {time_col} ASC",
+            params,
+        )
+
+        series: List[Tuple[datetime, float]] = []
+        for ts_raw, value_raw in cursor.fetchall() or []:
+            try:
+                ts = datetime.fromisoformat(str(ts_raw))
+            except Exception:
+                continue
+
+            try:
+                value = float(value_raw)
+            except (TypeError, ValueError):
+                continue
+
+            series.append((ts, value))
+
+        return series
 
     def get_snapshots(self) -> list[PortfolioSnapshot]:
         try:

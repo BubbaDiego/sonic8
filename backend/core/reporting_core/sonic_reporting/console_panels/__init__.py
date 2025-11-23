@@ -18,6 +18,7 @@ from . import raydium_panel
 from . import risk_panel
 from . import session_panel
 from . import sessions_panel
+from .sessions_panel import build_sessions_panel
 from . import transition_panel
 from . import wallets_panel
 from . import xcom_panel
@@ -91,7 +92,7 @@ PANELS: Dict[str, Any] = {
     "market": market_panel,
     "xcom": xcom_panel,
     "session": session_panel,
-    "sessions": sessions_panel,
+    "sessions": build_sessions_panel,
     "wallets": wallets_panel,
 }
 
@@ -115,6 +116,7 @@ __all__ = [
     "risk_panel",
     "session_panel",
     "sessions_panel",
+    "build_sessions_panel",
     "transition_panel",
     "wallets_panel",
     "xcom_panel",

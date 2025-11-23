@@ -22,16 +22,16 @@ def _panel_to_lines(panel: Panel, width: Optional[int] = None) -> List[str]:
 
 def _format_money(value: Optional[float]) -> str:
     if value is None:
-        return "—"
+        return "-"
     try:
-        return f"{value:,.2f}"
+        return f"{value:+,.2f}"
     except Exception:
         return str(value)
 
 
 def _format_pct(value: Optional[float]) -> str:
     if value is None:
-        return "—"
+        return "-"
     try:
         return f"{value:+.2f}%"
     except Exception:
@@ -73,8 +73,8 @@ def build_sessions_panel(dl: DataLocker, width: Optional[int] = None) -> Panel:
 
     if not sessions:
         return Panel(
-            "No sessions configured. Create sessions via the SessionCore Console (Launch Pad → 16).",
-            title="🎯 Sessions Overview",
+            "No enabled sessions. Use SessionCore Console to create or enable sessions.",
+            title="🎯 Sessions Overview (0 enabled)",
             border_style="cyan",
         )
 
@@ -89,12 +89,14 @@ def build_sessions_panel(dl: DataLocker, width: Optional[int] = None) -> Panel:
     table.add_column("Window", style="dim")
 
     for idx, session in enumerate(sessions, start=1):
-        perf: Optional[SessionPerformance] = core.safe_get_performance(session.sid)
+        perf: Optional[SessionPerformance] = core.safe_get_session_performance(session.sid)
 
         pnl = perf.pnl if perf else None
         pnl_color = "dim" if pnl is None or pnl == 0 else ("green" if pnl > 0 else "red")
         return_pct = perf.return_pct if perf else None
-        return_color = "dim" if return_pct is None or return_pct == 0 else ("green" if return_pct > 0 else "red")
+        return_color = (
+            "dim" if return_pct is None or return_pct == 0 else ("green" if return_pct > 0 else "red")
+        )
         max_dd = perf.max_drawdown_pct if perf else None
         samples = perf.samples if perf else 0
         window = _format_window(
