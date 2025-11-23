@@ -82,15 +82,13 @@ def _fmt_float(val: Any, places: int = 2, suffix: str = "") -> str:
 
 def _build_meter(enc_pct: float, slots: int = 28) -> str:
     """
-    Build a narrow continuous bar similar in spirit to the Risk Snapshot bar.
+    Build a Blast bar using the SAME base glyph as the Risk Snapshot bar.
 
     enc_pct: 0..100 = how much of the blast radius has been encroached.
     slots:   number of block characters in the bar.
 
-    We use a single block glyph ('▮') so the theme can color it like the
-    rest of Sonic; no big emoji squares, no wrapping.
-
-        OUT ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮ IN
+    We use '▰' for the encroached portion and '▱' for the remaining safety
+    portion. No emoji, no wrapping. Visually aligned with the Risk bar.
     """
     try:
         enc = float(enc_pct)
@@ -106,9 +104,12 @@ def _build_meter(enc_pct: float, slots: int = 28) -> str:
     if filled > total:
         filled = total
 
-    bar = "▮" * filled + "▮" * (total - filled)
-    # Labels echo the SHORT/LONG concept: outside vs inside blast
+    filled_char = "▰"  # same icon used in the original Risk bar
+    empty_char = "▱"
+
+    bar = filled_char * filled + empty_char * (total - filled)
     return f"OUT {bar} IN"
+
 
 
 # ───────────────────────── render ─────────────────────────
