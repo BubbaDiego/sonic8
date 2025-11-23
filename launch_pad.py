@@ -337,24 +337,6 @@ def _handle_wallet_manager_console(dl: DataLocker | None) -> None:
     run_wallet_core_console(wallet_core)
 
 
-def _handle_session_goals_console(dl: DataLocker | None = None) -> None:
-    """
-    Launch the new SessionCore Console.
-
-    Reuses the shared DataLocker if provided, otherwise constructs one
-    following the same pattern as other consoles.
-    """
-
-    if dl is not None:
-        try:
-            run_session_core_console(dl)
-            return
-        except TypeError:
-            pass
-
-    run_session_core_console()
-
-
 # ──────────────────────────── Actions ─────────────────────────────────────────
 
 def launch_frontend() -> None:
@@ -1332,7 +1314,8 @@ def main() -> None:
         elif choice == "15":
             run_menu_action("Launch Drift Console", launch_drift_console)
         elif choice == "16":
-            run_menu_action("Session___Goals", lambda: _handle_session_goals_console(dl))
+            # 🎯 Session / Goals → SessionCore Console
+            run_menu_action("Session___Goals", run_session_core_console)
         elif choice == "17":
             run_menu_action("Generate Specs / Teaching Pack", run_daily_maintenance)
         elif choice == "18":
