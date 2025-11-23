@@ -80,48 +80,36 @@ def _fmt_float(val: Any, places: int = 2, suffix: str = "") -> str:
     return text + suffix
 
 
-def _build_meter(enc_pct: float, alert_pct: float, slots: int = 24) -> str:
+def _build_meter(enc_pct: float, alert_pct: float, slots: int = 20) -> str:
     """
-    Build a 0–100% bar showing encroached% vs alert%.
+    Build a red→green Blast bar similar to the SHORT/LONG bar:
+
+        SAFE 🟥🟥🟥🟥🟥🟩🟩🟩🟩 DANGER
 
     - enc_pct: 0..100 (how deep we are into the blast radius)
-    - alert_pct: 0..100 (alert threshold)
-    - slots: number of character cells in the bar
-
-    We fill from left to right with "█" up to enc_pct, and "░" beyond that.
-    We mark the alert threshold with "|" when alert_pct > 0.
+    - alert_pct: currently not visualized as a separate marker here;
+                 enc_pct drives the red portion.
+    - slots: number of blocks in the bar (red + green).
     """
     try:
         enc = float(enc_pct)
     except Exception:
         enc = 0.0
-    try:
-        thr = float(alert_pct)
-    except Exception:
-        thr = 0.0
 
     enc = max(0.0, min(100.0, enc))
-    thr = max(0.0, min(100.0, thr))
 
-    total = max(8, int(slots))
-    filled_slots = int(round((enc / 100.0) * total))
+    total = max(4, int(slots))
+    red_slots = int(round((enc / 100.0) * total))
 
     bar_chars: List[str] = []
     for i in range(total):
-        if i < filled_slots:
-            bar_chars.append("█")
+        if i < red_slots:
+            bar_chars.append("🟥")
         else:
-            bar_chars.append("░")
+            bar_chars.append("🟩")
 
-    if thr > 0:
-        marker_index = int(round((thr / 100.0) * total))
-        if marker_index < 0:
-            marker_index = 0
-        if marker_index >= total:
-            marker_index = total - 1
-        bar_chars[marker_index] = "|"
-
-    return "[" + "".join(bar_chars) + "]"
+    bar = "".join(bar_chars)
+    return f"SAFE {bar} DANGER"
 
 
 # ───────────────────────── render ─────────────────────────
@@ -129,11 +117,11 @@ def _build_meter(enc_pct: float, alert_pct: float, slots: int = 24) -> str:
 
 def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
     """
-    Render the Blast Radius panel as a Sonic-style table + per-row meter.
+    Render the Blast Radius panel as a Sonic-style table + Blast Meter.
 
     Columns:
 
-        🧨 Asset   🎯 Enc%   🎚 Alert%   💧 LDist   🧱 BR   🌪 Travel%   📊 State   Meter
+        🧨 Asset   🎯 Enc%   🎚 Alert%   💧 LDist   🧱 BR   🌪 Travel%   📊 State   Blast Meter
     """
     dl = (ctx or {}).get("dl")
     rows = _get_monitor_rows(dl)
@@ -145,7 +133,7 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
     # Header pattern matches other panels: icons + labels, plain text.
     header = (
         f"{'🧨 Asset':14} {'🎯 Enc%':>9} {'🎚 Alert%':>10} "
-        f"{'💧 LDist':>10} {'🧱 BR':>8} {'🌪 Travel%':>11} {'📊 State':>9}  Meter"
+        f"{'💧 LDist':>10} {'🧱 BR':>8} {'🌪 Travel%':>11} {'📊 State':>9}  Blast Meter"
     )
     sep = "-" * len(header)
 
@@ -181,7 +169,7 @@ def render(ctx: Dict[str, Any], width: int = 92) -> List[str]:
         except Exception:
             alert_float = 0.0
 
-        meter = _build_meter(enc_float, alert_float, slots=24)
+        meter = _build_meter(enc_float, alert_float, slots=20)
 
         line = (
             f"{asset:14} {enc_str:>9} {alert_str:>10} "

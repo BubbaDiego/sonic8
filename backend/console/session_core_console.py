@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from datetime import datetime
 from typing import List, Optional
 
 from rich import box
@@ -10,18 +10,11 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from backend.data.data_locker import DataLocker
-from backend.core.session_core import SessionCore
+from backend.core.session_core import SessionCore, Session, SessionPerformance, SessionStatus
 from backend.core.wallet_core.wallet_core import WalletCore, WalletConsoleSummary
 
 
 console = Console()
-
-
-@dataclass
-class _SessionRow:
-    index: int
-    session: object  # Session
-    performance: object | None  # SessionPerformance or None
 
 
 def _print_header() -> None:
@@ -33,155 +26,85 @@ def _print_header() -> None:
     )
 
 
-def _build_rows(session_core: SessionCore) -> List[_SessionRow]:
-    sessions = session_core.list_sessions()
-    rows: List[_SessionRow] = []
-    for idx, s in enumerate(sessions, start=1):
-        perf = None
-        # Try to compute performance, but never crash the console if it fails.
-        try:
-            perf = session_core.get_session_performance(getattr(s, "sid", getattr(s, "id", "")))
-        except Exception:
-            # Swallow errors here; they will show up as "N/A" in the table.
-            perf = None
-        rows.append(_SessionRow(index=idx, session=s, performance=perf))
-    return rows
-
-
-def _render_table(rows: List[_SessionRow]) -> None:
+def _session_table(sessions: List[Session]) -> Table:
     table = Table(
         title="📊 Sessions",
         box=box.SIMPLE_HEAVY,
         show_lines=False,
     )
-    table.add_column("#", justify="right", style="dim")
     table.add_column("SID", style="bold cyan")
     table.add_column("Name")
     table.add_column("Primary Wallet")
     table.add_column("Status")
-    table.add_column("P&L (USD)", justify="right")
-    table.add_column("Return %", justify="right")
+    table.add_column("Created", style="dim")
+    table.add_column("Tags", style="dim")
 
-    if not rows:
-        table.add_row("[dim]–[/dim]", "", "[dim]no sessions[/dim]", "", "", "", "")
-        console.print(table)
-        return
+    if not sessions:
+        table.add_row("[dim]no sessions[/dim]", "", "", "", "", "")
+        return table
 
-    for row in rows:
-        s = row.session
-        perf = row.performance
-
-        sid = getattr(s, "sid", getattr(s, "id", ""))
-        name = getattr(s, "name", "")
-        wallet = getattr(s, "primary_wallet_name", getattr(s, "wallet_name", ""))
-        status = getattr(s, "status", "")
-
-        pnl_str = "—"
-        ret_str = "—"
-
-        if perf is not None:
-            pnl = getattr(perf, "pnl_usd", None)
-            ret = getattr(perf, "return_pct", None)
-
-            if pnl is not None:
-                sign = "+" if pnl >= 0 else ""
-                pnl_str = f"{sign}{pnl:,.2f}"
-                if pnl > 0:
-                    pnl_str = f"[green]{pnl_str}[/green]"
-                elif pnl < 0:
-                    pnl_str = f"[red]{pnl_str}[/red]"
-
-            if ret is not None:
-                sign = "+" if ret >= 0 else ""
-                ret_str = f"{sign}{ret:.2f}%"
+    for s in sessions:
+        tags_str = ", ".join(s.tags) if isinstance(s.tags, (list, tuple)) else str(s.tags)
+        created_str = (
+            s.created_at.isoformat(timespec="seconds")
+            if isinstance(s.created_at, datetime)
+            else str(s.created_at)
+        )
+        status_value = s.status.value if isinstance(s.status, SessionStatus) else str(s.status)
+        status_icon = {
+            "active": "🟢",
+            "paused": "🟡",
+            "closed": "🔴",
+        }.get(status_value, "⚪")
 
         table.add_row(
-            str(row.index),
-            str(sid),
-            str(name),
-            str(wallet),
-            str(status),
-            pnl_str,
-            ret_str,
+            s.sid,
+            s.name,
+            s.primary_wallet_name,
+            f"{status_icon} {status_value}",
+            created_str,
+            tags_str,
         )
 
-    console.print(table)
+    return table
 
 
-def _select_row(rows: List[_SessionRow], prompt_text: str) -> Optional[_SessionRow]:
-    if not rows:
-        console.print("[yellow]No sessions available.[/yellow]")
-        return None
+def _performance_panel(perf: SessionPerformance) -> Panel:
+    """Build a Rich panel summarizing performance for a session."""
+    lines = []
 
-    choice = Prompt.ask(prompt_text, default="").strip()
-    if not choice:
-        return None
+    lines.append(f"[bold]{perf.name}[/bold]  ([cyan]{perf.sid}[/cyan])")
+    lines.append(f"[dim]Wallet[/dim]: {perf.primary_wallet_name}")
+    lines.append("")
+    lines.append(
+        f"[dim]Window[/dim]: {perf.start.isoformat(timespec='seconds')}  →  {perf.end.isoformat(timespec='seconds')}"
+    )
+    lines.append(f"[dim]Samples[/dim]: {perf.samples}")
 
-    try:
-        idx = int(choice)
-    except ValueError:
-        console.print(f"[red]Invalid index: {choice!r}[/red]")
-        return None
-
-    if idx < 1 or idx > len(rows):
-        console.print(f"[red]Index out of range. Valid range is 1–{len(rows)}.[/red]")
-        return None
-
-    return rows[idx - 1]
-
-
-def _performance_panel(row: _SessionRow) -> Panel:
-    s = row.session
-    perf = row.performance
-
-    sid = getattr(s, "sid", getattr(s, "id", ""))
-    name = getattr(s, "name", "")
-    wallet = getattr(s, "primary_wallet_name", getattr(s, "wallet_name", ""))
-    status = getattr(s, "status", "")
-
-    lines: List[str] = []
-    lines.append(f"[bold]{name}[/bold]  ([cyan]{sid}[/cyan])")
-    lines.append(f"[dim]Wallet[/dim]: {wallet}")
-    lines.append(f"[dim]Status[/dim]: {status}")
     lines.append("")
 
-    if perf is None:
-        lines.append("[yellow]No performance data available for this session.[/yellow]")
+    if perf.start_equity is None or perf.end_equity is None or perf.pnl is None:
+        lines.append("[yellow]No equity data found for this session window.[/yellow]")
     else:
-        start_eq = getattr(perf, "start_equity_usd", None)
-        start_ts = getattr(perf, "start_equity_ts", None)
-        curr_eq = getattr(perf, "current_equity_usd", None)
-        curr_ts = getattr(perf, "current_equity_ts", None)
-        pnl = getattr(perf, "pnl_usd", None)
-        ret = getattr(perf, "return_pct", None)
+        pnl_str = f"{perf.pnl:,.2f}"
+        start_str = f"{perf.start_equity:,.2f}"
+        end_str = f"{perf.end_equity:,.2f}"
 
-        def _fmt(v: Optional[float]) -> str:
-            return f"{v:,.2f}" if isinstance(v, (int, float)) else "N/A"
-
-        def _fmt_ts(ts) -> str:
-            return ts.isoformat(timespec="seconds") if hasattr(ts, "isoformat") else "N/A"
-
-        lines.append(f"[dim]Start equity[/dim]:   {_fmt(start_eq)}  [dim]@[/dim] {_fmt_ts(start_ts)}")
-        lines.append(f"[dim]Current equity[/dim]: {_fmt(curr_eq)}  [dim]@[/dim] {_fmt_ts(curr_ts)}")
-
-        lines.append("")
-
-        if pnl is None:
-            lines.append("[dim]PnL[/dim]:         N/A")
+        if perf.return_pct is not None:
+            ret_str = f"{perf.return_pct:+.2f}%"
         else:
-            sign = "+" if pnl >= 0 else ""
-            base = f"{sign}{pnl:,.2f}"
-            if pnl > 0:
-                base = f"[green]{base}[/green]"
-            elif pnl < 0:
-                base = f"[red]{base}[/red]"
-            lines.append(f"[dim]PnL[/dim]:         {base}")
+            ret_str = "n/a"
 
-        if ret is None:
-            lines.append("[dim]Return[/dim]:      N/A")
+        if perf.max_drawdown_pct is not None:
+            dd_str = f"{perf.max_drawdown_pct:.2f}%"
         else:
-            sign = "+" if ret >= 0 else ""
-            lines.append(f"[dim]Return[/dim]:      {sign}{ret:.2f}%")
+            dd_str = "n/a"
+
+        lines.append(f"[dim]Start equity[/dim]: {start_str}")
+        lines.append(f"[dim]End equity[/dim]:   {end_str}")
+        lines.append(f"[dim]PnL[/dim]:          [bold]{pnl_str}[/bold]")
+        lines.append(f"[dim]Return[/dim]:       {ret_str}")
+        lines.append(f"[dim]Max drawdown[/dim]: {dd_str}")
 
     body = "\n".join(lines)
     return Panel(body, title="📈 Session Performance", border_style="green")
@@ -214,9 +137,9 @@ def _pick_wallet(wallet_core: WalletCore) -> Optional[str]:
 
 def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
     """
-    Interactive SessionCore console.
+    Entry point for the SessionCore console.
 
-    This function is called from Launch Pad (Session / Goals).
+    Called from LaunchPad menu option 16.
     """
     if dl is None:
         try:
@@ -233,13 +156,13 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
         console.clear()
         _print_header()
 
-        rows = _build_rows(session_core)
-        _render_table(rows)
+        sessions = session_core.list_sessions()
+        console.print(_session_table(sessions))
         console.print()
         console.print(
             "[bold]Commands:[/bold] "
             "[cyan]c[/cyan]=create  "
-            "[cyan]a[/cyan]=active only (view)  "
+            "[cyan]a[/cyan]=active only  "
             "[cyan]v[/cyan]=view performance  "
             "[cyan]ra[/cyan]=rename  "
             "[cyan]cl[/cyan]=close  "
@@ -249,62 +172,14 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
         cmd = Prompt.ask("[magenta]session-core>[/magenta]", default="q").strip().lower()
 
         if cmd in {"q", "quit", "exit"}:
-            return
+            break
 
-        if cmd == "v":
-            row = _select_row(rows, "Select session # (blank to cancel)")
-            if not row:
-                continue
-
-            try:
-                perf = session_core.get_session_performance(
-                    getattr(row.session, "sid", getattr(row.session, "id", ""))
-                )
-                row.performance = perf
-                console.clear()
-                _print_header()
-                console.print(_performance_panel(row))
-            except Exception as exc:
-                console.clear()
-                _print_header()
-                console.print(
-                    Panel(
-                        f"[red]Error computing performance:[/red] {exc!r}",
-                        border_style="red",
-                        title="Performance error",
-                    )
-                )
-
+        if cmd == "a":
+            console.clear()
+            _print_header()
+            active = session_core.list_active_sessions()
+            console.print(_session_table(active))
             Prompt.ask("[dim]press Enter to return[/dim]")
-            continue
-
-        if cmd == "ra":
-            row = _select_row(rows, "Select session # to rename (blank to cancel)")
-            if not row:
-                continue
-            new_name = Prompt.ask("New session name", default=getattr(row.session, "name", "")).strip()
-            if not new_name:
-                continue
-            try:
-                sid = getattr(row.session, "sid", getattr(row.session, "id", ""))
-                session_core.rename_session(sid, new_name)
-            except Exception as exc:
-                console.print(f"[red]Error renaming session:[/red] {exc!r}")
-                Prompt.ask("[dim]press Enter to return[/dim]")
-                continue
-            continue
-
-        if cmd == "cl":
-            row = _select_row(rows, "Select session # to close (blank to cancel)")
-            if not row:
-                continue
-            try:
-                sid = getattr(row.session, "sid", getattr(row.session, "id", ""))
-                session_core.close_session(sid)
-            except Exception as exc:
-                console.print(f"[red]Error closing session:[/red] {exc!r}")
-                Prompt.ask("[dim]press Enter to return[/dim]")
-                continue
             continue
 
         if cmd == "c":
@@ -312,33 +187,62 @@ def run_session_core_console(dl: Optional[DataLocker] = None) -> None:
             if not wallet_name:
                 continue
 
-            name = Prompt.ask("Session name", default="").strip()
-            if not name:
-                continue
-            goal = Prompt.ask("Goal (optional)", default="").strip() or None
+            default_name = f"{wallet_name}-{datetime.utcnow().date().isoformat()}"
+            name = Prompt.ask("Session name", default=default_name).strip()
+            goal = Prompt.ask("Goal (optional)", default="").strip()
             tags_raw = Prompt.ask("Tags (comma-separated, optional)", default="").strip()
             tags = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else None
-            notes = Prompt.ask("Notes (optional)", default="").strip() or None
 
-            try:
-                session_core.create_session(
-                    primary_wallet_name=wallet_name,
-                    name=name,
-                    goal=goal,
-                    tags=tags,
-                    notes=notes,
-                )
-            except Exception as exc:
-                console.print(f"[red]Error creating session:[/red] {exc!r}")
-                Prompt.ask("[dim]press Enter to return[/dim]")
-                continue
+            session = session_core.create_session(
+                primary_wallet_name=wallet_name,
+                name=name,
+                goal=goal or None,
+                tags=tags or None,
+                notes=None,
+            )
+            console.print(
+                f"[green]Created session[/green] [bold]{session.sid}[/bold] "
+                f"for wallet [bold]{session.primary_wallet_name}[/bold]."
+            )
+            Prompt.ask("[dim]press Enter to return[/dim]")
             continue
 
-        if cmd == "a":
-            active_rows = [r for r in rows if str(getattr(r.session, "status", "")).lower() == "active"]
+        if cmd == "v":
+            sid = Prompt.ask("Session ID (sid)").strip()
+            if not sid:
+                continue
+
+            perf = session_core.get_session_performance(sid)
             console.clear()
             _print_header()
-            _render_table(active_rows)
+
+            if not perf:
+                console.print(f"[red]No session found with sid={sid!r}[/red]")
+                Prompt.ask("[dim]press Enter to return[/dim]")
+                continue
+
+            console.print(_performance_panel(perf))
+            Prompt.ask("[dim]press Enter to return[/dim]")
+            continue
+
+        if cmd == "ra":
+            sid = Prompt.ask("Session ID (sid)").strip()
+            new_name = Prompt.ask("New name").strip()
+            updated = session_core.rename_session(sid, new_name)
+            if not updated:
+                console.print(f"[red]No session with sid={sid!r}[/red]")
+            else:
+                console.print(f"[green]Renamed session[/green] to [bold]{updated.name}[/bold].")
+            Prompt.ask("[dim]press Enter to return[/dim]")
+            continue
+
+        if cmd == "cl":
+            sid = Prompt.ask("Session ID (sid)").strip()
+            closed = session_core.close_session(sid)
+            if not closed:
+                console.print(f"[red]No session with sid={sid!r}[/red]")
+            else:
+                console.print(f"[yellow]Closed session[/yellow] [bold]{closed.name}[/bold].")
             Prompt.ask("[dim]press Enter to return[/dim]")
             continue
 
